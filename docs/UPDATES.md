@@ -27,7 +27,7 @@ For offline delivery, `install-kit.py` includes matching image tar files. An ext
 1. Prepare new source/images with `release.py VERSION`; this does not affect running services.
 2. Run `sudo python3 deploy/update.py plan --instance /loom/ops --project loom --release /loom/builds/alpha/VERSION`.
 3. Run `apply` at the chosen update time. It refuses active Jobs, result processing, pending callbacks or unreturned executor tickets. Idle verification and dispatch blocking share one DB transaction.
-4. Preserve DB, previous image selection and host helper copies under `/loom/updates/<id>`. Start services, verify API/web health, then resume dispatch.
+4. Preserve DB, previous image selection and host helper copies under `/loom/updates/<id>`. Start services, verify API/web health and the running native identity/Gateway entry contract, then resume dispatch. Readiness checks compare the actual session endpoint, Gateway installation, private browser relay routes (including Admin/updates/events) and Funnel isolation. Healthy containers alone are insufficient.
 5. Deploying alpha on another machine is a separate operation. Apply new network/Sharing configuration explicitly with `tailnet.py`/`access_setup.py`; image updates do not clone another instance's settings.
 
 Failures retain a recovery record and maintenance state. Use `sudo python3 deploy/update.py rollback --record /loom/updates/<id>/record.json` to restore previous code, configuration and DB. **Automatic restoration refuses databases containing new post-update records**, preventing loss of new Jobs/artifacts. Review a data-preserving migration in that case. Updates are not automatically scheduled and do not force-stop active Jobs.
@@ -106,3 +106,11 @@ request-only. Apply the same private-port list to existing approval grants and
 the admission worker so future approvals/revocations remain consistent. Do not
 grant all shared users access before approval or turn on development auth bypass.
 Tagged or unidentified clients still require their own service credentials.
+
+When moving a user-facing entry from development to alpha, migrate its native
+identity namespace, Admin bindings, sessions, approval database and managed-resource
+journal explicitly. Run one approval writer. Keep development on a separate private
+port, and update Gateway destinations, Serve routes and exact policy ports together.
+A public Gateway on 443 and private Dashboard/MCP on 8443 is supported; port numbers
+are installation settings, not a release-wide constant. Never expose operational
+API routes on the public Gateway port. Preserve unrelated Tailnet/SSH policies.

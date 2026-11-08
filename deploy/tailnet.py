@@ -189,7 +189,9 @@ def configure(root,plan,dns):
 def expected_routes(root):
     env={**env_values(Path(root)/'compose.env'),**env_values(Path(root)/'network.env')};web='http://127.0.0.1:'+env['OPS_DASHBOARD_PORT'];api='http://127.0.0.1:'+env['OPS_PORT']
     routes={'/':web,'/api':api+'/api','/mcp':api+'/mcp','/auth':web+'/auth','/session':web+'/session'}
-    for name in ['dashboard','docker','history','jobs','mcp','ops','principal','registry','status','guide']:
+    # Browser APIs must traverse the session/CSRF/Admin relay. The generic /api
+    # route is for direct API clients and cannot authenticate browser cookies.
+    for name in ['dashboard','docker','history','jobs','mcp','ops','principal','registry','status','guide','admin','updates','events']:
         routes['/api/'+name]=web+'/api/'+name
     return routes
 

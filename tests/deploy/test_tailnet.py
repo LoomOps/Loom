@@ -94,6 +94,9 @@ class TailnetTests(unittest.TestCase):
             with patch.object(tailnet,'run',return_value='{}') as run:
                 result=tailnet.serve(root,self.plan,'loom.tail123.ts.net')
                 self.assertIn('/auth',result['routes']);self.assertIn('/session',result['routes'])
+                for path in ['/api/admin','/api/updates','/api/events']:
+                    self.assertIn(path,result['routes'])
+                    self.assertTrue(any(call.args[-1]=='http://127.0.0.1:18893'+path for call in run.call_args_list))
                 self.assertFalse(any('funnel' in c.args for c in run.call_args_list))
 
     def test_approval_uses_explicit_device_and_private_credential(self):

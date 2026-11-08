@@ -7,6 +7,36 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'deploy'))
 import update,tailnet,release,guide_bundle
 import io,zipfile
 
+class EntryReadinessTests(unittest.TestCase):
+ def test_entry_checks_running_identity_and_exact_public_private_routes(self):
+  with tempfile.TemporaryDirectory() as t:
+   root=Path(t)
+   def save(name,value):
+    p=root/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(value))
+   access={'origin':'https://loom.tail123.ts.net','dashboard_origin':'https://loom.tail123.ts.net:8443','host_port':8003,'machine_id':'machine'}
+   save('config/tailnet-plan.json',{'https_port':8443})
+   save('config/access-plan.json',access)
+   save('secrets/sso/config.json',{'origin':access['dashboard_origin'],'network_users':{'admin@example.test':{'subject':'admin'}}})
+   save('secrets/admission/config.json',{**access,'separate_gateway':True})
+   (root/'compose.env').write_text('OPS_PORT=8001\nOPS_DASHBOARD_PORT=8002\n');(root/'network.env').write_text('')
+   state={'Web':{'loom.tail123.ts.net:443':{'Handlers':{'/':{'Proxy':'http://127.0.0.1:8003'}}},'loom.tail123.ts.net:8443':{'Handlers':{k:{'Proxy':v} for k,v in tailnet.expected_routes(root).items()}}},'AllowFunnel':{'loom.tail123.ts.net:443':True}}
+   def response(req,**kwargs):
+    return io.BytesIO(json.dumps({'machine':'machine'} if req.endswith('/api/session') else {'sso':True,'entry_url':access['origin']}).encode())
+   with patch('urllib.request.urlopen',side_effect=response),patch.object(update,'run',side_effect=lambda *args:json.dumps(state)):
+    update.check_entry(root)
+    handlers=state['Web']['loom.tail123.ts.net:8443']['Handlers']
+    route=handlers.pop('/api/admin')
+    with self.assertRaisesRegex(OSError,'relay routes'):update.check_entry(root)
+    handlers['/api/admin']=route
+    state['AllowFunnel']['loom.tail123.ts.net:8443']=True
+    with self.assertRaisesRegex(OSError,'Funnel boundary'):update.check_entry(root)
+    state['AllowFunnel'].pop('loom.tail123.ts.net:8443')
+    save('secrets/sso/config.json',{'origin':'https://loom.tail123.ts.net:18443','network_users':{'admin@example.test':{}}})
+    with self.assertRaisesRegex(OSError,'native identity'):update.check_entry(root)
+ def test_entry_rejects_missing_configuration_and_token_fallback(self):
+  with tempfile.TemporaryDirectory() as t:
+   with self.assertRaisesRegex(OSError,'Incomplete'):update.check_entry(Path(t))
+
 def bundle(version,extra=None):
  b=io.BytesIO()
  with zipfile.ZipFile(b,'w') as z:

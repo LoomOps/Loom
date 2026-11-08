@@ -58,9 +58,36 @@ def inspect(root,release):
 def compose(source,root,project,*args):
  return run('bash',source/'deploy/compose.sh',*args,env={**os.environ,'LOOM_INSTANCE':str(root),'LOOM_PROJECT':project})
 
+def check_entry(root):
+ """Verify the installed user entry, not just healthy containers."""
+ from urllib.request import urlopen
+ from urllib.parse import urlsplit
+ from tailnet import expected_routes
+ root=Path(root)
+ required=['config/tailnet-plan.json','config/access-plan.json','secrets/sso/config.json','secrets/admission/config.json']
+ if any(not (root/name).is_file() for name in required):raise OSError('Incomplete native identity/Gateway configuration')
+ tail=json.loads((root/required[0]).read_text());access=json.loads((root/required[1]).read_text())
+ sso=json.loads((root/required[2]).read_text());admission=json.loads((root/required[3]).read_text())
+ private=urlsplit(access['dashboard_origin']);public=urlsplit(access['origin'])
+ if private.netloc==public.netloc or (private.port or 443)!=tail['https_port']:raise OSError('Gateway/private port mismatch')
+ if sso.get('origin')!=access['dashboard_origin'] or not sso.get('network_users'):raise OSError('Dashboard native identity mismatch')
+ if not admission.get('separate_gateway') or any(admission.get(k)!=access[k] for k in ['origin','dashboard_origin','machine_id']):raise OSError('Gateway runtime configuration mismatch')
+ env={**env_values(root/'compose.env'),**env_values(root/'network.env')}
+ with urlopen('http://127.0.0.1:'+env['OPS_DASHBOARD_PORT']+'/session',timeout=3) as r:session=json.load(r)
+ if session.get('sso') is not True or session.get('entry_url')!=access['origin']:raise OSError('Running Dashboard does not use configured Gateway/SSO')
+ with urlopen('http://127.0.0.1:'+str(access['host_port'])+'/api/session',timeout=3) as r:gateway=json.load(r)
+ if gateway.get('machine')!=access['machine_id']:raise OSError('Wrong Gateway installation')
+ state=json.loads(run('tailscale','serve','status','--json'))
+ pub=f'{public.hostname}:{public.port or 443}';priv=f'{private.hostname}:{private.port or 443}'
+ if state.get('Web',{}).get(pub,{}).get('Handlers')!={'/':{'Proxy':'http://127.0.0.1:'+str(access['host_port'])}}:raise OSError('Public Gateway routes expose the wrong service')
+ handlers=state.get('Web',{}).get(priv,{}).get('Handlers',{})
+ if any(handlers.get(path,{}).get('Proxy')!=target for path,target in expected_routes(root).items()):raise OSError('Private Dashboard/API relay routes are incomplete')
+ if not state.get('AllowFunnel',{}).get(pub) or state.get('AllowFunnel',{}).get(priv):raise OSError('Gateway/private Funnel boundary mismatch')
+
 def check_health(source,root,project,expected=None):
  from urllib.request import urlopen,Request
  env={**env_values(root/'compose.env'),**env_values(root/'network.env')}
+ failure='No readiness response'
  for _ in range(45):
   try:
    token=json.loads((root/'secrets/client-tokens.json').read_text())['owner']
@@ -69,9 +96,10 @@ def check_health(source,root,project,expected=None):
     with urlopen(request,timeout=2) as r:
      if r.status!=200:raise OSError('Health check failed')
      if request.full_url.endswith('/api/status') and expected and json.load(r)['build']['build_id']!=expected:raise OSError('Unexpected running build')
+   if not (root/'development').exists():check_entry(root)
    return
-  except OSError:time.sleep(1)
- raise RuntimeError('Updated services failed health checks')
+  except OSError as error:failure=str(error);time.sleep(1)
+ raise RuntimeError('Updated services failed readiness checks: '+failure)
 
 def helper_files(platform,source):
  result={}

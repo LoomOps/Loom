@@ -38,6 +38,11 @@ Test sources define the concrete scenarios. `deploy/test.sh` records individual 
 
 Passing mocks does not replace actual administrator login, device approval or policy permissions.
 
+Serve browser API routes include Admin tokens, updates and events and must traverse
+the Dashboard session/CSRF relay. Direct `/mcp` remains on Ops. The release updater
+checks actual Gateway/private routes and running SSO configuration before declaring
+an installation ready; instance cutovers must move access state as well as images.
+
 ## Funnel gateway
 
 The default receipt-based enrollment runs in `loom-gateway`, with shared request
