@@ -304,18 +304,26 @@
     const copy=el('button','loom-token-button loom-token-primary','Copy token');
     copy.onclick=async()=>{try{await navigator.clipboard.writeText(value.value);copy.textContent='Copied';}catch{value.select();copy.textContent='선택한 토큰을 복사해 주세요';}};
     const secret=el('section','loom-token-section');secret.append(el('h3','','Token'),value,copy);
-    const setup=el('details','loom-token-setup');setup.append(el('summary','','Connect an agent'));
-    const command=el('textarea','loom-token-command');command.readOnly=true;command.rows=3;command.setAttribute('aria-label','Client setup command');
-    const endpoint=location.origin+'/mcp';
-    command.value='python3 ./clients/setup.py configure --endpoint '+"'"+endpoint+"' --name loom-"+location.hostname.split('.')[0];
-    const bundle=el('a','loom-token-button','Download loom_use');bundle.href='/api/guide/bundle';bundle.download='loom_use.zip';
-    const copyCommand=el('button','loom-token-button','Copy command');copyCommand.onclick=async()=>{try{await navigator.clipboard.writeText(command.value);copyCommand.textContent='Copied';}catch{command.select();}};
-    const actions=el('div','loom-token-actions');actions.append(bundle,copyCommand);
-    setup.append(el('p','loom-token-hint','에이전트를 실행할 머신에서 loom_use를 압축 해제한 뒤 실행하세요. 토큰은 실행 후 입력합니다.'),command,actions);
     const footer=el('footer','loom-token-footer');const close=el('button','loom-token-button','Done');close.onclick=()=>modal.close();
     footer.append(el('span','loom-token-hint','No expiration · Revoke anytime'),close);
     modal.addEventListener('close',()=>{value.value='';result.token='';modal.remove();});
-    modal.append(header,note,secret,setup,footer);document.body.append(modal);modal.showModal();copy.focus();
+    modal.append(header,note,secret,footer);document.body.append(modal);modal.showModal();copy.focus();
+  }
+
+  function confirmTokenRevoke(label){
+    return new Promise(resolve=>{
+      const modal=document.createElement('dialog');modal.className='loom-token-dialog loom-token-confirm';
+      modal.setAttribute('aria-labelledby','loom-revoke-title');
+      const title=document.createElement('h2');title.id='loom-revoke-title';title.textContent='Revoke token?';
+      const name=document.createElement('p');name.className='loom-token-name';name.textContent=label||'Agent token';
+      const note=document.createElement('p');note.className='loom-token-note';note.textContent='이 토큰을 사용하는 에이전트의 접근이 차단됩니다.';
+      const actions=document.createElement('div');actions.className='loom-token-actions';
+      const cancel=document.createElement('button');cancel.className='loom-token-button';cancel.textContent='Cancel';cancel.onclick=()=>modal.close('cancel');
+      const revoke=document.createElement('button');revoke.className='loom-token-button loom-token-danger';revoke.textContent='Revoke';revoke.dataset.confirmRevoke='true';revoke.onclick=()=>modal.close('revoke');
+      actions.append(cancel,revoke);modal.append(title,name,note,actions);
+      modal.addEventListener('close',()=>{const confirmed=modal.returnValue==='revoke';modal.remove();resolve(confirmed);},{once:true});
+      document.body.append(modal);modal.showModal();cancel.focus();
+    });
   }
 
   let accessBusy=false;
@@ -329,6 +337,10 @@
        (!['approve','deny','retry','revoke','remove'].includes(message.action)||typeof message.id!=='string'||message.id.length>128))return;
     accessBusy=true;
     try {
+      if(message.type==='loom-token-revoke'){
+        if(typeof message.id!=='string'||!message.id||message.id.length>160)throw new Error('invalid_token');
+        if(!await confirmTokenRevoke(typeof message.label==='string'?message.label.slice(0,80):'')){emit('loom-access-response',{});return;}
+      }
       if(['loom-access-decision','loom-share-revoke'].includes(message.type)){
         if(typeof message.id!=='string'||message.id.length>128)return;
         const session=await read('/admission/session');

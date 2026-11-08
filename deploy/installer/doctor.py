@@ -257,6 +257,8 @@ def handoff(setup, plan):
                     'issuer':'Dashboard Tailscale > Agent Tokens','expires':None,'revocation':'Admin',
                     'without_token':'server complete / client authentication pending'},
                 'token_setup_script':'/loom/loom_use/current/clients/setup.py',
+                'token_setup_argv':['python3','/loom/loom_use/current/clients/setup.py','configure','--endpoint',a['dashboard_origin']+'/mcp','--name','loom-'+plan['tailscale']['hostname']],
+                'token_setup_bundle_argv':['python3','./clients/setup.py','configure','--endpoint',a['dashboard_origin']+'/mcp','--name','loom-'+plan['tailscale']['hostname']],
                 'credential_directory':'CODEX_HOME/loom/<connection-name> (default ~/.codex/loom/<connection-name>)',
                 'verification':['initialize','tools/list','system.status','system.guide']},
             'services':list(SERVICES),'executor':'host systemd service','gpu_enabled':plan['gpu'],

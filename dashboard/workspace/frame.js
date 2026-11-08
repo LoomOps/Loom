@@ -303,8 +303,7 @@ root.addEventListener('click',event=>{
   if(event.target.closest('[data-open-management]')){parent.postMessage({type:'loom-open-management'},'*');return;}
   const tokenRevoke=event.target.closest('[data-token-revoke]');
   if(tokenRevoke&&loomSessionUser?.access_admin&&!loomAccessBusy){
-    if(!confirm('이 토큰을 폐기하시겠습니까?'))return;
-    loomAccessBusy=true;loomAccessPatch();parent.postMessage({type:'loom-token-revoke',id:tokenRevoke.dataset.tokenRevoke},'*');return;
+    loomAccessBusy=true;loomAccessPatch();parent.postMessage({type:'loom-token-revoke',id:tokenRevoke.dataset.tokenRevoke,label:loomAccessState?.tokens?.find(t=>t.id===tokenRevoke.dataset.tokenRevoke)?.label||''},'*');return;
   }
   const revoke=event.target.closest('[data-share-revoke]');
   const action=event.target.closest('[data-access-action]');

@@ -39,7 +39,7 @@ Declining or deferring client setup does not make an otherwise verified server i
 ## Resident or tagged clients
 
 1. Tell the user to obtain a token from **Dashboard → Tailscale → Agent Tokens** (Admin only). It has no expiration; Admin revokes it explicitly. Do not issue or renew credentials with sudo, infer identity from the Linux account, or copy the installer/owner token.
-2. Run `python3 /path/to/loom_use/clients/setup.py configure --endpoint https://your-loom-host/mcp --name loom-machine` in the target Codex account. It prompts with echo disabled; never place a token in command arguments or chat.
+2. Present the command from `client_setup.token_setup_argv` for this server, or `token_setup_bundle_argv` from the extracted bundle on another client. Run it in the target Codex account. These arguments include the verified private Dashboard port; never substitute the public Gateway origin. The script prompts with echo disabled; never place a token in command arguments or chat. The Dashboard popup only provides the token, not duplicate installation instructions.
 3. Default private storage is `$CODEX_HOME/loom/<name>/credential.json` or `~/.codex/loom/<name>/credential.json`. Optional `--directory` selects a private project subdirectory. The script preserves unrelated client configuration and verifies the server before saving.
 4. Run `python3 /path/to/loom_use/clients/setup.py doctor --name loom-machine` with the same optional `--directory`, then reconnect the server in Codex. Report script verification and actual Codex discovery separately.
 5. Without a token, stop the optional client setup at **server complete / client authentication pending**. It is not a failed server installation.

@@ -194,7 +194,7 @@ is preserved independently of the example data.
 The Admin token card lists active credentials first and keeps revoked records in a
 collapsed history section. Revocation is not deletion. The issuance dialog lives in
 the parent document, uses the workspace typography/theme, and clears the secret on
-close. Secrets never enter the catalog iframe or browser storage. Browser tests use fake credentials. Connection instructions expand separately from the copy action.
+close. Secrets never enter the catalog iframe or browser storage. Browser tests use fake credentials. The issuance dialog only displays/copies the token; installation commands belong to the client setup flow. Revocation confirmation runs in a themed parent dialog, never native `confirm()` inside the sandboxed iframe. Cancel/Escape makes no request; confirmation uses the existing Admin/CSRF API.
 
 Development sessions display a trusted Serve identity when present, without granting
 Admin or enabling a production admission worker. An optional `LOOM_MANAGEMENT_ORIGIN`
