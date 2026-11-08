@@ -97,3 +97,7 @@ for the Admin account's **Tailscale login email**, not a generic administrator e
 ## Registered output storage
 
 `ops/storage.py` owns named stores and persistent `.loom-storage.json` identities. `jobs.submit.output_storage` defaults to data/0 and freezes a non-default identity; all Attempt stages and result retries use that root. Result locators carry the selected ID and store-relative path. Registered secondary outputs are available in Dashboard files/media, results API and read-only downstream input mounts. Unknown, redirected, missing or replaced stores must never fall back to the primary. Existing Jobs without this field retain primary behavior; no DB rewrite or data move is required. Profile `storage` mounts remain separate optional shared RW access.
+
+New plans default to public Gateway 443 and private Dashboard/MCP 8443. Optional
+development publication uses a separate private port (typically 18443). Existing
+explicit ports are preserved. Guide handoff always uses the plan's private origin.

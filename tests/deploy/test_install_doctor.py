@@ -88,7 +88,7 @@ class InstallationDoctorTests(unittest.TestCase):
  def test_network_refuses_funnel_exposure_of_private_dashboard(self):
   from tailnet import expected_routes
   self.write('compose.env','OPS_PORT=18892\nOPS_DASHBOARD_PORT=18893\n');self.write('network.env','')
-  host='loom-server.your-tailnet.ts.net';gateway=host+':10000';private=host+':8443'
+  host='loom-server.your-tailnet.ts.net';gateway=host+':443';private=host+':8443'
   state={'Web':{gateway:{'Handlers':{'/':{'Proxy':'http://127.0.0.1:18904'}}},private:{'Handlers':{k:{'Proxy':v} for k,v in expected_routes(setup.ROOT).items()}}},'AllowFunnel':{gateway:True,private:True}}
   with patch.object(setup,'run',return_value=json.dumps(state)),patch.object(doctor,'request',return_value=(404,None)),patch('access_setup.TailnetAPI',side_effect=RuntimeError('unavailable')):
    result=doctor.doctor(setup,self.plan,'network')
@@ -119,7 +119,7 @@ class InstallationDoctorTests(unittest.TestCase):
    with self.assertRaises(ValueError):setup.make_plan(output,'human@example.com',self.plan['data'],[],False,self.root/'secret.json')
   generated=json.loads(output.read_text());a=doctor.service_plan(generated)
   self.assertEqual(a['name'],'Fixture RTX');self.assertEqual(a['admins'][0]['subject'],'tailscale:human@example.com')
-  self.assertEqual(result['gateway'],'https://fixture.tail.test:10000');self.assertEqual(output.stat().st_mode&0o777,0o600)
+  self.assertEqual(result['gateway'],'https://fixture.tail.test');self.assertEqual(output.stat().st_mode&0o777,0o600)
 
  def test_source_kit_contains_all_steps_and_runtime_helpers(self):
   import hashlib
@@ -194,9 +194,9 @@ class InstallationDoctorTests(unittest.TestCase):
  def test_network_pass_requires_gateway_and_scoped_private_grant(self):
   from tailnet import expected_routes
   self.write('compose.env','OPS_PORT=18892\nOPS_DASHBOARD_PORT=18893\n');self.write('network.env','')
-  host='loom-server.your-tailnet.ts.net';gateway=host+':10000';private=host+':8443'
+  host='loom-server.your-tailnet.ts.net';gateway=host+':443';private=host+':8443'
   state={'Web':{gateway:{'Handlers':{'/':{'Proxy':'http://127.0.0.1:18904'}}},private:{'Handlers':{k:{'Proxy':v} for k,v in expected_routes(setup.ROOT).items()}}},'AllowFunnel':{gateway:True}}
-  grants=[{'src':['autogroup:member','autogroup:shared'],'dst':self.access['addresses'],'ip':['tcp:10000']},
+  grants=[{'src':['autogroup:member','autogroup:shared'],'dst':self.access['addresses'],'ip':['tcp:443']},
           {'src':['admin@example.com'],'dst':self.access['addresses'],'ip':['tcp:8443']}]
   def api(method,path):
    if path.startswith('/device/'):return {'addresses':self.access['addresses'],'tags':['tag:loom']},{}

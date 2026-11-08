@@ -54,3 +54,16 @@ class ClientSetupTests(IsolatedOps):
         link=self.root/'link';link.symlink_to(secret)
         with self.assertRaises(OSError):setup.read_token(link)
         with self.assertRaises(ValueError):setup.configure(self.root/'safe',self.configpath,'loom-test','http://remote.test/mcp','test')
+
+    def test_transport_and_native_helper_enforce_same_credential_checks(self):
+        from stdio import OpsTransport
+        self.folder.mkdir(mode=0o700)
+        secret=self.folder/'secret';secret.write_text('{"token":"fixture"}');secret.chmod(0o600)
+        link=self.folder/'link';link.symlink_to(secret)
+        config=self.folder/'transport.json'
+        config.write_text(json.dumps({'endpoint':self.base+'/mcp','credential':str(link)}))
+        with self.assertRaises(OSError):OpsTransport(config)
+        config.write_text(json.dumps({'endpoint':self.base+'/mcp','credential':str(secret)}))
+        self.assertEqual(OpsTransport(config).token,'fixture')
+        secret.chmod(0o644)
+        with self.assertRaises(PermissionError):OpsTransport(config)

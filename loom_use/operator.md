@@ -5,7 +5,7 @@ The service account is non-login loom:loom without sudo or Docker group membersh
 ## Server layout
 
 - **loom-ops**: MCP/API, Job queue and worker, state, metadata and result registration. One MCP endpoint exposes six tool groups.
-- **loom-dashboard**: web UI and read-only data API relay. Ops API/MCP handles Job controls.
+- **loom-dashboard**: web UI and authenticated API relay, including Job controls and Admin token management. Ops enforces the operation contracts.
 - **host executor**: creates Job containers from approved images and manages resource allocation, termination and return. Platform and Job containers have independent lifetimes.
 - **Storage**: instance databases, settings and secrets under `/loom/ops`; registered source/profiles under `/loom/components` and `/loom/profiles`; artifacts on external storage attached through Compose.
 - **Host helpers**: observations and configured execution-authority services under `/loom/shared`. Addresses, ports and external storage paths are installation-specific.

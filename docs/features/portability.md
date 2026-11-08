@@ -34,3 +34,10 @@ Test sources define the concrete scenarios. `deploy/test.sh` records individual 
 ## Live validation
 
 Verify actual cross-machine TLS/handoff and access to restored data.
+
+The schema-1 offline archive has one payload root. Export rejects available
+secondary-store payloads or pending secondary-output Jobs before fencing instead
+of silently omitting them. Multi-store relocation requires a separately reviewed
+transfer plan. Export and restore both strip short-lived and resident token rows,
+including archives created by older versions; user profiles and provenance remain.
+Migration never serves as a credential transfer mechanism.

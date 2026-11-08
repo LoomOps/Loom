@@ -8,11 +8,13 @@ from urllib.request import Request,build_opener,HTTPRedirectHandler
 class NoRedirect(HTTPRedirectHandler):
  def redirect_request(self,*args,**kwargs):return None
 
-def refresh(url,destination,token,development=False):
+def refresh(url,destination,token,development=False,authentication=None):
  parsed=urlsplit(url)
  if parsed.scheme not in ('https','http') or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:raise ValueError('Use an HTTP(S) Loom base URL without credentials or query')
  if parsed.scheme=='http' and parsed.hostname not in ('localhost','127.0.0.1','::1'):raise ValueError('Remote URLs require HTTPS')
- if not token and not development:raise ValueError('Set LOOM_TOKEN or explicitly choose --development for your dev instance')
+ if authentication not in (None,'tailscale'):raise ValueError('Unknown authentication method')
+ if authentication and (token or development):raise ValueError('Choose one authentication method')
+ if not token and not development and authentication!='tailscale':raise ValueError('Use an Admin-issued LOOM_TOKEN, --authentication tailscale, or --development for a dev instance')
  base=url.rstrip('/');headers={'Authorization':'Bearer '+token} if token else {}
  opener=build_opener(NoRedirect)
  def get(path):
@@ -20,8 +22,10 @@ def refresh(url,destination,token,development=False):
    data=response.read(8*1024*1024+1)
    if len(data)>8*1024*1024:raise ValueError('Bundle too large')
    return data
+ principal=json.loads(get('/api/principal'))
+ if authentication=='tailscale' and principal.get('identity',{}).get('provider')!='tailscale':raise ValueError('Verified Tailscale user identity required')
  manifest=json.loads(get('/api/guide'))['manifest']
- server=hashlib.sha256((base+'\0'+hashlib.sha256(token.encode()).hexdigest()).encode()).hexdigest()[:16]
+ server=hashlib.sha256((base+'\0'+hashlib.sha256(token.encode()).hexdigest()+'\0'+json.dumps({k:principal.get(k) for k in ('id','scopes','profile_id')},sort_keys=True)).encode()).hexdigest()[:16]
  revision=manifest['revision']
  if not re.fullmatch('[0-9a-f]{64}',revision):raise ValueError('Invalid server revision')
  parent=Path(destination)/server;target=parent/revision
@@ -42,6 +46,6 @@ def refresh(url,destination,token,development=False):
  return {'updated':True,'path':str(target),'manifest':manifest}
 
 if __name__=='__main__':
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('url');p.add_argument('--directory',type=Path,default=Path.home()/'.cache/loom/guides');p.add_argument('--development',action='store_true');a=p.parse_args()
- try:print(json.dumps(refresh(a.url,a.directory,os.getenv('LOOM_TOKEN',''),a.development),indent=2))
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('url');p.add_argument('--directory',type=Path,default=Path.home()/'.cache/loom/guides');p.add_argument('--development',action='store_true');p.add_argument('--authentication',choices=['tailscale']);a=p.parse_args()
+ try:print(json.dumps(refresh(a.url,a.directory,os.getenv('LOOM_TOKEN',''),a.development,a.authentication),indent=2))
  except Exception as error:p.exit(1,type(error).__name__+': '+str(error)+'\n')

@@ -313,7 +313,7 @@ def make_plan(output,admin_email,data,additional_data,gpu,credential_file,mounts
  origin='https://'+current['dns'];private=origin+':8443';subject='tailscale:'+admin_email
  access={'machine_id':'loom-'+str(uuid.uuid4()),'name':own.get('HostName') or current['dns'].split('.')[0],
  'tailnet':current['tailnet'],'device_id':current['device_id'],'addresses':own['TailscaleIPs'],
- 'identity_addresses':[],'ports':[8443],'ssh_accounts':[], 'origin':origin+':10000','dashboard_origin':private,
+ 'identity_addresses':[],'ports':[8443],'ssh_accounts':[], 'origin':origin,'dashboard_origin':private,
  'host_port':18904,'bind':'0.0.0.0','port':8081,'admins':[{'issuer':private+'/identity','subject':subject}],
  'credential_file':str(credential_file.resolve()),'database':'/loom/ops/admission/requests.sqlite3',
  'managed_resources_version':1,'native_logins':[admin_email],'enrollment_mode':'sharing','sharing_hourly_limit':20,'sharing_pending_limit':200}

@@ -36,3 +36,8 @@ Verify actual client reconnection and guide refresh separately.
 Installation handoff explicitly offers optional loom_use skill setup and MCP connection registration in the user's selected client/machine. The scripted handoff provides the private endpoint, bundle URL and verification actions, but never claims registration from server-side health. Existing client settings are preserved; actual client discovery/status/guide checks are reported separately from server readiness.
 
 Resident Codex clients use `loom_use/clients/setup.py configure` with a Dashboard Admin-issued permanent token. `doctor` verifies the protected credential, matching user configuration and four live MCP operations. The static headers helper never issues or renews credentials. Installation docs must distinguish server readiness, saved client settings and actual client discovery.
+
+Guide refresh accepts explicit Tailscale identity or an Admin-issued token. It
+verifies the current principal and includes identity/scopes in its cache key;
+switching VPN users must not reuse another user's scoped bundle. Both the native
+header helper and optional stdio transport use the same private-file reader.

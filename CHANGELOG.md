@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.1.0-alpha.28 — 2026-11-08
+
+- Remove the retired browser token-entry fallback; missing native identity now stays closed with a retry action.
+
+- Align installer defaults and documentation with Gateway 443 / private 8443; keep explicit existing ports.
+- Remove obsolete local short-lived credential issuance; preserve existing expiry semantics.
+- Support verified Tailscale guide refresh with principal-scoped caches and consistent private credential reads.
+- Strip all client token rows on export and restore; reject schema-1 exports that would omit secondary-store payloads.
+- Review all tracked files, feature verification boundaries, dev/alpha packaging and current instructions.
+
+## 0.1.0-alpha.27 — 2026-11-08
+
+- Fix sandbox-blocked token revocation with a parent-owned confirmation dialog.
+- Remove duplicate connection instructions from token issuance; installer supplies exact private-endpoint setup commands.
+
+## 0.1.0-alpha.26 — 2026-11-08
+
+- Align Agent Token forms/dialogs with the Dashboard theme and collapse revoked history.
+- Show verified development network identity without implying Admin rights.
+
+## 0.1.0-alpha.25 — 2026-11-08
+
+- Verify deployed native identity, private relay routes and separate public Gateway during update acceptance.
+- Repair Admin, update-check and event relay routing.
+
 ## 0.1.0-alpha.24 — 2026-11-08
 
 - Add Dashboard Admin-issued, individually revocable agent tokens without expiration.

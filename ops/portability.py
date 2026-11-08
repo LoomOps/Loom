@@ -66,6 +66,23 @@ def integrity(db):
         raise ValueError('Database integrity failure')
 
 
+def clear_credentials(db):
+    """A payload archive carries provenance, never usable client credentials."""
+    tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    for name in ('credentials','resident_tokens'):
+        if name in tables:db.execute('DELETE FROM '+name)
+
+
+def require_single_store(db, config):
+    """Schema 1 has a single payload root; reject silent secondary-store loss."""
+    if db.execute("SELECT 1 FROM entity_locations WHERE machine_id=? AND storage_id<>? AND status='available' LIMIT 1",
+                  (config['machine_id'],config['storage_id'])).fetchone():
+        raise ValueError('Archive schema 1 supports one storage root; use a reviewed multi-store migration')
+    for (spec,) in db.execute("SELECT spec FROM jobs WHERE state NOT IN ('complete','cancelled')"):
+        if json.loads(spec).get('output_storage','data/0')!='data/0':
+            raise ValueError('Pending Jobs require a secondary store; use a reviewed multi-store migration')
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('command',choices=('export','transfer','restore','activate','rollback-source'))
@@ -95,14 +112,15 @@ def main():
             with sqlite3.connect(db_path) as db:
                 integrity(db)
                 db.execute('BEGIN IMMEDIATE')
-                if db.execute("SELECT 1 FROM jobs WHERE state IN ('running','processing','result_failed')").fetchone():
+                require_single_store(db,cfg)
+                if db.execute("SELECT 1 FROM jobs WHERE state IN ('preparing','running','processing','result_failed')").fetchone():
                     raise ValueError('Source still has a running job or unexported result')
                 if db.execute('SELECT mode FROM node_control').fetchone()[0]!='active':
                     raise ValueError('Source is not active')
                 db.execute("UPDATE node_control SET mode='fenced'")
             with sqlite3.connect(db_path) as source, sqlite3.connect(archive/'ops.sqlite3') as out:
                 source.backup(out)
-                out.execute('DELETE FROM credentials')
+                clear_credentials(out)
                 out.commit()
                 out.execute('PRAGMA wal_checkpoint(TRUNCATE)')
                 out.execute('PRAGMA journal_mode=DELETE')
@@ -154,6 +172,7 @@ def main():
             temp=db_path.with_suffix('.incoming')
             with closing(sqlite3.connect((archive/'ops.sqlite3').as_uri()+'?mode=ro',uri=True)) as source, closing(sqlite3.connect(temp)) as target:
                 source.backup(target)
+                clear_credentials(target)
                 integrity(target)
                 target.execute("UPDATE node_control SET mode='readonly'")
                 target.executemany("""INSERT INTO entity_locations

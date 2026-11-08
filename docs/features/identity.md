@@ -17,3 +17,8 @@ Dashboard Admins issue and revoke individual agent tokens in Tailscale → Agent
 Admin-only HTTP routes: `GET /api/admin/tokens` lists metadata and registered users; `POST /api/admin/tokens` accepts `{label, owner, scopes}`; `POST /api/admin/tokens/revoke` accepts `{id}`. Browser writes require the Admin session and CSRF/Origin checks. Ops accepts only the signed Dashboard Admin claim for these routes. Neither ordinary MCP callers nor the installation owner credential can issue tokens. Six operational MCP groups remain unchanged.
 
 Token acquisition is an optional client step after server installation. The installer never auto-issues or renews tokens. Use the bundled `clients/setup.py` from the actual client account; keep credentials outside Git. A tagged machine's network identity is not its individual Linux user's identity.
+
+Local operator issuance of short-lived credentials has been removed. Existing
+short-lived rows remain readable only until their original expiry/revocation;
+updates never extend them or convert them to permanent tokens. Historical rows
+are preserved, while new resident credentials use the Dashboard Admin contract.

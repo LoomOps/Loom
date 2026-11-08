@@ -11,7 +11,7 @@
     8443
   ],
   "ssh_accounts": [],
-  "origin": "https://loom-server.your-tailnet.ts.net:10000",
+  "origin": "https://loom-server.your-tailnet.ts.net",
   "dashboard_origin": "https://loom-server.your-tailnet.ts.net:8443",
   "host_port": 18904,
   "bind": "0.0.0.0",

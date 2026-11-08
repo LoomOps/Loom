@@ -35,8 +35,6 @@ def main(exercise):
     parser.add_argument("--inactive-tokens", type=Path)
     parser.add_argument("--screenshot", type=Path)
     args = parser.parse_args()
-    if args.tokens is None:
-        parser.error("--tokens is required for Ops integration")
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
@@ -60,7 +58,7 @@ def main(exercise):
             session = base + "/session/" + created["sessionId"]
             def wd(path, body=None):
                 return request(session + path, body)["value"]
-            tokens = json.load(sys.stdin) if str(args.tokens) == '-' else json.loads(args.tokens.read_text())
+            tokens = json.load(sys.stdin) if str(args.tokens) == '-' else json.loads(args.tokens.read_text()) if args.tokens else {}
             inactive = json.loads(args.inactive_tokens.read_text()) if args.inactive_tokens else {}
             result = exercise(wd, args.base, tokens, args.screenshot, inactive)
             result["firefox"] = created["capabilities"]["browserVersion"]

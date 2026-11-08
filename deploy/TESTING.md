@@ -13,7 +13,7 @@ python3 tests/run.py --browser
 python3 tests/run.py --browser --output /tmp/loom-test-results
 ```
 
-The runner uses standard-library `unittest`. Schema tests require `jsonschema==4.23.0`; authentication runtime uses only the Python standard library. Install the pinned schema dependency in the test environment.
+The runner uses standard-library `unittest`. Schema/packaging tests require `jsonschema==4.23.0` and `PyYAML==6.0.2`; authentication runtime uses only the Python standard library. Install the pinned schema dependency in the test environment.
 
 Browser checks use existing Firefox/geckodriver. The default Firefox path is `/snap/firefox/current/usr/lib/firefox`. Override installations with:
 
@@ -37,12 +37,12 @@ Missing executables are failures when `--browser` was requested. Runs omitting b
 | Artifacts | Missing files, path escape/symlinks, storage identity, invalid metrics, typed-series order/units |
 | Job migration | Full Step/Attempt coverage, stale-summary rejection, deduplication, original states/pauses preserved |
 | Actual HTTP API | Tokens/scopes, explicit dev mode, Origin, Job queries, MCP tools and compatible calls |
-| Dashboard relay | Read-only paths, history/MCP forwarding, MIME/size/response/authentication boundaries |
+| Dashboard relay | Read routes and explicit queue/Admin writes, history/MCP forwarding, MIME/size/response/authentication boundaries |
 | Installation | Mandatory native identity/Gateway, step doctor, explicit storage, actual image/config checks, missing runtime image recovery, packaged smoke contract and Gateway-first handoff |
 | Packaging | Python dependency modules included in Dockerfiles; runtime state excluded from snapshots |
 | Browser mocks | Unified queue/history expansion, title/menu alignment, Job properties, share/new-window controls, Docker/MCP, viewport/themes, API failure recovery |
 
-SQLite and file validation use real temporary directories. Process execution and external infrastructure boundaries are mocked. Browsers connect to a mock Ops API and actual Dashboard server on ephemeral loopback ports. Tests do not mutate production databases, images, containers, GPUs or queues, and do not depend on historical production IDs, counts or tokens.
+SQLite and file validation use real temporary directories. Process lifecycle tests also execute small local subprocesses; Docker, GPU and external infrastructure boundaries are mocked. Browsers connect to a mock Ops API and actual Dashboard server on ephemeral loopback ports. Tests do not mutate production databases, images, containers, GPUs or queues, and do not depend on historical production IDs, counts or tokens.
 
 Build generated UI into a temporary file and compare with `dashboard/public/workspace.html`. Stale output fails validation; tests never overwrite the running UI.
 
@@ -63,7 +63,7 @@ Passing tests validates source regressions, not whether a running image contains
 
 Before deployment, build numbered images and verify startup, API/MCP and storage connections using the intended images and Compose settings in an isolated environment, then switch the intended installation. Never infer deployment authentication from internal tokenless settings. GPU generation/training/evaluation, cross-machine handoff/TLS and actual process recovery after failure require separate execution.
 
-Historical `verify-*.py` scripts relying on old Compose names/fixed ports are outside this default runner. Adapt them to the target configuration when needed; do not mistake historical evidence for current commands.
+Use the current test suites and target-specific acceptance scripts. Preserved historical evidence is not an executable installation procedure.
 
 ## Shared queue and coverage boundaries (v31)
 

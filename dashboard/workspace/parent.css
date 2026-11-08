@@ -4,17 +4,15 @@
 .loom-entry-brand {display:flex;gap:12px;align-items:center;justify-content:center;margin-bottom:28px;font-size:28px;font-weight:400;}
 .loom-entry-brand .loom-logo {width:38px;height:38px;}
 .loom-entry-brand b {color:#507ba3;font-weight:650;}
-#loom-entry form {display:grid;gap:12px;}
-#loom-entry input,#loom-entry button,#loom-sso-login {box-sizing:border-box;width:100%;font:inherit;padding:12px 16px;border:1px solid #7b8ca626;border-radius:18px;color:inherit;background:#ffffff94;}
+#loom-entry button,#loom-sso-login {box-sizing:border-box;width:100%;font:inherit;padding:12px 16px;border:1px solid #7b8ca626;border-radius:18px;color:inherit;background:#ffffff94;}
 #loom-entry button,#loom-sso-login {cursor:pointer;background:linear-gradient(120deg,#5481a7,#417392);color:#fff;text-decoration:none;}
 #loom-sso-login:not([hidden]) {display:block;}
 #loom-access-status:empty {display:none;}
 #loom-access-status {font-size:14px;opacity:.8;}
 html[data-loom-theme="dark"] #loom-entry {background:radial-gradient(ellipse at 70% 25%,#33475840,transparent 65%),#171c23;color:#e4e8ee;}
 html[data-loom-theme="dark"] .loom-entry-card {background:#252b34c0;}
-html[data-loom-theme="dark"] #loom-entry input {background:#303843c0;}
 
-@media(prefers-color-scheme:dark){html[data-loom-theme="system"] #loom-entry{background:#171c23;color:#e4e8ee}html[data-loom-theme="system"] .loom-entry-card{background:#252b34c0}html[data-loom-theme="system"] #loom-entry input{background:#303843c0}}
+@media(prefers-color-scheme:dark){html[data-loom-theme="system"] #loom-entry{background:#171c23;color:#e4e8ee}html[data-loom-theme="system"] .loom-entry-card{background:#252b34c0}}
 
 .loom-token-dialog{--token-surface:#f8faff;--token-ink:#17243c;--token-muted:#596983;--token-line:#dce3ef;--token-field:#edf2f8;--token-accent:#3563bd;box-sizing:border-box;width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:auto;margin:auto;border:1px solid #ffffff60;border-radius:34px;corner-shape:squircle;padding:28px;background:var(--token-surface);color:var(--token-ink);box-shadow:0 24px 90px #10213b26;font:14px/1.55 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
 .loom-token-dialog::backdrop{background:#101a3033;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}

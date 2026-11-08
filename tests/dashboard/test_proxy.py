@@ -227,7 +227,8 @@ class ProxyTest(unittest.TestCase):
         status, headers, body = self.request("/")
         self.assertEqual(status, 200)
         self.assertIn(b'sandbox="allow-scripts"', body)
-        self.assertIn(b"loom-access-token", body)
+        self.assertNotIn(b"loom-access-token", body)
+        self.assertNotIn(b"loom-access-form", body)
         self.assertNotIn(b"example.ts.net", body)
         self.assertNotIn(b"allow-same-origin", body)
         import http.client

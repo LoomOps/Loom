@@ -11,10 +11,11 @@ The username and DNS names below are placeholders; use your installation configu
 - Source: `/home/developer/codex/loom`.
 - Development: `/loom/ops/dev-build`, `/storage/loom/dev-build`; use `bash deploy/compose.sh`.
 - Alpha instance: `/loom/ops`, `/storage/loom/data`; use `bash deploy/runtime.sh` only for authorized releases.
-- Both run `loom-ops` (API + worker) and `loom-dashboard`; DBs, credentials and queues are separate.
-- Alpha Dashboard: `https://loom-machine.example.ts.net/`, authenticated.
-- Dev Dashboard: `https://loom-machine.example.ts.net:8443/`, explicitly tokenless.
-- Each origin has its own `/mcp`. They remain Tailscale-only.
+- Both run `loom-ops` (API + worker) and `loom-dashboard`; alpha also runs a separate `loom-gateway`. DBs, credentials and queues are separate.
+- Public Gateway: `https://loom-machine.example.ts.net/` (443), request/redirect only.
+- Alpha Dashboard/MCP: `https://loom-machine.example.ts.net:8443/`, authenticated.
+- Dev Dashboard: `https://loom-machine.example.ts.net:18443/`, explicitly tokenless.
+- Only private Dashboard origins expose `/mcp`. Dev publication is optional and exists only when explicitly configured; no public Gateway MCP.
 - Numbered build snapshots and image IDs are in `/loom/builds`. Do not overwrite a numbered image.
 - Dev UI has live source mounts; Ops changes require a restart once its active Jobs return.
 - External sources/build recipes can live under `/dependencies`; runtime images and grants are selected through profiles and the host executor.

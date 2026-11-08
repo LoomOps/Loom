@@ -10,7 +10,10 @@ class AccessContractTests(IsolatedOps):
     def test_credential_expiration_revocation_and_scope(self):
         grant={'scopes':['read'],'owners':[],'notify':[]}
         with ops.db() as c, patch.object(access.time,'time',return_value=1000):
-            issued=access.issue(c,'guest','user',grant,60)
+            issued={'credential_id':'old-issued-token','token':'fixture-old-token'}
+            digest=hashlib.sha256(issued['token'].encode()).hexdigest()
+            c.execute('INSERT INTO principals VALUES(?,?,?)',('guest','user',json.dumps(grant)))
+            c.execute('INSERT INTO credentials VALUES(?,?,?,?,NULL)',(issued['credential_id'],'guest',digest,1060))
             digest=hashlib.sha256(issued['token'].encode()).hexdigest()
             actor=access.authenticate(c,[],digest)
             self.assertEqual(actor,{'id':'guest',**grant})
@@ -21,11 +24,8 @@ class AccessContractTests(IsolatedOps):
             c.execute('UPDATE credentials SET revoked=1001 WHERE id=?',(issued['credential_id'],))
             with self.assertRaises(PermissionError):access.authenticate(c,[],digest)
 
-    def test_existing_principal_grant_cannot_be_silently_escalated(self):
-        with ops.db() as c:
-            access.issue(c,'guest','user',{'scopes':['read']},60)
-            with self.assertRaises(ValueError):
-                access.issue(c,'guest','user',{'scopes':['read','submit']},60)
+    def test_no_local_credential_issuance_entrypoint(self):
+        self.assertFalse(hasattr(access,'issue'))
 
     def test_delivery_receipts_are_idempotent_and_owner_scoped(self):
         job=self.submit()

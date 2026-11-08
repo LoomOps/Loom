@@ -4,7 +4,7 @@ MCP guidance, client tools and optional skills for using Loom externally. This p
 
 ## Start here
 
-1. Obtain the server address and your authentication, then connect to `<Loom URL>/mcp`.
+1. Obtain the server address and your authentication, then connect to `<private Dashboard URL>/mcp`.
 2. Read `system.status` and `system.guide` for the deployed version and usage guidance.
 3. Read `system.describe` for the input contract of the action you will call.
 

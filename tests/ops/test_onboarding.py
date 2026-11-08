@@ -90,3 +90,17 @@ class GuideHTTPTests(APIContractTests):
   self.assertEqual(failure['content'][-1]['text'],result['content'][-1]['text'])
   ping=self.request('/mcp',{'jsonrpc':'2.0','id':2,'method':'ping'})[1]['result']
   self.assertNotIn('content',ping)
+
+
+ def test_tokenless_guide_refresh_binds_cache_to_verified_network_user(self):
+  import access
+  spec=importlib.util.spec_from_file_location('guide_refresh',onboarding.GUIDES/'refresh.py');refresh=importlib.util.module_from_spec(spec);spec.loader.exec_module(refresh)
+  with tempfile.TemporaryDirectory() as temp:
+   with self.assertRaises(HTTPError):refresh.refresh(self.base,temp,'',authentication='tailscale')
+   def actor(login):return {**self.reader,'id':login.split('@')[0],'identity':{'provider':'tailscale','login':login,'name':login}}
+   with patch.object(access,'tailscale_actor',return_value=actor('first@example.com')):
+    first=refresh.refresh(self.base,temp,'',authentication='tailscale')
+    self.assertFalse(refresh.refresh(self.base,temp,'',authentication='tailscale')['updated'])
+   with patch.object(access,'tailscale_actor',return_value=actor('second@example.com')):
+    second=refresh.refresh(self.base,temp,'',authentication='tailscale')
+   self.assertNotEqual(first['path'],second['path'])

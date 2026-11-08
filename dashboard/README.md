@@ -1,14 +1,14 @@
 # Loom Dashboard
 
 The API-only console presents Jobs, results, resources, Docker and MCP Reference.
-It has no Ops database, Docker socket or research runtime mounts. Optional native Tailscale authentication
+It has no Ops database, Docker socket or research runtime mounts. Release native Tailscale authentication
 uses an instance-local session SQLite database and a private relay key.
 The main UI is the Loom workspace.
 
 ## Development and release
 
 From the Loom checkout run `bash deploy/compose.sh up -d`. The default isolated
-`loom-dev-build` project uses API 18902 and Dashboard 18903 on Example Machine. Source
+`loom-dev-build` project uses the ports in its instance configuration. Source
 mounts rebuild/reload UI edits; Ops source changes need a safe Ops restart. Dev
 explicitly enables tokenless owner access. `/session` declares that mode.
 
@@ -16,7 +16,7 @@ explicitly enables tokenless owner access. `/session` declares that mode.
 is used only for an authorized release. Images are immutable numbered builds;
 source changes do not automatically update alpha. Compose supplies the internal
 Ops origin; Dashboard publishes only its configured loopback port. Tailscale
-Serve provides the external HTTPS origin. Use `deploy/install.py` for new hosts.
+Serve provides the external HTTPS origin. For new hosts start with the root [INSTALL.md](../INSTALL.md); the low-level installer alone is not a complete installation.
 
 Build the workspace from its hash-pinned synthetic source:
 
@@ -36,8 +36,8 @@ Current queue order, hold flags, waiting reasons and caller capabilities come
 from the same backend scheduling function used by dispatch. Authenticated users share Job reads and queue operations; Owner indicates responsibility.
 Running Jobs
 are never interrupted. HTTP POST `/api/jobs/queue-actions` forwards only these three
-actions. All other writes are rejected by this relay; use Ops MCP/API for them.
-Same-origin and bearer checks apply to reads and queue writes. Job detail shows
+actions. Other explicitly supported writes include Job cancellation, Admin token issue/revoke and update checks; arbitrary API writes are rejected. Use Ops MCP/API for other operations.
+Same-origin and native session/CSRF checks apply to browser operations; explicit token access is limited to the configured non-SSO path. Job detail shows
 Attempts, recovery, actual resource return, artifacts and queue-change history.
 Termination history starts at 10 rows with expansion/collapse. No aggregate
 Execution log or separate Loom Jobs queue is added.

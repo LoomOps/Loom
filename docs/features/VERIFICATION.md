@@ -50,3 +50,38 @@ device approval wait. Ownership tests cover installer/runtime deltas, preexistin
 state, shared tags, changed references, ETag conflicts, uncertain write recovery
 and reviewed orphan policy. These use isolated journals and mocked provider APIs;
 no current user's login or live remote policy is changed by tests.
+
+## Repository-wide review (alpha.28)
+
+The review includes every tracked source, test, document, configuration, license
+and generated artifact, beyond the catalog's executable-file ownership checks.
+Evidence records each path, digest, feature/role and comparison with the previous
+alpha snapshot. Generated HTML is checked against its source builder; image
+imports and source/installer snapshots are reviewed separately from live mounts.
+
+Corrections and regression boundaries:
+
+- Identity: remove the local TTL issuance CLI/function; keep read-only compatibility
+  for existing expiring tokens. New permanent credentials remain Admin-only.
+- Onboarding: tokenless Tailscale refresh verifies the current principal and isolates
+  scoped caches across accounts. Stdio and native header helpers reject linked or
+  publicly readable credential files consistently.
+- Installation/network: new Gateway defaults to 443, private Dashboard/MCP to 8443.
+  Existing explicit 10000 configurations still pass dedicated compatibility tests.
+- Portability: real SQLite export/restore strips resident and temporary credentials,
+  including old archives. Single-store schema 1 must reject secondary payloads
+  before fencing; this does not claim a new multi-store migration implementation.
+- Dashboard/docs: release native identity is mandatory; the relay supports its
+  explicit write allowlist. Development is optional/separate, with no public MCP.
+- Packaging/testing: dependency documentation, changelog and removed-source
+  ownership are synchronized. Root tests remain the authoritative regression suite.
+
+The historical primary-storage alias and persistent database fields are retained
+for compatibility, not silently renamed. Real invitation acceptance, clean-host
+installation/reboot, multi-machine transfer and GPU numerical behavior still need
+separate live acceptance; source-wide scans do not prove those outcomes.
+
+Browser fallback audit: no password/token entry form is shipped. Native identity
+or an explicit development instance is required; a missing identity displays
+connection retry instead of reviving the obsolete token-only installation path.
+The read-only browser acceptance harness follows the same native entry contract.

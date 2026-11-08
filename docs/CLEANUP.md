@@ -22,3 +22,15 @@ Existing frozen Jobs using an unsupported producer schema remain readable. Finis
 The complete test runner validates all distributable Python files, generated UI consistency, feature ownership, documentation links, licenses, removed public routes and the absence of private operator references. Behavioral tests cover native/shared identity, cancellation/revocation, owner continuity, queued preparation, recovery budgets, result publication, preserved history and explicit update/rollback. Firefox checks the actual current workspace.
 
 Private archives and review evidence are not release contents. Tests do not prove real external VPN clients, arbitrary third-party Job images or GPU experiments; those need installation-specific acceptance.
+
+## Compatibility boundaries retained deliberately
+
+The internal `OPS_BULK` binding and `/loom/bulk` alias still anchor primary output
+paths on older installations. They are not an extra service or an additional
+user-facing store. Replacing them without reconciling data/N mounts can redirect
+existing Job outputs, so image updates preserve them. Stored `node_control` and
+archive fields likewise retain their schema names. Historical rendering and
+scoped orphan-policy cleanup remain supported data/maintenance features.
+
+Local short-lived token issuance is removed. Previously issued credentials keep
+their original expiry only; current resident tokens come from Dashboard Admin.

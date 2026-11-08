@@ -43,17 +43,12 @@ class Workspace:
     def top(self):
         self.wd("/frame", {"id": None})
 
-    def login(self, token):
-        self.wait("return document.querySelector('#loom-access-token')?.type === 'password'")
-        self.js("""document.querySelector('#loom-access-token').value = arguments[0];
-                   document.querySelector('#loom-access-form').requestSubmit();""", token)
+    def connect(self):
+        """Use the caller's native Tailscale identity or explicit dev instance."""
         self.wait("return !document.querySelector('iframe').hidden")
         assert self.js("""const frame = document.querySelector('iframe');
                           return frame.sandbox.value === 'allow-scripts' && frame.contentDocument === null
-                            && !frame.srcdoc.includes(arguments[0]) && !location.search
-                            && !document.querySelector('#loom-access-token').value
-                            && !Object.values(localStorage).some(value => value.includes(arguments[0]))
-                            && !Object.values(sessionStorage).some(value => value.includes(arguments[0]));""", token)
+                            && !document.querySelector('#loom-access-token');""")
         self.frame()
 
     def entity(self, identity):
@@ -131,9 +126,8 @@ class Workspace:
             time.sleep(.15)
         assert len(new) == 1
         self.wd("/window", {"handle": new.pop()})
-        self.wait("return document.querySelector('#loom-access-token')?.type === 'password'")
         assert self.js("return location.href") == link
-        self.login(token)
+        self.connect()
         self.wait("""return [...document.querySelectorAll('#pa-content [data-share-route]')]
                        .some(node => node.dataset.shareRoute === arguments[0]);""", identity)
         self.top()
@@ -144,11 +138,11 @@ class Workspace:
 
 def exercise(wd, base, tokens, screenshot, _inactive):
     """Read-only live acceptance without machine-specific data expectations."""
-    ui=Workspace(wd);token=tokens['owner']
+    ui=Workspace(wd);token=tokens.get('owner')
     status=harness.request(base+'/api/status',token=token)
     catalog=harness.request(base+'/api/dashboard/catalog',token=token)
     ui.wd('/url',{'url':base+'/'})
-    ui.login(token)
+    ui.connect()
     for name,selector in [('Dashboard','[data-resource-panel]'),('Explorer','.pa-finder'),
                           ('Models','[data-model-filter=query]'),('MCP','.pa-loom-mcp')]:
         ui.nav(name);ui.wait('return !!document.querySelector(arguments[0])',selector)

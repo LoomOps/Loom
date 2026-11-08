@@ -4,7 +4,7 @@ Loom lets multiple users and clients queue CPU/GPU Jobs and manage execution sta
 
 ## Installation
 
-This repository includes source, Dockerfiles, Compose definitions and host installation scripts. Ops and Dashboard run in containers; a host executor launches Job containers. The host `/loom` directory stores configuration, credentials and databases. Artifact storage and optional external dependencies are connected separately.
+This repository includes source, Dockerfiles, Compose definitions and host installation scripts. Ops, Dashboard and a separate public Gateway run in containers; a host executor launches Job containers. The host `/loom` directory stores configuration, credentials and databases. Artifact storage and optional external dependencies are connected separately.
 
 - **[Install on a new machine: INSTALL.md](INSTALL.md)**
 - [Installation and operations](deploy/README.md)
@@ -16,7 +16,7 @@ Pin a [GitHub Release](https://github.com/LoomOps/loom/releases) tag to build im
 
 **MCP guidance, client tools and optional skills live in [`loom_use/`](loom_use/README.md).**
 
-Connect to `<Loom URL>/mcp` using the server address and your own authentication. Use `system.status`, `system.guide` and `system.describe` to discover the running version, usage guidance and exact input contracts. Dashboard is the web entry point for the same server.
+Connect to `<private Dashboard URL>/mcp` using the server address and your own authentication. Use `system.status`, `system.guide` and `system.describe` to discover the running version, usage guidance and exact input contracts. Dashboard is the web entry point for the same server.
 
 Loom does not embed resident agents or a prescribed agent hierarchy. External operators are MCP/API clients. They own machine-specific instructions, agent assignment and startup policies.
 

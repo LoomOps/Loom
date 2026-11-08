@@ -15,6 +15,8 @@ class AccessSetupTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name)
         self.c=json.loads((ROOT/'deploy/installer/access-plan.example.json').read_text())
+        # Existing installations may retain a non-default public port.
+        self.c['origin'] += ':10000'
         self.c.update(machine_id='install1',device_id='device1',credential_file=str(self.root/'private.json'),database=str(self.root/'admission/requests.sqlite3'))
         (self.root/'private.json').write_text(json.dumps({'type':'api','token':'secret-fixture'}))
         self.plan=self.root/'plan.json';self.plan.write_text(json.dumps(self.c))

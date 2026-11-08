@@ -106,6 +106,15 @@ const done=arguments[arguments.length-1];
             ui.js("document.querySelector('#pai-studio').style.colorScheme=arguments[0]",theme)
             self.assertEqual(ui.js("return getComputedStyle(document.querySelector('.loom-logo-base')).fill"),color)
 
+    def test_missing_identity_does_not_restore_token_entry(self):
+        self.web.development=False
+        self.addCleanup(setattr,self.web,'development',True)
+        self.ui.top();self.wd('/url',{'url':self.base})
+        self.ui.wait("return document.querySelector('#loom-entry-retry')?.hidden===false")
+        self.assertFalse(self.ui.js("return !!document.querySelector('#loom-access-token,#loom-access-form')"))
+        self.assertTrue(self.ui.js("return document.querySelector('iframe').hidden"))
+        self.assertIn('Tailscale',self.ui.js("return document.querySelector('#loom-access-status').textContent"))
+
     def test_sso_account_ui_and_reload(self):
         # Browser lifecycle uses local identity; HTTP trust and real cookies are covered in test_sso.
         class Auth:
@@ -121,7 +130,7 @@ const done=arguments[arguments.length-1];
         self.web.sso=Auth();self.addCleanup(setattr,self.web,'sso',None)
         self.wd('/frame',{'id':None});self.wd('/url',{'url':self.base})
         self.ui.wait("return document.querySelector('#loom-sso-login')?.hidden===false")
-        self.assertTrue(self.ui.js("return document.querySelector('#loom-access-form').hidden"))
+        self.assertFalse(self.ui.js("return !!document.querySelector('#loom-access-form')"))
         self.ui.js("document.querySelector('#loom-sso-login').click()")
         self.ui.wait("return !document.querySelector('iframe').hidden");self.ui.frame()
         self.ui.wait("return document.querySelector('[data-loom-session-name]')?.textContent==='SSO Member'")

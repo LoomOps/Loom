@@ -2,16 +2,13 @@
 (() => {
   const frame = document.getElementById('codex-visualization');
   const access = document.getElementById('loom-entry');
-  const form = document.getElementById('loom-access-form');
-  const input = document.getElementById('loom-access-token');
   const status = document.getElementById('loom-access-status');
-  let token = '';
   let csrf = '';
   let ssoEnabled = false;
   let sessionUser = null;
   let tailnetInfo = null;
-  let development = false;
-  const signedIn = () => development || Boolean(token);
+  let authenticated = false;
+  const signedIn = () => authenticated;
   let lifetime = new AbortController();
   let catalogRequest;
   let resourceInterest = false;
@@ -52,17 +49,14 @@
     clearTimeout(resourceTimer);
     clearTimeout(revisionTimer);
     clearTimeout(updateTimer);
-    token = '';
-    development = false;
+    authenticated = false;
     sessionUser = null;
     emit('loom-session',{user:null});
     catalogEntities.clear();
-    input.value = '';
     status.textContent = message;
     access.hidden = false;
     frame.hidden = true;
     if (entryURL) {location.replace(entryURL+'/');return;}
-    form.hidden = ssoEnabled;
     document.getElementById('loom-sso-login').hidden = !ssoEnabled;
     retry.hidden = false;
   }
@@ -70,7 +64,7 @@
   async function get(path, signal = lifetime.signal) {
     const response = await fetch(path, {
       cache: 'no-store', credentials: 'same-origin', redirect: 'error',
-      headers: token ? {Authorization: 'Bearer ' + token} : {}, signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
+      signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]),
     });
     if (!response.ok) {
       const error = new Error('HTTP ' + response.status);
@@ -170,7 +164,7 @@
       let response;
       if (check) {
         response=await fetch('/api/updates/check',{method:'POST',credentials:'same-origin',redirect:'error',signal:AbortSignal.any([signal,AbortSignal.timeout(15000)]),
-          headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{}),...(csrf?{'X-Loom-CSRF':csrf}:{})},body:'{}'});
+          headers:{'Content-Type':'application/json',...(csrf?{'X-Loom-CSRF':csrf}:{})},body:'{}'});
         if (!response.ok) throw new Error('check_failed');
         const receipt=await response.json();
         emit('loom-updates',{updates:receipt.updates});
@@ -249,7 +243,7 @@
     const signal=lifetime.signal;
     try {
       const response=await fetch('/api/jobs/queue-actions', {method:'POST',cache:'no-store',credentials:'same-origin',redirect:'error',
-        headers:{'Content-Type':'application/json',...(csrf?{'X-Loom-CSRF':csrf}:{}),...(token?{Authorization:'Bearer '+token}:{})},
+        headers:{'Content-Type':'application/json',...(csrf?{'X-Loom-CSRF':csrf}:{})},
         body:JSON.stringify({action:message.action,arguments:message.arguments}),
         signal:AbortSignal.any([signal,AbortSignal.timeout(15000)])});
       if(!response.ok){const error=new Error('HTTP '+response.status);error.status=response.status;throw error;}
@@ -365,18 +359,6 @@
     } finally {accessBusy=false;}
   }
 
-  form.addEventListener('submit', async event => {
-    event.preventDefault();
-    if (catalogRequest) return;
-    token = input.value.trim();
-    input.value = '';
-    if (!signedIn()) return;
-    status.textContent = '연결 중';
-    await refreshCatalog();
-    resources();
-    scheduleRevision();
-    updates();
-  });
   window.addEventListener('message', event => {
     if (event.source !== frame.contentWindow || event.origin !== 'null' || !event.data) return;
     const message = event.data;
@@ -420,7 +402,6 @@
     scheduleRevision();
   });
   window.addEventListener('pagehide', () => {
-    token = '';
     lifetime.abort();
     clearTimeout(resourceTimer);
     clearTimeout(revisionTimer);
@@ -436,7 +417,6 @@
       ssoEnabled = session.sso === true;
       csrf = session.csrf || '';
       entryURL = session.entry_url || '';
-      form.hidden = ssoEnabled;
       document.getElementById('loom-sso-login').hidden = !ssoEnabled;
       sessionUser = session.user || null;
       tailnetInfo = session.tailnet || null;
@@ -451,10 +431,11 @@
           if (latest.revision !== session.revision) location.reload();
         } catch (_) {}
       }, 1000);
-      development = session.authentication_required === false;
-      if (!development) {
+      authenticated = session.authentication_required === false;
+      if (!authenticated) {
         if(session.entry_url){location.replace(session.entry_url+'/');return;}
-        access.hidden = false; return;
+        status.textContent = ssoEnabled ? '' : 'Tailscale 연결을 확인해 주세요. 계속 실패하면 관리자에게 문의해 주세요.';
+        retry.hidden = false; access.hidden = false; return;
       }
       status.textContent = '연결 중';
       await refreshCatalog();

@@ -8,7 +8,6 @@
         "dashboard/requirements.txt",
         "dashboard/sso.py",
         "ops/access.py",
-        "ops/credentials.py",
         "ops/ownership.py",
         "ops/service_tokens.py"
       ],

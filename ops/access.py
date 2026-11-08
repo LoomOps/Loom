@@ -2,9 +2,7 @@
 import hashlib
 import hmac
 import json
-import secrets
 import time
-import uuid
 import ipaddress
 import base64
 from pathlib import Path
@@ -115,19 +113,6 @@ def authenticate(c, bootstrap, digest):
     if resident:
         return resident
     raise PermissionError('Invalid or expired credential')
-
-
-def issue(c,principal,kind,grant,ttl):
-    if kind not in ('user','service') or type(ttl) is not int or not 60<=ttl<=86400:
-        raise ValueError('Invalid principal kind or TTL')
-    c.execute('INSERT OR IGNORE INTO principals VALUES(?,?,?)',(principal,kind,json.dumps(grant,sort_keys=True)))
-    if tuple(c.execute('SELECT kind,grant_json FROM principals WHERE id=?',(principal,)).fetchone())!=(kind,json.dumps(grant,sort_keys=True)):
-        raise ValueError('Existing principal grant differs')
-    token=secrets.token_urlsafe(32)
-    ident=uuid.uuid4().hex
-    c.execute('INSERT INTO credentials VALUES(?,?,?,?,NULL)',
-              (ident,principal,hashlib.sha256(token.encode()).hexdigest(),time.time()+ttl))
-    return {'credential_id':ident,'token':token}
 
 
 def delivery(c,actor,event,state,receipt,version):

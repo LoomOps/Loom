@@ -1,9 +1,8 @@
 """Stdio transport for the installed Ops JSON-RPC endpoint."""
 import json
-import os
 from pathlib import Path
-import stat
 import sys
+from headers import read_token
 from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
@@ -27,11 +26,7 @@ class OpsTransport:
         self.token = None
         self.protocol_version = None
         if config.get('credential'):
-            with Path(config['credential']).open() as stream:
-                info = os.fstat(stream.fileno())
-                if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
-                    raise PermissionError('Expected an operator-owned private credential file')
-                self.token = json.load(stream)['token']
+            self.token = read_token(Path(config['credential']))
         elif config.get('authentication') != 'tailscale':
             raise ValueError('Set credential or authentication=tailscale')
         self.opener = build_opener(NoRedirect())
