@@ -1226,7 +1226,7 @@ class API(BaseHTTPRequestHandler):
             if method == 'initialize':
                 requested=(body.get('params') or {}).get('protocolVersion')
                 result = {'protocolVersion':requested if requested in MCP_VERSIONS else MCP_VERSIONS[-1],'capabilities':{'tools':{}},
-                          'serverInfo':{'name':'loom-ops','version':build_version.status().get('build_id') or job_contract.API_REVISION},
+                          'serverInfo':{'name':'loom-ops','title':'Loom Use','version':build_version.status().get('build_id') or job_contract.API_REVISION},
                           'instructions':'At first connection call system.status and system.guide. Each tools/call response ends with a short Loom version line. Compare it with the previous response; only when contract or guide changes, refresh the affected tools/schemas or guides. A build-only change does not require rereading them. Keep existing Job pins. The first content block remains the operation result.'}
             elif method == 'ping':
                 result = {}

@@ -14,7 +14,7 @@ Pin a [GitHub Release](https://github.com/LoomOps/loom/releases) tag to build im
 
 ## Usage
 
-**MCP guidance, client tools and optional skills live in [`loom_use/`](loom_use/README.md).**
+**MCP guidance, client tools and optional skills live in [Loom Use](loom_use/README.md).**
 
 Connect to `<private Dashboard URL>/mcp` using the server address and your own authentication. Use `system.status`, `system.guide` and `system.describe` to discover the running version, usage guidance and exact input contracts. Dashboard is the web entry point for the same server.
 

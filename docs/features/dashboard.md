@@ -202,3 +202,8 @@ Admin or enabling a production admission worker. An optional `LOOM_MANAGEMENT_OR
 HTTPS origin on the dev Dashboard links to the separately deployed administration UI.
 Anonymous dev access is labeled as development authentication bypass, not a failed
 Tailscale login. This display metadata does not change API authorization.
+
+The MCP reference tab and page are displayed as **Loom Use**. The route `mcp`,
+tool groups and protocol names remain stable; the server and guide manifest expose
+`title: "Loom Use"` for display. Package paths and the `loom-use` skill identifier
+remain unchanged.

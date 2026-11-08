@@ -1,6 +1,6 @@
 # Documentation
 
-- Connection, MCP and Job usage tools: **[loom_use](../loom_use/README.md)**
+- Connection, MCP and Job usage tools: **[Loom Use](../loom_use/README.md)**
 - Installation and deployment: [deploy/README.md](../deploy/README.md)
 - Agent installation procedure: [INSTALL.md](../INSTALL.md)
 - Platform architecture: [PLATFORM.md](../deploy/PLATFORM.md)

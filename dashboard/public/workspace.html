@@ -2048,7 +2048,7 @@ html,body{margin:0!important;padding:0!important;height:100%;overflow:hidden}
 (()=&gt;{
 const root=document.getElementById(&#x27;pai-studio&#x27;);
 const content=root.querySelector(&#x27;#pa-content&#x27;);
-const navs=[[&#x27;queue&#x27;,&#x27;Dashboard&#x27;,&#x27;layout-dashboard&#x27;],[&#x27;files&#x27;,&#x27;Explorer&#x27;,&#x27;folder-open&#x27;],[&#x27;models&#x27;,&#x27;Models&#x27;,&#x27;box&#x27;],[&#x27;datasets&#x27;,&#x27;Datasets&#x27;,&#x27;database&#x27;],[&#x27;experiments&#x27;,&#x27;Experiments&#x27;,&#x27;flask-conical&#x27;],[&#x27;comparison&#x27;,&#x27;Comparison&#x27;,&#x27;git-compare-arrows&#x27;],[&#x27;issues&#x27;,&#x27;Troubleshooting&#x27;,&#x27;wrench&#x27;],[&#x27;docker&#x27;,&#x27;Docker&#x27;,&#x27;boxes&#x27;],[&#x27;mcp&#x27;,&#x27;MCP&#x27;,&#x27;plug&#x27;],[&#x27;access&#x27;,&#x27;Tailscale&#x27;,&#x27;tailscale&#x27;]];
+const navs=[[&#x27;queue&#x27;,&#x27;Dashboard&#x27;,&#x27;layout-dashboard&#x27;],[&#x27;files&#x27;,&#x27;Explorer&#x27;,&#x27;folder-open&#x27;],[&#x27;models&#x27;,&#x27;Models&#x27;,&#x27;box&#x27;],[&#x27;datasets&#x27;,&#x27;Datasets&#x27;,&#x27;database&#x27;],[&#x27;experiments&#x27;,&#x27;Experiments&#x27;,&#x27;flask-conical&#x27;],[&#x27;comparison&#x27;,&#x27;Comparison&#x27;,&#x27;git-compare-arrows&#x27;],[&#x27;issues&#x27;,&#x27;Troubleshooting&#x27;,&#x27;wrench&#x27;],[&#x27;docker&#x27;,&#x27;Docker&#x27;,&#x27;boxes&#x27;],[&#x27;mcp&#x27;,&#x27;Loom Use&#x27;,&#x27;plug&#x27;],[&#x27;access&#x27;,&#x27;Tailscale&#x27;,&#x27;tailscale&#x27;]];
 const models=[];
 let state={page:&#x27;queue&#x27;,model:null,tab:&#x27;overview&#x27;,folder:&#x27;models&#x27;,episode:1,issue:false,queueFilter:&#x27;all&#x27;};
 const icon=n=&gt;n=== &quot;tailscale&quot;?loomTailscaleIcon():`&lt;i data-lucide=&quot;${n}&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;`;
@@ -3235,7 +3235,7 @@ function loomMcpView() {
   let body=&#x27;&lt;p role=&quot;status&quot;&gt;MCP 사용 명세를 읽는 중입니다.&lt;/p&gt;&#x27;;
   if (loomMcpError) body=&#x27;&lt;p role=&quot;alert&quot;&gt;&#x27;+(loomMcpError===403?&#x27;MCP 조회 권한이 없습니다.&#x27;:&#x27;MCP 응답을 받을 수 없습니다.&#x27;)+&#x27;&lt;/p&gt;&#x27;;
   else if (mcp) {
-    body=&#x27;&lt;div class=&quot;pa-doc-status&quot;&gt;&lt;span&gt;&lt;b&gt;&#x27;+esc(mcp.serverInfo.name)+&#x27;&lt;/b&gt; · &#x27;+esc(mcp.serverInfo.version)+&#x27;&lt;/span&gt;&lt;span&gt;연결 정상 · &#x27;+esc(docs?.revision || mcp.protocolVersion)+&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;;
+    body=&#x27;&lt;div class=&quot;pa-doc-status&quot;&gt;&lt;span&gt;&lt;b&gt;&#x27;+esc(mcp.serverInfo.title || mcp.serverInfo.name)+&#x27;&lt;/b&gt; · &#x27;+esc(mcp.serverInfo.version)+&#x27;&lt;/span&gt;&lt;span&gt;연결 정상 · &#x27;+esc(docs?.revision || mcp.protocolVersion)+&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;;
     if (!docs?.groups?.length) body+=&#x27;&lt;p role=&quot;alert&quot;&gt;사용 명세를 가져오지 못했습니다. 서버의 문서 API와 권한을 확인해 주세요.&lt;/p&gt;&#x27;;
     else {
       const groups=docs.groups, group=groups.find(g=&gt;g.name===loomDocGroup) || groups[0];
@@ -3256,7 +3256,7 @@ function loomMcpView() {
       body+=&#x27;&lt;details class=&quot;pa-doc-workflow&quot;&gt;&lt;summary&gt;사용 흐름 · 제출 → 상태 → 복구 → 결과&lt;/summary&gt;&lt;ol&gt;&#x27;+docs.workflow.map(step=&gt;&#x27;&lt;li&gt;&lt;b&gt;&#x27;+esc(step.step)+&#x27;&lt;/b&gt; · &lt;code&gt;&#x27;+esc(step.group+&#x27;.&#x27;+step.action)+&#x27;&lt;/code&gt;&lt;p&gt;&#x27;+esc(step.note)+&#x27;&lt;/p&gt;&lt;/li&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/ol&gt;&lt;/details&gt;&#x27;;
     }
   }
-  return heading(&#x27;RESOURCES&#x27;,&#x27;MCP Reference&#x27;,&#x27;그룹별 사용 명세와 호출 예제&#x27;)+&#x27;&lt;button class=&quot;pa-button&quot; type=&quot;button&quot; data-loom-mcp-refresh&gt;새로고침&lt;/button&gt;&lt;span class=&quot;pa-doc-copy-status&quot; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;&lt;/span&gt;&lt;section class=&quot;pa-loom-mcp&quot; aria-label=&quot;MCP 사용 명세&quot;&gt;&#x27;+body+&#x27;&lt;/section&gt;&#x27;;
+  return heading(&#x27;RESOURCES&#x27;,&#x27;Loom Use&#x27;,&#x27;그룹별 사용 명세와 호출 예제&#x27;)+&#x27;&lt;button class=&quot;pa-button&quot; type=&quot;button&quot; data-loom-mcp-refresh&gt;새로고침&lt;/button&gt;&lt;span class=&quot;pa-doc-copy-status&quot; role=&quot;status&quot; aria-live=&quot;polite&quot;&gt;&lt;/span&gt;&lt;section class=&quot;pa-loom-mcp&quot; aria-label=&quot;MCP 사용 명세&quot;&gt;&#x27;+body+&#x27;&lt;/section&gt;&#x27;;
 }
 function loomDocRefresh() {
   for (const panel of root.querySelectorAll(&#x27;.pa-loom-mcp&#x27;)) {

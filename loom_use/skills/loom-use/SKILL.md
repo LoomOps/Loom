@@ -3,7 +3,7 @@ name: loom-use
 description: Submit and inspect GPU or CPU Jobs, components, profiles and results through an authorized Loom MCP endpoint. Use for Loom platform work; not general host administration.
 ---
 
-# Loom entry
+# Loom Use
 
 Use the endpoint and authentication method supplied by the user. Trusted Tailscale
 authentication needs no personal token; otherwise use the supplied personal credential.

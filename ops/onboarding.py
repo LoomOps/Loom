@@ -32,7 +32,7 @@ def identity():
  return {**values,'revision':digest(values)}
 
 def manifest():
- return {**identity(),'schema':'loom-onboarding/v1','package':'loom_use','entry':'entry',
+ return {**identity(),'schema':'loom-onboarding/v1','package':'loom_use','title':'Loom Use','entry':'entry',
          'mcp':{'endpoint':'/mcp','tool':'system','action':'guide'},
          'http':{'index':'/api/guide','bundle':'/api/guide/bundle'},
          'updates':{'mode':'check_on_connect_and_response','push':False,'changes_running_jobs':False}}

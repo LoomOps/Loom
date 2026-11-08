@@ -21,7 +21,7 @@ The linked code/schemas define fields, enums and state transitions. This documen
 
 [identity](identity.md) · [api](api.md)
 
-When usage contracts change, update loom_use documents, bundle inventory, revisions and the stdio client.
+When usage contracts change, update Loom Use documents, bundle inventory, revisions and the stdio client.
 
 ## Tests and failure boundaries
 
@@ -33,7 +33,7 @@ Test sources define the concrete scenarios. `deploy/test.sh` records individual 
 
 Verify actual client reconnection and guide refresh separately.
 
-Installation handoff explicitly offers optional loom_use skill setup and MCP connection registration in the user's selected client/machine. The scripted handoff provides the private endpoint, bundle URL and verification actions, but never claims registration from server-side health. Existing client settings are preserved; actual client discovery/status/guide checks are reported separately from server readiness.
+Installation handoff explicitly offers optional Loom Use skill setup and MCP connection registration in the user's selected client/machine. The scripted handoff provides the private endpoint, bundle URL and verification actions, but never claims registration from server-side health. Existing client settings are preserved; actual client discovery/status/guide checks are reported separately from server readiness.
 
 Resident Codex clients use `loom_use/clients/setup.py configure` with a Dashboard Admin-issued permanent token. `doctor` verifies the protected credential, matching user configuration and four live MCP operations. The static headers helper never issues or renews credentials. Installation docs must distinguish server readiness, saved client settings and actual client discovery.
 

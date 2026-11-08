@@ -2,7 +2,7 @@
 
 ## Resident Codex
 
-Ask a Loom Dashboard Admin to issue a token in **Tailscale → Agent Tokens** for your registered Loom user. It has no expiration; Admin can revoke it. Run this on the machine/account running Codex, using the downloaded loom_use bundle path (or `/loom/loom_use/current` on the server):
+Ask a Loom Dashboard Admin to issue a token in **Tailscale → Agent Tokens** for your registered Loom user. It has no expiration; Admin can revoke it. Run this on the machine/account running Codex, using the downloaded Loom Use bundle path (or `/loom/loom_use/current` on the server):
 
 ```bash
 python3 /path/to/loom_use/clients/setup.py configure \

@@ -15,6 +15,7 @@ class GuideTests(IsolatedOps):
    self.assertIn('entry.md',bundle.namelist());self.assertIn('skills/loom-use/SKILL.md',bundle.namelist())
    self.assertIn('clients/stdio.py',bundle.namelist());self.assertIn('README.md',bundle.namelist())
    self.assertEqual(json.loads(bundle.read('manifest.json'))['package'],'loom_use')
+   self.assertEqual(json.loads(bundle.read('manifest.json'))['title'],'Loom Use')
    for name in bundle.namelist():
     if name.endswith(('.md','.json')):
      self.assertNotRegex(bundle.read(name).decode(),r'[\uac00-\ud7a3]',name)
@@ -52,6 +53,7 @@ class GuideHTTPTests(APIContractTests):
   self.assertEqual(self.request('/api/guide',token=None)[0],403)
   status,index=self.request('/api/guide');self.assertEqual(status,200)
   init=self.request('/mcp',{'jsonrpc':'2.0','id':1,'method':'initialize','params':{}})[1]['result']
+  self.assertEqual(init['serverInfo']['title'],'Loom Use')
   self.assertIn('system.guide',init['instructions']);self.assertEqual(init['_meta']['loom']['revision'],index['manifest']['revision'])
   error=self.request('/mcp',{'jsonrpc':'2.0','id':2,'method':'tools/call','params':{'name':'system','arguments':{'action':'guide','arguments':{'id':'../secret'}}}})[1]['result']
   self.assertTrue(error['isError']);self.assertIn('loom',error['_meta'])

@@ -20,7 +20,7 @@ function loomMcpView() {
   let body='<p role="status">MCP 사용 명세를 읽는 중입니다.</p>';
   if (loomMcpError) body='<p role="alert">'+(loomMcpError===403?'MCP 조회 권한이 없습니다.':'MCP 응답을 받을 수 없습니다.')+'</p>';
   else if (mcp) {
-    body='<div class="pa-doc-status"><span><b>'+esc(mcp.serverInfo.name)+'</b> · '+esc(mcp.serverInfo.version)+'</span><span>연결 정상 · '+esc(docs?.revision || mcp.protocolVersion)+'</span></div>';
+    body='<div class="pa-doc-status"><span><b>'+esc(mcp.serverInfo.title || mcp.serverInfo.name)+'</b> · '+esc(mcp.serverInfo.version)+'</span><span>연결 정상 · '+esc(docs?.revision || mcp.protocolVersion)+'</span></div>';
     if (!docs?.groups?.length) body+='<p role="alert">사용 명세를 가져오지 못했습니다. 서버의 문서 API와 권한을 확인해 주세요.</p>';
     else {
       const groups=docs.groups, group=groups.find(g=>g.name===loomDocGroup) || groups[0];
@@ -41,7 +41,7 @@ function loomMcpView() {
       body+='<details class="pa-doc-workflow"><summary>사용 흐름 · 제출 → 상태 → 복구 → 결과</summary><ol>'+docs.workflow.map(step=>'<li><b>'+esc(step.step)+'</b> · <code>'+esc(step.group+'.'+step.action)+'</code><p>'+esc(step.note)+'</p></li>').join('')+'</ol></details>';
     }
   }
-  return heading('RESOURCES','MCP Reference','그룹별 사용 명세와 호출 예제')+'<button class="pa-button" type="button" data-loom-mcp-refresh>새로고침</button><span class="pa-doc-copy-status" role="status" aria-live="polite"></span><section class="pa-loom-mcp" aria-label="MCP 사용 명세">'+body+'</section>';
+  return heading('RESOURCES','Loom Use','그룹별 사용 명세와 호출 예제')+'<button class="pa-button" type="button" data-loom-mcp-refresh>새로고침</button><span class="pa-doc-copy-status" role="status" aria-live="polite"></span><section class="pa-loom-mcp" aria-label="MCP 사용 명세">'+body+'</section>';
 }
 function loomDocRefresh() {
   for (const panel of root.querySelectorAll('.pa-loom-mcp')) {

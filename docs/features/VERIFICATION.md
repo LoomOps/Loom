@@ -23,7 +23,7 @@ This matrix separates code-level regression coverage, installation diagnostics a
 ## Change review protocol
 
 1. Run `python3 deploy/features.py check` and `python3 deploy/features.py impact <changed paths> --transitive`.
-2. Inspect affected interfaces and downstream consumers, including installation and loom_use; update only contracts actually changed.
+2. Inspect affected interfaces and downstream consumers, including installation and Loom Use; update only contracts actually changed.
 3. Run the mapped regression suites. For entry/theme/relay changes include browser verification.
 4. Record the tested revision and JSON/JUnit evidence. Keep unperformed live checks explicit.
 5. During installation, reread INSTALL.md after every numbered step and compare doctor output with the step exit criteria. Do not turn this installation checklist into an extra Job execution gate.

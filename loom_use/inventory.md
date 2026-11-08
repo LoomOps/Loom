@@ -1,4 +1,4 @@
-# loom_use package inventory
+# Loom Use package inventory
 
 | Item | Location or interface | Updated by |
 |---|---|---|

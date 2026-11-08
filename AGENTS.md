@@ -6,7 +6,7 @@
 - UI source edits rebuild the dev browser without an image build. Restart Ops only after actual execution and result/callback work returns.
 - Immutable release images capture source and Git provenance. Never change an existing numbered release. Authentication bypass is dev-only.
 - Read `docs/features/README.md` and the relevant feature spec. `catalog.json` maps source, contracts, consumers and tests.
-- Update API/MCP, UI consumers, loom_use and installation packaging together when their contract changes. Run `deploy/features.py check`, impact and appropriate regression tests.
+- Update API/MCP, UI consumers, Loom Use and installation packaging together when their contract changes. Run `deploy/features.py check`, impact and appropriate regression tests.
 - Generated Dashboard HTML comes from workspace sources. `template.html` is a hash-pinned empty-data template: never embed host catalogs, operational instructions or measured research snapshots. If explicitly changing its structure, update the pinned hash, rebuild and test the generated workspace.
 - Runtime extensions/profiles under `/loom` are user-owned configuration. Platform upgrades preserve them; schema incompatibilities must be reported, never silently rewritten.
 - Feature checks are development tools, not additional Job execution gates. No internal agent hierarchy is required.

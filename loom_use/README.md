@@ -1,4 +1,4 @@
-# loom_use
+# Loom Use
 
 MCP guidance, client tools and optional skills for using Loom externally. This package does not provide an internal agent runner or machine operations policy.
 

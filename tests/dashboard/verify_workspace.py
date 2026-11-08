@@ -144,7 +144,7 @@ def exercise(wd, base, tokens, screenshot, _inactive):
     ui.wd('/url',{'url':base+'/'})
     ui.connect()
     for name,selector in [('Dashboard','[data-resource-panel]'),('Explorer','.pa-finder'),
-                          ('Models','[data-model-filter=query]'),('MCP','.pa-loom-mcp')]:
+                          ('Models','[data-model-filter=query]'),('Loom Use','.pa-loom-mcp')]:
         ui.nav(name);ui.wait('return !!document.querySelector(arguments[0])',selector)
     if screenshot:
         ui.top();screenshot.parent.mkdir(parents=True,exist_ok=True)

@@ -247,7 +247,7 @@ def handoff(setup, plan):
     a = service_plan(plan)
     return {'status':'services_ready','gateway':a['origin'],'dashboard':a['dashboard_origin'],
             'mcp':a['dashboard_origin']+'/mcp','build':setup.manifest()['build_id'],
-            'client_setup':{'status':'offer_to_user','package':'loom_use','skill':'loom-use',
+            'client_setup':{'status':'offer_to_user','package':'loom_use','title':'Loom Use','skill':'loom-use',
                 'local_skill':'/loom/loom_use/current/skills/loom-use',
                 'bundle_url':a['dashboard_origin']+'/api/guide/bundle',
                 'mcp_endpoint':a['dashboard_origin']+'/mcp','transport':'streamable_http',

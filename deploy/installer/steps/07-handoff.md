@@ -19,14 +19,14 @@ The final user message must contain:
 5. Running Ops/Dashboard/Gateway and host executor; CPU/GPU selection and exact verification scope.
 6. Default output path and every registered RW store with host-to-container mappings, plus dependency path.
 7. Doctor and smoke results, report locations, and any untested external-client/reboot/GPU-compute cases.
-8. Update checks are enabled/configured or explicitly unavailable; updates do not install automatically. Point to loom_use and the update guide.
-9. Offer to install/link `loom_use` (skill name `loom-use`) and automatically register the verified private `/mcp` endpoint in the user's agent client. Ask which client/machine and user profile to configure; do not assume the server is the client or use the `loom` service account's home.
+8. Update checks are enabled/configured or explicitly unavailable; updates do not install automatically. Point to Loom Use and the update guide.
+9. Offer to install/link Loom Use (skill name `loom-use`) and automatically register the verified private `/mcp` endpoint in the user's agent client. Ask which client/machine and user profile to configure; do not assume the server is the client or use the `loom` service account's home.
 
 Do not add unrelated platform explanations. Be concise, but never hide an unfinished required stage. Reread INSTALL.md and this checklist once more before sending the handoff.
 
 ## Optional client setup after installation
 
-Offer this explicitly in the final handoff: “Would you like me to install loom_use and register this Loom MCP connection in your agent client?” If that setup is already authorized and the target is known, carry it out without asking again.
+Offer this explicitly in the final handoff: “Would you like me to install Loom Use and register this Loom MCP connection in your agent client?” If that setup is already authorized and the target is known, carry it out without asking again.
 
 - On this host, use `/loom/loom_use/current/skills/loom-use` for a supported user-scope skill link. On a remote client, obtain the matching authenticated `/api/guide/bundle`; do not assume the server's filesystem paths exist there.
 - Register one **Streamable HTTP** MCP server at the verified private Dashboard origin plus `/mcp`. All six tool groups come from that server. Use the client's supported registration tool/configuration and preserve unrelated connections; detect an existing matching entry instead of duplicating it. Prefer a machine-qualified connection name when the client uses more than one Loom installation.

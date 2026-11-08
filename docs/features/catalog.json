@@ -580,7 +580,7 @@
       "invariants": [
         "The running server is authoritative for guides. Updates do not change personal instructions or active Job pins."
       ],
-      "change_rule": "When usage contracts change, update loom_use documents, bundle inventory, revisions and the stdio client. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.",
+      "change_rule": "When usage contracts change, update Loom Use documents, bundle inventory, revisions and the stdio client. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.",
       "live_validation": [
         "Verify actual client reconnection and guide refresh separately."
       ],

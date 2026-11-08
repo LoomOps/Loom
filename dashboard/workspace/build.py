@@ -24,6 +24,7 @@ def build(original):
     match = re.search(r'data-srcdoc="([^"]*)"', outer)
     inner = html.unescape(match[1])
     inner = patch_logs(inner)
+    inner = replace_once(inner, "['mcp','MCP','plug']", "['mcp','Loom Use','plug']")
     inner = replace_once(inner, '<div class="pa-activity-track"><div class="pa-activity-months">',
                          '<div class="pa-activity-track">${activityYears(weeks)}<div class="pa-activity-months">')
     inner = replace_once(inner, "catSyncControl();resourceInterest();", "catSyncControl();resourceInterest();scheduleActivityLayout();")

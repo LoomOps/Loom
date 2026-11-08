@@ -439,7 +439,7 @@ const done=arguments[arguments.length-1];
     def test_docker_mcp_and_narrow_light_dark_layout(self):
         ui=self.ui;ui.nav('Docker');ui.wait("return document.querySelectorAll('[data-container-row]').length===2")
         ui.click('[data-container-row]');ui.wait("return document.querySelector('[data-container-extra]')?.hidden===false")
-        ui.nav('MCP');ui.wait("return document.querySelector('.pa-doc-detail')?.textContent.includes('jobs.get')")
+        ui.nav('Loom Use');ui.wait("return document.querySelector('.pa-doc-detail')?.textContent.includes('jobs.get')")
         ui.route('fixture-live')
         for width in [1440,390]:
             ui.top();self.wd('/window/rect',{'width':max(width,500),'height':1000});ui.js("document.querySelector('iframe').style.width=arguments[0]+'px'",width);ui.frame();ui.wait("return innerWidth===arguments[0]",width)
@@ -449,7 +449,7 @@ const done=arguments[arguments.length-1];
                 if folder:=os.environ.get('LOOM_TEST_SCREENSHOTS'):
                     output=Path(folder);output.mkdir(parents=True,exist_ok=True);ui.top();(output/f'job-{theme}-{width}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));ui.frame()
     def test_mcp_reference_navigation_examples_copy_and_mobile(self):
-        ui=self.ui;ui.nav('MCP')
+        ui=self.ui;ui.nav('Loom Use')
         ui.wait("return document.querySelector('[data-doc-action=submit]')")
         ui.click('[data-doc-action=submit]')
         self.assertTrue(ui.js("return document.querySelector('.pa-doc-detail').textContent.includes('jobs.submit')"))
@@ -552,7 +552,7 @@ const done=arguments[arguments.length-1];
                     ui.top();(out/f'surfaces-{mode}-{width}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));ui.frame()
         ui.nav('Docker');ui.wait("return document.querySelectorAll('[data-container-row]').length===2")
         ui.click('[data-container-row]');ui.wait("return document.querySelector('[data-container-extra]')?.hidden===false")
-        ui.nav('MCP');ui.wait("return document.querySelector('.pa-doc-detail.loom-surface svg.loom-surface-skin')!==null")
+        ui.nav('Loom Use');ui.wait("return document.querySelector('.pa-doc-detail.loom-surface svg.loom-surface-skin')!==null")
 
     def test_activity_visible_initialization_and_stable_scroll(self):
         ui=self.ui
@@ -659,7 +659,7 @@ const done=arguments[arguments.length-1];
             ui.js("parent.postMessage({type:'loom-docker-request'},'*')")
             ui.wait("return document.querySelector('.pa-loom-docker').textContent.includes(arguments[0])",str(value)+'%')
             self.assertEqual(ui.js("return [savedRow===document.querySelector('[data-container-row]'),savedExtra.isConnected,!savedExtra.hidden,savedRow.getAttribute('aria-expanded')==='true',document.activeElement===savedRow,savedDockerSkins.every(n=>n.isConnected)]"),[True]*6)
-        ui.nav('MCP');ui.wait("return document.querySelector('[data-doc-action=submit]')")
+        ui.nav('Loom Use');ui.wait("return document.querySelector('[data-doc-action=submit]')")
         ui.click('[data-doc-action=submit]')
         ui.wait("return document.querySelector('.pa-doc-detail>.loom-surface-skin')")
         ui.js("""window.savedDoc=document.querySelector('.pa-doc-detail');
