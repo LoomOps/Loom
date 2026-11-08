@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-alpha.22 — 2026-11-08
 
 - Guide existing Tailscale connection reuse, initial login, explicit account switching
   and device approval separately from the Loom Admin email and management credential.
