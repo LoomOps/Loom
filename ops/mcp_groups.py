@@ -4,7 +4,7 @@ GROUPS={
  'recovery':{'description':'Claim, report progress, resume, defer or reactivate a failed Job.', 'actions':{a:'recover_job' for a in ('claim','progress','resume','defer','reactivate')}},
  'events':{'description':'Read durable completion/error events and acknowledge receipt.', 'actions':{'list':'list_events','ack':'ack_event'}},
  'components':{'description':'Discover execution profiles or register a user-owned component revision.', 'actions':{'list':'component_list','get':'component_get','register':'component_register','write':'component_write','profiles':'list_execution_profiles','register_profile':'profile_register','get_profile':'profile_get'}},
- 'results':{'description':'Read artifacts/history, reindex returned results or append annotations.', 'actions':{'list':'list_registry','get':'get_entity','reindex':'reindex_job','annotate':'annotate_job','history':'list_history','historical':'get_history','assign_owner':'assign_entity_owner'}},
+ 'results':{'description':'Read artifacts/history, reindex returned results or append annotations.', 'actions':{'list':'list_registry','get':'get_entity','reindex':'reindex_job','reconnect':'reconnect_location','annotate':'annotate_job','history':'list_history','historical':'get_history','assign_owner':'assign_entity_owner'}},
  'system':{'description':'Read service/container status and compact API action schemas.', 'actions':{'users':'list_users','status':'system_status','updates':'release_status','check_updates':'check_releases','docker':'docker_status','contract':'get_job_contract','describe':'describe_action','guide':'read_guide'}}}
 
 def tools(actor,known):

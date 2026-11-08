@@ -37,3 +37,13 @@ Read `system.status.data_stores`, then set `output_storage` on `jobs.submit`, fo
 Loom validates the files/hashes and indexes the selected storage ID, relative paths, metadata, metrics and lineage. Dependent Jobs can use `{ "job":"<producer-id>", "entity":"<output-id>" }`; registered locator inputs work across stores too. Inputs are mounted read-only, without mounting their entire store. `runtime.storage` is a separate opt-in for general shared RW access, not the output selector.
 
 A missing/replaced store fails that Job instead of falling back to data/0. Result-indexing retries use the same output store and do not rerun compute. Recovery cannot change output_storage on an existing Job; submit a new Job to choose another output store. Image updates preserve configured paths and markers. Older installations expose data/0 by default; additional output stores require their persistent storage IDs and executor grants to be configured, not just an Explorer mount.
+
+## Reconnect a restored artifact
+
+After restoring the exact bytes of an existing artifact, use `results.reconnect`
+with `id`, `revision`, the original `component` reference, the new store-relative
+`ref`, and optional `storage` (default data/0). Discover the exact schema first.
+Loom checks the registered store, path, immutable hash and size, then records the
+location. This neither republishes different contents nor reruns the Job. Readers
+cannot reconnect; ordinary users with submit scope can. Use `results.get` to
+inspect the registered locations afterwards.

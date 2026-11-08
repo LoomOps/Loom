@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha.20 — 2026-11-08
+
+- Expose artifact location repair as `results.reconnect` through MCP, generated
+  reference/bundle and usage guides, matching the existing HTTP operation.
+- Add HTTP/MCP parity and tokenless Tailscale MCP regression coverage; document
+  instance-specific authentication and Sharing port reconciliation on upgrades.
+- API revision: `loom-ops/v37`. Existing credentials, Job pins and data are preserved.
+
 ## 0.1.0-alpha.19 — 2026-11-08
 
 - Default new installs to host /loom/data as data/0; prompt for optional RW stores and existing filesystem mounts. Preserve existing data owners and check effective service access.

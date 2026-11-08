@@ -227,3 +227,50 @@ class APIContractTests(IsolatedOps):
         self.request('/api/actions',{'group':'jobs','action':'reorder','arguments':{'id':b,'position':'tail'}})
         self.assertNotEqual(revision,self.request('/api/dashboard/revision')[1]['revision'])
         self.assertEqual(self.request('/api/jobs/contract')[1]['queue_policy']['scope'],'submit')
+
+    def test_tokenless_tailnet_mcp_discovery_and_reconnect_permission(self):
+        headers=self.tailnet(allow_new_users=True)
+        def rpc(method,params=None,h=headers,token=None):
+            return self.request('/mcp',{'jsonrpc':'2.0','id':1,'method':method,'params':params or {}},token=token,headers=h)
+        with patch.dict(os.environ,{'LOOM_DEV_NO_AUTH':'0'}):
+            self.assertEqual(rpc('initialize')[0],200)
+            tools=rpc('tools/list')[1]['result']['tools']
+            self.assertIn('reconnect',next(t for t in tools if t['name']=='results')['inputSchema']['properties']['action']['enum'])
+            call={'name':'system','arguments':{'action':'describe','arguments':{'group':'results','action':'reconnect'}}}
+            result=rpc('tools/call',call)[1]['result']
+            self.assertFalse(result.get('isError'));self.assertIn('storage',json.loads(result['content'][0]['text'])['schema']['properties'])
+            self.assertEqual(rpc('initialize',h={})[0],403)
+            self.assertEqual(rpc('initialize',token='wrong')[0],403)
+            self.config['tailscale_auth']['trusted_proxies']=['192.0.2.1']
+            self.assertEqual(rpc('initialize')[0],403)
+
+    def test_reconnect_http_and_mcp_share_storage_integrity_and_scope(self):
+        from pathlib import Path
+        extra=self.root/'extra';extra.mkdir()
+        (extra/'.loom-storage.json').write_text(json.dumps({'storage_id':'extra-id'}))
+        self.config['data_stores']={'data/1':{'path':str(extra),'storage_id':'extra-id','mode':'rw'}}
+        job=self.submit();row=self.claim(job)
+        with patch.object(ops,'guard'):
+            ops.execute(row,self.config)
+            ops.process_result({**self.row(job),'retries':0},self.config)
+        entity=json.loads(self.row(job)['result'])['entities'][0]
+        source=self.data/entity['locator']['ref']
+        (extra/'copy.json').write_bytes(source.read_bytes())
+        (self.data/'copy.json').write_bytes(source.read_bytes())
+        args={'id':job+'.observation','revision':1,'component':'observation.json','ref':'copy.json'}
+        def mcp(a,token='fixture-owner'):
+            return self.request('/mcp',{'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':'results','arguments':{'action':'reconnect','arguments':a}}},token=token)[1]['result']
+        for store in ('data/0','data/1'):
+            a={**args,'storage':store}
+            http=self.request('/api/registry/reconnect',a)
+            result=mcp(a)
+            self.assertEqual(http[0],200);self.assertFalse(result.get('isError'))
+            self.assertEqual(http[1],json.loads(result['content'][0]['text']))
+        self.assertEqual(self.request('/api/registry/reconnect',args,token='fixture-reader')[0],403)
+        self.assertTrue(mcp(args,'fixture-reader')['isError'])
+        for a in ({**args,'storage':'data/99'},{**args,'ref':'../outside'},{**args,'component':'missing'}):
+            self.assertNotEqual(self.request('/api/registry/reconnect',a)[0],200)
+            self.assertTrue(mcp(a)['isError'])
+        (extra/'copy.json').write_text('corrupted')
+        self.assertEqual(self.request('/api/registry/reconnect',{**args,'storage':'data/1'})[0],400)
+        self.assertTrue(mcp({**args,'storage':'data/1'})['isError'])

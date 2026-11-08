@@ -93,3 +93,16 @@ GitHub contract: [List releases](https://docs.github.com/en/rest/releases/releas
 [conditional requests and rate limits](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api).
 
 New installations register all selected stores RW. Existing generated storage overlays and executor grants are preserved by updates; an old read-only overlay must be reconciled explicitly before using `runner.storage`. The base Compose data mounts are RW, while final user overrides remain authoritative.
+
+### Verify authentication on the selected instance
+
+An image update preserves each instance's authentication settings. A working
+Tailscale-authenticated development endpoint does not prove that the alpha endpoint
+accepts the same identity. For tokenless user access, enable `tailscale_auth` on
+that instance, trust only its actual Serve ingress peer, preserve explicit actor
+bindings, and verify the deployed HTTPS `/mcp` using an authorized user device.
+Sharing approval must grant that exact HTTPS port; keep the public Funnel
+request-only. Apply the same private-port list to existing approval grants and
+the admission worker so future approvals/revocations remain consistent. Do not
+grant all shared users access before approval or turn on development auth bypass.
+Tagged or unidentified clients still require their own service credentials.

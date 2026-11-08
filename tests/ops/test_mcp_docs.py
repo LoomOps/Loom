@@ -36,3 +36,15 @@ class McpDocumentationTests(IsolatedOps):
         self.assertEqual(actual['required'],expected['required'])
         self.assertEqual(actual['properties']['execution'],{**expected['properties']['execution'],'description':mcp_docs.FIELD_HELP['execution']})
         with self.assertRaises(ValueError):self.reference(group='jobs')
+
+    def test_public_result_operations_have_grouped_discovery_and_bundle_reference(self):
+        # This list is the HTTP result contract, independent of GROUPS. A missing
+        # mapping must fail rather than disappear from both generated expectations.
+        operations={'list_registry','get_entity','reindex_job','reconnect_location',
+                    'annotate_job','list_history','get_history','assign_entity_owner'}
+        self.assertEqual(set(mcp_groups.GROUPS['results']['actions'].values()),operations)
+        self.assertIn('results.reconnect',mcp_docs.ACTIONS)
+        schema=self.reference(group='results',action='reconnect')['schema']
+        self.assertEqual(set(schema['required']),{'id','revision','component','ref'})
+        self.assertEqual(schema['properties']['storage']['default'],'data/0')
+        with self.assertRaises(PermissionError):self.reference(self.reader,group='results',action='reconnect')
