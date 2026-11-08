@@ -16,6 +16,7 @@
 !theme/**
 
 !sharing.py
+!managed_resources.py
 
 !branding
 !branding/**

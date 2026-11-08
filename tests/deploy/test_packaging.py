@@ -117,6 +117,6 @@ class DashboardBuildContextTests(unittest.TestCase):
     def test_explicit_dashboard_context_includes_native_identity_runtime(self):
         root=Path(__file__).resolve().parents[2]
         allowed=set((root/'dashboard/.dockerignore').read_text().splitlines())
-        for name in ['server.py','sso.py','requirements.txt','build_version.py','build-info.json','admission.py','admission_http.py','gateway.py','gateway.js','theme','theme/**']:
+        for name in ['server.py','sso.py','requirements.txt','build_version.py','build-info.json','admission.py','sharing.py','managed_resources.py','admission_http.py','gateway.py','gateway.js','theme','theme/**']:
             self.assertIn('!'+name,allowed)
         self.assertNotIn('PyJWT',(root/'dashboard/requirements.txt').read_text())

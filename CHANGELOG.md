@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0-alpha.22 — 2026-11-08
+## 0.1.0-alpha.23 — 2026-11-08
 
 - Guide existing Tailscale connection reuse, initial login, explicit account switching
   and device approval separately from the Loom Admin email and management credential.
@@ -9,6 +9,8 @@
   and shared resources; detect final-device-tag reauthentication before stopping services.
 - Add reviewed, policy-only cleanup for removed installations, plus installation
   doctor, offline-kit dependency and regression coverage.
+- Include the ownership journal module in the explicit Dashboard build context.
+  Alpha.22 failed packaging and was never published or deployed.
 
 ## 0.1.0-alpha.21 — 2026-11-08
 
