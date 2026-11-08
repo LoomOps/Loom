@@ -149,12 +149,21 @@ class WebHandler(BaseHTTPRequestHandler):
                     pass
                 finally:
                     connection.close()
+            person = {**session['user'],'access_admin':bool(getattr(self.server,'admission',None) and self.server.admission.is_admin(session['user']))} if session else None
+            if not person and authenticated:
+                from email.header import decode_header, make_header
+                login=identity['Tailscale-User-Login']
+                person={'login':login,'name':str(make_header(decode_header(identity.get('Tailscale-User-Name') or login))),
+                        'authentication':'tailscale-network','access_admin':False}
+            tailnet={'machine':self.server.admission.config.get('name',self.server.admission.config['machine_id'])} if session and getattr(self.server,'admission',None) else {}
+            if self.server.development and not self.server.sso:
+                tailnet.update(development=True,management_url=getattr(self.server,'management_origin',None))
             return self.reply(200, json.dumps({'authentication_required': not (session if self.server.sso else self.server.development or authenticated),
                                               'sso':bool(self.server.sso), 'login_url':'/auth/login' if self.server.sso else None,
                                               'entry_url':self.entry_origin(),
-                                              'user':{**session['user'],'access_admin':bool(getattr(self.server,'admission',None) and self.server.admission.is_admin(session['user']))} if session else None,
+                                              'user':person,
                                               'csrf':session['csrf'] if session else None,
-                                              'tailnet':{'machine':self.server.admission.config.get('name',self.server.admission.config['machine_id'])} if session and getattr(self.server,'admission',None) else None,
+                                              'tailnet':tailnet or None,
                                               'live_reload': live, 'revision': revision,
                                               'build':build_version.status()}).encode())
         if self.path == "/healthz":
@@ -377,6 +386,8 @@ def make_server(bind, port, api_origin):
     server = ThreadingHTTPServer((bind, port), WebHandler)
     server.upstream = origin
     server.development = os.environ.get('LOOM_DEV_NO_AUTH') == '1'
+    management=os.getenv('LOOM_MANAGEMENT_ORIGIN') if server.development else None
+    server.management_origin=sso.validate_url(management,origin=True) if management else None
     server.tailscale_proxies = os.getenv('LOOM_TAILSCALE_TRUSTED_PROXIES','').split()
     config_path=os.getenv('LOOM_SSO_CONFIG')
     server.sso=sso.SSO(json.loads(Path(config_path).read_text())) if config_path else None

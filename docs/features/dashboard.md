@@ -188,3 +188,16 @@ and loads live data only through the existing authenticated API. A privacy check
 `tests/deploy/test_public_source.py` prevents embedded real catalog records and verifies
 the generated workspace matches the sanitized template. Display normalization logic
 is preserved independently of the example data.
+
+## Resident token presentation
+
+The Admin token card lists active credentials first and keeps revoked records in a
+collapsed history section. Revocation is not deletion. The issuance dialog lives in
+the parent document, uses the workspace typography/theme, and clears the secret on
+close. Secrets never enter the catalog iframe or browser storage. Browser tests use fake credentials. Connection instructions expand separately from the copy action.
+
+Development sessions display a trusted Serve identity when present, without granting
+Admin or enabling a production admission worker. An optional `LOOM_MANAGEMENT_ORIGIN`
+HTTPS origin on the dev Dashboard links to the separately deployed administration UI.
+Anonymous dev access is labeled as development authentication bypass, not a failed
+Tailscale login. This display metadata does not change API authorization.

@@ -56,6 +56,17 @@ class ProxyTest(unittest.TestCase):
         self.assertEqual(self.request('/api/principal',headers=headers)[0],200)
         self.assertEqual(self.api.identity_headers['Tailscale-User-Login'],'member@example.test')
         self.assertFalse(json.loads(self.request('/session',headers=headers)[2])['authentication_required'])
+        session=json.loads(self.request('/session',headers=headers)[2])
+        self.assertEqual(session['user']['login'],'member@example.test')
+        self.assertFalse(session['user']['access_admin'])
+        self.web.development=True
+        self.web.management_origin='https://loom.tail123.ts.net:8443'
+        session=json.loads(self.request('/session',headers=headers)[2])
+        self.assertTrue(session['tailnet']['development'])
+        self.assertEqual(session['tailnet']['management_url'],self.web.management_origin)
+        self.web.tailscale_proxies=[]
+        self.assertIsNone(json.loads(self.request('/session',headers=headers)[2])['user'])
+        self.web.tailscale_proxies=['127.0.0.1'];self.web.development=False
         self.assertEqual(self.request('/api/principal',headers={**headers,'Origin':'https://attacker.test'})[0],403)
         self.assertEqual(self.request('/api/principal',headers={**headers,'Authorization':'Bearer explicit'})[0],200)
         self.assertIsNone(self.api.identity_headers['Tailscale-User-Login'])

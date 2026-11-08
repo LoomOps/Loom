@@ -296,3 +296,20 @@
 #pai-studio .pa-activity-year-segment{flex:0 0 calc(var(--activity-pitch,19px)*var(--weeks));display:flex;min-width:0}
 #pai-studio .pa-activity-year-pin{position:sticky;left:0;flex:0 0 0;min-width:0;z-index:1;pointer-events:none}
 #pai-studio .pa-activity-year-pin>span{display:block;width:4ch;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:16px}
+
+/* Resident credentials use the same form rhythm and surfaces as the workspace. */
+#pai-studio .pa-token-form{display:grid;grid-template-columns:minmax(150px,1fr) minmax(180px,1.25fr) minmax(130px,.7fr) auto;align-items:end;gap:16px;margin:8px 0 12px}
+#pai-studio .pa-token-form label{display:grid;gap:8px;min-width:0;font-size:11px;color:var(--pa-muted)}
+#pai-studio .pa-token-form input,#pai-studio .pa-token-form select{box-sizing:border-box;width:100%;min-width:0;height:42px;border:1px solid var(--pa-line);border-radius:13px;corner-shape:squircle;background:light-dark(#fff9,#1c22297a);padding:0 12px;color:var(--pa-ink);font:inherit;font-size:13px}
+#pai-studio .pa-token-form .pa-token-create{height:42px;border:0;border-radius:13px;background:var(--pa-accent);color:light-dark(#fff,#17243c);padding:0 18px;font-size:12px;font-weight:550}
+#pai-studio .pa-token-form :disabled{opacity:.45;cursor:default}
+#pai-studio .pa-token-form :focus-visible{outline:2px solid var(--pa-accent);outline-offset:2px}
+#pai-studio .pa-token-caption{margin:0 0 18px;color:var(--pa-muted);font-size:11px}
+#pai-studio .pa-token-empty{padding:26px 0 16px;color:var(--pa-muted);font-size:13px}
+#pai-studio .pa-token-active{color:light-dark(#2a7960,#8dc9ae)}
+#pai-studio .pa-token-history{margin-top:16px;border-top:1px solid var(--pa-line);padding-top:14px}
+#pai-studio .pa-token-history summary{cursor:pointer;color:var(--pa-muted);font-size:12px;padding:4px 0}
+#pai-studio .pa-token-history summary span{margin-left:8px;font-variant-numeric:tabular-nums}
+#pai-studio .pa-token-history[open] summary{margin-bottom:12px}
+@container pane (max-width:850px){#pai-studio .pa-token-form{grid-template-columns:1fr 1fr}#pai-studio .pa-token-form .pa-token-create{justify-self:stretch}}
+@container pane (max-width:480px){#pai-studio .pa-token-form{grid-template-columns:minmax(0,1fr);gap:12px}}

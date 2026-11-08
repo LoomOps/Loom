@@ -22,3 +22,11 @@ Complete `deploy/installer/tailnet-plan.example.json`. In `network_users`, expli
 5. Gateway setup is mandatory for a complete installation: follow the numbered installer steps and the [Sharing contract](ACCESS-ENROLLMENT.md). Only the separate request listener is public; Dashboard/MCP remain private. The installer grants explicitly configured native users the exact private machine port.
 
 Management API tokens and machine login are independent. Store secrets only in root-managed files. tag:loom supports Hub discovery; user grants target exact addresses/ports of the approved machine.
+
+## Development identity display
+
+A no-auth dev Dashboard may display the current Serve-provided login and name after
+its upstream identity check, but does not infer Admin permission. Set
+`LOOM_MANAGEMENT_ORIGIN=https://<machine>:<private-port>` in the development instance
+environment to offer a link to deployed access management. Compose applies this
+setting only to the development Dashboard. Keep that port restricted to developers.

@@ -293,19 +293,29 @@
   }
 
   function showIssuedToken(result){
-    const modal=document.createElement('dialog');modal.className='loom-token-dialog';
-    const title=document.createElement('h2');title.textContent='Agent token';
-    const note=document.createElement('p');note.textContent='지금 한 번만 표시됩니다. 안전한 위치에 저장해 주세요. 만료 없이 Admin이 폐기할 때까지 유효합니다.';
-    const value=document.createElement('textarea');value.readOnly=true;value.setAttribute('aria-label','Issued token');value.value=result.token;
-    const copy=document.createElement('button');copy.textContent='Copy token';copy.onclick=async()=>{try{await navigator.clipboard.writeText(value.value);copy.textContent='Copied';}catch{value.select();copy.textContent='선택한 토큰을 복사해 주세요';}};
-    const command=document.createElement('textarea');command.readOnly=true;command.setAttribute('aria-label','Client setup command');
+    const el=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text)node.textContent=text;return node;};
+    const modal=el('dialog','loom-token-dialog');modal.setAttribute('aria-labelledby','loom-token-title');
+    const header=el('header','loom-token-head'),heading=el('div');
+    const title=el('h2','','Agent token');title.id='loom-token-title';
+    heading.append(el('span','loom-token-eyebrow','CREDENTIAL'),title);
+    const dismiss=el('button','loom-token-dismiss','×');dismiss.setAttribute('aria-label','Close');dismiss.onclick=()=>modal.close();header.append(heading,dismiss);
+    const note=el('p','loom-token-note','이 토큰은 지금 한 번만 표시됩니다.');
+    const value=el('textarea','loom-token-value');value.readOnly=true;value.rows=2;value.setAttribute('aria-label','Issued token');value.value=result.token;
+    const copy=el('button','loom-token-button loom-token-primary','Copy token');
+    copy.onclick=async()=>{try{await navigator.clipboard.writeText(value.value);copy.textContent='Copied';}catch{value.select();copy.textContent='선택한 토큰을 복사해 주세요';}};
+    const secret=el('section','loom-token-section');secret.append(el('h3','','Token'),value,copy);
+    const setup=el('details','loom-token-setup');setup.append(el('summary','','Connect an agent'));
+    const command=el('textarea','loom-token-command');command.readOnly=true;command.rows=3;command.setAttribute('aria-label','Client setup command');
     const endpoint=location.origin+'/mcp';
     command.value='python3 ./clients/setup.py configure --endpoint '+"'"+endpoint+"' --name loom-"+location.hostname.split('.')[0];
-    const bundle=document.createElement('a');bundle.href='/api/guide/bundle';bundle.download='loom_use.zip';bundle.textContent='Download loom_use';
-    const hint=document.createElement('p');hint.textContent='Codex가 실행되는 머신에 loom_use를 내려받아 압축을 푼 폴더에서 실행하세요. 토큰은 명령 실행 후 숨김 입력합니다.';
-    const close=document.createElement('button');close.textContent='Done';close.onclick=()=>modal.close();
+    const bundle=el('a','loom-token-button','Download loom_use');bundle.href='/api/guide/bundle';bundle.download='loom_use.zip';
+    const copyCommand=el('button','loom-token-button','Copy command');copyCommand.onclick=async()=>{try{await navigator.clipboard.writeText(command.value);copyCommand.textContent='Copied';}catch{command.select();}};
+    const actions=el('div','loom-token-actions');actions.append(bundle,copyCommand);
+    setup.append(el('p','loom-token-hint','에이전트를 실행할 머신에서 loom_use를 압축 해제한 뒤 실행하세요. 토큰은 실행 후 입력합니다.'),command,actions);
+    const footer=el('footer','loom-token-footer');const close=el('button','loom-token-button','Done');close.onclick=()=>modal.close();
+    footer.append(el('span','loom-token-hint','No expiration · Revoke anytime'),close);
     modal.addEventListener('close',()=>{value.value='';result.token='';modal.remove();});
-    modal.append(title,note,value,copy,command,bundle,hint,close);document.body.append(modal);modal.showModal();
+    modal.append(header,note,secret,setup,footer);document.body.append(modal);modal.showModal();copy.focus();
   }
 
   let accessBusy=false;
@@ -358,7 +368,9 @@
   window.addEventListener('message', event => {
     if (event.source !== frame.contentWindow || event.origin !== 'null' || !event.data) return;
     const message = event.data;
-    if (message.type === 'loom-theme-choice') {
+    if (message.type === 'loom-open-management' && tailnetInfo?.development && tailnetInfo.management_url) {
+      location.assign(tailnetInfo.management_url+'/#/views/tailscale');
+    } else if (message.type === 'loom-theme-choice') {
       window.LoomTheme.set(message.mode);
     } else if (message.type === 'loom-logout' && ssoEnabled && csrf) {
       fetch('/auth/logout', {method:'POST',credentials:'same-origin',headers:{'X-Loom-CSRF':csrf},redirect:'follow'})
@@ -414,14 +426,14 @@
       entryURL = session.entry_url || '';
       form.hidden = ssoEnabled;
       document.getElementById('loom-sso-login').hidden = !ssoEnabled;
-      sessionUser = ssoEnabled ? session.user : null;
+      sessionUser = session.user || null;
       tailnetInfo = session.tailnet || null;
       emit('loom-session',{user:sessionUser,tailnet:tailnetInfo});
       if (session.live_reload) setInterval(async () => {
         if (document.hidden) return;
         try {
           const latest = await fetch('/session', {cache:'no-store'}).then(r => r.json());
-          sessionUser=latest.sso ? latest.user : null;
+          sessionUser=latest.user || null;
           tailnetInfo=latest.tailnet || null;
           showBuild(latest.build);
           if (latest.revision !== session.revision) location.reload();

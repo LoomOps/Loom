@@ -26,13 +26,27 @@ html[data-loom-theme="dark"] #loom-entry input {background:#303843c0;}
 
 @media(prefers-color-scheme:dark){html[data-loom-theme="system"] #loom-entry{background:#171c23;color:#e4e8ee}html[data-loom-theme="system"] .loom-entry-card{background:#252b34c0}html[data-loom-theme="system"] #loom-entry input{background:#303843c0}}
 
-.loom-token-dialog{width:min(620px,90vw);border:1px solid #8290a533;border-radius:28px;padding:28px;background:var(--loom-surface,#f5f7fb);color:var(--loom-text,#18253d)}
-.loom-token-dialog::backdrop{background:#10182866;backdrop-filter:blur(10px)}
-.loom-token-dialog textarea{display:block;box-sizing:border-box;width:100%;min-height:80px;padding:12px;margin:16px 0;border:1px solid #8290a544;border-radius:14px;background:#8290a510;color:inherit;resize:vertical}
-.loom-token-dialog button{padding:10px 16px;margin-right:10px;border:0;border-radius:12px;cursor:pointer}
-
-html[data-loom-theme="dark"] .loom-token-dialog{background:#252b34;color:#e4e8ee}
-@media(prefers-color-scheme:dark){html[data-loom-theme="system"] .loom-token-dialog{background:#252b34;color:#e4e8ee}}
+.loom-token-dialog{--token-surface:#f8faff;--token-ink:#17243c;--token-muted:#596983;--token-line:#dce3ef;--token-field:#edf2f8;--token-accent:#3563bd;box-sizing:border-box;width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:auto;margin:auto;border:1px solid #ffffff60;border-radius:34px;corner-shape:squircle;padding:28px;background:var(--token-surface);color:var(--token-ink);box-shadow:0 24px 90px #10213b26;font:14px/1.55 Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+.loom-token-dialog::backdrop{background:#101a3033;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.loom-token-head,.loom-token-footer,.loom-token-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.loom-token-eyebrow{font-size:10px;letter-spacing:.14em;font-weight:650;color:var(--token-accent)}
+.loom-token-dialog h2{margin:3px 0 0;font-size:23px;letter-spacing:-.03em;font-weight:620;line-height:1.3}
+.loom-token-dialog h3{margin:0 0 8px;font-size:12px;font-weight:550;color:var(--token-muted)}
+.loom-token-note{margin:14px 0 24px;color:var(--token-muted);font-size:13px}
+.loom-token-dialog textarea{display:block;box-sizing:border-box;width:100%;padding:14px;margin:0 0 12px;border:1px solid var(--token-line);border-radius:16px;background:var(--token-field);color:var(--token-ink);resize:none;font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
+.loom-token-button,.loom-token-dismiss{font:inherit;font-size:13px;font-weight:550;color:var(--token-ink);border:1px solid var(--token-line);border-radius:14px;corner-shape:squircle;padding:10px 16px;background:transparent;cursor:pointer;text-decoration:none;display:inline-flex;justify-content:center;align-items:center;min-height:40px;box-sizing:border-box}
+.loom-token-primary{background:var(--token-accent);border-color:transparent;color:#fff;width:100%}
+.loom-token-dismiss{border:0;font-size:24px;padding:0;width:36px;min-height:36px;color:var(--token-muted)}
+.loom-token-button:hover,.loom-token-dismiss:hover{filter:brightness(.94)}
+.loom-token-dialog :focus-visible{outline:2px solid var(--token-accent);outline-offset:3px}
+.loom-token-setup{margin-top:24px;padding-top:18px;border-top:1px solid var(--token-line)}
+.loom-token-setup summary{cursor:pointer;font-size:13px;font-weight:600;padding:4px 0}
+.loom-token-hint{font-size:12px;color:var(--token-muted);line-height:1.6}
+.loom-token-actions{justify-content:flex-start;flex-wrap:wrap}
+.loom-token-footer{margin-top:24px;padding-top:18px;border-top:1px solid var(--token-line)}
+html[data-loom-theme="dark"] .loom-token-dialog{--token-surface:#23292f;--token-ink:#e4e9ee;--token-muted:#abb3bb;--token-line:#424b56;--token-field:#1c2229;--token-accent:#668dd9;border-color:#ffffff12}
+@media(prefers-color-scheme:dark){html[data-loom-theme="system"] .loom-token-dialog{--token-surface:#23292f;--token-ink:#e4e9ee;--token-muted:#abb3bb;--token-line:#424b56;--token-field:#1c2229;--token-accent:#668dd9;border-color:#ffffff12}}
+@media(max-width:480px){.loom-token-dialog{padding:22px;border-radius:28px}.loom-token-actions>*{flex:1}.loom-token-footer{gap:8px}.loom-token-hint{font-size:11px}}
 /* Brand animation is decorative, never a live Job/status indicator. */
 :root{--loom-brand-accent:light-dark(#436fc7,#9bb9f1)}
 .loom-logo{overflow:visible;--loom-logo-blue:var(--loom-brand-accent)}
@@ -3528,8 +3542,11 @@ function loomTailnetDate(value,seconds=false){
 function loomAccessView(){
   const intro=heading(&#x27;NETWORK&#x27;,&#x27;Tailscale&#x27;,loomTailnetInfo?.machine || &#x27;이 머신의 연결 및 접근 정보&#x27;);
   const user=loomSessionUser;
-  const account=panel(&#x27;Account&#x27;,user?&#x27;&lt;div class=&quot;pa-tailnet-account&quot;&gt;&lt;span class=&quot;pa-tailnet-avatar&quot; aria-hidden=&quot;true&quot;&gt;&#x27;+esc(Array.from((user.name||user.login||&#x27;U&#x27;).trim())[0])+&#x27;&lt;/span&gt;&lt;div class=&quot;pa-tailnet-identity&quot;&gt;&lt;strong&gt;&#x27;+esc(user.name||user.login)+&#x27;&lt;/strong&gt;&lt;span&gt;&#x27;+esc(user.login||&#x27;&#x27;)+&#x27;&lt;/span&gt;&lt;/div&gt;&lt;span class=&quot;pa-tailnet-badge&quot;&gt;&#x27;+(user.access_admin?&#x27;Admin&#x27;:&#x27;Member&#x27;)+&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;:&#x27;&lt;p class=&quot;pa-tailnet-empty&quot;&gt;현재 연결에는 Tailscale 사용자 정보가 없습니다.&lt;/p&gt;&#x27;);
-  if(!user?.access_admin)return intro+&#x27;&lt;section class=&quot;pa-loom-tailnet&quot;&gt;&#x27;+account+&#x27;&lt;/section&gt;&#x27;;
+  const account=panel(&#x27;Account&#x27;,user?&#x27;&lt;div class=&quot;pa-tailnet-account&quot;&gt;&lt;span class=&quot;pa-tailnet-avatar&quot; aria-hidden=&quot;true&quot;&gt;&#x27;+esc(Array.from((user.name||user.login||&#x27;U&#x27;).trim())[0])+&#x27;&lt;/span&gt;&lt;div class=&quot;pa-tailnet-identity&quot;&gt;&lt;strong&gt;&#x27;+esc(user.name||user.login)+&#x27;&lt;/strong&gt;&lt;span&gt;&#x27;+esc(user.login||&#x27;&#x27;)+&#x27;&lt;/span&gt;&lt;/div&gt;&lt;span class=&quot;pa-tailnet-badge&quot;&gt;&#x27;+(loomTailnetInfo?.development?&#x27;Development&#x27;:user.access_admin?&#x27;Admin&#x27;:&#x27;Member&#x27;)+&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;:&#x27;&lt;p class=&quot;pa-tailnet-empty&quot;&gt;&#x27;+(loomTailnetInfo?.development?&#x27;Development · 인증 생략&#x27;:&#x27;현재 연결에는 Tailscale 사용자 정보가 없습니다.&#x27;)+&#x27;&lt;/p&gt;&#x27;);
+  if(!user?.access_admin){
+    const management=loomTailnetInfo?.development?panel(&#x27;Access management&#x27;,&#x27;&lt;p class=&quot;pa-tailnet-empty&quot;&gt;개발 환경입니다. 멤버와 토큰은 배포판에서 관리합니다.&lt;/p&gt;&#x27;+(loomTailnetInfo.management_url?&#x27;&lt;button class=&quot;pa-button&quot; type=&quot;button&quot; data-open-management&gt;Open dashboard ↗&lt;/button&gt;&#x27;:&#x27;&#x27;)):&#x27;&#x27;;
+    return intro+&#x27;&lt;section class=&quot;pa-loom-tailnet&quot;&gt;&#x27;+account+management+&#x27;&lt;/section&gt;&#x27;;
+  }
   const members=loomAccessState?.members||[];
   const memberPanel=panel(&#x27;Member &lt;small&gt;&#x27;+members.length+&#x27;&lt;/small&gt;&#x27;,loomAccessState?.members_error?&#x27;&lt;p class=&quot;pa-tailnet-empty&quot; role=&quot;status&quot;&gt;멤버 목록을 불러오지 못했습니다. 새로고침해 주세요.&lt;/p&gt;&#x27;:members.length?&#x27;&lt;div class=&quot;pa-tailnet-table-wrap&quot;&gt;&lt;table class=&quot;pa-tailnet-table&quot; aria-label=&quot;Member&quot;&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Account&lt;/th&gt;&lt;th&gt;Role&lt;/th&gt;&lt;th&gt;Shared&lt;/th&gt;&lt;th&gt;Actions&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&#x27;+members.map(m=&gt;&#x27;&lt;tr data-tailnet-member=&quot;&#x27;+esc(m.id)+&#x27;&quot;&gt;&lt;td data-label=&quot;Account&quot;&gt;&lt;div class=&quot;pa-tailnet-identity&quot;&gt;&lt;strong&gt;&#x27;+esc(m.displayName||m.loginName||&#x27;—&#x27;)+&#x27;&lt;/strong&gt;&lt;span&gt;&#x27;+esc(m.loginName||&#x27;—&#x27;)+&#x27;&lt;/span&gt;&lt;/div&gt;&lt;/td&gt;&lt;td data-label=&quot;Role&quot;&gt;&lt;span class=&quot;pa-tailnet-badge&quot;&gt;&#x27;+([&#x27;admin&#x27;,&#x27;owner&#x27;].includes(String(m.role).toLowerCase())?&#x27;Admin&#x27;:&#x27;Member&#x27;)+&#x27;&lt;/span&gt;&lt;/td&gt;&lt;td data-label=&quot;Shared&quot;&gt;&#x27;+esc(loomTailnetDate(m.accepted_at||m.created,!!m.accepted_at))+&#x27;&lt;/td&gt;&lt;td data-label=&quot;Actions&quot;&gt;&#x27;+(m.role===&#x27;Member&#x27;?&#x27;&lt;button class=&quot;pa-button&quot; type=&quot;button&quot; data-share-revoke=&quot;&#x27;+esc(m.id)+&#x27;&quot; &#x27;+(loomAccessBusy?&#x27;disabled&#x27;:&#x27;&#x27;)+&#x27;&gt;Revoke&lt;/button&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/td&gt;&lt;/tr&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&#x27;:&#x27;&lt;p class=&quot;pa-tailnet-empty&quot;&gt;&#x27;+(loomAccessState?&#x27;등록된 멤버가 없습니다.&#x27;:&#x27;불러오는 중…&#x27;)+&#x27;&lt;/p&gt;&#x27;,&#x27;&lt;button type=&quot;button&quot; class=&quot;pa-button&quot; data-access-refresh &#x27;+(loomAccessBusy?&#x27;disabled&#x27;:&#x27;&#x27;)+&#x27;&gt;Refresh&lt;/button&gt;&#x27;);
   const rows=loomAccessState?.requests || [];
@@ -3539,9 +3556,12 @@ function loomAccessView(){
   }).join(&#x27;&#x27;);
   const requests=panel(&#x27;Access Request &lt;small&gt;&#x27;+rows.length+&#x27;&lt;/small&gt;&#x27;,rows.length?&#x27;&lt;div class=&quot;pa-tailnet-table-wrap&quot;&gt;&lt;table class=&quot;pa-tailnet-table&quot; aria-label=&quot;Access Request&quot;&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Email&lt;/th&gt;&lt;th&gt;Grant status&lt;/th&gt;&lt;th&gt;Requested&lt;/th&gt;&lt;th&gt;Actions&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&#x27;+content+&#x27;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&#x27;:&#x27;&lt;p class=&quot;pa-tailnet-empty&quot;&gt;&#x27;+(loomAccessState?&#x27;아직 신청 내역이 없습니다.&#x27;:&#x27;불러오는 중…&#x27;)+&#x27;&lt;/p&gt;&#x27;);
   const tokens=loomAccessState?.tokens||[],owners=loomAccessState?.owners||[];
-  const tokenPanel=panel(&#x27;Agent Tokens&#x27;,
-    &#x27;&lt;form data-token-form class=&quot;pa-tailnet-actions&quot;&gt;&lt;input aria-label=&quot;Token name&quot; name=&quot;label&quot; placeholder=&quot;Token name&quot; maxlength=&quot;80&quot; required&gt;&lt;select aria-label=&quot;Token owner&quot; name=&quot;owner&quot; required&gt;&#x27;+owners.map(o=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(o.id)+&#x27;&quot;&gt;&#x27;+esc(o.display_name||o.login)+&#x27; · &#x27;+esc(o.login||o.id)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;select aria-label=&quot;Token permissions&quot; name=&quot;permissions&quot;&gt;&lt;option value=&quot;operator&quot;&gt;Operator&lt;/option&gt;&lt;option value=&quot;read&quot;&gt;Read only&lt;/option&gt;&lt;/select&gt;&lt;button class=&quot;pa-button&quot; type=&quot;button&quot; data-token-create &#x27;+(loomAccessBusy||!owners.length?&#x27;disabled&#x27;:&#x27;&#x27;)+&#x27;&gt;Create token&lt;/button&gt;&lt;/form&gt;&lt;p class=&quot;pa-subtle&quot;&gt;No expiration · Admin revocation&lt;/p&gt;&#x27;+
-    (loomAccessState?.tokens_error?&#x27;&lt;p role=&quot;status&quot;&gt;토큰 목록을 불러오지 못했습니다.&lt;/p&gt;&#x27;:&#x27;&lt;div class=&quot;pa-tailnet-table-wrap&quot;&gt;&lt;table class=&quot;pa-tailnet-table&quot; aria-label=&quot;Agent Tokens&quot;&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Name&lt;/th&gt;&lt;th&gt;Owner&lt;/th&gt;&lt;th&gt;Permissions&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;th&gt;Actions&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&#x27;+tokens.map(t=&gt;&#x27;&lt;tr&gt;&lt;td&gt;&#x27;+esc(t.label)+&#x27;&lt;/td&gt;&lt;td&gt;&#x27;+esc(owners.find(o=&gt;o.id===t.owner)?.login||t.owner)+&#x27;&lt;/td&gt;&lt;td&gt;&#x27;+esc(t.scopes.join(&#x27;, &#x27;))+&#x27;&lt;/td&gt;&lt;td&gt;&#x27;+(t.revoked?&#x27;Revoked&#x27;:&#x27;Active&#x27;)+&#x27;&lt;/td&gt;&lt;td&gt;&#x27;+(!t.revoked?&#x27;&lt;button class=&quot;pa-button&quot; type=&quot;button&quot; data-token-revoke=&quot;&#x27;+esc(t.id)+&#x27;&quot;&gt;Revoke&lt;/button&gt;&#x27;:&#x27;—&#x27;)+&#x27;&lt;/td&gt;&lt;/tr&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&#x27;));
+  const active=tokens.filter(t=&gt;!t.revoked),revoked=tokens.filter(t=&gt;t.revoked);
+  const permissions=t=&gt;t.scopes.length===4&amp;&amp;[&#x27;read&#x27;,&#x27;submit&#x27;,&#x27;cancel&#x27;,&#x27;events&#x27;].every(s=&gt;t.scopes.includes(s))?&#x27;Operator&#x27;:t.scopes.includes(&#x27;read&#x27;)&amp;&amp;t.scopes.every(s=&gt;[&#x27;read&#x27;,&#x27;events&#x27;].includes(s))?&#x27;Read only&#x27;:t.scopes.join(&#x27;, &#x27;);
+  const tokenTable=(items,label)=&gt;&#x27;&lt;div class=&quot;pa-tailnet-table-wrap&quot;&gt;&lt;table class=&quot;pa-tailnet-table&quot; aria-label=&quot;&#x27;+label+&#x27;&quot;&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Name&lt;/th&gt;&lt;th&gt;Owner&lt;/th&gt;&lt;th&gt;Permissions&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;th&gt;&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&#x27;+items.map(t=&gt;&#x27;&lt;tr&gt;&lt;td data-label=&quot;Name&quot;&gt;&lt;strong&gt;&#x27;+esc(t.label)+&#x27;&lt;/strong&gt;&lt;/td&gt;&lt;td data-label=&quot;Owner&quot;&gt;&#x27;+esc(owners.find(o=&gt;o.id===t.owner)?.login||t.owner)+&#x27;&lt;/td&gt;&lt;td data-label=&quot;Permissions&quot;&gt;&lt;span class=&quot;pa-tailnet-badge&quot;&gt;&#x27;+esc(permissions(t))+&#x27;&lt;/span&gt;&lt;/td&gt;&lt;td data-label=&quot;Status&quot;&gt;&#x27;+(t.revoked?&#x27;Revoked&#x27;:&#x27;&lt;span class=&quot;pa-token-active&quot;&gt;Active&lt;/span&gt;&#x27;)+&#x27;&lt;/td&gt;&lt;td data-label=&quot;Actions&quot;&gt;&#x27;+(!t.revoked?&#x27;&lt;button class=&quot;pa-button&quot; type=&quot;button&quot; data-token-revoke=&quot;&#x27;+esc(t.id)+&#x27;&quot;&gt;Revoke&lt;/button&gt;&#x27;:&#x27;—&#x27;)+&#x27;&lt;/td&gt;&lt;/tr&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&#x27;;
+  const tokenPanel=panel(&#x27;Agent Tokens &lt;small&gt;&#x27;+active.length+&#x27;&lt;/small&gt;&#x27;,
+    &#x27;&lt;form data-token-form class=&quot;pa-token-form&quot;&gt;&lt;label&gt;&lt;span&gt;Name&lt;/span&gt;&lt;input aria-label=&quot;Token name&quot; name=&quot;label&quot; placeholder=&quot;e.g. Research agent&quot; maxlength=&quot;80&quot; required&gt;&lt;/label&gt;&lt;label&gt;&lt;span&gt;Owner&lt;/span&gt;&lt;select aria-label=&quot;Token owner&quot; name=&quot;owner&quot; required&gt;&#x27;+owners.map(o=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(o.id)+&#x27;&quot;&gt;&#x27;+esc(o.display_name||o.login)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&lt;label&gt;&lt;span&gt;Permissions&lt;/span&gt;&lt;select aria-label=&quot;Token permissions&quot; name=&quot;permissions&quot;&gt;&lt;option value=&quot;operator&quot;&gt;Operator&lt;/option&gt;&lt;option value=&quot;read&quot;&gt;Read only&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;button class=&quot;pa-button pa-token-create&quot; type=&quot;button&quot; data-token-create &#x27;+(loomAccessBusy||!owners.length?&#x27;disabled&#x27;:&#x27;&#x27;)+&#x27;&gt;Create token&lt;/button&gt;&lt;/form&gt;&lt;p class=&quot;pa-token-caption&quot;&gt;No expiration · Revoke anytime&lt;/p&gt;&#x27;+
+    (loomAccessState?.tokens_error?&#x27;&lt;p role=&quot;status&quot;&gt;토큰 목록을 불러오지 못했습니다.&lt;/p&gt;&#x27;:(active.length?tokenTable(active,&#x27;Agent Tokens&#x27;):&#x27;&lt;div class=&quot;pa-token-empty&quot;&gt;No active tokens&lt;/div&gt;&#x27;)+(revoked.length?&#x27;&lt;details class=&quot;pa-token-history&quot;&gt;&lt;summary&gt;Revoked &lt;span&gt;&#x27;+revoked.length+&#x27;&lt;/span&gt;&lt;/summary&gt;&#x27;+tokenTable(revoked,&#x27;Revoked tokens&#x27;)+&#x27;&lt;/details&gt;&#x27;:&#x27;&#x27;)));
   return intro+&#x27;&lt;section class=&quot;pa-loom-tailnet&quot;&gt;&#x27;+account+&#x27;&lt;div class=&quot;pa-loom-access&quot; aria-label=&quot;머신 접근 관리&quot;&gt;&lt;p class=&quot;pa-tailnet-feedback&quot; role=&quot;status&quot;&gt;&#x27;+esc(loomAccessError||(loomAccessBusy?&#x27;처리 중…&#x27;:&#x27;&#x27;))+&#x27;&lt;/p&gt;&#x27;+memberPanel+requests+tokenPanel+&#x27;&lt;/div&gt;&lt;/section&gt;&#x27;;
 }
 function loomAccessPatch(){
@@ -3559,6 +3579,7 @@ render=function(){
   loomAccessOpen=open;
 };
 root.addEventListener(&#x27;click&#x27;,event=&gt;{
+  if(event.target.closest(&#x27;[data-open-management]&#x27;)){parent.postMessage({type:&#x27;loom-open-management&#x27;},&#x27;*&#x27;);return;}
   const tokenRevoke=event.target.closest(&#x27;[data-token-revoke]&#x27;);
   if(tokenRevoke&amp;&amp;loomSessionUser?.access_admin&amp;&amp;!loomAccessBusy){
     if(!confirm(&#x27;이 토큰을 폐기하시겠습니까?&#x27;))return;
@@ -4972,6 +4993,23 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 #pai-studio .pa-activity-year-segment{flex:0 0 calc(var(--activity-pitch,19px)*var(--weeks));display:flex;min-width:0}
 #pai-studio .pa-activity-year-pin{position:sticky;left:0;flex:0 0 0;min-width:0;z-index:1;pointer-events:none}
 #pai-studio .pa-activity-year-pin&gt;span{display:block;width:4ch;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:16px}
+
+/* Resident credentials use the same form rhythm and surfaces as the workspace. */
+#pai-studio .pa-token-form{display:grid;grid-template-columns:minmax(150px,1fr) minmax(180px,1.25fr) minmax(130px,.7fr) auto;align-items:end;gap:16px;margin:8px 0 12px}
+#pai-studio .pa-token-form label{display:grid;gap:8px;min-width:0;font-size:11px;color:var(--pa-muted)}
+#pai-studio .pa-token-form input,#pai-studio .pa-token-form select{box-sizing:border-box;width:100%;min-width:0;height:42px;border:1px solid var(--pa-line);border-radius:13px;corner-shape:squircle;background:light-dark(#fff9,#1c22297a);padding:0 12px;color:var(--pa-ink);font:inherit;font-size:13px}
+#pai-studio .pa-token-form .pa-token-create{height:42px;border:0;border-radius:13px;background:var(--pa-accent);color:light-dark(#fff,#17243c);padding:0 18px;font-size:12px;font-weight:550}
+#pai-studio .pa-token-form :disabled{opacity:.45;cursor:default}
+#pai-studio .pa-token-form :focus-visible{outline:2px solid var(--pa-accent);outline-offset:2px}
+#pai-studio .pa-token-caption{margin:0 0 18px;color:var(--pa-muted);font-size:11px}
+#pai-studio .pa-token-empty{padding:26px 0 16px;color:var(--pa-muted);font-size:13px}
+#pai-studio .pa-token-active{color:light-dark(#2a7960,#8dc9ae)}
+#pai-studio .pa-token-history{margin-top:16px;border-top:1px solid var(--pa-line);padding-top:14px}
+#pai-studio .pa-token-history summary{cursor:pointer;color:var(--pa-muted);font-size:12px;padding:4px 0}
+#pai-studio .pa-token-history summary span{margin-left:8px;font-variant-numeric:tabular-nums}
+#pai-studio .pa-token-history[open] summary{margin-bottom:12px}
+@container pane (max-width:850px){#pai-studio .pa-token-form{grid-template-columns:1fr 1fr}#pai-studio .pa-token-form .pa-token-create{justify-self:stretch}}
+@container pane (max-width:480px){#pai-studio .pa-token-form{grid-template-columns:minmax(0,1fr);gap:12px}}
 /* Brand animation is decorative, never a live Job/status indicator. */
 :root{--loom-brand-accent:light-dark(#436fc7,#9bb9f1)}
 .loom-logo{overflow:visible;--loom-logo-blue:var(--loom-brand-accent)}
@@ -5747,19 +5785,29 @@ function loomCatalogProjection(catalog) {
   }
 
   function showIssuedToken(result){
-    const modal=document.createElement('dialog');modal.className='loom-token-dialog';
-    const title=document.createElement('h2');title.textContent='Agent token';
-    const note=document.createElement('p');note.textContent='지금 한 번만 표시됩니다. 안전한 위치에 저장해 주세요. 만료 없이 Admin이 폐기할 때까지 유효합니다.';
-    const value=document.createElement('textarea');value.readOnly=true;value.setAttribute('aria-label','Issued token');value.value=result.token;
-    const copy=document.createElement('button');copy.textContent='Copy token';copy.onclick=async()=>{try{await navigator.clipboard.writeText(value.value);copy.textContent='Copied';}catch{value.select();copy.textContent='선택한 토큰을 복사해 주세요';}};
-    const command=document.createElement('textarea');command.readOnly=true;command.setAttribute('aria-label','Client setup command');
+    const el=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text)node.textContent=text;return node;};
+    const modal=el('dialog','loom-token-dialog');modal.setAttribute('aria-labelledby','loom-token-title');
+    const header=el('header','loom-token-head'),heading=el('div');
+    const title=el('h2','','Agent token');title.id='loom-token-title';
+    heading.append(el('span','loom-token-eyebrow','CREDENTIAL'),title);
+    const dismiss=el('button','loom-token-dismiss','×');dismiss.setAttribute('aria-label','Close');dismiss.onclick=()=>modal.close();header.append(heading,dismiss);
+    const note=el('p','loom-token-note','이 토큰은 지금 한 번만 표시됩니다.');
+    const value=el('textarea','loom-token-value');value.readOnly=true;value.rows=2;value.setAttribute('aria-label','Issued token');value.value=result.token;
+    const copy=el('button','loom-token-button loom-token-primary','Copy token');
+    copy.onclick=async()=>{try{await navigator.clipboard.writeText(value.value);copy.textContent='Copied';}catch{value.select();copy.textContent='선택한 토큰을 복사해 주세요';}};
+    const secret=el('section','loom-token-section');secret.append(el('h3','','Token'),value,copy);
+    const setup=el('details','loom-token-setup');setup.append(el('summary','','Connect an agent'));
+    const command=el('textarea','loom-token-command');command.readOnly=true;command.rows=3;command.setAttribute('aria-label','Client setup command');
     const endpoint=location.origin+'/mcp';
     command.value='python3 ./clients/setup.py configure --endpoint '+"'"+endpoint+"' --name loom-"+location.hostname.split('.')[0];
-    const bundle=document.createElement('a');bundle.href='/api/guide/bundle';bundle.download='loom_use.zip';bundle.textContent='Download loom_use';
-    const hint=document.createElement('p');hint.textContent='Codex가 실행되는 머신에 loom_use를 내려받아 압축을 푼 폴더에서 실행하세요. 토큰은 명령 실행 후 숨김 입력합니다.';
-    const close=document.createElement('button');close.textContent='Done';close.onclick=()=>modal.close();
+    const bundle=el('a','loom-token-button','Download loom_use');bundle.href='/api/guide/bundle';bundle.download='loom_use.zip';
+    const copyCommand=el('button','loom-token-button','Copy command');copyCommand.onclick=async()=>{try{await navigator.clipboard.writeText(command.value);copyCommand.textContent='Copied';}catch{command.select();}};
+    const actions=el('div','loom-token-actions');actions.append(bundle,copyCommand);
+    setup.append(el('p','loom-token-hint','에이전트를 실행할 머신에서 loom_use를 압축 해제한 뒤 실행하세요. 토큰은 실행 후 입력합니다.'),command,actions);
+    const footer=el('footer','loom-token-footer');const close=el('button','loom-token-button','Done');close.onclick=()=>modal.close();
+    footer.append(el('span','loom-token-hint','No expiration · Revoke anytime'),close);
     modal.addEventListener('close',()=>{value.value='';result.token='';modal.remove();});
-    modal.append(title,note,value,copy,command,bundle,hint,close);document.body.append(modal);modal.showModal();
+    modal.append(header,note,secret,setup,footer);document.body.append(modal);modal.showModal();copy.focus();
   }
 
   let accessBusy=false;
@@ -5812,7 +5860,9 @@ function loomCatalogProjection(catalog) {
   window.addEventListener('message', event => {
     if (event.source !== frame.contentWindow || event.origin !== 'null' || !event.data) return;
     const message = event.data;
-    if (message.type === 'loom-theme-choice') {
+    if (message.type === 'loom-open-management' && tailnetInfo?.development && tailnetInfo.management_url) {
+      location.assign(tailnetInfo.management_url+'/#/views/tailscale');
+    } else if (message.type === 'loom-theme-choice') {
       window.LoomTheme.set(message.mode);
     } else if (message.type === 'loom-logout' && ssoEnabled && csrf) {
       fetch('/auth/logout', {method:'POST',credentials:'same-origin',headers:{'X-Loom-CSRF':csrf},redirect:'follow'})
@@ -5868,14 +5918,14 @@ function loomCatalogProjection(catalog) {
       entryURL = session.entry_url || '';
       form.hidden = ssoEnabled;
       document.getElementById('loom-sso-login').hidden = !ssoEnabled;
-      sessionUser = ssoEnabled ? session.user : null;
+      sessionUser = session.user || null;
       tailnetInfo = session.tailnet || null;
       emit('loom-session',{user:sessionUser,tailnet:tailnetInfo});
       if (session.live_reload) setInterval(async () => {
         if (document.hidden) return;
         try {
           const latest = await fetch('/session', {cache:'no-store'}).then(r => r.json());
-          sessionUser=latest.sso ? latest.user : null;
+          sessionUser=latest.user || null;
           tailnetInfo=latest.tailnet || null;
           showBuild(latest.build);
           if (latest.revision !== session.revision) location.reload();
