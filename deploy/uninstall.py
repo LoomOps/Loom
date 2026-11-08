@@ -16,6 +16,7 @@ sys.path.insert(0,str(ROOT/'dashboard'))
 from admission import TailnetAPI, RemoteError, group_name, validate
 from tailnet import env_values, expected_routes, write
 import update
+import managed_resources
 
 
 def load(root):
@@ -63,6 +64,33 @@ def clean_policy(policy,c):
     return p
 
 
+def policy_preview(api,c,policy):
+    if not managed_resources.path(c).exists():return clean_policy(policy,c)
+    devices,_=api.call('GET','/tailnet/'+quote(c['tailnet'],safe='')+'/devices')
+    shared={t for d in devices.get('devices',[]) if c['device_id'] not in (str(d.get('id')),str(d.get('nodeId'))) for t in d.get('tags',[]) or []}
+    proposed=managed_resources.revert(c,policy,shared)
+    device,_=api.call('GET','/device/'+quote(c['device_id'],safe=''))
+    body=json.dumps({k:v for k,v in proposed.items() if k!='tagOwners'})
+    removable={t for t in managed_resources.owned_tags(c) if json.dumps(t) not in body}
+    if device.get('tags') and set(device['tags'])<=removable:
+        raise ValueError('Removing the final device tag requires explicit Tailscale user reauthentication or a non-Loom device tag; no automatic logout')
+    return proposed
+
+
+def cleanup_tags(api,c,policy):
+    if not managed_resources.path(c).exists():return
+    # Keep a tag if surviving policy still uses it, e.g. manually added SSH access.
+    body=json.dumps({k:v for k,v in policy.items() if k!='tagOwners'})
+    owned=[t for t in managed_resources.owned_tags(c) if json.dumps(t) not in body]
+    device,_=api.call('GET','/device/'+quote(c['device_id'],safe=''))
+    old=device.get('tags',[]);new=[t for t in old if t not in owned]
+    if old and not new:raise ValueError('Final device tag requires explicit user reauthentication')
+    if new!=old:
+        api.call('POST','/device/'+quote(c['device_id'],safe='')+'/tags',{'tags':new})
+        actual,_=api.call('GET','/device/'+quote(c['device_id'],safe=''))
+        if set(actual.get('tags',[]))!=set(new):raise ValueError('Device tag cleanup not confirmed')
+
+
 def listeners(root,c,state):
     """Whole listeners are removed only if every handler belongs to this instance."""
     private=urlsplit(c['dashboard_origin']);public=urlsplit(c['origin'])
@@ -93,9 +121,9 @@ def inspect(root,project,api=None,run=update.run):
     # An unconfirmed invitation cannot be forgotten; an operator must reconcile it.
     if any(r['send_started'] and not r['invite_id'] for r in rows):
         raise ValueError('Unconfirmed invitation delivery; reconcile its ID before uninstall')
-    owned={str(r['invite_id']) for r in rows if r['invite_id']}
+    owned={str(r['invite_id']) for r in rows if r['invite_id'] and r['send_started']}
     available={str(i['id']) for i in invites}
-    policy,_=api.call('GET','/tailnet/'+quote(c['tailnet'],safe='')+'/acl');clean_policy(policy,c)
+    policy,_=api.call('GET','/tailnet/'+quote(c['tailnet'],safe='')+'/acl');policy_preview(api,c,policy)
     serve=json.loads(run('tailscale','serve','status','--json'))
     ports=listeners(root,c,serve)
     # Reject wrong project/instance selection before stopping any service.
@@ -116,15 +144,16 @@ def inspect(root,project,api=None,run=update.run):
     identity={'instance':str(root),'project':project,'machine':c['machine_id'],'device':c['device_id'],'addresses':c['addresses'],'ports':c['ports'],'origin':c['origin'],'dashboard_origin':c['dashboard_origin']}
     return {'schema':'loom-uninstall/v1','instance':str(root),'project':project,'identity':identity,
             'fingerprint':hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest(),
-            'requests':len(rows),'invites':sorted(owned & available),'unmanaged_shares_preserved':len(available-owned),
+            'managed_resources':managed_resources.summary(c),'requests':len(rows),'invites':sorted(owned & available),'unmanaged_shares_preserved':len(available-owned),
             'listeners':ports,'startup_unit':str(unit) if unit.exists() else None,
-            'preserved':['Tailscale login/device/tags and native Admin policy','unrelated policies, shares and listeners','Jobs, artifacts, storage mounts, components, profiles','shared helpers, images, dependencies and service account','external backups and user-side client settings']}
+            'preserved':['Tailscale login/device and preexisting or shared tags/policy','unrelated policies, shares and listeners','Jobs, artifacts, storage mounts, components, profiles','shared helpers, images, dependencies and service account','external backups and user-side client settings']}
 
 
 def cleanup_policy(api,c):
     path='/tailnet/'+quote(c['tailnet'],safe='')+'/acl'
     for _ in range(3):
-        old,headers=api.call('GET',path);new=clean_policy(old,c)
+        old,headers=api.call('GET',path);new=policy_preview(api,c,old)
+        cleanup_tags(api,c,new)
         if old==new:return
         etag=next((v for k,v in headers.items() if k.lower()=='etag'),None)
         if not etag:raise ValueError('Policy ETag required')
@@ -170,7 +199,7 @@ def _apply_locked(plan,confirmation,receipt,api=None,run=update.run):
     current=inspect(root,plan['project'],api,run)
     if current['fingerprint']!=plan['fingerprint']:raise ValueError('Installed identity/configuration changed')
     if set(current['invites'])-set(plan['invites']) or current['requests']>plan['requests']:raise ValueError('New access requests/shares appeared; create a fresh plan')
-    owned={str(r['invite_id']) for r in records(root,c) if r['invite_id']}
+    owned={str(r['invite_id']) for r in records(root,c) if r['invite_id'] and r['send_started']}
     if not set(plan['invites']).issubset(owned):raise ValueError('Plan contains an unmanaged invitation')
     receipt.parent.mkdir(parents=True,exist_ok=True)
     with (receipt.parent/(receipt.name+'.lock')).open('a') as lock:
@@ -201,7 +230,7 @@ def _apply_locked(plan,confirmation,receipt,api=None,run=update.run):
             remaining=remaining.get('invites',[]) if isinstance(remaining,dict) else remaining
             if set(plan['invites']) & {str(i['id']) for i in remaining}:raise ValueError('Sharing removal not yet confirmed')
             policy,_=api.call('GET','/tailnet/'+quote(c['tailnet'],safe='')+'/acl')
-            if clean_policy(policy,c)!=policy:raise ValueError('Policy removal not confirmed')
+            if policy_preview(api,c,policy)!=policy:raise ValueError('Policy removal not confirmed')
             for item in current['listeners']:
                 run('tailscale','funnel' if item['funnel'] else 'serve','--https='+str(item['port']),'--yes','off')
             after=json.loads(run('tailscale','serve','status','--json'))

@@ -184,6 +184,12 @@ def doctor(setup, plan, stage=None):
         grant = {'src':['autogroup:member','autogroup:shared'],'dst':a['addresses'],'ip':['tcp:'+port]}
         private_grant={'src':sorted(plan['tailscale']['sso']['network_users']),'dst':a['addresses'],'ip':['tcp:'+str(port) for port in sorted(a['ports'])]}
         return grant in p.get('grants',[]) and private_grant in p.get('grants',[])
+    def registry_ready():
+        import managed_resources
+        c=access();c={**c,'database':str(root/'admission/requests.sqlite3')}
+        value=managed_resources.summary(c)
+        return value['pending']==0 and (value['present'] or not c.get('managed_resources_version'))
+    check('configuration','managed_resource_journal',registry_ready,'Keep the matching ownership journal; reconcile uncertain provider writes before continuing.')
     def gateway():
         a = access(); code,s = request(a['origin']+'/api/session')
         return code==200 and s.get('machine')==a['machine_id']

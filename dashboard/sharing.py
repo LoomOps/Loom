@@ -1,4 +1,5 @@
 """Machine Sharing enrollment; invitations never confer Loom approval by themselves."""
+import managed_resources
 import fcntl
 import hashlib
 import ipaddress
@@ -250,7 +251,7 @@ class SharingAdmission(Admission):
             result,_=self.api.call('POST',self.tailpath+'/acl/validate',new)
             if result.get('errors') or result.get('message'):raise ValueError('policy_validation_failed')
             with self.db() as c:c.execute('INSERT INTO policy_backups(request,etag,body,at) VALUES(?,?,?,?)',(row['id'],etag,json.dumps(old),time.time()))
-            try:self.api.call('POST',self.tailpath+'/acl',new,{'If-Match':etag});return
+            try:managed_resources.policy_write(self.config,self.api,self.tailpath+'/acl',old,new,{'If-Match':etag});return
             except RemoteError as e:
                 if e.status!=412:raise
         raise ValueError('policy_concurrent_change')
@@ -266,11 +267,17 @@ class SharingAdmission(Admission):
                 if len(matches)>1:raise ValueError('ambiguous_device_invitation')
                 if matches:row={**row,'invite_id':str(matches[0]['id'])};self.update(row['id'],invite_id=row['invite_id'])
             self.policy(row,remove=True)
-            if row['invite_id']:
+            with self.db() as c:
+                explicit_revoke=c.execute("SELECT 1 FROM audit WHERE request=? AND action='share_revoke'",(row['id'],)).fetchone()
+            # An explicit Admin revoke may target a manual share. Automatic
+            # expiration, denial and requester cancellation cannot claim it.
+            if row['invite_id'] and (row['send_started'] or explicit_revoke):
                 try:self.api.call('DELETE','/device-invites/'+quote(row['invite_id'],safe=''))
                 except RemoteError as e:
                     if e.status!=404:raise
-            self.update(row['id'],state=row['terminal'] or 'revoked',error=None,next_attempt=0);return
+            self.update(row['id'],state=row['terminal'] or 'revoked',error=None,next_attempt=0)
+            if row['invite_id']:managed_resources.invitation(self.config,row['invite_id'],row['id'],bool(row['send_started']),row['terminal'] or 'revoked')
+            return
         if row['state']!='ready' and row['expires']<time.time():
             self.update(row['id'],state='revoking',terminal='expired',next_attempt=0);return
         invites=self.invites()
@@ -288,6 +295,7 @@ class SharingAdmission(Admission):
             if not matches:
                 if row['send_started']:raise ValueError('invite_delivery_uncertain')
                 self.update(row['id'],send_started=1)
+                row={**row,'send_started':1}
                 matches,_=self.api.call('POST',self.invitepath,[{'email':row['email'],'multiUse':False,'allowExitNode':False}])
             if not isinstance(matches,list) or len(matches)!=1 or not matches[0].get('id'):raise ValueError('invalid_device_invitation')
             invite=matches[0]
@@ -297,6 +305,8 @@ class SharingAdmission(Admission):
             invite=next((i for i in invites if str(i['id'])==row['invite_id']),None)
             if not invite:
                 self.policy(row,remove=True);self.update(row['id'],state='revoked',error=None,next_attempt=0);return
+        # Repair a missing receipt after a restart between the DB and journal writes.
+        managed_resources.invitation(self.config,row['invite_id'],row['id'],bool(row['send_started']),row['state'])
         if invite.get('sharerId') and not row.get('sender_email'):
             # Presentation metadata only: failure must not delay invitations or grants.
             try:

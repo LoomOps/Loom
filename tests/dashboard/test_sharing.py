@@ -121,6 +121,22 @@ class SharingTests(unittest.TestCase):
         self.a.request(self.user);self.api.create_timeout=True;self.a.tick()
         self.a=SharingAdmission(self.config,self.api);self.a.update(self.row()['id'],next_attempt=0);self.a.tick()
         self.assertEqual(len(self.api.shares),1);self.assertEqual(self.row()['state'],'invited')
+    def test_reused_manual_share_survives_request_revocation(self):
+        self.api.shares=[{'id':'manual','email':self.user['login'],'accepted':False,'multiUse':False,'allowExitNode':False}]
+        self.a.request(self.user);self.a.tick()
+        self.assertFalse(self.row()['send_started'])
+        self.a.decide(self.row()['id'],'deny',self.admin);self.a.tick()
+        self.assertEqual(self.row()['state'],'denied')
+        self.assertEqual([s['id'] for s in self.api.shares],['manual'])
+        self.assertFalse(any(m=='DELETE' for m,_,_,_ in self.api.calls))
+    def test_existing_invitation_repairs_missing_ownership_receipt(self):
+        import managed_resources
+        self.a.request(self.user);self.a.tick()
+        managed_resources.path(self.config).unlink()
+        self.a.update(self.row()['id'],next_attempt=0);self.a.tick()
+        saved=managed_resources.read(self.config)['resources']['invitation/'+self.row()['invite_id']]
+        self.assertTrue(saved['after']['value']['created'])
+        self.assertEqual(len(self.api.shares),1)
     def test_sharing_deny_revoke_and_session_recheck(self):
         self.ready();network={'Tailscale-User-Login':'actual@example.test'}
         identity=self.a.authorize_network(network);self.assertTrue(identity)

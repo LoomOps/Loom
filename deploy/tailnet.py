@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import secrets
 import subprocess
+import shutil
 import time
 from urllib.parse import urlsplit, quote
 from urllib.request import Request, urlopen
@@ -56,7 +57,45 @@ def status():
     own=raw.get('Self') or {}
     return {'state':raw.get('BackendState'), 'tailnet':(raw.get('CurrentTailnet') or {}).get('Name'),
             'device_id':own.get('ID'),'dns':own.get('DNSName','').rstrip('.'),
-            'tags':own.get('Tags',[]), 'login_url':raw.get('AuthURL') or None}
+            'login':None if own.get('Tags') else (raw.get('User',{}).get(str(own.get('UserID')),{}).get('LoginName')),
+            'tagged':bool(own.get('Tags')), 'tags':own.get('Tags',[]), 'login_url':raw.get('AuthURL') or None}
+
+
+def login_setup(action='inspect',expected_tailnet=None,expected_login=None,confirm_disconnect=False):
+    """Bounded enrollment assistant, separate from Loom Admin and API credentials."""
+    if not shutil.which('tailscale'):
+        return {'ready':False,'state':'NotInstalled','next':'Install Tailscale with tailnet.py install-client, then inspect again.'}
+    try:current=status()
+    except (OSError,subprocess.CalledProcessError):
+        return {'ready':False,'state':'Unavailable','next':'Start tailscaled and inspect again; no login was changed.'}
+    result={**current,'ready':False,'choices':['reuse','switch'] if current['state']=='Running' else ['login']}
+    if action=='inspect':
+        result['recommendation']='reuse' if current['state']=='Running' else 'login'
+        return result
+    if action not in ('reuse','login','switch'):raise ValueError('Choose inspect, reuse, login or switch')
+    if not expected_tailnet:raise ValueError('Confirm the target Tailnet name')
+    if action=='reuse':
+        if current['state']!='Running':raise ValueError('No active Tailscale connection to reuse')
+        if current['tailnet']!=expected_tailnet:raise ValueError('Connected Tailnet differs from selection; no change made')
+        if expected_login and current.get('login')!=expected_login:raise ValueError('Connected account differs or is tagged; inspect identity separately')
+        return {**result,'ready':True,'selection':'reuse'}
+    if current['state']=='NeedsMachineAuth' and action!='switch':
+        return {**result,'next':'Ask a Tailnet administrator to approve this device, then verify the selected Tailnet.'}
+    if action=='login' and current.get('tailnet') and current['tailnet']!=expected_tailnet:raise ValueError('Different Tailnet selected; explicitly switch instead')
+    if action=='login' and current['state']=='Running':raise ValueError('Already connected; explicitly reuse or switch')
+    if action=='switch':
+        if not confirm_disconnect:raise ValueError('Switching can disconnect SSH/Codex; confirm alternate access with --confirm-disconnect')
+        if not expected_login:raise ValueError('Specify the intended Tailscale login email for account switching')
+        # Explicit user choice only; never infer permission from the Admin email.
+        run('tailscale','logout')
+    command=['tailscale','login','--advertise-tags=','--timeout=5s'] if action=='switch' else ['tailscale','up','--timeout=5s']
+    try:run(*command)
+    except subprocess.CalledProcessError:pass
+    after=status()
+    ready=after['state']=='Running' and after['tailnet']==expected_tailnet
+    if expected_login:ready=ready and after.get('login')==expected_login
+    return {**after,'ready':ready,'expected_tailnet':expected_tailnet,'expected_login':expected_login,
+            'next':None if ready else 'Complete login_url with the selected account; inspect and reuse only after identity and device approval match.'}
 
 
 def enrollment(plan):

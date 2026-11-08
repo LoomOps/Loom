@@ -60,7 +60,7 @@ class InstallationDoctorTests(unittest.TestCase):
   self.write('install-progress.json',{'completed':['verified']})
   with patch.object(setup,'run') as run,patch.object(setup,'read_api') as api:
    result=doctor.doctor(setup,self.plan,'configuration')
-  self.assertFalse(result['ready']);self.assertTrue(all(c['status']=='fail' for c in result['checks']))
+  self.assertFalse(result['ready']);self.assertTrue(all(c['status']=='fail' for c in result['checks'] if c['check']!='managed_resource_journal'))
   run.assert_not_called();api.assert_not_called()
  def test_config_checks_actual_identity_and_storage_and_detects_regression(self):
   self.configured();self.assertTrue(doctor.doctor(setup,self.plan,'configuration')['ready'])
@@ -229,3 +229,9 @@ class InstallationDoctorTests(unittest.TestCase):
   self.assertEqual(client['transport'],'streamable_http')
   self.assertIn('system.status',client['verification'])
   self.assertNotIn('token',client)
+
+ def test_new_plan_requires_ownership_journal_even_with_healthy_config(self):
+  self.configured();self.access['managed_resources_version']=1;self.save_access()
+  result=doctor.doctor(setup,self.plan,'configuration')
+  entry=next(c for c in result['checks'] if c['check']=='managed_resource_journal')
+  self.assertEqual(entry['status'],'fail');self.assertFalse(result['ready'])

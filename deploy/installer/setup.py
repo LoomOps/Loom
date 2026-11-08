@@ -95,6 +95,8 @@ def inspect():
  for name,command in [('disks',['lsblk','-J','-o','NAME,SIZE,FSTYPE,UUID,MOUNTPOINTS']),('mounts',['findmnt','-J']),('compose',['docker','compose','version'])]:
   try:result[name]=run(*command)
   except (OSError,subprocess.CalledProcessError):result[name]='unavailable'
+ from tailnet import login_setup
+ result['tailscale_connection']=login_setup()
  result['recommendations']=diagnostics.recommendations(result)
  return result
 
@@ -167,15 +169,9 @@ def apply(plan):
  from access_setup import load as access_load,inspect as access_inspect
  access_plan=access_load(plan['tailscale']['access_plan'])
  access_inspect(access_plan)
- from access_setup import register_machine,private_access
- private_access(access_plan,plan['tailscale']['sso']['network_users'])
- register_machine(access_plan)
- if isinstance(plan['tailscale'],dict):
-  from tailnet import enrollment,install_client
-  if not shutil.which('tailscale'):install_client()
-  enrollment_result=enrollment(plan['tailscale'])
-  (BUNDLE/'tailnet-progress.json').write_text(json.dumps(enrollment_result,indent=2)+'\n')
-  if not enrollment_result['ready']:return {'status':'waiting_for_tailnet','tailnet':enrollment_result}
+ from tailnet import status
+ current=status()
+ if current['state']!='Running' or current['tailnet']!=plan['tailscale']['tailnet']:raise ValueError('Complete the selected Tailscale login before apply')
  progress={'build':info['build_id'],'completed':[]}
  def step(name):
   progress['completed'].append(name);(BUNDLE/'install-progress.json').write_text(json.dumps(progress,indent=2)+'\n')
@@ -200,6 +196,15 @@ def apply(plan):
  src=BUNDLE/'platform'
  run(sys.executable,src/'deploy/install.py','--data',plan['data'],'--api-port',plan['api_port'],'--dashboard-port',plan['dashboard_port'],'--tls-port',plan['tls_port'],'--project','loom','--ops-image',info['images']['ops']['tag'],'--dashboard-image',info['images']['dashboard']['tag'])
  step('host_layout')
+ from access_setup import register_machine,private_access
+ private_access(access_plan,plan['tailscale']['sso']['network_users'])
+ register_machine(access_plan)
+ if isinstance(plan['tailscale'],dict):
+  from tailnet import enrollment,install_client
+  if not shutil.which('tailscale'):install_client()
+  enrollment_result=enrollment(plan['tailscale'])
+  (BUNDLE/'tailnet-progress.json').write_text(json.dumps(enrollment_result,indent=2)+'\n')
+  if not enrollment_result['ready']:return {'status':'waiting_for_tailnet','tailnet':enrollment_result}
  configure_identity_storage(plan,access_plan)
  (ROOT/'config/installation-plan.json').write_text(json.dumps(plan,indent=2)+'\n')
  if isinstance(plan['tailscale'],dict):
@@ -311,7 +316,7 @@ def make_plan(output,admin_email,data,additional_data,gpu,credential_file,mounts
  'identity_addresses':[],'ports':[8443],'ssh_accounts':[], 'origin':origin+':10000','dashboard_origin':private,
  'host_port':18904,'bind':'0.0.0.0','port':8081,'admins':[{'issuer':private+'/identity','subject':subject}],
  'credential_file':str(credential_file.resolve()),'database':'/loom/ops/admission/requests.sqlite3',
- 'enrollment_mode':'sharing','sharing_hourly_limit':20,'sharing_pending_limit':200}
+ 'managed_resources_version':1,'native_logins':[admin_email],'enrollment_mode':'sharing','sharing_hourly_limit':20,'sharing_pending_limit':200}
  plan={**DEFAULT,'data':data,'additional_data':additional_data,'mounts':mounts or [],'gpu':gpu,'tailscale':{
  'tailnet':current['tailnet'],'hostname':current['dns'].split('.')[0],'tag':'tag:loom','https_port':8443,
  'bridge_cidr':'10.203.41.0/24','users':{},'ssh':False,'sso':{'provider':'tailscale',
@@ -340,13 +345,17 @@ def resume_network(plan):
 
 if __name__=='__main__':
  p=argparse.ArgumentParser(description=__doc__)
- p.add_argument('action',choices=['inspect','plan','check','apply','verify','doctor','handoff','resume-network','smoke'])
+ p.add_argument('action',choices=['inspect','plan','check','apply','verify','doctor','handoff','resume-network','smoke','tailnet-login'])
  p.add_argument('plan',type=Path,nargs='?');p.add_argument('--stage',choices=diagnostics.STAGES)
  p.add_argument('--output',type=Path);p.add_argument('--admin-email',help='Tailscale login email of the account that will administer Loom (not a contact email or OS username)');p.add_argument('--data',default=DEFAULT['data'])
  p.add_argument('--additional-data',action='append',default=[],help='Additional RW store; repeat in data/1, data/2 order');p.add_argument('--mount',action='append',default=[],metavar='UUID:TARGET:FSTYPE',help='Explicit existing filesystem to mount; repeat if needed');p.add_argument('--gpu',action='store_true')
+ p.add_argument('--login-action',choices=['inspect','reuse','login','switch'],default='inspect');p.add_argument('--tailnet');p.add_argument('--login-email');p.add_argument('--confirm-disconnect',action='store_true')
  p.add_argument('--credential-file',type=Path,default=Path('/loom/private-inputs/tailscale-management.json'));a=p.parse_args()
  try:
   if a.action=='inspect':result=inspect()
+  elif a.action=='tailnet-login':
+   from tailnet import login_setup
+   result=login_setup(a.login_action,a.tailnet,a.login_email,a.confirm_disconnect)
   elif a.action=='plan':
    if not a.output or not a.admin_email:raise ValueError('plan requires --output and --admin-email')
    result=make_plan(a.output,a.admin_email,a.data,a.additional_data,a.gpu,a.credential_file,[parse_mount(v) for v in a.mount])

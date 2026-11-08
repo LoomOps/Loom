@@ -61,7 +61,7 @@ class InstallKitTests(unittest.TestCase):
   import ast
   paths={ROOT/d/n for d,names in builder.HOST_FILES.items() for n in names}
   names={p.stem for p in paths}
-  local={p.stem for d in ['deploy','ops','executor'] for p in (ROOT/d).glob('*.py')}
+  local={p.stem for d in ['deploy','ops','executor','dashboard'] for p in (ROOT/d).glob('*.py')}
   for p in paths:
    self.assertTrue(p.is_file(),str(p))
    if p.suffix!='.py':continue

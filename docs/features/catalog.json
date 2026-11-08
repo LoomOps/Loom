@@ -594,14 +594,16 @@
         "dashboard/gateway.js",
         "dashboard/gateway.html",
         "dashboard/gateway.css",
-        "dashboard/sharing.py"
+        "dashboard/sharing.py",
+        "dashboard/managed_resources.py"
       ],
       "tests": [
         "tests/deploy/test_tailnet.py",
         "tests/dashboard/test_admission.py",
         "tests/deploy/test_access_setup.py",
         "tests/dashboard/test_gateway.py",
-        "tests/dashboard/test_sharing.py"
+        "tests/dashboard/test_sharing.py",
+        "tests/deploy/test_managed_resources.py"
       ],
       "depends_on": [
         "identity"
@@ -752,7 +754,8 @@
         "deploy/release_check_setup.py",
         "deploy/installer/doctor.py",
         "deploy/installer/smoke.py",
-        "deploy/uninstall.py"
+        "deploy/uninstall.py",
+        "deploy/policy_cleanup.py"
       ],
       "tests": [
         "tests/deploy/test_packaging.py",

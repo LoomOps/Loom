@@ -115,3 +115,11 @@ Gateway acrylic uses surface alpha 0.34 in both themes, a 30px backdrop blur and
 ## Uninstall boundary
 
 `deploy/uninstall.py` previews and removes only the selected installation’s managed Sharing access and listener routes. It stops the admission writer first, verifies provider cleanup before deleting local records/credentials, and preserves unrelated users/policies and the host Tailscale login. Mixed-instance ownership is reported for reconciliation. No Dashboard or public MCP reset action is exposed.
+
+## Managed resource ownership
+
+`dashboard/managed_resources.py` journals installer and runtime policy changes.
+Uninstall reverses only verified owned state; preexisting and externally shared
+resources are preserved. `deploy/policy_cleanup.py` supports explicit policy-only
+repair when installation records are gone. See [managed resources](../MANAGED-RESOURCES.md)
+and [account selection](../TAILSCALE-SETUP.md).

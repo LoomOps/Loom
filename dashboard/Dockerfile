@@ -5,7 +5,7 @@ COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/loom/
 COPY requirements.txt /opt/loom-dashboard/
 RUN pip install --no-cache-dir -r requirements.txt
 COPY build-info.json build_version.py /opt/loom-dashboard/
-COPY server.py sso.py admission.py sharing.py admission_http.py gateway.py gateway.js gateway.html gateway.css /opt/loom-dashboard/
+COPY server.py sso.py admission.py managed_resources.py sharing.py admission_http.py gateway.py gateway.js gateway.html gateway.css /opt/loom-dashboard/
 COPY branding/ /opt/loom-dashboard/branding/
 COPY theme/ /opt/loom-dashboard/theme/
 COPY public/ /opt/loom-dashboard/public/

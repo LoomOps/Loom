@@ -4,9 +4,9 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 HOST_FILES={
- 'docs':['TAILSCALE-SSO.md','ACCESS-ENROLLMENT.md','UPDATES.md'],
- 'dashboard':['admission.py','sharing.py','sso.py'],
- 'deploy':['install.py','executor-attach.py','host_identity.py','host_services.py','collect-dashboard-gpus.py','collect-observations.py','compose.sh','tailnet.py','access_setup.py','update.py','guide_bundle.py','release_check_setup.py'],
+ 'docs':['TAILSCALE-SSO.md','TAILSCALE-SETUP.md','MANAGED-RESOURCES.md','UNINSTALL.md','ACCESS-ENROLLMENT.md','UPDATES.md'],
+ 'dashboard':['admission.py','sharing.py','sso.py','managed_resources.py'],
+ 'deploy':['install.py','executor-attach.py','host_identity.py','host_services.py','collect-dashboard-gpus.py','collect-observations.py','compose.sh','tailnet.py','access_setup.py','uninstall.py','policy_cleanup.py','update.py','guide_bundle.py','release_check_setup.py'],
  'ops':['host_layout.py','release_updates.py','docker_status.py','host_metrics.py','remote_fence.py','compose.loom.yaml','compose.executor.yaml','compose.observations.yaml','compose.data.yaml'],
  'executor':['server.py','runtime_policy.py','loom-executor.service'],
 }

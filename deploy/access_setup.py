@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'dashboard'))
 from admission import validate, TailnetAPI, machine_tag, RemoteError
 from tailnet import run,write
+import managed_resources
 
 
 def load(plan):
@@ -53,6 +54,10 @@ def configure(root, c):
         if p.is_symlink():raise ValueError('instance_symlink_not_supported')
     secret=root/'secrets/admission';state=root/'admission'
     for p in [secret,state]:p.mkdir(parents=True,exist_ok=True);p.chmod(0o700);os.chown(p,uid,gid)
+    if c.get('managed_resources_version'):
+        managed_resources.mutation({**c,'database':str(state/'requests.sqlite3')},{},{},lambda:None)
+    for name in ('managed-resources.json','managed-resources.lock'):
+        if (state/name).exists():os.chown(state/name,uid,gid)
     backup=root/'network-backups'/('admission-'+str(time.time_ns()));backup.mkdir(parents=True,mode=0o700)
     for path in [secret/'config.json',root/'compose-admission.yaml']:
         if path.exists():write(backup/path.name,path.read_text(),uid,gid)
@@ -97,6 +102,7 @@ def register_machine(c):
     from urllib.parse import quote
     policy_path='/tailnet/'+quote(c['tailnet'],safe='')+'/acl'
     policy,headers=api.call('GET',policy_path)
+    before=json.loads(json.dumps(policy))
     required_tags=['tag:loom',machine_tag(c)]
     if any(tag not in policy.get('tagOwners',{}) for tag in required_tags):
         etag=next((v for k,v in headers.items() if k.lower()=='etag'),None)
@@ -104,9 +110,9 @@ def register_machine(c):
         for tag in required_tags:policy.setdefault('tagOwners',{}).setdefault(tag,['autogroup:admin'])
         result,_=api.call('POST',policy_path+'/validate',policy)
         if result.get('errors') or result.get('message'):raise ValueError('tag_policy_validation_failed')
-        api.call('POST',policy_path,policy,{'If-Match':etag})
+        managed_resources.policy_write(c,api,policy_path,before,policy,{'If-Match':etag})
     tags=sorted(set(device.get('tags',[])+required_tags))
-    api.call('POST','/device/'+c['device_id']+'/tags',{'tags':tags})
+    managed_resources.tags_write(c,api,device.get('tags',[]),tags)
     return {'hub_tag':'tag:loom','user_access_granted':False}
 
 
@@ -125,11 +131,12 @@ def private_access(c, logins):
         pending_policy(policy,{**c,'machine_tags':device.get('tags',[])})
         etag=next((v for k,v in headers.items() if k.lower()=='etag'),None)
         if not etag:raise ValueError('policy_etag_required')
+        before=json.loads(json.dumps(policy))
         policy.setdefault('grants',[]).append(grant)
         result,_=api.call('POST',path+'/validate',policy)
         if result.get('errors') or result.get('message'):raise ValueError('private_policy_validation_failed')
         try:
-            api.call('POST',path,policy,{'If-Match':etag})
+            managed_resources.policy_write(c,api,path,before,policy,{'If-Match':etag})
             return {'private_grant_changed':True}
         except RemoteError as e:
             if e.status!=412:raise
@@ -152,12 +159,34 @@ def gateway_access(c):
         if grant in policy.get('grants',[]):return {'gateway_grant_changed':False}
         etag=next((v for k,v in headers.items() if k.lower()=='etag'),None)
         if not etag:raise ValueError('policy_etag_required')
+        before=json.loads(json.dumps(policy))
         policy.setdefault('grants',[]).append(grant)
         result,_=api.call('POST',path+'/validate',policy)
         if result.get('errors') or result.get('message'):raise ValueError('gateway_policy_validation_failed')
         try:
-            api.call('POST',path,policy,{'If-Match':etag})
+            managed_resources.policy_write(c,api,path,before,policy,{'If-Match':etag})
             return {'gateway_grant_changed':True}
+        except RemoteError as e:
+            if e.status!=412:raise
+    raise ValueError('policy_concurrent_change')
+
+
+def funnel_capability(c):
+    """Own only an exact machine-tag capability, never a broad member exception."""
+    from urllib.parse import quote
+    api=TailnetAPI(c['credential_file']);path='/tailnet/'+quote(c['tailnet'],safe='')+'/acl'
+    grant={'target':[machine_tag(c)],'attr':['funnel']}
+    for _ in range(3):
+        policy,headers=api.call('GET',path)
+        if grant in policy.get('nodeAttrs',[]):return {'funnel_capability_changed':False}
+        before=json.loads(json.dumps(policy));policy.setdefault('nodeAttrs',[]).append(grant)
+        etag=next((v for k,v in headers.items() if k.lower()=='etag'),None)
+        if not etag:raise ValueError('policy_etag_required')
+        result,_=api.call('POST',path+'/validate',policy)
+        if result.get('errors') or result.get('message'):raise ValueError('funnel_policy_validation_failed')
+        try:
+            managed_resources.policy_write(c,api,path,before,policy,{'If-Match':etag})
+            return {'funnel_capability_changed':True}
         except RemoteError as e:
             if e.status!=412:raise
     raise ValueError('policy_concurrent_change')
@@ -185,6 +214,7 @@ def publish(c):
         except HTTPError as e:
             if e.code==404:continue
         raise ValueError('public_listener_exposes_private_routes')
+    funnel_capability(c)
     run('tailscale','funnel','--bg','--https='+str(port),target)
     return {'published':c['origin'],'scope':'request_listener_only',**gateway_access(c)}
 
@@ -203,7 +233,7 @@ def save_credential(path):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['credential','check','inspect','configure','register-machine','publish'])
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['credential','check','inspect','configure','register-machine','publish','reconcile-resources'])
     p.add_argument('--plan',type=Path);p.add_argument('--root',type=Path,default=Path('/loom/ops'))
     p.add_argument('--output',type=Path,default=Path('/loom/private-inputs/tailscale-management.json'));a=p.parse_args()
     try:
@@ -211,6 +241,10 @@ if __name__=='__main__':
             print(json.dumps(save_credential(a.output)));raise SystemExit(0)
         if not a.plan:raise ValueError('plan_required')
         c=load(a.plan)
+        if a.action=='reconcile-resources':
+            from urllib.parse import quote
+            api=TailnetAPI(c['credential_file']);policy,_=api.call('GET','/tailnet/'+quote(c['tailnet'],safe='')+'/acl');device,_=api.call('GET','/device/'+quote(c['device_id'],safe=''))
+            print(json.dumps(managed_resources.reconcile(c,policy,device.get('tags',[]))));raise SystemExit(0)
         result={'valid':True} if a.action=='check' else inspect(c) if a.action=='inspect' else configure(a.root,c) if a.action=='configure' else register_machine(c) if a.action=='register-machine' else publish(c)
         print(json.dumps(result,indent=2))
     except Exception as e:

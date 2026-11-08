@@ -135,3 +135,39 @@ class UninstallTests(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,'Active Jobs'):self.apply(p)
   self.assertTrue(all(m=='GET' for m,_ in self.api.calls[before:]))
   self.assertTrue((self.root/'secrets/admission/management.json').exists())
+
+ def test_journaled_uninstall_removes_created_policy_and_tags_not_existing_access(self):
+  import managed_resources as registry
+  self.c['database']=str(self.root/'admission/requests.sqlite3')
+  before={'groups':{'group:other':['other@example.test']},'grants':self.api.policy['grants'][1:2]+self.api.policy['grants'][3:], 'tagOwners':{'tag:existing':['autogroup:admin']}}
+  current=self.api.policy;current['tagOwners'].update(before['tagOwners'])
+  registry.mutation(self.c,registry.flatten(before),registry.flatten(current),lambda:None)
+  tags=['tag:existing','tag:loom'];device={'addresses':self.c['addresses'],'tags':tags}
+  registry.tags_write(self.c,self.api,[],[]) # unchanged tags cause no remote call
+  registry.mutation(self.c,{}, {'device-tag/tag:loom':{'section':'device-tag','name':'tag:loom','value':True}},lambda:None)
+  original=self.api.call
+  def call(method,path,value=None,headers=None):
+   if path.endswith('/devices'):return {'devices':[{'id':'device1',**device}]},{}
+   if path=='/device/device1':return copy.deepcopy(device),{}
+   if path=='/device/device1/tags':device['tags']=value['tags'];return {},{}
+   return original(method,path,value,headers)
+  self.api.call=call
+  plan=self.plan();self.assertEqual(plan['managed_resources']['pending'],0)
+  self.apply(plan);self.assertEqual(self.api.policy,before);self.assertEqual(device['tags'],['tag:existing'])
+  self.assertFalse(registry.path(self.c).exists())
+ def test_final_owned_tag_requires_identity_choice_before_service_stop(self):
+  import managed_resources as registry
+  self.c['database']=str(self.root/'admission/requests.sqlite3')
+  registry.mutation(self.c,{}, {'device-tag/tag:loom':{'section':'device-tag','name':'tag:loom','value':True}},lambda:None)
+  original=self.api.call
+  def call(method,path,*args):
+   if path.endswith('/devices'):return {'devices':[{'id':'device1','tags':['tag:loom']}]},{}
+   if path=='/device/device1':return {'addresses':self.c['addresses'],'tags':['tag:loom']},{}
+   return original(method,path,*args)
+  self.api.call=call
+  with self.assertRaisesRegex(ValueError,'final device tag'):self.plan()
+  self.assertEqual(self.commands,[])
+ def test_reused_manual_invitation_is_not_deleted(self):
+  with sqlite3.connect(self.root/'admission/requests.sqlite3') as db:db.execute("UPDATE share_requests SET send_started=0")
+  plan=self.plan();self.assertEqual(plan['invites'],[]);self.apply(plan)
+  self.assertEqual(self.api.invites,[{'id':'owned'},{'id':'manual'}])

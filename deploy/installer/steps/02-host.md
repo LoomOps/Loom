@@ -1,5 +1,7 @@
 # 2. Host and credentials
 
+Use the initial Tailscale connection selection in `docs/TAILSCALE-SETUP.md` (source) or `platform/docs/TAILSCALE-SETUP.md` (kit) before plan generation. Verify the chosen Tailnet after login or device approval; a different Loom Admin does not require machine logout.
+
 Required: Ubuntu/Debian systemd host, Python 3, Docker Engine + Compose, OpenSSL, acl, util-linux and Tailscale; Git for selected source clones. Install missing packages for the actual OS without replacing an existing Docker distribution. GPU requires compatible drivers and NVIDIA Container Toolkit. Offline media must already contain host packages and execution images.
 
 The administrator logs the machine into the intended tailnet. Never automatically log out of another tailnet. Confirm authorization for `tag:loom` and machine-scoped Sharing policy. Never broaden private access to every future tailnet member. Tailscale login is not a management API credential.

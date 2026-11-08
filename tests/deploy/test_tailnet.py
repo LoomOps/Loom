@@ -116,3 +116,29 @@ class IdentityRegistrationTests(unittest.TestCase):
             with patch.object(tailnet,'run',return_value='{}') as run:
                 tailnet.serve(root,{'https_port':8443},'loom.tail123.ts.net')
                 self.assertTrue(any(call.args[-1]=='http://127.0.0.1:18893' for call in run.call_args_list))
+
+class LoginSelectionTests(unittest.TestCase):
+ def test_existing_connection_is_read_only_and_explicit_reuse(self):
+  state={'state':'Running','tailnet':'example.test','login':'admin@example.test','tags':[]}
+  with patch.object(tailnet.shutil,'which',return_value='/bin/tailscale'),patch.object(tailnet,'status',return_value=state),patch.object(tailnet,'run') as run:
+   self.assertEqual(tailnet.login_setup()['recommendation'],'reuse')
+   self.assertTrue(tailnet.login_setup('reuse','example.test')['ready'])
+   with self.assertRaises(ValueError):tailnet.login_setup('reuse','wrong.test')
+   with self.assertRaises(ValueError):tailnet.login_setup('login','example.test')
+   with self.assertRaises(ValueError):tailnet.login_setup('switch','other.test','other@example.test')
+   run.assert_not_called()
+ def test_explicit_switch_requires_alternate_access_and_rechecks_account(self):
+  old={'state':'Running','tailnet':'old.test','login':'old@example.test'}
+  new={'state':'Running','tailnet':'new.test','login':'new@example.test'}
+  with patch.object(tailnet.shutil,'which',return_value='/bin/tailscale'),patch.object(tailnet,'status',side_effect=[old,new]),patch.object(tailnet,'run') as run:
+   self.assertTrue(tailnet.login_setup('switch','new.test','new@example.test',True)['ready'])
+   self.assertEqual(run.call_args_list[0].args,('tailscale','logout'))
+   self.assertEqual(run.call_args_list[1].args,('tailscale','login','--advertise-tags=','--timeout=5s'))
+ def test_pending_approval_and_missing_client_do_not_mutate(self):
+  with patch.object(tailnet.shutil,'which',return_value=None),patch.object(tailnet,'run') as run:
+   self.assertEqual(tailnet.login_setup()['state'],'NotInstalled');run.assert_not_called()
+  with patch.object(tailnet.shutil,'which',return_value='/bin/tailscale'),patch.object(tailnet,'status',return_value={'state':'NeedsMachineAuth','tailnet':'example.test'}),patch.object(tailnet,'run') as run:
+   self.assertFalse(tailnet.login_setup('login','example.test')['ready']);run.assert_not_called()
+ def test_tagged_identity_does_not_become_admin_email(self):
+  with patch.object(tailnet,'run',return_value=json.dumps({'BackendState':'Running','Self':{'UserID':1,'Tags':['tag:loom']},'User':{'1':{'LoginName':'owner@example.test'}}})):
+   self.assertIsNone(tailnet.status()['login'])

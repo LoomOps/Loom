@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Guide existing Tailscale connection reuse, initial login, explicit account switching
+  and device approval separately from the Loom Admin email and management credential.
+- Journal installation and runtime policy/tag ownership, reconcile uncertain writes,
+  and restore only owned changes during uninstall. Preserve reused manual invitations
+  and shared resources; detect final-device-tag reauthentication before stopping services.
+- Add reviewed, policy-only cleanup for removed installations, plus installation
+  doctor, offline-kit dependency and regression coverage.
+
 ## 0.1.0-alpha.21 — 2026-11-08
 
 - Add an administrator-only uninstall CLI that previews and removes an instance's

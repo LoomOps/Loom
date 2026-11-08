@@ -76,6 +76,13 @@ External-client approval, real reboot and GPU computation are not implied by
 local health checks. `resume-network` only republishes a matching installed plan
 after configuration/services pass; it cannot reinstall the database/executor.
 Other partial-stage failures must be diagnosed without deleting existing state.
+Initial connection selection and account-switch scenarios are specified in
+[TAILSCALE-SETUP.md](../TAILSCALE-SETUP.md). Machine enrollment, Loom Admin identity
+and management API authorization are separate checks. Host layout is created before
+recording policy writes so the ownership journal cannot pre-create the instance
+and cause a false fresh-install conflict. Doctor checks the journal on new plans;
+the source and offline kits include its module and cleanup tools. See
+[MANAGED-RESOURCES.md](../MANAGED-RESOURCES.md) for uninstall and orphan cleanup.
 Source packaging prepares the execution image explicitly and can resume only a
 verified, completed immutable build. Offline kits include the same doctor,
 smoke and all step documents.

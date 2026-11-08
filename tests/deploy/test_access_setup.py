@@ -15,14 +15,18 @@ class AccessSetupTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name)
         self.c=json.loads((ROOT/'deploy/installer/access-plan.example.json').read_text())
-        self.c.update(machine_id='install1',device_id='device1',credential_file=str(self.root/'private.json'))
+        self.c.update(machine_id='install1',device_id='device1',credential_file=str(self.root/'private.json'),database=str(self.root/'admission/requests.sqlite3'))
         (self.root/'private.json').write_text(json.dumps({'type':'api','token':'secret-fixture'}))
         self.plan=self.root/'plan.json';self.plan.write_text(json.dumps(self.c))
 
     def test_sharing_setup_keeps_credentials_private(self):
         c=access_setup.load(self.plan);self.assertEqual(c['enrollment_mode'],'sharing')
+        c['managed_resources_version']=1
         (self.root/'secrets/sso').mkdir(parents=True);(self.root/'secrets/sso/config.json').write_text(json.dumps({'network_users':{'admin@example.test':{'subject':'admin'}}}))
         result=access_setup.configure(self.root,c)
+        journal=json.loads((self.root/'admission/managed-resources.json').read_text())
+        self.assertEqual(journal['resources'],{})
+        self.assertEqual(journal['identity']['machine_id'],c['machine_id'])
         self.assertNotIn('secret-fixture',json.dumps(result))
         runtime=json.loads((self.root/'secrets/admission/config.json').read_text())
         self.assertEqual(runtime['credential_file'],'/etc/loom/admission/management.json')
@@ -90,7 +94,7 @@ class AccessSetupTests(unittest.TestCase):
         def fetch(url,**kw):
             if url.endswith('/api/session'):return Response()
             raise HTTPError(url,404,'not found',{},None)
-        with patch.object(access_setup,'run',side_effect=[json.dumps({'Self':{'DNSName':host+'.'}}),'{}','']) as run,patch('urllib.request.urlopen',side_effect=fetch),patch.object(access_setup,'gateway_access',return_value={'gateway_grant_changed':True}) as grant:
+        with patch.object(access_setup,'run',side_effect=[json.dumps({'Self':{'DNSName':host+'.'}}),'{}','']) as run,patch('urllib.request.urlopen',side_effect=fetch),patch.object(access_setup,'funnel_capability'),patch.object(access_setup,'gateway_access',return_value={'gateway_grant_changed':True}) as grant:
             r=access_setup.publish(self.c)
             grant.assert_called_once_with(self.c)
             self.assertEqual(run.call_args.args,('tailscale','funnel','--bg','--https=10000','http://127.0.0.1:18904'))

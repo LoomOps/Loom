@@ -36,12 +36,15 @@ Cleanup removes:
   sessions, SSO/admission configuration and credentials, and instance network
   configuration backups. Ops Tailscale/Dashboard auth bindings are cleared.
 
-Cleanup preserves the host's Tailscale login/device, tags, native Admin policy,
+For journaled installations, cleanup also reverses owned policy/tag changes and
+restores modified preexisting values. See [managed resources](MANAGED-RESOURCES.md).
+
+Cleanup preserves the host's Tailscale login/device, unrelated/shared tags and preexisting Admin policy,
 unrelated Tailnet users/policies/shares/listeners, Job DB/history and owner
 provenance, datasets/models/artifacts, storage mounts, components/profiles, service
 account, images, dependencies and shared host helpers. It does not delete a Tailnet
 user or run `tailscale logout`, `tailscale down` or global Serve/Funnel `reset`.
-Those services may be shared with another installation. No global `/loom` deletion
+Older installations without a journal retain the conservative legacy policy scope; ownership cannot be reconstructed from names. Those services may be shared with another installation. No global `/loom` deletion
 or Docker prune is performed. Retained runtime data can be migrated/restored; a
 fresh installer must not be run over it blindly.
 
@@ -72,3 +75,7 @@ The scoped listener commands follow the official
 Verify remote deletion using a disposable installation before relying on it for a
 production teardown. Unit tests mock Tailscale/Docker/systemd; they never uninstall
 the development host.
+
+If installation records are already gone, use the separately reviewed policy-only
+repair in [MANAGED-RESOURCES.md](MANAGED-RESOURCES.md); do not run another live
+instance's uninstall against the removed machine.

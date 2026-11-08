@@ -41,3 +41,12 @@ Temporary SQLite/files are real; Docker/systemd/Tailscale are mocked. Uninstall 
 not executed on the development host as a deployment acceptance step. This
 workflow is included in source/installer snapshots; upgrades preserve installed
 state and never invoke it.
+
+## Managed access review
+
+Connection selection covers missing client/login, current account reuse, explicit
+switch/disconnection acknowledgment, wrong Tailnet/account, tagged identity and
+device approval wait. Ownership tests cover installer/runtime deltas, preexisting
+state, shared tags, changed references, ETag conflicts, uncertain write recovery
+and reviewed orphan policy. These use isolated journals and mocked provider APIs;
+no current user's login or live remote policy is changed by tests.

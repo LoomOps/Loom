@@ -6,6 +6,8 @@ Recommend **host `/loom/data` as `data/0`**. Ask explicitly: “Keep `/loom/data
 
 Ask for the login email of the Tailscale account that will administer Loom: “Which Tailscale account will administer Loom? Provide that account’s Tailscale login email.” A contact email or OS username is not sufficient. Do not infer the Admin from the OS user or a tagged machine's owner. No research framework is a prerequisite.
 
+Complete connection selection using `docs/TAILSCALE-SETUP.md` in the source checkout, or `platform/docs/TAILSCALE-SETUP.md` in an installation kit. In this initial conversation, inspect the existing Tailscale identity, recommend reuse when suitable, or guide explicit login/account switching. Loom Admin, machine login and management API credentials are separate. Use `deploy/installer/setup.py tailnet-login` from source, or `setup.py tailnet-login` in a kit; never log out a connected machine without an explicit switch choice and alternate access.
+
 Generate the plan (replace the email with the confirmed Admin; add `--gpu` when selected):
 
 ```bash
