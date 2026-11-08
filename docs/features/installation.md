@@ -17,7 +17,7 @@ The linked code/schemas define fields, enums and state transitions. This documen
 
 | Boundary | Input | Result or failure | Consumers |
 |---|---|---|---|
-| `deploy/install.py#install` | New instance/data paths, ports/images and service identity | Owned layout, independent installation UUID and initial config; refuses existing instance overwrite | network, execution, dashboard |
+| `deploy/install.py#install` | New instance, unclaimed new/existing data directory, ports/images and service identity | Owned layout, independent installation UUID and initial config; refuses existing instance overwrite | network, execution, dashboard |
 | `deploy/installer/setup.py#apply` | Verified immutable kit + complete installation plan | Installed services or explicit enrollment wait/failure; no false success from partial progress | network |
 
 | `deploy/update.py#apply` | Verified release + idle installed instance | Image/helper update with saved rollback state; preserves host overrides and extensions | network, execution, dashboard, onboarding |
@@ -66,8 +66,8 @@ example values. Full native Tailscale identity, explicit Admin binding and a
 separate Sharing Gateway are mandatory; a boolean tailscale plan is rejected.
 
 `setup.py plan` generates linked configuration from this machine and the confirmed
-human Admin. Primary output storage is separate from additional read-only catalog
-stores. `compose-storage.yaml` is generated instance configuration; machine-owned
+human Admin. The default host data/0 directory is /loom/data. All explicitly selected
+stores are RW; additional disks/mountpoints are optional and confirmed in the plan. `compose-storage.yaml` is generated instance configuration; machine-owned
 final overrides remain last and doctor inspects actual container mounts/images.
 
 `doctor`/`verify` are read-only; `smoke` is the explicit bounded CPU Job entry point.
@@ -86,3 +86,7 @@ trusted-proxy environment and Ops trusted proxies. A healthy HTTP listener or
 network pins its gateway explicitly; tests cover IPAM selecting the dynamic pool
 boundary instead of the expected first host address. Ask installers specifically
 for the Admin account's **Tailscale login email**, not a generic administrator email.
+
+## Registered output storage
+
+`ops/storage.py` owns named stores and persistent `.loom-storage.json` identities. `jobs.submit.output_storage` defaults to data/0 and freezes a non-default identity; all Attempt stages and result retries use that root. Result locators carry the selected ID and store-relative path. Registered secondary outputs are available in Dashboard files/media, results API and read-only downstream input mounts. Unknown, redirected, missing or replaced stores must never fall back to the primary. Existing Jobs without this field retain primary behavior; no DB rewrite or data move is required. Profile `storage` mounts remain separate optional shared RW access.

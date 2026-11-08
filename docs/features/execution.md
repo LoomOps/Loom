@@ -34,3 +34,11 @@ Test sources define the concrete scenarios. `deploy/test.sh` records individual 
 ## Live validation
 
 Actual Docker/GPU runtimes and power loss after container creation are outside mock coverage.
+
+## Registered RW storage
+
+Optional runner.storage is a unique list of data/N IDs. Profile registration checks the installation grant; executor startup rechecks IDs, the configured host roots and symlink changes. Paths are never supplied by the caller. Explicit mounts are RW at /loom/data/N and appear in request.storage. Omission preserves existing Job isolation, /work result publication and read-only pinned input mounts. system.status.data_stores reports this capability; both HTTP and MCP use the same profile schema. New installation grants all selected stores, but image updates preserve existing grants and data locations.
+
+## Registered output storage
+
+`ops/storage.py` owns named stores and persistent `.loom-storage.json` identities. `jobs.submit.output_storage` defaults to data/0 and freezes a non-default identity; all Attempt stages and result retries use that root. Result locators carry the selected ID and store-relative path. Registered secondary outputs are available in Dashboard files/media, results API and read-only downstream input mounts. Unknown, redirected, missing or replaced stores must never fall back to the primary. Existing Jobs without this field retain primary behavior; no DB rewrite or data move is required. Profile `storage` mounts remain separate optional shared RW access.

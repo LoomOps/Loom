@@ -40,6 +40,7 @@ import job_history
 import job_contract
 import profiles
 from urllib.parse import urlsplit, parse_qs, unquote
+import storage
 import registry
 from remote_fence import WorkerGrant
 from profiles import APP, file_sha, installed, typed_contract, validate_profile
@@ -142,7 +143,7 @@ def _init_schema():
 
 
 def submit(c, actor, spec, config):
-    if not isinstance(spec, dict) or set(spec)-{'depends_on','execution','queue_position', *job_contract.FIELDS} != {'key','kind','owner','notify','params'}:
+    if not isinstance(spec, dict) or set(spec)-{'depends_on','execution','queue_position','output_storage', *job_contract.FIELDS} != {'key','kind','owner','notify','params'}:
         raise ValueError('Invalid job specification')
     if spec.get('queue_position','tail') not in ('next','tail'):raise ValueError('Invalid submission queue_position')
     config=component_store.merge(c,config,actor)
@@ -163,12 +164,15 @@ def submit(c, actor, spec, config):
         if (any(frozen.get(field)!=spec[field] for field in ('key','kind','owner','notify','params'))
                 or frozen.get('execution',{}) != spec.get('execution',{})
                 or frozen.get('queue_position','tail') != spec.get('queue_position','tail')
+                or frozen.get('output_storage','data/0') != spec.get('output_storage','data/0')
                 or job_contract.values(frozen) != classification
                 or frozen.get('_requested_dependencies',sorted(frozen.get('depends_on',[])))!=requested_dependencies):
             raise ValueError('Idempotency conflict')
         if registry.mode(c) != 'active':
             raise PermissionError('Job admission fenced')
         return {'id':old['id']}
+    _,output_id=storage.select(config,BULK,spec.get('output_storage','data/0'),verify=True)
+    if spec.get('output_storage','data/0')!='data/0':spec={**spec,'_output_storage_id':output_id}
     dependencies=list(requested_dependencies)
     selected=config.get('profiles',{}).get(spec['kind'],{})
     if execution.is_generic(selected):
@@ -242,6 +246,7 @@ def public(row):
     data = dict(row)
     data['spec'] = json.loads(data['spec'])
     data['spec'].pop('_requested_dependencies',None)
+    data['spec'].pop('_output_storage_id',None)
     data['result'] = json.loads(data['result']) if data['result'] else None
     data.update(job_contract.values(data['spec']))
     data['status']={'complete':'completed','processing':'finalizing','result_failed':'finalizing_failed','blocked':'queued','interrupted':'failed'}.get(data['state'],data['state'])
@@ -249,7 +254,8 @@ def public(row):
     return data
 
 
-def artifact(config, folder, manifest, profile=None, facts=None):
+def artifact(config, folder, manifest, profile=None, facts=None, output=None):
+    output_root,output_id=output or (BULK,config['storage_id'])
     if set(manifest) != {'entities','metrics'}:
         raise ValueError('Invalid result manifest')
     if profile is not None:
@@ -284,8 +290,8 @@ def artifact(config, folder, manifest, profile=None, facts=None):
                         facts[member] = (registry.stable_file(stream,before), digest)
                 members.append({'ref':ref,'sha256':digest})
             entity['components']=members
-        entity['locator'] = {'machine_id':config['machine_id'],'storage_id':config['storage_id'],
-                             'ref':str(path.relative_to(BULK))}
+        entity['locator'] = {'machine_id':config['machine_id'],'storage_id':output_id,
+                             'ref':str(path.relative_to(output_root))}
     if not entities:
         raise ValueError('No result artifacts')
     for metric in manifest['metrics'] if profile is None else []:
@@ -405,9 +411,9 @@ def returned_receipt(row):
 
 
 def execute(row, config, stage="run"):
-    folder = relative(BULK, f"runs/{row['id']}/{row['attempt']}")
     spec = json.loads(row['spec'])
     try:
+        folder = storage.folder(config,BULK,row,relative)
         guard(config)
         with db() as c:config=component_store.merge(c,config)
         generic=execution.is_generic(spec.get('profile',{}))
@@ -500,7 +506,7 @@ def process_result(row, config):
             finish(row,'cancelled',{'execution':{'exit_code':0,'process_group_returned':True}})
             return
         guard(config)
-        folder = relative(BULK,f"runs/{row['id']}/{row['attempt']}")
+        folder = storage.folder(config,BULK,row,relative)
         spec=json.loads(row['spec'])
         if spec.get('profile',{}).get('finalize'):
             with db() as c:rec=recovery.view(c,row['id'])
@@ -508,10 +514,10 @@ def process_result(row, config):
         with (folder/'result.json').open('rb') as stream:
             os.fsync(stream.fileno())
         facts = {}
-        result = artifact(config,folder,read(folder/'result.json'),json.loads(row['spec']).get('profile'),facts)
+        result = artifact(config,folder,read(folder/'result.json'),json.loads(row['spec']).get('profile'),facts,storage.output(config,BULK,spec))
         result['execution'] = {'exit_code':0,'process_group_returned':True}
         if (folder/'container-ticket.json').exists():result['runtime']=read(folder/'container-ticket.json')
-        prepared = registry.prepare(result,BULK,relative,facts=facts)
+        prepared = registry.prepare(result,BULK,relative,facts=facts,config=config)
         fd = os.open(folder,os.O_RDONLY | os.O_DIRECTORY)
         try:
             os.fsync(fd)
@@ -538,7 +544,7 @@ def process_result(row, config):
 def run_hook(row,config,stage,retry=0,required=False):
     spec=json.loads(row['spec']);profile=spec['profile'];runner=profile[stage]
     if runner.get('lane','cpu')!='cpu':raise ValueError('Lifecycle hooks use CPU resources')
-    folder=relative(BULK,f"runs/{row['id']}/{row['attempt']}");folder.mkdir(parents=True,exist_ok=True)
+    folder=storage.folder(config,BULK,row,relative);folder.mkdir(parents=True,exist_ok=True)
     if stage.startswith('on_'):
         folder=folder/'callbacks'/stage/str(retry);folder.mkdir(parents=True,exist_ok=True)
     request=folder/(stage+'-context.json')
@@ -595,7 +601,12 @@ def worker(config):
             with db() as c:
                 rows=c.execute("SELECT * FROM jobs WHERE state IN ('running','preparing')").fetchall()
             for row in rows:
-                folder=relative(BULK,f"runs/{row['id']}/{row['attempt']}")
+                try:folder=storage.folder(config,BULK,row,relative)
+                except (OSError,ValueError):
+                    if config.get('executor'):
+                        runtime_client.call(config['executor'],'recover',{'job':row['id'],'attempt':row['attempt']})
+                    finish(row,'failed',{'reason':'storage_unavailable','process_group_returned':True})
+                    continue
                 ticket_path=folder/'container-ticket.json'
                 if config.get('executor') and json.loads(row['spec']).get('profile',{}).get('runtime',{}).get('executor')=='container':
                     recovered=runtime_client.call(config['executor'],'recover',{'job':row['id'],'attempt':row['attempt']})
@@ -734,12 +745,13 @@ TOOLS = {
 
 
 OPTIONAL_FIELDS = {
+    'reconnect_location':{'storage':storage.SELECTOR},
     'reorder_job': {'reference':{'type':'string'},'reason':{'type':'string','maxLength':1000}},
     'hold_job': {'reason':{'type':'string','maxLength':1000}},
     'resume_job': {'reason':{'type':'string','maxLength':1000}},
     'recover_job':{'lease':{'type':'string'},'patch':{'type':'object'},'reason':{'type':'string'}},
     'list_events': {'kind':{'type':'string','enum':['errors','lifecycle','all'],'default':'errors'},'after':{'type':'integer','minimum':0}},
-    'submit_job': {'queue_position':{'type':'string','enum':['tail','next'],'default':'tail'},'execution':execution.POLICY_SCHEMA,'depends_on': {'type':'array','items':{'type':'string'}}, **job_contract.FIELDS},
+    'submit_job': {'output_storage':storage.SELECTOR,'queue_position':{'type':'string','enum':['tail','next'],'default':'tail'},'execution':execution.POLICY_SCHEMA,'depends_on': {'type':'array','items':{'type':'string'}}, **job_contract.FIELDS},
     'list_jobs': {'category': job_contract.FIELDS['category'],
                   'execution_mode': {'type':'string','enum':list(job_contract.MODES)},
                   'offset': {'type':'integer','minimum':0,'default':0},
@@ -840,7 +852,7 @@ def operate(name, args, actor, config):
                     'principal':{k:actor[k] for k in ('id','scopes','owners','notify','identity','profile_id','profile') if k in actor},
                     'installation_id':config.get('installation_id'),'collaboration':'shared',
                     'authentication':{'tailscale':bool(config.get('tailscale_auth',{}).get('enabled')),
-                                      'dashboard_sso':bool(config.get('dashboard_auth',{}).get('enabled'))},'api_revision':job_contract.API_REVISION,'job_contract_revision':job_contract.REVISION,'admission':registry.mode(c),'inventory':config['inventory'],'execution_contract_revision':execution.REVISION,'runtime_ids':config.get('runtime_ids',[]),'gpu_execution_enabled':config.get('allow_gpu',False),
+                                      'dashboard_sso':bool(config.get('dashboard_auth',{}).get('enabled'))},'api_revision':job_contract.API_REVISION,'job_contract_revision':job_contract.REVISION,'admission':registry.mode(c),'inventory':config['inventory'],'execution_contract_revision':execution.REVISION,'data_stores':{name:{**item,'path':'/loom/'+name} for name,item in storage.stores(config,BULK).items()},'runtime_ids':config.get('runtime_ids',[]),'gpu_execution_enabled':config.get('allow_gpu',False),
                     'profiles':{kind:p['revision'] for kind,p in config.get('profiles',{}).items()
 }}
         if name == 'record_delivery':
@@ -865,7 +877,7 @@ def operate(name, args, actor, config):
             return {'acknowledged': True}
         if name == 'reconnect_location':
             return registry.reconnect(c,actor,config,BULK,relative,ident(args['id']),
-                                      args['revision'],args['component'],args['ref'])
+                                      args['revision'],args['component'],args['ref'],args.get('storage','data/0'))
         if name not in {'get_job','get_job_logs'}:
             c.execute('BEGIN IMMEDIATE')
             if registry.mode(c) != 'active':
@@ -911,7 +923,7 @@ def operate(name, args, actor, config):
                 raise ValueError('Invalid log cursor or limit')
             if not c.execute('SELECT 1 FROM attempts WHERE job=? AND id=?',(row['id'],attempt)).fetchone():
                 raise PermissionError('Attempt outside job')
-            folder=relative(BULK,f"runs/{row['id']}/{attempt}")
+            folder=storage.folder(config,BULK,row,relative,attempt)
             ticket=folder/'run-ticket.json'
             if ticket.exists() and config.get('executor'):
                 return runtime_client.call(config['executor'],'log_range',{'ticket':read(ticket)['ticket'],'offset':offset,'limit':limit})

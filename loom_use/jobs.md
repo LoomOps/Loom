@@ -29,3 +29,11 @@ Eligible means the local Ops dependency, hold, reservation and lane conditions a
 ## Owner
 
 owner_profile and properties.owner identify the current responsible person, not an access boundary. Discover profiles with system.users and assign with jobs.assign_owner({id,owner}). Original spec.owner, submitter, callback notify and execution snapshots are preserved separately. Results inherit the current Job Owner at publication and can later be reassigned through results.assign_owner.
+
+## Output storage
+
+Read `system.status.data_stores`, then set `output_storage` on `jobs.submit`, for example `"output_storage":"data/1"`. Omission uses data/0. Loom freezes the selected store identity for the Job, creates its `runs/<job>/<attempt>` workspace there and passes `/work` as `request.output_dir` to containers. Preparation, run, finalization, callbacks and logs follow that workspace. The producer keeps writing relative paths in result.json; it must not construct host paths or edit the DB.
+
+Loom validates the files/hashes and indexes the selected storage ID, relative paths, metadata, metrics and lineage. Dependent Jobs can use `{ "job":"<producer-id>", "entity":"<output-id>" }`; registered locator inputs work across stores too. Inputs are mounted read-only, without mounting their entire store. `runtime.storage` is a separate opt-in for general shared RW access, not the output selector.
+
+A missing/replaced store fails that Job instead of falling back to data/0. Result-indexing retries use the same output store and do not rerun compute. Recovery cannot change output_storage on an existing Job; submit a new Job to choose another output store. Image updates preserve configured paths and markers. Older installations expose data/0 by default; additional output stores require their persistent storage IDs and executor grants to be configured, not just an Explorer mount.

@@ -11,7 +11,7 @@ class InstallKitTests(unittest.TestCase):
   p=setup.validate(json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text()));self.assertEqual(p['repositories'],[]);self.assertFalse(p['gpu']);self.assertIsNone(p['mount'])
 
  def test_paths_cannot_hide_existing_data_or_inject_env(self):
-  for name,value in [('data','/etc/new-data'),('data','/storage/../etc/new'),('data','/storage/a\nLOOM_DEV_NO_AUTH=1'),('dependencies','/loom/components'),('dependencies','/storage/loom/data/cache')]:
+  for name,value in [('data','/etc/new-data'),('data','/storage/../etc/new'),('data','/storage/a\nLOOM_DEV_NO_AUTH=1'),('dependencies','/loom/components'),('dependencies','/loom/data/cache')]:
    with self.subTest(name=name,value=value):
     p=json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text());p[name]=value
     with self.assertRaises(ValueError):setup.validate(p)
@@ -27,7 +27,7 @@ class InstallKitTests(unittest.TestCase):
    with self.subTest(key=key),self.assertRaises(ValueError):setup.validate(bad)
 
  def test_mount_is_existing_filesystem_with_separate_dependency_path(self):
-  p=json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text());p['mount']={'uuid':'12345678-abcd','target':'/storage','fstype':'ext4'};setup.validate(p)
+  p=json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text());p['data']='/storage/loom/data';p['mount']={'uuid':'12345678-abcd','target':'/storage','fstype':'ext4'};setup.validate(p)
   p['mount']['target']='/dependencies'
   with self.assertRaises(ValueError):setup.validate(p)
 
@@ -74,3 +74,20 @@ class InstallKitTests(unittest.TestCase):
   with patch.object(setup.os,'geteuid',return_value=0),patch.object(setup.Path,'is_dir',return_value=True),patch.object(setup.platform,'machine',return_value='aarch64'),patch.object(setup,'run') as run:
    with self.assertRaisesRegex(ValueError,'architecture'):setup.preflight(json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text()),{'architecture':'amd64'})
    run.assert_not_called()
+
+ def test_default_and_additional_stores_allow_new_rw_directories(self):
+  p=json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text())
+  self.assertEqual(p['data'],'/loom/data');self.assertEqual(setup.DEFAULT['data'],'/loom/data')
+  p['additional_data']=['/storage/loom/data'];setup.validate(p)
+  for path in ['/loom/ops','/loom','/loom/components','/loom/data/nested']:
+   with self.subTest(path=path),self.assertRaises(ValueError):setup.validate({**p,'additional_data':[path]})
+
+ def test_multiple_mounts_and_legacy_plan_compatibility(self):
+  p=json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text())
+  p['additional_data']=['/storage/loom/data']
+  p['mounts']=[setup.parse_mount('12345678-abcd:/loom/data:ext4'),setup.parse_mount('87654321-abcd:/storage:xfs')]
+  setup.validate(p)
+  p['mounts'][1]['uuid']=p['mounts'][0]['uuid']
+  with self.assertRaisesRegex(ValueError,'Duplicate'):setup.validate(p)
+  del p['mounts'];setup.validate(p)
+  with self.assertRaises(ValueError):setup.parse_mount('12345678-abcd:/storage:ext4:ignored')

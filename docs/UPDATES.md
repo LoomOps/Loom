@@ -12,7 +12,7 @@ The repository contains deployable source. Do not symlink `/loom` into it or inc
 | `/loom/components`, `/loom/profiles` | Users/agents | Preserve revisions; new registrations are immediately available through API/MCP |
 | Code under `/loom/shared/executor`, shared/services | Release | Replace code after idle verification; retain settings/keys |
 | `/loom/loom_use/<version>` | Installed guide copies | Generate from the new image, preserve versions, switch `current` after health checks; restore the previous pointer on rollback |
-| External data, `/dependencies` | Operator | Unchanged |
+| Data stores (default `/loom/data`, optional other host paths), `/dependencies` | Operator | Contents/locations preserved; Job storage grants remain explicit |
 
 Compose order is base → executor/observations/data → dev → generated network/tailnet/admission → **user compose.override.yaml**. override.env also applies last. Overrides are operating settings, not credentials. Operators must review changed ports/mounts. Validate the final combination with `compose.sh config --quiet` when changing versions.
 
@@ -91,3 +91,5 @@ workspaces do not become releases until explicitly tagged and published.
 
 GitHub contract: [List releases](https://docs.github.com/en/rest/releases/releases#list-releases),
 [conditional requests and rate limits](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api).
+
+New installations register all selected stores RW. Existing generated storage overlays and executor grants are preserved by updates; an old read-only overlay must be reconciled explicitly before using `runner.storage`. The base Compose data mounts are RW, while final user overrides remain authoritative.

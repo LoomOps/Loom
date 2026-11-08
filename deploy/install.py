@@ -16,14 +16,16 @@ from host_layout import create_layout,write_config,write_json
 
 
 def install(root,data,api_port,dashboard_port,tls_port,project,ops_image,dashboard_image,uid=None,gid=None):
-    if root.exists() or data.exists():raise ValueError('Choose new instance and data directories')
+    if root.exists() or (data/'.loom-storage.json').exists() or (data/'.loom-storage.json').is_symlink():raise ValueError('Choose a new instance and an unclaimed data directory')
+    existing_data=data.exists()
+    if existing_data and not data.is_dir():raise ValueError('Data must be a directory')
     if len({api_port,dashboard_port,tls_port})!=3 or any(not 1024<=v<=65535 for v in (api_port,dashboard_port,tls_port)):raise ValueError('Choose three different unprivileged ports')
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,63}',project):raise ValueError('Invalid Compose project name')
     managed=uid is None and gid is None
     uid,gid=identity(uid,gid)
     if managed:platform_layout(root.parent,uid,gid)
     else:root.parent.mkdir(parents=True,exist_ok=True)
-    create_layout(root);data.mkdir(parents=True)
+    create_layout(root);data.mkdir(parents=True,exist_ok=True)
     storage=secrets.token_hex(12);token=secrets.token_urlsafe(32)
     (data/'.loom-storage.json').write_text(json.dumps({'storage_id':storage}))
     st=data.stat();device=f'{os.major(st.st_dev)}:{os.minor(st.st_dev)}'
@@ -46,8 +48,9 @@ def install(root,data,api_port,dashboard_port,tls_port,project,ops_image,dashboa
         'LOOM_COMPONENTS_HOST':components,'LOOM_PROFILES_HOST':profiles}
     (root/'compose.env').write_text(''.join(f'{k}={v}\n' for k,v in values.items()));(root/'network.env').write_text('')
     (root/'build.env').write_text(f'LOOM_OPS_IMAGE={ops_image}\nLOOM_DASHBOARD_IMAGE={dashboard_image}\nLOOM_DEV_NO_AUTH=0\n')
-    for base in (root,data):
-        own_tree(base,uid,gid)
+    own_tree(root,uid,gid)
+    if not existing_data:own_tree(data,uid,gid)
+    else:os.chown(data/'.loom-storage.json',uid,gid)
     if managed:
         from host_services import install_observations
         install_observations(root.parent,root,project,uid,gid)

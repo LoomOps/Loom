@@ -36,12 +36,12 @@ class InstallationDoctorTests(unittest.TestCase):
  def configured(self):
   s=self.plan['tailscale']['sso'];issuer=self.access['admins'][0]['issuer']
   self.write('config/api.json',{'machine_id':self.access['machine_id'],'machine_name':self.access['name'],
-   'dashboard_auth':{'enabled':True,'issuer':issuer},'tailscale_auth':{'enabled':True,'trusted_proxies':['10.203.41.1','10.203.41.3']},'executor':{'host_data':self.plan['data']}})
+   'dashboard_auth':{'enabled':True,'issuer':issuer},'tailscale_auth':{'enabled':True,'trusted_proxies':['10.203.41.1','10.203.41.3']},'executor':{'host_data':self.plan['data'],'storage':{'data/0':self.plan['data']}},'data_stores':{'data/0':{'path':'/loom/data/0','mode':'rw','storage_id':'primary'}}})
   self.write('secrets/sso/config.json',{**s,'mode':'network','issuer':issuer,'origin':self.access['dashboard_origin']})
   self.write('secrets/admission/config.json',{**self.access,'separate_gateway':True})
   self.write('secrets/admission/gateway.json',{'credential_file':'/not-mounted/management.json'})
   self.write('build.env','LOOM_DEV_NO_AUTH=0\n')
-  Path(self.plan['data']).mkdir();self.write('config/storage-plan.json',{'primary':self.plan['data'],'read_only':[]})
+  Path(self.plan['data']).mkdir();(Path(self.plan['data'])/'.loom-storage.json').write_text(json.dumps({'storage_id':'primary'}));self.write('config/storage-plan.json',{'primary':self.plan['data'],'read_write':[self.plan['data']]})
  def test_full_plan_accepts_and_reduced_modes_fail_before_mutation(self):
   setup.validate(self.plan);doctor.service_plan(self.plan)
   for value in [True,False,None]:
@@ -68,14 +68,15 @@ class InstallationDoctorTests(unittest.TestCase):
   self.assertFalse(doctor.doctor(setup,self.plan,'configuration')['ready'])
   self.write('build.env','LOOM_DEV_NO_AUTH=0\n');self.access['admins'][0]['subject']='changed';self.save_access()
   self.assertFalse(doctor.doctor(setup,self.plan,'configuration')['ready'])
- def test_storage_list_is_explicit_read_only_and_nonoverlapping(self):
+ def test_storage_list_is_explicit_read_write_and_nonoverlapping(self):
   other=self.root/'archive';other.mkdir();self.plan['additional_data']=[str(other)]
   setup.validate(self.plan);setup.ROOT.mkdir()
   self.write('config/api.json',{})
-  with patch('tailnet.os.chown'):setup.configure_identity_storage(self.plan,self.access)
+  with patch('tailnet.os.chown'),patch.object(setup,'run') as commands:setup.configure_identity_storage(self.plan,self.access)
   mounts=json.loads((setup.ROOT/'compose-storage.yaml').read_text())['services']['loom-ops']['volumes']
   self.assertEqual([m['target'] for m in mounts],['/loom/data/0','/loom/data/1'])
-  self.assertTrue(all(m['read_only'] for m in mounts))
+  self.assertTrue(all(m['read_only'] is False for m in mounts))
+  self.assertTrue(any(c.args[:4]==('setfacl','-R','-P','-m') for c in commands.call_args_list))
   self.plan['additional_data']=[str(other),str(other)]
   with self.assertRaisesRegex(ValueError,'overlap'):setup.validate(self.plan)
  def test_doctor_reports_multiple_missing_services_without_secret_text(self):
@@ -161,7 +162,7 @@ class InstallationDoctorTests(unittest.TestCase):
    ports={'loom-ops':{'8080/tcp':18892,'8443/tcp':18894},'loom-dashboard':{'8080/tcp':18893},'loom-gateway':{'8081/tcp':18904}}[service]
    return {'State':{'Running':True,'Health':{'Status':'healthy'}},'Image':'sha256:o' if service=='loom-ops' else 'sha256:d',
     'NetworkSettings':{'Networks':{'loom_default':{'Gateway':'10.203.41.1','IPAddress':'10.203.41.3' if service=='loom-dashboard' else '10.203.41.2'}}},
-    'Config':{'Env':['LOOM_DEV_NO_AUTH=0','LOOM_TAILSCALE_TRUSTED_PROXIES=10.203.41.1']},'Mounts':[{'Destination':k,'Source':str(v),'RW':False} for k,v in mounts.items()],
+    'Config':{'Env':['LOOM_DEV_NO_AUTH=0','LOOM_TAILSCALE_TRUSTED_PROXIES=10.203.41.1']},'Mounts':[{'Destination':k,'Source':str(v),'RW':k.startswith('/loom/data/')} for k,v in mounts.items()],
     'HostConfig':{'PortBindings':{k:[{'HostIp':'127.0.0.1','HostPort':str(v)}] for k,v in ports.items()}}}
   containers={s:container(s) for s in doctor.SERVICES}
   def run(*args):
@@ -173,6 +174,12 @@ class InstallationDoctorTests(unittest.TestCase):
    raise AssertionError(args)
   with patch.object(setup,'run',side_effect=run),patch.object(setup,'manifest',return_value={'build_id':'test','images':image_ids}),patch.object(setup,'verify_core',return_value={'build':'test'}),patch.object(doctor,'request',return_value=(200,{'sso':True})):
    self.assertTrue(doctor.doctor(setup,self.plan,'services')['ready'])
+   store=next(m for m in containers['loom-ops']['Mounts'] if m['Destination']=='/loom/data/0')
+   store['RW']=False
+   self.assertFalse(doctor.doctor(setup,self.plan,'services')['ready'])
+   store['RW']=True
+   with patch.object(setup,'run',side_effect=lambda *args: (_ for _ in ()).throw(PermissionError('No write access')) if args[:2]==('docker','exec') else run(*args)):
+    self.assertFalse(doctor.doctor(setup,self.plan,'services')['ready'])
    containers['loom-dashboard']['NetworkSettings']['Networks']['loom_default']['Gateway']='10.203.41.128'
    failed=doctor.doctor(setup,self.plan,'services')
    self.assertFalse(failed['ready'])
@@ -208,3 +215,17 @@ class InstallationDoctorTests(unittest.TestCase):
   for field,value in [('ID','another-device'),('DNSName','another.tail.ts.net.'),('TailscaleIPs',['100.64.0.99'])]:
    other=copy.deepcopy(raw);other['Self'][field]=value
    self.assertFalse(doctor.machine_matches(self.plan,other))
+
+ def test_handoff_offers_user_scoped_skill_and_private_mcp_registration(self):
+  with patch.object(doctor,'doctor',return_value={'ready':True,'checks':[],'live_validation':[]}),patch.object(setup,'manifest',return_value={'build_id':'fixture'}),patch.object(setup,'read_api',return_value={'updates':{}}):
+   result=doctor.handoff(setup,self.plan)
+  client=result['client_setup']
+  self.assertEqual(result['status'],'services_ready')
+  self.assertEqual(client['status'],'offer_to_user')
+  self.assertEqual(client['skill'],'loom-use')
+  self.assertEqual(client['mcp_endpoint'],self.access['dashboard_origin']+'/mcp')
+  self.assertNotEqual(client['mcp_endpoint'],self.access['origin']+'/mcp')
+  self.assertEqual(client['bundle_url'],self.access['dashboard_origin']+'/api/guide/bundle')
+  self.assertEqual(client['transport'],'streamable_http')
+  self.assertIn('system.status',client['verification'])
+  self.assertNotIn('token',client)

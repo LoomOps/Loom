@@ -89,7 +89,7 @@ def recommendations(info):
     return [
         {'topic': 'services', 'recommendation': 'Install Ops, Dashboard, Gateway, native Tailscale identity and Sharing together. No token-only fallback.'},
         {'topic': 'gpu', 'recommendation': 'Enable GPU after container exposure verification.' if tools.get('nvidia-smi') else 'Use CPU unless GPU hardware and a compatible host driver are confirmed.'},
-        {'topic': 'storage', 'recommendation': 'Prefer an existing mounted data volume; choose a new output subdirectory. Inventory every intended store; never format or select all disks automatically.'},
+        {'topic': 'storage', 'recommendation': 'Default data/0 to /loom/data. Ask whether to add RW stores or mount existing filesystems elsewhere; confirm paths and UUIDs explicitly. Never format or select all disks automatically.'},
         {'topic': 'dependencies', 'recommendation': 'Use /dependencies for selected editable sources; research runtimes belong to Job profiles, not the host installer.'},
         {'topic': 'identity', 'recommendation': 'Ask for the login email of the Tailscale account that will administer Loom. This is not an arbitrary contact email or OS account. Do not infer it from a tagged device owner. Store management credentials only in a protected local file.'},
         {'topic': 'handoff', 'recommendation': 'Lead with the verified public Gateway URL. Include private Dashboard/MCP, storage, service version and verification limits; never print an owner token.'},
@@ -127,8 +127,10 @@ def doctor(setup, plan, stage=None):
     def stores():
         paths = [plan['data'], *plan.get('additional_data', [])]
         if not all(Path(p).is_dir() for p in paths): return False
-        if plan['mount'] and setup.run('findmnt','-rn','-o','UUID','--mountpoint',plan['mount']['target']).lower() != plan['mount']['uuid'].lower(): return False
-        return read('config/storage-plan.json') == {'primary': paths[0], 'read_only': paths[1:]}
+        for mount in setup.planned_mounts(plan):
+            if setup.run('findmnt','-rn','-o','UUID','--mountpoint',mount['target']).lower()!=mount['uuid'].lower():return False
+        return (read('config/storage-plan.json') == {'primary': paths[0], 'read_write': paths}
+                and read('config/api.json').get('data_stores')=={f'data/{i}':{'path':f'/loom/data/{i}','mode':'rw','storage_id':json.loads((Path(p)/'.loom-storage.json').read_text())['storage_id']} for i,p in enumerate(paths)})
     def container(service):
         ids = setup.run('docker','ps','-aq','--filter','label=com.docker.compose.project=loom',
                         '--filter','label=com.docker.compose.service='+service).split()
@@ -153,9 +155,9 @@ def doctor(setup, plan, stage=None):
         if service == 'loom-ops':
             for i,p in enumerate([plan['data'],*plan.get('additional_data',[])]):
                 m = mounts.get('/loom/data/'+str(i), {})
-                if m.get('Source') != p or m.get('RW') is not False: return False
+                if m.get('Source') != p or m.get('RW') is not True: return False
             paths=['/loom/data/'+str(i) for i in range(1+len(plan.get('additional_data',[])))]
-            code='import os,sys; sys.exit(0 if all(os.access(p,os.R_OK|os.X_OK) for p in sys.argv[1:]) else 1)'
+            code='import os,sys; sys.exit(0 if all(os.access(p,os.R_OK|os.W_OK|os.X_OK) for p in sys.argv[1:]) else 1)'
             setup.run('docker','exec',ids[0],'python3','-c',code,*paths)
         if service == 'loom-gateway':
             if any(m['Destination'].startswith('/etc/loom/admission') or 'relay-key' in m['Destination'] for m in c['Mounts']): return False
@@ -195,7 +197,7 @@ def doctor(setup, plan, stage=None):
     check('images','immutable_images',images,'Build/load the complete matching installation kit; read steps/03-images.md.')
     check('configuration','identity_gateway_config',config,'Apply the SSO/Sharing configuration stage; no token-only fallback.')
     check('configuration','storage_paths',stores,'Reconcile the selected storage paths and generated mounts.')
-    check('configuration','executor_config',lambda: read('config/api.json').get('executor',{}).get('host_data')==plan['data'],'Attach the executor to the selected primary data directory.')
+    check('configuration','executor_config',lambda: read('config/api.json').get('executor',{}).get('host_data')==plan['data'] and read('config/api.json').get('executor',{}).get('storage')=={f'data/{i}':p for i,p in enumerate([plan['data'],*plan['additional_data']])},'Attach the executor to the selected primary data directory.')
     for svc in SERVICES:
         check('services',svc,lambda svc=svc: container(svc),'Reconcile the matching Compose service; read steps/05-services.md.')
     check('services','local_api_mcp_executor',lambda: setup.verify_core(plan)['build']==setup.manifest()['build_id'],'Inspect service logs; do not replace failed checks with a manual PASS.')
@@ -239,8 +241,14 @@ def handoff(setup, plan):
     a = service_plan(plan)
     return {'status':'services_ready','gateway':a['origin'],'dashboard':a['dashboard_origin'],
             'mcp':a['dashboard_origin']+'/mcp','build':setup.manifest()['build_id'],
+            'client_setup':{'status':'offer_to_user','package':'loom_use','skill':'loom-use',
+                'local_skill':'/loom/loom_use/current/skills/loom-use',
+                'bundle_url':a['dashboard_origin']+'/api/guide/bundle',
+                'mcp_endpoint':a['dashboard_origin']+'/mcp','transport':'streamable_http',
+                'target':'Confirm agent client, machine and user profile; configure the user, not the service account.',
+                'verification':['initialize','tools/list','system.status','system.guide']},
             'services':list(SERVICES),'executor':'host systemd service','gpu_enabled':plan['gpu'],
-            'storage':{'primary':plan['data'],'read_only':plan.get('additional_data',[])},
+            'storage':{'primary':plan['data'],'read_write':[plan['data'],*plan.get('additional_data',[])]},
             'dependencies':plan['dependencies'], 'admins':a['admins'], 'doctor':result,
             'updates':setup.read_api(plan,'/api/status').get('updates'),
             'remaining_validation':result['live_validation'],

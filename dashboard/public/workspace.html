@@ -3844,6 +3844,7 @@ function loomDetailHeading(html, id) {
       properties.innerHTML = panel(&#x27;Job Properties&#x27;, &#x27;&lt;dl class=&quot;pa-job-properties&quot;&gt;&#x27;
         + ownerRow + &#x27;&lt;div&gt;&lt;dt&gt;Status&lt;/dt&gt;&lt;dd&gt;&#x27; + queueBadge(entity) + &#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;
         + &#x27;&lt;div&gt;&lt;dt&gt;Task level&lt;/dt&gt;&lt;dd&gt;&#x27; + workVerificationCell(entity) + &#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;
+        + (entity?.properties?.output_storage ? &#x27;&lt;div&gt;&lt;dt&gt;Output Storage&lt;/dt&gt;&lt;dd&gt;&#x27;+esc(entity.properties.output_storage)+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27; : &#x27;&#x27;)
         + &#x27;&lt;div&gt;&lt;dt&gt;Job Type&lt;/dt&gt;&lt;dd&gt;&#x27; + esc(loomJobClass(entity).category) + &#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;
         + &#x27;&lt;div&gt;&lt;dt title=&quot;Full: main run; Pilot: reduced trial; Smoke: startup check&quot;&gt;Execution Mode&lt;/dt&gt;&lt;dd&gt;&#x27; + esc(loomJobClass(entity).mode) + &#x27;&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&#x27;);
       title.after(...properties.children);

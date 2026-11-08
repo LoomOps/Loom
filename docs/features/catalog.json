@@ -280,12 +280,14 @@
       "summary": "Artifact registration, indexing, lineage and metadata contracts",
       "sources": [
         "ops/registry.py",
-        "ops/retain-artifact.py"
+        "ops/retain-artifact.py",
+        "ops/storage.py"
       ],
       "tests": [
         "tests/ops/test_result_pipeline.py",
         "tests/ops/test_output_contract.py",
-        "tests/ops/test_installation_smoke.py"
+        "tests/ops/test_installation_smoke.py",
+        "tests/ops/test_storage_results.py"
       ],
       "depends_on": [
         "identity",

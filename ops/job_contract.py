@@ -1,6 +1,6 @@
 """Job display metadata, independent of execution profiles and verification."""
 REVISION = 'loom-job/v1'
-API_REVISION = 'loom-ops/v35'
+API_REVISION = 'loom-ops/v36'
 CATEGORIES = {
     'sdg': 'SDG', 'data_preparation': 'Data Preparation',
     'fine_tuning': 'Fine-tuning', 'evaluation': 'Evaluation',

@@ -153,3 +153,30 @@ class ExecutorBoundaryTests(IsolatedOps):
   self.assertTrue(self.executor.handle('alpha','start',self.request())['busy'])
   self.executor.handle('other','cancel',{'ticket':other['ticket']})
   self.assertEqual(self.executor.handle('alpha','start',self.request())['state'],'running')
+
+ def test_selected_store_is_rw_without_changing_default_input_isolation(self):
+  extra=self.root/'store';extra.mkdir()
+  self.executor.CONFIG['instances']['alpha']['storage']={'data/1':str(extra)}
+  self.executor.handle('alpha','start',{**self.request(),'storage':['data/1']})
+  argv=next(c for c in self.calls if c[0]=='create')
+  self.assertIn(f'type=bind,source={extra},target=/loom/data/1',argv)
+  self.assertIn('--read-only',argv)
+
+ def test_unregistered_or_changed_storage_is_rejected_before_docker(self):
+  extra=self.root/'store';extra.mkdir();link=self.root/'linked';link.symlink_to(extra)
+  self.executor.CONFIG['instances']['alpha']['storage']={'data/1':str(link)}
+  for stores in [['data/1'],['data/2'],['/etc'],['data/1','data/1'],'data/1']:
+   with self.subTest(stores=stores),self.assertRaises((ValueError,PermissionError)):
+    self.executor.handle('alpha','start',{**self.request(),'storage':stores})
+  self.assertFalse(any(c[0]=='create' for c in self.calls))
+
+ def test_secondary_workspace_and_relative_input_are_resolved_from_registered_root(self):
+  extra=self.root/'store';extra.mkdir();output=extra/'runs/job/attempt';output.mkdir(parents=True)
+  source=extra/'dataset.txt';source.write_text('data')
+  self.executor.CONFIG['instances']['alpha']['storage']={'data/1':str(extra)}
+  request={**self.request(),'output_storage':'data/1','host_output':str(output),'inputs':{'dataset':{'storage':'data/1','ref':'dataset.txt'}}}
+  self.executor.handle('alpha','start',request)
+  argv=next(c for c in self.calls if c[0]=='create')
+  self.assertIn(f'type=bind,source={output},target=/work',argv)
+  self.assertIn(f'type=bind,source={source},target=/inputs/dataset,readonly',argv)
+  self.assertNotIn(f'type=bind,source={extra},target=/loom/data/1',argv)

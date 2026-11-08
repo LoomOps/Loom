@@ -76,6 +76,7 @@ class ComponentPlatformTests(IsolatedOps):
         def broker(config,action,payload):
             if action=='start':
                 self.assertEqual(payload['component'],'/host/components/dev/owner/demo/revisions/1')
+                self.assertNotIn('storage',payload)
                 return {'ticket':payload['ticket'],'image_id':'sha256:fixture'}
             return {'returned':True,'exit_code':0}
         with patch.object(runtime_client,'call',side_effect=broker):
@@ -84,3 +85,27 @@ class ComponentPlatformTests(IsolatedOps):
         primary=json.loads((folder/'container-ticket.json').read_text())
         self.assertEqual(primary['stage'],'run');self.assertEqual(primary['lane'],'gpu')
         self.assertEqual(json.loads((folder/'finalize-ticket.json').read_text())['lane'],'cpu')
+
+    def test_storage_is_validated_frozen_and_forwarded_as_registered_ids(self):
+        import runtime_client,profile_store
+        self.config['executor']={'storage':{'data/1':'/host/external'}}
+        self.definition['profiles']['run']['runtime']['storage']=['data/1']
+        kind=self.register()['profiles'][0]
+        job=self.submit({**self.spec(),'kind':kind,'params':{}})
+        frozen=json.loads(self.row(job)['spec'])
+        self.assertEqual(frozen['profile']['runtime']['storage'],['data/1'])
+        self.assertIn('storage',profile_store.RUNNER_SCHEMA['properties'])
+        self.definition['profiles']['run']['runtime']['storage']=['data/2']
+        with self.assertRaisesRegex(ValueError,'Storage'):self.register()
+        folder=self.data/'rw-job';folder.mkdir();request=folder/'request.json';request.write_text(json.dumps({'params':{}}))
+        frozen['profile'].pop('component_path',None)
+        config={'executor':{'host_data':str(self.data),'storage':{'data/1':'/host/external'}}}
+        def broker(config,action,payload):
+            if action=='start':
+                self.assertEqual(payload['storage'],['data/1'])
+                self.assertNotIn('/host/external',json.dumps(payload))
+                return {'ticket':payload['ticket']}
+            return {'returned':True,'exit_code':0}
+        with patch.object(runtime_client,'call',side_effect=broker):
+            runtime_client.Container(config,{'id':job,'attempt':'one','owner':'owner'},frozen,'run',request,folder,self.data)
+        self.assertEqual(json.loads((folder/'run-request.json').read_text())['storage'],{'data/1':'/loom/data/1'})

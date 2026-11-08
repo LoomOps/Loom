@@ -1,4 +1,5 @@
 """Cancellable container tickets through a private host executor socket."""
+import storage
 import hashlib
 import http.client
 import json
@@ -33,16 +34,30 @@ class Container:
             for ref,expected in spec['profile'].get('source_pins',{}).items():
                 if hashlib.sha256((Path(component)/ref).read_bytes()).hexdigest()!=expected:raise ValueError('Component revision changed')
         data=json.loads(request.read_text());inputs={}
+        output_root,_=storage.output(config,bulk,spec)
+        output_name=spec.get('output_storage','data/0')
+        host_root=self.config['host_data'] if output_name=='data/0' else self.config.get('storage',{}).get(output_name)
+        if not host_root:raise ValueError('Output storage outside executor grant')
         for name in spec['profile'].get('inputs',{}):
             value=data['params'].get(name)
-            if isinstance(value,str) and Path(value).is_relative_to(bulk):
-                inputs[name]=str(Path(self.config['host_data'])/Path(value).relative_to(bulk));data['params'][name]='/inputs/'+name
+            if not isinstance(value,str):continue
+            for store,item in storage.stores(config,bulk).items():
+                if Path(value).is_relative_to(item['path']):
+                    ref=str(Path(value).relative_to(item['path']))
+                    inputs[name]=str(Path(self.config['host_data'])/ref) if store=='data/0' else {'storage':store,'ref':ref}
+                    data['params'][name]='/inputs/'+name;break
+            else:raise ValueError('Input outside configured stores')
+        stores=runner.get('storage',[])
+        if set(stores)-set(self.config.get('storage',{})):raise ValueError('Storage outside instance grant')
+        data['storage']={name:'/loom/'+name for name in stores}
         data['output_dir']='/work';data['job_id']=row['id'];data['attempt_id']=row['attempt'];data['stage']=stage
         target=folder/(stage+'-request.json');target.write_text(json.dumps(data))
         payload={'ticket':row['id']+'.'+row['attempt']+'.'+stage+('.r'+str(spec['profile']['_hook_retry']) if '_hook_retry' in spec['profile'] else ''),'job':row['id'],'owner':row['owner'],'stage':stage,
             'runtime_id':runner.get('runtime_id'),'lane':runner.get('lane','cpu'),'command':[*runner['command'],'/work/'+target.name],
-            'env':runner.get('env',{}),'host_output':str(Path(self.config['host_data'])/folder.relative_to(bulk)),
+            'env':runner.get('env',{}),'host_output':str(Path(host_root)/folder.relative_to(output_root)),
             'inputs':inputs,'component':spec['profile'].get('component_path')}
+        if output_name!='data/0':payload['output_storage']=output_name
+        if stores:payload['storage']=stores
         if 'image' in runner:payload.update(image=runner['image'],resources=runner.get('resources',{}))
         if component and 'host_components' in self.config:
             payload['component']=str(Path(self.config['host_components'])/Path(component).relative_to('/loom/components'))

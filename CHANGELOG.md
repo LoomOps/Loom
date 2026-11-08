@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha.19 — 2026-11-08
+
+- Default new installs to host /loom/data as data/0; prompt for optional RW stores and existing filesystem mounts. Preserve existing data owners and check effective service access.
+- Add jobs.submit.output_storage, persistent storage identities, selected Attempt workspaces and result DB locations. Secondary outputs support catalog previews, result reconnects and hash-checked downstream input mounts. Existing Jobs retain their primary output storage.
+- Expose store discovery and output selection through the same HTTP/MCP contracts; retain six tool groups. Show Output Storage in native Job properties.
+- Offer loom_use skill installation and user-scoped MCP registration after verified server installation. Client verification is separate from service readiness.
+- Extend storage, executor, result, installer and client-handoff regressions; isolate release tests from installed host systemd units.
+
 ## 0.1.0-alpha.18 — 2026-11-08
 
 - Pin the Docker bridge gateway to the exact trusted ingress address. Installation doctor compares live container gateways and trusted-proxy configuration, catching healthy services that cannot identify Tailscale users.

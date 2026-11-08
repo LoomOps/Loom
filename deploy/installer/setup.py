@@ -11,8 +11,8 @@ sys.path.insert(0,str(BUNDLE/'platform/dashboard' if (BUNDLE/'platform/dashboard
 import doctor as diagnostics
 ROOT=Path('/loom/ops')
 FSTAB=Path('/etc/fstab')
-DEFAULT={'data':'/storage/loom/data','dependencies':'/dependencies','mount':None,'repositories':[],
-         'additional_data':[],'gpu':False,'tailscale':None,'api_port':18892,'dashboard_port':18893,'tls_port':18894}
+DEFAULT={'data':'/loom/data','dependencies':'/dependencies','mount':None,'repositories':[],
+         'additional_data':[],'mounts':[],'gpu':False,'tailscale':None,'api_port':18892,'dashboard_port':18893,'tls_port':18894}
 TOOLS=['docker','openssl','setfacl','getfacl','findmnt','lsblk','blkid','mount','systemctl']
 
 def run(*args):
@@ -33,30 +33,43 @@ def path_value(value):
  if any(p==Path(v) or p.is_relative_to(v) for v in ['/etc','/usr','/bin','/sbin','/proc','/sys','/dev','/run']):raise ValueError('Choose a data/source location, not a system directory')
  return p
 
+def parse_mount(value):
+ fields=value.split(':')
+ if len(fields)!=3:raise ValueError('Mount must be UUID:TARGET:FSTYPE')
+ return dict(zip(('uuid','target','fstype'),fields))
+
+def planned_mounts(plan):
+ values=plan.get('mounts',[])
+ if not isinstance(values,list):raise ValueError('mounts must be a list')
+ return ([plan['mount']] if plan.get('mount') else [])+values
+
 def validate(plan):
- if not isinstance(plan,dict) or set(plan)!=set(DEFAULT):raise ValueError('Use the complete example plan; unknown fields are not accepted')
+ if not isinstance(plan,dict) or set(plan)-set(DEFAULT) or set(DEFAULT)-{'mounts'}-set(plan):raise ValueError('Use the complete example plan; unknown fields are not accepted')
  data=path_value(plan['data']);deps=path_value(plan['dependencies'])
  if data==deps or data.is_relative_to(deps) or deps.is_relative_to(data):raise ValueError('Data and dependency paths must be separate')
- if any(p.is_relative_to('/loom') or Path('/loom').is_relative_to(p) for p in [data,deps]):raise ValueError('Keep external storage/dependencies outside /loom')
+ if (data.is_relative_to('/loom') and not data.is_relative_to('/loom/data')) or Path('/loom').is_relative_to(data):raise ValueError('Within /loom, storage must stay under /loom/data')
+ if deps.is_relative_to('/loom') or Path('/loom').is_relative_to(deps):raise ValueError('Keep dependencies outside /loom')
  for key in ['gpu']:
   if type(plan[key]) is not bool:raise ValueError('Expected boolean: '+key)
  if not isinstance(plan['tailscale'],dict):raise ValueError('Full Tailscale identity and Gateway plan required; run setup.py plan')
  from tailnet import validate as validate_tailnet
  validate_tailnet(plan['tailscale'])
  if not plan['tailscale'].get('sso') or not plan['tailscale'].get('access_plan'):raise ValueError('SSO and Sharing Gateway are required')
- if not isinstance(plan['additional_data'],list):raise ValueError('additional_data must be a list of existing read-only storage paths')
+ if not isinstance(plan['additional_data'],list):raise ValueError('additional_data must be a list of writable storage paths')
  stores=[data]+[path_value(v) for v in plan['additional_data']]
  for i,p in enumerate(stores):
-  if i and (not p.is_dir() or p.is_relative_to('/loom') or p==deps or p.is_relative_to(deps) or deps.is_relative_to(p)):raise ValueError('Choose existing external read-only storage')
+  if i and ((p.exists() and not p.is_dir()) or (p.is_relative_to('/loom') and not p.is_relative_to('/loom/data')) or Path('/loom').is_relative_to(p) or p==deps or p.is_relative_to(deps) or deps.is_relative_to(p)):raise ValueError('Choose a separate data directory, not platform state or dependencies')
   if any(p==q or p.is_relative_to(q) or q.is_relative_to(p) for q in stores[:i]):raise ValueError('Storage paths must not overlap')
  ports=[plan[k] for k in ['api_port','dashboard_port','tls_port']]
  if len(set(ports))!=3 or any(type(n)is not int or not 1024<=n<=65535 for n in ports):raise ValueError('Choose three distinct unprivileged ports')
- m=plan['mount']
- if m is not None:
+ targets=[];uuids=set()
+ for m in planned_mounts(plan):
   if not isinstance(m,dict) or set(m)!={'uuid','target','fstype'}:raise ValueError('Mount requires uuid,target,fstype')
   if not re.fullmatch(r'[A-Fa-f0-9-]{8,64}',m['uuid']) or m['fstype'] not in ['ext4','xfs']:raise ValueError('Unsupported filesystem or UUID')
   target=path_value(m['target'])
-  if target==data or not data.is_relative_to(target) or target.is_relative_to('/loom') or deps.is_relative_to(target):raise ValueError('Mount must contain only the selected data location, not /loom or dependencies')
+  if not any(p.is_relative_to(target) for p in stores) or (target.is_relative_to('/loom') and not target.is_relative_to('/loom/data')) or Path('/loom').is_relative_to(target) or deps.is_relative_to(target):raise ValueError('Mount must contain a selected data store, not platform state or dependencies')
+  if m['uuid'].lower() in uuids or any(target.is_relative_to(p) or p.is_relative_to(target) for p in targets):raise ValueError('Duplicate or overlapping mounts')
+  uuids.add(m['uuid'].lower());targets.append(target)
  if not isinstance(plan['repositories'],list):raise ValueError('repositories must be a list')
  names=set()
  for repo in plan['repositories']:
@@ -105,7 +118,7 @@ def preflight(plan,info):
  if plan['repositories'] and not shutil.which('git'):missing.append('git')
  if plan['tailscale'] and not shutil.which('tailscale'):missing.append('tailscale')
  if missing:raise ValueError('Install host prerequisites first: '+', '.join(missing))
- if ROOT.exists() or Path(plan['data']).exists() or Path('/loom/shared/executor/config.json').exists() or Path('/etc/systemd/system/loom-stack.service').exists() or (Path('/loom/distribution')/info['build_id']).exists():raise ValueError('Existing instance/data/executor detected; use the upgrade or migration procedure')
+ if ROOT.exists() or (Path(plan['data'])/'.loom-storage.json').exists() or Path('/loom/shared/executor/config.json').exists() or Path('/etc/systemd/system/loom-stack.service').exists() or (Path('/loom/distribution')/info['build_id']).exists():raise ValueError('Existing instance/data/executor detected; use the upgrade or migration procedure')
  run('docker','info');run('docker','compose','version')
  if run('docker','ps','-aq','--filter','label=com.docker.compose.project=loom'):raise ValueError('Existing Loom containers detected')
  for port in [plan[k] for k in ['api_port','dashboard_port','tls_port']]+[diagnostics.service_plan(plan)['host_port']]:
@@ -120,7 +133,7 @@ def preflight(plan,info):
   # Route conflicts are checked when applying this instance's specific Serve paths.
  for repo in plan['repositories']:
   if (Path(plan['dependencies'])/repo['name']).exists():raise ValueError('Dependency destination already exists: '+repo['name'])
- if plan['mount']:mount_preflight(plan['mount'])
+ for m in planned_mounts(plan):mount_preflight(m)
 
 def mount_volume(m):
  mount_preflight(m)
@@ -173,7 +186,8 @@ def apply(plan):
   if run('docker','image','inspect',image['tag'],'--format','{{.Id}}')!=image['id']:raise ValueError('Loaded image identity mismatch')
  if plan['gpu']:run('docker','run','--rm','--network','none','--gpus','all','--entrypoint','nvidia-smi',info['images']['python']['id'],'-L')
  step('images')
- if plan['mount']:mount_volume(plan['mount']);step('storage_mount')
+ for m in planned_mounts(plan):mount_volume(m)
+ if planned_mounts(plan):step('storage_mount')
  deps=Path(plan['dependencies']);deps.mkdir(parents=True,exist_ok=True);(deps/'installations').mkdir(exist_ok=True)
  for repo in plan['repositories']:
   target=deps/repo['name'];run('git','clone','--no-checkout','--',repo['url'],target)
@@ -200,6 +214,7 @@ def apply(plan):
  dest=Path('/loom/distribution')/info['build_id'];shutil.copytree(src,dest)
  for p in [dest.parent,dest,*dest.rglob('*')]:os.chown(p,0,0);p.chmod(0o755 if p.is_dir() else 0o644)
  args=[sys.executable,dest/'deploy/executor-attach.py',ROOT,'--instance','alpha','--data',plan['data'],'--install-service']
+ for path in plan['additional_data']:args.extend(['--additional-data',path])
  if plan['gpu']:args.append('--gpu')
  run(*args)
  config=Path('/loom/shared/executor/config.json');values=json.loads(config.read_text());values['runtimes']['python']['image']=info['images']['python']['id'];config.write_text(json.dumps(values,indent=2)+'\n');config.chmod(0o600)
@@ -254,13 +269,34 @@ def configure_identity_storage(plan, access):
  api.update(machine_id=access['machine_id'],machine_name=access['name'])
  write(ROOT/'config/api.json',api,uid,gid)
  paths=[plan['data'],*plan['additional_data']]
+ store_ids=[]
+ for value in paths:
+  path=path_value(value);path.mkdir(parents=True,exist_ok=True)
+  marker=path/'.loom-storage.json'
+  if marker.is_symlink():raise ValueError('Linked storage identity marker')
+  if not marker.exists():
+   import secrets
+   write(marker,{'storage_id':secrets.token_hex(12)},uid,gid)
+  stored=json.loads(marker.read_text())
+  if set(stored)!={'storage_id'} or not isinstance(stored['storage_id'],str) or not stored['storage_id']:raise ValueError('Invalid storage identity')
+  store_ids.append(stored['storage_id'])
+  # Grant the service identity without taking ownership of existing user files.
+  run('setfacl','-R','-P','-m',f'u:{uid}:rwX',path)
+  run('setfacl','-R','-P','-m',f'd:u:{uid}:rwx',path)
+  # Owner permissions take precedence over a named ACL for the same UID.
+  run('find','-P',path,'-uid',str(uid),'(','-type','f','-o','-type','d',')','-exec','chmod','u+rwX','{}','+')
+  for parent in path.parents:
+   if parent!=Path('/') and not parent.stat().st_mode & 0o001:run('setfacl','-m',f'u:{uid}:--x',parent)
  overlay={'services':{'loom-ops':{'environment':{'LOOM_DATA_PATHS':':'.join('/loom/data/'+str(i) for i in range(len(paths)))},
-  'volumes':[{'type':'bind','source':p,'target':'/loom/data/'+str(i),'read_only':True,'bind':{'create_host_path':False}} for i,p in enumerate(paths)]}}}
+  'volumes':[{'type':'bind','source':p,'target':'/loom/data/'+str(i),'read_only':False,'bind':{'create_host_path':False}} for i,p in enumerate(paths)]}}}
  write(ROOT/'compose-storage.yaml',overlay,uid,gid)
- write(ROOT/'config/storage-plan.json',{'primary':plan['data'],'read_only':plan['additional_data']},uid,gid)
+ write(ROOT/'config/storage-plan.json',{'primary':plan['data'],'read_write':paths},uid,gid)
+ api['data_stores']={f'data/{i}':{'path':f'/loom/data/{i}','mode':'rw','storage_id':store_ids[i]} for i in range(len(paths))}
+ if len(set(store_ids))!=len(store_ids):raise ValueError('Duplicate storage identity')
+ write(ROOT/'config/api.json',api,uid,gid)
 
 
-def make_plan(output,admin_email,data,additional_data,gpu,credential_file):
+def make_plan(output,admin_email,data,additional_data,gpu,credential_file,mounts=None):
  """Generate all linked plans from inspected identity and explicitly chosen inputs."""
  from tailnet import status,write
  current=status()
@@ -276,7 +312,7 @@ def make_plan(output,admin_email,data,additional_data,gpu,credential_file):
  'host_port':18904,'bind':'0.0.0.0','port':8081,'admins':[{'issuer':private+'/identity','subject':subject}],
  'credential_file':str(credential_file.resolve()),'database':'/loom/ops/admission/requests.sqlite3',
  'enrollment_mode':'sharing','sharing_hourly_limit':20,'sharing_pending_limit':200}
- plan={**DEFAULT,'data':data,'additional_data':additional_data,'gpu':gpu,'tailscale':{
+ plan={**DEFAULT,'data':data,'additional_data':additional_data,'mounts':mounts or [],'gpu':gpu,'tailscale':{
  'tailnet':current['tailnet'],'hostname':current['dns'].split('.')[0],'tag':'tag:loom','https_port':8443,
  'bridge_cidr':'10.203.41.0/24','users':{},'ssh':False,'sso':{'provider':'tailscale',
  'network_users':{admin_email:{'subject':subject}},'session_seconds':604800,'link_tailscale_email':True},'access_plan':str(access_file)}}
@@ -307,13 +343,13 @@ if __name__=='__main__':
  p.add_argument('action',choices=['inspect','plan','check','apply','verify','doctor','handoff','resume-network','smoke'])
  p.add_argument('plan',type=Path,nargs='?');p.add_argument('--stage',choices=diagnostics.STAGES)
  p.add_argument('--output',type=Path);p.add_argument('--admin-email',help='Tailscale login email of the account that will administer Loom (not a contact email or OS username)');p.add_argument('--data',default=DEFAULT['data'])
- p.add_argument('--additional-data',action='append',default=[]);p.add_argument('--gpu',action='store_true')
+ p.add_argument('--additional-data',action='append',default=[],help='Additional RW store; repeat in data/1, data/2 order');p.add_argument('--mount',action='append',default=[],metavar='UUID:TARGET:FSTYPE',help='Explicit existing filesystem to mount; repeat if needed');p.add_argument('--gpu',action='store_true')
  p.add_argument('--credential-file',type=Path,default=Path('/loom/private-inputs/tailscale-management.json'));a=p.parse_args()
  try:
   if a.action=='inspect':result=inspect()
   elif a.action=='plan':
    if not a.output or not a.admin_email:raise ValueError('plan requires --output and --admin-email')
-   result=make_plan(a.output,a.admin_email,a.data,a.additional_data,a.gpu,a.credential_file)
+   result=make_plan(a.output,a.admin_email,a.data,a.additional_data,a.gpu,a.credential_file,[parse_mount(v) for v in a.mount])
   else:
    plan=json.loads((a.plan or ROOT/'config/installation-plan.json').read_text())
    if a.action in ('doctor','verify'):result=diagnostics.doctor(sys.modules[__name__],plan,a.stage)

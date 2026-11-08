@@ -15,6 +15,7 @@ import recovery
 import queue_control
 import job_history
 import job_contract
+import storage as data_storage
 import registry
 import ownership
 
@@ -72,7 +73,7 @@ def file_entries(index, identity, locations, storage):
         preview=index.get(key)
         target=location.get('target_ref')
         entries.append({'id':key,'label':Path(ref).name,'source_ref':ref,'target_ref':target,
-                        'path':storage+'/'+target if target else 'references/'+ref.lstrip('/'),
+                        'path':location.get('storage_label',storage)+'/'+target if target else 'references/'+ref.lstrip('/'),
                         'status':location['status'],'size':location.get('size'),
                         'preview_id':key if preview else None})
     return entries
@@ -128,10 +129,16 @@ def projection(db, actor, config, local, bulk=None):
     for record in registry.view(db, actor):
         item = registry.view(db, actor, record['id'], record['revision'])
         components = {entry['ref']:entry for entry in item['components']}
-        locations = [{**components[entry['component']], 'source_ref':entry['component'],
-                      'target_ref':entry['ref'], 'status':entry['status']}
-                     for entry in item.pop('locations')
-                     if entry['machine_id'] == config['machine_id'] and entry['storage_id'] == config['storage_id']]
+        locations=[]
+        configured=data_storage.stores(config,bulk or Path('/loom/bulk'))
+        for entry in item.pop('locations'):
+            if entry['machine_id']!=config['machine_id']:continue
+            for name,store in configured.items():
+                if entry['storage_id']==store['storage_id']:
+                    locations.append({**components[entry['component']],'source_ref':entry['component'],
+                        'target_ref':entry['ref'],'status':entry['status'],'storage_label':storage if name=='data/0' and not config.get('data_stores') else name,
+                        '_storage_root':store['path']})
+                    break
         typed_metrics = item.pop('metrics')
         metrics = [{'id':metric['name'], 'label':metric['name'], 'kind':'series',
                     'unit':metric.get('unit'), 'definition':metric.get('definition'),
@@ -159,6 +166,7 @@ def open_media(index, key, bulk):
     descriptor, location = index[key]
     if descriptor['status'] != 'available':
         return descriptor, None
+    bulk=Path(location.get('_storage_root',bulk))
     path = history_store.under(bulk, location['target_ref'])
     parts = path.relative_to(bulk.resolve()).parts
     if not parts:

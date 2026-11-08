@@ -1,7 +1,9 @@
 """Versioned, application-independent execution and preparation contracts."""
+import storage
 import copy
 import json
 import math
+import re
 import os
 from pathlib import Path
 
@@ -44,6 +46,10 @@ def is_generic(profile):
     return profile.get('schema') == REVISION
 
 
+def validate_storage(stores):
+    if not isinstance(stores,list) or any(not isinstance(s,str) or not re.fullmatch(r'data/[0-9]+',s) for s in stores) or len(stores)!=len(set(stores)):
+        raise ValueError('Storage must be unique data/N identifiers')
+
 def validate_profile(profile):
     if not isinstance(profile,dict):raise ValueError('Profile must be an object')
     for field in ('params_schema','runtime','inputs','limits'):
@@ -54,7 +60,8 @@ def validate_profile(profile):
     check_schema(profile['params_schema'])
     if profile['params_schema'].get('type')!='object':raise ValueError('Parameters must have an object schema')
     for runner in [profile['runtime']] + [profile[k] for k in ('prepare','finalize','on_error','on_complete','on_cancel') if profile.get(k)]:
-        if set(runner)-{'command','env','lane','timeout','depends_on','executor','runtime_id','image','resources','inputs'}:raise ValueError('Unknown runtime fields')
+        if set(runner)-{'command','env','lane','timeout','depends_on','executor','runtime_id','image','resources','inputs','storage'}:raise ValueError('Unknown runtime fields')
+        validate_storage(runner.get('storage',[]))
         command=runner['command']
         if not isinstance(command,list) or not command or any(not isinstance(v,str) or not v or '\0' in v for v in command):
             raise ValueError('Runtime requires a trusted argv list')
@@ -100,9 +107,9 @@ def admit_inputs(profile,params,config,bulk,relative,ident,dependencies):
             if item['job'] not in dependencies:raise ValueError('Input Job must be a dependency')
             continue
         if set(item)!={'machine_id','storage_id','ref','sha256'}:raise ValueError('Expected locator or upstream Job/entity')
-        if item['machine_id']!=config['machine_id'] or item['storage_id']!=config['storage_id']:raise ValueError('Input outside storage grant')
-        path=relative(bulk,item['ref'])
-        if not path.is_relative_to(relative(bulk,prefix)):raise ValueError('Input outside registered prefix')
+        base=storage.locator(config,bulk,item)
+        path=relative(base,item['ref'])
+        if not path.is_relative_to(relative(base,prefix)):raise ValueError('Input outside registered prefix')
         digest=item['sha256']
         if not isinstance(digest,str) or len(digest)!=64 or any(c not in '0123456789abcdef' for c in digest):raise ValueError('Invalid input digest')
         if not path.is_file():raise ValueError('Input file not found')
@@ -119,8 +126,9 @@ def resolve_inputs(profile,params,config,bulk,relative,file_sha,lookup):
             entity=next((e for e in result['entities'] if e['id']==item['entity']),None)
             if entity is None:raise ValueError('Upstream entity not found')
             item={**entity['locator'],'sha256':entity['sha256']}
-        path=relative(bulk,item['ref'])
-        if item['storage_id']!=config['storage_id'] or item['machine_id']!=config['machine_id'] or not path.is_relative_to(relative(bulk,prefix)) or file_sha(path)!=item['sha256']:
+        base=storage.locator(config,bulk,item)
+        path=relative(base,item['ref'])
+        if not path.is_relative_to(relative(base,prefix)) or file_sha(path)!=item['sha256']:
             raise ValueError('Input changed or outside runtime grant')
         resolved[name]=str(path)
     return resolved

@@ -7,6 +7,6 @@ services:
       - type: bind
         source: ${OPS_DATA_1:?Set the existing data/1 directory}
         target: /loom/data/1
-        read_only: true
+        read_only: false
         bind:
           create_host_path: false

@@ -209,6 +209,7 @@ function loomDetailHeading(html, id) {
       properties.innerHTML = panel('Job Properties', '<dl class="pa-job-properties">'
         + ownerRow + '<div><dt>Status</dt><dd>' + queueBadge(entity) + '</dd></div>'
         + '<div><dt>Task level</dt><dd>' + workVerificationCell(entity) + '</dd></div>'
+        + (entity?.properties?.output_storage ? '<div><dt>Output Storage</dt><dd>'+esc(entity.properties.output_storage)+'</dd></div>' : '')
         + '<div><dt>Job Type</dt><dd>' + esc(loomJobClass(entity).category) + '</dd></div>'
         + '<div><dt title="Full: main run; Pilot: reduced trial; Smoke: startup check">Execution Mode</dt><dd>' + esc(loomJobClass(entity).mode) + '</dd></div></dl>');
       title.after(...properties.children);

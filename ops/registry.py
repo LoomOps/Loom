@@ -1,4 +1,5 @@
 """Versioned typed entities and immutable lineage indexed from completed jobs."""
+import storage
 import ownership
 import hashlib
 import json
@@ -54,10 +55,11 @@ def inspect(path, digest=None):
     return size,digest or sha,'available' if digest in (None,sha) else 'corrupt'
 
 
-def prepare(result,bulk,relative,*,facts=None,historical=False):
+def prepare(result,bulk,relative,*,facts=None,historical=False,config=None):
     prepared={}
     for e in result['entities']:
-        path=relative(bulk,e['locator']['ref'])
+        base=storage.locator(config,bulk,e['locator']) if config is not None else bulk
+        path=relative(base,e['locator']['ref'])
         members={path:e['sha256']}
         for item in e.get('components',[]):
             members[relative(path.parent,item['ref'])]=item['sha256']
@@ -78,7 +80,7 @@ def prepare(result,bulk,relative,*,facts=None,historical=False):
             name=str(p.relative_to(path.parent))
             components.append({'ref':name,'size':size,'sha256':digest})
             locations.append((name,e['locator']['machine_id'],e['locator']['storage_id'],
-                              str(p.relative_to(bulk)),status))
+                              str(p.relative_to(base)),status))
         prepared[e['id']]=(components,locations)
     return prepared
 
@@ -91,7 +93,7 @@ def output_members(output):
 
 def index(c,row,result,config,bulk,relative,*,historical=False,prepared=None):
     if prepared is None:
-        prepared=prepare(result,bulk,relative,historical=historical)
+        prepared=prepare(result,bulk,relative,historical=historical,config=config)
     local_ids={e['id']:e['kind'] for e in result['entities']}
     spec=json.loads(row['spec'])
     for e in result['entities']:
@@ -161,7 +163,8 @@ def view(c,actor,eid=None,revision=1):
     return ownership.decorate(c,'entity',data,row['owner'])
 
 
-def reconnect(c,actor,config,bulk,relative,eid,revision,component,ref):
+def reconnect(c,actor,config,bulk,relative,eid,revision,component,ref,storage_name='data/0'):
+    bulk,storage_id=storage.select(config,bulk,storage_name,verify=True)
     if type(revision) is not int or not isinstance(component,str) or not isinstance(ref,str):
         raise ValueError('Invalid component location')
     row=c.execute('SELECT manifest,owner FROM entity_revisions WHERE id=? AND revision=?',
@@ -179,5 +182,5 @@ def reconnect(c,actor,config,bulk,relative,eid,revision,component,ref):
         raise PermissionError('Node admission fenced')
     c.execute("""INSERT INTO entity_locations VALUES(?,?,?,?,?,?,?)
       ON CONFLICT(id,revision,component,machine_id,storage_id,ref) DO UPDATE SET status=excluded.status""",
-      (eid,revision,component,config['machine_id'],config['storage_id'],ref,'available'))
+      (eid,revision,component,config['machine_id'],storage_id,ref,'available'))
     return {'id':eid,'revision':revision,'component':component,'ref':ref,'status':'available'}

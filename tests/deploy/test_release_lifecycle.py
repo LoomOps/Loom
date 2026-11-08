@@ -33,6 +33,8 @@ class ReleaseLifecycleTests(unittest.TestCase):
  def contexts(self):
   from contextlib import ExitStack
   stack=ExitStack();stack.enter_context(patch.object(update,'previous_source',return_value=self.old))
+  # A real installation may exist on the development host. Never touch its unit.
+  stack.enter_context(patch.object(update,'Path',side_effect=lambda value: self.p/'loom-stack.service' if str(value)=='/etc/systemd/system/loom-stack.service' else Path(value)))
   stack.enter_context(patch.object(update,'inspect',return_value=self.info));stack.enter_context(patch.object(update,'instance_paths',return_value=[self.root]));stack.enter_context(patch.object(update,'helper_files',return_value={}))
   stack.enter_context(patch.object(guide_bundle,'generate',return_value=bundle('new')))
   stack.enter_context(patch.object(update,'run',return_value=''));stack.enter_context(patch.object(update,'compose',return_value=''));stack.enter_context(patch.object(update,'check_health'))

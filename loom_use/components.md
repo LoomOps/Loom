@@ -20,3 +20,9 @@ Docker layer/build caches reduce installation work but do not preserve corrected
 Standalone image profiles currently require an administrator-approved image already available in local Docker. Registration pins its digest. Jobs cannot request arbitrary host mounts, Docker sockets or privileged execution. The host executor owns network and image provisioning policy. Do not assume prepare has unrestricted Internet access.
 
 External dependency checkouts and image recipes remain user-managed. Loom does not install research frameworks implicitly. Keep datasets, assets and weights in configured data storage.
+
+## Writable data stores
+
+`system.status.data_stores` lists configured stores and their container paths. New installations default host `/loom/data` to `data/0`; additional directories are RW stores such as `data/1`. A profile runner can declare `"storage": ["data/1"]` on runtime, prepare or a lifecycle hook. The executor mounts only those registered names at `/loom/data/1`, and the runner receives `request.storage["data/1"]`. No host path is accepted in this declaration. Unknown stores fail registration/execution.
+
+For example: `"runtime": {"executor":"container","runtime_id":"python","command":["python3","/component/run.py"],"storage":["data/1"]}`. Standalone profiles expose the same field through HTTP and MCP. Omit storage for only `/work` plus declared read-only artifact inputs. Explicit RW access can modify shared files; coordinate changes to existing datasets. Publish result.json and registered outputs through `request.output_dir` on the Job’s selected `output_storage`; ordinary shared files in additional stores remain visible in Explorer. Storage mounts do not relocate historical artifacts or change their hashes/locators.

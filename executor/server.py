@@ -103,7 +103,10 @@ def handle(instance,action,data):
                 if gpu:
                     for row in c.execute("SELECT * FROM tickets WHERE gpu=1 AND state!='returned'").fetchall():
                         if not observed(row)['returned']:return {'busy':True}
-                folder=inside(cfg['data'],data['host_output'])
+                output_name=data.get('output_storage','data/0')
+                output_root=cfg['data'] if output_name=='data/0' else cfg.get('storage',{}).get(output_name)
+                if not output_root:raise PermissionError('Output storage outside instance grant')
+                folder=inside(output_root,data['host_output'])
                 if not folder.is_dir():raise ValueError('Missing Job workspace')
                 name='loom-job-'+hashlib.sha256(ticket.encode()).hexdigest()[:24]
                 argv=data['command']
@@ -120,13 +123,24 @@ def handle(instance,action,data):
                     cmd+=['--env',key+'='+value]
                 for name_,ref in sorted(data.get('inputs',{}).items()):
                     if not ID.fullmatch(name_):raise ValueError('Invalid input name')
-                    source=inside(cfg['data'],ref)
+                    if isinstance(ref,dict):
+                        if set(ref)!={'storage','ref'} or ref['storage'] not in cfg.get('storage',{}):raise PermissionError('Input storage outside instance grant')
+                        base=cfg['storage'][ref['storage']];ref=str(Path(base)/ref['ref'])
+                    else:base=cfg['data']
+                    source=inside(base,ref)
                     if not source.is_file():raise ValueError('Input file unavailable')
                     cmd+=['--mount',f'type=bind,source={source},target=/inputs/{name_},readonly']
                 if data.get('component'):
                     component=inside(cfg.get('components',CONFIG['components']),data['component'])
                     if not component.is_dir():raise ValueError('Component snapshot unavailable')
                     cmd+=['--mount',f'type=bind,source={component},target=/component,readonly']
+                stores=data.get('storage',[])
+                if not isinstance(stores,list) or any(not isinstance(s,str) or not re.fullmatch(r'data/[0-9]+',s) for s in stores) or len(stores)!=len(set(stores)):raise ValueError('Invalid storage identifiers')
+                for store in stores:
+                    if store not in cfg.get('storage',{}):raise PermissionError('Storage outside instance grant')
+                    source=Path(cfg['storage'][store])
+                    if source.resolve()!=source or not source.is_dir():raise ValueError('Storage path changed or unavailable')
+                    cmd+=['--mount',f'type=bind,source={source},target=/loom/{store}']
                 for mount in runtime.get('mounts',[]):
                     # Only the host administrator defines runtime library/asset mounts.
                     cmd+=['--mount',f"type=bind,source={mount['source']},target={mount['target']}"+(',readonly' if mount.get('readonly',True) else '')]

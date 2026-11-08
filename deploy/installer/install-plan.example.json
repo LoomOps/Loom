@@ -1,5 +1,5 @@
 {
-  "data": "/storage/loom/data",
+  "data": "/loom/data",
   "dependencies": "/dependencies",
   "mount": null,
   "repositories": [],
@@ -27,5 +27,6 @@
   "api_port": 18892,
   "dashboard_port": 18893,
   "tls_port": 18894,
-  "additional_data": []
+  "additional_data": [],
+  "mounts": []
 }

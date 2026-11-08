@@ -37,6 +37,23 @@ class PackagingTests(unittest.TestCase):
             self.assertNotEqual(configs[0]['installation_id'],configs[1]['installation_id'])
             self.assertTrue(all(c['machine_name']=='loom' for c in configs))
 
+    def test_existing_data_contents_and_ownership_are_preserved(self):
+        import os,sys
+        sys.path.insert(0,str(ROOT/'deploy'))
+        spec=importlib.util.spec_from_file_location('existing_data_install',ROOT/'deploy/install.py')
+        installer=importlib.util.module_from_spec(spec);spec.loader.exec_module(installer)
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)/'ops';data=Path(tmp)/'data';data.mkdir()
+            file=data/'existing.bin';file.write_bytes(b'preserved');before=file.stat()
+            original=installer.own_tree
+            with patch.object(installer,'own_tree',wraps=original) as own:
+                installer.install(root,data,18080,18081,18082,'loom','ops:test','dashboard:test',os.getuid(),os.getgid())
+            self.assertEqual(file.read_bytes(),b'preserved')
+            self.assertEqual((file.stat().st_uid,file.stat().st_gid),(before.st_uid,before.st_gid))
+            self.assertNotIn(data,[call.args[0] for call in own.call_args_list])
+            with self.assertRaises(ValueError):
+                installer.install(Path(tmp)/'second',data,18080,18081,18082,'loom','ops:test','dashboard:test',os.getuid(),os.getgid())
+
     def test_host_executor_and_installer_parse(self):
         for path in [ROOT/'executor/server.py',ROOT/'deploy/install.py',ROOT/'deploy/executor-attach.py']:
             ast.parse(path.read_text(),filename=str(path))

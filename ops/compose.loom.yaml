@@ -68,7 +68,7 @@ services:
     - type: bind
       source: ${OPS_DATA_0:-${OPS_BULK}}
       target: /loom/data/0
-      read_only: true
+      read_only: false
       bind:
         create_host_path: false
     - type: bind

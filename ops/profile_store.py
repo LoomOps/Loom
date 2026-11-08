@@ -14,6 +14,7 @@ RUNNER_SCHEMA={'type':'object','properties':{
     'image':{'type':'string','description':'Cached Docker reference; resolved to image ID when registering.'},
     'runtime_id':{'type':'string','description':'Optional administrator-installed compatibility runtime.'},
     'resources':{'type':'object','properties':{'cpus':{'type':'number','exclusiveMinimum':0},'memory':{'type':'string','pattern':'^[1-9][0-9]*[kmg]$'},'pids':{'type':'integer','minimum':16}},'additionalProperties':False},
+    'storage':{'type':'array','uniqueItems':True,'items':{'type':'string','pattern':'^data/[0-9]+$'},'description':'Opt-in RW stores from system.status.data_stores; mounted at /loom/data/N. Omit for only the Job workspace.'},
     'lane':{'enum':['cpu','gpu']},'env':{'type':'object','additionalProperties':{'type':'string'}},
     'timeout':{'type':'integer','minimum':1},'depends_on':{'type':'array','items':{'type':'string'}},'inputs':{'type':'array','items':{'type':'string'}}},
     'required':['executor','command'],'oneOf':[{'required':['image'],'not':{'required':['runtime_id']}},{'required':['runtime_id'],'not':{'required':['image']}}], 'additionalProperties':False}
@@ -45,6 +46,8 @@ def bind_runners(profile,config,owner):
         runner=profile.get(name)
         if not runner:continue
         if runner.get('executor')!='container':raise ValueError('Profiles require container execution')
+        execution.validate_storage(runner.get('storage',[]))
+        if set(runner.get('storage',[]))-set(config.get('executor',{}).get('storage',{})):raise ValueError('Storage outside instance grant')
         if runner.get('lane','cpu')=='gpu' and not config.get('allow_gpu',False):raise PermissionError('GPU execution disabled for this instance')
         if 'image' in runner:
             if 'runtime_id' in runner:raise ValueError('Choose image or runtime_id')
