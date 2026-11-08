@@ -226,7 +226,7 @@ class InstallationDoctorTests(unittest.TestCase):
   for key in ('token_setup_argv','token_setup_bundle_argv'):
    argv=client[key]
    self.assertEqual(argv[argv.index('--endpoint')+1],self.access['dashboard_origin']+'/mcp')
-   self.assertEqual(argv[argv.index('--name')+1],'loom-'+self.plan['tailscale']['hostname'])
+   self.assertEqual(argv[argv.index('--name')+1],'loom-use')
   self.assertEqual(client['token_setup_bundle_argv'][1],'./clients/setup.py')
   self.assertEqual(result['status'],'services_ready')
   self.assertEqual(client['status'],'offer_to_user')

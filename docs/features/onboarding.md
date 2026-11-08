@@ -41,3 +41,7 @@ Guide refresh accepts explicit Tailscale identity or an Admin-issued token. It
 verifies the current principal and includes identity/scopes in its cache key;
 switching VPN users must not reuse another user's scoped bundle. Both the native
 header helper and optional stdio transport use the same private-file reader.
+
+Client setup and installation handoff default the MCP registration ID to `loom-use`
+(display title: Loom Use). Explicit `--name` overrides remain supported. Existing
+connections to other endpoints must not be overwritten to enforce this default.

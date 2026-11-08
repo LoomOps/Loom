@@ -23,15 +23,23 @@ class ClientSetupTests(IsolatedOps):
         self.configpath.parent.mkdir();self.configpath.write_text('model = "example"\n[mcp_servers.other]\nurl = "https://other.test/mcp"\n')
     def test_real_mcp_setup_permissions_idempotence_and_revocation(self):
         issued=self.issue();before=tomllib.loads(self.configpath.read_text())
-        result=setup.configure(self.folder,self.configpath,'loom-test',self.base+'/mcp',issued['token'])
+        import io
+        self.folder=self.configpath.parent/'loom'/'loom-use'
+        captured=io.StringIO()
+        with patch.dict(os.environ,{'CODEX_HOME':str(self.configpath.parent)}),patch.object(sys,'argv',['setup.py','configure','--endpoint',self.base+'/mcp']),patch('sys.stdin.isatty',return_value=True),patch.object(setup.getpass,'getpass',return_value=issued['token']),patch('sys.stdout',captured):
+            setup.main()
+        result=json.loads(captured.getvalue())
         self.assertEqual(result['owner'],self.person['id']);self.assertEqual(len(result['tools']),6)
         self.assertNotIn(issued['token'],json.dumps(result));self.assertNotIn(issued['token'],self.configpath.read_text())
         self.assertEqual(self.folder.stat().st_mode & 0o777,0o700)
         self.assertEqual((self.folder/'credential.json').stat().st_mode & 0o777,0o600)
         current=tomllib.loads(self.configpath.read_text());self.assertEqual(current['model'],before['model']);self.assertEqual(current['mcp_servers']['other'],before['mcp_servers']['other'])
-        setup.configure(self.folder,self.configpath,'loom-test',self.base+'/mcp',issued['token'])
+        setup.configure(self.folder,self.configpath,'loom-use',self.base+'/mcp',issued['token'])
         self.assertEqual(tomllib.loads(self.configpath.read_text()),current)
         self.assertEqual(setup.verify(self.folder)['status'],'verified')
+        with patch.dict(os.environ,{'CODEX_HOME':str(self.configpath.parent)}),patch.object(sys,'argv',['setup.py','doctor']),patch('sys.stdout',io.StringIO()) as report:
+            setup.main()
+            self.assertEqual(json.loads(report.getvalue())['status'],'verified')
         self.request('/api/admin/tokens/revoke',{'id':issued['credential_id']},token=None,headers=self.signed())
         with self.assertRaises(OSError):setup.verify(self.folder)
     def test_invalid_token_and_bootstrap_never_written(self):

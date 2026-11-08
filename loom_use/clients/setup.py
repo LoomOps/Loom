@@ -119,7 +119,7 @@ def configure(directory, config, name, endpoint, token):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('configure','doctor'))
-    parser.add_argument('--name', required=True)
+    parser.add_argument('--name', default='loom-use', help='MCP connection name (default: loom-use)')
     parser.add_argument('--endpoint')
     parser.add_argument('--directory', type=Path, help='Private credential directory; default: CODEX_HOME/loom/<name>')
     args = parser.parse_args()

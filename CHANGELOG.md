@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-alpha.30 — 2026-11-09
+
+- Default MCP registration to `loom-use` in client setup, doctor and installation handoff, retaining explicit names and existing-connection conflict checks.
+
 ## 0.1.0-alpha.29 — 2026-11-09
 
 - Display Loom Use consistently in Dashboard navigation, MCP discovery, usage guides and installer handoff; preserve connection IDs, paths and tool contracts.

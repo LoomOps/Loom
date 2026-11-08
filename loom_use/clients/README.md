@@ -6,11 +6,11 @@ Ask a Loom Dashboard Admin to issue a token in **Tailscale → Agent Tokens** fo
 
 ```bash
 python3 /path/to/loom_use/clients/setup.py configure \
-  --endpoint https://your-loom-host/mcp --name loom-machine
-python3 /path/to/loom_use/clients/setup.py doctor --name loom-machine
+  --endpoint https://your-loom-host/mcp --name loom-use
+python3 /path/to/loom_use/clients/setup.py doctor --name loom-use
 ```
 
-Paste the token only at the hidden prompt, never in the command or chat. Default storage: `~/.codex/loom/loom-machine/credential.json` (or the configured CODEX_HOME). The directory is 0700 and files are 0600. Use `--directory /absolute/project/.loom-credentials` on both commands to select a project-local private directory; the script adds an ignore-all `.gitignore`. Do not use a tracked credential path.
+Paste the token only at the hidden prompt, never in the command or chat. Default storage: `~/.codex/loom/loom-use/credential.json` (or the configured CODEX_HOME). The directory is 0700 and files are 0600. Use `--directory /absolute/project/.loom-credentials` on both commands to select a project-local private directory; the script adds an ignore-all `.gitignore`. Do not use a tracked credential path.
 
 Setup checks initialize, tools/list, system.status and system.guide before saving the token. It preserves unrelated Codex settings, backs up existing config privately, and registers one native Streamable HTTP server using a local `http_headers_helper`. Reconnect that MCP server in Codex after setup. The helper only reads the file: no sudo, network calls, issuance or renewal. Doctor verifies configuration and live authentication; it does not start a Codex session or submit a Job. An unavailable token leaves client authentication pending without invalidating a completed server installation.
 
@@ -40,3 +40,8 @@ The credential file contains `{"token":"personal-token"}` and must be owned by t
 For servers configured with Tailscale user authentication, replace `credential` with `"authentication":"tailscale"`. The adapter's machine must have the required Tailscale connectivity. Serve supplies identity headers; clients must not set them directly. The adapter handles negotiated MCP version headers, JSON and per-request SSE responses.
 
 The adapter only connects to the server. Clients call `initialize` and `tools/list`, then read the current server contract through `system.status` and `system.guide`. Event consumption and agent startup or reactivation remain the caller's responsibility.
+
+The default MCP registration name is `loom-use` for both `configure` and `doctor`.
+You may omit `--name`. Use an explicit alternate `--name` only when requested or
+when connecting another server under a distinct name. An existing name bound to
+a different endpoint is never overwritten automatically.
