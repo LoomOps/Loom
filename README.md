@@ -62,3 +62,5 @@ Client tools and guidance live in `loom_use`; development specifications live in
 
 Loom is licensed under [GNU GPL version 3 only](LICENSE) (`GPL-3.0-only`).
 See [third-party notices](THIRD_PARTY_NOTICES.md) for dependencies and trademarks.
+
+For service removal and machine access cleanup, see [Uninstall](docs/UNINSTALL.md).

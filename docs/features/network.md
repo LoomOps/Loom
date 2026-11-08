@@ -111,3 +111,7 @@ The generated Docker network explicitly pins its gateway to the first host addre
 The generated Docker network keeps dynamic addresses in the upper half of the configured /24. Ops and Dashboard use fixed addresses outside that pool, so a restarting Gateway cannot claim the Dashboard ingress address. Existing user network overrides remain authoritative.
 
 Gateway acrylic uses surface alpha 0.34 in both themes, a 30px backdrop blur and 140% saturation. The card wrapper has no filter so the scene remains available to the backdrop filter; text and controls retain their own opacity. Blur is limited to the clipped card, not the page.
+
+## Uninstall boundary
+
+`deploy/uninstall.py` previews and removes only the selected installation’s managed Sharing access and listener routes. It stops the admission writer first, verifies provider cleanup before deleting local records/credentials, and preserves unrelated users/policies and the host Tailscale login. Mixed-instance ownership is reported for reconciliation. No Dashboard or public MCP reset action is exposed.

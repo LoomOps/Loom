@@ -751,7 +751,8 @@
         "ops/release_updates.py",
         "deploy/release_check_setup.py",
         "deploy/installer/doctor.py",
-        "deploy/installer/smoke.py"
+        "deploy/installer/smoke.py",
+        "deploy/uninstall.py"
       ],
       "tests": [
         "tests/deploy/test_packaging.py",
@@ -762,7 +763,8 @@
         "tests/ops/test_release_updates.py",
         "tests/deploy/test_release_check_setup.py",
         "tests/deploy/test_public_source.py",
-        "tests/deploy/test_install_doctor.py"
+        "tests/deploy/test_install_doctor.py",
+        "tests/deploy/test_uninstall.py"
       ],
       "depends_on": [
         "network",
@@ -784,7 +786,8 @@
         "deploy/installer/steps/04-configuration.md",
         "deploy/installer/steps/05-services.md",
         "deploy/installer/steps/06-network.md",
-        "deploy/installer/steps/07-handoff.md"
+        "deploy/installer/steps/07-handoff.md",
+        "docs/UNINSTALL.md"
       ],
       "invariants": [
         "The loom service account, installation UUID and user profiles are independent. Separate dev and alpha databases, ports and data; restart only after execution resources return.",

@@ -17,3 +17,7 @@ Mandatory everywhere: Ops, Dashboard, separate Gateway, native Tailscale user id
 `setup.py inspect` recommends choices. `setup.py plan` generates the linked files. `check` checks plan/kit integrity. `apply` performs the ordered install and records completed stages. `doctor` observes actual state and exits nonzero on failure. `handoff` reruns doctor and refuses a success handoff if anything is missing. `resume-network` recovers publication using the same plan after configuration/services are healthy; it never recreates the database/executor.
 
 Source checkout: run `python3 deploy/installer/setup.py ...`. Kit: run `sudo python3 /absolute/kit/setup.py ...`. Keep the original plan and protected credential file available for later diagnostics. Never rerun fresh `apply` over an existing or partially installed instance; inspect doctor and the saved progress first. Do not manually edit completion receipts.
+
+## Removal
+
+Uninstallation is separate from these installation steps. Use `platform/deploy/uninstall.py` (source kit) or `source/deploy/uninstall.py` (offline kit), with its adjacent `docs/UNINSTALL.md`. Preview the plan first; never delete management credentials or request records before remote Sharing cleanup succeeds.

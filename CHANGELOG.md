@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add an administrator-only uninstall CLI that previews and removes an instance's
+  managed Sharing grants/invitations, listeners and local access history. Remote
+  cleanup is verified before deleting credentials; interrupted cleanup can resume.
+  Jobs, artifacts, shared host dependencies and the host's Tailscale identity remain.
+
 ## 0.1.0-alpha.20 — 2026-11-08
 
 - Expose artifact location repair as `results.reconnect` through MCP, generated

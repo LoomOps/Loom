@@ -73,3 +73,7 @@ was not received; `machine_access_required` means the verified identity has no
 binding/grant. Ask the operator to compare the actual Docker bridge gateway with
 Dashboard/Ops trusted proxies and run installation doctor. Existing-account
 requests report `access_check_required` and must not be treated as authentication.
+
+## Uninstallation
+
+Machine administrators use `deploy/uninstall.py plan` and then `apply` from the matching source/installation kit; see `docs/UNINSTALL.md`. This is not a public MCP or Dashboard action. The workflow cleans up managed Sharing grants/invitations and local access state, preserves research data and the host Tailscale identity, and retains cleanup evidence on remote failure.

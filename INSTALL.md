@@ -17,3 +17,5 @@ For an existing instance, use [UPDATES.md](docs/UPDATES.md); do not rerun fresh 
 Start with `python3 deploy/installer/setup.py inspect`. Recommendations must use its actual findings. Use `setup.py doctor PLAN --stage STAGE` for step checks and `setup.py doctor PLAN` for the complete report. Doctor is read-only; `verify` is an alias for the same complete diagnostics. See the step documents for the exact source/kit commands.
 
 Do not substitute an owner token, a hand-written test result or an older UI for a failed installation step. Do not print credentials. Unperformed external-client/reboot checks remain explicitly unverified. Release discovery checks for updates; it never installs them automatically. After a successful handoff, offer loom_use skill installation and MCP auto-registration in the user’s chosen agent client; follow step 7 and report client verification separately.
+
+For removal, use the separate [uninstall workflow](docs/UNINSTALL.md). It cleans up Loom-managed Sharing/access records before deleting local authentication state; do not remove credentials first.
