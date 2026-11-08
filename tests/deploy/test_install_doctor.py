@@ -220,6 +220,9 @@ class InstallationDoctorTests(unittest.TestCase):
   with patch.object(doctor,'doctor',return_value={'ready':True,'checks':[],'live_validation':[]}),patch.object(setup,'manifest',return_value={'build_id':'fixture'}),patch.object(setup,'read_api',return_value={'updates':{}}):
    result=doctor.handoff(setup,self.plan)
   client=result['client_setup']
+  self.assertIsNone(client['authentication']['expires'])
+  self.assertEqual(client['authentication']['without_token'],'server complete / client authentication pending')
+  self.assertTrue(client['token_setup_script'].endswith('/clients/setup.py'))
   self.assertEqual(result['status'],'services_ready')
   self.assertEqual(client['status'],'offer_to_user')
   self.assertEqual(client['skill'],'loom-use')

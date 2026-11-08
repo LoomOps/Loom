@@ -77,3 +77,11 @@ requests report `access_check_required` and must not be treated as authenticatio
 ## Uninstallation
 
 Machine administrators use `deploy/uninstall.py plan` and then `apply` from the matching source/installation kit; see `docs/UNINSTALL.md`. This is not a public MCP or Dashboard action. The workflow cleans up managed Sharing grants/invitations and local access state, preserves research data and the host Tailscale identity, and retains cleanup evidence on remote failure.
+
+## Resident agent tokens
+
+Dashboard Admins issue and revoke individual agent tokens in Tailscale → Agent Tokens. Select an existing Loom user and Operator or Read only permissions. Tokens have no expiry and are shown once; only SHA-256 digests are stored. They retain the selected user's attribution and event inbox, and grant no Admin capability. Revocation takes effect on the next request, including existing MCP connections; already running Jobs continue.
+
+Admin-only HTTP routes: `GET /api/admin/tokens` lists metadata and registered users; `POST /api/admin/tokens` accepts `{label, owner, scopes}`; `POST /api/admin/tokens/revoke` accepts `{id}`. Browser writes require the Admin session and CSRF/Origin checks. Ops accepts only the signed Dashboard Admin claim for these routes. Neither ordinary MCP callers nor the installation owner credential can issue tokens. Six operational MCP groups remain unchanged.
+
+Token acquisition is an optional client step after server installation. The installer never auto-issues or renews tokens. Use the bundled `clients/setup.py` from the actual client account; keep credentials outside Git. A tagged machine's network identity is not its individual Linux user's identity.

@@ -67,3 +67,39 @@ class SSOTest(unittest.TestCase):
   self.assertEqual(identity['authentication'],'tailscale-sharing')
   self.assertEqual(identity['issuer'],self.auth.issuer)
   self.assertIsNone(self.auth.authorize({'Tailscale-User-Login':'unknown@test'},f.a))
+ def test_agent_token_relay_requires_live_admin_session_and_csrf(self):
+  import base64,hmac,hashlib
+  from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
+  from types import SimpleNamespace
+  from server import make_server
+  seen=[]
+  class Capture(BaseHTTPRequestHandler):
+   def log_message(self,*a):pass
+   def do_GET(self):
+    seen.append(dict(self.headers));self.send_response(200);self.send_header('Content-Type','application/json');self.end_headers();self.wfile.write(b'{"tokens":[],"owners":[]}')
+   def do_POST(self):
+    self.rfile.read(int(self.headers.get('Content-Length',0)));self.do_GET()
+  api=ThreadingHTTPServer(('127.0.0.1',0),Capture)
+  web=make_server('127.0.0.1',0,'http://127.0.0.1:'+str(api.server_port));web.sso=self.auth;web.development=True;web.tailscale_proxies=['127.0.0.1']
+  web.admission=SimpleNamespace(is_admin=lambda user:False)
+  for server in (api,web):
+   th=Thread(target=server.serve_forever,kwargs={'poll_interval':.01},daemon=True);th.start()
+   self.addCleanup(th.join,2);self.addCleanup(server.server_close);self.addCleanup(server.shutdown)
+  cookie,user=self.finish();session=self.auth.session(cookie)
+  h={**cookie,'Host':'loom.test','Tailscale-User-Login':'member@example.test'}
+  def call(method='GET',headers=h,path='/api/admin/tokens'):
+   c=http.client.HTTPConnection('127.0.0.1',web.server_port);c.request(method,path,body='{}' if method=='POST' else None,headers={'Content-Type':'application/json',**headers});r=c.getresponse();v=(r.status,r.read(),r.headers);c.close();return v
+  self.assertEqual(call()[0],403);self.assertEqual(seen,[])
+  web.admission.is_admin=lambda user:True
+  self.assertEqual(call(headers={'Authorization':'Bearer fixture-owner'})[0],401)
+  self.assertEqual(call('POST')[0],403)
+  write={**h,'Origin':'https://loom.test','X-Loom-CSRF':session['csrf']}
+  self.assertEqual(call('POST',{**write,'Origin':'https://evil.test'})[0],403)
+  result=call('POST',write);self.assertEqual(result[0],200);self.assertIn('no-store',result[2]['Cache-Control'])
+  encoded,signature=seen[-1]['X-Loom-Dashboard-Identity'].split('.')
+  self.assertEqual(signature,hmac.new(self.auth.key,encoded.encode(),hashlib.sha256).hexdigest())
+  identity=json.loads(base64.urlsafe_b64decode(encoded+'='*(-len(encoded)%4)))['identity']
+  self.assertTrue(identity['access_admin']);self.assertNotIn('Authorization',seen[-1])
+  self.assertEqual(call(path='/api/status')[0],200)
+  encoded=seen[-1]['X-Loom-Dashboard-Identity'].split('.')[0]
+  self.assertFalse(json.loads(base64.urlsafe_b64decode(encoded+'='*(-len(encoded)%4)))['identity']['access_admin'])

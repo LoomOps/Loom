@@ -9,13 +9,15 @@
         "dashboard/sso.py",
         "ops/access.py",
         "ops/credentials.py",
-        "ops/ownership.py"
+        "ops/ownership.py",
+        "ops/service_tokens.py"
       ],
       "tests": [
         "tests/ops/test_access_contract.py",
         "tests/ops/test_shared_ownership.py",
         "tests/ops/test_dashboard_identity.py",
-        "tests/dashboard/test_sso.py"
+        "tests/dashboard/test_sso.py",
+        "tests/ops/test_service_tokens.py"
       ],
       "depends_on": [],
       "spec": "docs/features/identity.md",
@@ -59,6 +61,18 @@
           "consumers": [
             "results",
             "catalog"
+          ]
+        },
+        {
+          "name": "Resident agent tokens",
+          "entrypoint": "ops/service_tokens.py#issue",
+          "accepts": "Signed Dashboard Admin claim, registered user and allowed scopes",
+          "returns": "One-time permanent token; only digest and revocation metadata persisted",
+          "consumers": [
+            "dashboard",
+            "api",
+            "onboarding",
+            "installation"
           ]
         }
       ]
@@ -547,10 +561,13 @@
         "loom_use/clients/stdio.py",
         "loom_use/refresh.py",
         "ops/build_version.py",
-        "ops/onboarding.py"
+        "ops/onboarding.py",
+        "loom_use/clients/setup.py",
+        "loom_use/clients/headers.py"
       ],
       "tests": [
-        "tests/ops/test_onboarding.py"
+        "tests/ops/test_onboarding.py",
+        "tests/ops/test_client_setup.py"
       ],
       "depends_on": [
         "identity",

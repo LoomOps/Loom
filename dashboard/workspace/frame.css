@@ -79,3 +79,6 @@
 .pa-footer [data-loom-updates].available {color:var(--pa-accent,#507ba3);font-weight:600;}
 .loom-update-panel {position:fixed;z-index:1000;bottom:42px;right:20px;width:min(330px,calc(100vw - 64px));padding:22px;border:1px solid #8391a52b;border-radius:24px;background:var(--pa-paper,#f6f8fc);color:var(--pa-ink,#243047);box-shadow:0 16px 48px #0003;font-size:14px;}
 .loom-update-panel dl {display:grid;grid-template-columns:auto 1fr;gap:8px 12px;}.loom-update-panel dd {margin:0;overflow-wrap:anywhere;}.loom-update-panel p {margin:12px 0;}.loom-update-panel button {cursor:pointer;border:1px solid #8391a540;border-radius:12px;padding:8px 12px;color:inherit;background:transparent;font:inherit;}.loom-update-close {float:right;}.loom-update-panel a {color:var(--pa-accent,#507ba3);}
+
+[data-token-form] input,[data-token-form] select{min-width:0;max-width:100%;padding:10px 12px;border:1px solid var(--pa-line,#8290a533);border-radius:12px;background:var(--pa-panel,#ffffff40);color:inherit;font:inherit}
+[data-token-form]{flex-wrap:wrap;gap:10px}

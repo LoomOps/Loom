@@ -115,6 +115,8 @@ class WebHandler(BaseHTTPRequestHandler):
         self.do_GET()
 
     def do_GET(self):
+        if self.path == '/api/admin/tokens':
+            return self.relay('GET',self.path)
         if self.path=='/' and self.entry_origin() and not self.dashboard_session():
             # Do not briefly render the retired token/login screen on the way in.
             return self.auth_redirect(self.entry_origin()+'/')
@@ -266,12 +268,18 @@ class WebHandler(BaseHTTPRequestHandler):
                 return self.error(403, "cross_site_forbidden")
         bearer = self.headers.get("Authorization", "")
         session=self.dashboard_session()
+        admin_route = path in ('/api/admin/tokens','/api/admin/tokens/revoke')
+        if admin_route:
+            admission=getattr(self.server,'admission',None)
+            if not session:return self.error(401,'login_required')
+            if not admission or not admission.is_admin(session['user']):return self.error(403,'admin_required')
         if self.server.sso:
             if not session:return self.error(401,'sso_required')
             if self.command!='GET' and not self.valid_session_write(session):return self.error(403,'csrf_required')
             # Browser routes cannot bypass logout using Serve headers or a token.
             bearer=''
-            identity={'X-Loom-Dashboard-Identity':self.server.sso.assertion(session['user'])}
+            person={**session['user'],'access_admin':bool(admin_route)}
+            identity={'X-Loom-Dashboard-Identity':self.server.sso.assertion(person)}
         else:
             identity=self.tailnet_headers() if not bearer else {}
         if not ((self.server.development or identity) and not bearer) and not re.fullmatch(r"Bearer [!-~]{1,4096}", bearer):
@@ -322,6 +330,14 @@ class WebHandler(BaseHTTPRequestHandler):
             connection.close()
 
     def do_POST(self):
+        if self.path in ('/api/admin/tokens','/api/admin/tokens/revoke'):
+            try:
+                size=int(self.headers.get('Content-Length','0'))
+                if not 0<size<=4096 or self.headers.get_content_type()!='application/json':raise ValueError()
+                body=self.rfile.read(size)
+                if not isinstance(json.loads(body),dict):raise ValueError()
+            except (ValueError,TypeError):return self.error(400,'invalid_token_request')
+            return self.relay('POST',self.path,body)
         if self.path.startswith('/auth-demo/'):
             return self.error(404,'route_unavailable')
         if self.path.startswith('/admission/'):

@@ -8,6 +8,7 @@ import uuid
 import ipaddress
 import base64
 from pathlib import Path
+import service_tokens
 
 
 def dashboard_actor(config, headers):
@@ -85,6 +86,7 @@ def tailscale_actor(config, headers, peer):
 
 
 def init(c):
+    service_tokens.init(c)
     c.executescript("""
     CREATE TABLE IF NOT EXISTS principals(
       id TEXT PRIMARY KEY, kind TEXT NOT NULL, grant_json TEXT NOT NULL);
@@ -109,6 +111,9 @@ def authenticate(c, bootstrap, digest):
         WHERE t.digest=? AND t.revoked IS NULL AND t.expires>?""",(digest,time.time())).fetchone()
     if row:
         return {'id':row[0],**json.loads(row[1])}
+    resident = service_tokens.authenticate(c, digest)
+    if resident:
+        return resident
     raise PermissionError('Invalid or expired credential')
 
 

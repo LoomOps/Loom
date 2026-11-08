@@ -16,7 +16,7 @@ def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separato
 
 def packaged_files():
  return [GUIDES/(name+'.md') for name in TITLES]+[GUIDES/name for name in
-         ('LICENSE','THIRD_PARTY_NOTICES.md','README.md','refresh.py','skills/loom-use/SKILL.md','clients/README.md','clients/stdio.py')]
+         ('LICENSE','THIRD_PARTY_NOTICES.md','README.md','refresh.py','skills/loom-use/SKILL.md','clients/README.md','clients/stdio.py','clients/setup.py','clients/headers.py')]
 
 @lru_cache(maxsize=8)
 def revisions(signature):

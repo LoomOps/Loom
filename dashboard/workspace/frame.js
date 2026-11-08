@@ -273,7 +273,11 @@ function loomAccessView(){
     return '<tr><td data-label="Email">'+esc(r.email)+(r.accepted_email?'<small class="pa-subtle">Accepted: '+esc(r.accepted_email)+'</small>':'')+'</td><td data-label="Grant status"><span class="pa-tailnet-badge" data-status="'+esc(r.state)+'">'+esc(r.user_cancelled?(r.state==='revoking'?'Cancelling':'Cancelled by user'):(loomAccessLabels[r.state]||r.state))+'</span>'+(r.error?'<p class="pa-tailnet-error">'+esc(r.error)+'</p>':'')+'</td><td data-label="Requested">'+esc(loomTailnetDate(r.created,true))+'</td><td data-label="Actions"><div class="pa-tailnet-actions">'+actions.map(([action,label])=>'<button type="button" class="pa-button" data-access-id="'+esc(r.id)+'" data-access-action="'+action+'" '+(loomAccessBusy?'disabled':'')+'>'+label+'</button>').join('')+'</div></td></tr>';
   }).join('');
   const requests=panel('Access Request <small>'+rows.length+'</small>',rows.length?'<div class="pa-tailnet-table-wrap"><table class="pa-tailnet-table" aria-label="Access Request"><thead><tr><th>Email</th><th>Grant status</th><th>Requested</th><th>Actions</th></tr></thead><tbody>'+content+'</tbody></table></div>':'<p class="pa-tailnet-empty">'+(loomAccessState?'아직 신청 내역이 없습니다.':'불러오는 중…')+'</p>');
-  return intro+'<section class="pa-loom-tailnet">'+account+'<div class="pa-loom-access" aria-label="머신 접근 관리"><p class="pa-tailnet-feedback" role="status">'+esc(loomAccessError||(loomAccessBusy?'처리 중…':''))+'</p>'+memberPanel+requests+'</div></section>';
+  const tokens=loomAccessState?.tokens||[],owners=loomAccessState?.owners||[];
+  const tokenPanel=panel('Agent Tokens',
+    '<form data-token-form class="pa-tailnet-actions"><input aria-label="Token name" name="label" placeholder="Token name" maxlength="80" required><select aria-label="Token owner" name="owner" required>'+owners.map(o=>'<option value="'+esc(o.id)+'">'+esc(o.display_name||o.login)+' · '+esc(o.login||o.id)+'</option>').join('')+'</select><select aria-label="Token permissions" name="permissions"><option value="operator">Operator</option><option value="read">Read only</option></select><button class="pa-button" type="button" data-token-create '+(loomAccessBusy||!owners.length?'disabled':'')+'>Create token</button></form><p class="pa-subtle">No expiration · Admin revocation</p>'+
+    (loomAccessState?.tokens_error?'<p role="status">토큰 목록을 불러오지 못했습니다.</p>':'<div class="pa-tailnet-table-wrap"><table class="pa-tailnet-table" aria-label="Agent Tokens"><thead><tr><th>Name</th><th>Owner</th><th>Permissions</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+tokens.map(t=>'<tr><td>'+esc(t.label)+'</td><td>'+esc(owners.find(o=>o.id===t.owner)?.login||t.owner)+'</td><td>'+esc(t.scopes.join(', '))+'</td><td>'+(t.revoked?'Revoked':'Active')+'</td><td>'+(!t.revoked?'<button class="pa-button" type="button" data-token-revoke="'+esc(t.id)+'">Revoke</button>':'—')+'</td></tr>').join('')+'</tbody></table></div>'));
+  return intro+'<section class="pa-loom-tailnet">'+account+'<div class="pa-loom-access" aria-label="머신 접근 관리"><p class="pa-tailnet-feedback" role="status">'+esc(loomAccessError||(loomAccessBusy?'처리 중…':''))+'</p>'+memberPanel+requests+tokenPanel+'</div></section>';
 }
 function loomAccessPatch(){
   for(const current of root.querySelectorAll('.pa-loom-tailnet')){
@@ -290,6 +294,11 @@ render=function(){
   loomAccessOpen=open;
 };
 root.addEventListener('click',event=>{
+  const tokenRevoke=event.target.closest('[data-token-revoke]');
+  if(tokenRevoke&&loomSessionUser?.access_admin&&!loomAccessBusy){
+    if(!confirm('이 토큰을 폐기하시겠습니까?'))return;
+    loomAccessBusy=true;loomAccessPatch();parent.postMessage({type:'loom-token-revoke',id:tokenRevoke.dataset.tokenRevoke},'*');return;
+  }
   const revoke=event.target.closest('[data-share-revoke]');
   const action=event.target.closest('[data-access-action]');
   if(!loomSessionUser?.access_admin || loomAccessBusy)return;
@@ -378,3 +387,18 @@ window.addEventListener('message',event=>{
   document.addEventListener('keydown',e=>{if(e.key==='Escape')hide();});
   const previousRender=render;render=function(){hide();return previousRender();};
 })();
+
+function loomCreateAgentToken(form){
+  if(!form||!loomSessionUser?.access_admin||loomAccessBusy||!form.reportValidity())return;
+  const f=new FormData(form);const body={label:f.get('label'),owner:f.get('owner'),scopes:f.get('permissions')==='read'?['read']:['read','submit','cancel','events']};
+  loomAccessBusy=true;loomAccessPatch();parent.postMessage({type:'loom-token-issue',body},'*');
+}
+root.addEventListener('click',event=>{
+  const trigger=event.target.closest('[data-token-create]');
+  if(trigger){event.preventDefault();loomCreateAgentToken(trigger.closest('[data-token-form]'));}
+});
+root.addEventListener('keydown',event=>{
+  if(event.key==='Enter'&&event.target.matches('[data-token-form] input')){
+    event.preventDefault();loomCreateAgentToken(event.target.closest('[data-token-form]'));
+  }
+});

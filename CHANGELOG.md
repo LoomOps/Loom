@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha.24 — 2026-11-08
+
+- Add Dashboard Admin-issued, individually revocable agent tokens without expiration.
+  Resident clients retain their selected user identity and operational scopes.
+- Add private token storage, Codex Streamable HTTP setup and read-only client doctor.
+  Installation offers client setup without automatically issuing credentials.
+- API revision: `loom-ops/v38`; six MCP groups and Job contracts remain unchanged.
+
 ## 0.1.0-alpha.23 — 2026-11-08
 
 - Guide existing Tailscale connection reuse, initial login, explicit account switching

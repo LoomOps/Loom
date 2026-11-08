@@ -1,3 +1,23 @@
+# MCP client setup
+
+## Resident Codex
+
+Ask a Loom Dashboard Admin to issue a token in **Tailscale → Agent Tokens** for your registered Loom user. It has no expiration; Admin can revoke it. Run this on the machine/account running Codex, using the downloaded loom_use bundle path (or `/loom/loom_use/current` on the server):
+
+```bash
+python3 /path/to/loom_use/clients/setup.py configure \
+  --endpoint https://your-loom-host/mcp --name loom-machine
+python3 /path/to/loom_use/clients/setup.py doctor --name loom-machine
+```
+
+Paste the token only at the hidden prompt, never in the command or chat. Default storage: `~/.codex/loom/loom-machine/credential.json` (or the configured CODEX_HOME). The directory is 0700 and files are 0600. Use `--directory /absolute/project/.loom-credentials` on both commands to select a project-local private directory; the script adds an ignore-all `.gitignore`. Do not use a tracked credential path.
+
+Setup checks initialize, tools/list, system.status and system.guide before saving the token. It preserves unrelated Codex settings, backs up existing config privately, and registers one native Streamable HTTP server using a local `http_headers_helper`. Reconnect that MCP server in Codex after setup. The helper only reads the file: no sudo, network calls, issuance or renewal. Doctor verifies configuration and live authentication; it does not start a Codex session or submit a Job. An unavailable token leaves client authentication pending without invalidating a completed server installation.
+
+Token authentication does not grant network access. Keep using the verified private MCP endpoint. For personal Tailscale devices with a verified user identity, the existing tokenless route remains available. The helper is supported for Codex HTTP connections made in its local execution environment; run it on the resident Codex host, not on an unrelated laptop or remote executor.
+
+[Codex HTTP helper reference](https://learn.chatgpt.com/docs/extend/mcp).
+
 # Optional stdio adapter
 
 Clients supporting HTTP MCP should connect directly to Loom's `/mcp`. For stdio-only clients, `stdio.py` forwards JSON-RPC to the HTTP endpoint. The adapter does not hard-code tool names or agent roles.

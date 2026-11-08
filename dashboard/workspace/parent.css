@@ -15,3 +15,11 @@ html[data-loom-theme="dark"] .loom-entry-card {background:#252b34c0;}
 html[data-loom-theme="dark"] #loom-entry input {background:#303843c0;}
 
 @media(prefers-color-scheme:dark){html[data-loom-theme="system"] #loom-entry{background:#171c23;color:#e4e8ee}html[data-loom-theme="system"] .loom-entry-card{background:#252b34c0}html[data-loom-theme="system"] #loom-entry input{background:#303843c0}}
+
+.loom-token-dialog{width:min(620px,90vw);border:1px solid #8290a533;border-radius:28px;padding:28px;background:var(--loom-surface,#f5f7fb);color:var(--loom-text,#18253d)}
+.loom-token-dialog::backdrop{background:#10182866;backdrop-filter:blur(10px)}
+.loom-token-dialog textarea{display:block;box-sizing:border-box;width:100%;min-height:80px;padding:12px;margin:16px 0;border:1px solid #8290a544;border-radius:14px;background:#8290a510;color:inherit;resize:vertical}
+.loom-token-dialog button{padding:10px 16px;margin-right:10px;border:0;border-radius:12px;cursor:pointer}
+
+html[data-loom-theme="dark"] .loom-token-dialog{background:#252b34;color:#e4e8ee}
+@media(prefers-color-scheme:dark){html[data-loom-theme="system"] .loom-token-dialog{background:#252b34;color:#e4e8ee}}

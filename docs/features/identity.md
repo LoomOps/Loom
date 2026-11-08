@@ -9,3 +9,11 @@ Dashboard→Ops uses short-lived HMAC assertions. The issuer is a persistent ide
 When authentication contracts change, review API principals, ownership overlays, Sharing administration, Gateway probes, new installations and user guides together. catalog.json defines owned files, consumers and tests.
 
 Tests use actual SQLite, sessions and HTTP while mocking only the trusted Serve boundary. They cover account switching, forged proxy headers, revocation, expiry, restarts, native network login and retired paths. Actual external VPN clients and TLS require separate validation.
+
+## Resident agent tokens
+
+Dashboard Admins issue and revoke individual agent tokens in Tailscale → Agent Tokens. Select an existing Loom user and Operator or Read only permissions. Tokens have no expiry and are shown once; only SHA-256 digests are stored. They retain the selected user's attribution and event inbox, and grant no Admin capability. Revocation takes effect on the next request, including existing MCP connections; already running Jobs continue.
+
+Admin-only HTTP routes: `GET /api/admin/tokens` lists metadata and registered users; `POST /api/admin/tokens` accepts `{label, owner, scopes}`; `POST /api/admin/tokens/revoke` accepts `{id}`. Browser writes require the Admin session and CSRF/Origin checks. Ops accepts only the signed Dashboard Admin claim for these routes. Neither ordinary MCP callers nor the installation owner credential can issue tokens. Six operational MCP groups remain unchanged.
+
+Token acquisition is an optional client step after server installation. The installer never auto-issues or renews tokens. Use the bundled `clients/setup.py` from the actual client account; keep credentials outside Git. A tagged machine's network identity is not its individual Linux user's identity.

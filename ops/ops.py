@@ -812,7 +812,7 @@ def operate(name, args, actor, config):
             ownership.assign(c,kind,args['id'],args['owner'],actor['id'])
             return ownership.decorate(c,kind,{'id':args['id']})
         if name == 'get_principal':
-            return {**{key:actor[key] for key in ('id','scopes','owners','notify','identity','profile_id','profile') if key in actor},'collaboration':'shared'}
+            return {**{key:actor[key] for key in ('id','scopes','owners','notify','identity','profile_id','profile','credential_id') if key in actor},'collaboration':'shared'}
         if name == 'get_job_contract':
             return {**job_contract.contract(), 'submit_schema':tool_schema('submit_job'),
                     'list_schema':tool_schema('list_jobs'),'status_values':['queued','preparing','ready','running','finalizing','completed','failed','finalizing_failed','cancelled'],
@@ -849,7 +849,7 @@ def operate(name, args, actor, config):
         if name == 'system_status':
             return {'machine_id':config['machine_id'],'storage_id':config['storage_id'],
                     'build':build_version.status(), 'onboarding':onboarding.identity(), 'updates':release_updates.status(),
-                    'principal':{k:actor[k] for k in ('id','scopes','owners','notify','identity','profile_id','profile') if k in actor},
+                    'principal':{k:actor[k] for k in ('id','scopes','owners','notify','identity','profile_id','profile','credential_id') if k in actor},
                     'installation_id':config.get('installation_id'),'collaboration':'shared',
                     'authentication':{'tailscale':bool(config.get('tailscale_auth',{}).get('enabled')),
                                       'dashboard_sso':bool(config.get('dashboard_auth',{}).get('enabled'))},'api_revision':job_contract.API_REVISION,'job_contract_revision':job_contract.REVISION,'admission':registry.mode(c),'inventory':config['inventory'],'execution_contract_revision':execution.REVISION,'data_stores':{name:{**item,'path':'/loom/'+name} for name,item in storage.stores(config,BULK).items()},'runtime_ids':config.get('runtime_ids',[]),'gpu_execution_enabled':config.get('allow_gpu',False),
@@ -1081,6 +1081,16 @@ class API(BaseHTTPRequestHandler):
             else:
                 body = {}
             config = self.server.config
+            if self.path in ('/api/admin/tokens','/api/admin/tokens/revoke'):
+                with db() as c:
+                    if self.path.endswith('/revoke') and self.command=='POST':
+                        result=access.service_tokens.revoke(c,actor,body)
+                    elif self.path=='/api/admin/tokens' and self.command=='GET':
+                        result=access.service_tokens.listing(c,actor)
+                    elif self.path=='/api/admin/tokens' and self.command=='POST':
+                        result=access.service_tokens.issue(c,actor,body)
+                    else:raise ValueError('Unsupported token action')
+                self.send(200,result);return
             if self.path=='/api/actions' and self.command=='POST':
                 self.send(200,operate(body['group'],{'action':body['action'],'arguments':body.get('arguments',{})},actor,config));return
             if self.path == '/mcp' and self.command == 'POST':

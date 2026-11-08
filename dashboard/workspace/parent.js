@@ -292,11 +292,27 @@
     }
   }
 
+  function showIssuedToken(result){
+    const modal=document.createElement('dialog');modal.className='loom-token-dialog';
+    const title=document.createElement('h2');title.textContent='Agent token';
+    const note=document.createElement('p');note.textContent='지금 한 번만 표시됩니다. 안전한 위치에 저장해 주세요. 만료 없이 Admin이 폐기할 때까지 유효합니다.';
+    const value=document.createElement('textarea');value.readOnly=true;value.setAttribute('aria-label','Issued token');value.value=result.token;
+    const copy=document.createElement('button');copy.textContent='Copy token';copy.onclick=async()=>{try{await navigator.clipboard.writeText(value.value);copy.textContent='Copied';}catch{value.select();copy.textContent='선택한 토큰을 복사해 주세요';}};
+    const command=document.createElement('textarea');command.readOnly=true;command.setAttribute('aria-label','Client setup command');
+    const endpoint=location.origin+'/mcp';
+    command.value='python3 ./clients/setup.py configure --endpoint '+"'"+endpoint+"' --name loom-"+location.hostname.split('.')[0];
+    const bundle=document.createElement('a');bundle.href='/api/guide/bundle';bundle.download='loom_use.zip';bundle.textContent='Download loom_use';
+    const hint=document.createElement('p');hint.textContent='Codex가 실행되는 머신에 loom_use를 내려받아 압축을 푼 폴더에서 실행하세요. 토큰은 명령 실행 후 숨김 입력합니다.';
+    const close=document.createElement('button');close.textContent='Done';close.onclick=()=>modal.close();
+    modal.addEventListener('close',()=>{value.value='';result.token='';modal.remove();});
+    modal.append(title,note,value,copy,command,bundle,hint,close);document.body.append(modal);modal.showModal();
+  }
+
   let accessBusy=false;
   async function accessAdmin(message){
     if(!sessionUser?.access_admin)return;
     if(accessBusy){
-      if(['loom-access-decision','loom-share-revoke'].includes(message.type))emit('loom-access-response',{error:'조회 중입니다. 잠시 후 다시 시도해 주세요.'});
+      if(['loom-access-decision','loom-share-revoke','loom-token-issue','loom-token-revoke'].includes(message.type))emit('loom-access-response',{error:'조회 중입니다. 잠시 후 다시 시도해 주세요.'});
       return;
     }
     if(message.type==='loom-access-decision' &&
@@ -311,9 +327,17 @@
           body:JSON.stringify({id:message.id,action:message.action}),signal:AbortSignal.timeout(15000)});
         if(!response.ok){const error=new Error('decision');error.status=response.status;throw error;}
       }
-      const [requests,members]=await Promise.allSettled([read('/admission/requests'),read('/admission/members')]);
+      if(['loom-token-issue','loom-token-revoke'].includes(message.type)){
+        const session=await read('/admission/session');
+        const response=await fetch(message.type==='loom-token-issue'?'/api/admin/tokens':'/api/admin/tokens/revoke',{
+          method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':session.csrf},
+          body:JSON.stringify(message.type==='loom-token-issue'?message.body:{id:message.id}),signal:AbortSignal.timeout(15000)});
+        if(!response.ok){const error=new Error('token');error.status=response.status;throw error;}
+        const result=await response.json();if(result.token)showIssuedToken(result);
+      }
+      const [requests,members,tokens]=await Promise.allSettled([read('/admission/requests'),read('/admission/members'),read('/api/admin/tokens')]);
       if(requests.status==='rejected')throw requests.reason;
-      emit('loom-access-response',{data:{...requests.value,members:members.status==='fulfilled'?members.value.members:[],members_error:members.status==='rejected'}});
+      emit('loom-access-response',{data:{...requests.value,members:members.status==='fulfilled'?members.value.members:[],members_error:members.status==='rejected',tokens:tokens.status==='fulfilled'?tokens.value.tokens:[],owners:tokens.status==='fulfilled'?tokens.value.owners:[],tokens_error:tokens.status==='rejected'}});
     } catch(error){
       emit('loom-access-response',{error:error.status===401?'로그인이 만료되었습니다. 다시 로그인해 주세요.':error.status===403?'Admin 권한이 필요합니다.':'요청을 처리하지 못했습니다. 새로고침 후 상태를 확인해 주세요.'});
     } finally {accessBusy=false;}
@@ -339,7 +363,7 @@
     } else if (message.type === 'loom-logout' && ssoEnabled && csrf) {
       fetch('/auth/logout', {method:'POST',credentials:'same-origin',headers:{'X-Loom-CSRF':csrf},redirect:'follow'})
         .then(response => {if(response.ok)location.reload();});
-    } else if (['loom-access-request','loom-access-decision','loom-share-revoke'].includes(message.type)) {
+    } else if (['loom-access-request','loom-access-decision','loom-share-revoke','loom-token-issue','loom-token-revoke'].includes(message.type)) {
       accessAdmin(message);
     } else if (message.type === 'pai-resource-interest') {
       resourceInterest = message.active === true;

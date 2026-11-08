@@ -157,7 +157,7 @@ const done=arguments[arguments.length-1];
         ui.wait("return document.querySelectorAll('[data-tailnet-member]').length===3")
         self.assertEqual(ui.js("return [...document.querySelectorAll('[data-tailnet-member]')].slice(1).map(e=>e.dataset.tailnetMember)"),['old','new'])
         self.assertTrue(ui.js("return document.querySelector('[data-tailnet-member]').dataset.tailnetMember.startsWith('admin:')"))
-        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-loom-tailnet h2')].map(e=>e.childNodes[0].textContent.trim())"),['Account','Member','Access Request'])
+        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-loom-tailnet h2')].map(e=>e.childNodes[0].textContent.trim())"),['Account','Member','Access Request','Agent Tokens'])
         self.assertEqual(ui.js("return document.querySelectorAll('[data-go=access] .pa-tailscale-symbol path').length"),9)
         self.assertFalse(ui.js("return !!document.querySelector('[data-loom-logout]')"))
         for width in [1440,390]:
@@ -737,3 +737,52 @@ const done=arguments[arguments.length-1];
         self.ui.wait("return document.querySelector('#recognized-name')?.textContent==='Verified member'")
         self.assertTrue(self.ui.js("return !document.querySelector('#continue') && document.querySelector('#request').hidden"))
         self.ui.wait("return location.origin===arguments[0] && !!document.querySelector('#codex-visualization')",self.base)
+
+    def test_admin_agent_token_issue_private_modal_and_revoke(self):
+        import json
+        import test_admission as fixture_access
+        f=fixture_access.AdmissionTests();f.setUp();self.addCleanup(f.doCleanups)
+        class Auth:
+            origin=self.base
+            def session(auth,headers):return {'user':{**f.admin,'name':'Admin'},'csrf':'fixture-csrf'}
+            def assertion(auth,identity):return 'fixture-relay'
+        self.web.sso=Auth();self.web.admission=f.a
+        self.addCleanup(setattr,self.web,'sso',None);self.addCleanup(delattr,self.web,'admission')
+        handler=self.api.RequestHandlerClass;get=handler.do_GET;post=handler.do_POST;tokens=[]
+        def response(h,data):
+            h.send_response(200);h.send_header('Content-Type','application/json');h.end_headers();h.wfile.write(json.dumps(data).encode())
+        def get_tokens(h):
+            if h.path=='/api/admin/tokens':return response(h,{'tokens':tokens,'owners':[{'id':'test-user','login':'owner@example.test','display_name':'Owner'}]})
+            return get(h)
+        def post_tokens(h):
+            if h.path.startswith('/api/admin/tokens'):
+                body=json.loads(h.rfile.read(int(h.headers['Content-Length'])))
+                if h.path.endswith('/revoke'):
+                    tokens[0]['revoked']=1;return response(h,{'revoked':True})
+                tokens.append({'id':'token-id','label':body['label'],'owner':body['owner'],'scopes':body['scopes'],'revoked':None})
+                return response(h,{'token':'fixture-one-time-secret','credential_id':'token-id','expires':None})
+            return post(h)
+        for method,fn in [('do_GET',get_tokens),('do_POST',post_tokens)]:
+            p=patch.object(handler,method,fn);p.start();self.addCleanup(p.stop)
+        ui=self.ui;ui.top();self.wd('/url',{'url':self.base})
+        ui.wait("return !document.querySelector('iframe').hidden");ui.frame()
+        ui.wait("return !!document.querySelector('.pa-profile-trigger')");ui.click('.pa-profile-trigger')
+        ui.wait("return !!document.querySelector('[data-token-form] option[value=test-user]')")
+        ui.js("document.querySelector('[name=label]').value='Resident agent'")
+        ui.click('[data-access-refresh]')
+        ui.wait("return !document.querySelector('[data-access-refresh]').disabled")
+        self.assertEqual(ui.js("return document.querySelector('[name=label]').value"),'Resident agent')
+        ui.click('[data-token-create]')
+        try:ui.wait("return !!document.querySelector('[data-token-revoke]')")
+        except AssertionError:
+            raise AssertionError({'tokens':tokens,'feedback':ui.js("return document.querySelector('.pa-tailnet-feedback').textContent"),'form':ui.js("return [...document.querySelector('[data-token-form]').elements].map(e=>[e.name,e.value,e.disabled,e.validity.valid])")})
+        self.assertFalse(ui.js("return document.documentElement.textContent.includes('fixture-one-time-secret')"))
+        ui.top();ui.wait("return document.querySelector('.loom-token-dialog')?.open===true")
+        self.assertEqual(ui.js("return document.querySelector('[aria-label=\"Issued token\"]').value"),'fixture-one-time-secret')
+        self.assertTrue(ui.js("return document.querySelector('[aria-label=\"Client setup command\"]').value.includes('clients/setup.py configure')"))
+        self.assertFalse(ui.js("return [...Object.values(localStorage),...Object.values(sessionStorage)].some(v=>v.includes('fixture-one-time-secret'))"))
+        ui.js("document.querySelector('.loom-token-dialog').close()")
+        ui.wait("return !document.querySelector('.loom-token-dialog')")
+        ui.frame();ui.js("window.confirm=()=>true");ui.click('[data-token-revoke]')
+        ui.wait("return document.querySelector('table[aria-label=\"Agent Tokens\"]').textContent.includes('Revoked')")
+        self.assertFalse(ui.js("return !!document.querySelector('[data-token-revoke]')"))
