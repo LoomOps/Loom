@@ -1,0 +1,38 @@
+# catalog — Catalog, preserved records and file access
+
+## Responsibilities and boundaries
+
+Distinguish historical originals from current display overlays. Never assume missing files are valid artifacts.
+
+## Inputs, outputs and authoritative sources
+
+- [ops/dashboard_read.py](../../ops/dashboard_read.py)
+- [ops/history_store.py](../../ops/history_store.py)
+
+The linked code/schemas define fields, enums and state transitions. This document does not duplicate them.
+
+## Call contracts
+
+| Boundary | Input | Result or failure | Consumers |
+|---|---|---|---|
+| `ops/dashboard_read.py#projection` | DB, actor, instance config, storage roots | Current catalog including Owner overlay and availability facts | dashboard, api |
+| `ops/dashboard_read.py#open_media` | Registered media index/key + allowed storage | Bounded allowed file stream or refusal; no arbitrary host path read | dashboard, api |
+
+## Related features and change impact
+
+[identity](identity.md) · [results](results.md) · [queue](queue.md)
+
+When projections change, check revision refresh, detail queries, file MIME/size/path boundaries and the UI.
+
+## Tests and failure boundaries
+
+- [tests/ops/test_job_history.py](../../tests/ops/test_job_history.py)
+- [tests/ops/test_job_history.py](../../tests/ops/test_job_history.py)
+- [tests/ops/test_dashboard_resources.py](../../tests/ops/test_dashboard_resources.py)
+- [tests/ops/test_file_preview.py](../../tests/ops/test_file_preview.py)
+
+Test sources define the concrete scenarios. `deploy/test.sh` records individual results as JSON/JUnit.
+
+## Live validation
+
+Verify migrated data reference integrity separately from fixtures.

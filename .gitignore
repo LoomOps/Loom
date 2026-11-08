@@ -1,0 +1,22 @@
+# Machine/runtime state and private material
+**/evidence/
+legacy/
+AGENTS.local.md
+**/__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+**/secrets/
+*.env
+*.pem
+*.key
+*.sqlite3*
+*.db
+*.log
+**/client-tokens.json
+**/*private.json
+**/*.pending.html
+ops/build-info.json
+dashboard/build-info.json
+baseline.json
+.DS_Store

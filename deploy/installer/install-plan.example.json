@@ -1,0 +1,11 @@
+{
+  "data": "/storage/loom/data",
+  "dependencies": "/dependencies",
+  "mount": null,
+  "repositories": [],
+  "gpu": false,
+  "tailscale": false,
+  "api_port": 18892,
+  "dashboard_port": 18893,
+  "tls_port": 18894
+}

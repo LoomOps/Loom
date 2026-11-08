@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Loom development feature catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "features"
+  ],
+  "properties": {
+    "schema": {
+      "const": "loom-features/v1"
+    },
+    "features": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "summary",
+          "sources",
+          "tests",
+          "depends_on",
+          "spec",
+          "contracts",
+          "invariants",
+          "change_rule",
+          "live_validation",
+          "interfaces"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sources": {
+            "$ref": "#/$defs/paths"
+          },
+          "tests": {
+            "$ref": "#/$defs/paths"
+          },
+          "depends_on": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "spec": {
+            "type": "string"
+          },
+          "contracts": {
+            "$ref": "#/$defs/paths"
+          },
+          "invariants": {
+            "$ref": "#/$defs/texts"
+          },
+          "change_rule": {
+            "type": "string",
+            "minLength": 1
+          },
+          "live_validation": {
+            "$ref": "#/$defs/texts"
+          },
+          "interfaces": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "entrypoint",
+                "accepts",
+                "returns",
+                "consumers"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "entrypoint": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "accepts": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "returns": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "consumers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "paths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "texts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

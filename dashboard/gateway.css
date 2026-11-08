@@ -1,0 +1,67 @@
+/* Common identity and host placement across every gateway state. */
+header{justify-content:flex-end}
+.entry-stack{width:420px;max-width:100%;display:flex;align-items:center;flex-direction:column}
+.card-shadow{width:100%}
+.card{padding:38px;text-align:center;min-height:224px}
+.entry-identity{position:relative;margin-bottom:30px}
+.wordmark{display:flex;align-items:center;justify-content:center;gap:10px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:21px;line-height:1.55;letter-spacing:-.045em;font-weight:400;color:var(--ink)}
+.wordmark b{font-weight:650;color:var(--accent)}
+.wordmark svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:3;stroke-linejoin:round;flex:none}
+.hostname{margin-top:8px;color:var(--muted);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.primary{justify-content:center;text-align:center;border-radius:10px;font-size:13px}
+#entry-progress{justify-content:center;margin:0;line-height:1.8}
+#recognized{justify-content:center;min-height:0;margin-bottom:18px}
+#recognized-email,.email{font-size:16px;font-weight:500;color:var(--ink);overflow-wrap:anywhere}
+.request-state{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;font-size:12px;line-height:1.8;color:var(--muted)}
+.pending{margin:0;font-size:12px;white-space:pre-line}
+#request-again{margin-top:22px}
+#login-error,#request-error{font-size:12px;color:var(--muted);line-height:1.7;margin:0 0 18px}
+#request-error{margin:16px 0 0}
+.retry{display:flex;align-items:center;gap:7px;margin-top:20px;padding:6px 10px;background:none;border:0;color:var(--muted);font-size:11px}
+.retry svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.retry:disabled{opacity:.5;cursor:wait}
+iframe[data-gateway-probe]{display:none}
+@media(max-width:600px){.card{padding:32px 28px}}
+
+#request-form .primary{display:flex;align-items:center;gap:9px;padding-inline:12px}
+#request-form .primary svg{width:19px;height:19px;flex:none}
+.request-note{font-size:12px;line-height:1.7;color:var(--muted);margin:12px 0 0;white-space:pre-line;word-break:keep-all}
+.text-action{border:0;background:none;color:var(--ink);font:inherit;font-size:12px;text-decoration:underline;text-underline-offset:3px;margin-top:18px;padding:6px}
+
+.card-shadow[hidden],#gateway-loading[hidden],[data-stage][hidden]{display:none!important}
+#gateway-loading{display:flex;align-items:center;gap:10px;min-height:100px;font-size:12px;color:var(--muted)}
+#request-visual{width:64px;height:64px;margin:0 auto 24px;color:var(--accent)}
+#request-visual svg{width:100%;height:100%}
+.state-surface{fill:currentColor;opacity:.09}
+.state-symbol{fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+#sent .email{font-size:15px;letter-spacing:-.02em}
+#sent .request-state{margin-top:20px}
+#sent .pending{color:var(--ink);font-size:13px;font-weight:500;line-height:1.8}
+#sent .request-note{font-size:11px;line-height:1.8;margin-top:10px}
+#sent .text-action{margin-top:24px}
+
+/* Shared motion/material tokens; opacity belongs to surfaces, never the text. */
+:root{--entry-ease:cubic-bezier(.22,1,.36,1);--entry-fast:180ms;--entry-morph:420ms;--entry-card:light-dark(rgb(250 252 255 / .38),rgb(32 39 46 / .42));--entry-input:light-dark(rgb(255 255 255 / .30),rgb(12 19 26 / .24));--entry-control:light-dark(rgb(255 255 255 / .22),rgb(35 45 55 / .28))}
+.card{background:var(--entry-card);backdrop-filter:blur(24px) saturate(112%);-webkit-backdrop-filter:blur(24px) saturate(112%)}
+.card-outline{stroke:light-dark(rgb(255 255 255 / .42),rgb(192 211 231 / .12));stroke-width:1}
+input{background:var(--entry-input);border-color:light-dark(rgb(122 145 176 / .18),rgb(185 203 220 / .16));box-shadow:inset 0 1px 0 light-dark(rgb(255 255 255 / .38),rgb(255 255 255 / .025));transition:background var(--entry-fast),border-color var(--entry-fast),box-shadow var(--entry-fast)}
+input:focus{border-color:color-mix(in srgb,var(--accent) 45%,transparent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 9%,transparent);outline:none}
+.primary{background:light-dark(rgb(40 74 166 / .62),rgb(165 181 199 / .60));box-shadow:inset 0 1px 0 rgb(255 255 255 / .13);transition:background var(--entry-fast),transform var(--entry-fast) var(--entry-ease)}
+.primary:hover{filter:none;background:light-dark(rgb(40 74 166 / .74),rgb(179 195 212 / .72))}
+.primary:active{transform:scale(.985)}
+.theme-picker{background:var(--entry-control);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-color:light-dark(rgb(122 145 176 / .13),rgb(185 203 220 / .12))}
+.theme-picker button[aria-pressed=true]{background:light-dark(rgb(234 240 255 / .66),rgb(64 80 96 / .52))}
+.motion-ghost{pointer-events:none!important;position:absolute!important;margin:0!important;z-index:1}
+@media(prefers-reduced-motion:reduce){.primary,input{transition:none}.primary:active{transform:none}}
+
+#request-form .primary{background:linear-gradient(135deg,light-dark(rgb(39 83 195 / .64),rgb(174 204 234 / .64)),light-dark(rgb(29 59 158 / .60),rgb(130 165 202 / .57)));background-size:100% 100%}
+#request-form .primary:hover{background:linear-gradient(135deg,light-dark(rgb(39 83 195 / .75),rgb(174 204 234 / .74)),light-dark(rgb(29 59 158 / .70),rgb(130 165 202 / .67)))}
+
+/* Motion backdrop loads after the entry UI; acrylic is confined to the card. */
+.landscape{inset:0;filter:none;background:light-dark(#edf1f7,#171e28);pointer-events:none}
+#loom-brand-scene{position:absolute;width:min(1050px,100vw);height:min(1050px,100vw);left:50%;top:50%;filter:blur(19px);opacity:0;transform:translate(-50%,-50%) scale(.97);transition:opacity 1.1s ease,transform 1.5s cubic-bezier(.2,.7,.3,1)}
+.loom-scene-ready #loom-brand-scene{opacity:.7;transform:translate(-50%,-50%) scale(1)}
+:root{--entry-card:light-dark(rgb(250 252 255 / .46),rgb(32 39 46 / .48))}
+.card{backdrop-filter:blur(44px) saturate(120%);-webkit-backdrop-filter:blur(44px) saturate(120%);box-shadow:inset 0 1px 0 light-dark(#ffffff55,#ffffff0d)}
+@media(max-width:700px){#loom-brand-scene{width:760px;height:760px}}
+@media(prefers-reduced-motion:reduce){#loom-brand-scene{transition:none;transform:translate(-50%,-50%)}}

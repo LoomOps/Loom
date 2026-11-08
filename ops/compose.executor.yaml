@@ -1,0 +1,11 @@
+services:
+  loom-ops:
+    volumes:
+      - type: bind
+        source: ${LOOM_EXECUTOR_HOST}/socket
+        target: /run/loom-executor
+        read_only: true
+      - type: bind
+        source: ${OPS_LOCAL}/secrets/executor-token
+        target: /etc/loom/executor-token
+        read_only: true

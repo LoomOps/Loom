@@ -1,0 +1,13 @@
+ARG BASE=python:3.12-slim
+FROM python:3.12-slim AS dependencies
+RUN pip install --no-cache-dir --target /dependencies jsonschema==4.23.0
+FROM ${BASE}
+COPY --from=dependencies /dependencies /opt/loom-deps
+WORKDIR /app
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/loom/
+COPY ops/build-info.json ops/build_version.py /app/
+COPY ops/ops.py ops/hooks.py ops/recovery.py ops/runtime_client.py ops/component_store.py ops/profile_store.py ops/runtime_contract.py ops/mcp_groups.py ops/mcp_docs.py ops/execution.py ops/serve.py ops/dashboard_read.py ops/docker_status.py ops/history_store.py ops/job_history.py ops/job_contract.py ops/remote_fence.py ops/access.py ops/registry.py ops/profiles.py /app/
+COPY ops/release_updates.py ops/ownership.py ops/onboarding.py ops/queue_control.py /app/
+COPY loom_use/ /loom_use/
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/opt/loom-deps
+ENTRYPOINT ["python3", "/app/serve.py"]

@@ -1,0 +1,869 @@
+{
+  "schema": "loom-features/v1",
+  "features": [
+    {
+      "id": "identity",
+      "summary": "User authentication, SSO sessions and current ownership",
+      "sources": [
+        "dashboard/requirements.txt",
+        "dashboard/sso.py",
+        "ops/access.py",
+        "ops/credentials.py",
+        "ops/ownership.py"
+      ],
+      "tests": [
+        "tests/ops/test_access_contract.py",
+        "tests/ops/test_shared_ownership.py",
+        "tests/ops/test_dashboard_identity.py",
+        "tests/dashboard/test_sso.py"
+      ],
+      "depends_on": [],
+      "spec": "docs/features/identity.md",
+      "contracts": [
+        "ops/access.py",
+        "dashboard/sso.py",
+        "loom_use/operator.md"
+      ],
+      "invariants": [
+        "Ownership does not restrict access. Browser sessions and MCP authentication are independent; invalidated browser sessions cannot be reused."
+      ],
+      "change_rule": "When authentication or profile contracts change, review Ops actors, the Dashboard relay, new installations, ownership display and user guides together.",
+      "live_validation": [
+        "Verify actual Tailscale clients, Sharing revocation and TLS separately."
+      ],
+      "interfaces": [
+        {
+          "name": "Browser authentication",
+          "entrypoint": "dashboard/sso.py#SSO",
+          "accepts": "Trusted Tailscale ingress + native user binding or ready machine share",
+          "returns": "Verified session or rejected login; no provider token in browser",
+          "consumers": [
+            "dashboard",
+            "network"
+          ]
+        },
+        {
+          "name": "Caller identity",
+          "entrypoint": "ops/access.py#dashboard_actor",
+          "accepts": "Signed, expiring Dashboard identity",
+          "returns": "Shared actor with server-selected scopes; invalid/expired assertions rejected",
+          "consumers": [
+            "api"
+          ]
+        },
+        {
+          "name": "Current responsibility",
+          "entrypoint": "ops/ownership.py#assign",
+          "accepts": "Item identity + registered profile + actor",
+          "returns": "Owner overlay and audit row; original item preserved",
+          "consumers": [
+            "results",
+            "catalog"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "summary": "Public HTTP/MCP contracts and request routing",
+      "sources": [
+        "ops/job_contract.py",
+        "ops/mcp_docs.py",
+        "ops/mcp_groups.py",
+        "ops/ops.py",
+        "ops/serve.py"
+      ],
+      "tests": [
+        "tests/ops/test_api_contract.py",
+        "tests/ops/test_mcp_docs.py",
+        "tests/ops/test_job_contract.py",
+        "tests/ops/test_generic_agent.py",
+        "tests/ops/test_initialization.py"
+      ],
+      "depends_on": [
+        "identity",
+        "queue",
+        "execution",
+        "recovery",
+        "results",
+        "extensions",
+        "catalog"
+      ],
+      "spec": "docs/features/api.md",
+      "contracts": [
+        "ops/job_contract.py",
+        "ops/mcp_groups.py",
+        "ops/mcp_docs.py"
+      ],
+      "invariants": [
+        "HTTP and the six MCP groups invoke the same operations. Distinguish request acceptance from successful execution."
+      ],
+      "change_rule": "When public inputs or responses change, check schemas, examples, API revision, guides and Dashboard consumers. Since ops.py contains multiple feature entry points, narrow impact to the affected functions.",
+      "live_validation": [
+        "Verify actual MCP client compatibility and network disconnections separately."
+      ],
+      "interfaces": [
+        {
+          "name": "Operation dispatch",
+          "entrypoint": "ops/ops.py#operate",
+          "accepts": "Validated group/action arguments and authenticated actor",
+          "returns": "Domain response; ValueError/PermissionError at public boundary",
+          "consumers": [
+            "dashboard",
+            "onboarding"
+          ]
+        },
+        {
+          "name": "Transport",
+          "entrypoint": "ops/ops.py#API",
+          "accepts": "HTTP or Streamable HTTP JSON-RPC",
+          "returns": "Versioned response/errors; notifications and unsupported methods retain their transport semantics",
+          "consumers": [
+            "dashboard",
+            "onboarding"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "queue",
+      "summary": "Shared queue ordering, admission and preparation pipelines",
+      "sources": [
+        "ops/queue_control.py"
+      ],
+      "tests": [
+        "tests/ops/test_queue_contract.py",
+        "tests/ops/test_queue_control.py"
+      ],
+      "depends_on": [
+        "identity",
+        "execution",
+        "recovery",
+        "results"
+      ],
+      "spec": "docs/features/queue.md",
+      "contracts": [
+        "ops/queue_control.py",
+        "ops/job_contract.py"
+      ],
+      "invariants": [
+        "Do not preempt running Jobs. Respect dependencies, allow concurrent preparation and never reassign resources before their return."
+      ],
+      "change_rule": "When queue policy changes, verify dispatch, catalog ordering and control capabilities with the same scenarios.",
+      "live_validation": [
+        "Actual long-running GPU workloads and power loss require separate acceptance testing."
+      ],
+      "interfaces": [
+        {
+          "name": "Scheduling decision",
+          "entrypoint": "ops/queue_control.py#scheduling",
+          "accepts": "Job row + DB dependency/recovery/hold state + lane",
+          "returns": "Eligibility/stage/waiting reason consumed by worker and UI",
+          "consumers": [
+            "api",
+            "catalog"
+          ]
+        },
+        {
+          "name": "Queue mutation",
+          "entrypoint": "ops/queue_control.py#reorder",
+          "accepts": "Waiting Job, actor, relative/absolute placement",
+          "returns": "Persisted order and change receipt; running Job not preempted",
+          "consumers": [
+            "api"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "execution",
+      "summary": "Job lifecycle, script execution and container ownership",
+      "sources": [
+        "executor/runtime_policy.py",
+        "executor/server.py",
+        "ops/execution.py",
+        "ops/hooks.py",
+        "ops/runtime_client.py",
+        "ops/runtime_contract.py"
+      ],
+      "tests": [
+        "tests/ops/test_executor_boundary.py"
+      ],
+      "depends_on": [
+        "extensions"
+      ],
+      "spec": "docs/features/execution.md",
+      "contracts": [
+        "ops/execution.py",
+        "ops/runtime_contract.py",
+        "executor/runtime_policy.py"
+      ],
+      "invariants": [
+        "Loom executes Jobs. Release resources based on executor-ticket, container and process return evidence. Never pass platform secrets or Docker sockets into Jobs."
+      ],
+      "change_rule": "When execution contracts change, verify the worker, executor, restart/idempotency behavior, cancellation, result collection and Compose mounts.",
+      "live_validation": [
+        "Actual Docker/GPU runtimes and power loss after container creation are outside mock coverage."
+      ],
+      "interfaces": [
+        {
+          "name": "Runtime request",
+          "entrypoint": "ops/execution.py#request_file",
+          "accepts": "Pinned profile, Job params, stage, input locators",
+          "returns": "Resolved execution request file; invalid paths/inputs rejected before runtime",
+          "consumers": [
+            "api"
+          ]
+        },
+        {
+          "name": "Worker lifecycle",
+          "entrypoint": "ops/ops.py#worker",
+          "accepts": "Durable queue/config/resource receipts",
+          "returns": "Preparation/run/return/result transitions; no release without resource evidence",
+          "consumers": [
+            "queue",
+            "recovery",
+            "results"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "recovery",
+      "summary": "Recovery reservations, recipient events and retries",
+      "sources": [
+        "ops/recovery.py"
+      ],
+      "tests": [
+        "tests/ops/test_worker_recovery.py"
+      ],
+      "depends_on": [
+        "identity",
+        "execution"
+      ],
+      "spec": "docs/features/recovery.md",
+      "contracts": [
+        "ops/recovery.py",
+        "ops/access.py"
+      ],
+      "invariants": [
+        "The caller owns error repair. Preserve reservation deadlines, attempt limits and dependent-Job skipping. Event acknowledgments are recipient-specific."
+      ],
+      "change_rule": "When state transitions change, check queue dispatch, notification events, claim leases, concurrency and expiry tests. Authoritative transitions live in ops/ops.py worker/finish and ops/recovery.py.",
+      "live_validation": [
+        "Actual external-agent reactivation and duplicate callback effects belong to client acceptance testing."
+      ],
+      "interfaces": [
+        {
+          "name": "Recovery action",
+          "entrypoint": "ops/recovery.py#action",
+          "accepts": "Job + actor + claim/progress/resume/defer arguments",
+          "returns": "Incident/lease/attempt transition or conflict; caller edits do not auto-run a new unapproved scope",
+          "consumers": [
+            "api",
+            "queue"
+          ]
+        },
+        {
+          "name": "Deadline",
+          "entrypoint": "ops/recovery.py#expire",
+          "accepts": "DB + clock",
+          "returns": "Expired reservation no longer blocks unrelated Jobs; dependent Jobs remain ineligible",
+          "consumers": [
+            "queue"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "results",
+      "summary": "Artifact registration, indexing, lineage and metadata contracts",
+      "sources": [
+        "ops/registry.py",
+        "ops/retain-artifact.py"
+      ],
+      "tests": [
+        "tests/ops/test_result_pipeline.py",
+        "tests/ops/test_output_contract.py"
+      ],
+      "depends_on": [
+        "identity",
+        "extensions"
+      ],
+      "spec": "docs/features/results.md",
+      "contracts": [
+        "ops/registry.py",
+        "ops/mcp_groups.py"
+      ],
+      "invariants": [
+        "Distinguish execution completion from indexing completion. Ownership changes must not overwrite original artifact or execution provenance."
+      ],
+      "change_rule": "When artifact schemas change, check producers, API/MCP schemas, queue dependency readiness, catalog projections and detail views together.",
+      "live_validation": [
+        "Verify large artifacts and external filesystem failures against actual storage."
+      ],
+      "interfaces": [
+        {
+          "name": "Output validation/index",
+          "entrypoint": "ops/registry.py#index",
+          "accepts": "Returned Job, typed manifest, storage/config, optional prepared facts",
+          "returns": "Registry entities/metrics/lineage or processing error; compute not rerun solely for indexing",
+          "consumers": [
+            "api",
+            "catalog",
+            "queue"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "extensions",
+      "summary": "Dynamic components, profiles and execution environment contracts",
+      "sources": [
+        "ops/component_store.py",
+        "ops/profile_store.py",
+        "ops/profiles.py"
+      ],
+      "tests": [
+        "tests/ops/test_components_platform.py",
+        "tests/ops/test_independent_profiles.py"
+      ],
+      "depends_on": [
+        "identity"
+      ],
+      "spec": "docs/features/extensions.md",
+      "contracts": [
+        "ops/runtime_contract.py",
+        "ops/profiles.py"
+      ],
+      "invariants": [
+        "Registering a new component must not require new MCP tools or platform redeployment. Preserve profile revision pins on submitted Jobs."
+      ],
+      "change_rule": "When profiles or components change, check input schemas, prepare/run/completion hooks, executor runtime policy, registration/read MCP actions and guides.",
+      "live_validation": [
+        "The execution-environment owner verifies actual external image dependencies, caches and GPU compatibility."
+      ],
+      "interfaces": [
+        {
+          "name": "Dynamic profile",
+          "entrypoint": "ops/profile_store.py#operate",
+          "accepts": "Actor + profile operation/schema + revision/config",
+          "returns": "Stored validated profile revision or reference; submitted Job keeps its pin",
+          "consumers": [
+            "api",
+            "execution"
+          ]
+        },
+        {
+          "name": "Dynamic component",
+          "entrypoint": "ops/component_store.py#operate",
+          "accepts": "Actor + component operation/metadata",
+          "returns": "Immutable component revision and namespace; no new MCP server required",
+          "consumers": [
+            "api",
+            "execution"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "catalog",
+      "summary": "Catalog, preserved records and file access",
+      "sources": [
+        "ops/dashboard_read.py",
+        "ops/history_store.py",
+        "ops/job_history.py"
+      ],
+      "tests": [
+        "tests/ops/test_job_history.py",
+        "tests/ops/test_dashboard_resources.py",
+        "tests/ops/test_file_preview.py"
+      ],
+      "depends_on": [
+        "identity",
+        "results",
+        "queue"
+      ],
+      "spec": "docs/features/catalog.md",
+      "contracts": [
+        "ops/dashboard_read.py",
+        "ops/history_store.py"
+      ],
+      "invariants": [
+        "Distinguish historical originals from current display overlays. Never assume missing files are valid artifacts."
+      ],
+      "change_rule": "When projections change, check revision refresh, detail queries, file MIME/size/path boundaries and the UI.",
+      "live_validation": [
+        "Verify migrated data reference integrity separately from fixtures."
+      ],
+      "interfaces": [
+        {
+          "name": "Dashboard projection",
+          "entrypoint": "ops/dashboard_read.py#projection",
+          "accepts": "DB, actor, instance config, storage roots",
+          "returns": "Current catalog including Owner overlay and availability facts",
+          "consumers": [
+            "dashboard",
+            "api"
+          ]
+        },
+        {
+          "name": "Artifact read",
+          "entrypoint": "ops/dashboard_read.py#open_media",
+          "accepts": "Registered media index/key + allowed storage",
+          "returns": "Bounded allowed file stream or refusal; no arbitrary host path read",
+          "consumers": [
+            "dashboard",
+            "api"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "observations",
+      "summary": "Host, GPU and Docker observations",
+      "sources": [
+        "deploy/collect-dashboard-gpus.py",
+        "deploy/collect-observations.py",
+        "ops/docker_status.py",
+        "ops/host_metrics.py"
+      ],
+      "tests": [
+        "tests/ops/test_docker_status.py",
+        "tests/ops/test_host_metrics.py"
+      ],
+      "depends_on": [],
+      "spec": "docs/features/observations.md",
+      "contracts": [
+        "ops/docker_status.py",
+        "ops/host_metrics.py"
+      ],
+      "invariants": [
+        "Observations are read-only and do not affect queue dispatch. Preserve missing/stale/partial distinctions."
+      ],
+      "change_rule": "When collector fields change, check host mounts, collection services, API projections and UI rendering.",
+      "live_validation": [
+        "Actual OS, kernel, driver and Docker socket responses require live verification."
+      ],
+      "interfaces": [
+        {
+          "name": "Docker observation",
+          "entrypoint": "ops/docker_status.py#collect",
+          "accepts": "Configured Docker command/projects/read scope",
+          "returns": "Read-only container/image snapshot; unavailable facts remain unavailable",
+          "consumers": [
+            "dashboard",
+            "installation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dashboard",
+      "summary": "Dashboard HTTP relay\u00b7workspace UI",
+      "sources": [
+        "dashboard/.dockerignore",
+        "dashboard/Dockerfile",
+        "dashboard/dev.py",
+        "dashboard/server.py",
+        "dashboard/workspace/access.html",
+        "dashboard/workspace/build.py",
+        "dashboard/workspace/details.js",
+        "dashboard/workspace/explorer.js",
+        "dashboard/workspace/frame.css",
+        "dashboard/workspace/frame.js",
+        "dashboard/workspace/lazy_logs.py",
+        "dashboard/workspace/mcp.js",
+        "dashboard/workspace/media.js",
+        "dashboard/workspace/operations-desk.css",
+        "dashboard/workspace/template.html",
+        "dashboard/workspace/parent.css",
+        "dashboard/workspace/parent.js",
+        "dashboard/workspace/projection.js",
+        "dashboard/workspace/queue.js",
+        "dashboard/workspace/text-preview.js",
+        "dashboard/theme/style.css",
+        "dashboard/theme/theme.js",
+        "dashboard/workspace/surfaces.js",
+        "dashboard/workspace/activity.js",
+        "dashboard/workspace/icons.js",
+        "dashboard/branding/logo.svg",
+        "dashboard/branding/brand.css",
+        "dashboard/branding/brand.js",
+        "dashboard/branding/scene.js"
+      ],
+      "tests": [
+        "tests/dashboard/test_proxy.py",
+        "tests/dashboard/browser/test_workspace.py"
+      ],
+      "depends_on": [
+        "identity",
+        "api",
+        "catalog",
+        "observations",
+        "onboarding"
+      ],
+      "spec": "docs/features/dashboard.md",
+      "contracts": [
+        "dashboard/server.py",
+        "dashboard/workspace/parent.js"
+      ],
+      "invariants": [
+        "Never send credentials to the opaque iframe. Browser writes respect Origin/CSRF boundaries. The UI must not infer completed backend states."
+      ],
+      "change_rule": "Rebuild the generated workspace after UI source edits. Verify both HTTP behavior and real Firefox for authentication, session or relay changes.",
+      "live_validation": [
+        "Actual Safari behavior, existing user sessions and SSO provider login require separate acceptance testing."
+      ],
+      "interfaces": [
+        {
+          "name": "Browser relay",
+          "entrypoint": "dashboard/server.py#WebHandler",
+          "accepts": "Allowed read route or queue mutation + authenticated browser",
+          "returns": "Bounded response; session/Origin/CSRF guard for writes; no generic arbitrary proxy",
+          "consumers": [
+            "api"
+          ]
+        },
+        {
+          "name": "HTTP server",
+          "entrypoint": "dashboard/server.py#make_server",
+          "accepts": "Ops origin, optional SSO config and exact trusted ingress",
+          "returns": "Dashboard server with explicit authentication mode",
+          "consumers": [
+            "installation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "onboarding",
+      "summary": "User guides, version identification and client entry",
+      "sources": [
+        "dashboard/build_version.py",
+        "loom_use/clients/stdio.py",
+        "loom_use/refresh.py",
+        "ops/build_version.py",
+        "ops/onboarding.py"
+      ],
+      "tests": [
+        "tests/ops/test_onboarding.py"
+      ],
+      "depends_on": [
+        "identity",
+        "api"
+      ],
+      "spec": "docs/features/onboarding.md",
+      "contracts": [
+        "ops/onboarding.py",
+        "loom_use/entry.md"
+      ],
+      "invariants": [
+        "The running server is authoritative for guides. Updates do not change personal instructions or active Job pins."
+      ],
+      "change_rule": "When usage contracts change, update loom_use documents, bundle inventory, revisions and the stdio client.",
+      "live_validation": [
+        "Verify actual client reconnection and guide refresh separately."
+      ],
+      "interfaces": [
+        {
+          "name": "Guide package",
+          "entrypoint": "ops/onboarding.py#bundle",
+          "accepts": "Actor, client-known revision, current schemas/contracts",
+          "returns": "Version-bound guide package and update identity; no automatic credential issuance",
+          "consumers": [
+            "api",
+            "installation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "network",
+      "summary": "Tailscale enrollment, Serve and native identity configuration",
+      "sources": [
+        "deploy/tailnet.py",
+        "dashboard/admission.py",
+        "dashboard/admission_http.py",
+        "deploy/access_setup.py",
+        "deploy/installer/access-plan.example.json",
+        "dashboard/gateway.py",
+        "dashboard/gateway.js",
+        "dashboard/gateway.html",
+        "dashboard/gateway.css",
+        "dashboard/sharing.py"
+      ],
+      "tests": [
+        "tests/deploy/test_tailnet.py",
+        "tests/dashboard/test_admission.py",
+        "tests/deploy/test_access_setup.py",
+        "tests/dashboard/test_gateway.py",
+        "tests/dashboard/test_sharing.py"
+      ],
+      "depends_on": [
+        "identity"
+      ],
+      "spec": "docs/features/network.md",
+      "contracts": [
+        "deploy/installer/tailnet-plan.example.json",
+        "docs/ACCESS-ENROLLMENT.md"
+      ],
+      "invariants": [
+        "The default installation keeps Serve private. Optional access enrollment exposes only a separate public listener. tag:loom supports Hub discovery; user grants apply per machine.",
+        "tag:loom is Hub discovery only; access approvals target one stable machine/device identity and exact addresses. Public request listener exposes no operational data or MCP."
+      ],
+      "change_rule": "When enrollment or proxy behavior changes, verify installation plans, exact trusted peers, callback URLs, reruns/pending approvals, TLS and policy scope.",
+      "live_validation": [
+        "Passing mocks does not replace actual administrator login, device approval or policy permissions."
+      ],
+      "interfaces": [
+        {
+          "name": "Enrollment",
+          "entrypoint": "deploy/tailnet.py#enrollment",
+          "accepts": "Expected tailnet, hostname/tag/SSH preferences",
+          "returns": "Ready or bounded login/approval-wait result; never switches an existing tailnet",
+          "consumers": [
+            "installation"
+          ]
+        },
+        {
+          "name": "Instance binding",
+          "entrypoint": "deploy/tailnet.py#configure",
+          "accepts": "Instance root, validated plan, MagicDNS name",
+          "returns": "Backed-up API auth config and Compose overlay; no implicit restart",
+          "consumers": [
+            "installation",
+            "identity"
+          ]
+        },
+        {
+          "name": "Serve binding",
+          "entrypoint": "deploy/tailnet.py#serve",
+          "accepts": "Instance ports and planned HTTPS routes",
+          "returns": "Existing nonconflicting routes retained; collisions fail before route mutation",
+          "consumers": [
+            "installation"
+          ]
+        },
+        {
+          "name": "Machine access requests",
+          "entrypoint": "dashboard/admission.py#Admission",
+          "accepts": "Verified external identity, private admin decision, configured machine and management credential",
+          "returns": "Durable invitation/user approval/exact machine policy state; recoverable failures",
+          "consumers": [
+            "identity",
+            "dashboard",
+            "installation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "portability",
+      "summary": "Preserved data, Job migration and remote ownership",
+      "sources": [
+        "deploy/assign-owner.py",
+        "ops/portability.py",
+        "ops/remote-handoff.py",
+        "ops/remote_fence.py"
+      ],
+      "tests": [
+        "tests/ops/test_remote_ownership.py"
+      ],
+      "depends_on": [
+        "identity",
+        "catalog",
+        "results",
+        "execution"
+      ],
+      "spec": "docs/features/portability.md",
+      "contracts": [
+        "ops/portability.py",
+        "ops/remote_fence.py"
+      ],
+      "invariants": [
+        "Distinguish original preservation from current presentation and retain installation identifiers. Cloned installations running concurrently require distinct identities."
+      ],
+      "change_rule": "When migration changes, check locator/storage IDs, original hashes, ownership overlays, selective exclusions and rerun idempotency.",
+      "live_validation": [
+        "Verify actual cross-machine TLS/handoff and access to restored data."
+      ],
+      "interfaces": [
+        {
+          "name": "Copy integrity",
+          "entrypoint": "ops/portability.py#copy_verified",
+          "accepts": "Source/destination + expected file identity",
+          "returns": "Verified copy or explicit failure; does not reinterpret historical recipes",
+          "consumers": [
+            "installation"
+          ]
+        },
+        {
+          "name": "Remote fence",
+          "entrypoint": "ops/remote_fence.py#apply",
+          "accepts": "DB, actor, action and ownership request",
+          "returns": "Ownership transition/receipt or refusal; controls real execution ownership",
+          "consumers": [
+            "execution"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "installation",
+      "summary": "Compose, host layout, services and immutable builds/releases",
+      "sources": [
+        "deploy/build.py",
+        "deploy/build.sh",
+        "deploy/compose.sh",
+        "deploy/executor-attach.py",
+        "deploy/host_identity.py",
+        "deploy/host_services.py",
+        "deploy/install-kit.py",
+        "deploy/install.py",
+        "deploy/installer/install-plan.example.json",
+        "deploy/installer/setup.py",
+        "deploy/installer/tailnet-plan.example.json",
+        "deploy/loom-authority.service",
+        "deploy/release.py",
+        "deploy/runtime.sh",
+        "deploy/snapshot.py",
+        "deploy/test.sh",
+        "executor/loom-executor.service",
+        "ops/.dockerignore",
+        "ops/Dockerfile.loom",
+        "ops/compose.data.yaml",
+        "ops/compose.dev.yaml",
+        "ops/compose.executor.yaml",
+        "ops/compose.loom.fence.yaml",
+        "ops/compose.loom.yaml",
+        "ops/compose.observations.yaml",
+        "ops/host_layout.py",
+        "deploy/update.py",
+        "deploy/source_install.py",
+        "INSTALL.md",
+        "deploy/installer/INSTALL.md",
+        "docs/UPDATES.md",
+        "deploy/guide_bundle.py",
+        "ops/release_updates.py",
+        "deploy/release_check_setup.py"
+      ],
+      "tests": [
+        "tests/deploy/test_packaging.py",
+        "tests/deploy/test_installation.py",
+        "tests/deploy/test_host_identity.py",
+        "tests/deploy/test_install_kit.py",
+        "tests/deploy/test_release_lifecycle.py",
+        "tests/ops/test_release_updates.py",
+        "tests/deploy/test_release_check_setup.py",
+        "tests/deploy/test_public_source.py"
+      ],
+      "depends_on": [
+        "network",
+        "execution",
+        "observations",
+        "onboarding",
+        "dashboard"
+      ],
+      "spec": "docs/features/installation.md",
+      "contracts": [
+        "deploy/installer/install-plan.example.json",
+        "ops/compose.loom.yaml",
+        "deploy/update.py"
+      ],
+      "invariants": [
+        "The loom service account, installation UUID and user profiles are independent. Separate dev and alpha databases, ports and data; restart only after execution resources return."
+      ],
+      "change_rule": "When adding files or dependencies, check Dockerfiles, snapshots, installer HOST_FILES, Compose mounts and new-installation/upgrade guides.",
+      "live_validation": [
+        "Temporary-filesystem tests do not replace real clean-host installation, reboot and rollback verification."
+      ],
+      "interfaces": [
+        {
+          "name": "Fresh layout",
+          "entrypoint": "deploy/install.py#install",
+          "accepts": "New instance/data paths, ports/images and service identity",
+          "returns": "Owned layout, independent installation UUID and initial config; refuses existing instance overwrite",
+          "consumers": [
+            "network",
+            "execution",
+            "dashboard"
+          ]
+        },
+        {
+          "name": "Installation workflow",
+          "entrypoint": "deploy/installer/setup.py#apply",
+          "accepts": "Verified immutable kit + complete installation plan",
+          "returns": "Installed services or explicit enrollment wait/failure; no false success from partial progress",
+          "consumers": [
+            "network"
+          ]
+        },
+        {
+          "name": "Idle update / rollback",
+          "entrypoint": "deploy/update.py#apply",
+          "accepts": "Verified built release + installed instance; idle Jobs and returned executor tickets",
+          "returns": "Updated images/helpers; overrides and extensions preserved; failure keeps recovery record",
+          "consumers": [
+            "network",
+            "execution",
+            "dashboard",
+            "onboarding"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "testing",
+      "summary": "Feature specifications, impact analysis and isolated test tools",
+      "sources": [
+        "tests/dashboard/mock_ops.py",
+        "tests/dashboard/verify_browser.py",
+        "tests/dashboard/verify_workspace.py",
+        "deploy/features.py",
+        "tests/suite.py",
+        "tests/run.py",
+        "tests/ops/test_support.py",
+        "tests/README.md",
+        "deploy/TESTING.md"
+      ],
+      "tests": [
+        "tests/deploy/test_features.py",
+        "tests/deploy/test_distribution.py"
+      ],
+      "depends_on": [],
+      "spec": "docs/features/testing.md",
+      "contracts": [
+        "docs/features/catalog.schema.json",
+        "deploy/features.py"
+      ],
+      "invariants": [
+        "Development validation adds no new gates to Job execution. Distinguish test results from actual deployment state."
+      ],
+      "change_rule": "Register each new feature's unique ID, owned files, inputs/outputs, dependencies, tests and live-validation limitations. Test behavior and failure boundaries rather than adding generic assertions.",
+      "live_validation": [
+        "Passing all tests does not prove successful authentication with actual external services."
+      ],
+      "interfaces": [
+        {
+          "name": "Change impact",
+          "entrypoint": "deploy/features.py#impact",
+          "accepts": "Changed repo-relative paths + feature catalog",
+          "returns": "Direct owners, related consumers, tests/specs; no mandatory edits to every consumer",
+          "consumers": [
+            "installation"
+          ]
+        },
+        {
+          "name": "Catalog check",
+          "entrypoint": "deploy/features.py#check",
+          "accepts": "Catalog + repository tree",
+          "returns": "Missing references, ambiguous owners, unmapped code/tests and broken interface links",
+          "consumers": [
+            "installation"
+          ]
+        }
+      ]
+    }
+  ]
+}

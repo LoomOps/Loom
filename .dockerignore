@@ -1,0 +1,15 @@
+**
+!ops/
+!ops/**
+!loom_use/
+!loom_use/**
+**/__pycache__/
+**/*.pyc
+**/secrets/
+**/*.env
+**/*.sqlite3*
+**/*.pem
+**/evidence/
+
+!LICENSE
+!THIRD_PARTY_NOTICES.md

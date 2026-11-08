@@ -1,0 +1,13 @@
+[Unit]
+Description=Loom handoff authority
+
+[Service]
+Type=simple
+User=loom
+Group=loom
+UMask=0077
+Restart=on-failure
+ExecStart=/usr/bin/python3 -B /loom/shared/services/remote_fence.py /loom/shared/authority/authority.sqlite3 /loom/shared/authority/policy.json --bind 127.0.0.1 --port 19924 --tls-cert /loom/shared/authority/cert.pem --tls-key /loom/shared/authority/key.pem
+
+[Install]
+WantedBy=multi-user.target

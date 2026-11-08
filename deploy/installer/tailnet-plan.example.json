@@ -1,0 +1,19 @@
+{
+  "tailnet": "organization.example",
+  "hostname": "loom-server",
+  "tag": "tag:loom",
+  "https_port": 443,
+  "bridge_cidr": "10.203.41.0/24",
+  "users": {},
+  "ssh": false,
+  "sso": {
+    "provider": "tailscale",
+    "network_users": {
+      "admin@example.com": {
+        "subject": "tailscale:admin@example.com"
+      }
+    },
+    "link_tailscale_email": true,
+    "session_seconds": 604800
+  }
+}

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Loom Ops</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="theme.js"></script>
+</head>
+<body>
+  <svg class="shape-defs" aria-hidden="true"><defs><clipPath id="card-squircle" clipPathUnits="objectBoundingBox"><path id="squircle-path"/></clipPath></defs></svg>
+  <div class="landscape" aria-hidden="true"><canvas id="loom-brand-scene" width="960" height="960"></canvas></div>
+  <header><div class="theme-picker" role="group" aria-label="Theme"><button data-loom-theme="light" aria-label="라이트 모드" title="라이트 모드">☀</button><button data-loom-theme="dark" aria-label="다크 모드" title="다크 모드">☾</button><button data-loom-theme="system" aria-label="컴퓨터 설정 사용" title="컴퓨터 설정 사용"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/></svg></button></div></header>
+  <main>
+    <div class="entry-stack">
+      <div id="gateway-loading" role="status"><span class="entry-spinner" aria-hidden="true"></span><span>연결 확인 중…</span></div>
+      <div class="card-shadow" hidden><section class="card" aria-label="Loom access" aria-busy="true">
+        <svg class="card-outline" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true"><path id="squircle-outline" vector-effect="non-scaling-stroke"/></svg>
+        <div class="entry-identity">
+          <div class="wordmark"><!-- LOOM_BRAND_LOGO --><span>Loom <b>Ops</b></span></div>
+          <div class="hostname" data-destination></div>
+        </div>
+        <div id="login" class="screen">
+          <div id="recognized" hidden><strong id="recognized-name" hidden></strong><span id="recognized-email"></span></div>
+          <div id="entry-progress" role="status" aria-live="polite"><span class="entry-spinner" aria-hidden="true"></span><span id="entry-progress-text">연결 확인 중…</span></div>
+          <p id="login-error" role="status" hidden></p>
+        </div>
+        <div id="request" class="screen" hidden>
+          <form id="request-form"><input id="email" aria-label="Email" type="email" placeholder="you@example.com" autocomplete="email" required maxlength="254"><button class="primary" type="submit"><svg class="pa-tailscale-symbol" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 169 169" width="18" height="18" aria-hidden="true" fill="currentColor" stroke="none"><path d="M30.5,102.5c9.9,0,18-8.1,18-18s-8.1-18-18-18-18,8.1-18,18,8.1,18,18,18Z"/><path d="M84.5,102.5c9.9,0,18-8.1,18-18s-8.1-18-18-18-18,8.1-18,18,8.1,18,18,18Z"/><path d="M84.5,156.5c9.9,0,18-8.1,18-18s-8.1-18-18-18-18,8.1-18,18,8.1,18,18,18Z"/><path d="M138.5,102.5c9.9,0,18-8.1,18-18s-8.1-18-18-18-18,8.1-18,18,8.1,18,18,18Z"/><path fill-opacity=".4" d="M30.5,156.5c9.9,0,18-8.1,18-18s-8.1-18-18-18-18,8.1-18,18,8.1,18,18,18Z"/><path fill-opacity=".4" d="M138.5,156.5c9.9,0,18-8.1,18-18s-8.1-18-18-18-18,8.1-18,18,8.1,18,18,18Z"/><path fill-opacity=".4" d="M30.5,48.5c9.9,0,18-8.1,18-18s-8.1-18-18-18S12.5,20.6,12.5,30.5s8.1,18,18,18Z"/><path fill-opacity=".4" d="M84.5,48.5c9.9,0,18-8.1,18-18s-8.1-18-18-18-18,8.1-18,18,8.1,18,18,18Z"/><path fill-opacity=".4" d="M138.5,48.5c9.9,0,18-8.1,18-18s-8.1-18-18-18-18,8.1-18,18,8.1,18,18,18Z"/></svg><span>Request access via Tailscale</span></button></form>
+          <p id="request-error" role="status" hidden></p>
+        </div>
+        <div id="sent" class="screen" hidden>
+          <div id="request-visual" aria-hidden="true"><svg viewBox="0 0 64 64"><path class="state-surface" d="M32 2C58 2 62 6 62 32S58 62 32 62S2 58 2 32S6 2 32 2Z"/><g transform="translate(20 20)" class="state-symbol">
+            <g data-stage="prepare"><path d="M3 10a9 9 0 0 1 15-6l3 3M21 2v5h-5M21 14A9 9 0 0 1 6 20l-3-3M3 22v-5h5"/></g>
+            <g data-stage="mail" hidden><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m3 6 9 7 9-7"/></g>
+            <g data-stage="approval" hidden><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></g>
+            <g data-stage="issue" hidden><path d="M12 3 2 21h20Z M12 9v5 M12 17v.2"/></g>
+          </g></svg></div>
+          <div id="receipt-email" class="email"></div>
+          <div class="request-state" role="status" aria-live="polite"><span id="request-spinner" class="entry-spinner" aria-hidden="true"></span><span class="pending"></span></div>
+          <p id="request-note" class="request-note" hidden></p>
+          <button id="edit-email" class="text-action" hidden>Use another email</button>
+          <button id="request-again" class="primary" hidden>Request access</button>
+        </div>
+      </section></div>
+      <button id="retry-connection" class="retry" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M19.2 12a7.2 7.2 0 1 0-1.8 4.8"/></svg>Retry connection</button>
+    </div>
+  </main>
+  <script src="app.js"></script>
+  <script src="brand.js" defer></script>
+</body>
+</html>

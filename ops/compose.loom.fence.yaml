@@ -1,0 +1,15 @@
+services:
+  loom-ops:
+    volumes:
+    - type: bind
+      source: ${OPS_LOCAL}/secrets/fence-token
+      target: /etc/loom/fence-token
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${OPS_LOCAL}/secrets/fence-ca.pem
+      target: /etc/loom/fence-ca.pem
+      read_only: true
+      bind:
+        create_host_path: false

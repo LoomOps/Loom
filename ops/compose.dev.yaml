@@ -1,0 +1,19 @@
+# Live source mounts: UI rebuild/reload does not restart Ops or running Jobs.
+services:
+  loom-ops:
+    environment:
+      LOOM_LIVE_SOURCE: "1"
+      LOOM_IMAGE_BUILD_ID: "${LOOM_BUILD_ID:-unversioned}"
+    volumes:
+      - ../ops:/app:ro
+      - ../loom_use:/loom_use:ro
+  loom-dashboard:
+    read_only: false
+    user: "${OPS_UID}:${OPS_GID}"
+    entrypoint: [python3, -B, /opt/loom-dashboard/dev.py]
+    environment:
+      LOOM_DASHBOARD_DEV: "1"
+      LOOM_LIVE_SOURCE: "1"
+      LOOM_IMAGE_BUILD_ID: "${LOOM_BUILD_ID:-unversioned}"
+    volumes:
+      - ../dashboard:/opt/loom-dashboard

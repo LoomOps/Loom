@@ -1,0 +1,12 @@
+# Optional second data store, selected by the instance's data.env file.
+services:
+  loom-ops:
+    environment:
+      LOOM_DATA_PATHS: /loom/data/0:/loom/data/1
+    volumes:
+      - type: bind
+        source: ${OPS_DATA_1:?Set the existing data/1 directory}
+        target: /loom/data/1
+        read_only: true
+        bind:
+          create_host_path: false

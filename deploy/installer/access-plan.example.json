@@ -1,0 +1,30 @@
+{
+  "machine_id": "REPLACE_WITH_STABLE_INSTALLATION_ID",
+  "name": "Loom machine",
+  "tailnet": "organization.example",
+  "device_id": "REPLACE_WITH_TAILSCALE_DEVICE_ID",
+  "addresses": [
+    "100.64.0.1"
+  ],
+  "identity_addresses": [],
+  "ports": [
+    443
+  ],
+  "ssh_accounts": [],
+  "origin": "https://loom-machine.your-tailnet.ts.net:10000",
+  "dashboard_origin": "https://loom-machine.your-tailnet.ts.net",
+  "host_port": 18904,
+  "bind": "0.0.0.0",
+  "port": 8081,
+  "admins": [
+    {
+      "issuer": "https://loom-machine.your-tailnet.ts.net/identity",
+      "subject": "tailscale:admin@example.com"
+    }
+  ],
+  "credential_file": "/loom/private-inputs/tailscale-management.json",
+  "database": "/loom/ops/admission/requests.sqlite3",
+  "enrollment_mode": "sharing",
+  "sharing_hourly_limit": 20,
+  "sharing_pending_limit": 200
+}

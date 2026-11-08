@@ -1,0 +1,38 @@
+import json
+from jsonschema import Draft202012Validator
+import ops,mcp_docs,mcp_groups
+from test_support import IsolatedOps
+
+class McpDocumentationTests(IsolatedOps):
+    def reference(self,actor=None,**args):
+        return ops.operate('system',{'action':'describe','arguments':args},actor or self.owner,self.config)
+    def test_all_visible_actions_documented_and_examples_match_schema(self):
+        docs=self.reference()
+        expected={(t['name'],a) for t in mcp_groups.tools(self.owner,ops.TOOLS) for a in t['inputSchema']['properties']['action']['enum']}
+        actual=set()
+        for group in docs['groups']:
+            for action in group['actions']:
+                actual.add((group['name'],action['action']))
+                Draft202012Validator.check_schema(action['schema'])
+                Draft202012Validator(action['schema']).validate(action['example'])
+        self.assertEqual(actual,expected);self.assertEqual(len(docs['groups']),6)
+        self.assertNotIn(self.owner['token_sha256'],json.dumps(docs))
+    def test_reader_only_sees_authorized_actions(self):
+        docs=self.reference(self.reader)
+        pairs={(g['name'],a['action']) for g in docs['groups'] for a in g['actions']}
+        self.assertIn(('jobs','get'),pairs);self.assertNotIn(('jobs','submit'),pairs)
+        self.assertNotIn(('components','register'),pairs);self.assertNotIn(('recovery','claim'),pairs)
+        with self.assertRaises(PermissionError):self.reference(self.reader,group='jobs',action='submit')
+    def test_grouped_recovery_and_components_have_precise_inputs(self):
+        schema=self.reference(group='recovery',action='resume')['schema']
+        self.assertNotIn('action',schema['properties']);self.assertIn('lease',schema['required'])
+        schema=self.reference(group='components',action='get')['schema']
+        self.assertEqual(set(schema['properties']),{'id','owner'})
+        self.assertIn('default',self.reference(group='events',action='list')['schema']['properties']['kind'])
+        self.assertIn('group',self.reference(group='system',action='describe')['schema']['properties'])
+    def test_submit_schema_stays_bound_to_api_contract(self):
+        actual=self.reference(group='jobs',action='submit')['schema']
+        expected=ops.tool_schema('submit_job')
+        self.assertEqual(actual['required'],expected['required'])
+        self.assertEqual(actual['properties']['execution'],{**expected['properties']['execution'],'description':mcp_docs.FIELD_HELP['execution']})
+        with self.assertRaises(ValueError):self.reference(group='jobs')

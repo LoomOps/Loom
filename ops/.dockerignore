@@ -1,0 +1,5 @@
+.git
+*.json
+!build-info.json
+*.log
+__pycache__

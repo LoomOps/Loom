@@ -1,0 +1,298 @@
+/* Operations desk palette on the original workspace's existing surfaces. */
+#pai-studio {
+  --pa-bg: light-dark(#f3f5f9, #191d21);
+  --pa-paper: light-dark(#fff, #23292f);
+  --pa-side: light-dark(#f7f8fb, #20262c);
+  --pa-ink: light-dark(#17243c, #e4e9ee);
+  --pa-muted: light-dark(#526078, #abb3bb);
+  --pa-line: light-dark(#dce2ed, #404a54);
+  --pa-accent: light-dark(#284aa6, #a5b5c7);
+  --pa-tint: light-dark(#e8eeff, #303d49);
+  --pa-selected: light-dark(#e8eeff, #3c4a58);
+  --pa-selected-text: light-dark(#284aa6, #e0e8f0);
+  --pa-blue: light-dark(#254fa8, #9fb4cb);
+  --pa-radius: 11px;
+}
+
+#pai-studio .pa-top {
+  background: var(--pa-paper);
+}
+
+#pai-studio .pa-panel,
+#pai-studio .pa-resources {
+  box-shadow: 0 1px 2px light-dark(rgb(23 36 60 / 5%), rgb(0 0 0 / 16%));
+}
+
+#pai-studio h1 {
+  font-weight: 680;
+}
+
+#pai-studio .pa-panel-head h2 {
+  font-weight: 650;
+}
+
+#pai-studio .pa-eyebrow {
+  font-weight: 650;
+  letter-spacing: .08em;
+}
+
+#pai-studio .pa-job-status {
+  border-color: color-mix(in srgb, currentColor 26%, transparent);
+  border-radius: 6px;
+}
+
+/* Match the selected Operations desk brand and surface hierarchy. */
+#pai-studio .pa-brand { gap: 10px; align-items: center; color: var(--pa-accent); font-size: 21px; letter-spacing: -.045em; font-weight: 400; padding: 22px 10px 24px; }
+#pai-studio .pa-brand .pa-mark { display: flex; width: 33px; height: 33px; flex: none; }
+#pai-studio .pa-brand b { font-weight: 700; color: var(--pa-ink); }
+#pai-studio .pa-sidebar {
+  --pa-accent: var(--loom-brand-accent);
+  --pa-blue: var(--loom-brand-accent);
+  --pa-selected-text: var(--loom-brand-accent);
+  --pa-tint: color-mix(in srgb,var(--loom-brand-accent) 12%,var(--pa-side));
+  --pa-selected: color-mix(in srgb,var(--loom-brand-accent) 14%,var(--pa-side));
+  background: linear-gradient(180deg,light-dark(#f4f6fa,#252c33),light-dark(#fdfefe,#2a323a));
+}
+#pai-studio #pa-nav .pa-nav-item { font-weight: 450; border-radius: 7px; }
+#pai-studio #pa-nav .pa-nav-item.active { font-weight: 650; background: linear-gradient(90deg,color-mix(in srgb,var(--pa-selected) 50%,transparent),color-mix(in srgb,var(--pa-selected) 65%,transparent)); }
+#pai-studio #pa-nav .pa-nav-item:hover { color:var(--pa-accent); }
+#pai-studio .pa-sidebar :focus-visible { outline-color:var(--pa-accent); }
+#pai-studio .pa-panel, #pai-studio .pa-resources { box-shadow: none; background: light-dark(#fafbfd, var(--pa-paper)); }
+#pai-studio .pa-panel-head h2 { letter-spacing: -.025em; }
+#pai-studio .pa-resource-meter > i { background: var(--pa-accent); }
+#pai-studio .pa-sidebar-bottom { align-items: start; padding: 16px 10px 10px; }
+#pai-studio .pa-node-summary { min-width: 0; width: 100%; }
+#pai-studio .pa-node-summary strong { display: block; font-size: 12px; font-weight: 600; color: var(--pa-ink); margin: 7px 0; }
+#pai-studio .pa-node-summary small { display: block; line-height: 1.5; font-size: 10px; overflow-wrap: anywhere; }
+#pai-studio .pa-node-caption, #pai-studio .pa-node-environment { font: 10px/1.5 ui-monospace, monospace; letter-spacing: .06em; }
+#pai-studio .pa-workspace .pa-node-environment { color: var(--pa-accent); margin-top: 7px; }
+#pai-studio .pa-loom-docker { min-width: 0; }
+#pai-studio .pa-loom-docker > .pa-panel { margin-top: 16px; }
+#pai-studio .pa-loom-docker .pa-panel-head small { color: var(--pa-muted); font-weight: 400; margin-left: 6px; }
+#pai-studio .pa-loom-docker .pa-table-wrap { max-width: 100%; overflow-x: auto; }
+#pai-studio .pa-container-table { table-layout: fixed; width: 100%; min-width: 880px; }
+#pai-studio .pa-container-table td, #pai-studio .pa-container-table th { overflow-wrap: anywhere; vertical-align: top; padding: 13px 10px; }
+#pai-studio .pa-container-table td { font-size: 12px; }
+#pai-studio .pa-container-table th { background: var(--pa-side); font-size: 11px; }
+#pai-studio .pa-container-table td small { display: block; margin-top: 3px; color: var(--pa-muted); }
+#pai-studio .pa-container-table td:nth-child(6) { white-space: nowrap; }
+#pai-studio .pa-container-table [hidden] { display: none; }
+#pai-studio .pa-container-table [data-container-extra] td { background: var(--pa-side); }
+#pai-studio .pa-container-table .pa-props { grid-template-columns: 130px minmax(0, 1fr); }
+#pai-studio .pa-container-table .pa-props dd { overflow-wrap: anywhere; }
+#pai-studio .pa-container-toggle { color: var(--pa-accent); padding: 0; font-size: 12px; }
+#pai-studio .pa-container-state { display: inline-block; font-size: 11px; border-radius: 5px; padding: 2px 6px; background: var(--pa-side); }
+#pai-studio .pa-container-state[data-state="running"] { color: light-dark(#126545, #a0e2bd); background: light-dark(#e4f4ec, #244037); }
+@media(max-width: 700px) { #pai-studio .pa-brand { padding: 12px 0; justify-content: center; } }
+#pai-studio .pa-brand > span:last-child { display: inline; white-space: nowrap; }
+#pai-studio .pa-brand b { display: inline; }
+#pai-studio .pa-brand { min-height: 86px; padding: 20px 10px; }
+#pai-studio .pa-loom-docker .pa-panel-head h2 small { display: inline; font-size: 12px; }
+@media(min-width: 701px) {
+  #pai-studio .pa-sidebar { overflow-y: auto; padding-bottom: 12px; }
+  #pai-studio .pa-sidebar-bottom { margin-top: auto; flex: 0 0 auto; }
+  #pai-studio #pa-nav { padding-top: 10px; padding-bottom: 14px; }
+  #pai-studio #pa-nav .pa-nav-item { padding-top: 10px; padding-bottom: 10px; }
+}
+@media(max-width: 700px) {
+  #pai-studio .pa-brand > span:last-child { display: none; }
+  #pai-studio .pa-brand { padding: 0; min-height: 40px; }
+}
+@media(min-width: 701px) {
+  #pai-studio .pa-brand { min-height: 48px; padding: 0 10px; }
+  #pai-studio .pa-sidebar { gap: 20px; }
+}
+
+#pai-studio .pa-container-table [data-container-row] { cursor: pointer; }
+#pai-studio .pa-container-table [data-container-row]:hover,
+#pai-studio .pa-container-table [data-container-row][aria-expanded="true"] { background: var(--pa-tint); }
+#pai-studio .pa-container-table [data-container-row]:focus-visible { outline: 2px solid var(--pa-accent); outline-offset: -2px; }
+#pai-studio .pa-workspace .pa-node-environment { letter-spacing: 0; white-space: nowrap; }
+
+/* Keep the first tab flush with the pane edge. */
+#pai-studio .pa-document-tabs { padding-left: 0; }
+#pai-studio .pa-document-tab > [role=tab] { padding-left: 14px; }
+#pai-studio .pa-history-more { display: flex; gap: 8px; margin-top: 16px; }
+#pai-studio .pa-host-online.is-online,
+#pai-studio .pa-sync-dot.is-live { background: light-dark(#15976c, #54d5ac); opacity: 1; }
+#pai-studio .pa-host-online.is-offline,
+#pai-studio .pa-sync-dot:not(.is-live) { background: light-dark(#8793a4, #94a1b2); opacity: 1; }
+
+#pai-studio .pa-brand .pa-mark svg { fill: none; stroke: currentColor; stroke-width: 3; stroke-linejoin: round; }
+#pai-studio .pa-brand .pa-mark svg path { fill: none; }
+#pai-studio .pa-brand { color: var(--pa-ink); font-weight: 650; }
+
+/* Entity actions share one header menu across models, records and Jobs. */
+#pai-studio .pa-entity-heading{flex-direction:row;align-items:flex-start}
+#pai-studio .pa-entity-heading>div:first-child{min-width:0;flex:1}
+#pai-studio .pa-entity-menu{position:relative;flex:none;margin-left:auto}
+#pai-studio .pa-entity-menu>summary{display:flex;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border:0;border-radius:6px;color:var(--pa-ink);background:transparent;cursor:pointer;list-style:none}
+#pai-studio .pa-entity-menu>summary::-webkit-details-marker{display:none}
+#pai-studio .pa-entity-menu>summary svg{fill:currentColor}
+#pai-studio .pa-entity-menu>summary:hover,#pai-studio .pa-entity-menu[open]>summary{background:transparent;color:var(--pa-accent)}
+#pai-studio .pa-entity-menu-items{position:absolute;right:0;top:42px;z-index:40;width:180px;padding:5px;border:1px solid var(--pa-line);border-radius:10px;background:var(--pa-paper);box-shadow:0 8px 24px #0002}
+#pai-studio .pa-entity-menu-items>a,#pai-studio .pa-entity-menu-items>button{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:10px;border:0;border-radius:6px;background:transparent;color:var(--pa-ink);font:inherit;font-size:13px;white-space:nowrap;text-decoration:none;text-align:left;cursor:pointer}
+#pai-studio .pa-entity-menu-items>a:hover,#pai-studio .pa-entity-menu-items>button:hover{background:var(--pa-tint)}
+#pai-studio .pa-entity-menu-items svg,#pai-studio .pa-entity-menu-items>a>span:first-child{width:16px;height:16px;flex:none}
+#pai-studio .pa-entity-menu summary:focus-visible,#pai-studio .pa-entity-menu-items>:focus-visible{outline:2px solid var(--pa-accent);outline-offset:2px}
+#pai-studio .pa-entity-status{margin:0 0 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+#pai-studio .pa-loom-job-summary table{width:100%;table-layout:fixed}
+#pai-studio .pa-loom-job-summary th:first-child{width:30%}
+#pai-studio .pa-loom-job-summary td{white-space:normal;overflow-wrap:anywhere}
+#pai-studio .pa-loom-job-links a{white-space:normal;overflow-wrap:anywhere}
+
+#pai-studio .pa-entity-title-row{display:flex;align-items:center;gap:16px;width:100%}
+#pai-studio .pa-entity-title-row h1{flex:0 1 auto;min-width:0;margin:0;overflow-wrap:anywhere}
+#pai-studio .pa-entity-title-row .pa-entity-menu{align-self:center}
+#pai-studio .pa-job-properties{display:flex;gap:24px 48px;flex-wrap:wrap;margin:0}
+#pai-studio .pa-job-properties>div{display:flex;flex-direction:column;gap:8px}
+#pai-studio .pa-job-properties dt{color:var(--pa-muted);font-size:12px}
+#pai-studio .pa-job-properties dd{margin:0;min-height:32px;display:flex;align-items:center}
+
+/* Queue actions remain inline with their Job, sharing both color themes. */
+.pa-queue-position{display:block;margin-top:5px;color:var(--muted)}
+.pa-queue-control{margin-top:8px;max-width:390px}
+.pa-queue-control summary{cursor:pointer;font-size:12px}
+.pa-queue-control-body{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0}
+.pa-queue-control label{display:flex;gap:6px;align-items:center;width:100%}
+.pa-queue-control select{max-width:280px;background:var(--surface);color:inherit;border:1px solid var(--border);border-radius:6px;padding:4px}
+.pa-queue-feedback:empty{display:none}
+
+/* Keep the mark visually aligned with the Loom Ops wordmark. */
+#pai-studio .pa-brand { font-weight:400; }
+#pai-studio .pa-brand .pa-mark { width:25px; height:25px; }
+#pai-studio .pa-brand .pa-mark svg { width:25px; height:25px; }
+
+/* Match the workspace's 760px icon-rail breakpoint, including 701–760px. */
+@media(max-width:760px){
+  #pai-studio .pa-sidebar{overflow:hidden;min-width:0;padding:12px 5px;gap:12px}
+  #pai-studio .pa-brand{flex:0 0 36px;min-height:36px;padding:0;justify-content:center;gap:0}
+  #pai-studio .pa-brand>span:last-child{display:none}
+  #pai-studio #pa-nav{min-height:0;flex:0 1 auto;flex-wrap:nowrap;padding:0;gap:3px}
+  #pai-studio #pa-nav .pa-nav-item{min-height:28px;flex:0 1 40px;padding:8px 0;font-size:0;gap:0;justify-content:center}
+}
+@media(max-width:760px) and (max-height:520px){
+  #pai-studio .pa-sidebar{padding:6px 5px;gap:6px}
+  #pai-studio .pa-brand{flex-basis:28px;min-height:28px}
+  #pai-studio #pa-nav{gap:2px;flex:1 1 auto}
+  #pai-studio #pa-nav .pa-nav-item{flex:1 1 28px;min-height:24px;padding:0}
+}
+#pai-studio .pa-nav-tooltip{position:fixed;inset:auto;margin:0;padding:7px 10px;border:1px solid var(--pa-line);border-radius:7px;background:var(--pa-paper);color:var(--pa-ink);font:500 12px/1.4 system-ui,sans-serif;box-shadow:0 4px 14px #0002;pointer-events:none;white-space:nowrap}
+
+/* Entry-page atmosphere belongs to the content panes; navigation stays unchanged. */
+#pai-studio .pa-pane-body{
+  --loom-surface-fill:light-dark(#fafbfdf7,#23292ff7);
+  --loom-surface-edge:light-dark(#d4ddec80,#414d5a90);
+  padding:28px;
+  background-color:var(--pa-bg);
+  background-image:radial-gradient(ellipse at 85% 8%,light-dark(#bac9dd55,#3c485748),transparent 65%),radial-gradient(ellipse at 5% 95%,light-dark(#91a5c738,#33445748),transparent 70%);
+  background-attachment:scroll;
+}
+#pai-studio .pa-pane-body .pa-panel,
+#pai-studio .pa-pane-body .pa-resources,
+#pai-studio .pa-pane-body .pa-doc-detail{padding:24px;border-radius:24px;margin-bottom:20px}
+#pai-studio .pa-pane-body .pa-stat{padding:20px;border-radius:20px}
+#pai-studio .pa-pane-body .pa-panel-head{margin-bottom:16px}
+#pai-studio .pa-pane-body .pa-grid,
+#pai-studio .pa-pane-body .pa-analysis-grid{gap:20px}
+#pai-studio .pa-pane-body .loom-surface{
+  position:relative;isolation:isolate;background:transparent;border-color:transparent;box-shadow:none;
+}
+#pai-studio .loom-surface>.loom-surface-skin{
+  position:absolute;inset:-1px;width:calc(100% + 2px);height:calc(100% + 2px);z-index:-1;pointer-events:none;overflow:visible;
+  fill:var(--loom-surface-fill);stroke:var(--loom-surface-edge);stroke-width:1;
+  filter:drop-shadow(0 3px 8px light-dark(#2435560c,#00000020));
+}
+/* Flush comparison tables keep their existing layout inside the card. */
+#pai-studio .pa-pane-body .pa-panel.cmp-table-wrap,
+#pai-studio .pa-pane-body .pa-panel.cmp-evidence-panel{padding:0}
+@container pane (max-width:560px){
+  #pai-studio .pa-pane-body .pa-panel,
+  #pai-studio .pa-pane-body .pa-resources,
+  #pai-studio .pa-pane-body .pa-doc-detail{padding:18px}
+  #pai-studio .pa-pane-body .pa-stat{padding:16px}
+  #pai-studio .pa-pane-body .pa-panel.cmp-table-wrap,
+  #pai-studio .pa-pane-body .pa-panel.cmp-evidence-panel{padding:0}
+}
+@media(max-width:760px){#pai-studio .pa-pane-body{padding:18px}}
+/* Nested widgets use quieter surfaces; notices retain their semantic tint. */
+#pai-studio .pa-pane-body :is(.pa-resource-card,.pa-pipeline-stage,.pa-media,.pa-episode,.pa-agent-source){--loom-surface-fill:light-dark(#f0f3f9,#202830)}
+#pai-studio .pa-pane-body :is(.pa-notice,.pa-readable-markdown pre){--loom-surface-fill:var(--pa-tint)}
+#pai-studio .pa-pane-body .pa-catalog-warning{--loom-surface-fill:light-dark(#fff5db,#44341c);--loom-surface-edge:light-dark(#e1cea0,#75613b)}
+#pai-studio .pa-pane-body :is(.pa-resource-card,.pa-result-flow,.pa-outcome-highlights article,.pa-engineering,.pa-result-definitions,.pa-result-discarded,.pa-notice,.pa-catalog-warning,.pa-media,.pa-episode,.pa-pipeline-stage,.pa-finder,.pa-doc-code,.pa-readable-file,.pa-readable-markdown pre,.pa-agent-source,.pa-agent-list-item).loom-surface{background:transparent;border-color:transparent}
+#pai-studio .pa-pane-body :is(.pa-resource-card,.pa-media,.pa-episode,.pa-pipeline-stage)>.loom-surface-skin{filter:none}
+/* Preserve all calendar labels after increasing card insets. */
+#pai-studio .pa-pane-body .pa-activity-dashboard>.pa-panel{height:344px;margin-bottom:0}
+#pai-studio .pa-pane-body .pa-activity-graph{min-height:184px}
+
+/* Nested telemetry tiles separate through fill and spacing, without an extra rim. */
+#pai-studio .pa-pane-body .pa-resource-card{--loom-surface-edge:transparent}
+#pai-studio .pa-resource-card .loom-resource-light{stop-color:light-dark(#eff3fa,#252e39)}
+#pai-studio .pa-resource-card .loom-resource-shade{stop-color:light-dark(#ebf0f8,#232c37)}
+
+/* Finder keeps the latest two directory columns; breadcrumbs retain ancestors. */
+#pai-studio .pa-finder + .pa-panel{margin-top:24px}
+#pai-studio .pa-finder-column{flex:0 0 300px;width:300px;min-width:300px;max-width:300px;resize:none}
+#pai-studio .pa-finder-preview{flex:1 0 300px;min-width:300px;max-width:none;box-sizing:border-box}
+
+/* Tailnet is a document view: scope its table and identity layout to this page. */
+#pai-studio .pa-tailscale-symbol{display:inline-block;flex:none;fill:currentColor;stroke:none}
+#pai-studio .pa-loom-tailnet,#pai-studio .pa-loom-access{min-width:0}
+#pai-studio .pa-loom-tailnet .pa-panel{min-width:0}
+#pai-studio .pa-loom-tailnet .pa-panel-head h2 small{display:inline-block;margin-left:8px;color:var(--pa-muted);font-size:12px;font-weight:400}
+#pai-studio .pa-tailnet-account{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+#pai-studio .pa-tailnet-avatar{display:grid;place-items:center;flex:0 0 42px;height:42px;background:var(--pa-tint);color:var(--pa-accent);border-radius:50%;font-size:19px;font-weight:600}
+#pai-studio .pa-tailnet-account>.pa-tailnet-identity{flex:1;min-width:120px}
+#pai-studio .pa-tailnet-identity{display:flex;flex-direction:column;gap:5px;min-width:0;overflow-wrap:anywhere}
+#pai-studio .pa-tailnet-identity strong{font-size:13px;font-weight:550}
+#pai-studio .pa-tailnet-identity span{font-size:12px;color:var(--pa-muted)}
+#pai-studio .pa-tailnet-badge{display:inline-flex;align-items:center;padding:4px 9px;background:var(--pa-tint);border-radius:6px;font-size:11px;font-weight:500;line-height:1.5;white-space:nowrap}
+#pai-studio .pa-tailnet-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 12px}
+#pai-studio .pa-tailnet-toolbar p{margin:0;font-size:12px;color:var(--pa-muted);overflow-wrap:anywhere}
+#pai-studio .pa-tailnet-table-wrap{width:100%;max-width:100%;overflow-x:auto}
+#pai-studio .pa-tailnet-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}
+#pai-studio .pa-tailnet-table th,#pai-studio .pa-tailnet-table td{padding:14px 12px;text-align:left;border-bottom:1px solid var(--pa-line);vertical-align:middle;overflow-wrap:anywhere}
+#pai-studio .pa-tailnet-table th{font-size:11px;font-weight:500;color:var(--pa-muted);background:transparent}
+#pai-studio .pa-tailnet-table th:first-child{width:36%}
+#pai-studio .pa-tailnet-table th:first-child,#pai-studio .pa-tailnet-table td:first-child{padding-left:0}
+#pai-studio .pa-tailnet-table th:last-child,#pai-studio .pa-tailnet-table td:last-child{padding-right:0}
+#pai-studio .pa-tailnet-table tbody tr:last-child td{border-bottom:0}
+#pai-studio .pa-tailnet-actions{display:flex;flex-wrap:wrap;gap:6px}
+#pai-studio .pa-tailnet-actions .pa-button{font-size:11px;padding:6px 10px;min-height:30px}
+#pai-studio .pa-tailnet-empty{margin:0;padding:12px 0;color:var(--pa-muted);font-size:13px;line-height:1.7}
+#pai-studio .pa-tailnet-error{margin:6px 0 0;color:var(--pa-muted);font-size:11px;overflow-wrap:anywhere}
+@container pane (max-width:620px){
+ #pai-studio .pa-tailnet-table thead{display:none}
+ #pai-studio .pa-tailnet-table tbody,#pai-studio .pa-tailnet-table tr{display:block}
+ #pai-studio .pa-tailnet-table tr{padding:12px 0;border-bottom:1px solid var(--pa-line)}
+ #pai-studio .pa-tailnet-table tr:last-child{border-bottom:0}
+ #pai-studio .pa-tailnet-table td{display:grid;grid-template-columns:72px minmax(0,1fr);gap:10px;padding:6px 0;border:0;width:auto}
+ #pai-studio .pa-tailnet-table td::before{content:attr(data-label);font-size:11px;color:var(--pa-muted)}
+ #pai-studio .pa-tailnet-table td>.pa-tailnet-badge{justify-self:start;white-space:normal}
+ #pai-studio .pa-tailnet-table .pa-tailnet-error{grid-column:2}
+}
+
+#pai-studio .pa-tailnet-feedback{font-size:12px;color:var(--pa-muted);margin:0 0 12px;overflow-wrap:anywhere}
+#pai-studio .pa-tailnet-feedback:empty{display:none}
+
+/* A single pane already identifies its active document in the tab strip. */
+#pai-studio .pa-mobile-pane-switch:not(:has([data-focus-pane] ~ [data-focus-pane])){display:none}
+
+#pai-studio .pa-brand>span:last-child>b{color:var(--pa-accent)}
+
+/* Year markers share the calendar's horizontal coordinates and stay in view. */
+#pai-studio .pa-activity-years{position:relative;display:flex;width:100%;height:20px;margin-bottom:4px;font-size:11px;font-weight:650;color:var(--pa-muted)}
+#pai-studio .pa-activity-year{font-variant-numeric:tabular-nums;position:sticky;align-self:flex-start;top:0;left:0;right:0;white-space:nowrap;line-height:16px}
+#pai-studio .pa-activity-graph{overflow-anchor:none}
+
+/* Finder columns retain their width; the inspector takes the remaining space. */
+#pai-studio .pa-finder-preview>.pa-panel{padding:0;margin:0 0 24px;border:0;background:transparent}
+#pai-studio .pa-finder-preview>.pa-panel>.pa-panel-head{display:none}
+#pai-studio .pa-finder-preview .pa-readable-body{max-height:320px}
+#pai-studio .pa-finder-preview .pa-loom-preview{max-height:320px;object-fit:contain}
+
+#pai-studio [data-activity-range]{font-variant-numeric:tabular-nums}
+
+#pai-studio .pa-activity-year-segment{flex:0 0 calc(var(--activity-pitch,19px)*var(--weeks));display:flex;min-width:0}
+#pai-studio .pa-activity-year-pin{position:sticky;left:0;flex:0 0 0;min-width:0;z-index:1;pointer-events:none}
+#pai-studio .pa-activity-year-pin>span{display:block;width:4ch;white-space:nowrap;font-variant-numeric:tabular-nums;line-height:16px}

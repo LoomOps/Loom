@@ -1,0 +1,11 @@
+services:
+  loom-ops:
+    environment:
+      LOOM_OBSERVATIONS: /run/loom-observations
+    volumes:
+      - type: bind
+        source: ${LOOM_OBSERVATIONS_HOST}
+        target: /run/loom-observations
+        read_only: true
+        bind:
+          create_host_path: false

@@ -1,0 +1,102 @@
+# Loom core services. Research runtimes run in separate Job containers.
+name: loom
+services:
+  loom-ops:
+    image: ${LOOM_OPS_IMAGE:-loom-ops:dev-build}
+    build:
+      context: ..
+      dockerfile: ops/Dockerfile.loom
+      args:
+        BASE: python:3.12-slim
+    user: ${OPS_UID}:${OPS_GID}
+    init: true
+    read_only: false
+    security_opt:
+    - no-new-privileges:true
+    cap_drop:
+    - ALL
+    environment:
+      LOOM_DEV_NO_AUTH: ${LOOM_DEV_NO_AUTH:-0}
+      LOOM_API_CONFIG: /etc/loom/api.json
+      LOOM_WORKER_CONFIG: /etc/loom/worker.json
+      LOOM_RELEASE_CHECK_ENABLED: ${LOOM_RELEASE_CHECK_ENABLED:-1}
+      LOOM_RELEASE_REPOSITORY: ${LOOM_RELEASE_REPOSITORY:-LoomOps/loom}
+      LOOM_RELEASE_CHANNEL: ${LOOM_RELEASE_CHANNEL:-}
+      LOOM_RELEASE_INTERVAL: ${LOOM_RELEASE_INTERVAL:-21600}
+      LOOM_DATA_PATHS: /loom/data/0
+      LOOM_TLS_CERT: /etc/loom/tls/server.pem
+      LOOM_TLS_KEY: /etc/loom/tls/server-key.pem
+    command: []
+    cpus: 8
+    pids_limit: 1024
+    stop_grace_period: 35s
+    volumes:
+    - type: bind
+      source: ${OPS_LOCAL}/secrets/releases
+      target: /etc/loom/releases
+      read_only: true
+      bind:
+        create_host_path: true
+    - type: bind
+      source: ${LOOM_PROFILES_HOST:-/loom/profiles}
+      target: /loom/profiles
+    - type: bind
+      source: ${LOOM_COMPONENTS_HOST:-/loom/components}
+      target: /loom/components
+    - type: bind
+      source: ${OPS_RUNTIME}
+      target: /loom/ops
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${OPS_API_CONFIG}
+      target: /etc/loom/api.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${OPS_WORKER_CONFIG}
+      target: /etc/loom/worker.json
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${OPS_BULK}
+      target: /loom/bulk
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${OPS_DATA_0:-${OPS_BULK}}
+      target: /loom/data/0
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${OPS_LOCAL}/secrets/tls
+      target: /etc/loom/tls
+      read_only: true
+      bind:
+        create_host_path: false
+    ports:
+    - 127.0.0.1:${OPS_PORT}:8080
+    - ${OPS_TLS_BIND}:${OPS_TLS_PORT}:8443
+  loom-dashboard:
+    build:
+      context: ../dashboard
+      args:
+        BASE: ${LOOM_DASHBOARD_BASE:-python:3.12-slim}
+    image: ${LOOM_DASHBOARD_IMAGE:-loom-dashboard:dev-build}
+    read_only: true
+    init: true
+    security_opt:
+    - no-new-privileges:true
+    cap_drop:
+    - ALL
+    environment:
+      LOOM_API_ORIGIN: http://loom-ops:8080
+      LOOM_DEV_NO_AUTH: ${LOOM_DEV_NO_AUTH:-0}
+      LOOM_TAILSCALE_TRUSTED_PROXIES: ${LOOM_TAILSCALE_TRUSTED_PROXIES:-}
+    ports:
+    - 127.0.0.1:${OPS_DASHBOARD_PORT:?Set the dashboard port}:8080
+    depends_on:
+    - loom-ops

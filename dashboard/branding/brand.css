@@ -1,0 +1,18 @@
+/* Brand animation is decorative, never a live Job/status indicator. */
+:root{--loom-brand-accent:light-dark(#436fc7,#9bb9f1)}
+.loom-logo{overflow:visible;--loom-logo-blue:var(--loom-brand-accent)}
+.wordmark svg.loom-logo,#pai-studio .pa-brand .pa-mark svg.loom-logo{fill:none;stroke:none}
+.loom-logo .loom-logo-base,#pai-studio .pa-brand .pa-mark .loom-logo .loom-logo-base{fill:light-dark(#424548,#e1e3e6);stroke:none}
+.loom-logo .loom-logo-gate,.loom-logo .loom-logo-token,#pai-studio .pa-brand .pa-mark .loom-logo .loom-logo-gate,#pai-studio .pa-brand .pa-mark .loom-logo .loom-logo-token{fill:var(--loom-logo-blue);stroke:none;transform-box:view-box}
+.loom-logo-gate{animation:loom-gate 8s ease-in-out infinite both}
+.loom-logo-token{animation:loom-token-move 8s ease-in-out infinite both,loom-token-fade 8s ease-in-out infinite both}
+#pai-studio .loom-logo-gate{animation-name:loom-desk-gate;animation-duration:12s}
+#pai-studio .loom-logo-token{animation-name:loom-desk-token-move,loom-desk-token-fade;animation-duration:12s,12s}
+html[data-loom-motion-hidden] .loom-logo path{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){.loom-logo .loom-logo-gate,.loom-logo .loom-logo-token{animation:none!important;transform:none}.loom-logo .loom-logo-token{opacity:0}}
+@keyframes loom-gate{0.00000%{transform:translate(0,0)}20.00000%{transform:translate(0,0)}26.25000%{transform:translate(9px,-6px)}36.25000%{transform:translate(9px,-6px)}42.50000%{transform:translate(0,0)}66.25000%{transform:translate(0,0)}72.50000%{transform:translate(9px,-6px)}81.25000%{transform:translate(9px,-6px)}87.50000%{transform:translate(0,0)}100.00000%{transform:translate(0,0)}}
+@keyframes loom-token-move{0.00000%{transform:translate(0,-20px)}26.25000%{transform:translate(0,-20px)}36.25000%{transform:translate(0,0)}72.50000%{transform:translate(0,0)}81.25000%{transform:translate(25px,0)}81.37500%{transform:translate(0,-20px)}100.00000%{transform:translate(0,-20px)}}
+@keyframes loom-token-fade{0.00000%{opacity:0}27.50000%{opacity:0}31.25000%{opacity:1}75.00000%{opacity:1}79.37500%{opacity:0}100.00000%{opacity:0}}
+@keyframes loom-desk-gate{0.00000%{transform:translate(0,0)}33.33333%{transform:translate(0,0)}37.50000%{transform:translate(9px,-6px)}44.16667%{transform:translate(9px,-6px)}48.33333%{transform:translate(0,0)}64.16667%{transform:translate(0,0)}68.33333%{transform:translate(9px,-6px)}74.16667%{transform:translate(9px,-6px)}78.33333%{transform:translate(0,0)}100.00000%{transform:translate(0,0)}}
+@keyframes loom-desk-token-move{0.00000%{transform:translate(0,-20px)}37.50000%{transform:translate(0,-20px)}44.16667%{transform:translate(0,0)}68.33333%{transform:translate(0,0)}74.16667%{transform:translate(25px,0)}74.25000%{transform:translate(0,-20px)}100.00000%{transform:translate(0,-20px)}}
+@keyframes loom-desk-token-fade{0.00000%{opacity:0}38.33333%{opacity:0}40.83333%{opacity:1}70.00000%{opacity:1}72.91667%{opacity:0}100.00000%{opacity:0}}

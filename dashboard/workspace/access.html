@@ -1,0 +1,12 @@
+<main id="loom-entry" hidden>
+  <section class="loom-entry-card" aria-label="Loom access">
+    <div class="loom-entry-brand"><!-- LOOM_BRAND_LOGO --><span>Loom <b>Ops</b></span></div>
+    <a id="loom-sso-login" href="/auth/login" hidden>Continue with Tailscale</a>
+    <form id="loom-access-form" autocomplete="off" hidden>
+      <input id="loom-access-token" type="password" aria-label="Access token" placeholder="Access token" autocomplete="off" spellcheck="false" required>
+      <button type="submit">Connect</button>
+    </form>
+    <p id="loom-access-status" role="status" aria-live="polite"></p>
+    <button id="loom-entry-retry" type="button" hidden>Retry connection</button>
+  </section>
+</main>
