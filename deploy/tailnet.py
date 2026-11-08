@@ -147,11 +147,16 @@ def configure(root,plan,dns):
     return {'origin':origin,'mcp':origin+'/mcp','sso':bool(plan['sso']),'requires_compose_apply':True,'backup':str(backup)}
 
 
-def serve(root,plan,dns):
+def expected_routes(root):
     env={**env_values(Path(root)/'compose.env'),**env_values(Path(root)/'network.env')};web='http://127.0.0.1:'+env['OPS_DASHBOARD_PORT'];api='http://127.0.0.1:'+env['OPS_PORT']
     routes={'/':web,'/api':api+'/api','/mcp':api+'/mcp','/auth':web+'/auth','/session':web+'/session'}
     for name in ['dashboard','docker','history','jobs','mcp','ops','principal','registry','status','guide']:
         routes['/api/'+name]=web+'/api/'+name
+    return routes
+
+
+def serve(root,plan,dns):
+    routes=expected_routes(root)
     previous=json.loads(run('tailscale','serve','status','--json'))
     host=dns+':'+str(plan['https_port']);handlers=previous.get('Web',{}).get(host,{}).get('Handlers',{})
     for path,target in routes.items():

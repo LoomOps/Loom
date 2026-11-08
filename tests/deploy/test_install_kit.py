@@ -8,26 +8,26 @@ spec=importlib.util.spec_from_file_location('kit_builder',ROOT/'deploy/install-k
 
 class InstallKitTests(unittest.TestCase):
  def test_default_plan_needs_no_research_dependency(self):
-  p=setup.validate(copy.deepcopy(setup.DEFAULT));self.assertEqual(p['repositories'],[]);self.assertFalse(p['gpu']);self.assertIsNone(p['mount'])
+  p=setup.validate(json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text()));self.assertEqual(p['repositories'],[]);self.assertFalse(p['gpu']);self.assertIsNone(p['mount'])
 
  def test_paths_cannot_hide_existing_data_or_inject_env(self):
   for name,value in [('data','/etc/new-data'),('data','/storage/../etc/new'),('data','/storage/a\nLOOM_DEV_NO_AUTH=1'),('dependencies','/loom/components'),('dependencies','/storage/loom/data/cache')]:
    with self.subTest(name=name,value=value):
-    p=copy.deepcopy(setup.DEFAULT);p[name]=value
+    p=json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text());p[name]=value
     with self.assertRaises(ValueError):setup.validate(p)
   with tempfile.TemporaryDirectory() as t:
-   target=Path(t)/'link';target.symlink_to('/tmp');p=copy.deepcopy(setup.DEFAULT);p['data']=str(target/'data')
+   target=Path(t)/'link';target.symlink_to('/tmp');p=json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text());p['data']=str(target/'data')
    with self.assertRaises(ValueError):setup.validate(p)
 
  def test_repository_must_be_pinned_and_credential_free(self):
-  p=copy.deepcopy(setup.DEFAULT);p['repositories']=[{'name':'example-library','url':'https://example.org/lab.git','commit':'a'*40}]
+  p=json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text());p['repositories']=[{'name':'example-library','url':'https://example.org/lab.git','commit':'a'*40}]
   setup.validate(p)
   for key,value in [('url','https://token@example.org/lab.git'),('url','file:///tmp/repo'),('commit','main'),('name','../escape')]:
    bad=copy.deepcopy(p);bad['repositories'][0][key]=value
    with self.subTest(key=key),self.assertRaises(ValueError):setup.validate(bad)
 
  def test_mount_is_existing_filesystem_with_separate_dependency_path(self):
-  p=copy.deepcopy(setup.DEFAULT);p['mount']={'uuid':'12345678-abcd','target':'/storage','fstype':'ext4'};setup.validate(p)
+  p=json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text());p['mount']={'uuid':'12345678-abcd','target':'/storage','fstype':'ext4'};setup.validate(p)
   p['mount']['target']='/dependencies'
   with self.assertRaises(ValueError):setup.validate(p)
 
@@ -72,5 +72,5 @@ class InstallKitTests(unittest.TestCase):
 
  def test_wrong_architecture_refused_before_docker_or_host_changes(self):
   with patch.object(setup.os,'geteuid',return_value=0),patch.object(setup.Path,'is_dir',return_value=True),patch.object(setup.platform,'machine',return_value='aarch64'),patch.object(setup,'run') as run:
-   with self.assertRaisesRegex(ValueError,'architecture'):setup.preflight(copy.deepcopy(setup.DEFAULT),{'architecture':'amd64'})
+   with self.assertRaisesRegex(ValueError,'architecture'):setup.preflight(json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text()),{'architecture':'amd64'})
    run.assert_not_called()

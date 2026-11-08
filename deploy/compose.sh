@@ -19,6 +19,7 @@ if [[ -f "$node/observations.env" ]]; then args+=(--env-file "$node/observations
 build_env=${LOOM_BUILD_ENV:-$node/build.env}
 if [[ -f "$build_env" ]]; then args+=(--env-file "$build_env"); fi
 if [[ -f "$node/data.env" ]]; then args+=(--env-file "$node/data.env" -f compose.data.yaml); fi
+if [[ -f "$node/compose-storage.yaml" ]]; then args+=(-f "$node/compose-storage.yaml"); fi
 if [[ -f "$node/secrets/fence-token" && -f "$node/secrets/fence-ca.pem" ]]; then
   args+=(-f compose.loom.fence.yaml)
 fi

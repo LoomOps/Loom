@@ -55,7 +55,7 @@ Entry guides should link to system.guide/describe/profiles rather than embed vol
 
 ## Dashboard SSO
 
-The optional Sharing gateway accepts an email address and sends a single-use machine-sharing invitation. After the user accepts in their own tailnet, an administrator verifies the actual recipient and approves access in Dashboard `Tailscale` → Access Request. Approval opens only this machine's Dashboard/MCP ports.
+The Sharing gateway accepts an email address and sends a single-use machine-sharing invitation. After the user accepts in their own tailnet, an administrator verifies the actual recipient and approves access in Dashboard `Tailscale` → Access Request. Approval opens only this machine's Dashboard/MCP ports.
 
 The lower-left profile opens the same tab. Ordinary users see Account. Administrators also see Member and Access Request; Member shows approved sharing recipients and the current administrator. Revoke removes only this machine's share and Loom-managed grants. There is no tailnet joining or device-name input; `tag:loom` is for Hub discovery.
 

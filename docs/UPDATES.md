@@ -18,7 +18,7 @@ Compose order is base → executor/observations/data → dev → generated netwo
 
 ## New installation from a Git checkout
 
-Pin the repository/tag, then run `sudo python3 deploy/source_install.py 0.1.0-alpha.N --destination /absolute/new-staging`. It builds images from a source snapshot and bundles matching installers/guides without Docker image tar export. Run the resulting installer/setup.py through inspect → check → apply → verify. Consult installer/INSTALL.md and the example plan for choices. Builds may download base images.
+Pin the repository/tag, then run `sudo python3 deploy/source_install.py 0.1.0-alpha.N --destination /absolute/new-staging`. It builds images from a source snapshot and bundles matching installers/guides without Docker image tar export. Follow installer/INSTALL.md and its numbered steps: inspect/recommend → full identity/Gateway plan → host/images → apply → per-stage doctor → packaged smoke → full doctor → Gateway-first handoff. Boolean Tailscale/token-only installation is unsupported. Builds may download base images.
 
 For offline delivery, `install-kit.py` includes matching image tar files. An external guide bundle must have the release's build_id. Both paths are for new installations and refuse to overwrite existing data directories.
 

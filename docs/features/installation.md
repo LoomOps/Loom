@@ -56,3 +56,26 @@ ETags, pagination and nonblocking/coalesced checks are covered in
 `tests/ops/test_release_updates.py`, `tests/ops/test_api_contract.py`,
 `tests/deploy/test_release_check_setup.py` and Dashboard HTTP/browser tests.
 No component installation, automatic updater or queue supervision is implied.
+
+## Complete-service installation contract
+
+The short root INSTALL.md routes to seven step documents under deploy/installer/steps.
+After each step the agent rereads the index, runs the corresponding doctor stage,
+and reports any unmet criterion. Recommendations come from host inspection, not
+example values. Full native Tailscale identity, explicit Admin binding and a
+separate Sharing Gateway are mandatory; a boolean tailscale plan is rejected.
+
+`setup.py plan` generates linked configuration from this machine and the confirmed
+human Admin. Primary output storage is separate from additional read-only catalog
+stores. `compose-storage.yaml` is generated instance configuration; machine-owned
+final overrides remain last and doctor inspects actual container mounts/images.
+
+`doctor`/`verify` are read-only; `smoke` is the explicit bounded CPU Job entry point.
+`handoff` reruns all checks and leads with the Gateway URL only after success.
+External-client approval, real reboot and GPU computation are not implied by
+local health checks. `resume-network` only republishes a matching installed plan
+after configuration/services pass; it cannot reinstall the database/executor.
+Other partial-stage failures must be diagnosed without deleting existing state.
+Source packaging prepares the execution image explicitly and can resume only a
+verified, completed immutable build. Offline kits include the same doctor,
+smoke and all step documents.

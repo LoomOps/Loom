@@ -20,9 +20,9 @@ bundle. It does not copy existing `/loom` state or credentials.
 
 ```bash
 python3 deploy/install-kit.py \
-  --release /loom/builds/alpha/0.1.0-alpha.16 \
+  --release /loom/builds/alpha/<release-version> \
   --output /path/to/new/loom-install-kit \
-  --guide /path/to/loom-agent-kit-0.1.0-alpha.16.zip
+  --guide /path/to/loom-agent-kit-<release-version>.zip
 ```
 
 Give the resulting archive to the target user's agent with instructions to read
@@ -33,35 +33,17 @@ filesystem UUID mounts without formatting, optional pinned Git sources under
 Host OS packages, GPU drivers and optional research environments are separate.
 This is a new-machine installation path; it refuses existing Loom instances.
 
-## Low-level host setup (advanced)
+## Internal host helpers
 
-For the complete new-machine workflow and boot service, use the installer above.
-These lower-level commands are for deliberate manual setups.
-Install Docker Engine/Compose, Python 3, OpenSSL and `acl` (`setfacl`/`getfacl`).
-GPU Jobs additionally need the host NVIDIA driver and Container Toolkit.
-Load or build matching versioned Ops/Dashboard images, then run (replace the example tags with the intended release):
+`install.py`, `executor-attach.py`, `tailnet.py` and `access_setup.py` are implementation
+helpers for the numbered installation workflow and scoped maintenance. Running a
+subset does not constitute a supported installation. Use the full installer and
+doctor; do not substitute a token-only Dashboard or omit Gateway/identity.
 
-```bash
-sudo python3 deploy/install.py --data /storage/loom/data \
-  --project loom --api-port 18892 --dashboard-port 18893 --tls-port 18894 \
-  --ops-image loom-ops:0.1.0-alpha.16 \
-  --dashboard-image loom-dashboard:0.1.0-alpha.16
-sudo python3 deploy/executor-attach.py /loom/ops --instance alpha \
-  --data /storage/loom/data --install-service --gpu
-LOOM_INSTANCE=/loom/ops LOOM_PROJECT=loom bash deploy/compose.sh up -d --no-build
-```
-
-The default instance root is `/loom/ops`. Neither instance nor data directory may
-already exist. The installer creates `loom` only if missing and reuses its existing
-numeric UID/GID. It refuses an inconsistent existing account. Advanced installations
-may explicitly supply both `--uid` and `--gid`; that opt-out does not provision the
-managed host account or observation service. Use a real non-root identity.
-
-Account creation is host-side, never inside a privileged Compose bootstrap container.
-Compose uses the generated numeric UID/GID. `compose.sh` obtains local administrative
-access when needed to read service-owned configuration; containers still run as loom.
-Keep service token files mode 0600 and secrets directories 0700. Operators can read
-credentials with `sudo cat /loom/ops/secrets/client-tokens.json`.
+The host installer creates/reuses `loom:loom` and applies numeric UID/GID to Compose.
+It refuses conflicting existing accounts and preserves existing data ownership.
+Account creation is host-side, not a privileged Compose bootstrap container.
+Credentials remain in protected local files and are never part of user handoff.
 
 ## Ownership and host services
 

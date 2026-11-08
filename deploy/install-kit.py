@@ -29,9 +29,10 @@ def build(release,output,guide):
   for name in names:
    dest=output/'platform'/directory/name;dest.parent.mkdir(parents=True,exist_ok=True)
    shutil.copy2(release/'source'/directory/name,dest)
- for name in ['setup.py','INSTALL.md','install-plan.example.json','tailnet-plan.example.json','access-plan.example.json']:
+ for name in ['setup.py','doctor.py','smoke.py','INSTALL.md','install-plan.example.json','tailnet-plan.example.json','access-plan.example.json']:
   shutil.copy2(release/'source/deploy/installer'/name,output/name)
- (output/'AGENTS.md').write_text('Read INSTALL.md before installing. Inspect first and discuss storage, optional dependencies and GPU needs with the user. This is a new-machine installer, not an upgrade or data migration tool.\n')
+ shutil.copytree(release/'source/deploy/installer/steps',output/'steps')
+ (output/'AGENTS.md').write_text('Read INSTALL.md before installing. Follow every numbered step and rerun the read-only doctor. Reread INSTALL.md after each step. Full native identity and Gateway are mandatory; lead handoff with the Gateway URL. This is a new-machine installer, not an upgrade or data migration tool.\n')
  # A caller-supplied guide must describe this exact release, not the live tree.
  import zipfile
  with zipfile.ZipFile(guide) as z:
@@ -42,7 +43,7 @@ def build(release,output,guide):
   subprocess.run(engine+['image','save',*tags],stdout=stream,check=True)
  images={role:{'tag':tag,'id':item['Id']} for role,tag,item in zip(['ops','dashboard','python'],tags,inspected)}
  files={str(p.relative_to(output)):sha(p) for p in output.rglob('*') if p.is_file()}
- manifest={'schema':'loom-install-kit/v1','installer_revision':1,'build_id':info['build_id'],'architecture':inspected[0]['Architecture'],'images':images,'files':files}
+ manifest={'schema':'loom-install-kit/v1','installer_revision':3,'build_id':info['build_id'],'architecture':inspected[0]['Architecture'],'images':images,'files':files}
  (output/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
  archive=output.with_name(output.name+'.tar.gz')
  with tarfile.open(archive,'w:gz') as t:t.add(output,arcname=output.name)

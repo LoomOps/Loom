@@ -1,4 +1,4 @@
-"""Install the optional public access-request listener and private approval worker."""
+"""Install the public access-request listener and private approval worker."""
 import argparse
 import json
 import os
@@ -105,6 +105,32 @@ def register_machine(c):
     tags=sorted(set(device.get('tags',[])+required_tags))
     api.call('POST','/device/'+c['device_id']+'/tags',{'tags':tags})
     return {'hub_tag':'tag:loom','user_access_granted':False}
+
+
+def private_access(c, logins):
+    """Grant only explicitly configured native users this machine's private port."""
+    from urllib.parse import quote
+    if not logins or any(not re.fullmatch(r'[^\s@]+@[^\s@]+',v) for v in logins):raise ValueError('explicit_native_users_required')
+    api=TailnetAPI(c['credential_file']);path='/tailnet/'+quote(c['tailnet'],safe='')+'/acl'
+    grant={'src':sorted(logins),'dst':c['addresses'],'ip':['tcp:'+str(p) for p in sorted(c['ports'])]}
+    for _ in range(3):
+        policy,headers=api.call('GET',path)
+        if grant in policy.get('grants',[]):return {'private_grant_changed':False}
+        from sharing import pending_policy
+        device,_=api.call('GET','/device/'+c['device_id'])
+        if not set(c['addresses']).issubset(device.get('addresses',[])):raise ValueError('machine_identity_changed')
+        pending_policy(policy,{**c,'machine_tags':device.get('tags',[])})
+        etag=next((v for k,v in headers.items() if k.lower()=='etag'),None)
+        if not etag:raise ValueError('policy_etag_required')
+        policy.setdefault('grants',[]).append(grant)
+        result,_=api.call('POST',path+'/validate',policy)
+        if result.get('errors') or result.get('message'):raise ValueError('private_policy_validation_failed')
+        try:
+            api.call('POST',path,policy,{'If-Match':etag})
+            return {'private_grant_changed':True}
+        except RemoteError as e:
+            if e.status!=412:raise
+    raise ValueError('policy_concurrent_change')
 
 
 def gateway_access(c):

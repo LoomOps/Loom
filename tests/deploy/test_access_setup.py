@@ -99,3 +99,25 @@ class AccessSetupTests(unittest.TestCase):
             self.assertFalse(access_setup.gateway_access(self.c)['gateway_grant_changed'])
         self.assertEqual(policy['grants'][0],old['grants'][0])
         self.assertEqual(policy['grants'][1],{'src':['autogroup:member','autogroup:shared'],'dst':self.c['addresses'],'ip':['tcp:10000']})
+
+    def test_private_grant_uses_explicit_users_and_preserves_other_rules(self):
+        old={'grants':[{'src':['existing@example.com'],'dst':['100.64.1.1'],'ip':['tcp:22']}]}
+        policy=copy.deepcopy(old)
+        def call(method,path,value=None,headers=None):
+            if method=='GET' and path.startswith('/device/'):
+                return {'addresses':self.c['addresses'],'tags':['tag:loom']},{}
+            if method=='GET':return copy.deepcopy(policy),{'etag':'v1'}
+            if path.endswith('/validate'):return {},{}
+            self.assertEqual(headers,{'If-Match':'v1'});policy.update(value);return {},{}
+        with patch.object(access_setup,'TailnetAPI') as factory:
+            factory.return_value.call.side_effect=call
+            self.assertTrue(access_setup.private_access(self.c,['admin@example.com'])['private_grant_changed'])
+            self.assertFalse(access_setup.private_access(self.c,['admin@example.com'])['private_grant_changed'])
+        self.assertEqual(policy['grants'][0],old['grants'][0])
+        self.assertEqual(policy['grants'][1],{'src':['admin@example.com'],'dst':self.c['addresses'],'ip':['tcp:8443']})
+
+    def test_private_grant_refuses_unsafe_shared_policy_without_mutating(self):
+        with patch.object(access_setup,'TailnetAPI') as factory:
+            factory.return_value.call.side_effect=[({'grants':[{'src':['*'],'dst':['*'],'ip':['*']}]},{'etag':'v1'}),({'addresses':self.c['addresses'],'tags':[]},{})]
+            with self.assertRaises(ValueError):access_setup.private_access(self.c,['admin@example.com'])
+            self.assertTrue(all(c.args[0]=='GET' for c in factory.return_value.call.call_args_list))

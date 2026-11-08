@@ -19,6 +19,6 @@ Complete `deploy/installer/tailnet-plan.example.json`. In `network_users`, expli
 2. The administrator completes the displayed Tailscale login/device approval steps.
 3. `sudo python3 deploy/tailnet.py configure --root /loom/ops --plan /absolute/tailnet-plan.json`
 4. After applying Compose, use `serve` to connect the approved private origin.
-5. Optional Gateway setup follows `access_setup.py` and the [Sharing contract](ACCESS-ENROLLMENT.md). Ordinary installation does not expose the service to the public Internet.
+5. Gateway setup is mandatory for a complete installation: follow the numbered installer steps and the [Sharing contract](ACCESS-ENROLLMENT.md). Only the separate request listener is public; Dashboard/MCP remain private. The installer grants explicitly configured native users the exact private machine port.
 
 Management API tokens and machine login are independent. Store secrets only in root-managed files. tag:loom supports Hub discovery; user grants target exact addresses/ports of the approved machine.

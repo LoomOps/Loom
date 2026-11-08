@@ -11,6 +11,7 @@ class TailnetTests(unittest.TestCase):
     def setUp(self):
         self.plan=json.loads((ROOT/'deploy/installer/tailnet-plan.example.json').read_text())
         self.plan['tailnet']='example.test'
+        self.plan['https_port']=443
 
     def test_validation_and_policy_are_separate_from_application(self):
         tailnet.validate(self.plan)

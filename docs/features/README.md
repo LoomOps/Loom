@@ -81,3 +81,10 @@ Map all feature tests in the catalog. Use real SQLite, filesystems and signature
 Use common fixtures in `tests/ops/test_support.py` and `tests/dashboard/mock_ops.py`. Mock public boundaries without duplicating implementation calculations in assertions. Compare HTTP/API/MCP through shared scenarios where possible and verify UI changes with Firefox.
 
 Record JSON/JUnit results. Keep unverified areas such as actual Tailscale approval, GPU behavior and long-running execution in each feature's `live_validation`. Test counts alone do not prove operational readiness.
+
+## Installation and cross-feature verification
+
+Read [VERIFICATION.md](VERIFICATION.md) for the reviewed boundary of every block.
+The installation doctor is a consumer of identity, network, execution, storage,
+observations and onboarding contracts. Keep it current when those contracts
+change; tests of a configured development instance do not prove a fresh install.

@@ -27,7 +27,7 @@
       "invariants": [
         "Ownership does not restrict access. Browser sessions and MCP authentication are independent; invalidated browser sessions cannot be reused."
       ],
-      "change_rule": "When authentication or profile contracts change, review Ops actors, the Dashboard relay, new installations, ownership display and user guides together.",
+      "change_rule": "When authentication or profile contracts change, review Ops actors, the Dashboard relay, new installations, ownership display and user guides together. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.",
       "live_validation": [
         "Verify actual Tailscale clients, Sharing revocation and TLS separately."
       ],
@@ -201,7 +201,7 @@
       "invariants": [
         "Loom executes Jobs. Release resources based on executor-ticket, container and process return evidence. Never pass platform secrets or Docker sockets into Jobs."
       ],
-      "change_rule": "When execution contracts change, verify the worker, executor, restart/idempotency behavior, cancellation, result collection and Compose mounts.",
+      "change_rule": "When execution contracts change, verify the worker, executor, restart/idempotency behavior, cancellation, result collection and Compose mounts. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.",
       "live_validation": [
         "Actual Docker/GPU runtimes and power loss after container creation are outside mock coverage."
       ],
@@ -284,7 +284,8 @@
       ],
       "tests": [
         "tests/ops/test_result_pipeline.py",
-        "tests/ops/test_output_contract.py"
+        "tests/ops/test_output_contract.py",
+        "tests/ops/test_installation_smoke.py"
       ],
       "depends_on": [
         "identity",
@@ -392,7 +393,7 @@
       "invariants": [
         "Distinguish historical originals from current display overlays. Never assume missing files are valid artifacts."
       ],
-      "change_rule": "When projections change, check revision refresh, detail queries, file MIME/size/path boundaries and the UI.",
+      "change_rule": "When projections change, check revision refresh, detail queries, file MIME/size/path boundaries and the UI. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.",
       "live_validation": [
         "Verify migrated data reference integrity separately from fixtures."
       ],
@@ -441,7 +442,7 @@
       "invariants": [
         "Observations are read-only and do not affect queue dispatch. Preserve missing/stale/partial distinctions."
       ],
-      "change_rule": "When collector fields change, check host mounts, collection services, API projections and UI rendering.",
+      "change_rule": "When collector fields change, check host mounts, collection services, API projections and UI rendering. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.",
       "live_validation": [
         "Actual OS, kernel, driver and Docker socket responses require live verification."
       ],
@@ -511,7 +512,7 @@
       "invariants": [
         "Never send credentials to the opaque iframe. Browser writes respect Origin/CSRF boundaries. The UI must not infer completed backend states."
       ],
-      "change_rule": "Rebuild the generated workspace after UI source edits. Verify both HTTP behavior and real Firefox for authentication, session or relay changes.",
+      "change_rule": "Rebuild the generated workspace after UI source edits. Verify both HTTP behavior and real Firefox for authentication, session or relay changes. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.",
       "live_validation": [
         "Actual Safari behavior, existing user sessions and SSO provider login require separate acceptance testing."
       ],
@@ -561,7 +562,7 @@
       "invariants": [
         "The running server is authoritative for guides. Updates do not change personal instructions or active Job pins."
       ],
-      "change_rule": "When usage contracts change, update loom_use documents, bundle inventory, revisions and the stdio client.",
+      "change_rule": "When usage contracts change, update loom_use documents, bundle inventory, revisions and the stdio client. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.",
       "live_validation": [
         "Verify actual client reconnection and guide refresh separately."
       ],
@@ -612,7 +613,7 @@
         "The default installation keeps Serve private. Optional access enrollment exposes only a separate public listener. tag:loom supports Hub discovery; user grants apply per machine.",
         "tag:loom is Hub discovery only; access approvals target one stable machine/device identity and exact addresses. Public request listener exposes no operational data or MCP."
       ],
-      "change_rule": "When enrollment or proxy behavior changes, verify installation plans, exact trusted peers, callback URLs, reruns/pending approvals, TLS and policy scope.",
+      "change_rule": "When enrollment or proxy behavior changes, verify installation plans, exact trusted peers, callback URLs, reruns/pending approvals, TLS and policy scope. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.",
       "live_validation": [
         "Passing mocks does not replace actual administrator login, device approval or policy permissions."
       ],
@@ -746,7 +747,9 @@
         "docs/UPDATES.md",
         "deploy/guide_bundle.py",
         "ops/release_updates.py",
-        "deploy/release_check_setup.py"
+        "deploy/release_check_setup.py",
+        "deploy/installer/doctor.py",
+        "deploy/installer/smoke.py"
       ],
       "tests": [
         "tests/deploy/test_packaging.py",
@@ -756,7 +759,8 @@
         "tests/deploy/test_release_lifecycle.py",
         "tests/ops/test_release_updates.py",
         "tests/deploy/test_release_check_setup.py",
-        "tests/deploy/test_public_source.py"
+        "tests/deploy/test_public_source.py",
+        "tests/deploy/test_install_doctor.py"
       ],
       "depends_on": [
         "network",
@@ -769,10 +773,21 @@
       "contracts": [
         "deploy/installer/install-plan.example.json",
         "ops/compose.loom.yaml",
-        "deploy/update.py"
+        "deploy/update.py",
+        "INSTALL.md",
+        "deploy/installer/INSTALL.md",
+        "deploy/installer/steps/01-plan.md",
+        "deploy/installer/steps/02-host.md",
+        "deploy/installer/steps/03-images.md",
+        "deploy/installer/steps/04-configuration.md",
+        "deploy/installer/steps/05-services.md",
+        "deploy/installer/steps/06-network.md",
+        "deploy/installer/steps/07-handoff.md"
       ],
       "invariants": [
-        "The loom service account, installation UUID and user profiles are independent. Separate dev and alpha databases, ports and data; restart only after execution resources return."
+        "The loom service account, installation UUID and user profiles are independent. Separate dev and alpha databases, ports and data; restart only after execution resources return.",
+        "New installation has one service contract: native Tailscale identity, Admin binding, Sharing Gateway, Ops, Dashboard, executor and explicit storage. Token-only fallback is not installation success.",
+        "Doctor observes actual state independently of progress receipts. Only explicit smoke submits a Job; diagnostics never repair or grant access. Handoff leads with the verified Gateway URL."
       ],
       "change_rule": "When adding files or dependencies, check Dockerfiles, snapshots, installer HOST_FILES, Compose mounts and new-installation/upgrade guides.",
       "live_validation": [
@@ -810,6 +825,29 @@
             "dashboard",
             "onboarding"
           ]
+        },
+        {
+          "name": "Installation diagnostics",
+          "entrypoint": "deploy/installer/doctor.py#doctor",
+          "accepts": "Complete plan and installed instance; optional stage",
+          "returns": "Read-only per-check pass/fail, next step and explicit live-validation limits",
+          "consumers": [
+            "network",
+            "identity",
+            "execution",
+            "observations",
+            "onboarding"
+          ]
+        },
+        {
+          "name": "Packaged acceptance Job",
+          "entrypoint": "deploy/installer/smoke.py#run",
+          "accepts": "Authorized installation and its matching kit",
+          "returns": "Bounded, repeatable CPU prepare/run/result test; never changes queue ordering",
+          "consumers": [
+            "execution",
+            "results"
+          ]
         }
       ]
     },
@@ -835,7 +873,8 @@
       "spec": "docs/features/testing.md",
       "contracts": [
         "docs/features/catalog.schema.json",
-        "deploy/features.py"
+        "deploy/features.py",
+        "docs/features/VERIFICATION.md"
       ],
       "invariants": [
         "Development validation adds no new gates to Job execution. Distinguish test results from actual deployment state."

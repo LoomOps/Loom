@@ -38,6 +38,7 @@ Missing executables are failures when `--browser` was requested. Runs omitting b
 | Job migration | Full Step/Attempt coverage, stale-summary rejection, deduplication, original states/pauses preserved |
 | Actual HTTP API | Tokens/scopes, explicit dev mode, Origin, Job queries, MCP tools and compatible calls |
 | Dashboard relay | Read-only paths, history/MCP forwarding, MIME/size/response/authentication boundaries |
+| Installation | Mandatory native identity/Gateway, step doctor, explicit storage, actual image/config checks, missing runtime image recovery, packaged smoke contract and Gateway-first handoff |
 | Packaging | Python dependency modules included in Dockerfiles; runtime state excluded from snapshots |
 | Browser mocks | Unified queue/history expansion, title/menu alignment, Job properties, share/new-window controls, Docker/MCP, viewport/themes, API failure recovery |
 
