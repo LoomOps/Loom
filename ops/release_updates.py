@@ -10,7 +10,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
-DEFAULT_REPOSITORY = 'LoomOps/loom'
+DEFAULT_REPOSITORY = 'LoomOps/Loom'
 TOKEN_FILE = '/etc/loom/releases/github-token'
 MAX_BYTES = 4 * 1024 * 1024
 VERSION = re.compile(r'v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-(alpha|beta|rc)\.(0|[1-9]\d*))?(?:\+[0-9A-Za-z.-]+)?$')

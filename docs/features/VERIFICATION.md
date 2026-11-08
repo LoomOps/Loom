@@ -85,3 +85,12 @@ Browser fallback audit: no password/token entry form is shipped. Native identity
 or an explicit development instance is required; a missing identity displays
 connection retry instead of reviving the obsolete token-only installation path.
 The read-only browser acceptance harness follows the same native entry contract.
+
+## Independent client boundary
+
+Onboarding owns the exact Loom Use release/checksum and installer handoff.
+The pinned client is fetched by deploy/client_release.py before CI. Server tests
+exercise it over real fixture HTTP for discovery, authentication, revocation,
+status/guide and profile registration. Client unit tests cover package integrity,
+connection switching, old credential adoption and existing-app refresh failures.
+No server transport test implies active desktop-thread readiness.

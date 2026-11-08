@@ -222,12 +222,10 @@ class InstallationDoctorTests(unittest.TestCase):
   client=result['client_setup']
   self.assertIsNone(client['authentication']['expires'])
   self.assertEqual(client['authentication']['without_token'],'server complete / client authentication pending')
-  self.assertTrue(client['token_setup_script'].endswith('/clients/setup.py'))
-  for key in ('token_setup_argv','token_setup_bundle_argv'):
-   argv=client[key]
-   self.assertEqual(argv[argv.index('--endpoint')+1],self.access['dashboard_origin']+'/mcp')
-   self.assertEqual(argv[argv.index('--name')+1],'loom-use')
-  self.assertEqual(client['token_setup_bundle_argv'][1],'./clients/setup.py')
+  self.assertEqual(client['repository'],'https://github.com/LoomOps/Loom-Use')
+  self.assertEqual(client['connect_argv'],['python3','loom_use.py','connect',self.access['dashboard_origin']+'/mcp'])
+  self.assertIn('Current agent',client['target'])
+  self.assertTrue(client['release']['sha256'])
   self.assertEqual(result['status'],'services_ready')
   self.assertEqual(client['status'],'offer_to_user')
   self.assertEqual(client['skill'],'loom-use')

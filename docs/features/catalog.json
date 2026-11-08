@@ -557,16 +557,16 @@
       "summary": "User guides, version identification and client entry",
       "sources": [
         "dashboard/build_version.py",
-        "loom_use/clients/stdio.py",
-        "loom_use/refresh.py",
         "ops/build_version.py",
         "ops/onboarding.py",
-        "loom_use/clients/setup.py",
-        "loom_use/clients/headers.py"
+        "loom_use/client-release.json",
+        "deploy/client_release.py"
       ],
       "tests": [
         "tests/ops/test_onboarding.py",
-        "tests/ops/test_client_setup.py"
+        "tests/ops/test_client_setup.py",
+        "tests/ops/client_source.py",
+        "tests/deploy/test_client_release.py"
       ],
       "depends_on": [
         "identity",

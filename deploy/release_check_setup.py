@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'ops'))
 from release_updates import settings
 
 
-def configure(root, repository='LoomOps/loom', channel='alpha', interval=21600, enabled=True, token=None):
+def configure(root, repository='LoomOps/Loom', channel='alpha', interval=21600, enabled=True, token=None):
     root = Path(root)
     if not (root / 'compose.env').is_file():
         raise ValueError('Choose an installed instance')
@@ -47,7 +47,7 @@ def configure(root, repository='LoomOps/loom', channel='alpha', interval=21600, 
 if __name__ == '__main__':
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument('--root', type=Path, default=Path('/loom/ops'))
-    cli.add_argument('--repository', default='LoomOps/loom')
+    cli.add_argument('--repository', default='LoomOps/Loom')
     cli.add_argument('--channel', choices=['alpha', 'beta', 'rc', 'stable'], default='alpha')
     cli.add_argument('--interval', type=int, default=21600)
     cli.add_argument('--disable', action='store_true')

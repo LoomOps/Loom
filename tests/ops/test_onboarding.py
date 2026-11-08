@@ -4,6 +4,7 @@ from unittest.mock import patch
 from urllib.request import Request,urlopen
 from urllib.error import HTTPError
 import onboarding,ops
+from client_source import PACKAGE
 from test_api_contract import APIContractTests
 from test_support import IsolatedOps
 
@@ -13,7 +14,7 @@ class GuideTests(IsolatedOps):
   data=onboarding.bundle(self.reader,ops.TOOLS,ops.tool_schema,contract)
   with zipfile.ZipFile(io.BytesIO(data)) as bundle:
    self.assertIn('entry.md',bundle.namelist());self.assertIn('skills/loom-use/SKILL.md',bundle.namelist())
-   self.assertIn('clients/stdio.py',bundle.namelist());self.assertIn('README.md',bundle.namelist())
+   self.assertNotIn('clients/stdio.py',bundle.namelist());self.assertIn('client-release.json',bundle.namelist());self.assertIn('README.md',bundle.namelist())
    self.assertEqual(json.loads(bundle.read('manifest.json'))['package'],'loom_use')
    self.assertEqual(json.loads(bundle.read('manifest.json'))['title'],'Loom Use')
    for name in bundle.namelist():
@@ -43,7 +44,7 @@ class GuideTests(IsolatedOps):
   with tempfile.TemporaryDirectory() as temp:
    guides=Path(temp)/'loom_use';shutil.copytree(onboarding.GUIDES,guides)
    with patch.object(onboarding,'GUIDES',guides):
-    before=onboarding.identity();p=guides/'clients/stdio.py';p.write_text(p.read_text()+'\n# Updated client transport\n')
+    before=onboarding.identity();p=guides/'client-release.json';lock=json.loads(p.read_text());lock['version']='0.1.0-alpha.99';p.write_text(json.dumps(lock))
     after=onboarding.identity()
     self.assertNotEqual(before['guide_revision'],after['guide_revision'])
     self.assertEqual(before['contract_revision'],after['contract_revision'])
@@ -62,7 +63,7 @@ class GuideHTTPTests(APIContractTests):
    self.assertEqual(response.headers['Content-Type'],'application/zip');self.assertEqual(response.headers['X-Loom-Revision'],index['manifest']['revision'])
    self.assertIn('manifest.json',zipfile.ZipFile(io.BytesIO(response.read())).namelist())
  def test_refresh_new_user_repeat_and_new_deployment(self):
-  spec=importlib.util.spec_from_file_location('guide_refresh',onboarding.GUIDES/'refresh.py');refresh=importlib.util.module_from_spec(spec);spec.loader.exec_module(refresh)
+  spec=importlib.util.spec_from_file_location('guide_refresh',PACKAGE/'refresh.py');refresh=importlib.util.module_from_spec(spec);spec.loader.exec_module(refresh)
   with tempfile.TemporaryDirectory() as temp:
    first=refresh.refresh(self.base,temp,'fixture-reader');self.assertTrue(first['updated'])
    self.assertFalse(refresh.refresh(self.base,temp,'fixture-reader')['updated'])
@@ -72,7 +73,7 @@ class GuideHTTPTests(APIContractTests):
    other=refresh.refresh(self.base,temp,'fixture-owner');self.assertTrue(other['updated'])
    self.assertNotEqual(first['path'],other['path'])
  def test_refresh_rejects_unsafe_connection(self):
-  spec=importlib.util.spec_from_file_location('guide_refresh',onboarding.GUIDES/'refresh.py');refresh=importlib.util.module_from_spec(spec);spec.loader.exec_module(refresh)
+  spec=importlib.util.spec_from_file_location('guide_refresh',PACKAGE/'refresh.py');refresh=importlib.util.module_from_spec(spec);spec.loader.exec_module(refresh)
   for url in ['http://remote.example','https://user:secret@server','file:///etc/passwd']:
    with self.assertRaises(ValueError):refresh.refresh(url,self.root,'test')
 
@@ -96,7 +97,7 @@ class GuideHTTPTests(APIContractTests):
 
  def test_tokenless_guide_refresh_binds_cache_to_verified_network_user(self):
   import access
-  spec=importlib.util.spec_from_file_location('guide_refresh',onboarding.GUIDES/'refresh.py');refresh=importlib.util.module_from_spec(spec);spec.loader.exec_module(refresh)
+  spec=importlib.util.spec_from_file_location('guide_refresh',PACKAGE/'refresh.py');refresh=importlib.util.module_from_spec(spec);spec.loader.exec_module(refresh)
   with tempfile.TemporaryDirectory() as temp:
    with self.assertRaises(HTTPError):refresh.refresh(self.base,temp,'',authentication='tailscale')
    def actor(login):return {**self.reader,'id':login.split('@')[0],'identity':{'provider':'tailscale','login':login,'name':login}}

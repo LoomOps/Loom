@@ -20,28 +20,30 @@ The final user message must contain:
 6. Default output path and every registered RW store with host-to-container mappings, plus dependency path.
 7. Doctor and smoke results, report locations, and any untested external-client/reboot/GPU-compute cases.
 8. Update checks are enabled/configured or explicitly unavailable; updates do not install automatically. Point to Loom Use and the update guide.
-9. Offer to install/link Loom Use (skill name `loom-use`) and automatically register the verified private `/mcp` endpoint in the user's agent client. Ask which client/machine and user profile to configure; do not assume the server is the client or use the `loom` service account's home.
+9. Offer: "Install Loom Use in this Codex and connect to this Loom?" Default to the
+   current agent machine and current OS user. Ask only for a different target if the
+   user requests one. The verified private endpoint is already known.
 
-Do not add unrelated platform explanations. Be concise, but never hide an unfinished required stage. Reread INSTALL.md and this checklist once more before sending the handoff.
+Reread INSTALL.md and this checklist before the final handoff.
 
-## Optional client setup after installation
+## Optional independent client handoff
 
-Offer this explicitly in the final handoff: “Would you like me to install Loom Use and register this Loom MCP connection in your agent client?” If that setup is already authorized and the target is known, carry it out without asking again.
+After authorization, obtain the exact Loom Use release in client_setup.release.
+Use `python3 /path/to/platform/deploy/client_release.py --destination /user/source/path`
+to download/check the pinned source ZIP, or clone https://github.com/LoomOps/Loom-Use
+and checkout its specified tag. The returned source directory has INSTALL.md.
+Read that INSTALL.md and hand it the verified private MCP address from connect_argv.
+Do not duplicate its installation, token, registration or reconnect logic here.
 
-- On this host, use `/loom/loom_use/current/skills/loom-use` for a supported user-scope skill link. On a remote client, obtain the matching authenticated `/api/guide/bundle`; do not assume the server's filesystem paths exist there.
-- Register one **Streamable HTTP** MCP server at the verified private Dashboard origin plus `/mcp`. All six tool groups come from that server. Use the client's supported registration tool/configuration and preserve unrelated connections; detect an existing matching entry instead of duplicating it. Default the connection name to `loom-use`; do not derive it from the hostname. Preserve an explicitly selected name. If that name already targets another endpoint, keep it and have the user select an alternate name rather than overwriting it.
-- For a personal Tailscale device, use its verified user identity. Tagged devices and server-resident Codex require an Admin-issued agent token; follow the section below. Never manufacture identity headers or register the public Funnel URL as MCP.
-- Use only a client/machine that is available and authorized. If the requested remote client is unavailable, provide its endpoint, bundle location and client-specific next steps; report registration as pending. Do not access another machine solely to complete this optional step.
-- Verify `initialize`, `tools/list`, `system.status` and `system.guide` from the actual configured client where possible. Check the machine and returned user permissions. Report skill setup and MCP registration separately, with verified/pending status; server health alone does not prove client registration.
+The target is the current user's Codex, not the Loom service account. Do not access
+another machine unless selected and authorized. The independent installer detects
+client Tailscale identity and adopts valid exact-endpoint credentials. Resident or
+tagged Codex uses a token issued by Dashboard > Tailscale > Agent Tokens. Token
+entry is hidden; no automatic issuance, sudo renewal or owner credential reuse.
 
-Declining or deferring client setup does not make an otherwise verified server installation incomplete. It remains a suggested client-side follow-up, not another server installation gate.
-
-## Resident or tagged clients
-
-1. Tell the user to obtain a token from **Dashboard → Tailscale → Agent Tokens** (Admin only). It has no expiration; Admin revokes it explicitly. Do not issue or renew credentials with sudo, infer identity from the Linux account, or copy the installer/owner token.
-2. Present the command from `client_setup.token_setup_argv` for this server, or `token_setup_bundle_argv` from the extracted bundle on another client. Run it in the target Codex account. These arguments include the verified private Dashboard port; never substitute the public Gateway origin. The script prompts with echo disabled; never place a token in command arguments or chat. The Dashboard popup only provides the token, not duplicate installation instructions.
-3. Default private storage is `$CODEX_HOME/loom/<name>/credential.json` or `~/.codex/loom/<name>/credential.json`. Optional `--directory` selects a private project subdirectory. The script preserves unrelated client configuration and verifies the server before saving.
-4. Run `python3 /path/to/loom_use/clients/setup.py doctor --name loom-use` with the same optional `--directory`, then reconnect the server in Codex. Report script verification and actual Codex discovery separately.
-5. Without a token, stop the optional client setup at **server complete / client authentication pending**. It is not a failed server installation.
-
-Use `/loom/loom_use/current/clients/setup.py` on a server with the matching bundle installed. On other clients use the downloaded bundle; do not assume server paths exist there.
+Client setup requests actual app refresh and verifies active-thread tool calls where
+the client control API is available. Report configuration/transport/runtime separately.
+If the user declines, lacks a token, or the app requires manual reconnection, retain
+server complete / client pending. A client limitation does not invalidate a verified
+server installation. Existing server-side Skill bridges remain readable; new user
+Skill links are managed exclusively by the independent client.

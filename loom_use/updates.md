@@ -17,7 +17,7 @@ Read the guides on first connection, then compare response version markers with 
 
 The transport is stateless POST with no background SSE/list_changed push. It cannot notify disconnected agents or replace text already loaded into model context. Response metadata does not guarantee automatic client tool-cache refresh. Clients with fixed tool caches may require MCP reconnection or a tool-list refresh.
 
-A downloaded ZIP is a snapshot; the running server remains authoritative. The refresh.py helper compares revisions using the private Dashboard URL and either an Admin-issued token or verified Tailscale user identity, then saves new packages in separate version directories. It does not overwrite existing folders, personal instructions or active Jobs, and does not execute downloaded files. It does not inject documents into model sessions.
+A downloaded ZIP is a snapshot; the running server remains authoritative. The independent Loom Use refresh.py helper compares revisions using the private Dashboard URL and either an Admin-issued token or verified Tailscale user identity, then saves new packages in separate version directories. It does not overwrite existing folders, personal instructions or active Jobs, and does not execute downloaded files. It does not inject documents into model sessions.
 
 Do not reject existing requests solely because a new revision marker is missing. Normal server input validation still applies. Consult changed specifications when an actual compatibility error occurs.
 
@@ -39,10 +39,19 @@ Use the installation's normal update procedure when its administrator chooses to
 For an authorized personal Tailscale device, run:
 
 ```bash
-python3 refresh.py https://loom-machine.example.ts.net:8443 --authentication tailscale
+python3 /path/to/Loom-Use/refresh.py https://loom-machine.example.ts.net:8443 --authentication tailscale
 ```
 
 For resident/tagged clients use the Admin-issued token via `LOOM_TOKEN`; do not
 put it in command arguments. The cache is isolated by server, credential and the
 verified principal/scopes, including VPN-account changes. `--development` is only
 for an explicitly configured development endpoint, never an authentication fallback.
+
+## Independent client updates
+
+The manifest's client_release is the exact server-reviewed version, release URL and
+SHA-256. Loom declares the requirement; Loom Use checks it on connect/session entry
+and response changes. The agent follows its Skill to run update and reconnect.
+There is no background client updater. A changed guide alone does not require
+client code replacement. Server CI tests the pinned release against the real HTTP
+MCP surface. Never select GitHub latest independently of the connected server.

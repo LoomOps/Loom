@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.31
+
+- Split client installation, connection profiles and the Skill into LoomOps/Loom-Use.
+- Pin the exact tested client release in server guides and installer handoff.
+- Delegate optional client setup to its INSTALL.md for the current agent/user.
+- Test the external released client against Loom HTTP/MCP; preserve existing credentials and Skill entry links.
+- Use the canonical LoomOps/Loom repository spelling.
+
+
 ## 0.1.0-alpha.30 — 2026-11-09
 
 - Default MCP registration to `loom-use` in client setup, doctor and installation handoff, retaining explicit names and existing-connection conflict checks.

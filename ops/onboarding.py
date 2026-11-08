@@ -16,7 +16,7 @@ def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separato
 
 def packaged_files():
  return [GUIDES/(name+'.md') for name in TITLES]+[GUIDES/name for name in
-         ('LICENSE','THIRD_PARTY_NOTICES.md','README.md','refresh.py','skills/loom-use/SKILL.md','clients/README.md','clients/stdio.py','clients/setup.py','clients/headers.py')]
+         ('LICENSE','THIRD_PARTY_NOTICES.md','README.md','client-release.json','skills/loom-use/SKILL.md')]
 
 @lru_cache(maxsize=8)
 def revisions(signature):
@@ -28,7 +28,7 @@ def identity():
  signature=tuple((str(p),p.stat().st_mtime_ns,p.stat().st_size) for p in paths)
  contract,guide=revisions(signature)
  values={'build_id':build_version.status()['build_id'],'api_revision':job_contract.API_REVISION,
-         'contract_revision':contract,'guide_revision':guide}
+         'contract_revision':contract,'guide_revision':guide,'client_release':json.loads((GUIDES/'client-release.json').read_text())}
  return {**values,'revision':digest(values)}
 
 def manifest():

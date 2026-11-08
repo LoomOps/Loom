@@ -112,7 +112,7 @@ class ReleaseChecks(unittest.TestCase):
 class GitHubBoundary(unittest.TestCase):
     def fetch(self, error, cached=None):
         opener=Mock();opener.open.side_effect=error
-        return releases.fetch_page('LoomOps/loom',1,'secret',cached or {},1000,opener)
+        return releases.fetch_page('LoomOps/Loom',1,'secret',cached or {},1000,opener)
 
     def test_etag_304_requires_previous_page_and_does_not_leak_token(self):
         old={'rows':[release('1.0.0')],'etag':'etag','next':False}
@@ -131,14 +131,14 @@ class GitHubBoundary(unittest.TestCase):
         self.assertEqual(caught.exception.code,'network_unavailable')
 
     def test_response_bound_and_conditional_request_headers(self):
-        response=Mock();response.__enter__=Mock(return_value=response);response.__exit__=Mock(return_value=False);response.headers={'ETag':'v1','Link':'<https://api.github.com/repos/LoomOps/loom/releases?page=2>; rel="next"'}
+        response=Mock();response.__enter__=Mock(return_value=response);response.__exit__=Mock(return_value=False);response.headers={'ETag':'v1','Link':'<https://api.github.com/repos/LoomOps/Loom/releases?page=2>; rel="next"'}
         response.read.return_value=json.dumps([release('1.0.0')]).encode();opener=Mock();opener.open.return_value=response
-        result=releases.fetch_page('LoomOps/loom',1,'secret',{'etag':'old'},1000,opener)
+        result=releases.fetch_page('LoomOps/Loom',1,'secret',{'etag':'old'},1000,opener)
         self.assertTrue(result['next']);self.assertEqual(result['etag'],'v1')
         request=opener.open.call_args.args[0];self.assertEqual(request.get_header('If-none-match'),'old')
         self.assertEqual(request.get_header('Authorization'),'Bearer secret')
         response.read.return_value=b'x'*(releases.MAX_BYTES+1)
-        with self.assertRaises(releases.CheckError):releases.fetch_page('LoomOps/loom',1,'',{},1000,opener)
+        with self.assertRaises(releases.CheckError):releases.fetch_page('LoomOps/Loom',1,'',{},1000,opener)
 
     def test_redirect_handler_never_forwards_credential(self):
         self.assertIsNone(releases.NoRedirect().redirect_request(None,None,302,'',{},'https://other.test'))

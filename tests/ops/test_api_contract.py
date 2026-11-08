@@ -93,7 +93,8 @@ class APIContractTests(IsolatedOps):
 
     def test_stdio_client_negotiates_version_and_accepts_empty_notification(self):
         import importlib.util
-        spec=importlib.util.spec_from_file_location('loom_stdio',ops.onboarding.GUIDES/'clients/stdio.py')
+        from client_source import CLIENTS
+        spec=importlib.util.spec_from_file_location('loom_stdio',CLIENTS/'stdio.py')
         module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
         credential=self.root/'credential.json';credential.write_text(json.dumps({'token':'fixture-owner'}));credential.chmod(0o600)
         config=self.root/'client.json';config.write_text(json.dumps({'endpoint':self.base+'/mcp','credential':str(credential)}))

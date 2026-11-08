@@ -10,7 +10,7 @@ This repository includes source, Dockerfiles, Compose definitions and host insta
 - [Installation and operations](deploy/README.md)
 - [Agent-assisted installation and script reference](deploy/installer/INSTALL.md)
 
-Pin a [GitHub Release](https://github.com/LoomOps/loom/releases) tag to build images and an installation kit from source. A separate image registry is not required. Private repositories require GitHub read access; host administration and Tailscale enrollment are separate permissions.
+Pin a [GitHub Release](https://github.com/LoomOps/Loom/releases) tag to build images and an installation kit from source. A separate image registry is not required. Private repositories require GitHub read access; host administration and Tailscale enrollment are separate permissions.
 
 ## Usage
 

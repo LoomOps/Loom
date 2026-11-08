@@ -39,7 +39,7 @@ Host guides and the registered usage skill are consolidated under `loom_use`. In
 ## New release discovery
 
 Ops checks the **published GitHub Releases**, not branch commits or unassociated tags.
-The default repository is `LoomOps/loom`; checks run on startup when due and every six
+The default repository is `LoomOps/Loom`; checks run on startup when due and every six
 hours in a separate API-process thread. There is no Job, DB lock, GPU allocation,
 download, pause or installation involved. Worker restarts do not create another checker.
 
@@ -68,7 +68,7 @@ Tokens and upstream error bodies are never returned to browsers, MCP, or the cac
 
 ```bash
 sudo python3 deploy/release_check_setup.py --root /loom/ops \
-  --repository LoomOps/loom --channel alpha --credential
+  --repository LoomOps/Loom --channel alpha --credential
 ```
 
 The token prompt is hidden. Use a repository-scoped read-only token. `--token-stdin`
@@ -114,3 +114,17 @@ port, and update Gateway destinations, Serve routes and exact policy ports toget
 A public Gateway on 443 and private Dashboard/MCP on 8443 is supported; port numbers
 are installation settings, not a release-wide constant. Never expose operational
 API routes on the public Gateway port. Preserve unrelated Tailnet/SSH policies.
+
+## Independent Loom Use
+
+Loom pins the independently published client in loom_use/client-release.json.
+Operational guides remain server-owned; the client installer and Skill are in
+https://github.com/LoomOps/Loom-Use. Server installation offers a handoff to that
+release's INSTALL.md for the current agent/user and already-known private endpoint.
+The server does not write personal client settings during a service update. Existing
+server-installed Skill links keep a compatibility entry; the client adopts verified
+exact-endpoint credentials when the user proceeds with the independent setup.
+
+Publish the client artifact first, update the server pin, run feature checks and
+the real HTTP contract tests against that artifact, then publish the server. See
+docs/features/onboarding.md. Never substitute a sibling working tree in release CI.

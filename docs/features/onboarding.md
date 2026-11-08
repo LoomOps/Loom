@@ -33,15 +33,18 @@ Test sources define the concrete scenarios. `deploy/test.sh` records individual 
 
 Verify actual client reconnection and guide refresh separately.
 
-Installation handoff explicitly offers optional Loom Use skill setup and MCP connection registration in the user's selected client/machine. The scripted handoff provides the private endpoint, bundle URL and verification actions, but never claims registration from server-side health. Existing client settings are preserved; actual client discovery/status/guide checks are reported separately from server readiness.
+Installation handoff offers Loom Use for the current agent and user, then delegates
+to the exact external release INSTALL.md. It never embeds client setup logic.
+`loom_use/client-release.json` declares version/URL/checksum. `deploy/client_release.py`
+acquires that package without installing a Skill or touching user configuration.
 
-Resident Codex clients use `loom_use/clients/setup.py configure` with a Dashboard Admin-issued permanent token. `doctor` verifies the protected credential, matching user configuration and four live MCP operations. The static headers helper never issues or renews credentials. Installation docs must distinguish server readiness, saved client settings and actual client discovery.
+Server guides and generated schemas remain in Loom. The actual client lives in
+LoomOps/Loom-Use. The manifest exports client_release alongside existing revisions.
+Loom owns update-impact review and the pin; the client owns checking/applying it.
+No compatibility-range solver or automatic background updater is introduced.
 
-Guide refresh accepts explicit Tailscale identity or an Admin-issued token. It
-verifies the current principal and includes identity/scopes in its cache key;
-switching VPN users must not reuse another user's scoped bundle. Both the native
-header helper and optional stdio transport use the same private-file reader.
-
-Client setup and installation handoff default the MCP registration ID to `loom-use`
-(display title: Loom Use). Explicit `--name` overrides remain supported. Existing
-connections to other endpoints must not be overwritten to enforce this default.
+Tests/ops/client_source.py loads the exact checksum-verified package, not a sibling
+checkout. HTTP integration covers initialization, token rejection/revocation, discovery,
+status, guide and old-config migration. CI prepares the release before tests.
+A small server Skill bridge retains old /loom/loom_use/current links; new links target
+user-installed release directories. No independent client code is vendored here.

@@ -61,7 +61,7 @@ class MockOps(BaseHTTPRequestHandler):
         f=self.server.fixture
         routes={'/api/dashboard/catalog':f['catalog'],'/api/dashboard/resources':f['resources'],
             '/api/dashboard/revision':{'revision':'fixture-v1'},'/api/docker':f['docker'],
-            '/api/updates':f.get('updates',{'status':'up_to_date','installed':'0.1.0-alpha.14','latest':{'tag':'0.1.0-alpha.14','url':'https://github.com/LoomOps/loom/releases/tag/v0.1.0-alpha.14'},'checked_at':1794096000,'automatic_install':False}),
+            '/api/updates':f.get('updates',{'status':'up_to_date','installed':'0.1.0-alpha.14','latest':{'tag':'0.1.0-alpha.14','url':'https://github.com/LoomOps/Loom/releases/tag/v0.1.0-alpha.14'},'checked_at':1794096000,'automatic_install':False}),
             '/api/status':{'machine_id':'fixture','storage_id':'fixture','inventory':{}},
             '/api/principal':{'id':'fixture','scopes':['read']},'/api/registry':[],'/api/events':[]}
         if self.path.startswith('/api/jobs/'):

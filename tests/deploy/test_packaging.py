@@ -91,12 +91,12 @@ class PackagingTests(unittest.TestCase):
     def test_usage_tools_are_in_snapshot_and_ops_build_identity(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)
-            for ref in ['ops/app.py','loom_use/README.md','loom_use/clients/stdio.py','README.md','.dockerignore']:
+            for ref in ['ops/app.py','loom_use/README.md','loom_use/client-release.json','README.md','.dockerignore']:
                 p=root/ref;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('fixture')
             with patch.object(snapshot,'ROOT',root):
                 files=list(snapshot.sources());hashes={str(p.relative_to(root)):'digest' for p in files}
                 local=snapshot.component_files('ops',files,hashes)
-            self.assertIn('../loom_use/clients/stdio.py',local)
+            self.assertIn('../loom_use/client-release.json',local)
             self.assertIn('README.md',hashes);self.assertIn('.dockerignore',hashes)
 
     def test_live_build_detects_usage_tool_edits(self):

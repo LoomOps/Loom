@@ -7,8 +7,9 @@ import sys
 import tomllib
 from unittest.mock import patch
 import test_service_tokens
+import ops
 from test_support import IsolatedOps
-CLIENTS=Path(__file__).resolve().parents[2]/'loom_use/clients'
+from client_source import CLIENTS
 sys.path.insert(0,str(CLIENTS))
 spec=importlib.util.spec_from_file_location('loom_client_setup',CLIENTS/'setup.py')
 setup=importlib.util.module_from_spec(spec);spec.loader.exec_module(setup)
@@ -75,3 +76,23 @@ class ClientSetupTests(IsolatedOps):
         self.assertEqual(OpsTransport(config).token,'fixture')
         secret.chmod(0o644)
         with self.assertRaises(PermissionError):OpsTransport(config)
+
+    def test_independent_client_connect_adopts_and_doctor_reads_live_server(self):
+        from client_source import PACKAGE
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('loom_use_manager',PACKAGE/'loom_use.py')
+        manager=importlib.util.module_from_spec(spec);spec.loader.exec_module(manager)
+        issued=self.issue();home=self.root/'new-codex';client=manager.Client(home,self.root/'new-skills')
+        with patch.object(manager.releases,'install',return_value=PACKAGE),patch.object(manager.codex_runtime,'reconnect',return_value={'status':'pending','reason':'fixture'}):
+            result=client.connect(self.base+'/mcp',token=issued['token'],cwd=self.root)
+            self.assertEqual(result['server']['owner'],self.person['id'])
+            self.assertEqual(result['server']['manifest']['client_release'],ops.onboarding.manifest()['client_release'])
+            self.assertEqual(result['runtime']['status'],'pending')
+            report=client.doctor(None,self.root)
+            self.assertFalse(report['client_update_required'])
+            self.assertEqual(report['transport']['scope'],'independent_transport')
+            self.assertEqual(report['runtime']['status'],'unverified')
+            before=client.config.read_bytes()
+            self.request('/api/admin/tokens/revoke',{'id':issued['credential_id']},token=None,headers=self.signed())
+            with self.assertRaises(OSError):client.doctor(None,self.root)
+            self.assertEqual(before,client.config.read_bytes())

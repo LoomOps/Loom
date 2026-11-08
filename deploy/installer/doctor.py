@@ -245,22 +245,24 @@ def handoff(setup, plan):
     result = doctor(setup, plan)
     if not result['ready']: return {'status':'incomplete','doctor':result}
     a = service_plan(plan)
+    import client_release
+    client = client_release.descriptor()
     return {'status':'services_ready','gateway':a['origin'],'dashboard':a['dashboard_origin'],
             'mcp':a['dashboard_origin']+'/mcp','build':setup.manifest()['build_id'],
             'client_setup':{'status':'offer_to_user','package':'loom_use','title':'Loom Use','skill':'loom-use',
-                'local_skill':'/loom/loom_use/current/skills/loom-use',
+                'repository':'https://github.com/LoomOps/Loom-Use','release':client,
+                'read_next':'INSTALL.md in the selected Loom Use release',
+                'offer':'Install Loom Use in this Codex and connect to this Loom?',
                 'bundle_url':a['dashboard_origin']+'/api/guide/bundle',
                 'mcp_endpoint':a['dashboard_origin']+'/mcp','transport':'streamable_http',
-                'target':'Confirm agent client, machine and user profile; configure the user, not the service account.',
+                'target':'Current agent machine and current OS user unless explicitly selected otherwise.',
                 'authentication':{'personal_tailnet_client':'verified Tailscale user identity',
                     'resident_or_tagged_client':'Admin-issued agent token; no automatic issuance or renewal',
                     'issuer':'Dashboard Tailscale > Agent Tokens','expires':None,'revocation':'Admin',
                     'without_token':'server complete / client authentication pending'},
-                'token_setup_script':'/loom/loom_use/current/clients/setup.py',
-                'token_setup_argv':['python3','/loom/loom_use/current/clients/setup.py','configure','--endpoint',a['dashboard_origin']+'/mcp','--name','loom-use'],
-                'token_setup_bundle_argv':['python3','./clients/setup.py','configure','--endpoint',a['dashboard_origin']+'/mcp','--name','loom-use'],
-                'credential_directory':'CODEX_HOME/loom/<connection-name> (default ~/.codex/loom/<connection-name>)',
-                'verification':['initialize','tools/list','system.status','system.guide']},
+                'connect_argv':['python3','loom_use.py','connect',a['dashboard_origin']+'/mcp'],
+                'credential_directory':'CODEX_HOME/loom-use; existing exact-endpoint credentials are adopted',
+                'verification':['initialize','tools/list','system.status','system.guide','actual Codex thread runtime']},
             'services':list(SERVICES),'executor':'host systemd service','gpu_enabled':plan['gpu'],
             'storage':{'primary':plan['data'],'read_write':[plan['data'],*plan.get('additional_data',[])]},
             'dependencies':plan['dependencies'], 'admins':a['admins'], 'doctor':result,
