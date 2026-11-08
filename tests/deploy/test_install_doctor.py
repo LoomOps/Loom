@@ -36,7 +36,7 @@ class InstallationDoctorTests(unittest.TestCase):
  def configured(self):
   s=self.plan['tailscale']['sso'];issuer=self.access['admins'][0]['issuer']
   self.write('config/api.json',{'machine_id':self.access['machine_id'],'machine_name':self.access['name'],
-   'dashboard_auth':{'enabled':True,'issuer':issuer},'tailscale_auth':{'enabled':True},'executor':{'host_data':self.plan['data']}})
+   'dashboard_auth':{'enabled':True,'issuer':issuer},'tailscale_auth':{'enabled':True,'trusted_proxies':['10.203.41.1','10.203.41.3']},'executor':{'host_data':self.plan['data']}})
   self.write('secrets/sso/config.json',{**s,'mode':'network','issuer':issuer,'origin':self.access['dashboard_origin']})
   self.write('secrets/admission/config.json',{**self.access,'separate_gateway':True})
   self.write('secrets/admission/gateway.json',{'credential_file':'/not-mounted/management.json'})
@@ -160,7 +160,8 @@ class InstallationDoctorTests(unittest.TestCase):
     'loom-gateway':{'/etc/loom/gateway.json':setup.ROOT/'secrets/admission/gateway.json','/var/lib/loom-admission':setup.ROOT/'admission'}}[service]
    ports={'loom-ops':{'8080/tcp':18892,'8443/tcp':18894},'loom-dashboard':{'8080/tcp':18893},'loom-gateway':{'8081/tcp':18904}}[service]
    return {'State':{'Running':True,'Health':{'Status':'healthy'}},'Image':'sha256:o' if service=='loom-ops' else 'sha256:d',
-    'Config':{'Env':['LOOM_DEV_NO_AUTH=0']},'Mounts':[{'Destination':k,'Source':str(v),'RW':False} for k,v in mounts.items()],
+    'NetworkSettings':{'Networks':{'loom_default':{'Gateway':'10.203.41.1','IPAddress':'10.203.41.3' if service=='loom-dashboard' else '10.203.41.2'}}},
+    'Config':{'Env':['LOOM_DEV_NO_AUTH=0','LOOM_TAILSCALE_TRUSTED_PROXIES=10.203.41.1']},'Mounts':[{'Destination':k,'Source':str(v),'RW':False} for k,v in mounts.items()],
     'HostConfig':{'PortBindings':{k:[{'HostIp':'127.0.0.1','HostPort':str(v)}] for k,v in ports.items()}}}
   containers={s:container(s) for s in doctor.SERVICES}
   def run(*args):
@@ -172,6 +173,11 @@ class InstallationDoctorTests(unittest.TestCase):
    raise AssertionError(args)
   with patch.object(setup,'run',side_effect=run),patch.object(setup,'manifest',return_value={'build_id':'test','images':image_ids}),patch.object(setup,'verify_core',return_value={'build':'test'}),patch.object(doctor,'request',return_value=(200,{'sso':True})):
    self.assertTrue(doctor.doctor(setup,self.plan,'services')['ready'])
+   containers['loom-dashboard']['NetworkSettings']['Networks']['loom_default']['Gateway']='10.203.41.128'
+   failed=doctor.doctor(setup,self.plan,'services')
+   self.assertFalse(failed['ready'])
+   self.assertEqual(next(c for c in failed['checks'] if c['check']=='trusted_ingress_matches_docker')['status'],'fail')
+   containers['loom-dashboard']['NetworkSettings']['Networks']['loom_default']['Gateway']='10.203.41.1'
    containers['loom-gateway']['Image']='sha256:old'
    self.assertFalse(doctor.doctor(setup,self.plan,'services')['ready'])
    containers['loom-gateway']['Image']='sha256:d'

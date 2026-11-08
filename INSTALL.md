@@ -4,7 +4,7 @@ Install the complete Loom service: **Ops + Dashboard + Gateway + host executor**
 
 For an existing instance, use [UPDATES.md](docs/UPDATES.md); do not rerun fresh installation. For new installations, follow the [step index](deploy/installer/INSTALL.md). Read only the current step and its references, then return to this index after the step.
 
-1. **Plan** — inspect the host, recommend storage/GPU choices, confirm the human Admin and generate linked configuration.
+1. **Plan** — inspect the host, recommend storage/GPU choices, confirm the Admin’s Tailscale login email and generate linked configuration.
 2. **Host** — prepare prerequisites, Tailscale enrollment and protected management credentials.
 3. **Images** — select a published release and build/load its matching installation kit.
 4. **Configuration** — apply the plan, native identity, Gateway and selected storage.

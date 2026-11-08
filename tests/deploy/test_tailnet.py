@@ -64,7 +64,12 @@ class TailnetTests(unittest.TestCase):
             result=tailnet.configure(root,self.plan,'loom.tail123.ts.net')
             import ipaddress
             network=json.loads((root/'compose-tailnet.yaml').read_text())
-            pool=ipaddress.ip_network(network['networks']['default']['ipam']['config'][0]['ip_range'])
+            ipam=network['networks']['default']['ipam']['config'][0]
+            pool=ipaddress.ip_network(ipam['ip_range'])
+            gateway=ipam['gateway']
+            self.assertNotIn(ipaddress.ip_address(gateway),pool)
+            self.assertEqual(tailnet.env_values(root/'network.env')['LOOM_TAILSCALE_TRUSTED_PROXIES'],gateway)
+            self.assertIn(gateway,json.loads((root/'config/api.json').read_text())['tailscale_auth']['trusted_proxies'])
             for service in ['loom-ops','loom-dashboard']:
                 fixed=ipaddress.ip_address(network['services'][service]['networks']['default']['ipv4_address'])
                 self.assertNotIn(fixed,pool)

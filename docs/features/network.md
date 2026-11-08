@@ -2,7 +2,7 @@
 
 ## Responsibilities and boundaries
 
-Network access and web login are distinct. Default installations do not enable Funnel. Optional access enrollment exposes only a separate public listener through Funnel. tag:loom is for Hub discovery; user approval targets stable machine/device IDs and exact addresses/ports. Preserve existing policies.
+Network access and web login are distinct. Full installations publish a separate request-only Gateway through Funnel; Dashboard and MCP remain private. tag:loom is for Hub discovery; user approval targets stable machine/device IDs and exact addresses/ports. Preserve existing policies.
 
 ## Inputs, outputs and authoritative sources
 
@@ -47,7 +47,7 @@ assets and submits real requests; it never proxies Jobs or MCP. `/gateway/probe`
 is served only by the private Dashboard, frames only under the configured public
 origin, and reports verified identity using a nonce-bound postMessage. A successful
 browser probe triggers a fixed private redirect; receipt approval alone does not.
-Probe timeout or browser network blocking leaves the request/retry UI available.
+Probe timeout or browser network blocking leaves the request/retry UI available. A responding private probe without trusted network identity instead shows an identity failure and directs the visitor to the administrator; it does not suggest a new invitation.
 
 ## Machine Sharing
 
@@ -106,4 +106,8 @@ start from the rendered height/opacity; visual-content changes also retarget the
 morph, while unchanged polling remains still. Geometry uses layout dimensions so
 entrance scaling does not distort the squircle or the next height target.
 
+The generated Docker network explicitly pins its gateway to the first host address, matching both Dashboard and Ops trusted proxy configuration. Doctor compares actual container network gateways with the running Dashboard environment and Ops auth settings; generated files alone are insufficient. Existing networks whose gateway differs require a deliberate idle repair. Never trust an entire bridge subnet to bypass this check.
+
 The generated Docker network keeps dynamic addresses in the upper half of the configured /24. Ops and Dashboard use fixed addresses outside that pool, so a restarting Gateway cannot claim the Dashboard ingress address. Existing user network overrides remain authoritative.
+
+Gateway acrylic uses surface alpha 0.34 in both themes, a 30px backdrop blur and 140% saturation. The card wrapper has no filter so the scene remains available to the backdrop filter; text and controls retain their own opacity. Blur is limited to the clipped card, not the page.

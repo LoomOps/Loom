@@ -66,3 +66,10 @@ Configure session lifetime through `session_seconds` (default and maximum: seven
 Ops status authentication.tailscale/dashboard_sso reports actual configuration activation. Distinguish platform implementation from incomplete network enrollment, pending device approval or failed login. Installers use docs/TAILSCALE-SSO.md and deploy/installer/tailnet-plan.example.json.
 
 The public Funnel gateway verifies private Dashboard connectivity and identity through the browser. Successful verification redirects to the private Dashboard. With VPN disconnected, reconnect Tailscale and retry. An approved request alone does not create a browser login. Public intake and administration are separate: `loom-gateway` and the private Dashboard. The public service exposes no operational API.
+
+If a native Admin or approved member reaches access intake, do not submit another
+share invitation. `tailscale_identity_required` means trusted network identity
+was not received; `machine_access_required` means the verified identity has no
+binding/grant. Ask the operator to compare the actual Docker bridge gateway with
+Dashboard/Ops trusted proxies and run installation doctor. Existing-account
+requests report `access_check_required` and must not be treated as authentication.

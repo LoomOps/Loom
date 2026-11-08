@@ -610,7 +610,7 @@
         "docs/ACCESS-ENROLLMENT.md"
       ],
       "invariants": [
-        "The default installation keeps Serve private. Optional access enrollment exposes only a separate public listener. tag:loom supports Hub discovery; user grants apply per machine.",
+        "New installations keep Dashboard and MCP on private Serve and require a separate public request-only Gateway. tag:loom supports Hub discovery; user grants apply per machine.",
         "tag:loom is Hub discovery only; access approvals target one stable machine/device identity and exact addresses. Public request listener exposes no operational data or MCP."
       ],
       "change_rule": "When enrollment or proxy behavior changes, verify installation plans, exact trusted peers, callback URLs, reruns/pending approvals, TLS and policy scope. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.",

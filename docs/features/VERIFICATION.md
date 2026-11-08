@@ -4,7 +4,7 @@ This matrix separates code-level regression coverage, installation diagnostics a
 
 | Block | Automated evidence to keep | Installation / live boundary |
 |---|---|---|
-| identity | Native bindings, signed identity, expiry, VPN-account change, revocation and Admin matching | Doctor compares native SSO/Admin configuration and bypass flags. Another-client profile/role verification remains live. |
+| identity | Native bindings, signed identity, expiry, VPN-account change, revocation and Admin matching | Doctor compares native SSO/Admin configuration, bypass flags and live Docker gateway/trusted-proxy agreement. Another-client profile/role verification remains live. |
 | api | Six tool groups, HTTP/MCP schema parity, protocol errors and version metadata | Doctor queries actual API/tools; smoke submits through MCP. Real third-party clients remain separate. |
 | queue | Order, hold/resume, dependent Jobs and preparation overlap | Smoke never reorders or cancels existing work. A busy queue leaves acceptance pending. |
 | execution | Frozen profiles, container boundary, phase retries, return/cancellation | Doctor checks executor/image/GPU exposure; smoke runs prepare and run in containers. GPU computation is not inferred from nvidia-smi. |
@@ -28,4 +28,4 @@ This matrix separates code-level regression coverage, installation diagnostics a
 4. Record the tested revision and JSON/JUnit evidence. Keep unperformed live checks explicit.
 5. During installation, reread INSTALL.md after every numbered step and compare doctor output with the step exit criteria. Do not turn this installation checklist into an extra Job execution gate.
 
-The installation regression addressed here is the boolean tailscale plan that disabled SSO while verification still passed with an owner token. New plans must fail that path. Additional regressions cover a missing Gateway, mismatched Admin, auth bypass, wrong service image, missing storage, exposed private routes, and absent smoke result evidence.
+The installation regression addressed here is the boolean tailscale plan that disabled SSO while verification still passed with an owner token. New plans must fail that path. Additional regressions cover a missing Gateway, mismatched Admin, auth bypass, wrong service image, missing storage, exposed private routes, and absent smoke result evidence, and a Docker-selected gateway differing from trusted proxies. Sharing regressions cover native Admins, approved recipients, existing tailnet members and unavailable membership lookup: none may cause a new invitation.

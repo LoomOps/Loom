@@ -15,3 +15,9 @@ sudo python3 /absolute/kit/setup.py resume-network /absolute/install-plan.json
 On another authorized Tailscale client, open the Gateway first. Verify the current user's profile and Admin/Member role after private redirect. For a real external shared user, verify request → invitation acceptance → Admin approval → private access; do not send invitations to arbitrary sample emails. Use isolated mocks for denied/revoked/unapproved flows until a real test participant is available. Check VPN-account switching cannot reuse another identity's session.
 
 Exit: network doctor passes. External-client checks remain explicitly pending until actually tested. Reread INSTALL.md and the step index before step 7.
+
+If `/auth/login` returns `tailscale_identity_required`, check the live Docker
+bridge gateway against `LOOM_TAILSCALE_TRUSTED_PROXIES` and Ops trusted proxies.
+A Docker-selected gateway can differ from a generated default. Do not submit the
+Admin email as a sharing request or expand trust to the entire subnet. `machine_access_required`
+is different: the identity arrived but lacks a native binding or approved share.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.18 — 2026-11-08
+
+- Pin the Docker bridge gateway to the exact trusted ingress address. Installation doctor compares live container gateways and trusted-proxy configuration, catching healthy services that cannot identify Tailscale users.
+- Distinguish a failed private identity probe from a new visitor. Show connection/administrator guidance instead of prompting an existing user to request another invitation.
+- Block duplicate Sharing invitations for native Admins/users, approved recipients and existing tailnet members. Membership lookup failures cannot fall through to sending an invitation.
+- Ask explicitly for the Tailscale login email of the account that will administer Loom; update installation steps, diagnostics and operator guidance together.
+- Refine Gateway acrylic: 34% tint in both themes, 30px card-only backdrop blur, 60px continuous corners and no white edge highlight. Preserve the scene blur and readable controls.
+- Recheck all 15 feature boundaries, regression suites and matching installation/usage packaging. Existing installations retain local configuration and need an explicit idle repair if their bridge gateway differs.
+
 ## 0.1.0-alpha.17 — 2026-11-08
 
 - Require the complete native Tailscale/Sharing installation: Ops, Dashboard, Gateway, executor and explicit Admin identity. Reject boolean Tailscale/token-only installation plans.

@@ -41,7 +41,7 @@ class GatewayTests(unittest.TestCase):
 
     def test_brand_assets_are_public_static_files_only(self):
         s=self.f.start_http();s.gateway=True
-        for path,marker in [('/brand.js',b'requestAnimationFrame'),('/brand-scene.js',b'Path2D'),('/style.css',b'blur(44px)')]:
+        for path,marker in [('/brand.js',b'requestAnimationFrame'),('/brand-scene.js',b'Path2D'),('/style.css',b'blur(30px)')]:
             code,body,headers=self.f.http(s,path)
             self.assertEqual(code,200,path);self.assertIn(marker,body)
             self.assertIn("script-src 'self'",headers['Content-Security-Policy'])
@@ -53,6 +53,7 @@ class GatewayTests(unittest.TestCase):
         path='/gateway/probe?nonce=abcdefghijklmnop'
         _,body,headers=self.f.http(s,path,headers={'Tailscale-User-Login':'forged@example.test','Cookie':'__Host-loom-access-receipt=invalid'})
         self.assertIn(b'"authorized": false',body);self.assertNotIn(b'forged@example',body)
+        self.assertIn(b'"reason": "identity_unavailable"',body)
         self.assertIn('frame-ancestors https://request.test',headers['Content-Security-Policy'])
         self.assertIn("script-src 'sha256-",headers['Content-Security-Policy'])
         self.assertNotIn('X-Frame-Options',headers)
@@ -72,6 +73,24 @@ class GatewayTests(unittest.TestCase):
         self.assertIn(b'"destination": "/"',body)
         _,body,_=self.f.http(s,path,headers={'Tailscale-User-Login':'member@example.test'})
         self.assertIn(b'"destination": "/auth/login"',body)
+
+    def test_native_admin_probe_does_not_need_cookie_and_unbound_user_is_distinct(self):
+        s=self.private();s.tailscale_proxies=['127.0.0.1']
+        class Auth:
+            config={'provider':'tailscale'}
+            def session(self,headers):return None
+            def authorize(self,network,admission):
+                return {'login':'admin@example.test'} if network.get('Tailscale-User-Login')=='admin@example.test' else None
+        s.sso=Auth()
+        path='/gateway/probe?nonce=abcdefghijklmnop'
+        _,body,_=self.f.http(s,path,headers={'Tailscale-User-Login':'admin@example.test'})
+        self.assertIn(b'"authorized": true',body);self.assertIn(b'"destination": "/auth/login"',body)
+        _,body,_=self.f.http(s,path,headers={'Tailscale-User-Login':'unbound@example.test'})
+        self.assertIn(b'"reason": "access_required"',body)
+        s.tailscale_proxies=['192.0.2.1']
+        _,body,_=self.f.http(s,path,headers={'Tailscale-User-Login':'admin@example.test'})
+        self.assertIn(b'"reason": "identity_unavailable"',body)
+        self.assertNotIn(b'admin@example.test',body)
 
     def test_private_entry_redirects_without_rendering_legacy_login(self):
         s=self.private();s.admission.config['separate_gateway']=True

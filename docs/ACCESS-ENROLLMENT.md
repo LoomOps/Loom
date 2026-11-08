@@ -67,3 +67,22 @@ Use real SQLite/HTTP/Firefox and mocked external APIs to test email request → 
 Actual external-user email delivery, acceptance in a personal tailnet and Dashboard/MCP connectivity require separate acceptance. Do not report those steps complete based only on read APIs or mocks.
 
 The Funnel gateway cannot read a public visitor's personal tailnet information. It redirects through normal login only after validating origin/source/nonce on the private `/gateway/probe` result. Approval records alone do not establish VPN connectivity or authentication.
+
+## Existing accounts and failed identity checks
+
+Admin/native bindings and already approved recipients are excluded from new
+sharing requests. The public endpoint returns `409 access_check_required` without
+account role, profile or authorization details. This is not authentication.
+The private worker repeats this check for old queued requests, then reads
+`GET /tailnet/{tailnet}/users?type=member` before creating an invitation. Existing
+tailnet members require an administrator to repair their native binding/ingress;
+they must not be sent a device-share invitation. Lookup failure blocks sending
+and remains visible as a request error. Management credentials now require user
+list read access as well as the existing sharing/policy permissions.
+
+`access_check_required` is shown as a connection issue with administrator contact
+guidance, not an invitation-in-progress spinner. An already sent invitation is
+not silently revoked by this check. A private probe that responds without a
+trusted user identity reports `identity_unavailable`; email entry cannot repair
+it. A trusted but unbound identity reports `access_required`. Only a verified
+identity response can redirect and establish a session.

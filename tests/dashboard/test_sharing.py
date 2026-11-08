@@ -51,9 +51,42 @@ class SharingTests(unittest.TestCase):
         self.a.decide(r['id'],'approve',self.admin);self.a.tick()
         self.assertEqual(self.row()['state'],'ready')
         self.assertEqual(self.api.policy['groups'][group_name('installation1','server1')],['actual@example.test'])
-        self.assertFalse(any('/users' in p or '/user-invites' in p or '/authorized' in p for _,p,_,_ in self.api.calls))
+        self.assertFalse(any('/user-invites' in p or '/authorized' in p for _,p,_,_ in self.api.calls))
         self.assertEqual(self.a.members()[0]['loginName'],'actual@example.test')
         self.assertNotIn('inviteUrl',json.dumps(self.a.members()))
+    def test_existing_native_admin_and_approved_identity_cannot_request_share(self):
+        self.config['admins']=[{'issuer':'https://private.test/identity','subject':'tailscale:owner@example.test'}]
+        for email in [' Owner@Example.Test ', 'native@example.test']:
+            self.config['native_logins']=['native@example.test']
+            with self.assertRaisesRegex(ValueError,'access_check_required'):
+                self.a.request({**self.user,'login':email})
+        self.assertEqual(self.api.calls,[])
+        self.config['admins']=[{'issuer':'https://identity.test','subject':'admin'}]
+        self.ready()
+        calls=len(self.api.calls)
+        with self.assertRaisesRegex(ValueError,'access_check_required'):
+            self.a.request({**self.user,'login':'actual@example.test'})
+        self.assertEqual(len(self.api.calls),calls)
+
+    def test_private_worker_blocks_existing_tailnet_member_without_sending(self):
+        self.api.users=[{'loginName':self.user['login'],'type':'member'}]
+        self.a.request(self.user);self.a.tick()
+        self.assertEqual(self.row()['error'],'access_check_required')
+        self.assertFalse(self.row()['send_started']);self.assertEqual(self.api.shares,[])
+        self.assertFalse(any(m=='POST' for m,_,_,_ in self.api.calls))
+
+    def test_old_pending_admin_request_is_rechecked_before_invitation(self):
+        self.a.request(self.user)
+        self.config['native_logins']=[self.user['login']]
+        self.a.tick()
+        self.assertEqual(self.row()['error'],'access_check_required')
+        self.assertEqual(self.api.shares,[])
+
+    def test_membership_lookup_failure_cannot_fall_through_to_send(self):
+        self.a.request(self.user);self.api.fail='/users?type=member';self.a.tick()
+        self.assertEqual(self.api.shares,[]);self.assertFalse(self.row()['send_started'])
+        self.assertEqual(self.row()['error'],'tailscale_api_403')
+
     def test_invitation_sender_is_resolved_without_blocking_sharing(self):
         self.a.request(self.user);self.a.tick()
         self.api.shares[0]['sharerId']=42

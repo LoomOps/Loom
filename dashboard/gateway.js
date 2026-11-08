@@ -5,7 +5,7 @@ const card=document.querySelector('.card');
 function shape() {
   const w=card.offsetWidth,h=card.offsetHeight;
   if (!w || !h) return;
-  const r = Math.min(46,w/4,h/4), points=[];
+  const r = Math.min(60,w/3,h/3), points=[];
   for (const [cx,cy,begin] of [[w-r,r,-90],[w-r,h-r,0],[r,h-r,90],[r,r,180]]) {
     for (let i=0;i<=20;i++) {
       const a=(begin+i*90/20)*Math.PI/180, c=Math.cos(a),s=Math.sin(a);
@@ -92,6 +92,7 @@ document.querySelector('#email').value=savedEmail();
 const labels={requested:'Tailscale 공유를 준비하고 있습니다.',invited:'Tailscale 공유 초대 메일을 확인해 주세요.',awaiting_approval:'관리자 승인을 기다리고 있습니다.',approved:'연결 중…',ready:'연결 확인 중…',revoking:'Removing access',revoked:'Access removed',denied:'Access denied',expired:'Request expired'};
 function requestFeedback(row){
   if(row.error){
+    if(row.error==='access_check_required')return {status:'접속 상태를 확인하지 못했습니다.',note:'공유 초대는 발송하지 않았습니다.\nTailscale 연결을 확인하고, 계속되면 관리자에게 문의해 주세요.'};
     if(row.error==='invite_delivery_uncertain')return {status:'초대 발송을 확인하고 있습니다.',note:'중복 발송을 피하기 위해 확인 중입니다.\n계속 지연되면 관리자에게 문의해 주세요.'};
     if(row.error==='share_identity_changed'||row.error==='share_acceptance_changed')return {status:'공유를 수락한 계정을 확인할 수 없습니다.',note:'관리자에게 문의해 주세요.'};
     return {status:row.state==='requested'?'공유 초대를 준비하지 못했습니다.':'공유 상태를 확인하지 못했습니다.',
@@ -129,7 +130,10 @@ function render(){
 }
 async function call(path,body){
   const r=await fetch(path,{credentials:'same-origin',cache:'no-store',signal:AbortSignal.timeout(10000),...(body?{method:'POST',headers:{'Content-Type':'application/json','X-Loom-CSRF':context.csrf},body:JSON.stringify(body)}:{})});
-  if(!r.ok)throw new Error('요청을 처리하지 못했습니다.');
+  if(!r.ok){
+    const error=await r.json().catch(()=>({}));
+    throw new Error(error.code==='access_check_required'?'공유 초대는 발송하지 않았습니다. Tailscale 연결을 확인하고, 계속되면 관리자에게 문의해 주세요.':'요청을 처리하지 못했습니다.');
+  }
   return r.json();
 }
 function stopProbe(){clearTimeout(probeTimer);probeFrame?.remove();probeFrame=null;checking=false;}
@@ -155,6 +159,8 @@ addEventListener('message',event=>{
   if(value.authorized===true&&value.identity&&typeof value.identity.login==='string'&&['/','/auth/login'].includes(value.destination)){
     identity=value.identity;screen='login';progress='연결 중…';render();
     redirectTimer=setTimeout(()=>location.replace(context.dashboard+value.destination),1500);
+  }else if(value.reason==='identity_unavailable'){
+    progress='';screen='login';loginError='Tailscale 사용자 정보를 확인하지 못했습니다. 연결을 확인하고, 계속되면 관리자에게 문의해 주세요.';render();
   }else connectionFailed();
 });
 async function refreshRequest(){

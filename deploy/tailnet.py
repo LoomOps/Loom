@@ -107,7 +107,7 @@ def configure(root,plan,dns):
     net=ipaddress.ip_network(plan['bridge_cidr']);gateway=str(net[1]);dashboard=str(net[3])
     network={'services':{'loom-ops':{'networks':{'default':{'ipv4_address':str(net[2])}}},
                          'loom-dashboard':{'networks':{'default':{'ipv4_address':dashboard}}}},
-             'networks':{'default':{'ipam':{'config':[{'subnet':str(net),'ip_range':str(list(net.subnets(prefixlen_diff=1))[1])}]}}}}
+             'networks':{'default':{'ipam':{'config':[{'subnet':str(net),'gateway':gateway,'ip_range':str(list(net.subnets(prefixlen_diff=1))[1])}]}}}}
     suffix='' if plan['https_port']==443 else ':'+str(plan['https_port'])
     origin='https://'+dns+suffix
     api['tailscale_auth']={'enabled':True,'trusted_proxies':[gateway,dashboard],

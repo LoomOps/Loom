@@ -79,9 +79,18 @@ class SharingAdmission(Admission):
             for field in ('sender_name','sender_email'):
                 if field not in columns:c.execute('ALTER TABLE share_requests ADD COLUMN '+field+' TEXT')
 
+    def existing_access(self,email):
+        native={str(x).strip().casefold() for x in self.config.get('native_logins',[])}
+        native.update(a['subject'].removeprefix('tailscale:').strip().casefold()
+                      for a in self.config['admins'] if a['subject'].startswith('tailscale:'))
+        if email in native:return True
+        with self.db() as c:
+            return bool(c.execute("SELECT 1 FROM share_requests WHERE machine=? AND accepted_email=? AND state='ready' AND approved_by IS NOT NULL",(self.config['machine_id'],email)).fetchone())
+
     def request(self,user):
         email=str(user.get('login') or '').strip().casefold()
         if not re.fullmatch(r'[^\s@]{1,128}@[^\s@]{1,128}',email):raise ValueError('email_required')
+        if self.existing_access(email):raise ValueError('access_check_required')
         with self.lock,self.db() as c:
             c.execute('BEGIN IMMEDIATE')
             row=c.execute("SELECT * FROM share_requests WHERE machine=? AND email=? AND state NOT IN ('denied','revoked','expired')",(self.config['machine_id'],email)).fetchone()
@@ -266,6 +275,13 @@ class SharingAdmission(Admission):
             self.update(row['id'],state='revoking',terminal='expired',next_attempt=0);return
         invites=self.invites()
         if not row['invite_id']:
+            # A failed native login must never become an invitation to an admin
+            # or existing member. Only this private worker holds API credentials.
+            if self.existing_access(row['email']):raise ValueError('access_check_required')
+            users,_=self.api.call('GET',self.tailpath+'/users?type=member')
+            if not isinstance(users,dict) or not isinstance(users.get('users'),list):raise ValueError('membership_check_unavailable')
+            if any(str(u.get('loginName','')).strip().casefold()==row['email'] for u in users['users']):
+                raise ValueError('access_check_required')
             self.preflight()
             matches=[i for i in invites if str(i.get('email','')).casefold()==row['email'] and not i.get('multiUse') and not i.get('allowExitNode')]
             if len(matches)>1:raise ValueError('ambiguous_device_invitation')

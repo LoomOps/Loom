@@ -50,6 +50,7 @@ def probe(h,query):
         login=network['Tailscale-User-Login']
         identity={'login':login,'name':str(make_header(decode_header(network.get('Tailscale-User-Name',login))))}
     data={'type':'loom-gateway-probe','nonce':params['nonce'][0],'authorized':bool(identity),'identity':identity,
+          'reason':None if identity else ('access_required' if network else 'identity_unavailable'),
           'destination':'/' if session or not auth else '/auth/login'}
     origin=service.config['origin']
     script='parent.postMessage('+json.dumps(data).replace('<','\\u003c')+','+json.dumps(origin)+');'

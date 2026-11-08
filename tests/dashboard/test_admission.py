@@ -25,6 +25,7 @@ class FakeAPI:
     def call(self, method,path,value=None,headers=None):
         self.calls.append((method,path,copy.deepcopy(value),headers))
         if self.fail and path.endswith(self.fail):raise RemoteError(403)
+        if path.endswith('/users?type=member'):return {'users':copy.deepcopy(self.users)},{}
         if path.endswith('/devices'):return {'devices':copy.deepcopy(self.devices)},{}
         if path.startswith('/device/'):
             key=path.split('/')[2];device=next(d for d in self.devices if d['id']==key)
@@ -76,6 +77,15 @@ class AdmissionTests(unittest.TestCase):
         c=http.client.HTTPConnection('127.0.0.1',server.server_port)
         body=json.dumps(value).encode() if value is not None else None
         c.request(method,path,body,headers or {});r=c.getresponse();result=(r.status,r.read(),r.headers);c.close();return result
+
+    def test_existing_native_account_request_reports_attention_without_invite(self):
+        self.config['native_logins']=['owner@example.test']
+        s=self.start_http();_,body,h=self.http(s,'/api/session');session=json.loads(body)
+        headers={'Cookie':h['Set-Cookie'].split(';')[0],'Origin':'https://request.test','Content-Type':'application/json','X-Loom-CSRF':session['csrf']}
+        code,body,_=self.http(s,'/api/request','POST',{'email':'OWNER@example.test'},headers)
+        self.assertEqual(code,409);self.assertEqual(json.loads(body),{'code':'access_check_required'})
+        with self.a.db() as c:self.assertEqual(c.execute('SELECT count(*) FROM share_requests').fetchone()[0],0)
+        self.assertEqual(self.api.calls,[])
 
     def test_public_receipt_only_own_requests_csrf_and_no_private_routes(self):
         s=self.start_http();code,body,h=self.http(s,'/api/session');self.assertEqual(code,200)

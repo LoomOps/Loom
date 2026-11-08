@@ -79,3 +79,10 @@ Other partial-stage failures must be diagnosed without deleting existing state.
 Source packaging prepares the execution image explicitly and can resume only a
 verified, completed immutable build. Offline kits include the same doctor,
 smoke and all step documents.
+
+Ingress acceptance also compares the live Docker bridge gateway, running Dashboard
+trusted-proxy environment and Ops trusted proxies. A healthy HTTP listener or
+`/session` reporting `sso: true` cannot prove identity forwarding. The Compose
+network pins its gateway explicitly; tests cover IPAM selecting the dynamic pool
+boundary instead of the expected first host address. Ask installers specifically
+for the Admin account's **Tailscale login email**, not a generic administrator email.

@@ -21,11 +21,12 @@ class AccessSetupTests(unittest.TestCase):
 
     def test_sharing_setup_keeps_credentials_private(self):
         c=access_setup.load(self.plan);self.assertEqual(c['enrollment_mode'],'sharing')
-        (self.root/'secrets/sso').mkdir(parents=True);(self.root/'secrets/sso/config.json').write_text('{}')
+        (self.root/'secrets/sso').mkdir(parents=True);(self.root/'secrets/sso/config.json').write_text(json.dumps({'network_users':{'admin@example.test':{'subject':'admin'}}}))
         result=access_setup.configure(self.root,c)
         self.assertNotIn('secret-fixture',json.dumps(result))
         runtime=json.loads((self.root/'secrets/admission/config.json').read_text())
         self.assertEqual(runtime['credential_file'],'/etc/loom/admission/management.json')
+        self.assertEqual(runtime['native_logins'],['admin@example.test'])
         overlay=json.loads((self.root/'compose-admission.yaml').read_text())
         self.assertEqual(list(overlay['services']),['loom-dashboard','loom-gateway'])
         self.assertNotIn('ports',overlay['services']['loom-dashboard'])
@@ -35,6 +36,17 @@ class AccessSetupTests(unittest.TestCase):
         self.assertEqual((self.root/'secrets/admission/management.json').stat().st_mode&0o777,0o600)
         access_setup.configure(self.root,c)
         self.assertTrue(list((self.root/'network-backups').glob('admission-*/compose-admission.yaml')))
+
+    def test_management_preflight_requires_tailnet_member_read_permission(self):
+        from admission import RemoteError
+        def call(method,path,*args):
+            if path.endswith('/users?type=member'):raise RemoteError(403)
+            if path.endswith('/device-invites'):return {'invites':[]},{}
+            return {'addresses':self.c['addresses'],'tags':[]},{}
+        with patch.object(access_setup,'TailnetAPI') as factory:
+            factory.return_value.call.side_effect=call
+            with self.assertRaises(RemoteError):access_setup.inspect(self.c)
+            self.assertTrue(all(c.args[0]=='GET' for c in factory.return_value.call.call_args_list))
 
     def test_credential_prompt_hides_secret_and_refuses_overwrite(self):
         p=self.root/'credentials/key.json'

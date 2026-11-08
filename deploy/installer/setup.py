@@ -265,7 +265,7 @@ def make_plan(output,admin_email,data,additional_data,gpu,credential_file):
  from tailnet import status,write
  current=status()
  if current['state']!='Running' or not current['dns']:raise ValueError('Complete Tailscale login before generating the installation plan')
- if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',admin_email):raise ValueError('An explicit human Admin email is required')
+ if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',admin_email):raise ValueError('The login email of the Tailscale account that will administer Loom is required')
  output=output.resolve();access_file=output.with_name(output.stem+'-access.json')
  if output.exists() or access_file.exists():raise ValueError('Plan already exists; review it rather than silently replacing identities')
  raw=json.loads(run('tailscale','status','--json'));own=raw['Self']
@@ -306,7 +306,7 @@ if __name__=='__main__':
  p=argparse.ArgumentParser(description=__doc__)
  p.add_argument('action',choices=['inspect','plan','check','apply','verify','doctor','handoff','resume-network','smoke'])
  p.add_argument('plan',type=Path,nargs='?');p.add_argument('--stage',choices=diagnostics.STAGES)
- p.add_argument('--output',type=Path);p.add_argument('--admin-email');p.add_argument('--data',default=DEFAULT['data'])
+ p.add_argument('--output',type=Path);p.add_argument('--admin-email',help='Tailscale login email of the account that will administer Loom (not a contact email or OS username)');p.add_argument('--data',default=DEFAULT['data'])
  p.add_argument('--additional-data',action='append',default=[]);p.add_argument('--gpu',action='store_true')
  p.add_argument('--credential-file',type=Path,default=Path('/loom/private-inputs/tailscale-management.json'));a=p.parse_args()
  try:

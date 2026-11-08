@@ -37,6 +37,8 @@ def inspect(c):
     base='/tailnet/'+quote(c['tailnet'],safe='')
     if json.loads(Path(c['credential_file']).read_text()).get('type')!='api':raise ValueError('sharing_requires_user_api_access_token')
     api.call('GET','/device/'+c['device_id']+'/device-invites')
+    members,_=api.call('GET',base+'/users?type=member')
+    if not isinstance(members,dict) or not isinstance(members.get('users'),list):raise ValueError('membership_check_unavailable')
     policy,_=api.call('GET',base+'/acl')
     from sharing import pending_policy
     pending_policy(policy,{**c,'machine_tags':device.get('tags',[])})
@@ -55,6 +57,7 @@ def configure(root, c):
     for path in [secret/'config.json',root/'compose-admission.yaml']:
         if path.exists():write(backup/path.name,path.read_text(),uid,gid)
     runtime=json.loads(json.dumps(c))
+    runtime['native_logins']=sorted(json.loads((root/'secrets/sso/config.json').read_text()).get('network_users',{}))
     runtime['separate_gateway']=True
     runtime['credential_file']='/etc/loom/admission/management.json'
     runtime['database']='/var/lib/loom-admission/requests.sqlite3'

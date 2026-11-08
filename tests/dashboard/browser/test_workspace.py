@@ -190,10 +190,13 @@ const done=arguments[arguments.length-1];
             def assertion(auth,identity):return 'fixture-relay'
         auth=Auth();self.web.sso=auth;self.web.admission=f.a
         self.addCleanup(setattr,self.web,'sso',None);self.addCleanup(delattr,self.web,'admission')
+        # An unapproved external visitor cannot reach the private probe.
+        self.web.admission=None
         ui=self.ui;ui.top();self.wd('/url',{'url':origin})
         ui.wait("return !document.querySelector('#request').hidden")
         ui.wait("return document.documentElement.classList.contains('loom-scene-ready')")
-        self.assertEqual(ui.js("return getComputedStyle(document.querySelector('.card')).backdropFilter"),'blur(44px) saturate(1.2)')
+        self.assertEqual(ui.js("return getComputedStyle(document.querySelector('.card')).backdropFilter"),'blur(30px) saturate(1.4)')
+        self.assertEqual(ui.js("return getComputedStyle(document.querySelector('.card-shadow')).filter"),'none')
         self.assertEqual(ui.js("return document.querySelector('.loom-logo-gate').getAnimations()[0].effect.getTiming().duration"),8000)
         if folder:=os.environ.get('LOOM_TEST_SCREENSHOTS'):
             output=Path(folder);output.mkdir(parents=True,exist_ok=True)
@@ -270,6 +273,7 @@ const done=arguments[arguments.length-1];
         ui.wait("return document.querySelector('.pending').textContent==='최신 상태를 확인할 수 없습니다.'")
         ui.js("window.fetch=window.savedFetch;window.dispatchEvent(new Event('focus'))")
         ui.wait("return document.querySelector('.pending').textContent==='관리자 승인을 기다리고 있습니다.'")
+        self.web.admission=f.a
         auth.active=True;self.wd('/url',{'url':self.base})
         ui.wait("return !document.querySelector('iframe').hidden");ui.frame()
         ui.wait("return !!document.querySelector('.pa-profile-trigger')");ui.click('.pa-profile-trigger')
@@ -303,7 +307,7 @@ const done=arguments[arguments.length-1];
         ui.wait("return !document.querySelector('.pa-loom-access').textContent.includes('denied@example.test')")
         self.assertFalse(any(r['id']==denied['id'] for r in f.a.rows(f.admin,admin=True)))
         # Losing the receipt does not lose the last email, and never auto-submits it.
-        auth.active=False
+        auth.active=False;self.web.admission=None
         ui.top();self.wd('/url',{'url':origin})
         request(self.session+'/cookie/fixture-sharing-receipt',method='DELETE')
         self.wd('/refresh',{})
@@ -704,6 +708,12 @@ const done=arguments[arguments.length-1];
         self.addCleanup(t.join,2);self.addCleanup(public.server_close);self.addCleanup(public.shutdown)
         self.web.admission=f.a;self.addCleanup(delattr,self.web,'admission')
         self.ui.top();self.wd('/url',{'url':origin})
+        # A reachable private endpoint without trusted identity is a diagnostic
+        # failure, not a new-user invitation flow.
+        self.ui.wait("return document.querySelector('#login-error').textContent.includes('관리자에게 문의')")
+        self.assertTrue(self.ui.js("return document.querySelector('#request').hidden"))
+        del self.web.admission
+        self.wd('/refresh',{})
         self.ui.wait("return !document.querySelector('#request').hidden")
         self.assertEqual(self.ui.js('return location.origin'),origin)
         self.ui.js("document.querySelector('#email').value='requester@example.test'")
@@ -722,6 +732,7 @@ const done=arguments[arguments.length-1];
             def session(auth,headers):return {'user':{'name':'Verified member','login':'member@example.test'},'csrf':'fixture'}
             def assertion(auth,identity):return 'fixture'
         self.web.sso=Auth();self.addCleanup(setattr,self.web,'sso',None)
+        self.web.admission=f.a
         self.wd('/refresh',{})
         self.ui.wait("return document.querySelector('#recognized-name')?.textContent==='Verified member'")
         self.assertTrue(self.ui.js("return !document.querySelector('#continue') && document.querySelector('#request').hidden"))

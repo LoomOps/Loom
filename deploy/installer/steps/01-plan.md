@@ -2,7 +2,7 @@
 
 Run `python3 deploy/installer/setup.py inspect` from the source checkout. In a kit use `python3 setup.py inspect`. If prerequisites/login are missing, complete the relevant host preparation in step 2 and return here.
 
-Recommend a new output subdirectory on an existing mounted data volume, `/dependencies` for selected editable sources, and GPU only if hardware/driver/container support is present. Explain these recommendations using detected facts. Ask only for unresolved material choices: the human Admin email, which existing stores to expose, GPU needs and selected external source revisions. Do not infer the Admin from the OS user or a tagged machine's owner. No research framework is a Loom prerequisite.
+Recommend a new output subdirectory on an existing mounted data volume, `/dependencies` for selected editable sources, and GPU only if hardware/driver/container support is present. Explain these recommendations using detected facts. Ask only for unresolved material choices: the login email of the Tailscale account that will administer Loom, which existing stores to expose, GPU needs and selected external source revisions. Ask explicitly: “Which Tailscale account will administer Loom? Provide that account’s Tailscale login email.” A contact email or OS username is not sufficient. Do not infer the Admin from the OS user or a tagged machine's owner. No research framework is a Loom prerequisite.
 
 Generate the plan (replace the email with the confirmed Admin; add `--gpu` when selected):
 

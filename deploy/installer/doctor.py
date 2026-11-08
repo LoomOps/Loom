@@ -12,6 +12,18 @@ STEPS['acceptance']='steps/07-handoff.md'
 SERVICES = ('loom-ops', 'loom-dashboard', 'loom-gateway')
 
 
+def ingress_matches(dashboard, ops, api):
+    """Check observed Docker peers, not only the generated network settings."""
+    dn=dashboard.get('NetworkSettings',{}).get('Networks',{})
+    on=ops.get('NetworkSettings',{}).get('Networks',{})
+    if len(dn)!=1 or set(dn)!=set(on):return False
+    name=next(iter(dn));gateway=dn[name].get('Gateway');peer=dn[name].get('IPAddress')
+    if not gateway or not peer or on[name].get('Gateway')!=gateway:return False
+    env=dict(x.split('=',1) for x in dashboard['Config'].get('Env',[]) if '=' in x)
+    return (env.get('LOOM_TAILSCALE_TRUSTED_PROXIES','').split()==[gateway] and
+            set(api.get('tailscale_auth',{}).get('trusted_proxies',[]))=={gateway,peer})
+
+
 def request(url, body=None):
     req = Request(url, data=json.dumps(body).encode() if body else None,
                   headers={'Content-Type': 'application/json'})
@@ -79,7 +91,7 @@ def recommendations(info):
         {'topic': 'gpu', 'recommendation': 'Enable GPU after container exposure verification.' if tools.get('nvidia-smi') else 'Use CPU unless GPU hardware and a compatible host driver are confirmed.'},
         {'topic': 'storage', 'recommendation': 'Prefer an existing mounted data volume; choose a new output subdirectory. Inventory every intended store; never format or select all disks automatically.'},
         {'topic': 'dependencies', 'recommendation': 'Use /dependencies for selected editable sources; research runtimes belong to Job profiles, not the host installer.'},
-        {'topic': 'identity', 'recommendation': 'Confirm the human Admin email; do not infer it from the OS account or a tagged device owner. Store management credentials only in a protected local file.'},
+        {'topic': 'identity', 'recommendation': 'Ask for the login email of the Tailscale account that will administer Loom. This is not an arbitrary contact email or OS account. Do not infer it from a tagged device owner. Store management credentials only in a protected local file.'},
         {'topic': 'handoff', 'recommendation': 'Lead with the verified public Gateway URL. Include private Dashboard/MCP, storage, service version and verification limits; never print an owner token.'},
     ]
 
@@ -197,6 +209,14 @@ def doctor(setup, plan, stage=None):
     check('services','observations_fresh',observations,'Inspect the collector logs and observation mount; the timer alone does not prove data freshness.')
     check('services','observations_timer',lambda: setup.run('systemctl','is-active','loom-observations.timer')=='active' and setup.run('systemctl','is-enabled','loom-observations.timer')=='enabled','Restore the host observation collector and timer.')
     check('services','startup_enabled',lambda: all(setup.run('systemctl','is-enabled',s)=='enabled' for s in ['loom-stack','loom-executor']),'Enable both startup units.')
+    def ingress():
+        containers=[]
+        for service in ('loom-dashboard','loom-ops'):
+            ids=setup.run('docker','ps','-q','--filter','label=com.docker.compose.project=loom','--filter','label=com.docker.compose.service='+service).split()
+            if len(ids)!=1:return False
+            containers.append(json.loads(setup.run('docker','inspect',ids[0]))[0])
+        return ingress_matches(*containers,read('config/api.json'))
+    check('services','trusted_ingress_matches_docker',ingress,'Compare the actual Docker bridge gateway with Dashboard and Ops trusted proxies. Pin the Compose gateway; existing networks need an explicit idle maintenance repair, not a broader trusted subnet.')
     check('services','dashboard_native_entry',lambda: request(f"http://127.0.0.1:{plan['dashboard_port']}/session")[1].get('sso') is True,'Configure Dashboard native identity and apply Compose.')
     check('network','serve_funnel_isolation',routes,'Apply private Serve routes and the separate public Gateway publication.')
     check('network','sharing_policy',policy,'Reconcile exact-machine Gateway grants without broadening private access.')

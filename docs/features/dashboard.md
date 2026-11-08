@@ -41,7 +41,7 @@ Actual Safari behavior, existing user sessions and trusted Tailscale ingress req
 
 With a separate gateway configured, an unauthenticated private `/` redirects to
 that gateway before sending workspace HTML. `/session.entry_url` handles a session
-change during page loading without exposing the old token form. The old `/node` and external login callback paths return 404. Token-only
+change during page loading without exposing the old token form. The old `/node` and external login callback paths return 404. Older token-only
 installations without a gateway retain credential entry in the current Loom Ops themed
 card; the retired intermediate/token inspector screens are removed. The API root
 returns service discovery JSON, not a second Dashboard. An initial transport failure
@@ -174,7 +174,10 @@ intervals; it never represents actual queue activity. The entry page uses the
 the SVG paths. Canvas caps drawing at 30 fps, stops while hidden and honors
 reduced-motion; the flat mark uses CSS transforms/opacity. Theme changes redraw
 the background without reloading it. Authentication and request stages do not
-depend on either animation loading. The acrylic card filters only its backdrop.
+depend on either animation loading. The acrylic card filters only its backdrop (30px blur); the scene itself keeps
+its independent 19px blur. Card tint is 34% in either theme, with 60px n=4
+corners and no outline or inset highlight. Verify acrylic samples from the rendered
+display: Firefox WebDriver screenshots omit backdrop-filter effects.
 
 ## Public template data
 

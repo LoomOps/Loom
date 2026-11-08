@@ -164,6 +164,11 @@ class PublicHandler(BaseHTTPRequestHandler):
                 return reply(self,200,{'request':safe_rows([a.request(session['user'])])[0]})
             return reply(self,404,{'code':'route_unavailable'})
         except PermissionError:return reply(self,403,{'code':'forbidden'})
+        except ValueError as error:
+            # Do not disclose whether the email is an admin, native member or
+            # approved recipient. It never establishes identity or grants access.
+            code='access_check_required' if str(error)=='access_check_required' else 'request_failed'
+            return reply(self,409 if code=='access_check_required' else 400,{'code':code})
         except Exception:
             # No provider responses, tokens, exception text or account enumeration.
             return reply(self,400,{'code':'request_failed'})
@@ -174,6 +179,9 @@ class PublicHandler(BaseHTTPRequestHandler):
 
 
 def start(config, private_server):
+    # Also protect existing installations whose saved admission config predates
+    # native_logins. No identity keys or session material enter the public worker.
+    config={**config,'native_logins':list(getattr(private_server.sso,'users',{}))}
     service=make_admission(config)
     if config.get('separate_gateway'):
         private_server.admission=service
