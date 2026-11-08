@@ -125,3 +125,13 @@ class UninstallTests(unittest.TestCase):
   p=self.plan()
   with self.assertRaisesRegex(ValueError,'not returned'):self.apply(p)
   self.assertFalse(self.receipt.exists())
+
+ def test_resume_rechecks_active_work_even_with_existing_receipt(self):
+  p=self.plan();self.api.fail=True
+  with self.assertRaises(RemoteError):self.apply(p)
+  self.api.fail=False
+  with sqlite3.connect(self.root/'runtime/ops.sqlite3') as db:db.execute("insert into jobs values('running')")
+  before=len(self.api.calls)
+  with self.assertRaisesRegex(ValueError,'Active Jobs'):self.apply(p)
+  self.assertTrue(all(m=='GET' for m,_ in self.api.calls[before:]))
+  self.assertTrue((self.root/'secrets/admission/management.json').exists())

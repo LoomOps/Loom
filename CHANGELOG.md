@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-alpha.21 — 2026-11-08
 
 - Add an administrator-only uninstall CLI that previews and removes an instance's
   managed Sharing grants/invitations, listeners and local access history. Remote

@@ -177,9 +177,7 @@ def _apply_locked(plan,confirmation,receipt,api=None,run=update.run):
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         record=previous or {'schema':'loom-uninstall-receipt/v1','fingerprint':plan['fingerprint'],'instance':str(root),'state':'running','stage':'preflight'}
         db=root/'runtime/ops.sqlite3'
-        if not previous:
-            resources_returned(root)
-            update.idle_gate(db)
+        fence_for_uninstall(root, resume=bool(previous))
         try:
             write(receipt,record)
             if current['startup_unit']:run('systemctl','disable','--now',Path(current['startup_unit']).name)
@@ -218,6 +216,25 @@ def _apply_locked(plan,confirmation,receipt,api=None,run=update.run):
             # until remote cleanup is confirmed; resume with the same plan/receipt.
             raise
 
+
+
+def fence_for_uninstall(root,resume=False):
+    db=root/'runtime/ops.sqlite3'
+    with sql(db) as c:mode=c.execute('SELECT mode FROM node_control WHERE id=1').fetchone()[0]
+    if mode=='active':
+        update.idle_gate(db)
+        try:resources_returned(root)
+        except BaseException:
+            update.ungate(db)
+            raise
+    elif mode=='maintenance' and resume:
+        with sql(db) as c:
+            if c.execute("SELECT 1 FROM jobs WHERE state IN ('preparing','running','processing') LIMIT 1").fetchone():
+                raise ValueError('Active Jobs appeared before uninstall resume')
+            if c.execute("SELECT name FROM sqlite_master WHERE name='hooks'").fetchone() and c.execute("SELECT 1 FROM hooks WHERE state='pending' LIMIT 1").fetchone():
+                raise ValueError('Pending lifecycle callbacks before uninstall resume')
+        resources_returned(root)
+    else:raise ValueError('Instance is fenced by another operation: '+mode)
 
 
 def resources_returned(root):
