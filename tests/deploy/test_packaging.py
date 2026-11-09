@@ -116,16 +116,19 @@ class PackagingTests(unittest.TestCase):
 class DashboardBuildContextTests(unittest.TestCase):
     def test_every_dashboard_copy_input_is_in_the_build_context(self):
         import shlex
-        root=Path(__file__).resolve().parents[2]/'dashboard'
-        allowed=set((root/'.dockerignore').read_text().splitlines())
-        for line in (root/'Dockerfile').read_text().splitlines():
-            if not line.startswith('COPY '):continue
-            for source in shlex.split(line)[1:-1]:
-                with self.subTest(source=source):
-                    name=source.rstrip('/')
-                    self.assertIn('!'+name,allowed)
-                    self.assertTrue((root/name).exists())
-                    if (root/name).is_dir():self.assertIn('!'+name+'/**',allowed)
+        import release
+        with tempfile.TemporaryDirectory() as temp:
+            target,_=release.prepare('0.0.0-alpha.1',Path(temp))
+            root=target/'source/dashboard'
+            allowed=set((root/'.dockerignore').read_text().splitlines())
+            for line in (root/'Dockerfile').read_text().splitlines():
+                if not line.startswith('COPY '):continue
+                for source in shlex.split(line)[1:-1]:
+                    with self.subTest(source=source):
+                        name=source.rstrip('/')
+                        self.assertIn('!'+name,allowed)
+                        self.assertTrue((root/name).exists())
+                        if (root/name).is_dir():self.assertIn('!'+name+'/**',allowed)
 
     def test_explicit_dashboard_context_includes_native_identity_runtime(self):
         root=Path(__file__).resolve().parents[2]
