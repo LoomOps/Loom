@@ -94,6 +94,10 @@ def build(original):
     )
     if "['tools','Tools','wrench']" not in inner:
         inner=replace_once(inner,"['docker','Docker','boxes']","['tools','Tools','wrench'],['docker','Docker','boxes']")
+    inner=replace_once(inner,"['tools','Tools','wrench']","['tools','Components & Tools','puzzle']")
+    inner=replace_once(inner,"return {page:e?.kind==='model'?", "return {page:['tool','component'].includes(e?.kind)?'tools':e?.kind==='model'?")
+    inner=replace_once(inner,"const catEntity=id=>catalogData.entities.find(e=>e.id===id)||(typeof workStepRecord==='function'?workStepRecord(id):null);",
+        "const catEntity=id=>catalogData.entities.find(e=>e.id===id)||(typeof workStepRecord==='function'?workStepRecord(id):null)||loomHistoricalExtensionEntity(id);")
     marker = "catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');"
     inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "details.js", "queue.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js"))
     inner = replace_once(inner, marker, inner_additions + "\n" + (HERE.parent/"branding/brand.js").read_text() + "\n" + marker)

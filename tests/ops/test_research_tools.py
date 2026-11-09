@@ -87,6 +87,26 @@ class ResearchToolTests(IsolatedOps):
         self.assertEqual({e['kind'] for e in catalog['entities']},{'tool','component'})
         self.assertEqual(next(e for e in catalog['entities'] if e['kind']=='tool')['label'],'Motion planner')
 
+    def test_dashboard_revisions_preserve_exact_profile_bindings_without_writes(self):
+        self.register('old planner')
+        profile={**self.profile,'tools':{'planner':{'id':'planner','revision':1}}}
+        self.action('register',id='hybrid',manifest={'profiles':{'run':profile}},files={'run.py':'old adapter'})
+        self.action('register_profile',id='independent',profile=profile)
+        self.register('new planner')
+        self.action('register',id='hybrid',manifest={'profiles':{'run':{**profile,'tools':{'planner':{'id':'planner','revision':2}}}}},files={'run.py':'new adapter'})
+        with ops.db() as c:
+            before=list(c.iterdump())
+            catalog,_=dashboard_read.projection(c,self.owner,self.config,self.local)
+            self.assertEqual(before,list(c.iterdump()))
+        tool=next(e['loom_extension'] for e in catalog['entities'] if e['kind']=='tool')
+        self.assertEqual([v['revision'] for v in tool['revisions']],[2,1])
+        self.assertEqual({p['kind'] for p in tool['revisions'][1]['used_by']},{'owner.hybrid.run.r1','owner.independent.r1'})
+        self.assertEqual([p['kind'] for p in tool['revisions'][0]['used_by']],['owner.hybrid.run.r2'])
+        component=next(e['loom_extension'] for e in catalog['entities'] if e['kind']=='component')
+        self.assertEqual(component['revisions'][1]['profiles'][0]['tools']['planner']['revision'],1)
+        self.assertEqual(component['revisions'][0]['profiles'][0]['tools']['planner']['revision'],2)
+        self.assertNotEqual(component['revisions'][0]['source_pins'],component['revisions'][1]['source_pins'])
+
     def test_real_http_and_mcp_discover_and_forward_optional_actions(self):
         server=ThreadingHTTPServer(('127.0.0.1',0),ops.API);server.config=self.config
         thread=Thread(target=server.serve_forever,kwargs={'poll_interval':.01},daemon=True);thread.start()

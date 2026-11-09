@@ -1,5 +1,11 @@
 # extensions — Dynamic components, profiles and execution environment contracts
 
+Dashboard's shared Components & Tools inventory includes historical records and
+the latest native registration for each namespace/ID. Native revision summaries
+retain source hashes and exact profile Tool references; usage distinguishes pins
+to older Tools from current registrations. Independent profile references are
+included. This is discovery, not validation that an image/dependency is healthy.
+
 ## Responsibilities and boundaries
 
 Registering a new component must not require new MCP tools or platform redeployment. Preserve profile revision pins on submitted Jobs.

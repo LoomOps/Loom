@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-alpha.42
+
+- Combine Components and Tools in one searchable, type/namespace-filtered software inventory with a distinct sidebar icon.
+- Add revision browsing, source hashes, execution stages and exact Profile/Tool usage links; preserve historical revision URLs and background-refresh selections.
+- Improve light/dark and narrow/split-pane software layouts without browser registration or execution actions.
+
 ## 0.1.0-alpha.41
 
 - Separate immutable research Tools from Job lifecycle Components; expose discovery, exact revision copying and pinned read-only execution through existing MCP groups and Dashboard.

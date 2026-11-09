@@ -316,3 +316,67 @@
 
 #pai-studio [data-ssh-username]{max-width:260px;min-width:160px}
 #pai-studio [data-ssh-username][readonly]{border-color:transparent;background:transparent;padding-left:0}
+
+/* Software inventory shares the workspace palette and remains usable in split panes. */
+#pai-studio .pa-extension-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:24px}
+#pai-studio .pa-extension-summary>div{padding:20px 24px;border:1px solid var(--pa-line);border-radius:20px;background:var(--pa-paper)}
+#pai-studio .pa-extension-summary span{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
+#pai-studio .pa-extension-summary strong{display:block;margin:8px 0;font-size:30px;line-height:1.1;font-weight:650;font-variant-numeric:tabular-nums}
+#pai-studio .pa-extension-summary p{margin:0;color:var(--pa-muted);font-size:12px;line-height:1.6}
+#pai-studio .pa-extension-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+#pai-studio .pa-extension-filters{display:flex;gap:3px;padding:3px;border-radius:10px;background:var(--pa-bg)}
+#pai-studio .pa-extension-filters button{border:0;border-radius:7px;padding:7px 10px;background:transparent;color:var(--pa-muted);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
+#pai-studio .pa-extension-filters button[aria-pressed=true]{background:var(--pa-paper);color:var(--pa-ink);box-shadow:0 1px 3px #0001}
+#pai-studio .pa-extension-search{display:flex;align-items:center;gap:8px;flex:1 1 180px;min-width:0;border:1px solid var(--pa-line);border-radius:9px;padding:8px 10px}
+#pai-studio .pa-extension-search input{border:0;outline:0;background:transparent;color:inherit;font:inherit;font-size:12px;width:100%;min-width:0}
+#pai-studio .pa-extension-search:focus-within{outline:2px solid var(--pa-accent);outline-offset:2px}
+#pai-studio [data-extension-owner],#pai-studio .pa-extension-file-search{border:1px solid var(--pa-line);border-radius:9px;background:var(--pa-paper);color:var(--pa-ink);padding:8px 10px;font:inherit;font-size:12px;max-width:100%;min-width:0}
+#pai-studio .pa-extension-file-search{width:100%;margin-bottom:12px;box-sizing:border-box}
+#pai-studio .pa-extension-results{margin:16px 0;color:var(--pa-muted);font-size:12px}
+#pai-studio .pa-extension-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,310px),1fr));gap:14px}
+#pai-studio .pa-extension-card{min-width:0;padding:20px;border:1px solid var(--pa-line);border-radius:16px;background:var(--pa-paper)}
+#pai-studio .pa-extension-card:focus-within{border-color:var(--pa-accent)}
+#pai-studio .pa-extension-card-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:11px}
+#pai-studio .pa-extension-card-head>span:last-child{margin-left:auto;color:var(--pa-muted);overflow-wrap:anywhere}
+#pai-studio .pa-extension-kind{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--pa-accent);white-space:nowrap}
+#pai-studio .pa-extension-kind[data-kind=tool]{color:light-dark(#48745e,#a2c4b2)}
+#pai-studio .pa-extension-revision{background:var(--pa-bg);color:var(--pa-muted);padding:3px 6px;border-radius:5px;font-size:10px;white-space:nowrap}
+#pai-studio .pa-extension-card h3{margin:16px 0 5px;font-size:16px;line-height:1.4;overflow-wrap:anywhere}
+#pai-studio .pa-extension-id{display:block;font-size:11px;line-height:1.5;color:var(--pa-muted);overflow-wrap:anywhere}
+#pai-studio .pa-extension-card p{color:var(--pa-muted);font-size:12px;line-height:1.7;margin:12px 0 18px;overflow-wrap:anywhere}
+#pai-studio .pa-extension-card-facts{display:flex;flex-wrap:wrap;gap:10px 16px;color:var(--pa-muted);font-size:11px;border-top:1px solid var(--pa-line);padding-top:14px}
+#pai-studio .pa-extension-card-facts span{display:inline-flex;align-items:center;gap:5px}
+#pai-studio .pa-extension-card-facts svg,#pai-studio .pa-extension-search svg{width:14px;height:14px;flex-shrink:0}
+#pai-studio .pa-extension-empty{grid-column:1/-1;padding:32px 16px;text-align:center;color:var(--pa-muted);line-height:1.7}
+#pai-studio .pa-extension-empty h3{color:var(--pa-ink);font-size:15px}
+#pai-studio .pa-extension-detail-badges{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:-6px 0 24px;font-size:12px;color:var(--pa-muted)}
+#pai-studio .pa-extension-detail-grid{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+#pai-studio .pa-extension-detail-grid>main{flex:2 1 450px;min-width:0}
+#pai-studio .pa-extension-detail-grid>aside{flex:1 1 230px;min-width:0}
+#pai-studio .pa-extension-detail-grid .pa-panel{margin-bottom:20px}
+#pai-studio .pa-extension-detail-grid .pa-panel-head small{margin-left:7px;color:var(--pa-muted);font-size:12px;font-weight:400}
+#pai-studio .pa-extension-detail-grid dd,#pai-studio .pa-extension-detail-grid pre{overflow-wrap:anywhere;min-width:0}
+#pai-studio .pa-extension-detail-grid pre{max-height:420px;overflow:auto;white-space:pre-wrap;font-size:11px}
+#pai-studio .pa-extension-detail-grid [data-extension-select]{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:12px;border:0;border-radius:8px;background:transparent;color:var(--pa-ink);cursor:pointer;text-align:left;font:inherit;font-size:12px}
+#pai-studio .pa-extension-detail-grid [data-extension-select][aria-pressed=true]{background:var(--pa-selected);color:var(--pa-selected-text)}
+#pai-studio [data-extension-select] span,#pai-studio [data-extension-select] small{color:var(--pa-muted);font-size:11px}
+#pai-studio [data-extension-select] small{margin-left:8px;font-weight:400}
+#pai-studio .pa-extension-profile,#pai-studio .pa-extension-consumer{padding:16px 0;border-bottom:1px solid var(--pa-line);min-width:0}
+#pai-studio .pa-extension-profile:first-child,#pai-studio .pa-extension-consumer:first-child{padding-top:0}
+#pai-studio .pa-extension-profile:last-child,#pai-studio .pa-extension-consumer:last-child{border-bottom:0;padding-bottom:0}
+#pai-studio .pa-extension-profile h3,#pai-studio .pa-extension-consumer b{font:600 12px/1.6 ui-monospace,monospace;margin:0 0 12px;overflow-wrap:anywhere}
+#pai-studio .pa-extension-profile small,#pai-studio .pa-extension-consumer span,#pai-studio .pa-extension-consumer small{display:block;color:var(--pa-muted);font-size:11px;line-height:1.7;margin-top:8px}
+#pai-studio .pa-extension-stages>div{display:grid;grid-template-columns:80px minmax(0,1fr);gap:6px 10px;padding:10px 0;font-size:11px}
+#pai-studio .pa-extension-stages span,#pai-studio .pa-extension-stages code{overflow-wrap:anywhere;color:var(--pa-muted)}
+#pai-studio .pa-extension-stages code{grid-column:2;font-size:11px}
+#pai-studio .pa-extension-pins{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;margin:12px 0}
+#pai-studio .pa-extension-detail-grid .pa-link{overflow-wrap:anywhere;white-space:normal;text-align:left;font-size:12px}
+#pai-studio .pa-extension-hash{font-size:10px;word-break:break-all}
+#pai-studio .pa-extension-detail-grid td:first-child code{overflow-wrap:anywhere;font-size:11px}
+#pai-studio .pa-extension-description{font-size:13px;line-height:1.8;color:var(--pa-muted);overflow-wrap:anywhere;margin:-4px 0 20px}
+#pai-studio .pa-extension-detail-badges label{margin-left:auto;display:flex;align-items:center;gap:8px}
+#pai-studio [data-extension-version]{font:inherit;color:var(--pa-ink);background:var(--pa-paper);border:1px solid var(--pa-line);border-radius:7px;padding:6px 8px}
+#pai-studio .pa-extension-detail-grid .pa-panel-head h2 small{display:inline}
+#pai-studio .pa-extension-id{background:transparent;padding:0}
+#pai-studio .pa-extension-detail-grid table{table-layout:fixed;width:100%}
+#pai-studio .pa-extension-detail-grid th:first-child{width:50%}

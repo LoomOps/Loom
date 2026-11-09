@@ -92,6 +92,84 @@ const done=arguments[arguments.length-1];
         self.assertTrue(self.ui.js("return document.querySelector('.pa-pane-body').textContent.includes('planner.py')"))
         self.assertFalse(self.ui.js("return !!window.toolInjected"))
 
+    def software_fixture(self):
+        tool_id='tool:owner:planner:r2';component_id='component:owner:hybrid:r2'
+        profile={'kind':'owner.hybrid.run.r2','tools':{'planner':{'owner':'owner','id':'planner','revision':1}},
+                 'stages':[{'stage':'runtime','lane':'cpu','runtime':'python','command':['python3','/component/hybrid.py']}],
+                 'limits':{'timeout_seconds':60,'max_attempts':1}}
+        rows=[{'id':tool_id,'kind':'tool','label':'Motion planner','namespace':'owner','summary':'Reusable motion planning library',
+            'properties':{},'relations':[],'artifacts':[],'loom_extension':{'owner':'owner','id':'planner','revision':2,
+            'manifest':{'description':'Reusable planner','source_pins':{'planner/new_solver.py':'b'*64}},
+            'revisions':[{'revision':2,'label':'Motion planner','description':'Second revision','source_pins':{'planner/new_solver.py':'b'*64},'sha256':'a'*64,'used_by':[]},
+                         {'revision':1,'label':'Motion planner v1','description':'<script>window.softwareInjected=true</script>','source_pins':{'planner/old_solver.py':'c'*64},'sha256':'d'*64,
+                          'used_by':[{'kind':profile['kind'],'alias':'planner','owner':'owner','component':component_id}]}]}},
+            {'id':component_id,'kind':'component','label':'Hybrid lifecycle','namespace':'owner','summary':'Prepare and run a hybrid Job',
+             'properties':{},'relations':[],'artifacts':[],'loom_extension':{'owner':'owner','id':'hybrid','revision':2,'manifest':{'description':'Thin lifecycle adapter'},
+             'revisions':[{'revision':2,'label':'Hybrid lifecycle','source_pins':{'hybrid.py':'e'*64},'profiles':[profile]}]}},
+            {'id':'tool:other:policy:r1','kind':'tool','label':'Policy runner','namespace':'other','summary':'Policy inference wrapper',
+             'properties':{},'relations':[],'artifacts':[],'loom_extension':{'owner':'other','id':'policy','revision':1,'manifest':{'source_pins':{'policy.py':'f'*64}}}}]
+        self.api.fixture['catalog']['entities'].extend(rows)
+        self.api.fixture['catalog']['revision']='software-browser-fixture'
+        self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        self.ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('software-browser-fixture')")
+        self.ui.nav('Components & Tools')
+        return tool_id,component_id
+
+    def test_software_inventory_filters_and_distinct_navigation_icon(self):
+        tool_id,component_id=self.software_fixture();ui=self.ui
+        self.assertTrue(ui.js("return !!document.querySelector('[data-go=tools] svg[data-lucide=puzzle]') && !!document.querySelector('[data-go=issues] svg[data-lucide=wrench]')"))
+        ui.click('[data-extension-kind=tool]')
+        self.assertEqual(ui.js("return document.querySelectorAll('[data-extension-card]').length"),2)
+        ui.js("const f=document.querySelector('[data-extension-owner]');f.value='owner';f.dispatchEvent(new Event('change',{bubbles:true}))")
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-extension-card]')].map(n=>n.dataset.extensionCard)"),[tool_id])
+        ui.js("const f=document.querySelector('[data-extension-query]');f.value='no match';f.dispatchEvent(new Event('input',{bubbles:true}))")
+        self.assertTrue(ui.js("return document.querySelector('.pa-extension-empty').textContent.includes('조건에 맞는')"))
+        ui.click('[data-extension-clear]');ui.click('[data-extension-kind=component]')
+        self.assertTrue(ui.js("return !!document.querySelector('[data-extension-card=\"'+arguments[0]+'\"]')",component_id))
+        self.assertTrue(ui.js("return [...document.querySelectorAll('[data-extension-card]')].every(n=>n.querySelector('[data-kind=component]'))"))
+        self.assertFalse(self.api.actions)
+
+    def test_software_revisions_and_profile_links_keep_exact_tool_revision(self):
+        tool_id,component_id=self.software_fixture();ui=self.ui
+        ui.click('[data-entity="'+component_id+'"]')
+        ui.wait("return !!document.querySelector('[data-extension-open]')")
+        self.assertIn('/component/hybrid.py',ui.js("return document.querySelector('.pa-extension-stages').textContent"))
+        ui.click('[data-extension-open="'+tool_id+'"]')
+        ui.wait("return document.querySelector('[data-extension-select=\"1\"]')?.getAttribute('aria-pressed')==='true'")
+        self.assertTrue(ui.js("return document.querySelector('.pa-extension-detail-grid').textContent.includes('planner/old_solver.py')"))
+        self.assertTrue(ui.js("return document.querySelector('.pa-extension-consumer').textContent.includes('owner.hybrid.run.r2')"))
+        ui.click('[data-extension-select="2"]')
+        self.assertTrue(ui.js("return document.querySelector('.pa-extension-detail-grid').textContent.includes('planner/new_solver.py')"))
+        self.assertFalse(ui.js("return document.querySelector('.pa-extension-detail-grid').textContent.includes('planner/old_solver.py')"))
+        ui.click('[data-extension-select="1"]')
+        self.api.fixture['catalog']['revision']='software-background-refresh'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('software-background-refresh')")
+        self.assertEqual(ui.js("return document.querySelector('[data-extension-select=\"1\"]').getAttribute('aria-pressed')"),'true')
+        ui.route('tool:owner:planner:r1')
+        ui.wait("return document.querySelector('[data-extension-version]')?.value==='1'")
+        self.assertTrue(ui.js("return document.querySelector('.pa-extension-detail-grid').textContent.includes('planner/old_solver.py')"))
+        ui.js("const select=document.querySelector('[data-extension-version]');select.value='2';select.dispatchEvent(new Event('change',{bubbles:true}))")
+        self.assertTrue(ui.js("return document.querySelector('.pa-extension-detail-grid').textContent.includes('planner/new_solver.py')"))
+        self.assertFalse(ui.js("return !!window.softwareInjected"))
+        self.assertFalse(self.api.actions)
+
+    def test_software_inventory_and_details_fit_light_dark_narrow_views(self):
+        tool_id,_=self.software_fixture();ui=self.ui
+        for width in (1440,500):
+            ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+            for theme in ('light','dark'):
+                ui.click('[data-theme='+theme+']')
+                for view in ('list','detail'):
+                    if view=='detail':ui.click('[data-entity="'+tool_id+'"]')
+                    ui.wait("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)")
+                    ui.wait("return [...document.querySelectorAll('.pa-pane-body .pa-panel')].filter(p=>p.getBoundingClientRect().top<innerHeight).every(p=>p.querySelector(':scope > .loom-surface-skin')?.hasAttribute('viewBox'))")
+                    if folder:=os.environ.get('LOOM_TEST_SOFTWARE_SHOTS'):
+                        output=Path(folder);output.mkdir(parents=True,exist_ok=True)
+                        ui.top();(output/f'software-{view}-{theme}-{width}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));ui.frame()
+                    if view=='detail':ui.click('[data-extension-home]')
+        self.assertFalse(self.api.actions)
+
     def test_dataset_properties_are_consistent_and_source_metadata_is_lazy(self):
         import copy
         entity=copy.deepcopy(next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-model'))

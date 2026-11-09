@@ -88,6 +88,52 @@ def storage_label(bulk):
     return 'data'
 
 
+def extension_profile(kind,profile):
+    return {'kind':kind,'stages':[{'stage':stage,'lane':runner.get('lane','cpu'),
+        'runtime':runner.get('runtime_id') or runner.get('image'),'command':runner.get('command',[])}
+        for stage in ('prepare','runtime','finalize','on_complete','on_error','on_cancel')
+        if (runner:=profile.get(stage))], 'tools':{alias:{k:pin.get(k) for k in ('owner','id','revision','sha256')}
+            for alias,pin in profile.get('tool_pins',{}).items()},'limits':profile.get('limits',{})}
+
+
+def extension_inventory(db,actor,config):
+    """Read immutable software revisions and actual bindings; never infer readiness."""
+    import tool_store,component_store
+    tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    entries=[];consumers={}
+    def references(profile,owner,component=None):
+        for alias,pin in profile['tools'].items():
+            key=(pin['owner'],pin['id'],pin['revision'])
+            consumers.setdefault(key,[]).append({'kind':profile['kind'],'alias':alias,'owner':owner,'component':component})
+    for kind,table in (('tool','tools'),('component','components')):
+        if table not in tables:continue
+        for row in db.execute('SELECT owner,id,max(revision) revision FROM '+table+' GROUP BY owner,id').fetchall():
+            value=(tool_store.detail(db,row['owner'],row['id'],row['revision']) if kind=='tool' else
+                   component_store.operate(db,actor,{'action':'get','owner':row['owner'],'id':row['id']},config))
+            revisions=[]
+            for item in db.execute('SELECT * FROM '+table+' WHERE owner=? AND id=? ORDER BY revision DESC',(row['owner'],row['id'])).fetchall():
+                manifest=json.loads(item['manifest'])
+                profiles=[extension_profile(key,p) for key,p in json.loads(item['profiles']).items()] if kind=='component' else []
+                for profile in profiles:references(profile,row['owner'],kind+':'+row['owner']+':'+row['id']+':r'+str(row['revision']))
+                revisions.append({'revision':item['revision'],'sha256':item['sha256'] if kind=='tool' else None,
+                    'label':manifest.get('label',row['id']),'description':manifest.get('description',''),
+                    'source_pins':manifest.get('source_pins',{}),'profiles':profiles,'origin':manifest.get('origin')})
+            value['revisions']=revisions
+            entries.append({'id':kind+':'+row['owner']+':'+row['id']+':r'+str(row['revision']),
+                'kind':kind,'namespace':'loom','label':value['manifest'].get('label',row['id']),
+                'summary':value['manifest'].get('description',''),'properties':{'revision':row['revision']},
+                'loom_extension':value,'relations':[],'artifacts':[],
+                **ownership.extension(db,kind,row['owner'],row['id'])})
+    if 'execution_profiles' in tables:
+        for row in db.execute('SELECT owner,profile FROM execution_profiles'):
+            profile=json.loads(row['profile']);references(extension_profile(profile['revision'],profile),row['owner'])
+    for entity in entries:
+        if entity['kind']=='tool':
+            for revision in entity['loom_extension']['revisions']:
+                revision['used_by']=consumers.get((entity['loom_extension']['owner'],entity['loom_extension']['id'],revision['revision']),[])
+    return entries
+
+
 def projection(db, actor, config, local, bulk=None):
     storage=storage_label(bulk)
     snapshot = db.execute("""SELECT snapshot FROM history_records
@@ -155,17 +201,7 @@ def projection(db, actor, config, local, bulk=None):
     entities=[ownership.decorate(db,'job' if e['kind']=='job' else 'entity',e) for e in entities]
     # Research Tools and Job lifecycle Components are separate registry entries.
     # Historical catalog entries and their original classification remain intact.
-    import tool_store,component_store
-    for kind,table in (('tool','tools'),('component','components')):
-        if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",(table,)).fetchone():continue
-        for row in db.execute('SELECT owner,id,max(revision) revision FROM '+table+' GROUP BY owner,id').fetchall():
-            value=(tool_store.detail(db,row['owner'],row['id'],row['revision']) if kind=='tool' else
-                   component_store.operate(db,actor,{'action':'get','owner':row['owner'],'id':row['id']},config))
-            entities.append({'id':kind+':'+row['owner']+':'+row['id']+':r'+str(row['revision']),
-                'kind':kind,'namespace':'loom','label':value['manifest'].get('label',row['id']),
-                'summary':value['manifest'].get('description',''),'properties':{'revision':row['revision']},
-                'loom_extension':value,'relations':[],'artifacts':[],
-                **ownership.extension(db,kind,row['owner'],row['id'])})
+    entities.extend(extension_inventory(db,actor,config))
     queue = queue_control.view(db,actor,queue_control.execution_lane)
     revision = hashlib.sha256(json.dumps({'entities':entities,'queue':queue}, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return {'entities':entities, 'queue':queue, 'sources':[{'id':source, 'status':'ok'} for source in

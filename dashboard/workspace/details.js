@@ -273,7 +273,7 @@ function loomDetailHeading(html, id) {
         + '<div><dt>Job Type</dt><dd>' + esc(loomJobClass(entity).category) + '</dd></div>'
         + '<div><dt title="Full: main run; Pilot: reduced trial; Smoke: startup check">Execution Mode</dt><dd>' + esc(loomJobClass(entity).mode) + '</dd></div></dl>');
       title.after(...properties.children);
-    } else if (entity) {
+    } else if (entity && !entity.loom_extension) {
       const properties = document.createElement('div');
       properties.innerHTML = panel('Properties', '<dl class="pa-job-properties">'+ownerRow+'</dl>');
       title.after(...properties.children);
