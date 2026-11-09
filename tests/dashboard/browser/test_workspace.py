@@ -112,7 +112,7 @@ const done=arguments[arguments.length-1];
         self.api.fixture['catalog']['revision']='software-browser-fixture'
         self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
         self.ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('software-browser-fixture')")
-        self.ui.nav('Components & Tools')
+        self.ui.nav('Extensions')
         return tool_id,component_id
 
     def test_software_inventory_filters_and_distinct_navigation_icon(self):

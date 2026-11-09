@@ -30,7 +30,7 @@ Keep session/CSRF state in the parent only. Restrict iframe messages to permitte
 
 ## Tests and failure boundaries
 
-The Components & Tools sidebar entry uses a puzzle icon, distinct from the
+The Extensions sidebar entry uses a puzzle icon, distinct from the
 Troubleshooting wrench. Its shared inventory filters by software type, namespace
 and text, separating registered immutable extensions from preserved catalog
 records. Details display source pins, revision history, execution stages and exact

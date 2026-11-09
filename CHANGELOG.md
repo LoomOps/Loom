@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-alpha.44
+
+- Shorten the combined software navigation and page title to Extensions; retain Components and Tools as type filters.
+
 ## 0.1.0-alpha.43
 
 - Combine Components and Tools in one searchable, type/namespace-filtered software inventory with a distinct sidebar icon.
