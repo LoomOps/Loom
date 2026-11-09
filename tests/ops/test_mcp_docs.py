@@ -35,7 +35,8 @@ class McpDocumentationTests(IsolatedOps):
         expected=ops.tool_schema('submit_job')
         self.assertEqual(actual['required'],expected['required'])
         self.assertEqual(actual['properties']['execution'],{**expected['properties']['execution'],'description':mcp_docs.FIELD_HELP['execution']})
-        with self.assertRaises(ValueError):self.reference(group='jobs')
+        self.assertEqual(self.reference(group='jobs')['group'],'jobs')
+        with self.assertRaises(ValueError):self.reference(action='list')
 
     def test_public_result_operations_have_grouped_discovery_and_bundle_reference(self):
         # This list is the HTTP result contract, independent of GROUPS. A missing
@@ -48,3 +49,10 @@ class McpDocumentationTests(IsolatedOps):
         self.assertEqual(set(schema['required']),{'id','revision','component','ref'})
         self.assertEqual(schema['properties']['storage']['default'],'data/0')
         with self.assertRaises(PermissionError):self.reference(self.reader,group='results',action='reconnect')
+
+    def test_group_index_is_compact_and_scope_filtered(self):
+        value=self.reference(self.reader,group='components')
+        names={a['action'] for a in value['actions']}
+        self.assertIn('list',names);self.assertNotIn('register',names)
+        self.assertTrue(all('schema' not in a for a in value['actions']))
+        with self.assertRaises(ValueError):self.reference(group='unknown')

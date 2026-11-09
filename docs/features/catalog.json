@@ -100,7 +100,8 @@
         "recovery",
         "results",
         "extensions",
-        "catalog"
+        "catalog",
+        "diagnostics"
       ],
       "spec": "docs/features/api.md",
       "contracts": [
@@ -393,7 +394,8 @@
       "tests": [
         "tests/ops/test_job_history.py",
         "tests/ops/test_dashboard_resources.py",
-        "tests/ops/test_file_preview.py"
+        "tests/ops/test_file_preview.py",
+        "tests/ops/test_history_availability.py"
       ],
       "depends_on": [
         "identity",
@@ -517,7 +519,8 @@
         "api",
         "catalog",
         "observations",
-        "onboarding"
+        "onboarding",
+        "diagnostics"
       ],
       "spec": "docs/features/dashboard.md",
       "contracts": [
@@ -619,10 +622,12 @@
         "tests/deploy/test_access_setup.py",
         "tests/dashboard/test_gateway.py",
         "tests/dashboard/test_sharing.py",
-        "tests/deploy/test_managed_resources.py"
+        "tests/deploy/test_managed_resources.py",
+        "tests/dashboard/test_managed_permissions.py"
       ],
       "depends_on": [
-        "identity"
+        "identity",
+        "diagnostics"
       ],
       "spec": "docs/features/network.md",
       "contracts": [
@@ -790,7 +795,8 @@
         "execution",
         "observations",
         "onboarding",
-        "dashboard"
+        "dashboard",
+        "diagnostics"
       ],
       "spec": "docs/features/installation.md",
       "contracts": [
@@ -977,6 +983,43 @@
           "consumers": [
             "api",
             "onboarding"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "diagnostics",
+      "summary": "Private bounded local error collection; no remote telemetry",
+      "sources": [
+        "dashboard/diagnostics.py",
+        "ops/compose.diagnostics.yaml"
+      ],
+      "tests": [
+        "tests/dashboard/test_diagnostics.py"
+      ],
+      "depends_on": [],
+      "spec": "docs/features/diagnostics.md",
+      "contracts": [
+        "dashboard/diagnostics.py"
+      ],
+      "invariants": [
+        "Collection failures never block authentication, Jobs or responses. No secret/request/exception-message capture and no automatic upload."
+      ],
+      "change_rule": "Review every caller, image packaging, private volume ownership and independent Loom Use collector schema before changing collection fields.",
+      "live_validation": [
+        "Tests cover filesystem faults and retention. External collection/upload is not implemented; client and server directories remain on their respective machines."
+      ],
+      "interfaces": [
+        {
+          "name": "Local incident",
+          "entrypoint": "dashboard/diagnostics.py#record",
+          "accepts": "Fixed component/operation/code and optional exception object",
+          "returns": "Incident ID or None on suppressed/unwritable output; bounded JSONL",
+          "consumers": [
+            "api",
+            "network",
+            "dashboard",
+            "installation"
           ]
         }
       ]

@@ -50,6 +50,14 @@ class GuideTests(IsolatedOps):
     self.assertEqual(before['contract_revision'],after['contract_revision'])
 
 class GuideHTTPTests(APIContractTests):
+ def test_error_trace_is_available_to_standard_mcp_clients(self):
+  trace='02c11225fd5740a9833b384f68aad3af'
+  with patch('ops.diagnostics.record',return_value=trace):
+   error=self.request('/mcp',{'jsonrpc':'2.0','id':2,'method':'tools/call','params':{'name':'system','arguments':{'action':'invalid'}}})[1]['result']
+  self.assertTrue(error['isError'])
+  self.assertEqual(error['structuredContent'],{'error':'tool_error','incident_id':trace})
+  self.assertEqual(error['incident_id'],trace)
+  self.assertIn('loom',error['_meta'])
  def test_authenticated_download_and_mcp_discovery_identity(self):
   self.assertEqual(self.request('/api/guide',token=None)[0],403)
   status,index=self.request('/api/guide');self.assertEqual(status,200)

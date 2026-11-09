@@ -21,7 +21,7 @@ def action_schema(group,action,known,schema_for):
         return {'type':'object','properties':{'id':{'type':'string'},'known_revision':{'type':'string'}},'required':[],'additionalProperties':False}
     if op=='describe_action':
         return {'type':'object','properties':{'group':{'type':'string','enum':list(GROUPS)},'action':{'type':'string'}},'required':[],
-                'additionalProperties':False,'description':'Omit both fields for the available documentation index; provide both for one action.'}
+                'additionalProperties':False,'description':'Omit both fields for the full documentation index; provide group for its compact action index, or group and action for one schema.'}
     if op.startswith('profile_'):
         from profile_store import action_schema as profile_schema
         return profile_schema(action)

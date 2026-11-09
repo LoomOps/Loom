@@ -11,8 +11,13 @@ import re
 import socket
 import hmac
 import sso
+import diagnostics
 import admission_http
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+class DiagnosticHTTPServer(diagnostics.ServerMixin, ThreadingHTTPServer):
+    pass
+
 from urllib.parse import parse_qs, urlsplit, unquote
 
 PUBLIC = Path(__file__).with_name("public")
@@ -223,7 +228,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 if not self.valid_session_write(session):return self.error(403,'csrf_required')
                 return self.auth_redirect('/',[auth.logout(self.headers)])
             return self.error(405,'method_not_allowed')
-        except Exception:
+        except Exception as exc:
+            diagnostics.record('dashboard','authorize',exc,code='identity_error')
             # Provider responses may contain secrets; expose no exception text.
             return self.error(503,'sso_provider_unavailable')
 
@@ -383,7 +389,7 @@ def make_server(bind, port, api_origin):
     if (origin.scheme not in ("http", "https") or not origin.hostname or origin.username is not None
             or origin.password is not None or origin.path or origin.query or origin.fragment):
         raise ValueError("LOOM_API_ORIGIN must be an HTTP(S) origin")
-    server = ThreadingHTTPServer((bind, port), WebHandler)
+    server = DiagnosticHTTPServer((bind, port), WebHandler)
     server.upstream = origin
     server.development = os.environ.get('LOOM_DEV_NO_AUTH') == '1'
     management=os.getenv('LOOM_MANAGEMENT_ORIGIN') if server.development else None
@@ -395,6 +401,7 @@ def make_server(bind, port, api_origin):
 
 
 if __name__ == "__main__":
+    diagnostics.install_hooks('dashboard')
     with make_server(os.getenv("LOOM_DASHBOARD_BIND", "127.0.0.1"), int(os.getenv("LOOM_DASHBOARD_PORT", "8080")),
                      os.environ["LOOM_API_ORIGIN"]) as server:
         access_config=os.getenv('LOOM_ADMISSION_CONFIG')

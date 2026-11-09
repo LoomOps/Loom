@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha.38
+
+- Preserve service ownership and private modes when atomically replacing the managed-access journal; distinguish local permission/storage errors from upstream failures.
+- Collect private local diagnostics across Ops, Dashboard and Gateway with a 1 GiB default retention budget and configurable rotation. Preserve diagnostic correlation in standard MCP error content.
+- Support compact group-only MCP action discovery and report current historical-artifact availability separately from preserved imported evidence.
+- Pin Loom Use alpha.6 with installation write preflight, actionable refresh status and private client diagnostics.
+- Extend packaging, permission, transport and cross-repository regressions without adding Job execution gates.
+
 ## 0.1.0-alpha.37
 
 - Pin Loom Use alpha.5: honor explicit Tailscale authentication, verify identity on reconnect, preserve concurrent configuration changes during rollback, and validate MCP response envelopes.

@@ -13,3 +13,6 @@
 
 !LICENSE
 !THIRD_PARTY_NOTICES.md
+
+!dashboard/
+!dashboard/diagnostics.py

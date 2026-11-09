@@ -1,3 +1,4 @@
+import diagnostics
 """Public entry UI and a private, origin-bound browser reachability probe."""
 import base64
 import hashlib
@@ -65,14 +66,18 @@ def probe(h,query):
 
 def main():
     from http.server import ThreadingHTTPServer
+    class DiagnosticHTTPServer(diagnostics.ServerMixin,ThreadingHTTPServer):
+        pass
     from admission import make_admission
     from admission_http import PublicHandler,ReceiptAuth
     config=json.loads(Path(os.environ['LOOM_GATEWAY_CONFIG']).read_text())
     service=make_admission(config)
     # No management credential, SSO session key, API relay, or reconcile worker here.
-    with ThreadingHTTPServer((config.get('bind','0.0.0.0'),config.get('port',8081)),PublicHandler) as server:
+    with DiagnosticHTTPServer((config.get('bind','0.0.0.0'),config.get('port',8081)),PublicHandler) as server:
         server.admission=service;server.sso=ReceiptAuth(service);server.gateway=True
         server.serve_forever()
 
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    diagnostics.install_hooks('gateway')
+    main()

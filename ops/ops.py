@@ -20,6 +20,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from functools import lru_cache
 
+# Source checkouts and the image both use the same collector implementation.
+sys.path.append(str(Path(__file__).resolve().parents[1]/'dashboard'))
+import diagnostics
+
+class DiagnosticHTTPServer(diagnostics.ServerMixin, ThreadingHTTPServer):
+    pass
+
 import hooks
 import runtime_client
 import component_store
@@ -302,6 +309,7 @@ def artifact(config, folder, manifest, profile=None, facts=None, output=None):
 
 
 def finish(row, state, result=None, config=None, prepared=None):
+    if state=='failed':diagnostics.record('worker','finish',code='job_failed')
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
         if state == 'complete' and registry.mode(c) != 'active':
@@ -573,6 +581,7 @@ def process_hook(item,config):
         run_hook(row,config,item['stage'],item['retries'])
         with db() as c:c.execute("UPDATE hooks SET state='complete',error=NULL WHERE job=? AND attempt=? AND stage=?",(item['job'],item['attempt'],item['stage']))
     except Exception as exc:
+        diagnostics.record('worker','hook',exc,code='hook_failed')
         with db() as c:
             c.execute("UPDATE hooks SET retries=retries+1,state=?,next_try=?,error=? WHERE job=? AND attempt=? AND stage=?",('failed' if item['retries']>=2 else 'pending',time.time()+2**item['retries'],str(exc)[:500],item['job'],item['attempt'],item['stage']))
             event(c,row,'hook_failed_'+item['stage'])
@@ -779,7 +788,8 @@ def operate(name, args, actor, config):
         if operation=='describe_action':
             import mcp_docs
             if not payload:return mcp_docs.reference(actor,TOOLS,tool_schema,job_contract.API_REVISION)
-            if set(payload)!={'group','action'}:raise ValueError('Provide both group and action, or neither')
+            if set(payload)=={'group'}:return mcp_docs.group_reference(payload['group'],actor,TOOLS,tool_schema,job_contract.API_REVISION)
+            if set(payload)!={'group','action'}:raise ValueError('Provide group for its action index, group/action for one schema, or neither for all groups')
             return mcp_docs.describe(payload['group'],payload['action'],actor,TOOLS,tool_schema)
         if operation.startswith('profile_'):
             if ('submit' if action=='register_profile' else 'read') not in actor['scopes']:raise PermissionError('Profile scope denied')
@@ -843,7 +853,7 @@ def operate(name, args, actor, config):
         if name in {'list_history','get_history'}:
             if name=='list_history':
                 return history_store.list_records(c,**args)
-            return history_store.get_record(c,args['source'],args['kind'],args['id'],args['revision'])
+            return history_store.get_record(c,args['source'],args['kind'],args['id'],args['revision'],config,BULK)
         if name == 'docker_status':
             def visible_job(job):
                 return c.execute('SELECT 1 FROM jobs WHERE id=?',(job,)).fetchone() is not None
@@ -1181,11 +1191,17 @@ class API(BaseHTTPRequestHandler):
                 return
             self.send(200,result)
         except PermissionError as exc:
+            diagnostics.record('ops','http',exc,code='permission_denied')
             self.send(403,{'error':str(exc)})
         except (ValueError,KeyError,TypeError) as exc:
+            diagnostics.record('ops','http',exc,code='invalid_request')
             self.send(400,{'error':str(exc)})
-        except (RuntimeError,OSError):
-            self.send(503,{'error':'Storage or service unavailable'})
+        except (RuntimeError,OSError) as exc:
+            incident=diagnostics.record('ops','http',exc,code='service_unavailable',build=build_version.status().get('build_id','unknown'))
+            self.send(503,{'error':'Storage or service unavailable','incident_id':incident})
+        except Exception as exc:
+            incident=diagnostics.record('ops','http',exc,build=build_version.status().get('build_id','unknown'))
+            self.send(500,{'error':'Internal service error','incident_id':incident})
 
     def dashboard_media(self,media,config):
         guard(config)
@@ -1248,10 +1264,13 @@ class API(BaseHTTPRequestHandler):
             else:
                 reply({'jsonrpc':'2.0','id':rpc_id,'error':{'code':-32601,'message':'Unknown method'}})
                 return
-        except (PermissionError,ValueError,KeyError,RuntimeError,TypeError,AttributeError) as exc:
+        except Exception as exc:
+            incident=diagnostics.record('ops','mcp',exc,code='tool_error',build=build_version.status().get('build_id','unknown'))
             if method != 'tools/call':
                 reply({'jsonrpc':'2.0','id':rpc_id,'error':{'code':-32602,'message':'Invalid params'}});return
-            result = {'isError':True,'content':[{'type':'text','text':str(exc)}]}
+            message=str(exc) if isinstance(exc,(ValueError,PermissionError,KeyError,TypeError)) else 'Service unavailable'
+            result = {'isError':True,'content':[{'type':'text','text':message}], 'incident_id':incident,
+                      'structuredContent':{'error':'tool_error','incident_id':incident}}
         identity=onboarding.identity()
         result['_meta']={'loom':identity}
         if method=='tools/call':
@@ -1260,6 +1279,7 @@ class API(BaseHTTPRequestHandler):
 
 
 def main():
+    diagnostics.install_hooks('ops',build=build_version.status().get('build_id','unknown'))
     os.umask(0o077)
     if sys.argv[1] == 'cpu':
         return cpu(Path(sys.argv[2]),json.loads(sys.argv[3]))
@@ -1273,10 +1293,10 @@ def main():
             for row in c.execute("SELECT * FROM jobs WHERE state='complete' AND result IS NOT NULL ORDER BY created").fetchall():
                 registry.index(c,row,json.loads(row['result']),config,BULK,relative,historical=True)
     elif sys.argv[1] == 'api':
-        server = ThreadingHTTPServer(('0.0.0.0',8080),API)
+        server = DiagnosticHTTPServer(('0.0.0.0',8080),API)
         server.config = config
         if cert:=os.environ.get('LOOM_TLS_CERT'):
-            secure=ThreadingHTTPServer(('0.0.0.0',8443),API)
+            secure=DiagnosticHTTPServer(('0.0.0.0',8443),API)
             secure.config=config
             context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             context.minimum_version=ssl.TLSVersion.TLSv1_2

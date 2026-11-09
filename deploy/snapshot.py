@@ -41,6 +41,7 @@ def component_files(component,files,hashes):
     if component=='ops':
         local.update({'../'+str(p.relative_to(ROOT)):hashes[str(p.relative_to(ROOT))]
                       for p in files if p.is_relative_to(ROOT/'loom_use')})
+        if 'dashboard/diagnostics.py' in hashes:local['../diagnostics/diagnostics.py']=hashes['dashboard/diagnostics.py']
     return local
 
 

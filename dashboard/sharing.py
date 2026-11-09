@@ -1,4 +1,5 @@
 """Machine Sharing enrollment; invitations never confer Loom approval by themselves."""
+import diagnostics
 import managed_resources
 import fcntl
 import hashlib
@@ -342,5 +343,8 @@ class SharingAdmission(Admission):
             for r in rows:
                 try:self.reconcile(dict(r))
                 except Exception as e:
-                    code=str(e) if isinstance(e,(ValueError,RemoteError)) else 'upstream_unavailable'
+                    code=('local_permission_denied' if isinstance(e,PermissionError) else
+                          'local_storage_unavailable' if isinstance(e,OSError) else
+                          str(e) if isinstance(e,(ValueError,RemoteError)) else 'internal_error')
+                    diagnostics.record('sharing','reconcile',e,code=code)
                     self.update(r['id'],error=code,attempts=r['attempts']+1,next_attempt=time.time()+min(3600,60*2**min(r['attempts'],6)))

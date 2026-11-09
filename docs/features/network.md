@@ -128,3 +128,10 @@ Uninstall reverses only verified owned state; preexisting and externally shared
 resources are preserved. `deploy/policy_cleanup.py` supports explicit policy-only
 repair when installation records are gone. See [managed resources](../MANAGED-RESOURCES.md)
 and [account selection](../TAILSCALE-SETUP.md).
+
+Journal and lock replacements retain the service-owned parent UID/GID, including
+root-run installation writes. Both are 0600; unique temporary files are fsynced
+before atomic replacement. Doctor checks ownership/mode as well as JSON identity.
+Sharing reports local_permission_denied independently of provider availability and
+records a payload-free local incident. Repair ownership only; never recreate an
+accepted invitation or auto-approve a pending user to recover a local file error.

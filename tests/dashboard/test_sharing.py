@@ -350,3 +350,14 @@ class SharingTests(unittest.TestCase):
         self.assertEqual(self.http(s,'/api/request','POST',{'email':'correct@example.test'},headers)[0],200)
         self.a.tick()
         self.assertEqual([i['email'] for i in self.api.shares],['correct@example.test'])
+
+class SharingLocalFailureTests(unittest.TestCase):
+    setUp=SharingTests.setUp
+    row=SharingTests.row
+    def test_local_permission_error_is_not_an_upstream_outage(self):
+        self.a.request(self.user)
+        with patch.object(self.a,'reconcile',side_effect=PermissionError('secret filesystem path')),patch('diagnostics.record') as collect:
+            self.a.tick()
+        self.assertEqual(self.row()['error'],'local_permission_denied')
+        self.assertEqual(collect.call_args.kwargs['code'],'local_permission_denied')
+        self.assertEqual(self.row()['state'],'requested')

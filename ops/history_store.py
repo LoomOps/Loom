@@ -1,5 +1,8 @@
 """Immutable history read model shared by native and imported records."""
 import json
+import time
+import hashlib
+import storage
 import ownership
 import re
 from pathlib import Path
@@ -45,7 +48,7 @@ def list_records(db, kind, offset, limit):
         WHERE (?='' OR kind=?) ORDER BY kind,id,source,revision,snapshot LIMIT ? OFFSET ?''',(kind,kind,limit,offset))]
 
 
-def get_record(db, source, kind, identity, revision):
+def get_record(db, source, kind, identity, revision, config=None, bulk=None):
     if source.removeprefix('archive.') not in SOURCES or any(not isinstance(value,str) or not KEY.fullmatch(value) for value in (kind,identity,revision)):
         raise ValueError('Invalid history record key')
     row=db.execute('SELECT * FROM history_records WHERE source=? AND kind=? AND id=? AND revision=? ORDER BY rowid DESC LIMIT 1',
@@ -55,4 +58,39 @@ def get_record(db, source, kind, identity, revision):
     result={**dict(row),'body':json.loads(row['body'])}
     key=':'.join((source,kind,identity))
     person=ownership.decorate(db,'history',{'id':key})
+    if config is not None and bulk is not None:
+        result['current_availability']=availability(result['body'].get('locations',[]),config,bulk)
     return {**result,'owner':person['owner'],'owner_profile':person['owner_profile']}
+
+
+def availability(locations,config,bulk):
+    """Current registered-copy observations, never rewrite an imported snapshot.
+
+    A source_ref alone is not a locator: data/1 names have changed across installs.
+    Do not discover or expose unregistered host directories to a remote reader.
+    """
+    checked=[]
+    for item in locations:
+        value={'source_ref':item.get('source_ref'),'recorded_status':item.get('status'),
+               'status':'not_connected'}
+        if item.get('target_ref') and item.get('machine_id')==config.get('machine_id'):
+            matches=[v for v in storage.stores(config,bulk).values() if v.get('storage_id')==item.get('storage_id')]
+            if len(matches)==1:
+                try:
+                    base=Path(matches[0]['path'])
+                    marker=json.loads((base/'.loom-storage.json').read_text())
+                    if marker.get('storage_id')!=item.get('storage_id'):raise ValueError('Storage identity changed')
+                    p=under(base,item['target_ref'])
+                    if not p.exists():value['status']='missing'
+                    elif p.is_file():
+                        size=p.stat().st_size;value['size']=size
+                        value['status']='present_unverified'
+                        if item.get('size') is not None and size!=item['size']:value['status']='mismatch'
+                        elif item.get('sha256') and size<=1024*1024:
+                            value['status']='verified' if hashlib.sha256(p.read_bytes()).hexdigest()==item['sha256'] else 'mismatch'
+                except PermissionError:value['status']='permission_denied'
+                except (OSError,ValueError,TypeError):value['status']='unavailable'
+        checked.append(value)
+    return {'checked_at':time.time(),'scope':'registered_copies_only',
+            'note':'Recorded missing is an import-time observation, not proof the original was deleted. Unconnected originals require explicit storage mapping; no inference readiness is implied.',
+            'locations':checked}

@@ -1,0 +1,13 @@
+# Existing admission overlays also receive the private local diagnostic sink.
+services:
+  loom-gateway:
+    environment:
+      LOOM_DIAGNOSTICS_DIR: /var/lib/loom-diagnostics
+      LOOM_DIAGNOSTICS_SEGMENT_MIB: ${LOOM_DIAGNOSTICS_SEGMENT_MIB:-64}
+      LOOM_DIAGNOSTICS_BACKUPS: ${LOOM_DIAGNOSTICS_BACKUPS:-15}
+    volumes:
+    - type: bind
+      source: ${OPS_LOCAL}/diagnostics
+      target: /var/lib/loom-diagnostics
+      bind:
+        create_host_path: false

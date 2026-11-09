@@ -6,7 +6,7 @@ from pathlib import Path
 
 def create_layout(root):
     root.mkdir(mode=0o700)
-    for name in ('config','runtime','secrets','cache','logs'):
+    for name in ('config','runtime','secrets','cache','logs','diagnostics'):
         (root/name).mkdir(mode=0o700)
 
 

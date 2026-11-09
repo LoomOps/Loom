@@ -53,6 +53,7 @@ Authoritative execution states and hook stages are implemented by worker/finish 
 | [results](results.md) | Artifacts, indexing, lineage | Dependent Jobs, catalog |
 | [extensions](extensions.md) | Components, profiles | Execution, results |
 | [catalog](catalog.md) | Queries, original preservation, files | Dashboard, API |
+| [diagnostics](diagnostics.md) | Private local error collection | API, Dashboard, installation |
 | [observations](observations.md) | Resource and Docker observations | Dashboard |
 | [dashboard](dashboard.md) | Browser and relay | External users |
 | [onboarding](onboarding.md) | Usage tools, guides, versions | External agents |

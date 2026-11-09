@@ -3,9 +3,11 @@ services:
   loom-ops:
     environment:
       LOOM_LIVE_SOURCE: "1"
+      PYTHONPATH: /opt/loom-deps:/diagnostics
       LOOM_IMAGE_BUILD_ID: "${LOOM_BUILD_ID:-unversioned}"
     volumes:
       - ../ops:/app:ro
+      - ../dashboard/diagnostics.py:/diagnostics/diagnostics.py:ro
       - ../loom_use:/loom_use:ro
   loom-dashboard:
     read_only: false

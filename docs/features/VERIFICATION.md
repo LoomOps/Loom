@@ -103,3 +103,8 @@ binding, rollback/retry, Sharing revoke, and installation/update/uninstall consu
 Real fixture HTTP and Unix socket tests supplement pure function tests. A healthy
 service or metadata file does not prove SSH login. Keep external personal-client
 login and existing-session revocation explicitly separate from mock evidence.
+
+Local diagnostics: verify retention/privacy/fail-open tests, image inclusion and
+shared per-instance mount ownership. Sharing regression must distinguish local
+PermissionError from a provider outage, and root installer rewrites must retain
+service ownership. Historical metadata is not a live file availability test.

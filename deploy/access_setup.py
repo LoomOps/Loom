@@ -71,13 +71,14 @@ def configure(root, c):
     gateway=json.loads(json.dumps(runtime))
     gateway['credential_file']='/not-mounted/management.json'
     write(secret/'gateway.json',gateway,uid,gid)
-    mounts=[{'type':'bind','source':str(state),'target':'/var/lib/loom-admission','bind':{'create_host_path':False}}]
+    diagnostics=root/'diagnostics';diagnostics.mkdir(mode=0o700,exist_ok=True);os.chown(diagnostics,uid,gid);diagnostics.chmod(0o700)
+    mounts=[{'type':'bind','source':str(diagnostics),'target':'/var/lib/loom-diagnostics','bind':{'create_host_path':False}}, {'type':'bind','source':str(state),'target':'/var/lib/loom-admission','bind':{'create_host_path':False}}]
     gateway_service={
         'image':'${LOOM_DASHBOARD_IMAGE:-loom-dashboard:dev-build}',
         'entrypoint':['python3','-B','/opt/loom-dashboard/gateway.py'],
         'depends_on':['loom-dashboard'],'user':f'{uid}:{gid}','init':True,'read_only':True,'restart':'unless-stopped',
         'cap_drop':['ALL'],'security_opt':['no-new-privileges:true'],
-        'environment':{'LOOM_GATEWAY_CONFIG':'/etc/loom/gateway.json'},
+        'environment':{'LOOM_DIAGNOSTICS_DIR':'/var/lib/loom-diagnostics','LOOM_GATEWAY_CONFIG':'/etc/loom/gateway.json'},
         'ports':[f"127.0.0.1:{c['host_port']}:8081"],
         'volumes':mounts+[{'type':'bind','source':str(secret/'gateway.json'),'target':'/etc/loom/gateway.json','read_only':True,'bind':{'create_host_path':False}}],
         'healthcheck':{'test':['CMD','python3','-c',"from urllib.request import urlopen; urlopen('http://127.0.0.1:8081/healthz',timeout=2).close()"],'interval':'15s','timeout':'3s','retries':3}}
@@ -86,7 +87,7 @@ def configure(root, c):
         gateway_service['environment']['LOOM_UI_ROLE']='gateway'
         gateway_service['volumes'].append({'type':'bind','source':str(Path(__file__).resolve().parents[1]/'dashboard'),'target':'/opt/loom-dashboard','read_only':True})
     overlay={'services':{'loom-dashboard':{
-        'environment':{'LOOM_ADMISSION_CONFIG':'/etc/loom/admission/config.json'},
+        'environment':{'LOOM_DIAGNOSTICS_DIR':'/var/lib/loom-diagnostics','LOOM_ADMISSION_CONFIG':'/etc/loom/admission/config.json'},
         'volumes':[{'type':'bind','source':str(secret),'target':'/etc/loom/admission','read_only':True,'bind':{'create_host_path':False}},*mounts]},
         'loom-gateway':gateway_service}}
     write(root/'compose-admission.yaml',overlay,uid,gid)

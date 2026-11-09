@@ -1,3 +1,4 @@
+import diagnostics
 """A separate public listener: only access requests, never Dashboard/MCP/API relay."""
 import json
 import hmac
@@ -181,7 +182,8 @@ class PublicHandler(BaseHTTPRequestHandler):
             # approved recipient. It never establishes identity or grants access.
             code='access_check_required' if str(error)=='access_check_required' else 'request_failed'
             return reply(self,409 if code=='access_check_required' else 400,{'code':code})
-        except Exception:
+        except Exception as exc:
+            diagnostics.record('gateway','request',exc,code='request_failed')
             # No provider responses, tokens, exception text or account enumeration.
             return reply(self,400,{'code':'request_failed'})
 

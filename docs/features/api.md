@@ -44,3 +44,12 @@ Revision v38 adds Dashboard Admin-only token management routes documented in ide
 Revision v39 adds component/profile owner presentation and unfiltered shared
 component listing. The six MCP groups and existing namespace arguments remain.
 See extensions.md for owner_profile versus immutable owner namespace.
+
+`system.describe` accepts no fields for the full index, group alone for a compact
+action index, or group/action for a schema. All paths filter by caller scopes. An
+action without a group remains invalid. Historical results include a separate
+current_availability observation without rewriting imported locations.
+
+MCP errors include a standard `structuredContent` diagnostic locator as described
+in [diagnostics](diagnostics.md); existing text, isError and version fields remain.
+This additive response does not change action inputs or the six tool groups.

@@ -234,8 +234,8 @@ ACTIONS = {'system.ssh': ('Personal SSH connection', 'Read the current caller SS
                      {'kind': '', 'offset': 0, 'limit': 50},
                      ['Requires read scope.']),
  'results.historical': ('Historical record',
-                        'Read a preserved record identified by source/kind/id/revision.',
-                        'Historical record · body and source identity',
+                        'Read immutable history plus current registered-copy availability. Recorded missing does not prove the original was deleted.',
+                        'Historical record · body, source identity and current_availability (not_connected, missing, verified, present_unverified, mismatch or unavailable)',
                         {'source': 'loom-ops', 'kind': 'job', 'id': '<history-id>', 'revision': '1'},
                         ['The specified record does not exist.']),
  'system.updates': ('Release check status',
@@ -328,3 +328,13 @@ def reference(actor,known,schema_for,revision):
           {'step':'Claim recovery','group':'recovery','action':'claim','note':'Claim within 15 minutes, report progress during repair, and use at most three recovery rounds.'},
           {'step':'Rerun after repair','group':'recovery','action':'resume','note':'Send the claim lease and intended changes only. Do not blindly retry failures.'},
           {'step':'Inspect results','group':'results','action':'list','note':'Read artifacts after completion. Use reindex for publication problems without rerunning GPU execution.'}]}
+
+
+def group_reference(group,actor,known,schema_for,revision):
+    if not isinstance(group,str) or group not in mcp_groups.GROUPS:raise ValueError('Unknown group')
+    visible=next((t for t in mcp_groups.tools(actor,known) if t['name']==group),None)
+    if visible is None:raise PermissionError('Group outside available documentation')
+    return {'revision':revision,'group':group,'description':visible['description'],
+            'actions':[{'action':a,'title':ACTIONS[group+'.'+a][0],
+                        'description':ACTIONS[group+'.'+a][1]} for a in visible['inputSchema']['properties']['action']['enum']],
+            'next':{'group':'system','action':'describe','arguments':{'group':group,'action':visible['inputSchema']['properties']['action']['enum'][0]}}}

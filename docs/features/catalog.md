@@ -40,3 +40,10 @@ Verify migrated data reference integrity separately from fixtures.
 ## Registered output storage
 
 `ops/storage.py` owns named stores and persistent `.loom-storage.json` identities. `jobs.submit.output_storage` defaults to data/0 and freezes a non-default identity; all Attempt stages and result retries use that root. Result locators carry the selected ID and store-relative path. Registered secondary outputs are available in Dashboard files/media, results API and read-only downstream input mounts. Unknown, redirected, missing or replaced stores must never fall back to the primary. Existing Jobs without this field retain primary behavior; no DB rewrite or data move is required. Profile `storage` mounts remain separate optional shared RW access.
+
+`results.historical` keeps body/locations/payload_status immutable. The additive
+`current_availability` observation checks only declared storage identities and
+registered target refs. A source_ref without an attached copy is `not_connected`,
+not evidence that the original was deleted. Small files (up to 1 MiB) are hash
+checked; larger files are present_unverified. No host-path inference, automatic
+mount, Bat migration, GPU load or claim of inference readiness occurs.
