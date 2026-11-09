@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-alpha.36
+
+- Pin Loom Use alpha.4: resolve verified Codex socket symlinks, report specific refresh failures, and keep thread ID optional for current-chat verification only.
+- Clarify that cwd is the existing invoking project context, not an automatically created or discovered project.
+
 ## 0.1.0-alpha.35
 
 - Configure managed SSH after final storage registration and preserve its socket mount across restarts.

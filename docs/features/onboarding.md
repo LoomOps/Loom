@@ -48,3 +48,9 @@ checkout. HTTP integration covers initialization, token rejection/revocation, di
 status, guide and old-config migration. CI prepares the release before tests.
 A small server Skill bridge retains old /loom/loom_use/current links; new links target
 user-installed release directories. No independent client code is vendored here.
+
+Client alpha.4 resolves current-user Codex socket symlinks and checks target/peer
+ownership. MCP registration and app-server refresh do not require a thread ID;
+that optional argument only verifies calls in the current chat. Cwd is the shell
+working directory unless explicitly supplied, used for Skills refresh context.
+Failures must not be described as an absent API without inspecting their reason.
