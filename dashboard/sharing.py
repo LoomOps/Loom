@@ -262,6 +262,8 @@ class SharingAdmission(Admission):
 
     def reconcile(self,row):
         if row['state']=='revoking':
+            from ssh_access import SSHAccess
+            SSHAccess(self).revoke(row.get('accepted_email'))
             if row['send_started'] and not row['invite_id']:
                 matches=[i for i in self.invites() if str(i.get('email','')).casefold()==row['email']]
                 if len(matches)>1:raise ValueError('ambiguous_device_invitation')

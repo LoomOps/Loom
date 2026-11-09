@@ -11,3 +11,8 @@ Every selected data/N store is RW. Doctor verifies RW bind mounts and access as 
 A real CPU Job checks more than service health: submission, preparation, container execution, result finalization, registered artifact and resource return. Use the packaged smoke command in step 7; do not improvise a result schema. GPU visibility does not claim successful CUDA training. Record actual reboot recovery separately when performed, without rebooting a user's busy machine automatically.
 
 Exit: services doctor passes. Reread INSTALL.md and the step index before step 6.
+
+If host_ssh is selected, verify the protected host account service and its Unix
+socket with ssh_setup.py doctor. Only Dashboard mounts the control socket; Ops
+mounts readonly connection metadata; Gateway mounts neither. No personal account
+is issued by installation. New plans enable the capability, not user access.

@@ -94,3 +94,12 @@ exercise it over real fixture HTTP for discovery, authentication, revocation,
 status/guide and profile registration. Client unit tests cover package integrity,
 connection switching, old credential adoption and existing-app refresh failures.
 No server transport test implies active desktop-thread readiness.
+
+## Personal SSH review
+
+SSH adds a host privilege boundary, not a Job execution stage. Review Admin session
+and CSRF, approved membership, policy ETags/journal ownership, account registry UID
+binding, rollback/retry, Sharing revoke, and installation/update/uninstall consumers.
+Real fixture HTTP and Unix socket tests supplement pure function tests. A healthy
+service or metadata file does not prove SSH login. Keep external personal-client
+login and existing-session revocation explicitly separate from mock evidence.

@@ -276,6 +276,12 @@ function loomAccessView(){
     return '<tr><td data-label="Email">'+esc(r.email)+(r.accepted_email?'<small class="pa-subtle">Accepted: '+esc(r.accepted_email)+'</small>':'')+'</td><td data-label="Grant status"><span class="pa-tailnet-badge" data-status="'+esc(r.state)+'">'+esc(r.user_cancelled?(r.state==='revoking'?'Cancelling':'Cancelled by user'):(loomAccessLabels[r.state]||r.state))+'</span>'+(r.error?'<p class="pa-tailnet-error">'+esc(r.error)+'</p>':'')+'</td><td data-label="Requested">'+esc(loomTailnetDate(r.created,true))+'</td><td data-label="Actions"><div class="pa-tailnet-actions">'+actions.map(([action,label])=>'<button type="button" class="pa-button" data-access-id="'+esc(r.id)+'" data-access-action="'+action+'" '+(loomAccessBusy?'disabled':'')+'>'+label+'</button>').join('')+'</div></td></tr>';
   }).join('');
   const requests=panel('Access Request <small>'+rows.length+'</small>',rows.length?'<div class="pa-tailnet-table-wrap"><table class="pa-tailnet-table" aria-label="Access Request"><thead><tr><th>Email</th><th>Grant status</th><th>Requested</th><th>Actions</th></tr></thead><tbody>'+content+'</tbody></table></div>':'<p class="pa-tailnet-empty">'+(loomAccessState?'아직 신청 내역이 없습니다.':'불러오는 중…')+'</p>');
+  const sshRows=loomAccessState?.ssh?.accounts||[];
+  const sshPanel=panel('SSH',loomAccessState?.ssh_error?'<p role="status">SSH 상태를 확인하지 못했습니다.</p>':!loomAccessState?.ssh?.configured?'<p class="pa-tailnet-empty">SSH management is not configured on this machine.</p>':'<div class="pa-tailnet-table-wrap"><table class="pa-tailnet-table" aria-label="SSH accounts"><thead><tr><th>Account</th><th>SSH account</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+members.map(m=>{
+    const login=String(m.loginName||'').toLowerCase(),r=sshRows.find(r=>r.login===login);
+    const suggested='loomu_'+login.split('@')[0].replace(/[^a-z0-9_]/g,'_').slice(0,24);
+    return '<tr data-ssh-login="'+esc(login)+'"><td>'+esc(m.displayName||login)+'<small class="pa-subtle">'+esc(login)+'</small></td><td><input class="pa-input" aria-label="SSH account for '+esc(login)+'" data-ssh-username value="'+esc(r?.username||suggested)+'" pattern="loomu_[a-z0-9][a-z0-9_]{0,23}" maxlength="30" '+(r?'readonly':'')+'></td><td>'+esc(r?.state||'Not enabled')+(r?.error?'<small class="pa-tailnet-error">'+esc(r.error)+'</small>':'')+'</td><td><button type="button" class="pa-button" data-ssh-action="'+(r?.state==='enabled'?'disable':'enable')+'" '+(loomAccessBusy?'disabled':'')+'>'+(r?.state==='enabled'?'Disable SSH':'Enable SSH')+'</button>'+(r&&r.state!=='enabled'&&r.state!=='disabled'?'<button type="button" class="pa-button" data-ssh-action="disable">Disable SSH</button>':'')+'</td></tr>';
+  }).join('')+'</tbody></table></div>');
   const tokens=loomAccessState?.tokens||[],owners=loomAccessState?.owners||[];
   const active=tokens.filter(t=>!t.revoked),revoked=tokens.filter(t=>t.revoked);
   const permissions=t=>t.scopes.length===4&&['read','submit','cancel','events'].every(s=>t.scopes.includes(s))?'Operator':t.scopes.includes('read')&&t.scopes.every(s=>['read','events'].includes(s))?'Read only':t.scopes.join(', ');
@@ -283,7 +289,7 @@ function loomAccessView(){
   const tokenPanel=panel('Agent Tokens <small>'+active.length+'</small>',
     '<form data-token-form class="pa-token-form"><label><span>Name</span><input aria-label="Token name" name="label" placeholder="e.g. Research agent" maxlength="80" required></label><label><span>Owner</span><select aria-label="Token owner" name="owner" required>'+owners.map(o=>'<option value="'+esc(o.id)+'">'+esc(o.display_name||o.login)+'</option>').join('')+'</select></label><label><span>Permissions</span><select aria-label="Token permissions" name="permissions"><option value="operator">Operator</option><option value="read">Read only</option></select></label><button class="pa-button pa-token-create" type="button" data-token-create '+(loomAccessBusy||!owners.length?'disabled':'')+'>Create token</button></form><p class="pa-token-caption">No expiration · Revoke anytime</p>'+
     (loomAccessState?.tokens_error?'<p role="status">토큰 목록을 불러오지 못했습니다.</p>':(active.length?tokenTable(active,'Agent Tokens'):'<div class="pa-token-empty">No active tokens</div>')+(revoked.length?'<details class="pa-token-history"><summary>Revoked <span>'+revoked.length+'</span></summary>'+tokenTable(revoked,'Revoked tokens')+'</details>':'')));
-  return intro+'<section class="pa-loom-tailnet">'+account+'<div class="pa-loom-access" aria-label="머신 접근 관리"><p class="pa-tailnet-feedback" role="status">'+esc(loomAccessError||(loomAccessBusy?'처리 중…':''))+'</p>'+memberPanel+requests+tokenPanel+'</div></section>';
+  return intro+'<section class="pa-loom-tailnet">'+account+'<div class="pa-loom-access" aria-label="머신 접근 관리"><p class="pa-tailnet-feedback" role="status">'+esc(loomAccessError||(loomAccessBusy?'처리 중…':''))+'</p>'+memberPanel+sshPanel+requests+tokenPanel+'</div></section>';
 }
 function loomAccessPatch(){
   for(const current of root.querySelectorAll('.pa-loom-tailnet')){
@@ -304,6 +310,13 @@ root.addEventListener('click',event=>{
   const tokenRevoke=event.target.closest('[data-token-revoke]');
   if(tokenRevoke&&loomSessionUser?.access_admin&&!loomAccessBusy){
     loomAccessBusy=true;loomAccessPatch();parent.postMessage({type:'loom-token-revoke',id:tokenRevoke.dataset.tokenRevoke,label:loomAccessState?.tokens?.find(t=>t.id===tokenRevoke.dataset.tokenRevoke)?.label||''},'*');return;
+  }
+  const sshButton=event.target.closest('[data-ssh-action]');
+  if(sshButton&&loomSessionUser?.access_admin&&!loomAccessBusy){
+    const row=sshButton.closest('[data-ssh-login]'),input=row.querySelector('[data-ssh-username]');
+    if(!input.reportValidity())return;
+    const body={login:row.dataset.sshLogin,username:input.value,action:sshButton.dataset.sshAction};
+    loomAccessBusy=true;loomAccessPatch();parent.postMessage({type:'loom-ssh-change',body},'*');return;
   }
   const revoke=event.target.closest('[data-share-revoke]');
   const action=event.target.closest('[data-access-action]');

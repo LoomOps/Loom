@@ -221,6 +221,9 @@ def _apply_locked(plan,confirmation,receipt,api=None,run=update.run):
             stopped=inspect(root,plan['project'],api,run)
             if set(stopped['invites'])-set(plan['invites']) or stopped['requests']>plan['requests']:
                 raise ValueError('Access state changed while stopping; review a fresh plan before resume')
+            if (root/'config/ssh.json').exists():
+                from ssh_setup import disable_all
+                disable_all(root)
             cleanup_policy(api,c)
             for invite in plan['invites']:
                 try:api.call('DELETE','/device-invites/'+quote(invite,safe=''))

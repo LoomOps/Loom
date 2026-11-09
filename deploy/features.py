@@ -3,6 +3,7 @@ import argparse
 import ast
 import fnmatch
 import json
+import hashlib
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -24,6 +25,9 @@ def load(root=ROOT):
 
 def check(catalog,root=ROOT):
     errors=[]
+    import jsonschema
+    try:jsonschema.Draft202012Validator(json.loads((root/'docs/features/catalog.schema.json').read_text())).validate(catalog)
+    except jsonschema.ValidationError as e:return ['Invalid feature schema: '+e.message]
     if catalog.get('schema')!='loom-features/v1':errors.append('Unsupported feature catalog schema')
     features=catalog.get('features',[])
     ids=[f['id'] for f in features]
@@ -47,7 +51,13 @@ def check(catalog,root=ROOT):
             path=root/p
             if Path(p).is_absolute() or '..' in Path(p).parts or not path.is_file():errors.append(f"{f['id']}: missing/unsafe path {p}")
         for p in f.get('sources',[]):source_owners.setdefault(p,[]).append(f['id'])
-        for p in f.get('tests',[]):test_owners.setdefault(p,[]).append(f['id'])
+        for p in f.get('tests',[]):
+            test_owners.setdefault(p,[]).append(f['id'])
+            try:
+                tree=ast.parse((root/p).read_text())
+                if not Path(p).name.startswith('test_') or not any(isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name.startswith('test_') for n in ast.walk(tree)):
+                    errors.append(f"{f['id']}: no discoverable tests in {p}")
+            except (OSError,SyntaxError):errors.append(f"{f['id']}: invalid test source {p}")
         if not f.get('tests') or not f.get('invariants') or not f.get('live_validation'):errors.append(f"{f['id']}: missing behavior/test boundary")
     for p,owners in source_owners.items():
         if len(owners)>1:errors.append(f"Ambiguous ownership {p}: {owners}")
@@ -74,9 +84,43 @@ def impact(paths,catalog,transitive=False):
             'note':'Review relevant contracts; not every related file needs editing. Use --transitive for cross-cutting contract changes.'}
 
 
+def audit(catalog,evidence,root=ROOT):
+    """Map actual suite results to every block. Missing/skipped tests are not passes."""
+    reports={}
+    for name in ('ops','dashboard','packaging','browser'):
+        p=Path(evidence)/(name+'.json')
+        if p.is_file():reports[name]=json.loads(p.read_text())
+    blocks=[]
+    for feature in catalog['features']:
+        missing=[];cases=[];stale=[]
+        for path in feature['tests']:
+            parts=Path(path).parts
+            suite='browser' if 'browser' in parts else 'packaging' if parts[1]=='deploy' else parts[1]
+            report=reports.get(suite,{})
+            found=[c for c in report.get('cases',[]) if c['name'].startswith(Path(path).stem+'.')]
+            tree=ast.parse((root/path).read_text())
+            expected={Path(path).stem+'.'+cls.name+'.'+fn.name for cls in tree.body if isinstance(cls,ast.ClassDef) for fn in cls.body if isinstance(fn,ast.FunctionDef) and fn.name.startswith('test_')}
+            actual={c['name'] for c in found}
+            if not found:missing.append(path)
+            missing.extend(sorted(expected-actual))
+            cases.extend(found)
+            recorded=report.get('sources',{})
+            for source in set(feature['sources']+feature['tests']+feature['contracts']+[feature['spec']]):
+                if recorded.get(source)!=hashlib.sha256((root/source).read_bytes()).hexdigest():stale.append(source)
+        failures=[c['name'] for c in cases if c['status']!='passed']
+        blocks.append({'id':feature['id'],'passed':not(missing or failures or stale),'tests':len(cases),
+                       'missing':missing,'not_passed':failures,'stale_or_unrecorded':sorted(set(stale)),
+                       'live_validation':feature['live_validation']})
+    return {'valid':not check(catalog,root) and all(b['passed'] for b in blocks),'blocks':blocks,
+            'scope':'Recorded automated checks only; listed live boundaries remain separate.'}
+
+
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['check','impact']);p.add_argument('paths',nargs='*');p.add_argument('--transitive',action='store_true');a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['check','impact','audit']);p.add_argument('paths',nargs='*');p.add_argument('--transitive',action='store_true');p.add_argument('--evidence',type=Path);a=p.parse_args()
     catalog=load()
     if a.action=='check':
         errors=check(catalog);print(json.dumps({'valid':not errors,'features':len(catalog['features']),'errors':errors},indent=2));raise SystemExit(bool(errors))
+    if a.action=='audit':
+        if not a.evidence:p.error('--evidence is required')
+        result=audit(catalog,a.evidence);print(json.dumps(result,indent=2));raise SystemExit(not result['valid'])
     print(json.dumps(impact(a.paths,catalog,a.transitive),indent=2))

@@ -47,3 +47,9 @@ If the user declines, lacks a token, or the app requires manual reconnection, re
 server complete / client pending. A client limitation does not invalidate a verified
 server installation. Existing server-side Skill bridges remain readable; new user
 Skill links are managed exclusively by the independent client.
+
+Offer the optional Loom SSH Skill from the same pinned Loom Use release. Same-host
+agents use local tools and need no account issuance. For remote analysis, reuse
+existing authorized SSH or direct the user to Admin → Tailscale → SSH. Never use
+an MCP token as an SSH password. Report managed SSH readiness separately from
+external login verification.

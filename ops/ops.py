@@ -732,6 +732,7 @@ TOOLS = {
     'list_events': ('events', {}),
     'ack_event': ('events', {'seq':'integer'}),
     'system_status': ('read', {}),
+    'ssh_connection': ('read', {}),
     'release_status': ('read', {}),
     'check_releases': ('read', {}),
     'record_delivery': ('events', {'event':'integer','state':'string','receipt':'string','version':'integer'}),
@@ -803,6 +804,9 @@ def operate(name, args, actor, config):
         if name == 'submit_job':
             guard(config)
             return submit(c,actor,args,config)
+        if name == 'ssh_connection':
+            from ssh_info import connection
+            return connection(actor)
         if name == 'list_users':
             return [dict(r) for r in c.execute('SELECT id,provider,login,display_name FROM user_profiles ORDER BY display_name,id')]
         if name in ('assign_job_owner','assign_entity_owner'):
@@ -1105,6 +1109,8 @@ class API(BaseHTTPRequestHandler):
                 result = operate('release_status',{},actor,config)
             elif self.path == '/api/updates/check' and self.command == 'POST':
                 result = operate('check_releases',body,actor,config)
+            elif self.path == '/api/ssh' and self.command == 'GET':
+                result = operate('ssh_connection',{},actor,config)
             elif self.path == '/api/status' and self.command == 'GET':
                 result = operate('system_status',{},actor,config)
             elif self.command=='POST' and self.path in {

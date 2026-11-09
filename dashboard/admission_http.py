@@ -97,6 +97,18 @@ def admin_route(h):
     try:
         if h.command=='GET' and h.path=='/admission/session':
             return reply(h,200,{'csrf':session['csrf'],'machine':service.config['machine_id'],'name':service.config.get('name',service.config['machine_id'])})
+        if h.path=='/admission/ssh':
+            import ssh_access
+            ssh=ssh_access.SSHAccess(service)
+            if h.command=='GET':
+                configured=Path(__import__('os').environ.get('LOOM_SSH_SOCKET','/run/loom-ssh/control.sock')).exists()
+                return reply(h,200,{'configured':configured,'accounts':ssh.rows()})
+            if h.command=='POST':
+                v=payload(h,session,h.server.sso.origin)
+                if set(v)!={'login','username','action'}:raise ValueError('invalid_ssh_request')
+                eligible={m['loginName'].casefold() for m in service.members()}
+                eligible.add(session['user']['login'].casefold())
+                return reply(h,200,ssh.change(v['login'],v['username'],v['action'],session['user'],eligible))
         if h.command=='GET' and h.path=='/admission/requests':
             return reply(h,200,{'requests':safe_rows(service.rows(session['user'],admin=True),True)})
         if h.command=='GET' and h.path=='/admission/members':

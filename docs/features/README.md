@@ -56,6 +56,7 @@ Authoritative execution states and hook stages are implemented by worker/finish 
 | [observations](observations.md) | Resource and Docker observations | Dashboard |
 | [dashboard](dashboard.md) | Browser and relay | External users |
 | [onboarding](onboarding.md) | Usage tools, guides, versions | External agents |
+| [ssh](ssh.md) | Personal host accounts and local/remote connection discovery | Dashboard, Loom Use |
 | [network](network.md) | Tailscale, Serve, Sharing | Installation, identity |
 | [portability](portability.md) | Migration, remote fencing | Records, execution |
 | [installation](installation.md) | Compose, installation, updates | All service startup |
@@ -88,3 +89,8 @@ Read [VERIFICATION.md](VERIFICATION.md) for the reviewed boundary of every block
 The installation doctor is a consumer of identity, network, execution, storage,
 observations and onboarding contracts. Keep it current when those contracts
 change; tests of a configured development instance do not prove a fresh install.
+
+After running suites, use `python3 deploy/features.py audit --evidence <report-directory>`
+to match every block to actual cases and the tested source hashes. Missing, skipped,
+failed or stale checks are not passes. This does not turn mocked boundaries into
+external Tailscale/SSH acceptance.

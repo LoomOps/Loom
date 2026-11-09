@@ -34,7 +34,7 @@ Failures retain a recovery record and maintenance state. Use `sudo python3 deplo
 
 Do not use the release updater for development source mounts. Validate dev source changes, then pin a dev image snapshot. Temporary-filesystem/Docker mock tests are distinct from actual fresh-host, reboot and multi-client acceptance.
 
-Host guides and the registered usage skill are consolidated under `loom_use`. Installation and updates do not create `/loom/agents` or machine entry skills. Machine access instructions and personal agent operations belong to external operators; Loom does not overwrite instructions in user homes.
+Host guides remain under `loom_use`; client Skills are distributed by the independently pinned Loom Use release. Installation and updates do not create `/loom/agents` or machine entry skills. Machine access instructions and personal agent operations belong to external operators; Loom does not overwrite instructions in user homes.
 
 ## New release discovery
 
@@ -128,3 +128,9 @@ exact-endpoint credentials when the user proceeds with the independent setup.
 Publish the client artifact first, update the server pin, run feature checks and
 the real HTTP contract tests against that artifact, then publish the server. See
 docs/features/onboarding.md. Never substitute a sibling working tree in release CI.
+
+Managed SSH is optional on existing installations. `ssh_setup.py install` installs
+its host service and Compose overlay at an idle maintenance point; ordinary image
+updates do not issue accounts. Later updates preserve accounts/homes and refresh
+the protected helper with rollback backups. Apply data-group ACLs only to the
+explicitly registered data stores. See [SSH](SSH.md).

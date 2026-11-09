@@ -166,7 +166,7 @@ const done=arguments[arguments.length-1];
         ui.wait("return document.querySelectorAll('[data-tailnet-member]').length===3")
         self.assertEqual(ui.js("return [...document.querySelectorAll('[data-tailnet-member]')].slice(1).map(e=>e.dataset.tailnetMember)"),['old','new'])
         self.assertTrue(ui.js("return document.querySelector('[data-tailnet-member]').dataset.tailnetMember.startsWith('admin:')"))
-        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-loom-tailnet h2')].map(e=>e.childNodes[0].textContent.trim())"),['Account','Member','Access Request','Agent Tokens'])
+        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-loom-tailnet h2')].map(e=>e.childNodes[0].textContent.trim())"),['Account','Member','SSH','Access Request','Agent Tokens'])
         self.assertEqual(ui.js("return document.querySelectorAll('[data-go=access] .pa-tailscale-symbol path').length"),9)
         self.assertFalse(ui.js("return !!document.querySelector('[data-loom-logout]')"))
         for width in [1440,390]:
@@ -829,3 +829,33 @@ const done=arguments[arguments.length-1];
         self.assertTrue(ui.js("return document.querySelector('.pa-tailnet-badge').textContent==='Development'"))
         self.assertTrue(ui.js("return !!document.querySelector('[data-open-management]')"))
         self.assertFalse(ui.js("return !!document.querySelector('[data-token-form]')"))
+
+    def test_admin_ssh_enable_disable_and_account_binding(self):
+        import json
+        import test_admission as fixture_access
+        import ssh_access
+        f=fixture_access.AdmissionTests();f.setUp();self.addCleanup(f.doCleanups)
+        class Auth:
+            origin=self.base
+            def session(auth,headers):return {'user':{**f.admin,'name':'SSH Admin'},'csrf':'fixture-csrf'}
+            def assertion(auth,identity):return 'fixture-relay'
+        self.web.sso=Auth();self.web.admission=f.a
+        self.addCleanup(setattr,self.web,'sso',None);self.addCleanup(delattr,self.web,'admission')
+        socket=Path(f.tmp.name)/'socket';socket.touch();info=Path(f.tmp.name)/'ssh-info';info.mkdir()
+        env=patch.dict(os.environ,{'LOOM_SSH_SOCKET':str(socket),'LOOM_SSH_EXPORT':str(info)});env.start();self.addCleanup(env.stop)
+        calls=[]
+        host=patch.object(ssh_access,'host',side_effect=lambda action,*args:calls.append(action) or {});host.start();self.addCleanup(host.stop)
+        ui=self.ui;ui.top();self.wd('/url',{'url':self.base});ui.frame();ui.click('.pa-profile-trigger')
+        ui.wait("return !!document.querySelector('[data-ssh-username]')")
+        ui.js("document.querySelector('[data-ssh-username]').value='loomu_browser'")
+        ui.click('[data-ssh-action=enable]');ui.wait("return !!document.querySelector('[data-ssh-action=disable]')")
+        self.assertEqual(calls,['ensure','enable'])
+        self.assertTrue(ui.js("return document.querySelector('[data-ssh-username]').readOnly"))
+        for theme in ('light','dark'):
+            ui.js("document.querySelector('#pai-studio').style.colorScheme=arguments[0]",theme)
+            self.assertIn('sans-serif',ui.js("return getComputedStyle(document.querySelector('[data-ssh-username]')).fontFamily"))
+            if os.environ.get('LOOM_TEST_SCREENSHOTS'):
+                path=Path(os.environ['LOOM_TEST_SCREENSHOTS']);path.mkdir(parents=True,exist_ok=True)
+                (path/('ssh-'+theme+'.png')).write_bytes(base64.b64decode(self.wd('/screenshot')))
+        ui.click('[data-ssh-action=disable]');ui.wait("return document.querySelector('table[aria-label=\"SSH accounts\"]').innerText.includes('disabled')")
+        self.assertEqual(calls[-1],'disable');self.assertEqual(ssh_access.SSHAccess(f.a).rows()[0]['state'],'disabled')

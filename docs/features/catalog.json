@@ -560,12 +560,12 @@
         "ops/build_version.py",
         "ops/onboarding.py",
         "loom_use/client-release.json",
-        "deploy/client_release.py"
+        "deploy/client_release.py",
+        "tests/ops/client_source.py"
       ],
       "tests": [
         "tests/ops/test_onboarding.py",
         "tests/ops/test_client_setup.py",
-        "tests/ops/client_source.py",
         "tests/deploy/test_client_release.py"
       ],
       "depends_on": [
@@ -924,6 +924,59 @@
           "returns": "Missing references, ambiguous owners, unmapped code/tests and broken interface links",
           "consumers": [
             "installation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ssh",
+      "summary": "Optional personal host SSH accounts and connection discovery",
+      "sources": [
+        "deploy/ssh_host.py",
+        "deploy/ssh_setup.py",
+        "dashboard/ssh_access.py",
+        "ops/ssh_info.py"
+      ],
+      "tests": [
+        "tests/deploy/test_ssh_host.py",
+        "tests/dashboard/test_ssh_access.py",
+        "tests/ops/test_ssh_info.py"
+      ],
+      "depends_on": [
+        "identity",
+        "network",
+        "installation"
+      ],
+      "spec": "docs/features/ssh.md",
+      "contracts": [
+        "docs/SSH.md"
+      ],
+      "invariants": [
+        "Admin-only mutations; never adopt existing accounts or grant sudo/Docker. Disable blocks the personal UID before remote cleanup. Same-host clients require no SSH."
+      ],
+      "change_rule": "Review host helper, private Admin CSRF routes, Sharing revocation, readonly MCP, installation/update/uninstall and Loom Use together.",
+      "live_validation": [
+        "Verify external personal Tailscale login and revoke separately; mocks do not prove provider enforcement."
+      ],
+      "interfaces": [
+        {
+          "name": "Host account authority",
+          "entrypoint": "deploy/ssh_host.py#Accounts",
+          "accepts": "Restricted owner/action/username over protected Unix socket",
+          "returns": "Managed personal account state or failure; no arbitrary command execution",
+          "consumers": [
+            "dashboard",
+            "installation"
+          ]
+        },
+        {
+          "name": "SSH connection",
+          "entrypoint": "ops/ssh_info.py#connection",
+          "accepts": "Authenticated principal",
+          "returns": "Only that principal connection metadata",
+          "consumers": [
+            "api",
+            "onboarding"
           ]
         }
       ]

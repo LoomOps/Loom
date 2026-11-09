@@ -85,3 +85,12 @@ Dashboard Admins issue and revoke individual agent tokens in Tailscale → Agent
 Admin-only HTTP routes: `GET /api/admin/tokens` lists metadata and registered users; `POST /api/admin/tokens` accepts `{label, owner, scopes}`; `POST /api/admin/tokens/revoke` accepts `{id}`. Browser writes require the Admin session and CSRF/Origin checks. Ops accepts only the signed Dashboard Admin claim for these routes. Neither ordinary MCP callers nor the installation owner credential can issue tokens. Six operational MCP groups remain unchanged.
 
 Token acquisition is an optional client step after server installation. The installer never auto-issues or renews tokens. Follow the independent LoomOps/Loom-Use INSTALL.md from the actual client account; keep credentials outside Git. A tagged machine's network identity is not its individual Linux user's identity.
+
+## Local files and optional SSH
+
+MCP `system.ssh` returns the caller's optional SSH descriptor and host addresses.
+On the same machine, use the current OS account's local filesystem permissions;
+no SSH registration is needed. For remote file analysis, install the optional
+Loom SSH Skill from the pinned Loom Use release, reuse existing authorized SSH,
+or ask the Dashboard Admin to enable a personal account. MCP tokens are not SSH
+passwords. Component/profile drafts are registered via MCP; Jobs stay in the queue.

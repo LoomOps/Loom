@@ -216,6 +216,8 @@ def doctor(setup, plan, stage=None):
         return True
     check('services','observations_fresh',observations,'Inspect the collector logs and observation mount; the timer alone does not prove data freshness.')
     check('services','observations_timer',lambda: setup.run('systemctl','is-active','loom-observations.timer')=='active' and setup.run('systemctl','is-enabled','loom-observations.timer')=='enabled','Restore the host observation collector and timer.')
+    if (root/'config/ssh.json').exists() or plan.get('host_ssh',False):
+        check('services','managed_host_ssh',lambda: __import__('ssh_setup').doctor(root)['enabled'] and __import__('ssh_setup').doctor(root)['ready'],'Run ssh_setup.py doctor; reconcile the protected host service and metadata mounts.')
     check('services','startup_enabled',lambda: all(setup.run('systemctl','is-enabled',s)=='enabled' for s in ['loom-stack','loom-executor']),'Enable both startup units.')
     def ingress():
         containers=[]

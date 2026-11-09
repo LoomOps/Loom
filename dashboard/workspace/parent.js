@@ -324,7 +324,7 @@
   async function accessAdmin(message){
     if(!sessionUser?.access_admin)return;
     if(accessBusy){
-      if(['loom-access-decision','loom-share-revoke','loom-token-issue','loom-token-revoke'].includes(message.type))emit('loom-access-response',{error:'조회 중입니다. 잠시 후 다시 시도해 주세요.'});
+      if(['loom-access-decision','loom-share-revoke','loom-token-issue','loom-token-revoke','loom-ssh-change'].includes(message.type))emit('loom-access-response',{error:'조회 중입니다. 잠시 후 다시 시도해 주세요.'});
       return;
     }
     if(message.type==='loom-access-decision' &&
@@ -351,9 +351,14 @@
         if(!response.ok){const error=new Error('token');error.status=response.status;throw error;}
         const result=await response.json();if(result.token)showIssuedToken(result);
       }
-      const [requests,members,tokens]=await Promise.allSettled([read('/admission/requests'),read('/admission/members'),read('/api/admin/tokens')]);
+      if(message.type==='loom-ssh-change'){
+        const session=await read('/admission/session');
+        const response=await fetch('/admission/ssh',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':session.csrf},body:JSON.stringify(message.body),signal:AbortSignal.timeout(60000)});
+        if(!response.ok){const error=new Error('ssh');error.status=response.status;throw error;}
+      }
+      const [requests,members,tokens,ssh]=await Promise.allSettled([read('/admission/requests'),read('/admission/members'),read('/api/admin/tokens'),read('/admission/ssh')]);
       if(requests.status==='rejected')throw requests.reason;
-      emit('loom-access-response',{data:{...requests.value,members:members.status==='fulfilled'?members.value.members:[],members_error:members.status==='rejected',tokens:tokens.status==='fulfilled'?tokens.value.tokens:[],owners:tokens.status==='fulfilled'?tokens.value.owners:[],tokens_error:tokens.status==='rejected'}});
+      emit('loom-access-response',{data:{...requests.value,ssh:ssh.status==='fulfilled'?ssh.value:null,ssh_error:ssh.status==='rejected',members:members.status==='fulfilled'?members.value.members:[],members_error:members.status==='rejected',tokens:tokens.status==='fulfilled'?tokens.value.tokens:[],owners:tokens.status==='fulfilled'?tokens.value.owners:[],tokens_error:tokens.status==='rejected'}});
     } catch(error){
       emit('loom-access-response',{error:error.status===401?'로그인이 만료되었습니다. 다시 로그인해 주세요.':error.status===403?'Admin 권한이 필요합니다.':'요청을 처리하지 못했습니다. 새로고침 후 상태를 확인해 주세요.'});
     } finally {accessBusy=false;}
@@ -369,7 +374,7 @@
     } else if (message.type === 'loom-logout' && ssoEnabled && csrf) {
       fetch('/auth/logout', {method:'POST',credentials:'same-origin',headers:{'X-Loom-CSRF':csrf},redirect:'follow'})
         .then(response => {if(response.ok)location.reload();});
-    } else if (['loom-access-request','loom-access-decision','loom-share-revoke','loom-token-issue','loom-token-revoke'].includes(message.type)) {
+    } else if (['loom-access-request','loom-access-decision','loom-share-revoke','loom-token-issue','loom-token-revoke','loom-ssh-change'].includes(message.type)) {
       accessAdmin(message);
     } else if (message.type === 'pai-resource-interest') {
       resourceInterest = message.active === true;

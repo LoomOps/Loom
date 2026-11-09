@@ -20,7 +20,7 @@ FILES = {"/": "workspace.html", "/icon.svg": "icon.svg"}
 IDENTIFIER = r"[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}"
 READ_ROUTES = (
     "/api/guide", r"/api/guide/[a-z][a-z-]{0,40}",
-    "/api/status", "/api/updates", "/api/docker", "/api/principal", "/api/jobs", "/api/events", "/api/registry",
+    "/api/status", "/api/ssh", "/api/updates", "/api/docker", "/api/principal", "/api/jobs", "/api/events", "/api/registry",
     "/api/dashboard/catalog", "/api/dashboard/resources", "/api/dashboard/revision",
     rf"/api/registry/{IDENTIFIER}",
     rf"/api/jobs/{IDENTIFIER}",

@@ -164,6 +164,7 @@ class InstallationDoctorTests(unittest.TestCase):
     'NetworkSettings':{'Networks':{'loom_default':{'Gateway':'10.203.41.1','IPAddress':'10.203.41.3' if service=='loom-dashboard' else '10.203.41.2'}}},
     'Config':{'Env':['LOOM_DEV_NO_AUTH=0','LOOM_TAILSCALE_TRUSTED_PROXIES=10.203.41.1']},'Mounts':[{'Destination':k,'Source':str(v),'RW':k.startswith('/loom/data/')} for k,v in mounts.items()],
     'HostConfig':{'PortBindings':{k:[{'HostIp':'127.0.0.1','HostPort':str(v)}] for k,v in ports.items()}}}
+  self.plan['host_ssh']=False # This fixture exercises existing installations without optional SSH.
   containers={s:container(s) for s in doctor.SERVICES}
   def run(*args):
    if args[:2]==('docker','ps'):return args[-1].split('=')[-1]

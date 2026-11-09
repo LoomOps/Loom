@@ -97,6 +97,9 @@ def check_health(source,root,project,expected=None):
      if r.status!=200:raise OSError('Health check failed')
      if request.full_url.endswith('/api/status') and expected and json.load(r)['build']['build_id']!=expected:raise OSError('Unexpected running build')
    if not (root/'development').exists():check_entry(root)
+   if (root/'config/ssh.json').exists():
+    from ssh_setup import doctor as ssh_doctor
+    if not ssh_doctor(root)['ready']:raise OSError('Managed SSH readiness failed')
    return
   except OSError as error:failure=str(error);time.sleep(1)
  raise RuntimeError('Updated services failed readiness checks: '+failure)
@@ -109,7 +112,13 @@ def helper_files(platform,source):
  for name in ('docker_status.py','host_metrics.py','remote_fence.py','collect-dashboard-gpus.py','collect-observations.py'):
   dest=platform/'shared/services'/name
   if dest.exists():result[dest]=source/('deploy' if name.startswith('collect-') else 'ops')/name
+ dest=Path('/usr/local/lib/loom-ssh/ssh_host.py')
+ if (platform/'ops/config/ssh.json').exists() and dest.exists() and (source/'deploy/ssh_host.py').is_file():result[dest]=source/'deploy/ssh_host.py'
  return result
+
+def restart_ssh(root):
+ p=root/'config/ssh.json'
+ if p.exists():run('systemctl','restart',json.loads(p.read_text())['unit'])
 
 def instance_paths(platform,root):
  # Shared helpers affect every local instance; fence each before changing them.
@@ -171,6 +180,7 @@ def apply(root,release,project,platform=Path('/loom')):
     import re
     unit.write_text(re.sub(r'/\S+/deploy/compose\.sh',str(dest/'deploy/compose.sh'),unit.read_text()));run('systemctl','daemon-reload')
    if helpers:run('systemctl','start','loom-executor.service','loom-observations.timer')
+   restart_ssh(root)
    compose(dest,root,project,'up','-d','--no-build');check_health(dest,root,project,info['build_id'])
    guide_bundle.select(guides,info['build_id'])
    record.update(state='complete',source=str(dest),previous_source=str(old_source))
@@ -210,6 +220,7 @@ def rollback(record_path):
    with sqlite3.connect(backup) as a,sql(db) as b:a.backup(b)
   if '/etc/systemd/system/loom-stack.service' in record['files']:run('systemctl','daemon-reload')
   if record['helpers']:run('systemctl','start','loom-executor.service','loom-observations.timer')
+  restart_ssh(root)
   previous=Path(record['previous_source']) if record.get('previous_source') else Path(__file__).resolve().parents[1]
   compose(previous,root,project,'up','-d','--no-build');check_health(previous,root,project)
   if record.get('guides'):guide_bundle.select(record['guides']['parent'],record['guides']['previous'])

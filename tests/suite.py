@@ -1,6 +1,7 @@
 """Internal unittest runner with machine-readable and JUnit results."""
 import argparse
 import json
+import hashlib
 from pathlib import Path
 import sys
 import time
@@ -33,8 +34,12 @@ if __name__=='__main__':
     component=a.directory.resolve().relative_to(root/'tests').parts[0]
     sys.path[:0]=[str(a.directory.resolve()),str(root/component)]
     suite=unittest.defaultTestLoader.discover(str(a.directory),pattern='test_*.py')
+    catalog=json.loads((root/'docs/features/catalog.json').read_text())
+    refs={p for f in catalog['features'] for p in f['sources']+f['tests']+f['contracts']+[f['spec']]}
+    tracked=[root/p for p in sorted(refs)]
+    sources={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}
     started=time.monotonic();result=unittest.TextTestRunner(verbosity=2,resultclass=Result).run(suite)
-    report={'tests':result.testsRun,'failures':len(result.failures),'errors':len(result.errors),
+    report={'sources':sources,'tests':result.testsRun,'failures':len(result.failures),'errors':len(result.errors),
         'skipped':len(result.skipped),'seconds':time.monotonic()-started,'successful':result.wasSuccessful(),
         'cases':list(result.records.values())}
     a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(report,indent=2)+'\n')

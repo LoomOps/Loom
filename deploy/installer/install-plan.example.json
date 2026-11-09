@@ -28,5 +28,6 @@
   "dashboard_port": 18893,
   "tls_port": 18894,
   "additional_data": [],
-  "mounts": []
+  "mounts": [],
+  "host_ssh": true
 }

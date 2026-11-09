@@ -3,7 +3,7 @@ import copy
 import mcp_groups
 
 # Descriptions/examples supplement the executable input contract, never replace it.
-ACTIONS = {'system.users': ('User profiles',
+ACTIONS = {'system.ssh': ('Personal SSH connection', 'Read the current caller SSH grant and machine addresses. Same-host clients use local files; Admin enablement is separate.', 'Connection · state, host, port, username, authentication, home, addresses', {}, ['Not enabled, unavailable or SSH management not configured.']), 'system.users': ('User profiles',
                   'List registered user profiles available for ownership assignment.',
                   'User[] · id, provider, login, display_name',
                   {},
