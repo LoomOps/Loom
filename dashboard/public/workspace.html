@@ -3743,7 +3743,7 @@ function loomToolsView(){
  const cards=shown.map(e=&gt;{
   const item=e.loom_extension,version=loomExtensionVersions(e)[0],files=Object.keys(version?.source_pins||{}).length;
   const profiles=e.kind===&#x27;component&#x27;?version?.profiles?.length:version?.used_by?.length;
-  return `&lt;article class=&quot;pa-extension-card&quot; data-extension-card=&quot;${esc(e.id)}&quot;&gt;&lt;div class=&quot;pa-extension-card-head&quot;&gt;${loomExtensionBadges(e,item?.revision)}&lt;span&gt;${esc(loomExtensionOwner(e))}&lt;/span&gt;&lt;/div&gt;&lt;h3&gt;${catLink(e.id,e.label)}&lt;/h3&gt;&lt;code class=&quot;pa-extension-id&quot;&gt;${esc(item?.id||e.id)}&lt;/code&gt;&lt;p&gt;${esc(e.summary||version?.description||&#x27;설명이 등록되지 않았습니다.&#x27;)}&lt;/p&gt;&lt;div class=&quot;pa-extension-card-facts&quot;&gt;&lt;span&gt;${icon(&#x27;files&#x27;)}${item?&#x27;파일 &#x27;+files+&#x27;개&#x27;:&#x27;보존된 카탈로그 기록&#x27;}&lt;/span&gt;${item?`&lt;span&gt;${icon(&#x27;git-branch&#x27;)}revision ${loomExtensionVersions(e).length}개&lt;/span&gt;&lt;span&gt;${icon(&#x27;workflow&#x27;)}${e.kind===&#x27;tool&#x27;?&#x27;연결 Profile&#x27;:&#x27;Profile&#x27;} ${profiles??0}개&lt;/span&gt;`:&#x27;&#x27;}&lt;/div&gt;&lt;/article&gt;`;
+  return `&lt;article class=&quot;pa-extension-card&quot; data-extension-card=&quot;${esc(e.id)}&quot;&gt;&lt;div class=&quot;pa-extension-card-head&quot;&gt;${loomExtensionBadges(e,item?.revision)}&lt;span&gt;${esc(loomExtensionOwner(e))}&lt;/span&gt;&lt;/div&gt;&lt;h3&gt;${catLink(e.id,e.label)}&lt;/h3&gt;&lt;code class=&quot;pa-extension-id&quot;&gt;${esc(item?.id||e.id)}&lt;/code&gt;&lt;p&gt;${esc(e.summary||version?.description||&#x27;설명이 등록되지 않았습니다.&#x27;)}&lt;/p&gt;&lt;div class=&quot;pa-extension-card-facts&quot;&gt;&lt;span&gt;${icon(&#x27;files&#x27;)}${item?(version?.source_pins_recorded===false?&#x27;파일 정보 미기록&#x27;:&#x27;파일 &#x27;+files+&#x27;개&#x27;):&#x27;보존된 카탈로그 기록&#x27;}&lt;/span&gt;${item?`&lt;span&gt;${icon(&#x27;git-branch&#x27;)}revision ${loomExtensionVersions(e).length}개&lt;/span&gt;&lt;span&gt;${icon(&#x27;workflow&#x27;)}${e.kind===&#x27;tool&#x27;?&#x27;연결 Profile&#x27;:&#x27;Profile&#x27;} ${profiles??0}개&lt;/span&gt;`:&#x27;&#x27;}&lt;/div&gt;&lt;/article&gt;`;
  }).join(&#x27;&#x27;);
  const empty=rows.length?&#x27;&lt;h3&gt;조건에 맞는 항목이 없습니다.&lt;/h3&gt;&lt;p&gt;검색어나 소유자·종류 필터를 바꿔보세요.&lt;/p&gt;&lt;button class=&quot;pa-button&quot; data-extension-clear&gt;필터 초기화&lt;/button&gt;&#x27;:&#x27;&lt;h3&gt;등록된 Component나 Tool이 없습니다.&lt;/h3&gt;&lt;p&gt;Job의 실행 계약은 Component로, 그 안에서 호출하는 연구 소프트웨어는 Tool로 등록하면 여기에 표시됩니다.&lt;/p&gt;&#x27;;
  return heading(&#x27;SOFTWARE&#x27;,&#x27;Components &amp; Tools&#x27;,&#x27;실행 계약과 연구 소프트웨어를 구분하고, 고정된 버전과 연결 관계를 확인합니다.&#x27;)+catStatus()+summary
@@ -3803,6 +3803,14 @@ root.addEventListener(&#x27;change&#x27;,event=&gt;{
  else if(event.target.matches(&#x27;[data-extension-owner]&#x27;))loomExtensionInput(event);
 });
 helpDescriptions.tools=&#x27;Components는 Job 실행·완료 계약, Tools는 Job 안에서 호출하는 연구 소프트웨어입니다. 등록된 revision과 Profile 연결을 확인합니다.&#x27;;
+const loomSoftwareRender=render;
+render=function(){
+ // Restore pre-inventory document tabs without resetting their selected revision.
+ for(const pane of ws.panes)for(const tab of pane.tabs){
+  if(/^(tool|component):[^:]+:[^:]+:r\d+$/.test(tab.view.entity||&#x27;&#x27;)||[&#x27;tool&#x27;,&#x27;component&#x27;].includes(catEntity(tab.view.entity)?.kind))tab.view.page=&#x27;tools&#x27;;
+ }
+ return loomSoftwareRender();
+};
 
 const loomPayloadLabels = {
   available: &#x27;이관됨&#x27;,

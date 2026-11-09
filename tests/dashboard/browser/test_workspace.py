@@ -152,6 +152,12 @@ const done=arguments[arguments.length-1];
         ui.js("const select=document.querySelector('[data-extension-version]');select.value='2';select.dispatchEvent(new Event('change',{bubbles:true}))")
         self.assertTrue(ui.js("return document.querySelector('.pa-extension-detail-grid').textContent.includes('planner/new_solver.py')"))
         self.assertFalse(ui.js("return !!window.softwareInjected"))
+        ui.top()
+        ui.js("const saved=structuredClone(history.state);for(const pane of saved.paiTabsV25.workspace.panes)for(const tab of pane.tabs)if(tab.view.entity)tab.view.page='experiments';history.replaceState(saved,'',location.href)")
+        self.wd('/refresh',{});ui.wait("return !document.querySelector('iframe').hidden");ui.frame()
+        ui.wait("return !!document.querySelector('.pa-extension-detail-grid')")
+        self.assertEqual(ui.js("return document.querySelector('[data-go=tools]').getAttribute('aria-current')"),'page')
+        self.assertEqual(ui.js("return document.querySelector('[data-extension-version]').value"),'2')
         self.assertFalse(self.api.actions)
 
     def test_software_inventory_and_details_fit_light_dark_narrow_views(self):

@@ -34,7 +34,7 @@ function loomToolsView(){
  const cards=shown.map(e=>{
   const item=e.loom_extension,version=loomExtensionVersions(e)[0],files=Object.keys(version?.source_pins||{}).length;
   const profiles=e.kind==='component'?version?.profiles?.length:version?.used_by?.length;
-  return `<article class="pa-extension-card" data-extension-card="${esc(e.id)}"><div class="pa-extension-card-head">${loomExtensionBadges(e,item?.revision)}<span>${esc(loomExtensionOwner(e))}</span></div><h3>${catLink(e.id,e.label)}</h3><code class="pa-extension-id">${esc(item?.id||e.id)}</code><p>${esc(e.summary||version?.description||'설명이 등록되지 않았습니다.')}</p><div class="pa-extension-card-facts"><span>${icon('files')}${item?'파일 '+files+'개':'보존된 카탈로그 기록'}</span>${item?`<span>${icon('git-branch')}revision ${loomExtensionVersions(e).length}개</span><span>${icon('workflow')}${e.kind==='tool'?'연결 Profile':'Profile'} ${profiles??0}개</span>`:''}</div></article>`;
+  return `<article class="pa-extension-card" data-extension-card="${esc(e.id)}"><div class="pa-extension-card-head">${loomExtensionBadges(e,item?.revision)}<span>${esc(loomExtensionOwner(e))}</span></div><h3>${catLink(e.id,e.label)}</h3><code class="pa-extension-id">${esc(item?.id||e.id)}</code><p>${esc(e.summary||version?.description||'설명이 등록되지 않았습니다.')}</p><div class="pa-extension-card-facts"><span>${icon('files')}${item?(version?.source_pins_recorded===false?'파일 정보 미기록':'파일 '+files+'개'):'보존된 카탈로그 기록'}</span>${item?`<span>${icon('git-branch')}revision ${loomExtensionVersions(e).length}개</span><span>${icon('workflow')}${e.kind==='tool'?'연결 Profile':'Profile'} ${profiles??0}개</span>`:''}</div></article>`;
  }).join('');
  const empty=rows.length?'<h3>조건에 맞는 항목이 없습니다.</h3><p>검색어나 소유자·종류 필터를 바꿔보세요.</p><button class="pa-button" data-extension-clear>필터 초기화</button>':'<h3>등록된 Component나 Tool이 없습니다.</h3><p>Job의 실행 계약은 Component로, 그 안에서 호출하는 연구 소프트웨어는 Tool로 등록하면 여기에 표시됩니다.</p>';
  return heading('SOFTWARE','Components & Tools','실행 계약과 연구 소프트웨어를 구분하고, 고정된 버전과 연결 관계를 확인합니다.')+catStatus()+summary
@@ -94,3 +94,11 @@ root.addEventListener('change',event=>{
  else if(event.target.matches('[data-extension-owner]'))loomExtensionInput(event);
 });
 helpDescriptions.tools='Components는 Job 실행·완료 계약, Tools는 Job 안에서 호출하는 연구 소프트웨어입니다. 등록된 revision과 Profile 연결을 확인합니다.';
+const loomSoftwareRender=render;
+render=function(){
+ // Restore pre-inventory document tabs without resetting their selected revision.
+ for(const pane of ws.panes)for(const tab of pane.tabs){
+  if(/^(tool|component):[^:]+:[^:]+:r\d+$/.test(tab.view.entity||'')||['tool','component'].includes(catEntity(tab.view.entity)?.kind))tab.view.page='tools';
+ }
+ return loomSoftwareRender();
+};

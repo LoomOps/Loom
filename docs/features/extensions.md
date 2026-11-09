@@ -5,6 +5,8 @@ the latest native registration for each namespace/ID. Native revision summaries
 retain source hashes and exact profile Tool references; usage distinguishes pins
 to older Tools from current registrations. Independent profile references are
 included. This is discovery, not validation that an image/dependency is healthy.
+Older Component registrations that kept source pins only in sealed Profiles are
+displayed using matching Profile evidence, without rewriting the legacy manifest.
 
 ## Responsibilities and boundaries
 

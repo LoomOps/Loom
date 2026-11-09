@@ -121,3 +121,15 @@ class ResearchToolTests(IsolatedOps):
             schema=request('/api/actions',{'group':'system','action':'describe','arguments':{'group':'components','action':'register_tool'}})[1]
             self.assertEqual(schema['scope'],'submit')
             self.assertEqual(request('/api/actions',{'group':'components','action':'register_tool','arguments':{'id':'x','manifest':{},'files':{'a':'x'}}},token='fixture-reader')[0],403)
+
+    def test_dashboard_reads_legacy_profile_source_pins_without_rewriting_manifest(self):
+        self.action('register',id='legacy',manifest={'profiles':{'run':self.profile}},files={'legacy.py':'preserved'})
+        with ops.db() as c:
+            manifest=json.loads(c.execute("SELECT manifest FROM components WHERE id='legacy'").fetchone()[0]);manifest.pop('source_pins')
+            c.execute("UPDATE components SET manifest=? WHERE id='legacy'",(json.dumps(manifest),));c.commit()
+            before=list(c.iterdump())
+            rows=dashboard_read.extension_inventory(c,self.owner,self.config)
+            self.assertEqual(before,list(c.iterdump()))
+        revision=rows[0]['loom_extension']['revisions'][0]
+        self.assertTrue(revision['source_pins_recorded'])
+        self.assertEqual(list(revision['source_pins']),['legacy.py'])

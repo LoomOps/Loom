@@ -113,11 +113,18 @@ def extension_inventory(db,actor,config):
             revisions=[]
             for item in db.execute('SELECT * FROM '+table+' WHERE owner=? AND id=? ORDER BY revision DESC',(row['owner'],row['id'])).fetchall():
                 manifest=json.loads(item['manifest'])
-                profiles=[extension_profile(key,p) for key,p in json.loads(item['profiles']).items()] if kind=='component' else []
+                raw_profiles=json.loads(item['profiles']) if kind=='component' else {}
+                profiles=[extension_profile(key,p) for key,p in raw_profiles.items()]
+                pins=manifest.get('source_pins')
+                if pins is None:
+                    # Older registrations sealed hashes in Profiles only. Read
+                    # that evidence without rewriting the original manifest.
+                    recorded=[p['source_pins'] for p in raw_profiles.values() if 'source_pins' in p]
+                    pins=recorded[0] if recorded and all(p==recorded[0] for p in recorded) else None
                 for profile in profiles:references(profile,row['owner'],kind+':'+row['owner']+':'+row['id']+':r'+str(row['revision']))
                 revisions.append({'revision':item['revision'],'sha256':item['sha256'] if kind=='tool' else None,
                     'label':manifest.get('label',row['id']),'description':manifest.get('description',''),
-                    'source_pins':manifest.get('source_pins',{}),'profiles':profiles,'origin':manifest.get('origin')})
+                    'source_pins':pins or {},'source_pins_recorded':pins is not None,'profiles':profiles,'origin':manifest.get('origin')})
             value['revisions']=revisions
             entries.append({'id':kind+':'+row['owner']+':'+row['id']+':r'+str(row['revision']),
                 'kind':kind,'namespace':'loom','label':value['manifest'].get('label',row['id']),
