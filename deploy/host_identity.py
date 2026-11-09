@@ -52,7 +52,7 @@ def directory(path, uid, gid, mode=0o750):
 def platform_layout(root, uid, gid):
     directory(root, 0, gid, 0o755)
     directory(root/'shared', 0, gid, 0o755)
-    for name in ('components', 'profiles', 'agents', 'builds'):
+    for name in ('components', 'profiles', 'builds'):
         directory(root/name, uid, gid, 0o755)
 
 

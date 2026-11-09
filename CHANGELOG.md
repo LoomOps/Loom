@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.37
+
+- Pin Loom Use alpha.5: honor explicit Tailscale authentication, verify identity on reconnect, preserve concurrent configuration changes during rollback, and validate MCP response envelopes.
+- Stop creating retired agent-operation directories; clarify independent client ownership in installation and developer documentation.
+- Validate component source path conflicts before publication and recover identical immutable snapshots after a rolled-back registration.
+- Extend component, host-layout, client transport and cross-repository packaging regression coverage.
+
 ## 0.1.0-alpha.36
 
 - Pin Loom Use alpha.4: resolve verified Codex socket symlinks, report specific refresh failures, and keep thread ID optional for current-chat verification only.

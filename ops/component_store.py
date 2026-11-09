@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import re
+import tempfile
 import execution
 import profile_store
 import ownership
@@ -63,8 +64,18 @@ def operate(c,actor,args,config):
                 if not path.resolve().is_relative_to(base.resolve()):raise ValueError('Source link leaves component')
                 files[str(path.relative_to(base))]=path.read_text()
     if not isinstance(manifest,dict) or not isinstance(files,dict) or not files:raise ValueError('Manifest and source files required')
+    names=set(files)
     for ref,content in files.items():
-        if not isinstance(ref,str) or Path(ref).is_absolute() or '..' in Path(ref).parts or not ref or not isinstance(content,str):raise ValueError('Invalid component source')
+        path=Path(ref)
+        if (not isinstance(ref,str) or path.is_absolute() or '..' in path.parts or not path.parts
+            or str(path)!=ref or ref=='component.json' or not isinstance(content,str)
+            or any(str(parent) in names for parent in path.parents if str(parent)!='.')):
+            raise ValueError('Invalid or conflicting component source path')
+    # Validate editable destinations before publishing an immutable revision.
+    work=ROOT/owner/identity/'src'
+    if not work.resolve().is_relative_to(ROOT.resolve()):raise ValueError('Editable source leaves component')
+    for ref in files:
+        if not (work/ref).resolve().is_relative_to(work.resolve()):raise ValueError('Editable source leaves component')
     c.execute('BEGIN IMMEDIATE')
     version=c.execute('SELECT COALESCE(MAX(revision),0)+1 FROM components WHERE owner=? AND id=?',(owner,identity)).fetchone()[0]
     base=ROOT/owner/identity;folder=base/'revisions'/str(version)
@@ -77,10 +88,21 @@ def operate(c,actor,args,config):
         profile_store.bind_runners(profile,config,owner)
         profiles[profile['revision']]=seal(profile)
     manifest={**manifest,'source_pins':{ref:hashlib.sha256(content.encode()).hexdigest() for ref,content in files.items()}}
-    folder.mkdir(parents=True,exist_ok=False)
-    for ref,content in files.items():
-        path=folder/ref;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(content)
-    (folder/'component.json').write_text(json.dumps(manifest,indent=2))
+    snapshot={**files,'component.json':json.dumps(manifest,indent=2)}
+    if folder.exists():
+        # An interrupted DB transaction may have published this exact candidate.
+        # Reuse only an identical snapshot, never overwrite a revision.
+        if folder.is_symlink() or any(p.is_symlink() for p in folder.rglob('*')):
+            raise ValueError('Component snapshot conflict')
+        existing={str(p.relative_to(folder)):p.read_text() for p in folder.rglob('*') if p.is_file()}
+        if existing!=snapshot:raise ValueError('Component snapshot conflict')
+    else:
+        folder.parent.mkdir(parents=True,exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=folder.parent,prefix='.register-') as temporary:
+            stage=Path(temporary)/'snapshot';stage.mkdir()
+            for ref,content in snapshot.items():
+                path=stage/ref;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(content)
+            stage.rename(folder)
     # The editable source is a convenience checkout, never the running revision.
     work=base/'src';work.mkdir(exist_ok=True)
     for ref,content in files.items():

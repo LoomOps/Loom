@@ -141,3 +141,25 @@ class ComponentPlatformTests(IsolatedOps):
         self.assertEqual(result['owner_profile']['id'],person['id'])
         self.assertEqual(list(result['profiles']),first['profiles'])
         self.assertEqual(result['revision'],1)
+
+    def test_source_path_conflicts_do_not_poison_future_registration(self):
+        for files in ({'component.json':'reserved'},{'.':'invalid'},{'a':'file','a/b':'child'},{'a/./b':'alias','a/b':'collision'}):
+            with self.subTest(files=files),self.assertRaises(ValueError):
+                ops.operate('components',{'action':'register','arguments':{'id':'demo','manifest':self.definition,'files':files}},self.owner,self.config)
+        self.assertEqual(self.register()['revision'],1)
+
+    def test_registration_recovers_identical_snapshot_after_db_rollback(self):
+        args={'action':'register','id':'demo','manifest':self.definition,'files':{'run.py':'print("hello")'}}
+        with self.assertRaises(RuntimeError):
+            with ops.db() as c:
+                component_store.operate(c,self.owner,args,self.config)
+                raise RuntimeError('lost transaction')
+        self.assertEqual(self.register()['revision'],1)
+        self.assertEqual(self.register()['revision'],2)
+
+    def test_failed_editable_link_does_not_publish_a_snapshot(self):
+        base=component_store.ROOT/'owner/demo/src';base.mkdir(parents=True)
+        outside=self.root/'outside';outside.write_text('preserve');(base/'run.py').symlink_to(outside)
+        with self.assertRaises(ValueError):self.register()
+        self.assertFalse((base.parent/'revisions/1').exists())
+        self.assertEqual(outside.read_text(),'preserve')

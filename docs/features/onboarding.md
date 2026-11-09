@@ -21,7 +21,7 @@ The linked code/schemas define fields, enums and state transitions. This documen
 
 [identity](identity.md) · [api](api.md)
 
-When usage contracts change, update Loom Use documents, bundle inventory, revisions and the stdio client.
+When usage contracts change, update server usage documents, bundle inventory and revisions; review the independently released Loom Use client and run the cross-repository contract tests.
 
 ## Tests and failure boundaries
 

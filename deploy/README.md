@@ -75,7 +75,7 @@ external output storage and system units together, after actual executions retur
 
 ## Development and releases
 
-- `compose.sh`: isolated dev-build. `runtime.sh`: Example Machine alpha.
+- `compose.sh`: isolated dev-build. `runtime.sh`: the configured production instance.
 - `build.sh`: numbered dev snapshot/images, no automatic service restart.
 - `release.py VERSION`: immutable alpha snapshot/images, no deployment.
 - `test.sh --browser`: isolated regression tests.

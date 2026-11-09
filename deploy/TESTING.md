@@ -65,7 +65,7 @@ Before deployment, build numbered images and verify startup, API/MCP and storage
 
 Use the current test suites and target-specific acceptance scripts. Preserved historical evidence is not an executable installation procedure.
 
-## Shared queue and coverage boundaries (v31)
+## Shared queue and coverage boundaries
 
 Regression coverage includes FIFO/front/back/relative ordering, duplicate submission, shared cross-user reads/controls with explicit read-only credential restrictions, hold/resume persistence, concurrent reorder, SQLite claim contention, recovery reservation overtaking/expiry/dependent skipping, same-Attempt resume after preparation hold, fresh Attempts for retries requiring preparation, and ordinary resume versus recovery. Compare HTTP/MCP/catalog behavior and verify controls/permission errors in actual Firefox.
 

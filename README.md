@@ -14,7 +14,7 @@ Pin a [GitHub Release](https://github.com/LoomOps/Loom/releases) tag to build im
 
 ## Usage
 
-**MCP guidance, client tools and optional skills live in [Loom Use](loom_use/README.md).**
+**Install client tools and optional Skills from [Loom Use](https://github.com/LoomOps/Loom-Use). Server-owned usage contracts are indexed in [Loom Use guides](loom_use/README.md).**
 
 Connect to `<private Dashboard URL>/mcp` using the server address and your own authentication. Use `system.status`, `system.guide` and `system.describe` to discover the running version, usage guidance and exact input contracts. Dashboard is the web entry point for the same server.
 
@@ -26,7 +26,7 @@ Loom does not embed resident agents or a prescribed agent hierarchy. External op
 ops/          Jobs, queues, results and MCP/API server
 dashboard/    Web UI
 executor/     Host container executor
-loom_use/     Client tools, MCP guidance, skills and optional adapters
+loom_use/     Server usage guides, API contracts and pinned client release
 deploy/       Installation, Compose, builds and releases
 tests/        Ops, Dashboard, browser and installation tests; shared runner
 docs/         Platform technical documentation
@@ -56,7 +56,7 @@ In an existing development installation, `deploy/build.sh` creates numbered imag
 
 [Structured installation](deploy/installer/INSTALL.md) · [Source installation, overrides, updates and rollback](docs/UPDATES.md)
 
-Client tools and guidance live in `loom_use`; development specifications live in `docs/features`. Machine-specific instructions, secrets, research data and historical execution evidence are not part of the Git distribution.
+Client installation tools and Skills live in the independent Loom Use repository. Server guides and its pinned client release live in `loom_use`; development specifications live in `docs/features`. Machine-specific instructions, secrets, research data and historical execution evidence are not part of the Git distribution.
 
 ## License
 

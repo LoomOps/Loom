@@ -34,3 +34,12 @@ class HostIdentityTests(unittest.TestCase):
  def test_privileged_path_rejects_service_writable_parent(self):
   with tempfile.TemporaryDirectory() as t:
    with self.assertRaises(ValueError):host.protected_chain(Path(t))
+
+ def test_layout_does_not_create_or_touch_retired_agent_directory(self):
+  with tempfile.TemporaryDirectory() as t, patch.object(host.os,'chown'):
+   root=Path(t)/'loom';host.platform_layout(root,987,986)
+   self.assertEqual({p.name for p in root.iterdir()},{'shared','components','profiles','builds'})
+   legacy=root/'agents';legacy.mkdir(mode=0o700);(legacy/'note').write_text('preserve')
+   host.platform_layout(root,987,986)
+   self.assertEqual((legacy/'note').read_text(),'preserve')
+   self.assertEqual(legacy.stat().st_mode&0o777,0o700)
