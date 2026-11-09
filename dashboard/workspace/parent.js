@@ -358,7 +358,7 @@
       }
       const [requests,members,tokens,ssh]=await Promise.allSettled([read('/admission/requests'),read('/admission/members'),read('/api/admin/tokens'),read('/admission/ssh')]);
       if(requests.status==='rejected')throw requests.reason;
-      emit('loom-access-response',{data:{...requests.value,ssh:ssh.status==='fulfilled'?ssh.value:null,ssh_error:ssh.status==='rejected',members:members.status==='fulfilled'?members.value.members:[],members_error:members.status==='rejected',tokens:tokens.status==='fulfilled'?tokens.value.tokens:[],owners:tokens.status==='fulfilled'?tokens.value.owners:[],tokens_error:tokens.status==='rejected'}});
+      emit('loom-access-response',{data:{...requests.value,ssh:ssh.status==='fulfilled'?ssh.value:null,ssh_error:ssh.status==='rejected',members:members.status==='fulfilled'?members.value.members:[],members_error:members.status==='rejected',tokens:tokens.status==='fulfilled'?tokens.value.tokens:[],owners:tokens.status==='fulfilled'?tokens.value.owners:[],owner_profiles:tokens.status==='fulfilled'?tokens.value.owner_profiles:[],tokens_error:tokens.status==='rejected'}});
     } catch(error){
       emit('loom-access-response',{error:error.status===401?'로그인이 만료되었습니다. 다시 로그인해 주세요.':error.status===403?'Admin 권한이 필요합니다.':'요청을 처리하지 못했습니다. 새로고침 후 상태를 확인해 주세요.'});
     } finally {accessBusy=false;}

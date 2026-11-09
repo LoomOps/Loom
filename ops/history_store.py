@@ -48,6 +48,33 @@ def list_records(db, kind, offset, limit):
         WHERE (?='' OR kind=?) ORDER BY kind,id,source,revision,snapshot LIMIT ? OFFSET ?''',(kind,kind,limit,offset))]
 
 
+def catalog_results(db, native_ids=()):
+    """Discover preserved artifacts without pretending they are executable registry inputs.
+
+    Match Dashboard's active catalog snapshot. Keep the exact history key because
+    historical revisions need not be integers and must not be passed to results.get.
+    """
+    snapshot = db.execute("SELECT snapshot FROM history_records WHERE source='catalog' ORDER BY rowid DESC LIMIT 1").fetchone()
+    if snapshot is None:
+        return []
+    seen = set(native_ids)
+    result = []
+    for row in db.execute("""SELECT kind,id,revision,body FROM history_records
+            WHERE source='catalog' AND snapshot=? AND kind IN ('model','dataset','run','experiment','artifact')
+            ORDER BY rowid DESC""", (snapshot[0],)):
+        if row['id'] in seen:
+            continue
+        seen.add(row['id'])
+        original = json.loads(row['body']).get('original', {})
+        result.append(ownership.decorate(db, 'entity', {
+            'id': row['id'], 'kind': row['kind'], 'revision': row['revision'],
+            'label': original.get('label', row['id']), 'record_type': 'historical',
+            'history_ref': {'source': 'catalog', 'kind': row['kind'], 'id': row['id'], 'revision': row['revision']},
+            'detail_action': 'results.historical',
+        }))
+    return sorted(result, key=lambda item: item['id'])
+
+
 def get_record(db, source, kind, identity, revision, config=None, bulk=None):
     if source.removeprefix('archive.') not in SOURCES or any(not isinstance(value,str) or not KEY.fullmatch(value) for value in (kind,identity,revision)):
         raise ValueError('Invalid history record key')

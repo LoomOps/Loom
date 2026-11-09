@@ -23,12 +23,31 @@ def require_admin(actor):
         raise PermissionError('Dashboard Admin required')
 
 
+def eligible_owners(c, actor):
+    identity = actor.get('identity', {})
+    logins = identity.get('token_owner_logins', [])
+    admins = identity.get('token_owner_admins', [])
+    eligible = {x.strip().casefold() for x in logins if isinstance(x, str)}
+    admin_ids = set()
+    for admin in admins:
+        if not isinstance(admin, dict): continue
+        row = c.execute('SELECT profile_id FROM auth_identities WHERE issuer=? AND subject=?',
+                        (admin.get('issuer'), admin.get('subject'))).fetchone()
+        if row: admin_ids.add(row[0])
+    # The requesting Admin has already passed exact native Admin verification.
+    admin_ids.add(actor['id'])
+    return [dict(row) for row in c.execute('SELECT id,login,display_name FROM user_profiles ORDER BY login')
+            if row['id'] in admin_ids or row['login'].strip().casefold() in eligible]
+
+
 def listing(c, actor):
     require_admin(actor)
     tokens = [dict(r) for r in c.execute('SELECT id,label,owner,scopes,created,created_by,revoked,revoked_by FROM resident_tokens ORDER BY created DESC')]
     for t in tokens:
         t['scopes'] = json.loads(t['scopes']); t['expires'] = None
-    return {'tokens': tokens, 'owners': [dict(r) for r in c.execute('SELECT id,login,display_name FROM user_profiles ORDER BY login')], 'expires': None}
+    return {'tokens': tokens, 'owners': eligible_owners(c, actor),
+            'owner_profiles': [dict(r) for r in c.execute('SELECT id,login,display_name FROM user_profiles ORDER BY login')],
+            'expires': None}
 
 
 def issue(c, actor, body):
@@ -42,6 +61,8 @@ def issue(c, actor, body):
         raise ValueError('Invalid token scopes')
     if not isinstance(owner, str) or not c.execute('SELECT 1 FROM user_profiles WHERE id=?', (owner,)).fetchone():
         raise ValueError('Select a registered Loom user')
+    if owner not in {p['id'] for p in eligible_owners(c, actor)}:
+        raise ValueError('Select a current Admin or approved member')
     token = 'loom_' + secrets.token_urlsafe(32); key = uuid.uuid4().hex
     c.execute('INSERT INTO resident_tokens VALUES(?,?,?,?,?,?,?,NULL,NULL)',
               (key, hashlib.sha256(token.encode()).hexdigest(), label.strip(), owner,

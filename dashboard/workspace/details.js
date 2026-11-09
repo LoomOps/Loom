@@ -174,6 +174,27 @@ paiEntityActions = function(id) {
   return `<details class="pa-entity-menu"><summary aria-label="항목 메뉴" title="항목 메뉴"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg></summary><div class="pa-entity-menu-items"><button data-share-route="${esc(id)}" aria-haspopup="dialog">${icon('share')}<span>공유</span></button><a href="${esc(paiEntityURL(id))}" target="_blank" rel="noopener noreferrer" data-open-route="${esc(id)}"><span aria-hidden="true">↗</span><span>새 창에서 열기</span></a></div></details>`;
 };
 
+function loomDatasetProperties(entity) {
+  const d = entity.dataset_overview || {}, p = entity.properties || {};
+  const metadata = entity.metadata || p;
+  const missing = {not_applicable:'해당 없음',not_recorded:'미기록',not_measured:'미측정',pending:'집계 대기',source_error:'소스 오류'};
+  const quantity = (value, reason) => value == null ? (missing[reason] || '미기록') : catNum(value);
+  const role = d.role || p.dataset_role;
+  const inputs = Array.isArray(d.inputs) ? d.inputs.filter(x => x.status === 'present') : [];
+  const modalities = inputs.map(x => x.kind === 'vision' ? x.value : ({rgb:'RGB',depth:'Depth',state:'State',action:'Action'}[x.kind] || x.label || x.kind));
+  const splits = Array.isArray(d.splits) ? d.splits : [];
+  return {
+    'Role': ({training_observations:'Training observations',diagnostic_observations:'Diagnostic observations',evaluation_conditions:'Evaluation conditions'}[role] || role || '미기록'),
+    'Count': quantity(Object.hasOwn(d,'count') ? d.count : metadata.episodes ?? metadata.count, d.count_missing_reason),
+    'Unit': d.count_unit || (metadata.episodes != null ? 'episodes' : '미기록'),
+    'Observation frames': quantity(Object.hasOwn(d,'frames') ? d.frames : metadata.frames, d.frames_missing_reason),
+    'Inputs': modalities.length ? modalities.join(' · ') : (Array.isArray(d.inputs) && d.inputs.length && d.inputs.every(x => x.status === 'absent') ? '해당 없음' : (metadata.modalities || []).join(' · ') || '미기록'),
+    'Split': splits.length ? splits.map(x => `${x.id} ${quantity(x.count,x.count_missing_reason)}`).join(' / ') : '미기록',
+    ...(p.source_human_parent_count != null ? {'Source parents': p.source_human_parent_count} : {}),
+    ...(d.count_definition ? {'Count definition':d.count_definition} : {}),
+  };
+}
+
 function loomDetailHeading(html, id) {
   const template = document.createElement('template');
   template.innerHTML = html;
@@ -218,9 +239,28 @@ function loomDetailHeading(html, id) {
       properties.innerHTML = panel('Properties', '<dl class="pa-job-properties">'+ownerRow+'</dl>');
       title.after(...properties.children);
     }
+    if (entity?.kind === 'dataset') {
+      // The original metadata is evidence, not a flat property form. Keep large
+      // episode inventories available without rendering them on every refresh.
+      const sourcePanel = [...template.content.querySelectorAll('.pa-panel')].find(p => p.querySelector(':scope > .pa-panel-head > h2')?.textContent === '속성');
+      if (sourcePanel) {
+        sourcePanel.querySelector('h2').textContent = 'Dataset Properties';
+        sourcePanel.querySelector('.pa-props')?.remove();
+        sourcePanel.insertAdjacentHTML('beforeend', catProperties(loomDatasetProperties(entity))
+          + `<details data-dataset-source="${esc(entity.id)}"><summary>Source metadata</summary><pre></pre></details>`);
+      }
+    }
   }
   return template.innerHTML;
 }
+
+root.addEventListener('toggle', event => {
+  const detail = event.target;
+  if (!detail.matches?.('details[data-dataset-source]') || !detail.open) return;
+  const entity = catEntity(detail.dataset.datasetSource);
+  const pre = detail.querySelector('pre');
+  if (entity && pre && !pre.textContent) pre.textContent = JSON.stringify(entity.properties || {}, null, 2);
+}, true);
 
 catalogDetail = function(id) {
   const entity = catEntity(id);

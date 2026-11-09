@@ -21,7 +21,7 @@ refresh only changed guide/contract content, without a background polling gate.
 | /api/jobs/{id} | jobs.get | Authorized Job/Attempts/scheduling/recovery/change history |
 | /api/jobs/contract | system.contract | Job/schema/queue/recovery policy |
 | /api/jobs/profiles | components.profiles | Callable profiles under caller grant |
-| /api/registry | results.list | Authorized artifacts/locations |
+| /api/registry | results.list | Native artifacts plus active-catalog historical artifacts; historical entries include history_ref for results.historical |
 | /api/registry/{id} | results.get | Revision 1 over this compatibility route |
 | /api/events | events.list | Recipient-scoped pending errors; use kind=all for completion |
 | /api/docker | system.docker | Scoped cached host/container observations |

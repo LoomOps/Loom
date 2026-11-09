@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.39
+
+- Show consistent dataset properties from the normalized overview and load detailed source metadata on demand. Keep observation counts, missing values and original records distinct.
+- Include active preserved catalog models and datasets in result discovery with exact historical detail references; do not imply payload availability or execution readiness.
+- Restrict new Agent Token owners to current Admins and approved shared members, on both the Dashboard and issue API. Keep historical owner attribution and explicit token revocation intact.
+
+
 ## 0.1.0-alpha.38
 
 - Preserve service ownership and private modes when atomically replacing the managed-access journal; distinguish local permission/storage errors from upstream failures.

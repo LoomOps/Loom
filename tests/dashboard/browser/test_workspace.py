@@ -75,6 +75,30 @@ const done=arguments[arguments.length-1];
         self.assertNotIn('error',result)
         self.assertTrue(all(result.values()))
 
+    def test_dataset_properties_are_consistent_and_source_metadata_is_lazy(self):
+        import copy
+        entity=copy.deepcopy(next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-model'))
+        entity.update(id='fixture-dataset',kind='dataset',label='Fixture dataset',
+            properties={'actual_adopted_membership':[{'id':'episode-private','large':'payload'}],'frames':999},
+            dataset_overview={'role':'evaluation_conditions','count':0,'count_unit':'cases','frames':None,
+                'frames_missing_reason':'not_applicable','inputs':[{'kind':'other','status':'absent'}],'splits':[]})
+        before=copy.deepcopy(entity)
+        self.api.fixture['catalog']['entities'].append(entity)
+        self.api.fixture['catalog']['revision']='dataset-properties'
+        ui=self.ui
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('dataset-properties')")
+        ui.top();self.wd('/url',{'url':self.base+'/#/entities/fixture-dataset'});ui.frame()
+        ui.wait("return !!document.querySelector('details[data-dataset-source]')")
+        facts=ui.js("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent==='Dataset Properties').querySelector('.pa-props').textContent")
+        self.assertIn('Count0',facts)
+        self.assertIn('Observation frames해당 없음',facts)
+        self.assertIn('Inputs해당 없음',facts)
+        self.assertFalse(ui.js("return document.querySelector('details[data-dataset-source] pre').textContent.includes('episode-private')"))
+        ui.click('details[data-dataset-source] summary')
+        ui.wait("return document.querySelector('details[data-dataset-source] pre').textContent.includes('episode-private')")
+        self.assertEqual(entity,before)
+
     def test_release_check_is_visible_and_manual_request_does_not_mutate_jobs(self):
         ui=self.ui
         ui.wait("return document.querySelector('[data-loom-updates]')?.textContent==='Up to date'")
@@ -761,7 +785,7 @@ const done=arguments[arguments.length-1];
         def response(h,data):
             h.send_response(200);h.send_header('Content-Type','application/json');h.end_headers();h.wfile.write(json.dumps(data).encode())
         def get_tokens(h):
-            if h.path=='/api/admin/tokens':return response(h,{'tokens':tokens,'owners':[{'id':'test-user','login':'owner@example.test','display_name':'Owner'}]})
+            if h.path=='/api/admin/tokens':return response(h,{'tokens':tokens,'owners':[{'id':'test-user','login':'owner@example.test','display_name':'Owner'}],'owner_profiles':[{'id':'test-user','login':'owner@example.test','display_name':'Owner'},{'id':'removed-user','login':'removed@example.test','display_name':'Removed member'}]})
             return get(h)
         def post_tokens(h):
             if h.path.startswith('/api/admin/tokens'):
@@ -777,6 +801,7 @@ const done=arguments[arguments.length-1];
         ui.wait("return !document.querySelector('iframe').hidden");ui.frame()
         ui.wait("return !!document.querySelector('.pa-profile-trigger')");ui.click('.pa-profile-trigger')
         ui.wait("return !!document.querySelector('[data-token-form] option[value=test-user]')")
+        self.assertEqual(ui.js("return [...document.querySelector('[name=owner]').options].map(o=>o.value)"),['test-user'])
         ui.js("document.querySelector('[name=label]').value='Resident agent'")
         ui.click('[data-access-refresh]')
         ui.wait("return !document.querySelector('[data-access-refresh]').disabled")

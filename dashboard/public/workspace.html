@@ -3561,9 +3561,10 @@ function loomAccessView(){
     return &#x27;&lt;tr data-ssh-login=&quot;&#x27;+esc(login)+&#x27;&quot;&gt;&lt;td&gt;&#x27;+esc(m.displayName||login)+&#x27;&lt;small class=&quot;pa-subtle&quot;&gt;&#x27;+esc(login)+&#x27;&lt;/small&gt;&lt;/td&gt;&lt;td&gt;&lt;input class=&quot;pa-input&quot; aria-label=&quot;SSH account for &#x27;+esc(login)+&#x27;&quot; data-ssh-username value=&quot;&#x27;+esc(r?.username||suggested)+&#x27;&quot; pattern=&quot;loomu_[a-z0-9][a-z0-9_]{0,23}&quot; maxlength=&quot;30&quot; &#x27;+(r?&#x27;readonly&#x27;:&#x27;&#x27;)+&#x27;&gt;&lt;/td&gt;&lt;td&gt;&#x27;+esc(r?.state||&#x27;Not enabled&#x27;)+(r?.error?&#x27;&lt;small class=&quot;pa-tailnet-error&quot;&gt;&#x27;+esc(r.error)+&#x27;&lt;/small&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/td&gt;&lt;td&gt;&lt;button type=&quot;button&quot; class=&quot;pa-button&quot; data-ssh-action=&quot;&#x27;+(r?.state===&#x27;enabled&#x27;?&#x27;disable&#x27;:&#x27;enable&#x27;)+&#x27;&quot; &#x27;+(loomAccessBusy?&#x27;disabled&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+(r?.state===&#x27;enabled&#x27;?&#x27;Disable SSH&#x27;:&#x27;Enable SSH&#x27;)+&#x27;&lt;/button&gt;&#x27;+(r&amp;&amp;r.state!==&#x27;enabled&#x27;&amp;&amp;r.state!==&#x27;disabled&#x27;?&#x27;&lt;button type=&quot;button&quot; class=&quot;pa-button&quot; data-ssh-action=&quot;disable&quot;&gt;Disable SSH&lt;/button&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/td&gt;&lt;/tr&gt;&#x27;;
   }).join(&#x27;&#x27;)+&#x27;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&#x27;);
   const tokens=loomAccessState?.tokens||[],owners=loomAccessState?.owners||[];
+  const ownerProfiles=loomAccessState?.owner_profiles?.length?loomAccessState.owner_profiles:owners;
   const active=tokens.filter(t=&gt;!t.revoked),revoked=tokens.filter(t=&gt;t.revoked);
   const permissions=t=&gt;t.scopes.length===4&amp;&amp;[&#x27;read&#x27;,&#x27;submit&#x27;,&#x27;cancel&#x27;,&#x27;events&#x27;].every(s=&gt;t.scopes.includes(s))?&#x27;Operator&#x27;:t.scopes.includes(&#x27;read&#x27;)&amp;&amp;t.scopes.every(s=&gt;[&#x27;read&#x27;,&#x27;events&#x27;].includes(s))?&#x27;Read only&#x27;:t.scopes.join(&#x27;, &#x27;);
-  const tokenTable=(items,label)=&gt;&#x27;&lt;div class=&quot;pa-tailnet-table-wrap&quot;&gt;&lt;table class=&quot;pa-tailnet-table&quot; aria-label=&quot;&#x27;+label+&#x27;&quot;&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Name&lt;/th&gt;&lt;th&gt;Owner&lt;/th&gt;&lt;th&gt;Permissions&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;th&gt;&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&#x27;+items.map(t=&gt;&#x27;&lt;tr&gt;&lt;td data-label=&quot;Name&quot;&gt;&lt;strong&gt;&#x27;+esc(t.label)+&#x27;&lt;/strong&gt;&lt;/td&gt;&lt;td data-label=&quot;Owner&quot;&gt;&#x27;+esc(owners.find(o=&gt;o.id===t.owner)?.login||t.owner)+&#x27;&lt;/td&gt;&lt;td data-label=&quot;Permissions&quot;&gt;&lt;span class=&quot;pa-tailnet-badge&quot;&gt;&#x27;+esc(permissions(t))+&#x27;&lt;/span&gt;&lt;/td&gt;&lt;td data-label=&quot;Status&quot;&gt;&#x27;+(t.revoked?&#x27;Revoked&#x27;:&#x27;&lt;span class=&quot;pa-token-active&quot;&gt;Active&lt;/span&gt;&#x27;)+&#x27;&lt;/td&gt;&lt;td data-label=&quot;Actions&quot;&gt;&#x27;+(!t.revoked?&#x27;&lt;button class=&quot;pa-button&quot; type=&quot;button&quot; data-token-revoke=&quot;&#x27;+esc(t.id)+&#x27;&quot;&gt;Revoke&lt;/button&gt;&#x27;:&#x27;—&#x27;)+&#x27;&lt;/td&gt;&lt;/tr&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&#x27;;
+  const tokenTable=(items,label)=&gt;&#x27;&lt;div class=&quot;pa-tailnet-table-wrap&quot;&gt;&lt;table class=&quot;pa-tailnet-table&quot; aria-label=&quot;&#x27;+label+&#x27;&quot;&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;Name&lt;/th&gt;&lt;th&gt;Owner&lt;/th&gt;&lt;th&gt;Permissions&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;th&gt;&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&#x27;+items.map(t=&gt;&#x27;&lt;tr&gt;&lt;td data-label=&quot;Name&quot;&gt;&lt;strong&gt;&#x27;+esc(t.label)+&#x27;&lt;/strong&gt;&lt;/td&gt;&lt;td data-label=&quot;Owner&quot;&gt;&#x27;+esc(ownerProfiles.find(o=&gt;o.id===t.owner)?.login||t.owner)+&#x27;&lt;/td&gt;&lt;td data-label=&quot;Permissions&quot;&gt;&lt;span class=&quot;pa-tailnet-badge&quot;&gt;&#x27;+esc(permissions(t))+&#x27;&lt;/span&gt;&lt;/td&gt;&lt;td data-label=&quot;Status&quot;&gt;&#x27;+(t.revoked?&#x27;Revoked&#x27;:&#x27;&lt;span class=&quot;pa-token-active&quot;&gt;Active&lt;/span&gt;&#x27;)+&#x27;&lt;/td&gt;&lt;td data-label=&quot;Actions&quot;&gt;&#x27;+(!t.revoked?&#x27;&lt;button class=&quot;pa-button&quot; type=&quot;button&quot; data-token-revoke=&quot;&#x27;+esc(t.id)+&#x27;&quot;&gt;Revoke&lt;/button&gt;&#x27;:&#x27;—&#x27;)+&#x27;&lt;/td&gt;&lt;/tr&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&#x27;;
   const tokenPanel=panel(&#x27;Agent Tokens &lt;small&gt;&#x27;+active.length+&#x27;&lt;/small&gt;&#x27;,
     &#x27;&lt;form data-token-form class=&quot;pa-token-form&quot;&gt;&lt;label&gt;&lt;span&gt;Name&lt;/span&gt;&lt;input aria-label=&quot;Token name&quot; name=&quot;label&quot; placeholder=&quot;e.g. Research agent&quot; maxlength=&quot;80&quot; required&gt;&lt;/label&gt;&lt;label&gt;&lt;span&gt;Owner&lt;/span&gt;&lt;select aria-label=&quot;Token owner&quot; name=&quot;owner&quot; required&gt;&#x27;+owners.map(o=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(o.id)+&#x27;&quot;&gt;&#x27;+esc(o.display_name||o.login)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&lt;label&gt;&lt;span&gt;Permissions&lt;/span&gt;&lt;select aria-label=&quot;Token permissions&quot; name=&quot;permissions&quot;&gt;&lt;option value=&quot;operator&quot;&gt;Operator&lt;/option&gt;&lt;option value=&quot;read&quot;&gt;Read only&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;button class=&quot;pa-button pa-token-create&quot; type=&quot;button&quot; data-token-create &#x27;+(loomAccessBusy||!owners.length?&#x27;disabled&#x27;:&#x27;&#x27;)+&#x27;&gt;Create token&lt;/button&gt;&lt;/form&gt;&lt;p class=&quot;pa-token-caption&quot;&gt;No expiration · Revoke anytime&lt;/p&gt;&#x27;+
     (loomAccessState?.tokens_error?&#x27;&lt;p role=&quot;status&quot;&gt;토큰 목록을 불러오지 못했습니다.&lt;/p&gt;&#x27;:(active.length?tokenTable(active,&#x27;Agent Tokens&#x27;):&#x27;&lt;div class=&quot;pa-token-empty&quot;&gt;No active tokens&lt;/div&gt;&#x27;)+(revoked.length?&#x27;&lt;details class=&quot;pa-token-history&quot;&gt;&lt;summary&gt;Revoked &lt;span&gt;&#x27;+revoked.length+&#x27;&lt;/span&gt;&lt;/summary&gt;&#x27;+tokenTable(revoked,&#x27;Revoked tokens&#x27;)+&#x27;&lt;/details&gt;&#x27;:&#x27;&#x27;)));
@@ -3876,6 +3877,27 @@ paiEntityActions = function(id) {
   return `&lt;details class=&quot;pa-entity-menu&quot;&gt;&lt;summary aria-label=&quot;항목 메뉴&quot; title=&quot;항목 메뉴&quot;&gt;&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 20 20&quot; aria-hidden=&quot;true&quot;&gt;&lt;circle cx=&quot;4&quot; cy=&quot;10&quot; r=&quot;1.5&quot;/&gt;&lt;circle cx=&quot;10&quot; cy=&quot;10&quot; r=&quot;1.5&quot;/&gt;&lt;circle cx=&quot;16&quot; cy=&quot;10&quot; r=&quot;1.5&quot;/&gt;&lt;/svg&gt;&lt;/summary&gt;&lt;div class=&quot;pa-entity-menu-items&quot;&gt;&lt;button data-share-route=&quot;${esc(id)}&quot; aria-haspopup=&quot;dialog&quot;&gt;${icon(&#x27;share&#x27;)}&lt;span&gt;공유&lt;/span&gt;&lt;/button&gt;&lt;a href=&quot;${esc(paiEntityURL(id))}&quot; target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot; data-open-route=&quot;${esc(id)}&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;↗&lt;/span&gt;&lt;span&gt;새 창에서 열기&lt;/span&gt;&lt;/a&gt;&lt;/div&gt;&lt;/details&gt;`;
 };
 
+function loomDatasetProperties(entity) {
+  const d = entity.dataset_overview || {}, p = entity.properties || {};
+  const metadata = entity.metadata || p;
+  const missing = {not_applicable:&#x27;해당 없음&#x27;,not_recorded:&#x27;미기록&#x27;,not_measured:&#x27;미측정&#x27;,pending:&#x27;집계 대기&#x27;,source_error:&#x27;소스 오류&#x27;};
+  const quantity = (value, reason) =&gt; value == null ? (missing[reason] || &#x27;미기록&#x27;) : catNum(value);
+  const role = d.role || p.dataset_role;
+  const inputs = Array.isArray(d.inputs) ? d.inputs.filter(x =&gt; x.status === &#x27;present&#x27;) : [];
+  const modalities = inputs.map(x =&gt; x.kind === &#x27;vision&#x27; ? x.value : ({rgb:&#x27;RGB&#x27;,depth:&#x27;Depth&#x27;,state:&#x27;State&#x27;,action:&#x27;Action&#x27;}[x.kind] || x.label || x.kind));
+  const splits = Array.isArray(d.splits) ? d.splits : [];
+  return {
+    &#x27;Role&#x27;: ({training_observations:&#x27;Training observations&#x27;,diagnostic_observations:&#x27;Diagnostic observations&#x27;,evaluation_conditions:&#x27;Evaluation conditions&#x27;}[role] || role || &#x27;미기록&#x27;),
+    &#x27;Count&#x27;: quantity(Object.hasOwn(d,&#x27;count&#x27;) ? d.count : metadata.episodes ?? metadata.count, d.count_missing_reason),
+    &#x27;Unit&#x27;: d.count_unit || (metadata.episodes != null ? &#x27;episodes&#x27; : &#x27;미기록&#x27;),
+    &#x27;Observation frames&#x27;: quantity(Object.hasOwn(d,&#x27;frames&#x27;) ? d.frames : metadata.frames, d.frames_missing_reason),
+    &#x27;Inputs&#x27;: modalities.length ? modalities.join(&#x27; · &#x27;) : (Array.isArray(d.inputs) &amp;&amp; d.inputs.length &amp;&amp; d.inputs.every(x =&gt; x.status === &#x27;absent&#x27;) ? &#x27;해당 없음&#x27; : (metadata.modalities || []).join(&#x27; · &#x27;) || &#x27;미기록&#x27;),
+    &#x27;Split&#x27;: splits.length ? splits.map(x =&gt; `${x.id} ${quantity(x.count,x.count_missing_reason)}`).join(&#x27; / &#x27;) : &#x27;미기록&#x27;,
+    ...(p.source_human_parent_count != null ? {&#x27;Source parents&#x27;: p.source_human_parent_count} : {}),
+    ...(d.count_definition ? {&#x27;Count definition&#x27;:d.count_definition} : {}),
+  };
+}
+
 function loomDetailHeading(html, id) {
   const template = document.createElement(&#x27;template&#x27;);
   template.innerHTML = html;
@@ -3920,9 +3942,28 @@ function loomDetailHeading(html, id) {
       properties.innerHTML = panel(&#x27;Properties&#x27;, &#x27;&lt;dl class=&quot;pa-job-properties&quot;&gt;&#x27;+ownerRow+&#x27;&lt;/dl&gt;&#x27;);
       title.after(...properties.children);
     }
+    if (entity?.kind === &#x27;dataset&#x27;) {
+      // The original metadata is evidence, not a flat property form. Keep large
+      // episode inventories available without rendering them on every refresh.
+      const sourcePanel = [...template.content.querySelectorAll(&#x27;.pa-panel&#x27;)].find(p =&gt; p.querySelector(&#x27;:scope &gt; .pa-panel-head &gt; h2&#x27;)?.textContent === &#x27;속성&#x27;);
+      if (sourcePanel) {
+        sourcePanel.querySelector(&#x27;h2&#x27;).textContent = &#x27;Dataset Properties&#x27;;
+        sourcePanel.querySelector(&#x27;.pa-props&#x27;)?.remove();
+        sourcePanel.insertAdjacentHTML(&#x27;beforeend&#x27;, catProperties(loomDatasetProperties(entity))
+          + `&lt;details data-dataset-source=&quot;${esc(entity.id)}&quot;&gt;&lt;summary&gt;Source metadata&lt;/summary&gt;&lt;pre&gt;&lt;/pre&gt;&lt;/details&gt;`);
+      }
+    }
   }
   return template.innerHTML;
 }
+
+root.addEventListener(&#x27;toggle&#x27;, event =&gt; {
+  const detail = event.target;
+  if (!detail.matches?.(&#x27;details[data-dataset-source]&#x27;) || !detail.open) return;
+  const entity = catEntity(detail.dataset.datasetSource);
+  const pre = detail.querySelector(&#x27;pre&#x27;);
+  if (entity &amp;&amp; pre &amp;&amp; !pre.textContent) pre.textContent = JSON.stringify(entity.properties || {}, null, 2);
+}, true);
 
 catalogDetail = function(id) {
   const entity = catEntity(id);
@@ -5860,7 +5901,7 @@ function loomCatalogProjection(catalog) {
       }
       const [requests,members,tokens,ssh]=await Promise.allSettled([read('/admission/requests'),read('/admission/members'),read('/api/admin/tokens'),read('/admission/ssh')]);
       if(requests.status==='rejected')throw requests.reason;
-      emit('loom-access-response',{data:{...requests.value,ssh:ssh.status==='fulfilled'?ssh.value:null,ssh_error:ssh.status==='rejected',members:members.status==='fulfilled'?members.value.members:[],members_error:members.status==='rejected',tokens:tokens.status==='fulfilled'?tokens.value.tokens:[],owners:tokens.status==='fulfilled'?tokens.value.owners:[],tokens_error:tokens.status==='rejected'}});
+      emit('loom-access-response',{data:{...requests.value,ssh:ssh.status==='fulfilled'?ssh.value:null,ssh_error:ssh.status==='rejected',members:members.status==='fulfilled'?members.value.members:[],members_error:members.status==='rejected',tokens:tokens.status==='fulfilled'?tokens.value.tokens:[],owners:tokens.status==='fulfilled'?tokens.value.owners:[],owner_profiles:tokens.status==='fulfilled'?tokens.value.owner_profiles:[],tokens_error:tokens.status==='rejected'}});
     } catch(error){
       emit('loom-access-response',{error:error.status===401?'로그인이 만료되었습니다. 다시 로그인해 주세요.':error.status===403?'Admin 권한이 필요합니다.':'요청을 처리하지 못했습니다. 새로고침 후 상태를 확인해 주세요.'});
     } finally {accessBusy=false;}

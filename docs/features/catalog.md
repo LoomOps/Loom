@@ -47,3 +47,14 @@ registered target refs. A source_ref without an attached copy is `not_connected`
 not evidence that the original was deleted. Small files (up to 1 MiB) are hash
 checked; larger files are present_unverified. No host-path inference, automatic
 mount, Bat migration, GPU load or claim of inference readiness occurs.
+
+`results.list` includes artifact discovery from the same active catalog snapshot
+as Dashboard. Historical entries expose their exact `history_ref` and
+`detail_action=results.historical`; native entries retain their existing shape.
+Native IDs take precedence, duplicate historical revisions select the latest
+inserted record in that snapshot, and non-artifact documents are excluded.
+Imported rows and execution queues are never rewritten by this read model.
+
+Dataset detail pages use a common property summary from `dataset_overview`, with
+explicit missing/not-applicable values. Nested producer diagnostics and episode
+inventories remain in lazily expanded Source metadata, preserving original evidence.

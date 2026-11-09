@@ -20,6 +20,12 @@ Use `jobs.get` for stages and Attempts; continue `jobs.logs` using next_offset i
 
 After completion, inspect artifacts, locations and provenance through `results.list/get`. Execution completion, result publication and event acknowledgment are distinct facts. First use is not authorization to run a large training experiment as a test.
 
+`results.list` also discovers imported models, datasets and experiment records.
+Entries marked `record_type: historical` carry `history_ref`: pass that object to
+`results.historical`, not `results.get`. They preserve original metadata and a
+separate current-availability observation; discovery does not imply usable weights
+or a ready dataset. Native registry entries continue to use `results.get`.
+
 ## HTTP alternative
 
 Call the same operations through `POST /api/actions` with `{group,action,arguments}`. Do not forge identity headers when using Tailscale Serve authentication. Token-based callers send `Authorization: Bearer <personal-token>`. Inspect MCP result.isError, or HTTP status and error body, for failures.

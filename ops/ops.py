@@ -847,7 +847,8 @@ def operate(name, args, actor, config):
             return job_contract.select(rows + job_history.listing(c, actor, config), args)
         if name == 'queue_view':return queue_control.view(c,actor,execution_lane)
         if name == 'list_registry':
-            return registry.view(c,actor)
+            native = registry.view(c,actor)
+            return native + history_store.catalog_results(c, (item['id'] for item in native))
         if name == 'get_entity':
             return registry.view(c,actor,ident(args['id']),args['revision'])
         if name in {'list_history','get_history'}:

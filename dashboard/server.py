@@ -13,6 +13,8 @@ import hmac
 import sso
 import diagnostics
 import admission_http
+import sqlite3
+from admission import RemoteError
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 class DiagnosticHTTPServer(diagnostics.ServerMixin, ThreadingHTTPServer):
@@ -294,6 +296,16 @@ class WebHandler(BaseHTTPRequestHandler):
             # Browser routes cannot bypass logout using Serve headers or a token.
             bearer=''
             person={**session['user'],'access_admin':bool(admin_route)}
+            if admin_route and path == '/api/admin/tokens':
+                # Only this trusted relay supplies eligibility; request bodies and
+                # historical profiles cannot grant new credentials.
+                try:
+                    person['token_owner_logins'] = sorted({
+                        m['loginName'].strip().casefold() for m in admission.members() if m.get('loginName')
+                    })
+                    person['token_owner_admins'] = admission.config['admins']
+                except (OSError, ValueError, sqlite3.Error, RemoteError):
+                    return self.error(503, 'token_owners_unavailable')
             identity={'X-Loom-Dashboard-Identity':self.server.sso.assertion(person)}
         else:
             identity=self.tailnet_headers() if not bearer else {}

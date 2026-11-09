@@ -81,7 +81,7 @@ class SSOTest(unittest.TestCase):
     self.rfile.read(int(self.headers.get('Content-Length',0)));self.do_GET()
   api=ThreadingHTTPServer(('127.0.0.1',0),Capture)
   web=make_server('127.0.0.1',0,'http://127.0.0.1:'+str(api.server_port));web.sso=self.auth;web.development=True;web.tailscale_proxies=['127.0.0.1']
-  web.admission=SimpleNamespace(is_admin=lambda user:False)
+  web.admission=SimpleNamespace(is_admin=lambda user:False,members=lambda:[{'loginName':'approved@example.test'}],config={'admins':[{'issuer':self.auth.issuer,'subject':'member'}]})
   for server in (api,web):
    th=Thread(target=server.serve_forever,kwargs={'poll_interval':.01},daemon=True);th.start()
    self.addCleanup(th.join,2);self.addCleanup(server.server_close);self.addCleanup(server.shutdown)
@@ -100,6 +100,14 @@ class SSOTest(unittest.TestCase):
   self.assertEqual(signature,hmac.new(self.auth.key,encoded.encode(),hashlib.sha256).hexdigest())
   identity=json.loads(base64.urlsafe_b64decode(encoded+'='*(-len(encoded)%4)))['identity']
   self.assertTrue(identity['access_admin']);self.assertNotIn('Authorization',seen[-1])
+  self.assertEqual(identity['token_owner_logins'],['approved@example.test'])
+  self.assertEqual(identity['token_owner_admins'],web.admission.config['admins'])
   self.assertEqual(call(path='/api/status')[0],200)
   encoded=seen[-1]['X-Loom-Dashboard-Identity'].split('.')[0]
   self.assertFalse(json.loads(base64.urlsafe_b64decode(encoded+'='*(-len(encoded)%4)))['identity']['access_admin'])
+
+  before=len(seen)
+  with patch.object(web.admission,'members',side_effect=OSError('unavailable')):
+   self.assertEqual(call('POST',write)[0],503)
+   self.assertEqual(len(seen),before)
+   self.assertEqual(call('POST',write,path='/api/admin/tokens/revoke')[0],200)
