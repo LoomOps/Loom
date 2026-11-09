@@ -1,5 +1,6 @@
 **
 !server.py
+!ssh_access.py
 !build-info.json
 !build_version.py
 !public

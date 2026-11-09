@@ -1,11 +1,12 @@
 # Changelog
 
-## 0.1.0-alpha.32
+## 0.1.0-alpha.33
 
 - Add Admin-managed personal host SSH accounts, exact Tailscale policy bindings and per-user MCP connection discovery.
 - Keep local agents on local filesystem access; distribute optional Loom SSH with Loom Use alpha.2.
 - Preserve homes and Jobs on SSH revocation; integrate protected helper lifecycle, storage ACLs, doctor and uninstall.
 - Audit feature blocks against actual executed cases and tested source hashes; reject missing, skipped and stale evidence.
+- Verify every Dashboard Docker COPY input against the build allowlist. Alpha.32 was not published after its build failed this boundary.
 
 ## 0.1.0-alpha.31
 
