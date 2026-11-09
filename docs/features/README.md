@@ -28,7 +28,7 @@ flowchart LR
   Identity --> API[HTTP / MCP contracts]
   API --> Queue[Queue / admission]
   Queue --> Execution[Lifecycle / executor]
-  Extensions[Components / profiles] --> Execution
+  Extensions[Components / Tools / Profiles] --> Execution
   Execution --> Recovery[Recovery / events]
   Recovery --> Queue
   Execution --> Results[Artifacts / indexing]
@@ -51,7 +51,7 @@ Authoritative execution states and hook stages are implemented by worker/finish 
 | [execution](execution.md) | Lifecycle, hooks, executor | Queue, recovery, results |
 | [recovery](recovery.md) | Recovery leases, retries, events | Queue, external callers |
 | [results](results.md) | Artifacts, indexing, lineage | Dependent Jobs, catalog |
-| [extensions](extensions.md) | Components, profiles | Execution, results |
+| [extensions](extensions.md) | Components, Tools, Profiles | Execution, results |
 | [catalog](catalog.md) | Queries, original preservation, files | Dashboard, API |
 | [diagnostics](diagnostics.md) | Private local error collection | API, Dashboard, installation |
 | [observations](observations.md) | Resource and Docker observations | Dashboard |

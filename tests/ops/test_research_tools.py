@@ -54,6 +54,46 @@ class ResearchToolTests(IsolatedOps):
         with self.assertRaises(ValueError):self.action('register_profile',id='bad',profile={**self.profile,'tools':{'planner':{'id':'missing','revision':1}}})
         with self.assertRaises(ValueError):self.action('register_profile',id='bad',profile={**self.profile,'tool_pins':{}})
 
+    def test_legacy_tool_copy_uses_matching_profile_pins_and_preserves_original(self):
+        self.action('register',id='legacy',manifest={'profiles':{'run':self.profile}},files={'run.py':'legacy bytes'})
+        with ops.db() as c:
+            row=c.execute("SELECT * FROM components WHERE id='legacy'").fetchone()
+            manifest=json.loads(row['manifest']);manifest.pop('source_pins')
+            c.execute("UPDATE components SET manifest=? WHERE id='legacy'",(json.dumps(manifest),));c.commit()
+        original=(component_store.ROOT/'owner/legacy/revisions/1/run.py').read_bytes()
+        tool=self.action('register_tool',id='converted',manifest={},component={'id':'legacy','revision':1})
+        self.assertEqual((tool_store.snapshot_path('owner','converted',1)/'run.py').read_bytes(),original)
+        self.assertNotIn('source_pins',self.action('get',id='legacy')['manifest'])
+        with ops.db() as c:
+            profiles=json.loads(row['profiles']);other=copy.deepcopy(next(iter(profiles.values())))
+            other['source_pins']={'run.py':'0'*64};profiles['conflicting']=other
+            c.execute("UPDATE components SET profiles=? WHERE id='legacy'",(json.dumps(profiles),));c.commit()
+        for action,args in [('register_tool',{'manifest':{}}),('register_profile',{'profile':self.profile})]:
+            with self.assertRaisesRegex(ValueError,'conflicting'):
+                self.action(action,id='ambiguous',component={'id':'legacy','revision':1},**args)
+
+    def test_fenced_extension_and_ownership_writes_preserve_state_and_allow_reads(self):
+        self.register();self.action('register',id='adapter',manifest={},files={'run.py':'unchanged'})
+        self.action('register_profile',id='profile',profile=self.profile)
+        job=self.submit()
+        for mode in ('maintenance','readonly'):
+            with ops.db() as c:
+                c.execute('UPDATE node_control SET mode=? WHERE id=1',(mode,));c.commit();before=list(c.iterdump())
+            files={str(p):p.read_bytes() for p in component_store.ROOT.rglob('*') if p.is_file()}
+            actions=[('write',{'id':'adapter','path':'run.py','content':'changed'}),
+                     ('register',{'id':'adapter','manifest':{},'files':{'run.py':'changed'}}),
+                     ('register_tool',{'id':'planner','manifest':{},'files':{'run.py':'changed'}}),
+                     ('register_profile',{'id':'profile','profile':self.profile})]
+            for action,args in actions:
+                with self.assertRaisesRegex(PermissionError,'fenced'):self.action(action,**args)
+            with self.assertRaisesRegex(PermissionError,'fenced'):
+                ops.operate('assign_job_owner',{'id':job,'owner':'reader'},self.owner,self.config)
+            self.assertEqual(self.action('get',id='adapter')['revision'],1)
+            self.assertEqual(self.action('get_tool',id='planner')['revision'],1)
+            self.assertEqual(self.action('get_profile',id='profile')['revision'],1)
+            with ops.db() as c:self.assertEqual(before,list(c.iterdump()))
+            self.assertEqual(files,{str(p):p.read_bytes() for p in component_store.ROOT.rglob('*') if p.is_file()})
+
     def test_launch_detects_tampered_revision_before_executor_call(self):
         self.register()
         with ops.db() as c:pins=tool_store.bind(c,{'planner':{'id':'planner','revision':1}},'owner')

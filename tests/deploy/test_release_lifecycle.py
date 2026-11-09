@@ -154,7 +154,7 @@ class GuideBundleTests(unittest.TestCase):
  def test_bundle_rejects_wrong_version_and_path_escape_before_writing(self):
   with tempfile.TemporaryDirectory() as t:
    root=Path(t)/'guides'
-   for data in [bundle('wrong'),bundle('v1','../escape')]:
+   for data in [bundle('wrong'),bundle('v1','../escape'),bundle('v1','./manifest.json'),bundle('v1','skills//extra.md')]:
     with self.assertRaises(ValueError):guide_bundle.install(data,root,'v1')
    self.assertFalse(root.exists())
  def test_reinstall_preserves_modified_version_and_current_directory(self):
@@ -172,3 +172,8 @@ class GuideBundleTests(unittest.TestCase):
    root=Path(t);guide_bundle.install(bundle('v1'),root,'v1');guide_bundle.select(root,'v1')
    guide_bundle.select(root,None)
    self.assertFalse((root/'current').is_symlink());self.assertTrue((root/'v1').is_dir())
+ def test_reinstall_rejects_directory_symlinks_even_when_files_match(self):
+  with tempfile.TemporaryDirectory() as t:
+   root=Path(t);guide_bundle.install(bundle('v1'),root,'v1')
+   (root/'v1/skills').rename(root/'external');(root/'v1/skills').symlink_to(root/'external',target_is_directory=True)
+   with self.assertRaisesRegex(ValueError,'linked'):guide_bundle.install(bundle('v1'),root,'v1')

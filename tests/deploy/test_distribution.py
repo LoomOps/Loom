@@ -60,3 +60,8 @@ class DistributionTests(unittest.TestCase):
                 ref=target.partition('#')[0]
                 with self.subTest(document=str(path.relative_to(ROOT)),target=ref):
                     self.assertTrue((path.parent/ref).exists())
+
+    def test_server_entry_delegates_to_external_client_installer(self):
+        entry=(ROOT/'loom_use/entry.md').read_text()
+        self.assertNotIn('Follow clients/README.md',entry)
+        self.assertIn('https://github.com/LoomOps/Loom-Use/blob/main/INSTALL.md',entry)

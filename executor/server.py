@@ -1,6 +1,6 @@
 """Local host executor. Only Ops holds the Unix-socket credential; Jobs never do."""
 import hashlib
-from runtime_policy import declared
+from runtime_policy import declared, gpu_driver_capabilities, runtime_network
 import hmac
 import json
 import os
@@ -80,6 +80,7 @@ def handle(instance,action,data):
             runtime=declared(data,cfg.get('declared_runtime',{}),docker)
             return {'image':runtime['image'],'resources':{k:runtime[k] for k in ('cpus','memory','pids')}}
         if action=='start':
+            if {'network','driver_capabilities'} & data.keys():raise PermissionError('Runtime network and driver capabilities are administrator policy')
             ticket=data['ticket']
             if not isinstance(ticket,str) or not ID.fullmatch(ticket):raise ValueError('Invalid ticket')
             ticket=instance+'.'+ticket
@@ -115,7 +116,7 @@ def handle(instance,action,data):
                      '--label','loom.stage='+data['stage'],'--init','--user',f"{cfg['uid']}:{cfg['gid']}",
                      '--cap-drop=ALL','--security-opt=no-new-privileges','--read-only','--pids-limit',str(runtime.get('pids',512)),
                      '--cpus',str(runtime.get('cpus',4)),'--memory',runtime.get('memory','8g'),
-                     '--network',runtime.get('network','none'),'--tmpfs','/tmp:rw,nosuid,size=1g','--workdir','/work',
+                     '--network',runtime_network(runtime),'--tmpfs','/tmp:rw,nosuid,size=1g','--workdir','/work',
                      '--mount',f'type=bind,source={folder},target=/work',
                      '--env','HOME=/tmp','--env','PYTHONDONTWRITEBYTECODE=1','--env','LOOM_OUTPUT_DIR=/work']
                 for key,value in sorted(data.get('env',{}).items()):
@@ -151,7 +152,7 @@ def handle(instance,action,data):
                 for mount in runtime.get('mounts',[]):
                     # Only the host administrator defines runtime library/asset mounts.
                     cmd+=['--mount',f"type=bind,source={mount['source']},target={mount['target']}"+(',readonly' if mount.get('readonly',True) else '')]
-                if gpu:cmd+=['--gpus','device='+','.join(CONFIG.get('gpu_devices',['0'])),'--env','NVIDIA_DRIVER_CAPABILITIES=compute,utility']
+                if gpu:cmd+=['--gpus','device='+','.join(CONFIG.get('gpu_devices',['0'])),'--env','NVIDIA_DRIVER_CAPABILITIES='+gpu_driver_capabilities(runtime)]
                 cmd+=['--entrypoint',argv[0],runtime['image'],*argv[1:]]
                 labels={'loom.instance':instance,'loom.job':data['job'],'loom.stage':data['stage'],
                         'loom.ticket':ticket,

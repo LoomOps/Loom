@@ -5,6 +5,10 @@ from urllib.request import urlopen
 ROOT=Path(__file__).resolve().parents[1]
 LOCK=ROOT/'loom_use/client-release.json'
 LIMIT=8*1024*1024
+REQUIRED={'VERSION','INSTALL.md','loom_use.py','skills/loom-use/SKILL.md','clients/headers.py'}
+
+def member(name):
+ return isinstance(name,str) and bool(name) and not Path(name).is_absolute() and '..' not in Path(name).parts and '\\' not in name and str(Path(name))==name and name!='.package.json' and '__pycache__' not in Path(name).parts
 
 def descriptor():return json.loads(LOCK.read_text())
 
@@ -16,11 +20,20 @@ def prepare(destination,archive=None):
  destination=Path(destination);target=destination/version
  if target.is_symlink():raise ValueError('Refusing a linked package directory')
  if target.exists():
+  if (target/'.package.json').is_symlink():raise ValueError('Package receipt must not be a symlink')
   receipt=json.loads((target/'.package.json').read_text())
   if receipt['lock']!=lock:raise ValueError('Package cache differs')
+  files=receipt.get('files')
+  if not isinstance(files,dict) or not REQUIRED<=files.keys() or not 1<=len(files)<=4096:raise ValueError('Incomplete package receipt')
+  paths=list(target.rglob('*'))
+  if any(p.is_symlink() for p in paths):raise ValueError('Linked package source')
+  actual={str(p.relative_to(target)) for p in paths if p.is_file() and not ('__pycache__' in p.parts and p.suffix=='.pyc')}
+  if actual!=set(files)|{'.package.json'}:raise ValueError('Package cache file set changed')
   for name,digest in receipt['files'].items():
+   if not member(name) or not isinstance(digest,str) or not re.fullmatch('[a-f0-9]{64}',digest):raise ValueError('Invalid package receipt')
    p=target/name
-   if p.is_symlink() or hashlib.sha256(p.read_bytes()).hexdigest()!=digest:raise ValueError('Package cache changed')
+   if not p.resolve().is_relative_to(target.resolve()) or hashlib.sha256(p.read_bytes()).hexdigest()!=digest:raise ValueError('Package cache changed')
+  if (target/'VERSION').read_text().strip()!=version:raise ValueError('Package cache version differs')
   return target
  if archive:data=Path(archive).read_bytes()
  else:
@@ -29,10 +42,11 @@ def prepare(destination,archive=None):
  destination.mkdir(parents=True,exist_ok=True)
  with zipfile.ZipFile(io.BytesIO(data)) as z:
   entries=z.infolist();names=[e.filename for e in entries]
-  if len(names)!=len(set(names)) or sum(e.file_size for e in entries)>LIMIT:raise ValueError('Invalid package size')
+  if not 1<=len(names)<=4096 or len(names)!=len(set(names)) or sum(e.file_size for e in entries)>LIMIT:raise ValueError('Invalid package size')
   for e in entries:
    p=Path(e.filename)
-   if p.is_absolute() or '..' in p.parts or '\\' in e.filename or e.is_dir() or stat.S_ISLNK(e.external_attr>>16) or e.filename=='.package.json':raise ValueError('Invalid package path')
+   if not member(e.filename) or e.is_dir() or stat.S_ISLNK(e.external_attr>>16):raise ValueError('Invalid package path')
+  if not REQUIRED<=set(names):raise ValueError('Incomplete client package')
   if z.read('VERSION').decode().strip()!=version:raise ValueError('Package version mismatch')
   with tempfile.TemporaryDirectory(dir=destination,prefix='.loom-use-') as temp:
    stage=Path(temp)/'package';stage.mkdir();hashes={}

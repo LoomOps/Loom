@@ -1,5 +1,6 @@
 """Read-only installation diagnostics. Receipts never substitute for live checks."""
 import json
+import hashlib
 import time
 from pathlib import Path
 from urllib.error import HTTPError
@@ -10,6 +11,15 @@ STAGES = ('plan', 'host', 'images', 'configuration', 'services', 'network', 'acc
 STEPS = {name: f'steps/{i:02d}-{name}.md' for i, name in enumerate(STAGES, 1)}
 STEPS['acceptance']='steps/07-handoff.md'
 SERVICES = ('loom-ops', 'loom-dashboard', 'loom-gateway')
+
+def runtime_options_ready(root,plan):
+    from runtime_policy import options
+    root=Path(root);settings=json.loads((root.parent/'shared/executor/config.json').read_text())
+    digest=hashlib.sha256((root/'secrets/executor-token').read_text().strip().encode()).hexdigest()
+    matches=[c for c in settings['instances'].values() if c['token_sha256']==digest]
+    if len(matches)!=1:return False
+    actual=matches[0].get('declared_runtime',{})
+    return options({k:actual[k] for k in ('network','driver_capabilities') if k in actual})==options(plan['runtime_options'])
 
 class PendingCheck(Exception):
     def __init__(self,status):self.status=status
@@ -215,6 +225,8 @@ def doctor(setup, plan, stage=None):
     check('configuration','identity_gateway_config',config,'Apply the SSO/Sharing configuration stage; no token-only fallback.')
     check('configuration','storage_paths',stores,'Reconcile the selected storage paths and generated mounts.')
     check('configuration','executor_config',lambda: read('config/api.json').get('executor',{}).get('host_data')==plan['data'] and read('config/api.json').get('executor',{}).get('storage')=={f'data/{i}':p for i,p in enumerate([plan['data'],*plan['additional_data']])},'Attach the executor to the selected primary data directory.')
+    if 'runtime_options' in plan:
+        check('configuration','administrator_runtime_options',lambda: runtime_options_ready(root,plan),'Compare the explicit plan with the matching executor instance runtime policy; do not silently relax network or driver grants.')
     for svc in SERVICES:
         check('services',svc,lambda svc=svc: container(svc),'Reconcile the matching Compose service; read steps/05-services.md.')
     check('services','local_api_mcp_executor',lambda: setup.verify_core(plan)['build']==setup.manifest()['build_id'],'Inspect service logs; do not replace failed checks with a manual PASS.')

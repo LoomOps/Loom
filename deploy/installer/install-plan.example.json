@@ -29,5 +29,12 @@
   "tls_port": 18894,
   "additional_data": [],
   "mounts": [],
-  "host_ssh": true
+  "host_ssh": true,
+  "runtime_options": {
+    "network": "none",
+    "driver_capabilities": [
+      "compute",
+      "utility"
+    ]
+  }
 }

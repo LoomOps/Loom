@@ -1,4 +1,4 @@
-# extensions — Dynamic components, profiles and execution environment contracts
+# extensions — Components, Tools, Profiles and execution environment contracts
 
 Dashboard's shared Extensions inventory includes historical records and
 the latest native registration for each namespace/ID. Native revision summaries
@@ -30,7 +30,7 @@ The linked code/schemas define fields, enums and state transitions. This documen
 
 [identity](identity.md)
 
-When profiles or components change, check input schemas, prepare/run/completion hooks, executor runtime policy, registration/read MCP actions and guides.
+When Profiles, Components or Tools change, check input schemas, prepare/run/completion hooks, executor runtime policy, registration/read MCP actions and guides.
 
 ## Tests and failure boundaries
 
@@ -58,4 +58,10 @@ Component source paths must be canonical relative file paths, without file/direc
 Components. Exact pins are sealed into Profiles/Jobs, verified by runtime_client,
 and mounted read-only by the executor. The six MCP groups are unchanged. Legacy
 Component snapshots are copied only by explicit exact-revision selection; old
-registrations and provenance remain intact. Dashboard lists Tools independently.
+registrations and provenance remain intact. Dashboard groups Components and Tools under **Extensions**, with separate type
+filters and exact Profile references. The `components` MCP group is unchanged.
+
+Extension registration/source writes obey maintenance and readonly admission
+fences in the same SQLite transaction as their state change. Discovery and exact
+revision reads stay available. The fence cannot be bypassed by selecting the
+components Tool actions or standalone Profile actions.

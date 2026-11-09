@@ -120,3 +120,9 @@ all instance databases and extension stores. update.py supports explicit rebuild
 resume and guarded rollback. A preservation failure keeps admission fenced.
 See [UPGRADE.md](../UPGRADE.md). External real-account authentication, clean-host
 reboots and arbitrary schema transformations still require live acceptance.
+
+Fresh plans may include runtime_options (network and driver_capabilities) matching
+executor/runtime_policy.py OPTIONS_SCHEMA. Existing plans remain valid. The
+installation doctor verifies explicit options against the actual matching executor
+grant. deploy/runtime_doctor.py is a separate opt-in diagnostic, never a required
+research or Job gate; see [runtime doctor](../RUNTIME-DOCTOR.md).

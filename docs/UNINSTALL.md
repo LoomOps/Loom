@@ -41,7 +41,7 @@ restores modified preexisting values. See [managed resources](MANAGED-RESOURCES.
 
 Cleanup preserves the host's Tailscale login/device, unrelated/shared tags and preexisting Admin policy,
 unrelated Tailnet users/policies/shares/listeners, Job DB/history and owner
-provenance, datasets/models/artifacts, storage mounts, components/profiles, service
+provenance, datasets/models/artifacts, storage mounts, Component/Tool/Profile revisions, service
 account, images, dependencies and shared host helpers. It does not delete a Tailnet
 user or run `tailscale logout`, `tailscale down` or global Serve/Funnel `reset`.
 Older installations without a journal retain the conservative legacy policy scope; ownership cannot be reconstructed from names. Those services may be shared with another installation. No global `/loom` deletion

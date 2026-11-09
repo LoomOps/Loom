@@ -29,7 +29,10 @@ def restore_file(source,target,root):
     if not target.parent.resolve().is_relative_to(Path(root).resolve()):raise ValueError('Restore path leaves the preserved store')
     target.parent.mkdir(parents=True,exist_ok=True)
     if target.is_symlink():target.unlink()
-    if source.is_symlink():target.symlink_to(os.readlink(source))
+    if source.is_symlink():
+        target.symlink_to(os.readlink(source))
+        info=source.lstat()
+        if os.geteuid()==0:os.chown(target,info.st_uid,info.st_gid,follow_symlinks=False)
     else:copy_file(source,target)
 
 
@@ -97,13 +100,14 @@ def external_roots(root,platform):
 def capture(root,archive,platform):
     root=Path(root);archive=Path(archive);base=archive/'preserved';base.mkdir(mode=0o700)
     instance=base/'instance';copy_tree(root,instance,instance=True)
-    state={'schema':'loom-preserved-state/v1','root':str(root),'files':file_inventory(root),'databases':{},'extensions':{}}
+    state={'schema':'loom-preserved-state/v1','root':str(root),'files':file_inventory(root),'databases':{},'database_files':{},'extensions':{}}
     for path in databases(root):
         target=instance/path.relative_to(root)
         with sqlite3.connect('file:'+str(path)+'?mode=ro',uri=True) as source,sqlite3.connect(target) as dest:source.backup(dest)
         info=path.stat();target.chmod(stat.S_IMODE(info.st_mode))
         if os.geteuid()==0:os.chown(target,info.st_uid,info.st_gid)
         state['databases'][str(path.relative_to(root))]=db_inventory(target)
+        state['database_files'][str(path.relative_to(root))]={'mode':stat.S_IMODE(info.st_mode),'uid':info.st_uid,'gid':info.st_gid}
         for suffix in ('-wal','-shm'):Path(str(target)+suffix).unlink(missing_ok=True)
     for name,path in external_roots(root,platform).items():
         if path.exists():
@@ -120,6 +124,10 @@ def verify(root,base):
     for name,value in state['files'].items():
         if current.get(name)!=value:problems.append('instance:'+name)
     for rel,tables in state['databases'].items():
+        expected=state.get('database_files',{}).get(rel)
+        info=(root/rel).lstat()
+        if (not stat.S_ISREG(info.st_mode) or (expected and expected!={'mode':stat.S_IMODE(info.st_mode),'uid':info.st_uid,'gid':info.st_gid})):
+            problems.append('database-permissions:'+rel)
         with sqlite3.connect('file:'+str(root/rel)+'?mode=ro',uri=True) as c:
             if c.execute('PRAGMA integrity_check').fetchone()[0]!='ok':problems.append('integrity:'+rel)
             for table,baseline in tables.items():
@@ -144,6 +152,9 @@ def restore(root,base):
     for rel in state['databases']:
         if (root/rel).is_symlink() or not (root/rel).parent.resolve().is_relative_to(root.resolve()):raise ValueError('Database restore leaves the preserved instance')
         with sqlite3.connect(base/'instance'/rel) as a,sqlite3.connect(root/rel) as b:a.backup(b)
+        info=(base/'instance'/rel).stat()
+        (root/rel).chmod(stat.S_IMODE(info.st_mode))
+        if os.geteuid()==0:os.chown(root/rel,info.st_uid,info.st_gid)
     # The old migration ledger determines which steps a later retry must inspect.
     target=root/'runtime/migrations.json';old=base/'instance/runtime/migrations.json'
     if old.exists():restore_file(old,target,root)

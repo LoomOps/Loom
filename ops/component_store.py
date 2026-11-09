@@ -22,6 +22,30 @@ def init(c):
 
 def allowed(actor,owner):return bool(actor.get('id'))
 
+
+def mutation(c):
+    """Share the admission transaction with updates and remote ownership fences."""
+    import registry
+    if not c.in_transaction:c.execute('BEGIN IMMEDIATE')
+    if registry.mode(c)!='active':raise PermissionError('Job admission fenced')
+
+
+def pinned_sources(row):
+    """Read exact legacy evidence without choosing between conflicting Profiles."""
+    pins=json.loads(row['manifest']).get('source_pins')
+    if pins is None:
+        recorded=[p['source_pins'] for p in json.loads(row['profiles']).values() if 'source_pins' in p]
+        if not recorded or any(p!=recorded[0] for p in recorded):
+            raise ValueError('Component source pins unavailable or conflicting')
+        pins=recorded[0]
+    if not isinstance(pins,dict) or not pins:raise ValueError('Component source pins unavailable')
+    for ref,digest in pins.items():
+        path=Path(ref)
+        if (not ref or path.is_absolute() or '..' in path.parts or str(path)!=ref
+            or ref=='component.json' or not isinstance(digest,str) or not re.fullmatch(r'[0-9a-f]{64}',digest)):
+            raise ValueError('Invalid Component source pins')
+    return pins
+
 def action_schema(action):
     fields={'owner':{'type':'string','description':'Stable namespace. Register/write/get default to the authenticated principal; list defaults to all shared namespaces. Use built-in explicitly for common components. Display responsibility is returned in owner_profile.'}}
     required=[]
@@ -51,6 +75,7 @@ def operate(c,actor,args,config):
         return {**dict(row),**ownership.extension(c,'component',owner,identity),'manifest':json.loads(row['manifest']),'profiles':json.loads(row['profiles'])}
     if action=='write':
         if 'submit' not in actor['scopes']:raise PermissionError('Submit grant required')
+        mutation(c)
         ref=args['path'];content=args['content']
         if not isinstance(ref,str) or not ref or Path(ref).is_absolute() or '..' in Path(ref).parts or not isinstance(content,str):raise ValueError('Invalid source file')
         base=ROOT/owner/identity/'src';target=base/ref
@@ -81,7 +106,7 @@ def operate(c,actor,args,config):
     if not work.resolve().is_relative_to(ROOT.resolve()):raise ValueError('Editable source leaves component')
     for ref in files:
         if not (work/ref).resolve().is_relative_to(work.resolve()):raise ValueError('Editable source leaves component')
-    c.execute('BEGIN IMMEDIATE')
+    mutation(c)
     version=c.execute('SELECT COALESCE(MAX(revision),0)+1 FROM components WHERE owner=? AND id=?',(owner,identity)).fetchone()[0]
     base=ROOT/owner/identity;folder=base/'revisions'/str(version)
     if not folder.resolve().is_relative_to(ROOT.resolve()):raise ValueError('Invalid component root')

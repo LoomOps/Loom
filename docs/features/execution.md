@@ -42,3 +42,12 @@ Optional runner.storage is a unique list of data/N IDs. Profile registration che
 ## Registered output storage
 
 `ops/storage.py` owns named stores and persistent `.loom-storage.json` identities. `jobs.submit.output_storage` defaults to data/0 and freezes a non-default identity; all Attempt stages and result retries use that root. Result locators carry the selected ID and store-relative path. Registered secondary outputs are available in Dashboard files/media, results API and read-only downstream input mounts. Unknown, redirected, missing or replaced stores must never fall back to the primary. Existing Jobs without this field retain primary behavior; no DB rewrite or data move is required. Profile `storage` mounts remain separate optional shared RW access.
+
+## Administrator GPU/network policy and runtime acceptance
+
+Driver capabilities and network are selected only in protected executor runtime
+configuration. Defaults stay compute/utility and none; explicit graphics and
+bridge egress do not relax UID, rootfs, mounts or capability isolation. Image
+Profiles use the instance declared_runtime policy; compatibility runtime IDs use
+their named policy. See [runtime doctor](../RUNTIME-DOCTOR.md) for the opt-in
+bounded probe and the distinction between registration and actual acceptance.

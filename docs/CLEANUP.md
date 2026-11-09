@@ -6,7 +6,7 @@ The public baseline ships only the current platform. One-off research migration/
 
 - Native Tailscale identity, machine Sharing, the current Gateway and integrated Dashboard administration.
 - Six grouped MCP tools and documented HTTP routes. Flat MCP tool names are rejected. Repair uses `recovery`; scientific corrections use producer-supplied `results.annotate`.
-- Registered components and execution profiles using the current execution schema. CPU diagnostics remain built in. A profile's optional `runtime_id` selects an explicitly configured host runtime; this is an active feature, not a research dependency.
+- Registered Components, research Tools and execution Profiles using the current execution schema. CPU diagnostics remain built in. A profile's optional `runtime_id` selects an explicitly configured host runtime; this is an active feature, not a research dependency.
 - Loom-to-Loom export, verified transfer and fencing, rather than scripts tied to a particular former machine or research dataset.
 
 ## Preserved state

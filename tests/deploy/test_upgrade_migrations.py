@@ -1,6 +1,7 @@
 """Cumulative scripts use real SQLite/files; all Docker/systemd stay mocked."""
 import hashlib
 import json
+import os
 import shutil
 import sqlite3
 import tempfile
@@ -128,6 +129,23 @@ class PreservedRebuildTests(lifecycle.ReleaseLifecycleTests):
         self.assertTrue(result['resumed']);self.assertEqual(self.mode(),'active')
         self.assertEqual((self.root/'config/api.json').read_bytes(),identity)
 
+    def test_resume_stops_shared_helpers_before_replacing_code(self):
+        helper=self.p/'shared/services/fixture.py';helper.parent.mkdir(parents=True);helper.write_text('old helper')
+        candidate=self.src/'fixture.py';candidate.write_text('new helper')
+        with self.contexts(),patch.object(update,'helper_files',return_value={helper:candidate}),patch.object(update,'check_health',side_effect=RuntimeError('fixture')):
+            with self.assertRaises(RuntimeError):update.apply(self.root,self.rel,'fixture',self.p)
+        record=next((self.p/'updates').glob('*/record.json'));events=[]
+        original=update.shutil.copyfile
+        def copy(source,target,*args,**kwargs):
+            if Path(target)==helper:events.append('replace')
+            return original(source,target,*args,**kwargs)
+        def run(*args,**kwargs):
+            if args[:2]==('systemctl','stop'):events.append('stop')
+            return ''
+        with self.contexts(),patch.object(update,'helper_files',return_value={helper:candidate}),patch.object(update,'run',side_effect=run),patch.object(update.shutil,'copyfile',side_effect=copy):
+            self.assertTrue(update.resume(record)['resumed'])
+        self.assertEqual(events[:2],['stop','replace'])
+
     def test_rollback_refuses_new_secondary_database_writes_and_changed_credentials(self):
         self.identity_state()
         with self.contexts():receipt=update.apply(self.root,self.rel,'fixture',self.p)
@@ -154,3 +172,33 @@ class PreservedRebuildTests(lifecycle.ReleaseLifecycleTests):
         with self.contexts():receipt=update.apply(self.root,self.rel,'fixture',self.p)
         (self.p/'components/custom.json').write_text('new personal work')
         with self.contexts(),self.assertRaisesRegex(ValueError,'Extensions changed'):update.rollback(receipt['record'])
+
+    def test_executor_upgrade_preserves_custom_graphics_network_and_mount_policy(self):
+        path=self.p/'shared/executor/config.json';path.parent.mkdir(parents=True)
+        original=json.dumps({'runtimes':{'sim':{'image':'sha256:pinned','driver_capabilities':['compute','utility','graphics'],
+            'network':'bridge','mounts':[{'source':'/preserved/assets','target':'/assets','readonly':True}]}},
+            'instances':{'alpha':{'declared_runtime':{'enabled':True,'driver_capabilities':['compute','utility','graphics'],'network':'bridge'}}}})
+        path.write_text(original);path.chmod(0o600)
+        with self.contexts():receipt=update.apply(self.root,self.rel,'fixture',self.p)
+        self.assertEqual(path.read_text(),original);self.assertEqual(path.stat().st_mode&0o777,0o600)
+        record=json.loads(Path(receipt['record']).read_text());self.assertEqual(record['executor_settings']['sha256'],hashlib.sha256(path.read_bytes()).hexdigest())
+        path.write_text(original+'\n')
+        with self.contexts(),self.assertRaisesRegex(ValueError,'executor configuration changed'):update.rollback(receipt['record'])
+
+    def test_snapshot_restores_database_permissions_and_symlink_owner(self):
+        self.identity_state();self.db.chmod(0o640)
+        link=self.root/'config/session-key';link.symlink_to('../secrets/session-key')
+        archive=self.p/'private-snapshot';archive.mkdir()
+        saved=state_snapshot.capture(self.root,archive,self.p)
+        self.db.chmod(0o600)
+        with self.assertRaisesRegex(ValueError,'database-permissions'):state_snapshot.verify(self.root,saved)
+        state_snapshot.restore(self.root,saved)
+        self.assertEqual(self.db.stat().st_mode&0o777,0o640)
+        self.assertEqual(os.readlink(link),'../secrets/session-key')
+        source=saved/'instance/config/session-key'
+        original=state_snapshot.os.chown
+        with patch.object(state_snapshot.os,'geteuid',return_value=0),patch.object(state_snapshot.os,'chown',wraps=original) as chown:
+            state_snapshot.restore_file(source,link,self.root)
+        info=source.lstat()
+        chown.assert_called_once_with(link,info.st_uid,info.st_gid,follow_symlinks=False)
+        self.assertTrue(state_snapshot.verify(self.root,saved)['preserved'])

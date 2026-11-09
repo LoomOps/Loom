@@ -82,14 +82,11 @@ def operate(c,actor,args,config):
         if not row:raise ValueError('Component revision not found')
         from component_store import ROOT as COMPONENTS
         folder=COMPONENTS/owner/component['id']/'revisions'/str(component['revision'])
-        manifest=json.loads(row['manifest'])
-        pins=manifest.get('source_pins')
-        if pins is None:
-            old=next(iter(json.loads(row['profiles']).values()),None)
-            if not old:raise ValueError('Component source pins unavailable')
-            pins=old['source_pins']
+        from component_store import pinned_sources
+        pins=pinned_sources(row)
         definition.update(component_path=str(folder),source_pins=pins)
-    c.execute('BEGIN IMMEDIATE')
+    from component_store import mutation
+    mutation(c)
     version=c.execute('SELECT coalesce(max(revision),0)+1 FROM execution_profiles WHERE owner=? AND id=?',(owner,identity)).fetchone()[0]
     kind=f'{owner}.{identity}.r{version}'
     profile=seal({**definition,'schema':execution.REVISION,'revision':kind,'owners':[owner],'submitters':[actor['id'],owner]})

@@ -12,7 +12,7 @@ personal identity. Same-machine agents use current local filesystem permissions,
 with their existing MCP token; no SSH setup is necessary. No new key-issuance flow
 is included for unrelated remote tagged machines.
 
-Host file permissions still apply. Draft components/profiles are registered using
+Host file permissions still apply. Draft Component/Tool/Profile sources are registered using
 MCP, which publishes immutable runtime revisions. Do not edit those revisions or
 the platform database directly. When installing this capability, only the explicitly registered data stores receive
 a dedicated shared RW ACL, including existing files and directory defaults. Ownership

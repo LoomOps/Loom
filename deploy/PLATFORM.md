@@ -46,8 +46,8 @@ the default filter is errors-only. Event `ack` means receipt, not remediation.
 
 - jobs: list, get, submit, cancel, logs, queue, reorder, hold, resume, assign_owner.
 - recovery: claim, progress, resume, defer, reactivate.
-- components: list, get, write, register, profiles, register_profile, get_profile.
-- results: list, get, reindex, annotate, history, historical, assign_owner.
+- components: list, get, write, register, profiles, register_profile, get_profile, list_tools, get_tool, register_tool.
+- results: list, get, reindex, annotate, reconnect, history, historical, assign_owner.
 - events: list, ack.
 - system: status, docker, contract, describe, guide, users, updates, check_updates.
 
@@ -166,7 +166,7 @@ A runner may use either an installed runtime_id or `image` plus optional
 Docker image IDs. Images must already be cached on the host: build/pull them as
 part of the agent-owned environment preparation, not inside core deployment.
 New cached images need no platform build, executor configuration edit or restart.
-The host's generic declared_runtime policy caps resources; network is none and
+The host's generic declared_runtime policy caps resources; network defaults to none (administrators may explicitly select bridge egress) and
 arbitrary mounts, Docker arguments and privileges are not accepted from profiles.
 GPU remains an explicit lane and instance grant. Administrator-owned compatibility
 runtimes may retain read-only dataset/library mounts for existing Jobs.
@@ -233,3 +233,8 @@ foreign or unlabeled name collisions are left untouched and reported as conflict
 No broad orphan deletion, new queue gate or periodic cleanup service is added.
 Old tickets continue working without the new labels; old unregistered containers
 without identity evidence require explicit operator inspection.
+
+Driver libraries and network policy are administrator-owned executor settings.
+Defaults remain compute/utility and no network; explicit graphics or bridge egress
+requires a supported host policy. Neither is an arbitrary Job/Profile Docker flag.
+Image/source registration and an old receipt do not prove runtime acceptance.

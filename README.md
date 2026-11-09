@@ -64,3 +64,9 @@ Loom is licensed under [GNU GPL version 3 only](LICENSE) (`GPL-3.0-only`).
 See [third-party notices](THIRD_PARTY_NOTICES.md) for dependencies and trademarks.
 
 For service removal and machine access cleanup, see [Uninstall](docs/UNINSTALL.md).
+
+The Dashboard's **Extensions** inventory groups Components and Tools and shows
+exact Profile bindings. Components implement Job lifecycle integration; Tools
+implement reusable research algorithms, including hybrid runners. Profiles bind
+execution contracts and immutable revisions. This UI label does not rename the
+six MCP groups or the `components` actions.

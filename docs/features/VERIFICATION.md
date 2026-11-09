@@ -10,7 +10,7 @@ This matrix separates code-level regression coverage, installation diagnostics a
 | execution | Frozen profiles/output stores, container boundary, phase retries, return/cancellation | Doctor checks executor/image/GPU exposure; smoke runs prepare and run in containers. GPU computation is not inferred from nvidia-smi. |
 | recovery | Leases, timeout, retry limits, lost agent and downstream blocking | Installer never fixes a failed smoke Job by rewriting receipts. Failed Job evidence is retained. |
 | results | Required metadata, hashes, provenance, finalization retry, multi-store indexing and downstream input resolution | Shipped smoke includes metrics/provenance/relations and rechecks the registered artifact digest. External-client download is not claimed. |
-| extensions | Immutable component/profile revisions, permission and source pins | Installer registers only its smoke component; research dependencies remain user-selected. Repeat smoke reuses its frozen profile/Job. |
+| extensions | Immutable Component/Tool/Profile revisions, permission and source pins | Installer registers only its smoke component; research dependencies remain user-selected. Repeat smoke reuses its frozen profile/Job. |
 | catalog | Shared queries, preserved history, preview/path boundaries | Doctor compares selected storage config and actual container mounts. All registered stores are RW. Profiles opt into named storage mounts; doctor checks real mount modes/service-user access. |
 | observations | Docker and host collector handling, stale/unavailable states | Doctor checks collector timer plus API/container startup; actual sensor availability is hardware-dependent. |
 | dashboard | Native entry, theme, responsive workspace and relay behavior | Doctor checks native entry and matching image; browser suites cover presentation. Other-client account switching must be exercised live. |
@@ -108,3 +108,31 @@ Local diagnostics: verify retention/privacy/fail-open tests, image inclusion and
 shared per-instance mount ownership. Sharing regression must distinguish local
 PermissionError from a provider outage, and root installer rewrites must retain
 service ownership. Historical metadata is not a live file availability test.
+
+## Unreleased source audit
+
+The file inventory extends beyond feature ownership to documentation, build inputs,
+licenses, binary provenance and generated assets. Legacy Component-to-Tool copying
+checks matching sealed Profile pins and rejects conflicts. Update rollback checks
+and restores database file permissions and symlink ownership; resumed updates stop
+shared helpers before code replacement. Package/guide handling rejects canonical
+path aliases, injected sources and symlink directories, while allowing generated
+Python bytecode in the client contract cache. Tests use disposable files/SQLite,
+mock Docker/systemd and isolated HTTP/Firefox; no deployment acceptance is implied.
+Alpha.45 pins the published alpha.7 package after its exact artifact checksum
+is verified. Source-to-source contract validation remains separate.
+
+Fenced mutation regression covers Component source writes/registration, Tool and
+standalone Profile registration, and ownership reassignment. Maintenance/readonly
+retains database rows and source bytes while discovery/get remains readable.
+
+## GPU runtime and administrator policy correction
+
+Executor tests cover default compute/utility, explicit graphics, invalid/duplicate
+capabilities, rejected Job policy overrides, protected environment precedence,
+bridge egress and preserved container isolation. Installer tests cover validated
+runtime options and matching actual grants. Updater tests preserve custom runtime
+configuration and reject unexpected drift. Runtime-doctor tests cover inert
+inspection, private receipts, busy GPU, lost start, bounded timeout, owned-ticket
+cleanup and exit-zero/missing-evidence failure. Real graphics/scientific acceptance
+must be recorded separately on the target runtime after deployment.

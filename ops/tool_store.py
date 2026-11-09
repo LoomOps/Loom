@@ -77,11 +77,11 @@ def operate(c,actor,args,config):
     if ref:=args.get('component'):
         if files:raise ValueError('Choose Tool files or an exact legacy Component revision')
         source_owner=ref.get('owner',owner)
-        row=c.execute('SELECT manifest FROM components WHERE owner=? AND id=? AND revision=?',
+        row=c.execute('SELECT manifest,profiles FROM components WHERE owner=? AND id=? AND revision=?',
                       (source_owner,ref['id'],ref['revision'])).fetchone()
         if not row:raise ValueError('Component revision not found')
         folder=component_store.ROOT/source_owner/ref['id']/'revisions'/str(ref['revision'])
-        pins=json.loads(row['manifest']).get('source_pins',{})
+        pins=component_store.pinned_sources(row)
         for path,digest in pins.items():
             p=folder/path
             if not p.resolve().is_relative_to(folder.resolve()) or p.is_symlink():raise ValueError('Unsafe legacy source')
@@ -91,7 +91,7 @@ def operate(c,actor,args,config):
     checked_files(files)
     manifest['source_pins']={p:hashlib.sha256(v.encode()).hexdigest() for p,v in files.items()}
     digest=hashlib.sha256(json.dumps(manifest,sort_keys=True,separators=(',',':')).encode()).hexdigest()
-    c.execute('BEGIN IMMEDIATE')
+    component_store.mutation(c)
     latest=c.execute('SELECT revision,sha256 FROM tools WHERE owner=? AND id=? ORDER BY revision DESC LIMIT 1',(owner,identity)).fetchone()
     if latest and latest['sha256']==digest:return {**detail(c,owner,identity,latest['revision']),'unchanged':True}
     revision=c.execute('SELECT coalesce(max(revision),0)+1 FROM tools WHERE owner=? AND id=?',(owner,identity)).fetchone()[0]

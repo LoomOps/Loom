@@ -335,7 +335,7 @@
     },
     {
       "id": "extensions",
-      "summary": "Dynamic components, profiles and execution environment contracts",
+      "summary": "Components, Tools, Profiles and execution environment contracts",
       "sources": [
         "ops/component_store.py",
         "ops/profile_store.py",
@@ -358,7 +358,7 @@
       "invariants": [
         "Registering a new component must not require new MCP tools or platform redeployment. Preserve profile revision pins on submitted Jobs."
       ],
-      "change_rule": "When profiles or components change, check input schemas, prepare/run/completion hooks, executor runtime policy, registration/read MCP actions and guides.",
+      "change_rule": "When Profiles, Components or Tools change, check input schemas, prepare/run/completion hooks, executor runtime policy, registration/read MCP actions and guides.",
       "live_validation": [
         "The execution-environment owner verifies actual external image dependencies, caches and GPU compatibility."
       ],
@@ -480,7 +480,7 @@
     },
     {
       "id": "dashboard",
-      "summary": "Dashboard HTTP relay·workspace UI",
+      "summary": "Dashboard HTTP relay\u00b7workspace UI",
       "sources": [
         "dashboard/.dockerignore",
         "dashboard/Dockerfile",
@@ -784,7 +784,8 @@
         "ops/compose.loom.yaml",
         "ops/compose.observations.yaml",
         "ops/host_layout.py",
-        "ops/release_updates.py"
+        "ops/release_updates.py",
+        "deploy/runtime_doctor.py"
       ],
       "tests": [
         "tests/deploy/test_host_identity.py",
@@ -798,7 +799,8 @@
         "tests/deploy/test_storage_parity.py",
         "tests/deploy/test_uninstall.py",
         "tests/deploy/test_upgrade_migrations.py",
-        "tests/ops/test_release_updates.py"
+        "tests/ops/test_release_updates.py",
+        "tests/deploy/test_runtime_doctor.py"
       ],
       "depends_on": [
         "network",

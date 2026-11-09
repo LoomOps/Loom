@@ -10,7 +10,7 @@ run uses an allocated lane; GPU ownership is released after the actual process/c
 
 Connect Jobs through depends_on and `{job,entity}` input references. Skipping a failed predecessor does not allow a dependent Job to run without its output; only independent Jobs proceed. A Job timeout limits execution time. Automatic retries and agent-triggered reruns share a maximum three-round recovery budget; automatic retries also obey max_attempts.
 
-Pin component/profile revisions and image digests used by execution. New deployments or guidance changes do not change a running Job's revision. Registering a normal new profile does not require a platform deployment.
+Pin Component/Tool/Profile revisions and image digests used by execution. New deployments or guidance changes do not change a running Job's revision. Registering a normal new profile does not require a platform deployment.
 
 ## Queue order and holds
 

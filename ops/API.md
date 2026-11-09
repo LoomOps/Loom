@@ -36,7 +36,7 @@ Ownership denotes responsibility, not an access restriction. Runtime grants,
 recipient-scoped events and recovery leases remain enforced. cancel is a separate scope.
 
 Use jobs.submit with key/kind/owner/notify/params and optional category,
-execution_mode, depends_on, execution and queue_position (tail/next). Use
+execution_mode, depends_on, execution, output_storage and queue_position (tail/next). Use
 jobs.reorder with id/position (next/tail/before/after), reference only for relative
 positions, and optional reason. jobs.hold and jobs.resume take id and optional
 reason. Running Jobs return changed=false; they are never checkpoint-paused by
@@ -61,3 +61,8 @@ MCP accepts only the advertised grouped tool names; explicit HTTP routes retain 
 they are not advertised in discovery. Imported history is immutable evidence and
 never enters the executable queue. See [platform contract](../deploy/PLATFORM.md),
 [metadata](../loom_use/components.md), and [testing](../deploy/TESTING.md).
+
+The Dashboard's Extensions label does not rename the `components` tool group.
+Its list_tools/get_tool/register_tool actions manage independent research Tools;
+list/get/write/register manage Job lifecycle Components, and Profile actions pin
+execution contracts. Old Job/Profile pins and historical names remain preserved.

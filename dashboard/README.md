@@ -1,6 +1,8 @@
 # Loom Dashboard
 
-The API-only console presents Jobs, results, resources, Docker and MCP Reference.
+The API-only console presents Jobs, results, resources, Docker and Loom Use reference. The **Extensions** inventory groups
+Components and Tools, with type/namespace/text filters, source hashes, revision
+selection and exact Profile references. It is read-only; registration uses MCP.
 It has no Ops database, Docker socket or research runtime mounts. Release native Tailscale authentication
 uses an instance-local session SQLite database and a private relay key.
 The main UI is the Loom workspace.

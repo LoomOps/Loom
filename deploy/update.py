@@ -124,6 +124,19 @@ def helper_files(platform,source):
  if (platform/'ops/config/ssh.json').exists() and dest.exists() and (source/'deploy/ssh_host.py').is_file():result[dest]=source/'deploy/ssh_host.py'
  return result
 
+def executor_settings(platform):
+ path=Path(platform)/'shared/executor/config.json'
+ if not path.exists():return None
+ if path.is_symlink():raise ValueError('Executor configuration must not be linked')
+ info=path.stat()
+ return {'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+         'uid':info.st_uid,'gid':info.st_gid,'mode':info.st_mode&0o777}
+
+def verify_executor_settings(record):
+ expected=record.get('executor_settings')
+ if expected and executor_settings(Path(expected['path']).parent.parent.parent)!=expected:
+  raise ValueError('Administrator executor configuration changed; keep admission fenced and review the runtime policy')
+
 def restart_ssh(root):
  p=root/'config/ssh.json'
  if p.exists():
@@ -165,6 +178,7 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
   # Another administrator may have finished an update before this lock arrived.
   info=inspect(root,release);upgrade=migrations.plan(root,release);installed=previous_source(root,platform)
   paths=instance_paths(platform,root) if helper_files(platform,release/'source') else [root];gated=[];record={'schema':'loom-update/v1','root':str(root),'project':project,'release':str(release),'build':info['build_id'],'mode':mode,'upgrade':upgrade,'state':'preparing','gated':[],'helpers':{},'files':{},'databases':{}}
+  record['executor_settings']=executor_settings(platform)
   guides=platform/'loom_use'
   record['guides']={'parent':str(guides),'previous':guide_bundle.selected(guides),'version':info['build_id']}
   guide_bundle.install(guide_bundle.generate(info['images']['ops']),guides,info['build_id'])
@@ -209,6 +223,7 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
    restart_ssh(root)
    args=['up','-d','--no-build']+(['--force-recreate'] if mode=='rebuild' else [])
    compose(dest,root,project,*args);check_health(dest,root,project,info['build_id'])
+   verify_executor_settings(record)
    record['preservation']=state_snapshot.verify(root,preserved)
    guide_bundle.select(guides,info['build_id'])
    record.update(state='complete',source=str(dest),previous_source=str(old_source))
@@ -237,6 +252,10 @@ def resume(record_path):
  root=Path(record['root']);release=Path(record['release']);platform=path.parent.parent.parent;project=record['project']
  with (platform/'updates/.lock').open('a') as lock:
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+  record=json.loads(path.read_text())
+  if record['state']=='complete':return {'updated':record['build'],'already_complete':True,'record':str(path)}
+  if record['state']!='failed':raise ValueError('Update record changed before resume')
+  verify_executor_settings(record)
   for db,digest in record['post_databases'].items():
    if digest_db(Path(db))!=digest:raise ValueError('Database changed after failure; review recovery before resuming')
   if state_snapshot.file_inventory(root)!=record['post_files']:raise ValueError('Installation changed after failure; review recovery before resuming')
@@ -246,6 +265,8 @@ def resume(record_path):
     if c.execute('SELECT mode FROM node_control WHERE id=1').fetchone()[0]!='maintenance':raise ValueError('Resume requires the retained maintenance fence')
   info=inspect(root,release);src=release/'source';dest=platform/'distribution'/info['build_id']
   compose(Path(record['previous_source']),root,project,'stop')
+  if record['helpers']:
+   run('systemctl','stop','loom-executor.service','loom-observations.timer','loom-observations.service')
   try:
    record['migrations']=migrations.apply(record['upgrade'],root,release,platform)
    if dest.exists():
@@ -262,6 +283,7 @@ def resume(record_path):
    restart_ssh(root)
    compose(dest,root,project,'up','-d','--no-build',*(['--force-recreate'] if record.get('mode')=='rebuild' else []))
    check_health(dest,root,project,info['build_id'])
+   verify_executor_settings(record)
    record['preservation']=state_snapshot.verify(root,record['preserved_state'])
    guide_bundle.select(record['guides']['parent'],record['guides']['version'])
    record.update(state='complete',source=str(dest));write(path,record)
@@ -284,6 +306,7 @@ def rollback(record_path):
 def _rollback(record_path):
  path=Path(record_path);record=json.loads(path.read_text());root=Path(record['root']);project=record['project'];source=Path(record.get('source',record['release']+'/source'))
  if record['state'] not in ('complete','failed'):raise ValueError('Update record is not rollback-ready')
+ verify_executor_settings(record)
  # Do not lose work accepted since update. New DB writes require manual migration review.
  for db,digest in record['post_databases'].items():
   if digest_db(Path(db))!=digest:raise ValueError('Database changed after update; automatic restore would lose new records')

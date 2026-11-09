@@ -13,16 +13,18 @@ def install(data,parent,version):
  parent=Path(parent);target=parent/version
  with zipfile.ZipFile(io.BytesIO(data)) as z:
   entries=z.infolist();names=[x.filename for x in entries]
-  if len(names)!=len(set(names)) or sum(x.file_size for x in entries)>8*1024*1024:raise ValueError('Invalid guide bundle size or duplicates')
+  if not 1<=len(names)<=4096 or len(names)!=len(set(names)) or sum(x.file_size for x in entries)>8*1024*1024:raise ValueError('Invalid guide bundle size or duplicates')
   for entry in entries:
    p=Path(entry.filename)
-   if p.is_absolute() or '..' in p.parts or '\\' in entry.filename or entry.is_dir() or stat.S_ISLNK(entry.external_attr>>16):raise ValueError('Invalid guide bundle path')
+   if not entry.filename or str(p)!=entry.filename or p.is_absolute() or '..' in p.parts or '\\' in entry.filename or entry.is_dir() or stat.S_ISLNK(entry.external_attr>>16):raise ValueError('Invalid guide bundle path')
   if json.loads(z.read('manifest.json')).get('build_id')!=version:raise ValueError('Guide version mismatch')
   files={name:z.read(name) for name in names}
  parent.mkdir(parents=True,exist_ok=True)
  if target.exists() or target.is_symlink():
   if target.is_symlink() or not target.is_dir():raise ValueError('Guide target is not a version directory')
-  existing={str(p.relative_to(target)):p for p in target.rglob('*') if p.is_file() or p.is_symlink()}
+  paths=list(target.rglob('*'))
+  if any(p.is_symlink() for p in paths):raise ValueError('Existing guide contains linked paths')
+  existing={str(p.relative_to(target)):p for p in paths if p.is_file()}
   if set(existing)!=set(files) or any(p.is_symlink() or p.read_bytes()!=files[n] for n,p in existing.items()):raise ValueError('Existing guide version differs; retained without overwrite')
   return target
  with tempfile.TemporaryDirectory(dir=parent,prefix='.guide-') as tmp:

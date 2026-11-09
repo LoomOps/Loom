@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.0-alpha.45
+
+- Support validated administrator GPU driver capabilities, including graphics, and explicit none/bridge runtime networking without accepting Job Docker-policy overrides.
+- Carry runtime options through fresh installation and verify actual grants; preserve executor configuration across update/resume/rollback.
+- Add an opt-in bounded runtime doctor using the real broker, execution UID, mounts, read-only root, scratch and driver libraries. Keep runtime acceptance separate from scientific evaluation.
+- Include the repository audit corrections and Extensions navigation prepared after alpha.43.
+
+
+## Source audit included in alpha.45
+
+- Align Extensions documentation across guides and feature specifications while preserving Component/Tool/Profile contracts and the six MCP groups.
+- Accept matching sealed Profile source pins when explicitly copying legacy Components to Tools; reject conflicting evidence for Tool/Profile registration.
+- Verify database file ownership/modes during state preservation and restore database attributes and symlink ownership on rollback.
+- Harden client/guide archive paths and installed file-set checks; stop shared helpers before resuming an update. Correct the removed in-tree client installation reference.
+- Enforce maintenance/readonly fencing for Component/Tool/Profile writes and ownership reassignment.
+- This section records source review; actual deployment acceptance is recorded separately.
+
 ## 0.1.0-alpha.44
 
 - Shorten the combined software navigation and page title to Extensions; retain Components and Tools as type filters.

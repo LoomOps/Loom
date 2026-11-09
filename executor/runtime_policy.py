@@ -2,6 +2,32 @@
 import math
 import re
 
+DRIVER_CAPABILITIES=('compute','utility','graphics','display','video','compat32','ngx')
+OPTIONS_SCHEMA={'type':'object','properties':{
+    'network':{'enum':['none','bridge'],'default':'none'},
+    'driver_capabilities':{'type':'array','minItems':1,'uniqueItems':True,
+        'items':{'enum':list(DRIVER_CAPABILITIES)},'default':['compute','utility']}},'additionalProperties':False}
+
+
+def gpu_driver_capabilities(runtime):
+    """Only administrator runtime settings choose driver libraries."""
+    values=runtime.get('driver_capabilities',['compute','utility'])
+    if (not isinstance(values,list) or not values or
+        any(not isinstance(v,str) or v not in DRIVER_CAPABILITIES for v in values) or len(values)!=len(set(values))):
+        raise ValueError('Invalid runtime driver_capabilities')
+    return ','.join(values)
+
+
+def runtime_network(runtime):
+    value=runtime.get('network','none')
+    if value not in ('none','bridge'):raise ValueError('Runtime network must be none or bridge')
+    return value
+
+
+def options(value):
+    if not isinstance(value,dict) or set(value)-set(OPTIONS_SCHEMA['properties']):raise ValueError('Unknown administrator runtime options')
+    return {'network':runtime_network(value),'driver_capabilities':gpu_driver_capabilities(value).split(',')}
+
 def declared(data,policy,docker):
     if not policy.get('enabled',False):raise PermissionError('Declared images disabled for this instance')
     image=data['image']
@@ -19,4 +45,5 @@ def declared(data,policy,docker):
     # Cache acquisition/build is agent owned. Resolve mutable tags once, then execute ID.
     digest=docker('image','inspect','--format','{{.Id}}',image).strip()
     if not re.fullmatch('sha256:[a-f0-9]{64}',digest):raise ValueError('Image identity unavailable')
-    return {'image':digest,'cpus':cpus,'memory':memory,'pids':pids,'network':'none'}
+    return {'image':digest,'cpus':cpus,'memory':memory,'pids':pids,
+            'network':runtime_network(policy),'driver_capabilities':gpu_driver_capabilities(policy).split(',')}

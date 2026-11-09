@@ -1,4 +1,4 @@
-# Components, profiles and dependencies
+# Components, Tools, Profiles and dependencies
 
 A Component is an immutable Job lifecycle adapter: request handling, execution entry and result return. Research algorithms (planners, policy/hybrid runners, transforms) belong to independently versioned Tools, which may be called repeatedly within one Job. A profile is an execution contract binding that revision to an image, commands, inputs, outputs, defaults and limits. Use components.write to edit, components.register to register, and components.register_profile for standalone profiles. Read each action's exact fields through system.describe. New components do not require new MCP servers or tools.
 
@@ -52,3 +52,14 @@ do not change existing Jobs. Dependencies belong in the selected pinned image.
 Tools share the existing administrator-granted source store under .tools.
 Use the running server's system.describe for these optional actions. Older clients
 can forward them without installing another MCP or changing authentication.
+
+The Dashboard's **Extensions** inventory groups Components and Tools and shows
+exact Profile bindings. Components implement Job lifecycle integration; Tools
+implement reusable research algorithms, including hybrid runners. Profiles bind
+execution contracts and immutable revisions. This UI label does not rename the
+six MCP groups or the `components` actions.
+
+Driver libraries and network policy are administrator-owned executor settings.
+Defaults remain compute/utility and no network; explicit graphics or bridge egress
+requires a supported host policy. Neither is an arbitrary Job/Profile Docker flag.
+Image/source registration and an old receipt do not prove runtime acceptance.

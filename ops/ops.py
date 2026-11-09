@@ -828,6 +828,7 @@ def operate(name, args, actor, config):
             kind='job' if name=='assign_job_owner' else 'entity'
             if (kind,args['id']) not in ownership.inventory(c):raise ValueError('Item not found')
             c.execute('BEGIN IMMEDIATE')
+            if registry.mode(c)!='active':raise PermissionError('Job admission fenced')
             ownership.assign(c,kind,args['id'],args['owner'],actor['id'])
             return ownership.decorate(c,kind,{'id':args['id']})
         if name == 'get_principal':

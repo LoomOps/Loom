@@ -26,6 +26,12 @@ class InstallKitTests(unittest.TestCase):
    bad=copy.deepcopy(p);bad['repositories'][0][key]=value
    with self.subTest(key=key),self.assertRaises(ValueError):setup.validate(bad)
 
+ def test_administrator_runtime_options_validate_without_expanding_job_schema(self):
+  p=json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text())
+  setup.validate({**p,'runtime_options':{'network':'bridge','driver_capabilities':['compute','utility','graphics']}})
+  for value in ({'network':'host'},{'driver_capabilities':['all']},{'driver_capabilities':[]},{'docker_flags':['--privileged']}):
+   with self.subTest(value=value),self.assertRaises(ValueError):setup.validate({**p,'runtime_options':value})
+
  def test_mount_is_existing_filesystem_with_separate_dependency_path(self):
   p=json.loads((ROOT/'deploy/installer/install-plan.example.json').read_text());p['data']='/storage/loom/data';p['mount']={'uuid':'12345678-abcd','target':'/storage','fstype':'ext4'};setup.validate(p)
   p['mount']['target']='/dependencies'

@@ -1,5 +1,6 @@
 """Installation regressions with real configuration/files and mocked machine boundaries."""
 import copy
+import hashlib
 import importlib.util
 import json
 import os
@@ -41,6 +42,9 @@ class InstallationDoctorTests(unittest.TestCase):
   self.write('secrets/admission/config.json',{**self.access,'separate_gateway':True})
   self.write('secrets/admission/gateway.json',{'credential_file':'/not-mounted/management.json'})
   self.write('build.env','LOOM_DEV_NO_AUTH=0\n')
+  self.write('secrets/executor-token','fixture-executor')
+  executor=setup.ROOT.parent/'shared/executor';executor.mkdir(parents=True,exist_ok=True)
+  (executor/'config.json').write_text(json.dumps({'instances':{'alpha':{'token_sha256':hashlib.sha256(b'fixture-executor').hexdigest(),'declared_runtime':self.plan.get('runtime_options',{})}}}))
   Path(self.plan['data']).mkdir();(Path(self.plan['data'])/'.loom-storage.json').write_text(json.dumps({'storage_id':'primary'}));self.write('config/storage-plan.json',{'primary':self.plan['data'],'read_write':[self.plan['data']]})
  def test_full_plan_accepts_and_reduced_modes_fail_before_mutation(self):
   setup.validate(self.plan);doctor.service_plan(self.plan)
@@ -79,6 +83,14 @@ class InstallationDoctorTests(unittest.TestCase):
   self.assertTrue(any(c.args[:4]==('setfacl','-R','-P','-m') for c in commands.call_args_list))
   self.plan['additional_data']=[str(other),str(other)]
   with self.assertRaisesRegex(ValueError,'overlap'):setup.validate(self.plan)
+
+ def test_doctor_compares_explicit_administrator_runtime_policy(self):
+  self.configured();self.plan['runtime_options']={'network':'bridge','driver_capabilities':['compute','utility','graphics']}
+  result=doctor.doctor(setup,self.plan,'configuration')
+  self.assertFalse(next(c for c in result['checks'] if c['check']=='administrator_runtime_options')['status']=='pass')
+  path=setup.ROOT.parent/'shared/executor/config.json';value=json.loads(path.read_text())
+  value['instances']['alpha']['declared_runtime']=self.plan['runtime_options'];path.write_text(json.dumps(value))
+  self.assertTrue(doctor.doctor(setup,self.plan,'configuration')['ready'])
  def test_doctor_reports_multiple_missing_services_without_secret_text(self):
   secret='tskey-api-DO-NOT-PRINT'
   with patch.object(setup,'run',side_effect=RuntimeError(secret)),patch.object(setup,'verify_core',side_effect=RuntimeError(secret)),patch.object(doctor,'request',side_effect=RuntimeError(secret)):

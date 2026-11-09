@@ -31,7 +31,7 @@ Authentication uses Tailscale Serve's `Tailscale-User-Login` and `Tailscale-User
 
 ## Shared operations and ownership
 
-Authenticated ordinary users can inspect all Jobs, logs, data, models, results and preserved history, and reorder, hold, resume, cancel, recover or correct results. Components and profiles are shared, and users may register revisions. Users coordinate scheduling themselves. Explicitly read-only service tokens remain read-only.
+Authenticated ordinary users can inspect all Jobs, logs, data, models, results and preserved history, and reorder, hold, resume, cancel, recover or correct results. Components, Tools and Profiles are shared, and users may register revisions. Users coordinate scheduling themselves. Explicitly read-only service tokens remain read-only.
 
 Owner identifies the current responsible user. It is stored in user_profiles and item_owners without rewriting original specs, submitters, execution snapshots or history bodies. Obtain profile IDs from `system.users`, then use `jobs.assign_owner` or `results.assign_owner`. Changes are audited. Login and profile names are visible to collaborating users.
 
@@ -93,4 +93,4 @@ On the same machine, use the current OS account's local filesystem permissions;
 no SSH registration is needed. For remote file analysis, install the optional
 Loom SSH Skill from the pinned Loom Use release, reuse existing authorized SSH,
 or ask the Dashboard Admin to enable a personal account. MCP tokens are not SSH
-passwords. Component/profile drafts are registered via MCP; Jobs stay in the queue.
+passwords. Component/Tool/Profile drafts are registered via MCP; Jobs stay in the queue.

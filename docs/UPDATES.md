@@ -2,14 +2,14 @@
 
 ## Source and host state
 
-The repository contains deployable source. Do not symlink `/loom` into it or include `/loom` in Docker images. Installation creates/copies initial configuration, Compose and host helpers, then bind-mounts databases, secrets, user components/profiles and external data.
+The repository contains deployable source. Do not symlink `/loom` into it or include `/loom` in Docker images. Installation creates/copies initial configuration, Compose and host helpers, then bind-mounts databases, secrets, user Component/Tool/Profile revisions and external data.
 
 | Scope | Owner | Update behavior |
 |---|---|---|
 | Images and `/loom/distribution/<version>` | Release | New versioned copy |
 | `/loom/ops/config`, secrets, runtime | Installation instance | Preserve values; apply only explicit migrations |
 | `/loom/ops/override.env`, compose.override.yaml | Machine operator | Applied last; never overwritten |
-| `/loom/components`, `/loom/profiles` | Users/agents | Preserve revisions; new registrations are immediately available through API/MCP |
+| `/loom/components`, `/loom/profiles` | Users/agents | Preserve Component/Tool/Profile revisions (Tools are under components/.tools); new registrations are immediately available through API/MCP |
 | Code under `/loom/shared/executor`, shared/services | Release | Replace code after idle verification; retain settings/keys |
 | `/loom/loom_use/<version>` | Installed guide copies | Generate from the new image, preserve versions, switch `current` after health checks; restore the previous pointer on rollback |
 | Data stores (default `/loom/data`, optional other host paths), `/dependencies` | Operator | Contents/locations preserved; Job storage grants remain explicit |

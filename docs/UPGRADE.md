@@ -104,3 +104,15 @@ the target, supported origin, modes and hashes of the cumulative scripts/guide.
 Release discovery advertises repository-bound descriptor/instruction URLs only
 when the descriptor asset is published. Downloading/reading it grants no execution
 authority; verify against the immutable release before planning or running code.
+
+Legacy source copying uses manifest pins or matching sealed Profile pins. Missing
+or conflicting legacy evidence is rejected; the original record is never rewritten.
+Preservation checks include database file ownership/modes. Rollback restores those
+attributes and symlink ownership along with the original data and link targets.
+
+Administrator executor configuration is fingerprinted independently of released
+helper code. Custom runtime images, driver capabilities, network choices, asset
+mounts and cache settings must retain their bytes/owner/mode across updates.
+Unexpected edits require review before completing, resuming or rolling back.
+Use the opt-in [runtime doctor](RUNTIME-DOCTOR.md) after upgrading a runtime boundary,
+then perform the existing user's scientific smoke/acceptance separately.

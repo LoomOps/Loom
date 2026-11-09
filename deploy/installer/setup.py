@@ -8,11 +8,12 @@ BUNDLE=Path(__file__).resolve().parent
 sys.path.insert(0,str(BUNDLE/'platform/deploy' if (BUNDLE/'platform/deploy').exists() else BUNDLE.parent))
 sys.path.insert(0,str(BUNDLE))
 sys.path.insert(0,str(BUNDLE/'platform/dashboard' if (BUNDLE/'platform/dashboard').exists() else BUNDLE.parents[1]/'dashboard'))
+sys.path.insert(0,str(BUNDLE/'platform/executor' if (BUNDLE/'platform/executor').exists() else BUNDLE.parents[1]/'executor'))
 import doctor as diagnostics
 ROOT=Path('/loom/ops')
 FSTAB=Path('/etc/fstab')
 DEFAULT={'data':'/loom/data','dependencies':'/dependencies','mount':None,'repositories':[],
-         'additional_data':[],'mounts':[],'host_ssh':True,'gpu':False,'tailscale':None,'api_port':18892,'dashboard_port':18893,'tls_port':18894}
+         'additional_data':[],'mounts':[],'host_ssh':True,'runtime_options':{},'gpu':False,'tailscale':None,'api_port':18892,'dashboard_port':18893,'tls_port':18894}
 TOOLS=['docker','openssl','setfacl','getfacl','findmnt','lsblk','blkid','mount','systemctl']
 
 def run(*args):
@@ -44,7 +45,9 @@ def planned_mounts(plan):
  return ([plan['mount']] if plan.get('mount') else [])+values
 
 def validate(plan):
- if not isinstance(plan,dict) or set(plan)-set(DEFAULT) or set(DEFAULT)-{'mounts','host_ssh'}-set(plan):raise ValueError('Use the complete example plan; unknown fields are not accepted')
+ if not isinstance(plan,dict) or set(plan)-set(DEFAULT) or set(DEFAULT)-{'mounts','host_ssh','runtime_options'}-set(plan):raise ValueError('Use the complete example plan; unknown fields are not accepted')
+ from runtime_policy import options
+ options(plan.get('runtime_options',{}))
  data=path_value(plan['data']);deps=path_value(plan['dependencies'])
  if data==deps or data.is_relative_to(deps) or deps.is_relative_to(data):raise ValueError('Data and dependency paths must be separate')
  if (data.is_relative_to('/loom') and not data.is_relative_to('/loom/data')) or Path('/loom').is_relative_to(data):raise ValueError('Within /loom, storage must stay under /loom/data')
@@ -229,6 +232,9 @@ def apply(plan):
  dest=Path('/loom/distribution')/info['build_id'];shutil.copytree(src,dest)
  for p in [dest.parent,dest,*dest.rglob('*')]:os.chown(p,0,0);p.chmod(0o755 if p.is_dir() else 0o644)
  args=[sys.executable,dest/'deploy/executor-attach.py',ROOT,'--instance','alpha','--data',plan['data'],'--install-service']
+ from runtime_policy import options
+ selected=options(plan.get('runtime_options',{}));args.extend(['--network',selected['network']])
+ for capability in selected['driver_capabilities']:args.extend(['--driver-capability',capability])
  for path in plan['additional_data']:args.extend(['--additional-data',path])
  if plan['gpu']:args.append('--gpu')
  run(*args)

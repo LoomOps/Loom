@@ -80,6 +80,34 @@ class ExecutorBoundaryTests(IsolatedOps):
   argv=next(c for c in self.calls if c[0]=='create')
   self.assertIn('type=bind,source='+str(tool)+',target=/tools/planner,readonly',argv)
   with self.assertRaises(ValueError):self.executor.handle('alpha','start',{**self.request(ticket='escape.attempt.run',lane='cpu'),'tools':{'planner':'/etc'}})
+
+ def test_administrator_graphics_and_bridge_keep_container_isolation(self):
+  self.executor.CONFIG['runtimes']['python'].update(driver_capabilities=['compute','utility','graphics'],network='bridge')
+  self.executor.handle('alpha','start',{**self.request(),'env':{'NVIDIA_DRIVER_CAPABILITIES':'all'}})
+  argv=next(c for c in self.calls if c[0]=='create')
+  environments=[argv[i+1] for i,v in enumerate(argv[:-1]) if v=='--env']
+  self.assertEqual([v for v in environments if v.startswith('NVIDIA_DRIVER_CAPABILITIES=')][-1],'NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics')
+  self.assertEqual(argv[argv.index('--network')+1],'bridge')
+  self.assertIn('--read-only',argv);self.assertIn('--cap-drop=ALL',argv)
+  self.assertEqual(argv[argv.index('--user')+1],'1000:'+str(os.getgid() or 1000))
+
+ def test_driver_capability_default_invalid_policy_and_job_overrides(self):
+  from runtime_policy import gpu_driver_capabilities
+  self.assertEqual(gpu_driver_capabilities({}),'compute,utility')
+  for bad in ('all',[],['all'],['graphics','graphics'],['graphics;anything'],[None]):
+   with self.subTest(bad=bad),self.assertRaises(ValueError):gpu_driver_capabilities({'driver_capabilities':bad})
+  for field,value in (('driver_capabilities',['graphics']),('network','bridge')):
+   with self.assertRaises(PermissionError):self.executor.handle('alpha','start',{**self.request(),field:value})
+  self.executor.CONFIG['runtimes']['python']['network']='host'
+  with self.assertRaises(ValueError):self.executor.handle('alpha','start',self.request())
+  self.assertFalse(any(c[0]=='create' for c in self.calls))
+
+ def test_declared_images_use_only_administrator_driver_and_network_policy(self):
+  from runtime_policy import declared
+  policy={'enabled':True,'network':'bridge','driver_capabilities':['compute','utility','graphics']}
+  runtime=declared({'image':'trainer:local'},policy,lambda *a:'sha256:'+'a'*64)
+  self.assertEqual(runtime['network'],'bridge');self.assertEqual(runtime['driver_capabilities'],policy['driver_capabilities'])
+  self.assertEqual(declared({'image':'trainer:local'}, {'enabled':True},lambda *a:'sha256:'+'a'*64)['network'],'none')
  def test_instance_grants_and_path_escape_reject_before_container_creation(self):
   with self.assertRaises(PermissionError):self.executor.handle('dev','start',self.request())
   for data in [{**self.request(),'host_output':str(self.root)}, {**self.request(),'inputs':{'escape':'/etc/passwd'}}, {**self.request(),'runtime_id':'missing'}]:
