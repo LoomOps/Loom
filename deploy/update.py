@@ -3,6 +3,8 @@ import argparse,contextlib,fcntl,hashlib,json,os,shutil,sqlite3,subprocess,time
 from pathlib import Path
 from tailnet import env_values,write
 import guide_bundle
+import migrations
+import state_snapshot
 
 ACTIVE=('preparing','running','processing')
 
@@ -95,8 +97,14 @@ def check_health(source,root,project,expected=None):
    for request in requests:
     with urlopen(request,timeout=2) as r:
      if r.status!=200:raise OSError('Health check failed')
-     if request.full_url.endswith('/api/status') and expected and json.load(r)['build']['build_id']!=expected:raise OSError('Unexpected running build')
+     if request.full_url.endswith('/api/status'):
+      status=json.load(r)
+      if expected and status['build']['build_id']!=expected:raise OSError('Unexpected running build')
    if not (root/'development').exists():check_entry(root)
+   if not (root/'development').exists():
+    import storage_parity
+    try:storage_parity.inspect(root,project,status)
+    except (OSError,ValueError,KeyError,subprocess.SubprocessError) as error:raise OSError('Storage parity check failed: '+type(error).__name__) from None
    if (root/'config/ssh.json').exists():
     from ssh_setup import doctor as ssh_doctor
     if not ssh_doctor(root)['ready']:raise OSError('Managed SSH readiness failed')
@@ -140,14 +148,23 @@ def previous_source(root,platform):
   if (candidate/'deploy/compose.sh').is_file():return candidate
  raise ValueError('Keep the installed release source under distribution/<version> before updating')
 
-def apply(root,release,project,platform=Path('/loom')):
+def plan(root,release,mode='update'):
+ if mode not in ('update','rebuild'):raise ValueError('Unknown upgrade mode')
+ info=inspect(root,release)
+ return {**info,'mode':mode,'upgrade':migrations.plan(root,release)}
+
+def apply(root,release,project,platform=Path('/loom'),mode='update'):
+ if mode not in ('update','rebuild'):raise ValueError('Unknown upgrade mode')
  root,release,platform=Path(root),Path(release),Path(platform);info=inspect(root,release)
+ upgrade=migrations.plan(root,release)
  installed=previous_source(root,platform)
  if (platform/'distribution'/info['build_id']).exists():raise ValueError('Distribution version already installed')
  archive=platform/'updates'/str(time.time_ns());archive.mkdir(parents=True,mode=0o700)
  with (platform/'updates/.lock').open('a') as lock:
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-  paths=instance_paths(platform,root) if helper_files(platform,release/'source') else [root];gated=[];record={'schema':'loom-update/v1','root':str(root),'project':project,'release':str(release),'build':info['build_id'],'state':'preparing','gated':[],'helpers':{},'files':{},'databases':{}}
+  # Another administrator may have finished an update before this lock arrived.
+  info=inspect(root,release);upgrade=migrations.plan(root,release);installed=previous_source(root,platform)
+  paths=instance_paths(platform,root) if helper_files(platform,release/'source') else [root];gated=[];record={'schema':'loom-update/v1','root':str(root),'project':project,'release':str(release),'build':info['build_id'],'mode':mode,'upgrade':upgrade,'state':'preparing','gated':[],'helpers':{},'files':{},'databases':{}}
   guides=platform/'loom_use'
   record['guides']={'parent':str(guides),'previous':guide_bundle.selected(guides),'version':info['build_id']}
   guide_bundle.install(guide_bundle.generate(info['images']['ops']),guides,info['build_id'])
@@ -162,15 +179,21 @@ def apply(root,release,project,platform=Path('/loom')):
     with sql(ex) as c:
      if c.execute("SELECT 1 FROM tickets WHERE state!='returned' LIMIT 1").fetchone():raise ValueError('Executor has unreturned tickets')
    # Stop writers before taking snapshots or replacing shared helper code.
+   record['state']='backing_up';write(archive/'record.json',record)
    compose(old_source,root,project,'stop')
    helpers=helper_files(platform,src)
    if helpers:run('systemctl','stop','loom-executor.service','loom-observations.timer','loom-observations.service')
    db=root/'runtime/ops.sqlite3';dest=archive/'ops.sqlite3';backup_db(db,dest);record['databases'][str(db)]=str(dest)
+   preserved=state_snapshot.capture(root,archive,platform);record['preserved_state']=str(preserved)
+   for path in state_snapshot.databases(root):
+    record['databases'].setdefault(str(path),str(preserved/'instance'/path.relative_to(root)))
    for dest,new in helpers.items():
     backup=archive/('helper-'+dest.name);shutil.copy2(dest,backup);record['helpers'][str(dest)]=str(backup)
    for rel in ['build.env']:
     dest=root/rel;backup=archive/rel;shutil.copy2(dest,backup);record['files'][str(dest)]=str(backup)
    record['state']='applying';write(archive/'record.json',record)
+   record['migrations']=migrations.apply(upgrade,root,release,platform)
+   write(archive/'record.json',record)
    dest=platform/'distribution'/info['build_id']
    if dest.exists():raise ValueError('Distribution version already installed')
    shutil.copytree(src,dest)
@@ -184,7 +207,9 @@ def apply(root,release,project,platform=Path('/loom')):
     unit.write_text(re.sub(r'/\S+/deploy/compose\.sh',str(dest/'deploy/compose.sh'),unit.read_text()));run('systemctl','daemon-reload')
    if helpers:run('systemctl','start','loom-executor.service','loom-observations.timer')
    restart_ssh(root)
-   compose(dest,root,project,'up','-d','--no-build');check_health(dest,root,project,info['build_id'])
+   args=['up','-d','--no-build']+(['--force-recreate'] if mode=='rebuild' else [])
+   compose(dest,root,project,*args);check_health(dest,root,project,info['build_id'])
+   record['preservation']=state_snapshot.verify(root,preserved)
    guide_bundle.select(guides,info['build_id'])
    record.update(state='complete',source=str(dest),previous_source=str(old_source))
   except BaseException:
@@ -194,16 +219,78 @@ def apply(root,release,project,platform=Path('/loom')):
    # Leave explicit recovery evidence; never restart a failed update silently.
    raise
   finally:
-   for db in gated:ungate(db) if record['state']=='complete' or record['state']=='preparing' else None
+   # Fingerprint while still fenced. New Jobs accepted after ungating must never
+   # become part of the rollback baseline and then disappear on restoration.
    record['post_databases']={db:digest_db(Path(db)) for db in record['databases']};write(archive/'record.json',record)
-  return {'updated':info['build_id'],'record':str(archive/'record.json'),'preserved':'overrides, credentials, components, profiles, history, data'}
+   record['post_files']=state_snapshot.file_inventory(root)
+   record['post_extensions']=state_snapshot.extension_inventory(record.get('preserved_state'))
+   record['post_managed_files']={target:hashlib.sha256(Path(target).read_bytes()).hexdigest() for group in ('files','helpers') for target in record[group]}
+   write(archive/'record.json',record)
+   for db in gated:ungate(db) if record['state']=='complete' or record['state']=='preparing' else None
+  return {'updated':info['build_id'],'mode':mode,'record':str(archive/'record.json'),'preserved':'accounts, tokens, installation identity, overrides, components, tools, profiles, history, data'}
+
+def resume(record_path):
+ """Resume an owned failed update without issuing another installation identity."""
+ path=Path(record_path);record=json.loads(path.read_text())
+ if record['state']=='complete':return {'updated':record['build'],'already_complete':True,'record':str(path)}
+ if record['state']!='failed' or not record.get('preserved_state'):raise ValueError('No resumable preservation snapshot; use rollback')
+ root=Path(record['root']);release=Path(record['release']);platform=path.parent.parent.parent;project=record['project']
+ with (platform/'updates/.lock').open('a') as lock:
+  fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+  for db,digest in record['post_databases'].items():
+   if digest_db(Path(db))!=digest:raise ValueError('Database changed after failure; review recovery before resuming')
+  if state_snapshot.file_inventory(root)!=record['post_files']:raise ValueError('Installation changed after failure; review recovery before resuming')
+  if state_snapshot.extension_inventory(record.get('preserved_state'))!=record.get('post_extensions',{}):raise ValueError('Extensions changed after failure; review recovery before resuming')
+  for name in record['gated']:
+   with sql(Path(name)) as c:
+    if c.execute('SELECT mode FROM node_control WHERE id=1').fetchone()[0]!='maintenance':raise ValueError('Resume requires the retained maintenance fence')
+  info=inspect(root,release);src=release/'source';dest=platform/'distribution'/info['build_id']
+  compose(Path(record['previous_source']),root,project,'stop')
+  try:
+   record['migrations']=migrations.apply(record['upgrade'],root,release,platform)
+   if dest.exists():
+    for rel,digest in json.loads((release/'manifest.json').read_text())['files'].items():
+     if hashlib.sha256((dest/rel).read_bytes()).hexdigest()!=digest:raise ValueError('Incomplete or modified release copy; use rollback')
+   else:shutil.copytree(src,dest)
+   for target,new in helper_files(platform,src).items():shutil.copyfile(new,target);os.chmod(target,0o644)
+   owner=(root/'build.env').stat();write(root/'build.env',(release/'build.env').read_text(),owner.st_uid,owner.st_gid)
+   unit=Path('/etc/systemd/system/loom-stack.service')
+   if unit.exists():
+    import re
+    unit.write_text(re.sub(r'/\S+/deploy/compose\.sh',str(dest/'deploy/compose.sh'),unit.read_text()));run('systemctl','daemon-reload')
+   if record['helpers']:run('systemctl','start','loom-executor.service','loom-observations.timer')
+   restart_ssh(root)
+   compose(dest,root,project,'up','-d','--no-build',*(['--force-recreate'] if record.get('mode')=='rebuild' else []))
+   check_health(dest,root,project,info['build_id'])
+   record['preservation']=state_snapshot.verify(root,record['preserved_state'])
+   guide_bundle.select(record['guides']['parent'],record['guides']['version'])
+   record.update(state='complete',source=str(dest));write(path,record)
+  finally:
+   record['post_databases']={db:digest_db(Path(db)) for db in record['databases']}
+   record['post_files']=state_snapshot.file_inventory(root)
+   record['post_extensions']=state_snapshot.extension_inventory(record.get('preserved_state'))
+   record['post_managed_files']={target:hashlib.sha256(Path(target).read_bytes()).hexdigest() for group in ('files','helpers') for target in record[group]}
+   write(path,record)
+  if record['state']=='complete':
+   for name in record['gated']:ungate(Path(name))
+ return {'updated':record['build'],'resumed':True,'record':str(path)}
 
 def rollback(record_path):
+ path=Path(record_path)
+ with (path.parent.parent/'.lock').open('a') as lock:
+  fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+  return _rollback(path)
+
+def _rollback(record_path):
  path=Path(record_path);record=json.loads(path.read_text());root=Path(record['root']);project=record['project'];source=Path(record.get('source',record['release']+'/source'))
  if record['state'] not in ('complete','failed'):raise ValueError('Update record is not rollback-ready')
  # Do not lose work accepted since update. New DB writes require manual migration review.
  for db,digest in record['post_databases'].items():
   if digest_db(Path(db))!=digest:raise ValueError('Database changed after update; automatic restore would lose new records')
+ if 'post_files' in record and state_snapshot.file_inventory(root)!=record['post_files']:raise ValueError('Installation files changed after update; review a data-preserving recovery')
+ if 'post_extensions' in record and state_snapshot.extension_inventory(record.get('preserved_state'))!=record['post_extensions']:raise ValueError('Extensions changed after update; review a data-preserving recovery')
+ for target,digest in record.get('post_managed_files',{}).items():
+  if hashlib.sha256(Path(target).read_bytes()).hexdigest()!=digest:raise ValueError('Managed service files changed after update; review recovery')
  gated=[];acquired=[];mutated=False
  try:
   for name in record['gated']:
@@ -220,12 +307,15 @@ def rollback(record_path):
   for group in ('files','helpers'):
    for target,backup in record[group].items():shutil.copy2(backup,target)
   for db,backup in record['databases'].items():
+   if Path(db).is_symlink() or not Path(db).parent.resolve().is_relative_to(root.resolve()):raise ValueError('Database restore leaves the preserved instance')
    with sqlite3.connect(backup) as a,sql(db) as b:a.backup(b)
+  if record.get('preserved_state'):state_snapshot.restore(root,record['preserved_state'])
   if '/etc/systemd/system/loom-stack.service' in record['files']:run('systemctl','daemon-reload')
   if record['helpers']:run('systemctl','start','loom-executor.service','loom-observations.timer')
   restart_ssh(root)
   previous=Path(record['previous_source']) if record.get('previous_source') else Path(__file__).resolve().parents[1]
   compose(previous,root,project,'up','-d','--no-build');check_health(previous,root,project)
+  if record.get('preserved_state'):state_snapshot.verify(root,record['preserved_state'])
   if record.get('guides'):guide_bundle.select(record['guides']['parent'],record['guides']['previous'])
   for db in gated:ungate(db)
   record['state']='rolled_back';write(path,record)
@@ -236,8 +326,9 @@ def rollback(record_path):
  return {'rolled_back':True,'record':str(path)}
 
 if __name__=='__main__':
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['plan','apply','rollback']);p.add_argument('--instance',type=Path,default=Path('/loom/ops'));p.add_argument('--project',default='loom');p.add_argument('--release',type=Path);p.add_argument('--record',type=Path);a=p.parse_args()
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['plan','apply','resume','rollback']);p.add_argument('--instance',type=Path,default=Path('/loom/ops'));p.add_argument('--project',default='loom');p.add_argument('--release',type=Path);p.add_argument('--record',type=Path);p.add_argument('--mode',choices=['update','rebuild'],default='update');a=p.parse_args()
  if a.action=='rollback':result=rollback(a.record)
- elif a.action=='plan':result=inspect(a.instance,a.release)
- else:result=apply(a.instance,a.release,a.project)
+ elif a.action=='resume':result=resume(a.record)
+ elif a.action=='plan':result=plan(a.instance,a.release,a.mode)
+ else:result=apply(a.instance,a.release,a.project,mode=a.mode)
  print(json.dumps(result,indent=2))

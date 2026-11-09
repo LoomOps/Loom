@@ -24,6 +24,9 @@ def build(original):
     match = re.search(r'data-srcdoc="([^"]*)"', outer)
     inner = html.unescape(match[1])
     inner = patch_logs(inner)
+    inner = inner.replace("['component','컴포넌트']", "['component','컴포넌트'],['tool','Tool']")
+    inner = inner.replace("component:'컴포넌트'}", "component:'컴포넌트',tool:'Tool'}")
+    inner = inner.replace("if(e.kind==='component')return catComponent(e);", "if(e.loom_extension)return loomExtensionDetail(e);if(e.kind==='component')return catComponent(e);")
     inner = replace_once(inner, "['mcp','MCP','plug']", "['mcp','Loom Use','plug']")
     inner = replace_once(inner, '<div class="pa-activity-track"><div class="pa-activity-months">',
                          '<div class="pa-activity-track">${activityYears(weeks)}<div class="pa-activity-months">')
@@ -83,14 +86,16 @@ def build(original):
     inner = inner.replace("실시간 연결", "최근 조회 성공").replace("스냅샷 · 서버 연결 중", "카탈로그 연결 중")
     inner = re.sub(r"connect-src [^;]+;", "connect-src 'none';", inner, count=1)
     inner = inner.replace(
-        "['agent','Agent','bot']]", "['docker','Docker','boxes'],['mcp','MCP','plug'],['access','Tailscale','tailscale']]",
+        "['agent','Agent','bot']]", "['tools','Tools','wrench'],['docker','Docker','boxes'],['mcp','MCP','plug'],['access','Tailscale','tailscale']]",
     ).replace(
-        "files};", "files,docker:loomDockerView,mcp:loomMcpView,access:loomAccessView};",
+        "files};", "files,tools:loomToolsView,docker:loomDockerView,mcp:loomMcpView,access:loomAccessView};",
     ).replace(
-        "issues:'issues',agent:'agent'}", "issues:'issues',agent:'queue',docker:'docker',mcp:'mcp',tailnet:'access',tailscale:'access'}",
+        "issues:'issues',agent:'agent'}", "issues:'issues',agent:'queue',tools:'tools',docker:'docker',mcp:'mcp',tailnet:'access',tailscale:'access'}",
     )
+    if "['tools','Tools','wrench']" not in inner:
+        inner=replace_once(inner,"['docker','Docker','boxes']","['tools','Tools','wrench'],['docker','Docker','boxes']")
     marker = "catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');"
-    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "details.js", "queue.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js"))
+    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "details.js", "queue.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js"))
     inner = replace_once(inner, marker, inner_additions + "\n" + (HERE.parent/"branding/brand.js").read_text() + "\n" + marker)
     inner = inner.replace("</head>", "<style>" + (HERE / "frame.css").read_text() + "</style></head>", 1)
     style = (HERE / "operations-desk.css").read_text() + (HERE.parent/"branding/brand.css").read_text()

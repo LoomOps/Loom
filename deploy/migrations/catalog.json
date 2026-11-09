@@ -1,0 +1,14 @@
+{
+  "schema": "loom-migration-catalog/v1",
+  "minimum_version": "0.1.0-alpha.38",
+  "steps": [
+    {
+      "id": "research-tools-v1",
+      "introduced": "0.1.0-alpha.41",
+      "requires": [],
+      "script": "deploy/migrations/research_tools.py",
+      "timeout_seconds": 120,
+      "description": "Add the independent Tool registry without rewriting Components, Profiles, Jobs or credentials. Explicitly selected legacy revisions can subsequently be copied through components.register_tool."
+    }
+  ]
+}

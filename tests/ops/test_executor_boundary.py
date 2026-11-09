@@ -74,6 +74,12 @@ class ExecutorBoundaryTests(IsolatedOps):
   argv=next(c for c in self.calls if c[0]=='create')
   self.assertIn('--read-only',argv);self.assertIn('--cap-drop=ALL',argv)
   self.assertEqual(argv[argv.index('--network')+1],'none');self.assertNotIn('--privileged',argv)
+ def test_tools_mount_only_registered_store_readonly_and_reject_escape(self):
+  base=Path(self.executor.CONFIG['components'])/'.tools';tool=base/'owner/planner/revisions/1';tool.mkdir(parents=True)
+  self.executor.handle('alpha','start',{**self.request(lane='cpu'),'tools':{'planner':str(tool)}})
+  argv=next(c for c in self.calls if c[0]=='create')
+  self.assertIn('type=bind,source='+str(tool)+',target=/tools/planner,readonly',argv)
+  with self.assertRaises(ValueError):self.executor.handle('alpha','start',{**self.request(ticket='escape.attempt.run',lane='cpu'),'tools':{'planner':'/etc'}})
  def test_instance_grants_and_path_escape_reject_before_container_creation(self):
   with self.assertRaises(PermissionError):self.executor.handle('dev','start',self.request())
   for data in [{**self.request(),'host_output':str(self.root)}, {**self.request(),'inputs':{'escape':'/etc/passwd'}}, {**self.request(),'runtime_id':'missing'}]:

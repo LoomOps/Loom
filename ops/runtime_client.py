@@ -34,6 +34,10 @@ class Container:
             for ref,expected in spec['profile'].get('source_pins',{}).items():
                 if hashlib.sha256((Path(component)/ref).read_bytes()).hexdigest()!=expected:raise ValueError('Component revision changed')
         data=json.loads(request.read_text());inputs={}
+        import tool_store
+        tools=spec['profile'].get('tool_pins',{})
+        tool_store.verify(tools)
+        if tools:data['tools']={alias:'/tools/'+alias for alias in tools}
         output_root,_=storage.output(config,bulk,spec)
         output_name=spec.get('output_storage','data/0')
         host_root=self.config['host_data'] if output_name=='data/0' else self.config.get('storage',{}).get(output_name)
@@ -61,6 +65,10 @@ class Container:
         if 'image' in runner:payload.update(image=runner['image'],resources=runner.get('resources',{}))
         if component and 'host_components' in self.config:
             payload['component']=str(Path(self.config['host_components'])/Path(component).relative_to('/loom/components'))
+        if tools:
+            import component_store
+            base=Path(self.config.get('host_components','/loom/components'))
+            payload['tools']={alias:str(base/Path(pin['path']).relative_to(component_store.ROOT)) for alias,pin in tools.items()}
         state=call(self.config,'start',payload)
         if state.get('busy'):raise Busy('GPU is owned by another instance')
         self.ticket=state['ticket']

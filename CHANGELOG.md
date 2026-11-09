@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.0-alpha.41
+
+- Separate immutable research Tools from Job lifecycle Components; expose discovery, exact revision copying and pinned read-only execution through existing MCP groups and Dashboard.
+- Ship cumulative dependency-ordered administrator migrations with bounded check/apply/verify scripts and durable receipts.
+- Add explicit state-preserving container rebuild, private all-database/configuration snapshots, preservation checks and resumable/guarded recovery.
+- Require effective storage parity at update/installation readiness, including old installs without a plan, actual mounts, executor and SSH grants, marker IDs, boot dependencies and service-user access.
+
+
 ## 0.1.0-alpha.40
 
 - Apply normalized dataset facts to list rows and detail highlights, not only the Properties panel.

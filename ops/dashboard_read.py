@@ -153,6 +153,19 @@ def projection(db, actor, config, local, bulk=None):
                          'loom_media':add_media(media, ['registry',record['id'],record['revision']], locations),
                          'loom_files':file_entries(media,['registry',record['id'],record['revision']],locations,storage)})
     entities=[ownership.decorate(db,'job' if e['kind']=='job' else 'entity',e) for e in entities]
+    # Research Tools and Job lifecycle Components are separate registry entries.
+    # Historical catalog entries and their original classification remain intact.
+    import tool_store,component_store
+    for kind,table in (('tool','tools'),('component','components')):
+        if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",(table,)).fetchone():continue
+        for row in db.execute('SELECT owner,id,max(revision) revision FROM '+table+' GROUP BY owner,id').fetchall():
+            value=(tool_store.detail(db,row['owner'],row['id'],row['revision']) if kind=='tool' else
+                   component_store.operate(db,actor,{'action':'get','owner':row['owner'],'id':row['id']},config))
+            entities.append({'id':kind+':'+row['owner']+':'+row['id']+':r'+str(row['revision']),
+                'kind':kind,'namespace':'loom','label':value['manifest'].get('label',row['id']),
+                'summary':value['manifest'].get('description',''),'properties':{'revision':row['revision']},
+                'loom_extension':value,'relations':[],'artifacts':[],
+                **ownership.extension(db,kind,row['owner'],row['id'])})
     queue = queue_control.view(db,actor,queue_control.execution_lane)
     revision = hashlib.sha256(json.dumps({'entities':entities,'queue':queue}, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return {'entities':entities, 'queue':queue, 'sources':[{'id':source, 'status':'ok'} for source in

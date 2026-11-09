@@ -43,3 +43,11 @@ Tests cover another caller's shared discovery, Built-in, existing responsibility
 and unchanged revision pins. No ownership-based visibility restriction is added.
 
 Component source paths must be canonical relative file paths, without file/directory collisions or the reserved root `component.json` manifest. Editable symlink destinations are checked before publishing. Immutable source snapshots are published atomically; an identical snapshot left by a rolled-back database transaction can be reused on retry, while conflicting content remains untouched.
+
+## Research software boundary
+
+`ops/tool_store.py` registers immutable research Tools separately from Job lifecycle
+Components. Exact pins are sealed into Profiles/Jobs, verified by runtime_client,
+and mounted read-only by the executor. The six MCP groups are unchanged. Legacy
+Component snapshots are copied only by explicit exact-revision selection; old
+registrations and provenance remain intact. Dashboard lists Tools independently.

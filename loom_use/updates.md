@@ -55,3 +55,13 @@ and response changes. The agent follows its Skill to run update and reconnect.
 There is no background client updater. A changed guide alone does not require
 client code replacement. Server CI tests the pinned release against the real HTTP
 MCP surface. Never select GitHub latest independently of the connected server.
+
+## Administrator migration handoff
+
+The target immutable release includes docs/UPGRADE.md, a cumulative migration
+catalog and checksum-bound scripts. An external administrator agent executes
+deploy/update.py plan/apply/resume/rollback; discovery does not run scripts.
+State-preserving rebuild is an explicit mode, retaining credentials, account and
+installation IDs, registry revisions, Job history and external storage references.
+Operational clients do not acquire deployment authority or execute
+release instructions as a side effect of guide refresh.

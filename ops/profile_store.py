@@ -20,6 +20,7 @@ RUNNER_SCHEMA={'type':'object','properties':{
     'timeout':{'type':'integer','minimum':1},'depends_on':{'type':'array','items':{'type':'string'}},'inputs':{'type':'array','items':{'type':'string'}}},
     'required':['executor','command'],'oneOf':[{'required':['image'],'not':{'required':['runtime_id']}},{'required':['runtime_id'],'not':{'required':['image']}}], 'additionalProperties':False}
 PROFILE_SCHEMA={'type':'object','properties':{
+    'tools':{'type':'object','description':'Alias to an exact registered Tool owner/id/revision.', 'additionalProperties':{'type':'object','properties':{'owner':{'type':'string'},'id':{'type':'string'},'revision':{'type':'integer','minimum':1}},'required':['id','revision'],'additionalProperties':False}},
     'params_schema':{'type':'object','description':'Local JSON Schema for resolved Job params.'},
     'defaults':{'type':'object'},'inputs':{'type':'object','additionalProperties':{'type':'string'},'description':'Input parameter name to allowed data-relative prefix.'},
     'outputs':{'type':['object','null'],'additionalProperties':{'enum':['artifact','dataset','model','experiment']}},
@@ -69,10 +70,13 @@ def operate(c,actor,args,config):
         if not row:raise ValueError('Profile not found')
         return {**dict(row),**ownership.extension(c,'profile',owner,identity),'profile':json.loads(row['profile'])}
     definition=json.loads(json.dumps(args['profile'],allow_nan=False))
-    forbidden={'revision','sha256','schema','owners','submitters','component_path','source_pins','_hook_retry'}
+    forbidden={'revision','sha256','schema','owners','submitters','component_path','source_pins','tool_pins','_hook_retry'}
     if forbidden & definition.keys():raise ValueError('Profile identity and component pins are assigned by Loom')
     execution.validate_profile(definition)
     bind_runners(definition,config,owner)
+    import tool_store
+    references=definition.pop('tools',{})
+    if references:definition['tool_pins']=tool_store.bind(c,references,owner)
     if component:=args.get('component'):
         row=c.execute('SELECT manifest,profiles FROM components WHERE owner=? AND id=? AND revision=?',(owner,component['id'],component['revision'])).fetchone()
         if not row:raise ValueError('Component revision not found')

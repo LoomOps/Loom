@@ -173,8 +173,13 @@ class InstallationDoctorTests(unittest.TestCase):
    if args[:2]==('systemctl','is-enabled'):return 'enabled'
    if args[:2]==('systemctl','is-active'):return 'active'
    raise AssertionError(args)
-  with patch.object(setup,'run',side_effect=run),patch.object(setup,'manifest',return_value={'build_id':'test','images':image_ids}),patch.object(setup,'verify_core',return_value={'build':'test'}),patch.object(doctor,'request',return_value=(200,{'sso':True})):
+  with patch.object(setup,'run',side_effect=run),patch.object(setup,'manifest',return_value={'build_id':'test','images':image_ids}),patch.object(setup,'verify_core',return_value={'build':'test'}),patch.object(doctor,'request',return_value=(200,{'sso':True})),patch('storage_parity.inspect',return_value={'status':'passed'}) as parity:
    self.assertTrue(doctor.doctor(setup,self.plan,'services')['ready'])
+   parity.assert_called_with(setup.ROOT)
+   with patch('storage_parity.inspect',side_effect=ValueError('fixture storage mismatch')):
+    failed=doctor.doctor(setup,self.plan,'services')
+    self.assertFalse(failed['ready'])
+    self.assertEqual(next(c for c in failed['checks'] if c['check']=='effective_storage_parity')['status'],'fail')
    store=next(m for m in containers['loom-ops']['Mounts'] if m['Destination']=='/loom/data/0')
    store['RW']=False
    self.assertFalse(doctor.doctor(setup,self.plan,'services')['ready'])

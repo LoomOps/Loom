@@ -32,6 +32,11 @@ class ReleaseChecks(unittest.TestCase):
         self.assertIsNone(releases.select_release([release('1.0.0',prerelease=True)],'stable','org/repo'))
         for invalid in ['dev-build.123','latest','01.0.0','0.1.0-alpha.01',None]:self.assertIsNone(releases.version(invalid))
 
+    def test_administrator_handoff_asset_is_discovered_without_executing_or_trusting_urls(self):
+        value=releases.select_release([release('v0.1.0-alpha.41',assets=[{'name':'upgrade.json','browser_download_url':'https://untrusted.test/script'}])],'alpha','org/repo')
+        self.assertEqual(value['upgrade']['descriptor_url'],'https://github.com/org/repo/releases/download/v0.1.0-alpha.41/upgrade.json')
+        self.assertNotIn('untrusted',json.dumps(value))
+
     def test_discovery_preserves_private_credential_and_compares_current_build(self):
         (self.root/'token').write_text('fixture-secret')
         self.checker.check(); result=self.checker.status()

@@ -76,7 +76,7 @@ class SocketTests(unittest.TestCase):
                 if os.getuid()!=0:
                     server.accounts.config['client_uid']=os.getuid()+1
                     try:raw=request({'action':'list','uid':server.accounts.config['client_uid']})
-                    except ConnectionResetError:raw=b''
+                    except (ConnectionResetError,BrokenPipeError):raw=b''
                     self.assertEqual(raw,b'');self.assertEqual(len(calls),1)
             finally:server.shutdown();th.join();server.server_close()
 

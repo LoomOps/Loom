@@ -134,6 +134,13 @@ def handle(instance,action,data):
                     component=inside(cfg.get('components',CONFIG['components']),data['component'])
                     if not component.is_dir():raise ValueError('Component snapshot unavailable')
                     cmd+=['--mount',f'type=bind,source={component},target=/component,readonly']
+                for alias,ref in sorted(data.get('tools',{}).items()):
+                    if not ID.fullmatch(alias):raise ValueError('Invalid Tool alias')
+                    components=Path(cfg.get('components',CONFIG['components']))
+                    tool_root=inside(components,components/'.tools')
+                    source=inside(tool_root,ref)
+                    if not source.is_dir():raise ValueError('Tool snapshot unavailable')
+                    cmd+=['--mount',f'type=bind,source={source},target=/tools/{alias},readonly']
                 stores=data.get('storage',[])
                 if not isinstance(stores,list) or any(not isinstance(s,str) or not re.fullmatch(r'data/[0-9]+',s) for s in stores) or len(stores)!=len(set(stores)):raise ValueError('Invalid storage identifiers')
                 for store in stores:

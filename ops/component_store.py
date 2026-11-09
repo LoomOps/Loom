@@ -15,6 +15,8 @@ ID=re.compile(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}')
 
 def init(c):
     profile_store.init(c)
+    import tool_store
+    tool_store.init(c)
     c.execute('''CREATE TABLE IF NOT EXISTS components(owner TEXT,id TEXT,revision INTEGER,
         manifest TEXT,profiles TEXT,PRIMARY KEY(owner,id,revision))''')
 
@@ -24,6 +26,7 @@ def action_schema(action):
     fields={'owner':{'type':'string','description':'Stable namespace. Register/write/get default to the authenticated principal; list defaults to all shared namespaces. Use built-in explicitly for common components. Display responsibility is returned in owner_profile.'}}
     required=[]
     if action!='list':fields['id']={'type':'string','pattern':ID.pattern};required=['id']
+    if action=='get':fields['revision']={'type':'integer','minimum':1}
     if action=='register':
         fields.update(manifest={'type':'object','description':'profiles: name → execution v2 profile.'},files={'type':'object','additionalProperties':{'type':'string'},'description':'Relative path → UTF-8 source; omit to use saved editable sources.'});required.append('manifest')
     if action=='write':
@@ -41,7 +44,9 @@ def operate(c,actor,args,config):
     identity=args.get('id','')
     if not isinstance(identity,str) or not ID.fullmatch(identity) or not ID.fullmatch(owner):raise ValueError('Invalid component identity')
     if action=='get':
-        row=c.execute('SELECT * FROM components WHERE owner=? AND id=? ORDER BY revision DESC LIMIT 1',(owner,identity)).fetchone()
+        query='SELECT * FROM components WHERE owner=? AND id=?';values=[owner,identity]
+        if 'revision' in args:query+=' AND revision=?';values.append(args['revision'])
+        row=c.execute(query+' ORDER BY revision DESC LIMIT 1',values).fetchone()
         if not row:raise ValueError('Component not found')
         return {**dict(row),**ownership.extension(c,'component',owner,identity),'manifest':json.loads(row['manifest']),'profiles':json.loads(row['profiles'])}
     if action=='write':
@@ -83,8 +88,12 @@ def operate(c,actor,args,config):
     profiles={}
     for name,definition in manifest.get('profiles',{}).items():
         if not ID.fullmatch(name):raise ValueError('Invalid profile name')
+        if 'tool_pins' in definition:raise ValueError('Tool pins are assigned by Loom')
         profile={**definition,'schema':execution.REVISION,'revision':f'{owner}.{identity}.{name}.r{version}',
             'component_path':str(folder),'source_pins':{ref:hashlib.sha256(content.encode()).hexdigest() for ref,content in files.items()},'submitters':[actor['id'],owner],'owners':[owner]}
+        import tool_store
+        references=profile.pop('tools',manifest.get('tools',{}))
+        if references:profile['tool_pins']=tool_store.bind(c,references,owner)
         profile_store.bind_runners(profile,config,owner)
         profiles[profile['revision']]=seal(profile)
     manifest={**manifest,'source_pins':{ref:hashlib.sha256(content.encode()).hexdigest() for ref,content in files.items()}}

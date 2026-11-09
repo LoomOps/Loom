@@ -132,7 +132,7 @@ ACTIONS = {'system.ssh': ('Personal SSH connection', 'Read the current caller SS
                      {},
                      []),
  'components.get': ('Component details',
-                    'Read the latest manifest and profiles.',
+                    'Read an exact or latest Job lifecycle Component manifest and profiles.',
                     'Component · owner (namespace), id, revision, manifest, profiles, owner_profile, owner_name, owner_kind',
                     {'id': '<component-id>'},
                     ['Missing component or owner access denied.']),
@@ -300,6 +300,12 @@ FIELD_HELP = {'id': 'ID of the item to read or modify.',
  'group': 'MCP group name.',
  'action': 'Action within the group.'}
 
+
+ACTIONS.update({
+ 'components.list_tools': ('List research Tools','List shared reusable software independently of Job Components.','Tool[]',{},[]),
+ 'components.get_tool': ('Tool revision','Read an exact or latest immutable software revision.','Tool',{'id':'planner','revision':1},['Missing Tool revision.']),
+ 'components.register_tool': ('Register research Tool','Register source or explicitly copy an exact legacy Component revision; existing Jobs and revisions remain unchanged.','Tool',{'id':'planner','manifest':{'label':'Motion planner'},'files':{'planner.py':'def plan(): return []'}},['Invalid source, missing legacy revision or denied submit scope.'])})
+
 def describe(group,action,actor,known,schema_for):
     visible={t['name']:t['inputSchema']['properties']['action']['enum'] for t in mcp_groups.tools(actor,known)}
     if action not in visible.get(group,[]):raise PermissionError('Action outside available documentation')
@@ -308,7 +314,7 @@ def describe(group,action,actor,known,schema_for):
     if group=='events' and action=='list':schema['properties']['kind']['description']='errors (default), lifecycle or all. Use all for both completion and errors.'
     title,description,returns,example,errors=ACTIONS[group+'.'+action]
     op=mcp_groups.GROUPS[group]['actions'][action]
-    scope=('submit' if action=='register_profile' else 'read') if op.startswith('profile_') else ('submit' if action in ('write','register') else 'read') if op.startswith('component_') else known[op][0] if op in known else 'authenticated'
+    scope=('submit' if action=='register_tool' else 'read') if op.startswith('tool_') else ('submit' if action=='register_profile' else 'read') if op.startswith('profile_') else ('submit' if action in ('write','register') else 'read') if op.startswith('component_') else known[op][0] if op in known else 'authenticated'
     return {'group':group,'action':action,'title':title,'description':description,'scope':scope,'schema':schema,
             'returns':returns,'errors':errors,'example':copy.deepcopy(example),
             'access':'Jobs and results are shared. Action scopes, event recipients, runtime policy and recovery leases still apply.'}

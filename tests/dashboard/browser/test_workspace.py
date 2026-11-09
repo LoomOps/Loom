@@ -75,6 +75,23 @@ const done=arguments[arguments.length-1];
         self.assertNotIn('error',result)
         self.assertTrue(all(result.values()))
 
+    def test_research_tool_list_and_detail_are_separate_and_escape_metadata(self):
+        entity={'id':'tool:owner:planner:r1','kind':'tool','label':'Motion planner','namespace':'loom',
+            'summary':'Research software','properties':{},'relations':[],'artifacts':[],
+            'loom_extension':{'owner':'owner','revision':1,'sha256':'a'*64,
+                'manifest':{'description':'<script>window.toolInjected=true</script>',
+                    'source_pins':{'planner.py':'b'*64}}}}
+        self.api.fixture['catalog']['entities'].append(entity)
+        self.api.fixture['catalog']['revision']='tools-fixture'
+        self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        self.ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('tools-fixture')")
+        self.ui.click('[data-go="tools"]')
+        self.ui.wait("return document.querySelector('.pa-pane-body')?.textContent.includes('Motion planner')")
+        self.ui.click('[data-entity="tool:owner:planner:r1"]')
+        self.ui.wait("return document.querySelector('.pa-pane-body')?.textContent.includes('Research software')")
+        self.assertTrue(self.ui.js("return document.querySelector('.pa-pane-body').textContent.includes('planner.py')"))
+        self.assertFalse(self.ui.js("return !!window.toolInjected"))
+
     def test_dataset_properties_are_consistent_and_source_metadata_is_lazy(self):
         import copy
         entity=copy.deepcopy(next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-model'))
@@ -483,7 +500,7 @@ const done=arguments[arguments.length-1];
             with self.subTest(identity=identity):
                 ui.route(identity)
                 ui.wait("return document.querySelector('.pa-entity-title-row')")
-                self.assertTrue(ui.js("const a=document.querySelector('.pa-entity-title-row h1').getBoundingClientRect(),b=document.querySelector('.pa-entity-menu>summary'),r=b.getBoundingClientRect();return Math.abs(a.top+a.height/2-r.top-r.height/2)<2 && getComputedStyle(b).borderWidth==='0px'"))
+                self.assertTrue(ui.wait("const pane=document.querySelector('.pa-document-pane.is-active'),h=pane?.querySelector('.pa-entity-title-row h1'),b=pane?.querySelector('.pa-entity-menu>summary');if(!h||!b)return false;const a=h.getBoundingClientRect(),r=b.getBoundingClientRect();return Math.abs(a.top+a.height/2-r.top-r.height/2)<2 && getComputedStyle(b).borderWidth==='0px'"))
                 if identity!='fixture-model':self.assertTrue(ui.js("return document.querySelector('.pa-job-properties')?.textContent.includes('Task level')"))
                 if identity=='fixture-imported':ui.wait("return document.querySelector('#pa-content').textContent.includes('Exit code')")
                 ui.click('.pa-entity-menu>summary');ui.click('[data-share-route]');ui.top()
@@ -492,7 +509,8 @@ const done=arguments[arguments.length-1];
     def test_new_window_opens_only_selected_item(self):
         ui=self.ui;ui.route('fixture-model');ui.click('.pa-entity-menu>summary')
         old=self.wd('/window');handles=set(self.wd('/window/handles'))
-        element=self.wd('/element',{'using':'css selector','value':'[data-open-route]'})['element-6066-11e4-a52e-4f735466cecf'];self.wd('/element/'+element+'/click',{});ui.top()
+        ui.wait("return !!document.querySelector('.pa-document-pane.is-active .pa-entity-menu[open] [data-open-route]')?.getClientRects().length")
+        element=self.wd('/element',{'using':'css selector','value':'.pa-document-pane.is-active .pa-entity-menu[open] [data-open-route]'})['element-6066-11e4-a52e-4f735466cecf'];self.wd('/element/'+element+'/click',{});ui.top()
         for _ in range(60):
             new=set(self.wd('/window/handles'))-handles
             if new:break
@@ -681,9 +699,9 @@ const done=arguments[arguments.length-1];
     def test_card_surfaces_prepared_before_vertical_scroll(self):
         ui=self.ui
         ui.wait("return document.querySelectorAll('.pa-panel.loom-surface').length>2")
-        ui.js("""window.pane=document.querySelector('.pa-pane-body');
-        window.nextCard=[...pane.querySelectorAll('.pa-panel.loom-surface')].find(c=>{const y=c.getBoundingClientRect().top,b=pane.getBoundingClientRect().bottom;return y>b&&y<b+750});""")
-        ui.wait("return nextCard?.querySelector(':scope>.loom-surface-skin')?.style.willChange==='transform'")
+        ui.wait("""window.pane=document.querySelector('.pa-document-pane.is-active .pa-pane-body')||document.querySelector('.pa-pane-body');
+        window.nextCard=[...pane.querySelectorAll('.pa-panel.loom-surface')].find(c=>{const y=c.getBoundingClientRect().top,b=pane.getBoundingClientRect().bottom;return y>b&&y<b+750&&c.querySelector(':scope>.loom-surface-skin')?.style.willChange==='transform'});
+        return !!nextCard;""")
         self.assertTrue(ui.js("return !!nextCard.querySelector(':scope>.loom-surface-skin path').getAttribute('d')"))
         ui.js("window.originalSkin=nextCard.querySelector(':scope>.loom-surface-skin');pane.scrollTop+=400")
         ui.wait("return nextCard.getBoundingClientRect().top<pane.getBoundingClientRect().bottom")

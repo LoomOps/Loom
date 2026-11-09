@@ -175,7 +175,7 @@
   #pai-studio .pa-sidebar{padding:6px 5px;gap:6px}
   #pai-studio .pa-brand{flex-basis:28px;min-height:28px}
   #pai-studio #pa-nav{gap:2px;flex:1 1 auto}
-  #pai-studio #pa-nav .pa-nav-item{flex:1 1 28px;min-height:24px;padding:0}
+  #pai-studio #pa-nav .pa-nav-item{flex:1 1 24px;min-height:20px;padding:0}
 }
 #pai-studio .pa-nav-tooltip{position:fixed;inset:auto;margin:0;padding:7px 10px;border:1px solid var(--pa-line);border-radius:7px;background:var(--pa-paper);color:var(--pa-ink);font:500 12px/1.4 system-ui,sans-serif;box-shadow:0 4px 14px #0002;pointer-events:none;white-space:nowrap}
 

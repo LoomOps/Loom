@@ -106,3 +106,17 @@ Installation regressions include final multi-store configuration before host SSH
 bounded health readiness, unrun smoke versus failure, and early sudo guidance.
 Do not treat mocked host commands as a clean-machine install; record live socket
 restart and real executor acceptance separately.
+
+## Cumulative upgrade and preservation
+
+Update readiness and installation doctor also run the read-only effective storage
+parity check. It checks older installs without a plan against actual mounts,
+API/worker/executor stores, persistent identities, Explorer/SSH mappings, boot
+dependencies and service-user access. It does not rewrite mappings or move data.
+
+`deploy/migrations.py` plans dependencies and verifies release checksums and durable
+completion receipts. `deploy/state_snapshot.py` preserves private configuration,
+all instance databases and extension stores. update.py supports explicit rebuild,
+resume and guarded rollback. A preservation failure keeps admission fenced.
+See [UPGRADE.md](../UPGRADE.md). External real-account authentication, clean-host
+reboots and arbitrary schema transformations still require live acceptance.

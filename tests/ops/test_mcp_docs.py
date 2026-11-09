@@ -27,7 +27,7 @@ class McpDocumentationTests(IsolatedOps):
         schema=self.reference(group='recovery',action='resume')['schema']
         self.assertNotIn('action',schema['properties']);self.assertIn('lease',schema['required'])
         schema=self.reference(group='components',action='get')['schema']
-        self.assertEqual(set(schema['properties']),{'id','owner'})
+        self.assertEqual(set(schema['properties']),{'id','owner','revision'})
         self.assertIn('default',self.reference(group='events',action='list')['schema']['properties']['kind'])
         self.assertIn('group',self.reference(group='system',action='describe')['schema']['properties'])
     def test_submit_schema_stays_bound_to_api_contract(self):

@@ -24,6 +24,11 @@ For offline delivery, `install-kit.py` includes matching image tar files. An ext
 
 ## Updating an existing installation
 
+For cumulative migration plans, resumable scripts and state-preserving container
+reinstallation, read [Administrator upgrade handoff](UPGRADE.md). `plan` includes
+the required migration chain; `--mode rebuild` is explicit and preserves identity.
+
+
 1. Prepare new source/images with `release.py VERSION`; this does not affect running services.
 2. Run `sudo python3 deploy/update.py plan --instance /loom/ops --project loom --release /loom/builds/alpha/VERSION`.
 3. Run `apply` at the chosen update time. It refuses active Jobs, result processing, pending callbacks or unreturned executor tickets. Idle verification and dispatch blocking share one DB transaction.

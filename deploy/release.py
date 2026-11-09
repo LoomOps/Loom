@@ -32,6 +32,15 @@ def prepare(version,destination):
     for component in ('ops','dashboard'):
         local=snapshot.component_files(component,files,hashes)
         (source/component/'build-info.json').write_text(json.dumps({**info,'component':component,'files':local},indent=2)+'\n')
+    info['upgrade']={'catalog':'source/deploy/migrations/catalog.json','instructions':'source/docs/UPGRADE.md',
+                     'minimum_version':json.loads((source/'deploy/migrations/catalog.json').read_text())['minimum_version']}
+    descriptor={'schema':'loom-upgrade-delivery/v1','target':version,'git_commit':info['git_commit'],
+                'minimum_version':info['upgrade']['minimum_version'],'modes':['update','rebuild'],
+                'instructions':'docs/UPGRADE.md','catalog':'deploy/migrations/catalog.json',
+                'files':{name:value for name,value in hashes.items() if name.startswith('deploy/migrations/') or name in
+                         ('docs/UPGRADE.md','deploy/migrations.py','deploy/state_snapshot.py','deploy/update.py')}}
+    (target/'upgrade.json').write_text(json.dumps(descriptor,indent=2)+'\n')
+    info['upgrade']['sha256']=hashlib.sha256((target/'upgrade.json').read_bytes()).hexdigest()
     (target/'manifest.json').write_text(json.dumps({**info,'files':hashes},indent=2)+'\n')
     (target/'build.env').write_text(f'LOOM_BUILD_ID={version}\nLOOM_OPS_IMAGE=loom-ops:{version}\nLOOM_DASHBOARD_IMAGE=loom-dashboard:{version}\nLOOM_DEV_NO_AUTH=0\n')
     return target,info

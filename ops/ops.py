@@ -795,6 +795,11 @@ def operate(name, args, actor, config):
             if ('submit' if action=='register_profile' else 'read') not in actor['scopes']:raise PermissionError('Profile scope denied')
             execution.validate(profile_store.action_schema(action),payload)
             with db() as c:return profile_store.operate(c,actor,{'action':action,**payload},config)
+        if operation.startswith('tool_'):
+            import tool_store
+            if ('submit' if action=='register_tool' else 'read') not in actor['scopes']:raise PermissionError('Tool scope denied')
+            execution.validate(tool_store.action_schema(action),payload)
+            with db() as c:return tool_store.operate(c,actor,{'action':action,**payload},config)
         if operation.startswith('component_'):
             execution.validate(component_store.action_schema(action),payload)
             if ('submit' if action in ('register','write') else 'read') not in actor['scopes']:raise PermissionError('Component scope denied')

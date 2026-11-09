@@ -56,8 +56,12 @@ def select_release(rows, channel, repository):
         if not parsed or parsed[3] < rank or (channel == 'stable' and row.get('prerelease')):
             continue
         # Construct a repository-bound link; never expose an arbitrary upstream URL.
-        candidates.append((parsed, {'tag': tag, 'url': 'https://github.com/' + repository + '/releases/tag/' + quote(tag, safe=''),
-                                    'published_at': row['published_at']}))
+        value={'tag': tag, 'url': 'https://github.com/' + repository + '/releases/tag/' + quote(tag, safe=''),
+               'published_at': row['published_at']}
+        if any(isinstance(a,dict) and a.get('name')=='upgrade.json' for a in row.get('assets',[])):
+            value['upgrade']={'descriptor_url':'https://github.com/'+repository+'/releases/download/'+quote(tag,safe='')+'/upgrade.json',
+                              'instructions_url':'https://github.com/'+repository+'/blob/'+quote(tag,safe='')+'/docs/UPGRADE.md'}
+        candidates.append((parsed,value))
     return max(candidates, key=lambda pair: pair[0])[1] if candidates else None
 
 

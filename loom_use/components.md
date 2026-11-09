@@ -1,6 +1,6 @@
 # Components, profiles and dependencies
 
-A component is an immutable revision of user source. A profile is an execution contract binding that revision to an image, commands, inputs, outputs, defaults and limits. Use components.write to edit, components.register to register, and components.register_profile for standalone profiles. Read each action's exact fields through system.describe. New components do not require new MCP servers or tools.
+A Component is an immutable Job lifecycle adapter: request handling, execution entry and result return. Research algorithms (planners, policy/hybrid runners, transforms) belong to independently versioned Tools, which may be called repeatedly within one Job. A profile is an execution contract binding that revision to an image, commands, inputs, outputs, defaults and limits. Use components.write to edit, components.register to register, and components.register_profile for standalone profiles. Read each action's exact fields through system.describe. New components do not require new MCP servers or tools.
 
 The runner receives a request JSON path as its final argument. The request includes params, output_dir, profile and Job context. Optional prepare/finalize/on_error/on_complete/on_cancel commands use the same runner format. External callbacks must deduplicate effects by event_id. Callback failures are reported separately from execution outcomes.
 
@@ -38,3 +38,17 @@ The existing owner input/output remains the stable namespace used by get/write a
 profile references. Existing responsibility records take precedence for display;
 paths, source pins and submitted Jobs are unchanged. Unknown historical identities
 remain visible by their recorded ID, not guessed or relabeled Built-in.
+
+## Research Tools
+
+Use components.list_tools/get_tool/register_tool within the existing six groups.
+Tool registration accepts manifest/files, or an exact legacy component reference
+(owner/id/revision). Copying a legacy snapshot preserves every old revision/Job.
+Tool manifests carry research interfaces/provenance, not lifecycle profiles.
+Profiles (or a Component manifest) declare tools as alias to exact owner/id/revision;
+Loom seals tool_pins into accepted Jobs, verifies source hashes at launch, and
+passes request.tools[alias] as /tools/<alias>, mounted read-only. New Tool revisions
+do not change existing Jobs. Dependencies belong in the selected pinned image.
+Tools share the existing administrator-granted source store under .tools.
+Use the running server's system.describe for these optional actions. Older clients
+can forward them without installing another MCP or changing authentication.

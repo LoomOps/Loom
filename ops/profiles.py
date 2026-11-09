@@ -18,7 +18,7 @@ def describe(config, actor):
         if not execution.is_generic(p):continue
         rows.append({'kind':kind,'revision':p['revision'],'contract':execution.REVISION,'owners':p['owners'],
             'params_schema':p['params_schema'],'outputs':p['outputs'],'defaults':p.get('defaults',{}),
-            'metadata_schemas':p.get('metadata_schemas',{}),'limits':p['limits'],'preparation':bool(p.get('prepare')),
+            'metadata_schemas':p.get('metadata_schemas',{}),'tool_pins':{alias:{k:v for k,v in ref.items() if k not in ('path','source_pins')} for alias,ref in p.get('tool_pins',{}).items()},'limits':p['limits'],'preparation':bool(p.get('prepare')),
             'lane':p['runtime'].get('lane','cpu'),'execution_schema':execution.POLICY_SCHEMA,
             **config.get('_profile_owners',{}).get(kind,{})})
     return rows
