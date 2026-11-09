@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-alpha.40
+
+- Apply normalized dataset facts to list rows and detail highlights, not only the Properties panel.
+- Show compact input types and recorded splits; keep verbose producer summaries and input descriptions in the detail page.
+- Keep fact labels intact while wrapping on narrow screens, with list-route browser regression coverage.
+
 ## 0.1.0-alpha.39
 
 - Show consistent dataset properties from the normalized overview and load detailed source metadata on demand. Keep observation counts, missing values and original records distinct.

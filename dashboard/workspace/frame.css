@@ -82,3 +82,9 @@
 
 [data-token-form] input,[data-token-form] select{min-width:0;max-width:100%;padding:10px 12px;border:1px solid var(--pa-line,#8290a533);border-radius:12px;background:var(--pa-panel,#ffffff40);color:inherit;font:inherit}
 [data-token-form]{flex-wrap:wrap;gap:10px}
+
+/* Dataset rows keep labels intact while facts wrap as units on narrow screens. */
+#pai-studio .pa-dataset-item .pa-entity-facts {display:flex;flex-wrap:wrap;gap:10px 24px;margin-top:12px}
+#pai-studio .pa-dataset-item .pa-entity-facts > div {display:flex;align-items:baseline;gap:8px;min-width:0;max-width:100%}
+#pai-studio .pa-dataset-item .pa-entity-facts dt {flex-shrink:0;white-space:nowrap}
+#pai-studio .pa-dataset-item .pa-entity-facts dd {min-width:0;overflow-wrap:anywhere}

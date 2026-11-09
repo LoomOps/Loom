@@ -58,3 +58,9 @@ Imported rows and execution queues are never rewritten by this read model.
 Dataset detail pages use a common property summary from `dataset_overview`, with
 explicit missing/not-applicable values. Nested producer diagnostics and episode
 inventories remain in lazily expanded Source metadata, preserving original evidence.
+
+Dataset list rows and detail highlights use the same normalized facts. Present
+input kinds as compact modality labels; producer timing/shape/control prose stays
+in detailed source metadata. List rows omit unbounded producer summaries and show
+splits when recorded. Labels stay intact as facts wrap at narrow viewport widths.
+Browser regression must cover the list route as well as an individual detail page.

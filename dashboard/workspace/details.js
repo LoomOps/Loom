@@ -174,26 +174,65 @@ paiEntityActions = function(id) {
   return `<details class="pa-entity-menu"><summary aria-label="항목 메뉴" title="항목 메뉴"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg></summary><div class="pa-entity-menu-items"><button data-share-route="${esc(id)}" aria-haspopup="dialog">${icon('share')}<span>공유</span></button><a href="${esc(paiEntityURL(id))}" target="_blank" rel="noopener noreferrer" data-open-route="${esc(id)}"><span aria-hidden="true">↗</span><span>새 창에서 열기</span></a></div></details>`;
 };
 
+// Modality labels are structured types. Producer value strings describe timing,
+// shapes and collection conditions; they are not labels for list rows.
+function loomDatasetInputs(entity) {
+  const d=entity.dataset_overview||{}, metadata=entity.metadata||entity.properties||{};
+  const labels={rgb:'RGB',rgbd:'RGB-D',depth:'Depth',state:'State',action:'Action',instruction:'Instruction',vision:'Vision'};
+  const compact=value=>{const text=String(value).trim();const name=text.match(/^(RGB(?:-D)?|Depth)(?:\s*\([^)]*\))?$/i)?.[1]||text;return labels[name.toLowerCase()]||({'rgb-d':'RGB-D'}[name.toLowerCase()]);};
+  if (Array.isArray(d.inputs) && d.inputs.length) {
+    const names=d.inputs.filter(x=>x.status==='present').flatMap(x=>{
+      if (x.kind==='vision') {
+        const known=(Array.isArray(x.value)?x.value:[x.value]).flatMap(v=>String(v).split('·')).map(compact).filter(Boolean);
+        return known.length?known:['Vision'];
+      }
+      return [labels[x.kind]||'Other'];
+    });
+    return [...new Set(names)].join(' · ') || (d.inputs.every(x=>x.status==='absent')?'해당 없음':'미기록');
+  }
+  const values=metadata.modalities||metadata.modality||[];
+  return [...new Set((Array.isArray(values)?values:[values]).map(compact).filter(Boolean))].join(' · ')||'미기록';
+}
+
 function loomDatasetProperties(entity) {
   const d = entity.dataset_overview || {}, p = entity.properties || {};
   const metadata = entity.metadata || p;
   const missing = {not_applicable:'해당 없음',not_recorded:'미기록',not_measured:'미측정',pending:'집계 대기',source_error:'소스 오류'};
   const quantity = (value, reason) => value == null ? (missing[reason] || '미기록') : catNum(value);
   const role = d.role || p.dataset_role;
-  const inputs = Array.isArray(d.inputs) ? d.inputs.filter(x => x.status === 'present') : [];
-  const modalities = inputs.map(x => x.kind === 'vision' ? x.value : ({rgb:'RGB',depth:'Depth',state:'State',action:'Action'}[x.kind] || x.label || x.kind));
-  const splits = Array.isArray(d.splits) ? d.splits : [];
+  const splitOrder={train:0,validation:1,val:1,test:2};
+  const splits = Array.isArray(d.splits) ? [...d.splits].sort((a,b)=>(splitOrder[a.id]??3)-(splitOrder[b.id]??3)) : [];
   return {
     'Role': ({training_observations:'Training observations',diagnostic_observations:'Diagnostic observations',evaluation_conditions:'Evaluation conditions'}[role] || role || '미기록'),
     'Count': quantity(Object.hasOwn(d,'count') ? d.count : metadata.episodes ?? metadata.count, d.count_missing_reason),
     'Unit': d.count_unit || (metadata.episodes != null ? 'episodes' : '미기록'),
     'Observation frames': quantity(Object.hasOwn(d,'frames') ? d.frames : metadata.frames, d.frames_missing_reason),
-    'Inputs': modalities.length ? modalities.join(' · ') : (Array.isArray(d.inputs) && d.inputs.length && d.inputs.every(x => x.status === 'absent') ? '해당 없음' : (metadata.modalities || []).join(' · ') || '미기록'),
+    'Inputs': loomDatasetInputs(entity),
     'Split': splits.length ? splits.map(x => `${x.id} ${quantity(x.count,x.count_missing_reason)}`).join(' / ') : '미기록',
     ...(p.source_human_parent_count != null ? {'Source parents': p.source_human_parent_count} : {}),
     ...(d.count_definition ? {'Count definition':d.count_definition} : {}),
   };
 }
+
+const loomPriorCatalogFacts=catFacts;
+catFacts=function(entity) {
+  if(entity.kind!=='dataset')return loomPriorCatalogFacts(entity);
+  const facts=loomDatasetProperties(entity), d=entity.dataset_overview||{};
+  const rows=[
+    {role:'dataset_role',label:'성격',value:({training_observations:'학습 관측',diagnostic_observations:'진단 관측',evaluation_conditions:'평가 조건'}[d.role]||facts.Role)},
+    {role:'count',label:({clips:'클립',episodes:'에피소드',cases:'평가 조건'}[facts.Unit]||'수량'),value:facts.Count},
+    {role:'frames',label:'관측 프레임',value:facts['Observation frames']},
+    {role:'dataset_inputs',label:'입력',value:facts.Inputs},
+  ];
+  if(d.splits?.length)rows.push({role:'split',label:'분할',value:facts.Split});
+  return rows;
+};
+const loomPriorCatalogListRow=catListRow;
+catListRow=function(entity) {
+  if(entity.kind!=='dataset')return loomPriorCatalogListRow(entity);
+  // Keep unbounded collection logs in the detail page, not the browse summary.
+  return `<article class="pa-catalog-item pa-dataset-item"><div class="pa-row-main">${catLink(entity.id)}</div>${catHighlights(entity).replace('pa-entity-facts ','pa-entity-facts is-compact ')}</article>`;
+};
 
 function loomDetailHeading(html, id) {
   const template = document.createElement('template');
@@ -259,7 +298,7 @@ root.addEventListener('toggle', event => {
   if (!detail.matches?.('details[data-dataset-source]') || !detail.open) return;
   const entity = catEntity(detail.dataset.datasetSource);
   const pre = detail.querySelector('pre');
-  if (entity && pre && !pre.textContent) pre.textContent = JSON.stringify(entity.properties || {}, null, 2);
+  if (entity && pre && !pre.textContent) pre.textContent = JSON.stringify({properties:entity.properties || {},dataset_overview:entity.dataset_overview || {}}, null, 2);
 }, true);
 
 catalogDetail = function(id) {

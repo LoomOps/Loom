@@ -332,6 +332,12 @@ function loomTailscaleIcon(){return `&lt;svg class=&quot;pa-tailscale-symbol&quo
 
 [data-token-form] input,[data-token-form] select{min-width:0;max-width:100%;padding:10px 12px;border:1px solid var(--pa-line,#8290a533);border-radius:12px;background:var(--pa-panel,#ffffff40);color:inherit;font:inherit}
 [data-token-form]{flex-wrap:wrap;gap:10px}
+
+/* Dataset rows keep labels intact while facts wrap as units on narrow screens. */
+#pai-studio .pa-dataset-item .pa-entity-facts {display:flex;flex-wrap:wrap;gap:10px 24px;margin-top:12px}
+#pai-studio .pa-dataset-item .pa-entity-facts &gt; div {display:flex;align-items:baseline;gap:8px;min-width:0;max-width:100%}
+#pai-studio .pa-dataset-item .pa-entity-facts dt {flex-shrink:0;white-space:nowrap}
+#pai-studio .pa-dataset-item .pa-entity-facts dd {min-width:0;overflow-wrap:anywhere}
 &lt;/style&gt;&lt;/head&gt;
 &lt;body&gt;
 
@@ -3877,26 +3883,65 @@ paiEntityActions = function(id) {
   return `&lt;details class=&quot;pa-entity-menu&quot;&gt;&lt;summary aria-label=&quot;항목 메뉴&quot; title=&quot;항목 메뉴&quot;&gt;&lt;svg width=&quot;20&quot; height=&quot;20&quot; viewBox=&quot;0 0 20 20&quot; aria-hidden=&quot;true&quot;&gt;&lt;circle cx=&quot;4&quot; cy=&quot;10&quot; r=&quot;1.5&quot;/&gt;&lt;circle cx=&quot;10&quot; cy=&quot;10&quot; r=&quot;1.5&quot;/&gt;&lt;circle cx=&quot;16&quot; cy=&quot;10&quot; r=&quot;1.5&quot;/&gt;&lt;/svg&gt;&lt;/summary&gt;&lt;div class=&quot;pa-entity-menu-items&quot;&gt;&lt;button data-share-route=&quot;${esc(id)}&quot; aria-haspopup=&quot;dialog&quot;&gt;${icon(&#x27;share&#x27;)}&lt;span&gt;공유&lt;/span&gt;&lt;/button&gt;&lt;a href=&quot;${esc(paiEntityURL(id))}&quot; target=&quot;_blank&quot; rel=&quot;noopener noreferrer&quot; data-open-route=&quot;${esc(id)}&quot;&gt;&lt;span aria-hidden=&quot;true&quot;&gt;↗&lt;/span&gt;&lt;span&gt;새 창에서 열기&lt;/span&gt;&lt;/a&gt;&lt;/div&gt;&lt;/details&gt;`;
 };
 
+// Modality labels are structured types. Producer value strings describe timing,
+// shapes and collection conditions; they are not labels for list rows.
+function loomDatasetInputs(entity) {
+  const d=entity.dataset_overview||{}, metadata=entity.metadata||entity.properties||{};
+  const labels={rgb:&#x27;RGB&#x27;,rgbd:&#x27;RGB-D&#x27;,depth:&#x27;Depth&#x27;,state:&#x27;State&#x27;,action:&#x27;Action&#x27;,instruction:&#x27;Instruction&#x27;,vision:&#x27;Vision&#x27;};
+  const compact=value=&gt;{const text=String(value).trim();const name=text.match(/^(RGB(?:-D)?|Depth)(?:\s*\([^)]*\))?$/i)?.[1]||text;return labels[name.toLowerCase()]||({&#x27;rgb-d&#x27;:&#x27;RGB-D&#x27;}[name.toLowerCase()]);};
+  if (Array.isArray(d.inputs) &amp;&amp; d.inputs.length) {
+    const names=d.inputs.filter(x=&gt;x.status===&#x27;present&#x27;).flatMap(x=&gt;{
+      if (x.kind===&#x27;vision&#x27;) {
+        const known=(Array.isArray(x.value)?x.value:[x.value]).flatMap(v=&gt;String(v).split(&#x27;·&#x27;)).map(compact).filter(Boolean);
+        return known.length?known:[&#x27;Vision&#x27;];
+      }
+      return [labels[x.kind]||&#x27;Other&#x27;];
+    });
+    return [...new Set(names)].join(&#x27; · &#x27;) || (d.inputs.every(x=&gt;x.status===&#x27;absent&#x27;)?&#x27;해당 없음&#x27;:&#x27;미기록&#x27;);
+  }
+  const values=metadata.modalities||metadata.modality||[];
+  return [...new Set((Array.isArray(values)?values:[values]).map(compact).filter(Boolean))].join(&#x27; · &#x27;)||&#x27;미기록&#x27;;
+}
+
 function loomDatasetProperties(entity) {
   const d = entity.dataset_overview || {}, p = entity.properties || {};
   const metadata = entity.metadata || p;
   const missing = {not_applicable:&#x27;해당 없음&#x27;,not_recorded:&#x27;미기록&#x27;,not_measured:&#x27;미측정&#x27;,pending:&#x27;집계 대기&#x27;,source_error:&#x27;소스 오류&#x27;};
   const quantity = (value, reason) =&gt; value == null ? (missing[reason] || &#x27;미기록&#x27;) : catNum(value);
   const role = d.role || p.dataset_role;
-  const inputs = Array.isArray(d.inputs) ? d.inputs.filter(x =&gt; x.status === &#x27;present&#x27;) : [];
-  const modalities = inputs.map(x =&gt; x.kind === &#x27;vision&#x27; ? x.value : ({rgb:&#x27;RGB&#x27;,depth:&#x27;Depth&#x27;,state:&#x27;State&#x27;,action:&#x27;Action&#x27;}[x.kind] || x.label || x.kind));
-  const splits = Array.isArray(d.splits) ? d.splits : [];
+  const splitOrder={train:0,validation:1,val:1,test:2};
+  const splits = Array.isArray(d.splits) ? [...d.splits].sort((a,b)=&gt;(splitOrder[a.id]??3)-(splitOrder[b.id]??3)) : [];
   return {
     &#x27;Role&#x27;: ({training_observations:&#x27;Training observations&#x27;,diagnostic_observations:&#x27;Diagnostic observations&#x27;,evaluation_conditions:&#x27;Evaluation conditions&#x27;}[role] || role || &#x27;미기록&#x27;),
     &#x27;Count&#x27;: quantity(Object.hasOwn(d,&#x27;count&#x27;) ? d.count : metadata.episodes ?? metadata.count, d.count_missing_reason),
     &#x27;Unit&#x27;: d.count_unit || (metadata.episodes != null ? &#x27;episodes&#x27; : &#x27;미기록&#x27;),
     &#x27;Observation frames&#x27;: quantity(Object.hasOwn(d,&#x27;frames&#x27;) ? d.frames : metadata.frames, d.frames_missing_reason),
-    &#x27;Inputs&#x27;: modalities.length ? modalities.join(&#x27; · &#x27;) : (Array.isArray(d.inputs) &amp;&amp; d.inputs.length &amp;&amp; d.inputs.every(x =&gt; x.status === &#x27;absent&#x27;) ? &#x27;해당 없음&#x27; : (metadata.modalities || []).join(&#x27; · &#x27;) || &#x27;미기록&#x27;),
+    &#x27;Inputs&#x27;: loomDatasetInputs(entity),
     &#x27;Split&#x27;: splits.length ? splits.map(x =&gt; `${x.id} ${quantity(x.count,x.count_missing_reason)}`).join(&#x27; / &#x27;) : &#x27;미기록&#x27;,
     ...(p.source_human_parent_count != null ? {&#x27;Source parents&#x27;: p.source_human_parent_count} : {}),
     ...(d.count_definition ? {&#x27;Count definition&#x27;:d.count_definition} : {}),
   };
 }
+
+const loomPriorCatalogFacts=catFacts;
+catFacts=function(entity) {
+  if(entity.kind!==&#x27;dataset&#x27;)return loomPriorCatalogFacts(entity);
+  const facts=loomDatasetProperties(entity), d=entity.dataset_overview||{};
+  const rows=[
+    {role:&#x27;dataset_role&#x27;,label:&#x27;성격&#x27;,value:({training_observations:&#x27;학습 관측&#x27;,diagnostic_observations:&#x27;진단 관측&#x27;,evaluation_conditions:&#x27;평가 조건&#x27;}[d.role]||facts.Role)},
+    {role:&#x27;count&#x27;,label:({clips:&#x27;클립&#x27;,episodes:&#x27;에피소드&#x27;,cases:&#x27;평가 조건&#x27;}[facts.Unit]||&#x27;수량&#x27;),value:facts.Count},
+    {role:&#x27;frames&#x27;,label:&#x27;관측 프레임&#x27;,value:facts[&#x27;Observation frames&#x27;]},
+    {role:&#x27;dataset_inputs&#x27;,label:&#x27;입력&#x27;,value:facts.Inputs},
+  ];
+  if(d.splits?.length)rows.push({role:&#x27;split&#x27;,label:&#x27;분할&#x27;,value:facts.Split});
+  return rows;
+};
+const loomPriorCatalogListRow=catListRow;
+catListRow=function(entity) {
+  if(entity.kind!==&#x27;dataset&#x27;)return loomPriorCatalogListRow(entity);
+  // Keep unbounded collection logs in the detail page, not the browse summary.
+  return `&lt;article class=&quot;pa-catalog-item pa-dataset-item&quot;&gt;&lt;div class=&quot;pa-row-main&quot;&gt;${catLink(entity.id)}&lt;/div&gt;${catHighlights(entity).replace(&#x27;pa-entity-facts &#x27;,&#x27;pa-entity-facts is-compact &#x27;)}&lt;/article&gt;`;
+};
 
 function loomDetailHeading(html, id) {
   const template = document.createElement(&#x27;template&#x27;);
@@ -3962,7 +4007,7 @@ root.addEventListener(&#x27;toggle&#x27;, event =&gt; {
   if (!detail.matches?.(&#x27;details[data-dataset-source]&#x27;) || !detail.open) return;
   const entity = catEntity(detail.dataset.datasetSource);
   const pre = detail.querySelector(&#x27;pre&#x27;);
-  if (entity &amp;&amp; pre &amp;&amp; !pre.textContent) pre.textContent = JSON.stringify(entity.properties || {}, null, 2);
+  if (entity &amp;&amp; pre &amp;&amp; !pre.textContent) pre.textContent = JSON.stringify({properties:entity.properties || {},dataset_overview:entity.dataset_overview || {}}, null, 2);
 }, true);
 
 catalogDetail = function(id) {

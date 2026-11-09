@@ -99,6 +99,50 @@ const done=arguments[arguments.length-1];
         ui.wait("return document.querySelector('details[data-dataset-source] pre').textContent.includes('episode-private')")
         self.assertEqual(entity,before)
 
+    def test_dataset_list_normalizes_producer_prose_and_wraps_facts(self):
+        import copy
+        source=next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-model')
+        cases=[('rich','training_observations','episodes',140,82714,[
+            {'kind':'rgb','status':'present','value':'Head wrist paired 15Hz long camera provenance'},
+            {'kind':'state','status':'present','value':'actual robot state 30Hz native controls'},
+            {'kind':'action','status':'present','value':'FF60 normalized counters'},
+            {'kind':'depth','status':'absent'}]),
+            ('legacy','training_observations','clips',140,147665,[{'kind':'vision','status':'present','value':'RGB · RGB-D'}]),
+            ('annotated','diagnostic_observations','episodes',1,12,[{'kind':'vision','status':'present','value':'RGB-D (recorded observations)'}]),
+            ('conditions','evaluation_conditions','cases',0,None,[{'kind':'rgb','status':'absent'}])]
+        for key,role,unit,count,frames,inputs in cases:
+            entity=copy.deepcopy(source)
+            entity.update(id='dataset-'+key,kind='dataset',label='Dataset '+key,
+                summary='planned140/started140/adopted140/rejected0/internal-batch-diagnostics',
+                dataset_overview={'role':role,'count_unit':unit,'count':count,'frames':frames,
+                    'frames_missing_reason':'not_applicable','inputs':inputs,
+                    'splits':[{'id':'train','count':100},{'id':'validation','count':20},{'id':'test','count':20}] if key=='rich' else []})
+            self.api.fixture['catalog']['entities'].append(entity)
+        before=copy.deepcopy(self.api.fixture['catalog']['entities'])
+        self.api.fixture['catalog']['revision']='dataset-list-fixed'
+        ui=self.ui;ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('dataset-list-fixed')")
+        ui.nav('Datasets')
+        ui.wait("return document.querySelectorAll('.pa-dataset-item').length===4")
+        text=ui.js("return [...document.querySelectorAll('.pa-dataset-item')].map(e=>e.innerText)")
+        self.assertIn('RGB · State · Action',text[0]);self.assertIn('82,714',text[0])
+        self.assertIn('train 100 / validation 20 / test 20',text[0])
+        self.assertIn('RGB · RGB-D',text[1]);self.assertIn('RGB-D',text[2]);self.assertIn('해당 없음',text[3])
+        for row in text:
+            for raw in ['internal-batch-diagnostics','FF60','30Hz','camera provenance']:
+                self.assertNotIn(raw,row)
+        for width in (1440,500):
+            ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+            for theme in ('light','dark'):
+                ui.click('button[data-theme='+theme+']')
+                self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-dataset-item')].every(e=>e.scrollWidth<=e.clientWidth+1)"))
+                self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-dataset-item dt')].every(e=>getComputedStyle(e).whiteSpace==='nowrap')"))
+        ui.route('dataset-rich')
+        ui.wait("return !!document.querySelector('details[data-dataset-source]')")
+        ui.click('details[data-dataset-source] summary')
+        ui.wait("return document.querySelector('details[data-dataset-source] pre').textContent.includes('FF60')")
+        self.assertEqual(self.api.fixture['catalog']['entities'],before)
+
     def test_release_check_is_visible_and_manual_request_does_not_mutate_jobs(self):
         ui=self.ui
         ui.wait("return document.querySelector('[data-loom-updates]')?.textContent==='Up to date'")
