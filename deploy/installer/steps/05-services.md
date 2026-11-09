@@ -16,3 +16,8 @@ If host_ssh is selected, verify the protected host account service and its Unix
 socket with ssh_setup.py doctor. Only Dashboard mounts the control socket; Ops
 mounts readonly connection metadata; Gateway mounts neither. No personal account
 is issued by installation. New plans enable the capability, not user access.
+
+Compose startup waits up to 90 seconds for configured healthchecks. Doctor reports
+health:starting as waiting, unhealthy as fail, and an absent smoke receipt as not_run.
+Neither waiting nor not_run means ready. Run server doctor with sudo; client setup
+remains unprivileged. SSH setup follows final executor storage registration.

@@ -40,3 +40,7 @@ Test sources define the concrete scenarios. `deploy/test.sh` records individual 
 Verify actual MCP client compatibility and network disconnections separately.
 
 Revision v38 adds Dashboard Admin-only token management routes documented in identity.md. They are not ordinary MCP operations. `system.status.principal` and `/api/principal` include `credential_id` for resident tokens; existing fields and six tool groups are unchanged.
+
+Revision v39 adds component/profile owner presentation and unfiltered shared
+component listing. The six MCP groups and existing namespace arguments remain.
+See extensions.md for owner_profile versus immutable owner namespace.

@@ -30,3 +30,8 @@ Regression tests use real temporary SQLite/files, mocked account commands/provid
 API, permission rejection, partial-failure retry, UID replacement and per-principal
 metadata. External device login, live key trust and existing-session termination
 require separate live evidence. Feature checks are development-only, not Job gates.
+
+The systemd runtime directory is preserved across helper restarts to keep the
+Dashboard bind mount attached to the live socket. The Compose startup unit requires
+and follows this helper, including after reboot. Updates reconcile this unit before
+restart. Initial SSH configuration runs only after final executor storage binding.

@@ -109,3 +109,35 @@ class ComponentPlatformTests(IsolatedOps):
         with patch.object(runtime_client,'call',side_effect=broker):
             runtime_client.Container(config,{'id':job,'attempt':'one','owner':'owner'},frozen,'run',request,folder,self.data)
         self.assertEqual(json.loads((folder/'run-request.json').read_text())['storage'],{'data/1':'/loom/data/1'})
+
+    def test_owner_display_shared_discovery_and_builtin_are_distinct(self):
+        import ownership
+        with ops.db() as c:
+            person=ownership.register(c,'person@example.test','Test Person')
+        original=dict(self.owner)
+        self.owner={**self.owner,'id':person['id']}
+        user=self.register()
+        self.assertEqual(user['owner_profile']['display_name'],'Test Person')
+        self.assertEqual(user['owner'],person['id'])
+        common=self.register('built-in')
+        self.assertEqual(common['owner_name'],'Built-in')
+        rows=ops.operate('components',{'action':'list'},original,self.config)
+        self.assertEqual(len(rows),2)
+        self.assertEqual({r['owner_kind'] for r in rows},{'built-in','user'})
+        only=ops.operate('components',{'action':'list','arguments':{'owner':'built-in'}},original,self.config)
+        self.assertEqual(len(only),1)
+        discovered=ops.operate('list_execution_profiles',{},original,self.config)
+        self.assertEqual(next(r for r in discovered if r['kind']==user['profiles'][0])['owner_name'],'Test Person')
+        self.assertEqual(next(r for r in discovered if r['kind']=='cpu.smoke')['owner_name'],'Built-in')
+
+    def test_existing_responsibility_does_not_rewrite_namespace_or_pins(self):
+        import ownership
+        first=self.register()
+        with ops.db() as c:
+            person=ownership.register(c,'responsible@example.test','Responsible')
+            ownership.assign(c,'component','owner:demo',person['id'],'owner')
+        result=ops.operate('components',{'action':'get','arguments':{'owner':'owner','id':'demo'}},self.owner,self.config)
+        self.assertEqual(result['namespace'],'owner')
+        self.assertEqual(result['owner_profile']['id'],person['id'])
+        self.assertEqual(list(result['profiles']),first['profiles'])
+        self.assertEqual(result['revision'],1)

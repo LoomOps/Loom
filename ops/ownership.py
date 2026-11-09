@@ -52,6 +52,15 @@ def profile(c, identity):
     row=c.execute('SELECT id,provider,login,display_name FROM user_profiles WHERE id=?',(identity,)).fetchone()
     return dict(row) if row else {'id':identity,'provider':'local','login':None,'display_name':identity or 'Unassigned'}
 
+def extension(c, kind, namespace, identity):
+    """Display responsibility without moving immutable namespace paths or pins."""
+    row=c.execute('SELECT owner FROM item_owners WHERE kind=? AND id=?',(kind,namespace+':'+identity)).fetchone()
+    responsible=row[0] if row else namespace
+    builtin=responsible=='built-in'
+    person={'id':'built-in','provider':'builtin','login':None,'display_name':'Built-in'} if builtin else profile(c,responsible)
+    return {'namespace':namespace,'owner_profile':person,'owner_name':person['display_name'],
+            'owner_kind':'built-in' if builtin else 'user'}
+
 
 def assign(c, kind, identity, owner, author):
     if not c.execute('SELECT 1 FROM user_profiles WHERE id=?',(owner,)).fetchone():

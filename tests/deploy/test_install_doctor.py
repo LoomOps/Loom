@@ -242,3 +242,35 @@ class InstallationDoctorTests(unittest.TestCase):
   result=doctor.doctor(setup,self.plan,'configuration')
   entry=next(c for c in result['checks'] if c['check']=='managed_resource_journal')
   self.assertEqual(entry['status'],'fail');self.assertFalse(result['ready'])
+
+class InstallationOrderingTests(unittest.TestCase):
+ def test_ssh_requires_final_storage_and_apply_orders_executor_first(self):
+  import ast
+  tree=ast.parse((ROOT/'deploy/installer/setup.py').read_text())
+  fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='apply')
+  markers=[(n.lineno,n.args[0].value) for n in ast.walk(fn) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id=='step' and n.args and isinstance(n.args[0],ast.Constant)]
+  ssh=next(n.lineno for n in ast.walk(fn) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id=='configure_host_ssh')
+  self.assertLess(next(line for line,label in markers if label=='executor'),ssh)
+  self.assertLess(ssh,next(line for line,label in markers if label=='compose'))
+  with tempfile.TemporaryDirectory() as t:
+   root=Path(t);(root/'config').mkdir();p=root/'config/api.json'
+   plan={'host_ssh':True,'data':'/primary','additional_data':['/secondary']}
+   p.write_text(json.dumps({'executor':{'storage':{'data/0':'/primary'}}}))
+   with patch.object(setup,'ROOT',root),patch('ssh_setup.install') as install,patch.object(setup.shutil,'which',return_value='/bin/setfacl'):
+    with self.assertRaisesRegex(ValueError,'Finalize'):setup.configure_host_ssh(plan)
+    install.assert_not_called()
+    p.write_text(json.dumps({'executor':{'storage':{'data/0':'/primary','data/1':'/secondary'}}}))
+    setup.configure_host_ssh(plan);install.assert_called_once_with(root)
+ def test_doctor_starting_and_unrun_smoke_are_not_failures_or_passes(self):
+  with self.assertRaises(doctor.PendingCheck) as pending:doctor.health_ready({'Running':True,'Health':{'Status':'starting'}})
+  self.assertEqual(pending.exception.status,'waiting')
+  self.assertFalse(doctor.health_ready({'Running':True,'Health':{'Status':'unhealthy'}}))
+  self.assertTrue(doctor.health_ready({'Running':True,'Health':{'Status':'healthy'}}))
+  with tempfile.TemporaryDirectory() as t,patch.object(setup,'ROOT',Path(t)):
+   result=doctor.doctor(setup,{},'acceptance')
+   self.assertEqual(result['stages']['acceptance'],'not_run');self.assertFalse(result['ready'])
+   self.assertEqual(result['next_document'],'steps/07-handoff.md')
+ def test_server_doctor_requires_sudo_before_opening_protected_plan(self):
+  if os.geteuid()==0:self.skipTest('Requires a nonroot caller')
+  r=subprocess.run([sys.executable,str(ROOT/'deploy/installer/setup.py'),'doctor','/missing-protected-plan'],capture_output=True,text=True)
+  self.assertNotEqual(r.returncode,0);self.assertIn('sudo',r.stderr);self.assertNotIn('FileNotFoundError',r.stderr)

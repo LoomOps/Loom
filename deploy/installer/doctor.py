@@ -11,6 +11,15 @@ STEPS = {name: f'steps/{i:02d}-{name}.md' for i, name in enumerate(STAGES, 1)}
 STEPS['acceptance']='steps/07-handoff.md'
 SERVICES = ('loom-ops', 'loom-dashboard', 'loom-gateway')
 
+class PendingCheck(Exception):
+    def __init__(self,status):self.status=status
+
+def health_ready(state):
+    if not state.get('Running'):return False
+    health=state.get('Health',{}).get('Status','healthy')
+    if health=='starting':raise PendingCheck('waiting')
+    return health=='healthy'
+
 
 def ingress_matches(dashboard, ops, api):
     """Check observed Docker peers, not only the generated network settings."""
@@ -105,6 +114,8 @@ def doctor(setup, plan, stage=None):
             value = action()
             if value is False: raise ValueError('Observed state differs from installation contract')
             checks.append({'stage': group, 'check': name, 'status': 'pass'})
+        except PendingCheck as pending:
+            checks.append({'stage':group,'check':name,'status':pending.status,'next':remedy})
         except Exception as error:
             # Never echo subprocess stderr, credentials or provider response bodies.
             checks.append({'stage': group, 'check': name, 'status': 'fail',
@@ -136,7 +147,7 @@ def doctor(setup, plan, stage=None):
                         '--filter','label=com.docker.compose.service='+service).split()
         if len(ids) != 1: return False
         c = json.loads(setup.run('docker','inspect',ids[0]))[0]
-        if not c['State'].get('Running') or c['State'].get('Health',{}).get('Status','healthy') != 'healthy': return False
+        if not health_ready(c['State']):return False
         expected = setup.manifest()['images']['ops' if service=='loom-ops' else 'dashboard']['id']
         if c['Image'] != expected or 'LOOM_DEV_NO_AUTH=1' in c['Config'].get('Env',[]): return False
         mounts = {m['Destination']: m for m in c['Mounts']}
@@ -235,11 +246,14 @@ def doctor(setup, plan, stage=None):
         check('network','gateway_blocks_'+path,lambda path=path: request(access()['origin']+path)[0]==404,'Remove private routes from the public Gateway.')
     if plan.get('gpu'):
         check('services','gpu_container',lambda: setup.run('docker','run','--rm','--network','none','--gpus','all','--entrypoint','nvidia-smi',setup.manifest()['images']['python']['id'],'-L'),'Repair container GPU visibility before completion.')
-    check('acceptance','cpu_job_result',lambda: __import__('smoke').verify(setup,plan),'Run setup.py smoke with this plan; preserve and inspect any failed Job.')
-    stages = {s: ('pass' if all(c['status']=='pass' for c in checks if c['stage']==s) else 'fail') for s in STAGES if not stage or s==stage}
+    def smoke_ready():
+        if not (root/'config/install-smoke.json').exists():raise PendingCheck('not_run')
+        return __import__('smoke').verify(setup,plan)
+    check('acceptance','cpu_job_result',smoke_ready,'Run setup.py smoke with this plan; preserve and inspect any failed Job.')
+    stages={s:next((v for v in ('fail','waiting','not_run') if any(c['status']==v for c in checks if c['stage']==s)),'pass') for s in STAGES if not stage or s==stage}
     ready = bool(checks) and all(c['status']=='pass' for c in checks)
     return {'schema':'loom-install-doctor/v1','ready':ready,'scope':stage or 'all', 'stages':stages,'checks':checks,
-            'next_document':'steps/07-handoff.md' if ready and not stage else STEPS.get(next((s for s,v in stages.items() if v=='fail'),stage or 'plan')),
+            'next_document':'steps/07-handoff.md' if ready and not stage else STEPS.get(next((s for s,v in stages.items() if v!='pass'),stage or 'plan')),
             're_read':'INSTALL.md', 'live_validation':['Other-client browser identity/approval and actual reboot are separate checks; this report does not claim them.']}
 
 

@@ -34,3 +34,10 @@ Test sources define the concrete scenarios. `deploy/test.sh` records individual 
 ## Live validation
 
 The execution-environment owner verifies actual external image dependencies, caches and GPU compatibility.
+
+Owner presentation is additive: namespace remains immutable, owner_profile and
+owner_name resolve current responsibility from item_owners and user_profiles.
+Explicit common namespace built-in displays Built-in; user-owned components remain
+user-owned when shared. Component list without owner filters lists all namespaces.
+Tests cover another caller's shared discovery, Built-in, existing responsibility
+and unchanged revision pins. No ownership-based visibility restriction is added.

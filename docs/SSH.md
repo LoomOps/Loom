@@ -49,3 +49,8 @@ Admin session + CSRF: GET /admission/ssh lists state; POST accepts exactly
 member or the current authenticated Admin. Ordinary callers cannot mutate accounts.
 GET /api/ssh and MCP system.ssh expose only the caller's descriptor. A descriptor is
 not a credential and never proves live SSH connectivity. Loom SSH doctor checks that.
+
+Helper restarts preserve the socket directory inode. The stack startup unit depends
+on the helper so the mount exists before Compose starts. An existing installation
+receives the same unit repair during the normal idle update. When adding data stores,
+rerun SSH setup and verify doctor; existing Dashboard mounts remain connected.

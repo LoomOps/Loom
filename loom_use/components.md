@@ -26,3 +26,15 @@ External dependency checkouts and image recipes remain user-managed. Loom does n
 `system.status.data_stores` lists configured stores and their container paths. New installations default host `/loom/data` to `data/0`; additional directories are RW stores such as `data/1`. A profile runner can declare `"storage": ["data/1"]` on runtime, prepare or a lifecycle hook. The executor mounts only those registered names at `/loom/data/1`, and the runner receives `request.storage["data/1"]`. No host path is accepted in this declaration. Unknown stores fail registration/execution.
 
 For example: `"runtime": {"executor":"container","runtime_id":"python","command":["python3","/component/run.py"],"storage":["data/1"]}`. Standalone profiles expose the same field through HTTP and MCP. Omit storage for only `/work` plus declared read-only artifact inputs. Explicit RW access can modify shared files; coordinate changes to existing datasets. Publish result.json and registered outputs through `request.output_dir` on the Job’s selected `output_storage`; ordinary shared files in additional stores remain visible in Explorer. Storage mounts do not relocate historical artifacts or change their hashes/locators.
+
+## Owner
+
+Registration defaults to the authenticated user. Use `owner: "built-in"` explicitly
+for common components; their display label is **Built-in**. Shared visibility alone
+does not make a user component Built-in. `components.list` returns every namespace
+unless filtered with owner. Results include owner_profile (id/login/display_name),
+owner_name and owner_kind; profile discovery carries the same responsibility.
+The existing owner input/output remains the stable namespace used by get/write and
+profile references. Existing responsibility records take precedence for display;
+paths, source pins and submitted Jobs are unchanged. Unknown historical identities
+remain visible by their recorded ID, not guessed or relabeled Built-in.

@@ -118,7 +118,10 @@ def helper_files(platform,source):
 
 def restart_ssh(root):
  p=root/'config/ssh.json'
- if p.exists():run('systemctl','restart',json.loads(p.read_text())['unit'])
+ if p.exists():
+  from ssh_setup import configure_service,paths
+  state,_,name=paths(root);configure_service(state,name)
+  run('systemctl','daemon-reload');run('systemctl','restart',name)
 
 def instance_paths(platform,root):
  # Shared helpers affect every local instance; fence each before changing them.

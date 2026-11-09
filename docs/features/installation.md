@@ -101,3 +101,8 @@ for the Admin account's **Tailscale login email**, not a generic administrator e
 New plans default to public Gateway 443 and private Dashboard/MCP 8443. Optional
 development publication uses a separate private port (typically 18443). Existing
 explicit ports are preserved. Guide handoff always uses the plan's private origin.
+
+Installation regressions include final multi-store configuration before host SSH,
+bounded health readiness, unrun smoke versus failure, and early sudo guidance.
+Do not treat mocked host commands as a clean-machine install; record live socket
+restart and real executor acceptance separately.

@@ -48,6 +48,30 @@ def share_stores(root,state,activate):
     return group,stores
 
 
+def configure_service(state,name):
+    dest=Path('/usr/local/lib/loom-ssh/ssh_host.py')
+    unit(name,f'''[Unit]
+Description=Loom personal SSH account manager
+After=tailscaled.service
+[Service]
+Type=simple
+User=root
+UMask=0077
+RuntimeDirectory=loom-ssh/{state.name}
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/python3 -B {dest} {state}/config.json
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=false
+ReadWritePaths=/etc /home /var/lib/loom-ssh /run
+[Install]
+WantedBy=multi-user.target
+''')
+    dropin=Path('/etc/systemd/system/loom-stack.service.d');dropin.mkdir(parents=True,exist_ok=True)
+    (dropin/'ssh.conf').write_text('[Unit]\nRequires='+name+'\nAfter='+name+'\n')
+
 def install(root,activate=True):
     root=root.resolve()
     if (root/'development').exists():raise ValueError('SSH host management is not enabled in dev-build; use isolated test fixtures')
@@ -65,24 +89,7 @@ def install(root,activate=True):
     from urllib.parse import urlsplit
     (info/'machine.json').write_text(json.dumps({'host':urlsplit(c['dashboard_origin']).hostname,'addresses':c['addresses'],'data_paths':stores}))
     os.chown(info/'machine.json',uid,gid)
-    unit(name,f'''[Unit]
-Description=Loom personal SSH account manager
-After=tailscaled.service
-[Service]
-Type=simple
-User=root
-UMask=0077
-RuntimeDirectory=loom-ssh/{state.name}
-RuntimeDirectoryMode=0755
-ExecStart=/usr/bin/python3 -B {dest} {state}/config.json
-Restart=on-failure
-NoNewPrivileges=true
-ProtectSystem=full
-ProtectHome=false
-ReadWritePaths=/etc /home /var/lib/loom-ssh /run
-[Install]
-WantedBy=multi-user.target
-''')
+    configure_service(state,name)
     # Only the private Dashboard receives the control socket; Ops sees metadata only.
     overlay={'services':{'loom-dashboard':{'environment':{'LOOM_SSH_SOCKET':'/run/loom-ssh/control.sock','LOOM_SSH_EXPORT':'/var/lib/loom-ssh-info'},'volumes':[
         {'type':'bind','source':str(runtime),'target':'/run/loom-ssh','read_only':True,'bind':{'create_host_path':False}},

@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import execution
 import profile_store
+import ownership
 from runtime_contract import seal
 
 ROOT=Path(os.environ.get('LOOM_COMPONENTS','/loom/components'))
@@ -19,7 +20,7 @@ def init(c):
 def allowed(actor,owner):return bool(actor.get('id'))
 
 def action_schema(action):
-    fields={'owner':{'type':'string','description':'Delegated owner; omitted means the authenticated principal.'}}
+    fields={'owner':{'type':'string','description':'Stable namespace. Register/write/get default to the authenticated principal; list defaults to all shared namespaces. Use built-in explicitly for common components. Display responsibility is returned in owner_profile.'}}
     required=[]
     if action!='list':fields['id']={'type':'string','pattern':ID.pattern};required=['id']
     if action=='register':
@@ -32,13 +33,16 @@ def operate(c,actor,args,config):
     action=args['action'];owner=args.get('owner',actor['id'])
     if not allowed(actor,owner):raise PermissionError('Component outside delegated owner')
     if action=='list':
-        return [dict(r) for r in c.execute('SELECT owner,id,max(revision) AS revision FROM components WHERE owner=? GROUP BY owner,id',(owner,))]
+        query='SELECT owner,id,max(revision) AS revision FROM components'
+        values=()
+        if 'owner' in args:query+=' WHERE owner=?';values=(owner,)
+        return [{**dict(r),**ownership.extension(c,'component',r['owner'],r['id'])} for r in c.execute(query+' GROUP BY owner,id ORDER BY owner,id',values)]
     identity=args.get('id','')
     if not isinstance(identity,str) or not ID.fullmatch(identity) or not ID.fullmatch(owner):raise ValueError('Invalid component identity')
     if action=='get':
         row=c.execute('SELECT * FROM components WHERE owner=? AND id=? ORDER BY revision DESC LIMIT 1',(owner,identity)).fetchone()
         if not row:raise ValueError('Component not found')
-        return {**dict(row),'manifest':json.loads(row['manifest']),'profiles':json.loads(row['profiles'])}
+        return {**dict(row),**ownership.extension(c,'component',owner,identity),'manifest':json.loads(row['manifest']),'profiles':json.loads(row['profiles'])}
     if action=='write':
         if 'submit' not in actor['scopes']:raise PermissionError('Submit grant required')
         ref=args['path'];content=args['content']
@@ -46,7 +50,7 @@ def operate(c,actor,args,config):
         base=ROOT/owner/identity/'src';target=base/ref
         if not target.resolve().is_relative_to(base.resolve()) or not base.resolve().is_relative_to(ROOT.resolve()):raise ValueError('Source leaves owner root')
         target.parent.mkdir(parents=True,exist_ok=True);target.write_text(content)
-        return {'id':identity,'path':ref,'bytes':len(content.encode())}
+        return {'owner':owner,'id':identity,'path':ref,'bytes':len(content.encode()),**ownership.extension(c,'component',owner,identity)}
     if action!='register':raise ValueError('Unknown component operation')
     if 'submit' not in actor['scopes']:raise PermissionError('Submit grant required')
     manifest=args['manifest'];files=args.get('files',{})
@@ -85,13 +89,17 @@ def operate(c,actor,args,config):
         path.parent.mkdir(parents=True,exist_ok=True);path.write_text(content)
     (base/'component.json').write_text(json.dumps(manifest,indent=2))
     c.execute('INSERT INTO components VALUES(?,?,?,?,?)',(owner,identity,version,json.dumps(manifest),json.dumps(profiles)))
-    return {'owner':owner,'id':identity,'revision':version,'profiles':list(profiles)}
+    return {'owner':owner,'id':identity,'revision':version,'profiles':list(profiles),**ownership.extension(c,'component',owner,identity)}
 
 def merge(c,config,actor=None):
     profiles=dict(config.get('profiles',{}))
-    for row in c.execute('SELECT owner,profiles FROM components'):
+    labels=dict(config.get('_profile_owners',{}))
+    for row in c.execute('SELECT owner,id,profiles FROM components'):
         if actor is not None and not allowed(actor,row['owner']):continue
         for kind,p in json.loads(row['profiles']).items():
             if actor is not None and actor['id'] not in p['submitters']:p={**p,'submitters':[*p['submitters'],actor['id']]}
             profiles[kind]=p
-    return {**config,'profiles':profile_store.merge(c,profiles,actor)}
+            labels[kind]=ownership.extension(c,'component',row['owner'],row['id'])
+    for row in c.execute('SELECT owner,id,profile FROM execution_profiles'):
+        labels[json.loads(row['profile'])['revision']]=ownership.extension(c,'profile',row['owner'],row['id'])
+    return {**config,'profiles':profile_store.merge(c,profiles,actor),'_profile_owners':labels}

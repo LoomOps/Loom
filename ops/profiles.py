@@ -12,13 +12,15 @@ def describe(config, actor):
     if 'submit' not in actor['scopes']:return []
     rows=[{'kind':'cpu.smoke','params_schema':{'type':'object','properties':{
         'seconds':{'type':'integer','minimum':0,'maximum':20},'fail':{'type':'boolean'}},
-        'required':['seconds','fail'],'additionalProperties':False},'outputs':{'observation':'artifact'}}]
+        'required':['seconds','fail'],'additionalProperties':False},'outputs':{'observation':'artifact'},
+        'owner_name':'Built-in','owner_kind':'built-in','owner_profile':{'id':'built-in','provider':'builtin','login':None,'display_name':'Built-in'}}]
     for kind,p in config.get('profiles',{}).items():
         if not execution.is_generic(p):continue
         rows.append({'kind':kind,'revision':p['revision'],'contract':execution.REVISION,'owners':p['owners'],
             'params_schema':p['params_schema'],'outputs':p['outputs'],'defaults':p.get('defaults',{}),
             'metadata_schemas':p.get('metadata_schemas',{}),'limits':p['limits'],'preparation':bool(p.get('prepare')),
-            'lane':p['runtime'].get('lane','cpu'),'execution_schema':execution.POLICY_SCHEMA})
+            'lane':p['runtime'].get('lane','cpu'),'execution_schema':execution.POLICY_SCHEMA,
+            **config.get('_profile_owners',{}).get(kind,{})})
     return rows
 
 def file_sha(path):

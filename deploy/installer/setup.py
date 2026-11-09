@@ -163,6 +163,15 @@ def verify_core(plan):
  if run('systemctl','is-active','loom-executor')!='active':raise ValueError('Executor not active')
  return {'build':status['build']['build_id'],'mcp_groups':6,'dashboard':'ok','executor':'active','credential_file':str(ROOT/'secrets/client-tokens.json')}
 
+def configure_host_ssh(plan):
+ if not plan.get('host_ssh',False):return
+ expected={f'data/{i}':path for i,path in enumerate([plan['data'],*plan['additional_data']])}
+ actual=json.loads((ROOT/'config/api.json').read_text()).get('executor',{}).get('storage')
+ if actual!=expected:raise ValueError('Finalize executor storage before configuring managed SSH')
+ if not shutil.which('setfacl'):run('apt-get','install','-y','acl')
+ from ssh_setup import install as install_ssh
+ install_ssh(ROOT)
+
 def apply(plan):
  validate(plan);diagnostics.service_plan(plan)
  info=manifest()
@@ -216,10 +225,6 @@ def apply(plan):
    access_plan=access_load(plan['tailscale']['access_plan'])
    access_inspect(access_plan)
    access_configure(ROOT,access_plan)
-   if plan.get('host_ssh',False):
-    if not shutil.which('setfacl'):run('apt-get','install','-y','acl')
-    from ssh_setup import install as install_ssh
-    install_ssh(ROOT)
  # Keep the boot-time Compose code independent of the downloaded/extracted kit.
  dest=Path('/loom/distribution')/info['build_id'];shutil.copytree(src,dest)
  for p in [dest.parent,dest,*dest.rglob('*')]:os.chown(p,0,0);p.chmod(0o755 if p.is_dir() else 0o644)
@@ -230,6 +235,7 @@ def apply(plan):
  config=Path('/loom/shared/executor/config.json');values=json.loads(config.read_text());values['runtimes']['python']['image']=info['images']['python']['id'];config.write_text(json.dumps(values,indent=2)+'\n');config.chmod(0o600)
  run('systemctl','restart','loom-executor')
  step('executor')
+ configure_host_ssh(plan)
  import guide_bundle
  guides=Path('/loom/loom_use')
  guide_bundle.install((BUNDLE/'loom-agent-kit.zip').read_bytes(),guides,info['build_id'])
@@ -243,7 +249,7 @@ RequiresMountsFor={plan['data']} {plan['dependencies']} {' '.join(plan['addition
 Type=oneshot
 RemainAfterExit=yes
 Environment=LOOM_INSTANCE=/loom/ops LOOM_PROJECT=loom
-ExecStart=/bin/bash {dest}/deploy/compose.sh up -d --no-build
+ExecStart=/bin/bash {dest}/deploy/compose.sh up -d --no-build --wait --wait-timeout 90
 ExecStop=/bin/bash {dest}/deploy/compose.sh stop
 TimeoutStartSec=180
 TimeoutStopSec=120
@@ -357,6 +363,9 @@ if __name__=='__main__':
  p.add_argument('--login-action',choices=['inspect','reuse','login','switch'],default='inspect');p.add_argument('--tailnet');p.add_argument('--login-email');p.add_argument('--confirm-disconnect',action='store_true')
  p.add_argument('--credential-file',type=Path,default=Path('/loom/private-inputs/tailscale-management.json'));a=p.parse_args()
  try:
+  if a.action in ('doctor','verify','handoff','apply','smoke','resume-network') and os.geteuid()!=0:
+   import shlex
+   p.error('Server operations require administrator access. Run: sudo '+shlex.join([sys.executable,*sys.argv]))
   if a.action=='inspect':result=inspect()
   elif a.action=='tailnet-login':
    from tailnet import login_setup

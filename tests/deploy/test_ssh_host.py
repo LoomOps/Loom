@@ -93,3 +93,17 @@ class ProcessBoundaryTests(unittest.TestCase):
             self.assertTrue(ssh_host.personal_host_process(123,1234))
         with patch.object(Path,'stat',side_effect=lambda p,*a,**k:SimpleNamespace(st_uid=1234,st_ino=99 if str(p)=='/proc/123/ns/pid' else 42),autospec=True):
             self.assertFalse(ssh_host.personal_host_process(123,1234))
+
+class UnitLifecycleTests(unittest.TestCase):
+    def test_restart_preserves_directory_and_stack_waits_for_helper(self):
+        import ssh_setup
+        with tempfile.TemporaryDirectory() as t:
+            folder=Path(t);realpath=Path
+            def path(value):
+                return folder/'dropin' if value=='/etc/systemd/system/loom-stack.service.d' else realpath(value)
+            with patch.object(ssh_setup,'Path',side_effect=path),patch.object(ssh_setup,'unit') as unit:
+                ssh_setup.configure_service(folder/'state','fixture.service')
+            body=unit.call_args.args[1]
+            self.assertIn('RuntimeDirectoryPreserve=yes',body)
+            self.assertIn('Requires=fixture.service',(folder/'dropin/ssh.conf').read_text())
+            self.assertIn('After=fixture.service',(folder/'dropin/ssh.conf').read_text())

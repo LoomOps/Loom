@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.35
+
+- Configure managed SSH after final storage registration and preserve its socket mount across restarts.
+- Wait for initial service health; distinguish waiting and unrun smoke checks, and explain server sudo requirements early.
+- Pin Loom Use alpha.3 with native WebSocket-over-Unix Codex reconnection and real framing regressions.
+- Expose component/profile Owner metadata, explicit Built-in common components and shared discovery without moving revisions.
+
 ## 0.1.0-alpha.34
 
 - Add Admin-managed personal host SSH accounts, exact Tailscale policy bindings and per-user MCP connection discovery.

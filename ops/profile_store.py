@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import execution
+import ownership
 from runtime_contract import seal
 
 ROOT=Path(os.environ.get('LOOM_PROFILES','/loom/profiles'))
@@ -66,7 +67,7 @@ def operate(c,actor,args,config):
         if 'revision' in args:query+=' AND revision=?';values.append(args['revision'])
         row=c.execute(query+' ORDER BY revision DESC LIMIT 1',values).fetchone()
         if not row:raise ValueError('Profile not found')
-        return {**dict(row),'profile':json.loads(row['profile'])}
+        return {**dict(row),**ownership.extension(c,'profile',owner,identity),'profile':json.loads(row['profile'])}
     definition=json.loads(json.dumps(args['profile'],allow_nan=False))
     forbidden={'revision','sha256','schema','owners','submitters','component_path','source_pins','_hook_retry'}
     if forbidden & definition.keys():raise ValueError('Profile identity and component pins are assigned by Loom')
@@ -98,7 +99,7 @@ def operate(c,actor,args,config):
     if not path.exists():
         with path.open('x') as f:f.write(encoded)
     c.execute('INSERT INTO execution_profiles VALUES(?,?,?,?)',(owner,identity,version,json.dumps(profile)))
-    return {'owner':owner,'id':identity,'revision':version,'kind':kind,'sha256':profile['sha256']}
+    return {'owner':owner,'id':identity,'revision':version,'kind':kind,'sha256':profile['sha256'],**ownership.extension(c,'profile',owner,identity)}
 
 def merge(c,profiles,actor):
     from component_store import allowed
