@@ -39,7 +39,7 @@ research profiles are registered extensions, not core installation requirements.
 authenticated recipient's pending errors. `POST /api/events/ack` accepts
 `seq` to acknowledge a durable event.
 
-### Job classification contract (`loom-job/v1`)
+### Job classification contract (`loom-job/v2`)
 
 Submission optionally accepts `category` and `execution_mode`, separate from
 the execution-profile selector `kind`. Categories are `sdg`, `data_preparation`,

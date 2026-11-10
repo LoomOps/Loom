@@ -4,7 +4,8 @@ import json
 import threading
 import time
 from unittest.mock import patch
-import ops,queue_control,recovery
+import ops,queue_control,recovery,dispatch_control
+import uuid
 from test_support import IsolatedOps
 
 class QueueControlTests(IsolatedOps):
@@ -12,6 +13,30 @@ class QueueControlTests(IsolatedOps):
   return ops.operate('jobs',{'action':action,'arguments':{**({'id':job} if job else {}),**args}},actor or self.owner,self.config)
  def ids(self):return [x['id'] for x in self.action('queue')['entries']]
  def schedule(self,job):return ops.operate('get_job',{'id':job},self.owner,self.config)['scheduling']
+ def test_operator_pause_survives_update_admission_and_preserves_queued_work(self):
+  job=self.submit(self.spec('old'));key=str(uuid.uuid4())
+  with ops.db() as c:dispatch_control.change(c,True,key,'deployment correction')
+  self.assertEqual(self.schedule(job)['reason'],'queue_paused')
+  with self.assertRaises(PermissionError):self.submit(self.spec('during-maintenance'))
+  # Updater reopens admission, but explicit dispatch pause must remain in force.
+  with ops.db() as c:c.execute("UPDATE node_control SET mode='active' WHERE id=1")
+  newer=self.submit(self.spec('staged-continuation'));ops.init()
+  self.assertEqual(self.schedule(newer)['reason'],'queue_paused')
+  self.assertTrue(self.action('queue')['dispatch']['paused'])
+  with self.assertRaises(ValueError):
+   with ops.db() as c:dispatch_control.change(c,False,str(uuid.uuid4()))
+  with ops.db() as c:dispatch_control.change(c,False,key,'ready')
+  self.assertFalse(self.action('queue')['dispatch']['paused'])
+  self.assertEqual(self.schedule(job)['reason'],'ready')
+  self.assertEqual(self.ids(),[job,newer])
+ def test_operator_pause_never_interrupts_a_live_job(self):
+  job=self.submit();row=self.claim(job)
+  with self.assertRaises(ValueError):
+   with ops.db() as c:dispatch_control.change(c,True,str(uuid.uuid4()),'wait for drain')
+  self.assertEqual(self.row(job),row)
+  with ops.db() as c:
+   self.assertFalse(dispatch_control.status(c)['paused'])
+   self.assertEqual(c.execute('SELECT mode FROM node_control').fetchone()[0],'active')
  def test_fifo_placements_hold_and_reopen_persist(self):
   a,b,c=[self.submit(self.spec(x)) for x in 'abc']
   self.assertEqual(self.ids(),[a,b,c])

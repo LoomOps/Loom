@@ -3882,7 +3882,15 @@ function loomJobPanel(job, entry) {
     queueTime(queueMillis(attempt.started)), queueTime(queueMillis(attempt.ended))]);
   const linked = catalogData.entities.filter(entity =&gt; entity.loom_job_id === job.id)
     .map(entity =&gt; &#x27;&lt;p&gt;&#x27; + catLink(entity.id) + &#x27;&lt;/p&gt;&#x27;).join(&#x27;&#x27;);
-  return panel(&#x27;Loom 실행 기록&#x27;, &#x27;&lt;div class=&quot;pa-loom-job-summary&quot;&gt;&#x27; + catTable([&#x27;필드&#x27;,&#x27;값&#x27;], rows.map(row =&gt; row.map(loomText))) + &#x27;&lt;/div&gt;&#x27;)
+  const progress = record.internal_steps;
+  const internal = progress ? panel(&#x27;Internal steps&#x27;, &#x27;&lt;p&gt;실행기가 보고한 진행 상태입니다. Job 완료와 결과 검증은 별도로 확인합니다.&lt;/p&gt;&#x27;
+    +(progress.status===&#x27;unavailable&#x27;?&#x27;&lt;p&gt;&#x27;+esc(progress.reason)+&#x27;&lt;/p&gt;&#x27;:&#x27;&#x27;)
+    +catTable([&#x27;Step&#x27;,&#x27;상태&#x27;,&#x27;상세&#x27;],(progress.steps||[]).map(step=&gt;[esc(step.label),esc(step.state),esc(step.detail||&#x27;&#x27;)]))):&#x27;&#x27;;
+  const sources=record.consolidation?.sources||[];
+  const continuity=sources.length?panel(&#x27;이전 실행 이력&#x27;, &#x27;&lt;p&gt;검증된 기존 산출물을 재사용합니다. 원 실행 기록은 보존됩니다.&lt;/p&gt;&#x27;
+    +catTable([&#x27;Job&#x27;,&#x27;Attempt&#x27;],sources.map(source=&gt;[catLink(source.job),esc(source.attempt)]))):&#x27;&#x27;;
+  const target=record.consolidation?.consolidated_into;
+  return internal+continuity+(target?panel(&#x27;통합 Job&#x27;,catLink(target)):&#x27;&#x27;)+panel(&#x27;Loom 실행 기록&#x27;, &#x27;&lt;div class=&quot;pa-loom-job-summary&quot;&gt;&#x27; + catTable([&#x27;필드&#x27;,&#x27;값&#x27;], rows.map(row =&gt; row.map(loomText))) + &#x27;&lt;/div&gt;&#x27;)
     + panel(&#x27;Attempts&#x27;, catTable([&#x27;Attempt&#x27;,&#x27;상태&#x27;,&#x27;시작&#x27;,&#x27;종료&#x27;], attempts))
     + (linked ? panel(&#x27;Registry 기록&#x27;, &#x27;&lt;div class=&quot;pa-loom-job-links&quot;&gt;&#x27; + linked + &#x27;&lt;/div&gt;&#x27;) : &#x27;&#x27;);
 }
@@ -3925,13 +3933,14 @@ function loomJobClass(entity) {
 }
 function loomFilteredWorkItems() {
   return workItems().filter(e =&gt; (!state.jobCategory || (e.properties?.category || &#x27;other&#x27;) === state.jobCategory)
-    &amp;&amp; (!state.jobExecutionMode || e.properties?.execution_mode === state.jobExecutionMode));
+    &amp;&amp; (!state.jobExecutionMode || e.properties?.execution_mode === state.jobExecutionMode)
+    &amp;&amp; (state.jobSourceHistory || !e.properties?.consolidated_into));
 }
 function loomJobFilters() {
   const c = loomJobContract();
   return &#x27;&lt;div class=&quot;pa-job-filters&quot;&gt;&#x27; + [[&#x27;jobCategory&#x27;,&#x27;Job Type&#x27;,c.categories],[&#x27;jobExecutionMode&#x27;,&#x27;Execution Mode&#x27;,c.execution_modes]]
     .map(([key,label,choices]) =&gt; &#x27;&lt;label&gt;&#x27;+label+&#x27; &lt;select data-job-filter=&quot;&#x27;+key+&#x27;&quot; aria-label=&quot;&#x27;+label+&#x27;&quot;&gt;&lt;option value=&quot;&quot;&gt;전체&lt;/option&gt;&#x27;
-      + Object.entries(choices).map(([value,name]) =&gt; &#x27;&lt;option value=&quot;&#x27;+esc(value)+&#x27;&quot;&#x27;+(state[key]===value?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+esc(name)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+      + Object.entries(choices).map(([value,name]) =&gt; &#x27;&lt;option value=&quot;&#x27;+esc(value)+&#x27;&quot;&#x27;+(state[key]===value?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+esc(name)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;label&gt;&lt;input type=&quot;checkbox&quot; data-job-filter=&quot;jobSourceHistory&quot;&#x27;+(state.jobSourceHistory?&#x27; checked&#x27;:&#x27;&#x27;)+&#x27;&gt; 이전 분할 실행 표시&lt;/label&gt;&lt;/div&gt;&#x27;;
 }
 root.addEventListener(&#x27;change&#x27;, event =&gt; {
   const field = event.target.closest(&#x27;[data-job-filter]&#x27;);
@@ -3939,7 +3948,7 @@ root.addEventListener(&#x27;change&#x27;, event =&gt; {
   const pane = ws.panes.find(p =&gt; p.id === field.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);
   if (!pane) return;
   const view = activeTab(pane).view;
-  view[field.dataset.jobFilter] = field.value;
+  view[field.dataset.jobFilter] = field.type===&#x27;checkbox&#x27; ? field.checked : field.value;
   view.queueHistoryLimits = {};
   render();persist();
 });
@@ -4189,7 +4198,7 @@ let loomQueueNotice = &#x27;&#x27;;
 const loomQueueEntries = () =&gt; catalogData.queue?.entries || [];
 const loomQueueEntry = id =&gt; loomQueueEntries().find(row =&gt; row.id === id);
 function loomQueueReason(row) {
-  return ({ready:&#x27;실행 가능&#x27;,held:&#x27;보류됨&#x27;,executing:&#x27;실행 중&#x27;,finalizing:&#x27;결과 처리 중&#x27;,dependencies:&#x27;선행 결과 대기&#x27;,
+  return ({queue_paused:&#x27;운영자가 큐를 일시 중단함&#x27;,ready:&#x27;실행 가능&#x27;,held:&#x27;보류됨&#x27;,executing:&#x27;실행 중&#x27;,finalizing:&#x27;결과 처리 중&#x27;,dependencies:&#x27;선행 결과 대기&#x27;,
     resource_busy:&#x27;실행 슬롯 대기&#x27;,retry_delay:&#x27;재시도 대기&#x27;,recovery_reservation:&#x27;앞선 Job 복구 대기&#x27;,recovery_waiting:&#x27;복구 응답 대기&#x27;,
     recovery_claimed:&#x27;복구 진행 중&#x27;,recovery_deferred:&#x27;복구 보류&#x27;,recovery_exhausted:&#x27;복구 횟수 소진&#x27;})[row.reason] || row.reason;
 }
@@ -4240,7 +4249,7 @@ loomJobPanel=function(job,entry){
  return (q?panel(&#x27;Queue&#x27;, &#x27;&lt;p&gt;&#x27;+(q.position===null?&#x27;실행 중&#x27;:&#x27;#&#x27;+q.position)+&#x27; · &#x27;+esc(loomQueueReason(q))+&#x27;&lt;/p&gt;&#x27;+loomQueueControls(job.id)):&#x27;&#x27;)+body
    +(history.length?panel(&#x27;순서·보류 이력&#x27;,catTable([&#x27;시각&#x27;,&#x27;사용자&#x27;,&#x27;변경&#x27;,&#x27;사유&#x27;],history.slice(-30).reverse().map(h=&gt;[new Date(h.recorded*1000).toLocaleString(),h.actor,h.action,h.reason||&#x27;—&#x27;].map(esc)))):&#x27;&#x27;);
 };
-function loomQueueFeedback(){return &#x27;&lt;p class=&quot;pa-queue-feedback&quot; role=&quot;status&quot;&gt;&#x27;+esc(loomQueueNotice)+&#x27;&lt;/p&gt;&#x27;;}
+function loomQueueFeedback(){const paused=catalogData.queue?.dispatch;return (paused?.paused?&#x27;&lt;p class=&quot;pa-queue-feedback&quot; role=&quot;status&quot;&gt;큐 일시 중단 · &#x27;+esc(paused.reason||&#x27;운영 작업&#x27;)+&#x27;&lt;/p&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;p class=&quot;pa-queue-feedback&quot; role=&quot;status&quot;&gt;&#x27;+esc(loomQueueNotice)+&#x27;&lt;/p&gt;&#x27;;}
 helpDescriptions.queue=&#x27;대기 순서와 대기 이유를 확인합니다. 실행 중 Job은 중단하지 않으며 준비·의존성·실행 슬롯에 따라 시작 순서는 달라질 수 있습니다.&#x27;;
 root.addEventListener(&#x27;click&#x27;,event=&gt;{
  const button=event.target.closest(&#x27;[data-queue-action]&#x27;);if(!button || loomQueueBusy)return;

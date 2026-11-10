@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.46
+
+- Define one requested outcome per Job; batching and acceleration remain internal to the pinned runner by default.
+- Add bounded producer-reported internal steps and explicit consolidation of completed producer Jobs without rewriting their history. Show the verified canonical Job by default with original execution history available.
+- Add a durable operator dispatch pause that fences old workers, survives updates, permits staged continuation admission after update and resumes only with the matching pause key.
+- Align server, Loom Use alpha.8 and external coordination guidance around logical Job boundaries and exact output reuse.
+
 ## 0.1.0-alpha.45
 
 - Support validated administrator GPU driver capabilities, including graphics, and explicit none/bridge runtime networking without accepting Job Docker-policy overrides.

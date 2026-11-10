@@ -34,3 +34,19 @@ Test sources define the concrete scenarios. `deploy/test.sh` records individual 
 ## Live validation
 
 Actual long-running GPU workloads and power loss require separate acceptance testing.
+
+## Operator deployment pause
+
+`deploy/queue_control_cli.py pause --instance <root> --key <stable-UUID>` is a local
+operator operation for a drained installation. It refuses active execution,
+processing and pending callbacks, then atomically fences old workers and records
+a durable dispatch pause. The updater accepts this owned pause and preserves it.
+After update, admission may reopen so a corrected Job can be staged, while all
+new execution remains paused. Resume explicitly with the same key only after the
+continuation and its inputs are verified. Unrelated maintenance/read-only fences
+and another pause key are never cleared. API queue snapshots and Dashboard expose
+the dispatch pause separately from per-Job holds and resource return.
+
+Rollback to an older worker retains the maintenance fence while an operator
+pause is active; an older worker must not start queued work by ignoring the new
+dispatch-control row. Explicit matching-key resume clears that fence.

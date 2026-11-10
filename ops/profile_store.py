@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import execution
+import job_work
 import ownership
 from runtime_contract import seal
 
@@ -20,6 +21,7 @@ RUNNER_SCHEMA={'type':'object','properties':{
     'timeout':{'type':'integer','minimum':1},'depends_on':{'type':'array','items':{'type':'string'}},'inputs':{'type':'array','items':{'type':'string'}}},
     'required':['executor','command'],'oneOf':[{'required':['image'],'not':{'required':['runtime_id']}},{'required':['runtime_id'],'not':{'required':['image']}}], 'additionalProperties':False}
 PROFILE_SCHEMA={'type':'object','properties':{
+    'steps':job_work.STEPS_SCHEMA,
     'tools':{'type':'object','description':'Alias to an exact registered Tool owner/id/revision.', 'additionalProperties':{'type':'object','properties':{'owner':{'type':'string'},'id':{'type':'string'},'revision':{'type':'integer','minimum':1}},'required':['id','revision'],'additionalProperties':False}},
     'params_schema':{'type':'object','description':'Local JSON Schema for resolved Job params.'},
     'defaults':{'type':'object'},'inputs':{'type':'object','additionalProperties':{'type':'string'},'description':'Input parameter name to allowed data-relative prefix.'},

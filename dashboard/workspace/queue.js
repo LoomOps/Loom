@@ -4,7 +4,7 @@ let loomQueueNotice = '';
 const loomQueueEntries = () => catalogData.queue?.entries || [];
 const loomQueueEntry = id => loomQueueEntries().find(row => row.id === id);
 function loomQueueReason(row) {
-  return ({ready:'실행 가능',held:'보류됨',executing:'실행 중',finalizing:'결과 처리 중',dependencies:'선행 결과 대기',
+  return ({queue_paused:'운영자가 큐를 일시 중단함',ready:'실행 가능',held:'보류됨',executing:'실행 중',finalizing:'결과 처리 중',dependencies:'선행 결과 대기',
     resource_busy:'실행 슬롯 대기',retry_delay:'재시도 대기',recovery_reservation:'앞선 Job 복구 대기',recovery_waiting:'복구 응답 대기',
     recovery_claimed:'복구 진행 중',recovery_deferred:'복구 보류',recovery_exhausted:'복구 횟수 소진'})[row.reason] || row.reason;
 }
@@ -55,7 +55,7 @@ loomJobPanel=function(job,entry){
  return (q?panel('Queue', '<p>'+(q.position===null?'실행 중':'#'+q.position)+' · '+esc(loomQueueReason(q))+'</p>'+loomQueueControls(job.id)):'')+body
    +(history.length?panel('순서·보류 이력',catTable(['시각','사용자','변경','사유'],history.slice(-30).reverse().map(h=>[new Date(h.recorded*1000).toLocaleString(),h.actor,h.action,h.reason||'—'].map(esc)))):'');
 };
-function loomQueueFeedback(){return '<p class="pa-queue-feedback" role="status">'+esc(loomQueueNotice)+'</p>';}
+function loomQueueFeedback(){const paused=catalogData.queue?.dispatch;return (paused?.paused?'<p class="pa-queue-feedback" role="status">큐 일시 중단 · '+esc(paused.reason||'운영 작업')+'</p>':'')+'<p class="pa-queue-feedback" role="status">'+esc(loomQueueNotice)+'</p>';}
 helpDescriptions.queue='대기 순서와 대기 이유를 확인합니다. 실행 중 Job은 중단하지 않으며 준비·의존성·실행 슬롯에 따라 시작 순서는 달라질 수 있습니다.';
 root.addEventListener('click',event=>{
  const button=event.target.closest('[data-queue-action]');if(!button || loomQueueBusy)return;

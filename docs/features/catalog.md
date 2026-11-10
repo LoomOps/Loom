@@ -64,3 +64,7 @@ input kinds as compact modality labels; producer timing/shape/control prose stay
 in detailed source metadata. List rows omit unbounded producer summaries and show
 splits when recorded. Labels stay intact as facts wrap at narrow viewport widths.
 Browser regression must cover the list route as well as an individual detail page.
+
+Verified canonical Jobs may group explicitly consolidated completed executions in
+the default Job view. Original source rows/Attempts remain directly readable and
+are included by the source-history filter. No historical payload is rewritten.

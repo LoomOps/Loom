@@ -23,11 +23,14 @@ def idle_gate(path):
   if c.execute("SELECT 1 FROM jobs WHERE state IN ('preparing','running','processing') LIMIT 1").fetchone():raise ValueError('Active Jobs: wait for execution and result handling to finish')
   if c.execute("SELECT name FROM sqlite_master WHERE name='hooks'").fetchone() and c.execute("SELECT 1 FROM hooks WHERE state='pending' LIMIT 1").fetchone():raise ValueError('Pending lifecycle callbacks must finish before update')
   mode=c.execute('SELECT mode FROM node_control WHERE id=1').fetchone()[0]
-  if mode!='active':raise ValueError('Instance is already fenced: '+mode)
+  paused=c.execute("SELECT name FROM sqlite_master WHERE name='dispatch_control'").fetchone() and c.execute('SELECT paused FROM dispatch_control WHERE id=1').fetchone()[0]
+  if mode!='active' and not (mode=='maintenance' and paused):raise ValueError('Instance is already fenced: '+mode)
   c.execute("UPDATE node_control SET mode='maintenance' WHERE id=1")
 
-def ungate(path):
- with sql(path) as c:c.execute("UPDATE node_control SET mode='active' WHERE id=1 AND mode='maintenance'")
+def ungate(path, *, retain_pause=False):
+ with sql(path) as c:
+  if retain_pause and c.execute("SELECT name FROM sqlite_master WHERE name='dispatch_control'").fetchone() and c.execute('SELECT paused FROM dispatch_control WHERE id=1').fetchone()[0]:return
+  c.execute("UPDATE node_control SET mode='active' WHERE id=1 AND mode='maintenance'")
 
 def inspect(root,release):
  root,release=Path(root),Path(release)
@@ -229,7 +232,7 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
    record.update(state='complete',source=str(dest),previous_source=str(old_source))
   except BaseException:
    if record['state']=='preparing':
-    for db in gated:ungate(db)
+    for db in gated:ungate(db,retain_pause=True)
    record['state']='failed';write(archive/'record.json',record)
    # Leave explicit recovery evidence; never restart a failed update silently.
    raise
@@ -241,7 +244,9 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
    record['post_extensions']=state_snapshot.extension_inventory(record.get('preserved_state'))
    record['post_managed_files']={target:hashlib.sha256(Path(target).read_bytes()).hexdigest() for group in ('files','helpers') for target in record[group]}
    write(archive/'record.json',record)
-   for db in gated:ungate(db) if record['state']=='complete' or record['state']=='preparing' else None
+   for db in gated:
+    if record['state']=='complete':ungate(db)
+    elif record['state']=='preparing':ungate(db,retain_pause=True)
   return {'updated':info['build_id'],'mode':mode,'record':str(archive/'record.json'),'preserved':'accounts, tokens, installation identity, overrides, components, tools, profiles, history, data'}
 
 def resume(record_path):
@@ -340,11 +345,11 @@ def _rollback(record_path):
   compose(previous,root,project,'up','-d','--no-build');check_health(previous,root,project)
   if record.get('preserved_state'):state_snapshot.verify(root,record['preserved_state'])
   if record.get('guides'):guide_bundle.select(record['guides']['parent'],record['guides']['previous'])
-  for db in gated:ungate(db)
+  for db in gated:ungate(db,retain_pause=True)
   record['state']='rolled_back';write(path,record)
  except BaseException:
   if not mutated:
-   for db in acquired:ungate(db)
+   for db in acquired:ungate(db,retain_pause=True)
   raise
  return {'rolled_back':True,'record':str(path)}
 

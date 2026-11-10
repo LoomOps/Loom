@@ -1,6 +1,7 @@
 """Read-only projection for the Loom Dashboard."""
 import hashlib
 import json
+import job_work
 import os
 import shutil
 import stat
@@ -166,6 +167,7 @@ def projection(db, actor, config, local, bulk=None):
                              'loom_location_counts':dict(Counter(item['status'] for item in locations)),
                              'loom_media':add_media(media, list(identity.values()), locations),
                              'loom_files':file_entries(media,list(identity.values()),locations,storage)})
+    consolidations=job_work.completed_links(db)
     for row in db.execute("""SELECT * FROM jobs ORDER BY created,id"""):
         if not recovery.permitted(actor,row):continue
         item = dict(row)
@@ -175,6 +177,7 @@ def projection(db, actor, config, local, bulk=None):
         result = json.loads(raw_result) if raw_result else {}
         attempts = [dict(value) for value in db.execute(
             'SELECT id,state,started,ended FROM attempts WHERE job=? ORDER BY started,id',(row['id'],))]
+        item['consolidated_into']=consolidations.get(row['id'])
         item.update(result=result, attempts=attempts, indexed=bool(db.execute(
             'SELECT 1 FROM entity_revisions WHERE job=? LIMIT 1',(row['id'],)).fetchone()))
         entities.append(job_history.entity(item, spec))

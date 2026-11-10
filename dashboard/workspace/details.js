@@ -68,7 +68,15 @@ function loomJobPanel(job, entry) {
     queueTime(queueMillis(attempt.started)), queueTime(queueMillis(attempt.ended))]);
   const linked = catalogData.entities.filter(entity => entity.loom_job_id === job.id)
     .map(entity => '<p>' + catLink(entity.id) + '</p>').join('');
-  return panel('Loom 실행 기록', '<div class="pa-loom-job-summary">' + catTable(['필드','값'], rows.map(row => row.map(loomText))) + '</div>')
+  const progress = record.internal_steps;
+  const internal = progress ? panel('Internal steps', '<p>실행기가 보고한 진행 상태입니다. Job 완료와 결과 검증은 별도로 확인합니다.</p>'
+    +(progress.status==='unavailable'?'<p>'+esc(progress.reason)+'</p>':'')
+    +catTable(['Step','상태','상세'],(progress.steps||[]).map(step=>[esc(step.label),esc(step.state),esc(step.detail||'')]))):'';
+  const sources=record.consolidation?.sources||[];
+  const continuity=sources.length?panel('이전 실행 이력', '<p>검증된 기존 산출물을 재사용합니다. 원 실행 기록은 보존됩니다.</p>'
+    +catTable(['Job','Attempt'],sources.map(source=>[catLink(source.job),esc(source.attempt)]))):'';
+  const target=record.consolidation?.consolidated_into;
+  return internal+continuity+(target?panel('통합 Job',catLink(target)):'')+panel('Loom 실행 기록', '<div class="pa-loom-job-summary">' + catTable(['필드','값'], rows.map(row => row.map(loomText))) + '</div>')
     + panel('Attempts', catTable(['Attempt','상태','시작','종료'], attempts))
     + (linked ? panel('Registry 기록', '<div class="pa-loom-job-links">' + linked + '</div>') : '');
 }
@@ -111,13 +119,14 @@ function loomJobClass(entity) {
 }
 function loomFilteredWorkItems() {
   return workItems().filter(e => (!state.jobCategory || (e.properties?.category || 'other') === state.jobCategory)
-    && (!state.jobExecutionMode || e.properties?.execution_mode === state.jobExecutionMode));
+    && (!state.jobExecutionMode || e.properties?.execution_mode === state.jobExecutionMode)
+    && (state.jobSourceHistory || !e.properties?.consolidated_into));
 }
 function loomJobFilters() {
   const c = loomJobContract();
   return '<div class="pa-job-filters">' + [['jobCategory','Job Type',c.categories],['jobExecutionMode','Execution Mode',c.execution_modes]]
     .map(([key,label,choices]) => '<label>'+label+' <select data-job-filter="'+key+'" aria-label="'+label+'"><option value="">전체</option>'
-      + Object.entries(choices).map(([value,name]) => '<option value="'+esc(value)+'"'+(state[key]===value?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select></label>').join('')+'</div>';
+      + Object.entries(choices).map(([value,name]) => '<option value="'+esc(value)+'"'+(state[key]===value?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select></label>').join('')+'<label><input type="checkbox" data-job-filter="jobSourceHistory"'+(state.jobSourceHistory?' checked':'')+'> 이전 분할 실행 표시</label></div>';
 }
 root.addEventListener('change', event => {
   const field = event.target.closest('[data-job-filter]');
@@ -125,7 +134,7 @@ root.addEventListener('change', event => {
   const pane = ws.panes.find(p => p.id === field.closest('[data-pane]')?.dataset.pane);
   if (!pane) return;
   const view = activeTab(pane).view;
-  view[field.dataset.jobFilter] = field.value;
+  view[field.dataset.jobFilter] = field.type==='checkbox' ? field.checked : field.value;
   view.queueHistoryLimits = {};
   render();persist();
 });

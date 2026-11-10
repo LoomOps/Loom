@@ -1,5 +1,6 @@
 """Versioned, application-independent execution and preparation contracts."""
 import storage
+import job_work
 import copy
 import json
 import math
@@ -52,6 +53,7 @@ def validate_storage(stores):
 
 def validate_profile(profile):
     if not isinstance(profile,dict):raise ValueError('Profile must be an object')
+    job_work.validate_steps(profile.get('steps',[]))
     for field in ('params_schema','runtime','inputs','limits'):
         if not isinstance(profile.get(field),dict):raise ValueError('Profile requires object '+field)
     if 'outputs' not in profile or profile['outputs'] is not None and not isinstance(profile['outputs'],dict):raise ValueError('Outputs must be a mapping or null')
@@ -142,6 +144,7 @@ def request_file(folder,spec,config,bulk,relative,file_sha,lookup,stage='run'):
     request={'schema':'loom-run-request/v1','params':params,'output_dir':str(folder),
              'profile':{'revision':profile['revision'],'sha256':profile['sha256']},
              'execution':policy(spec,profile)}
+    if profile.get('steps'):request['steps']={'schema':'loom-job-steps/v1','plan':profile['steps'],'report':'steps.json'}
     path=folder/'request.json'
     temporary=folder/'request.tmp'
     temporary.write_text(json.dumps(request,allow_nan=False))

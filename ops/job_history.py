@@ -17,6 +17,9 @@ def entity(record, spec):
     properties['recovery']=record.get('recovery')
     properties.update(job_contract.values(spec))
     properties['output_storage']=spec.get('output_storage','data/0')
+    properties['consolidated_into']=record.get('consolidated_into')
+    properties['consolidates']=spec.get('consolidates',[])
+    properties['internal_step_count']=len(spec.get('profile',{}).get('steps',[]))
     properties.update(record_role='loom_job', queued_at=record['created'],
         execution=result.get('execution', {}), artifact_ready=result.get('artifact_ready'),
         reason=result.get('reason'), started_at=attempts[0]['started'] if attempts else None,

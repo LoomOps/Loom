@@ -3,11 +3,13 @@ import json,time,hashlib
 import recovery
 import ownership
 import execution
+import dispatch_control
 
 WAITING={'queued','ready','blocked','preparing'}
 POSITION_SCHEMA={'type':'string','enum':['next','tail','before','after']}
 
 def init(c):
+ dispatch_control.init(c)
  if 'queue_held' not in {r[1] for r in c.execute('PRAGMA table_info(jobs)')}:
   c.execute('ALTER TABLE jobs ADD COLUMN queue_held INTEGER NOT NULL DEFAULT 0')
  c.execute('''CREATE TABLE IF NOT EXISTS queue_history(
@@ -90,6 +92,7 @@ def scheduling(c,row,lane_for):
  def stopped(reason,**extra):return {**base,'eligible':False,'reason':reason,**extra}
  if row['cancel'] or row['state'] in ('complete','cancelled'):return stopped('terminal')
  if row['state'] in ('running','preparing','processing'):return stopped('executing' if row['state']!='processing' else 'finalizing')
+ if dispatch_control.status(c)['paused']:return stopped('queue_paused')
  if row['queue_held']:return stopped('held')
  rec=recovery.view(c,row['id'])
  if rec and rec['state'] in ('waiting','claimed','deferred','exhausted'):return stopped('recovery_'+rec['state'])
@@ -126,4 +129,6 @@ def view(c,actor,lane_for):
     'can_resume':owned and 'submit' in actor['scopes'] and bool(row['queue_held']) and row['state']!='running'})
  rows=[ownership.decorate(c,'job',row) for row in rows]
  revision=hashlib.sha256(json.dumps(rows,sort_keys=True).encode()).hexdigest()
- return {'revision':revision,'entries':rows}
+ control=dispatch_control.status(c)
+ revision=hashlib.sha256(json.dumps({'entries':rows,'dispatch':control},sort_keys=True).encode()).hexdigest()
+ return {'revision':revision,'entries':rows,'dispatch':control}

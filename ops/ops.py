@@ -3,6 +3,7 @@ import fcntl
 import hashlib
 import hmac
 import json
+import job_work
 import math
 import os
 import re
@@ -150,7 +151,7 @@ def _init_schema():
 
 
 def submit(c, actor, spec, config):
-    if not isinstance(spec, dict) or set(spec)-{'depends_on','execution','queue_position','output_storage', *job_contract.FIELDS} != {'key','kind','owner','notify','params'}:
+    if not isinstance(spec, dict) or set(spec)-{'depends_on','execution','queue_position','output_storage','consolidates', *job_contract.FIELDS} != {'key','kind','owner','notify','params'}:
         raise ValueError('Invalid job specification')
     if spec.get('queue_position','tail') not in ('next','tail'):raise ValueError('Invalid submission queue_position')
     config=component_store.merge(c,config,actor)
@@ -169,6 +170,7 @@ def submit(c, actor, spec, config):
     if old:
         frozen=json.loads(old['spec'])
         if (any(frozen.get(field)!=spec[field] for field in ('key','kind','owner','notify','params'))
+                or frozen.get('consolidates',[]) != spec.get('consolidates',[])
                 or frozen.get('execution',{}) != spec.get('execution',{})
                 or frozen.get('queue_position','tail') != spec.get('queue_position','tail')
                 or frozen.get('output_storage','data/0') != spec.get('output_storage','data/0')
@@ -181,6 +183,9 @@ def submit(c, actor, spec, config):
     _,output_id=storage.select(config,BULK,spec.get('output_storage','data/0'),verify=True)
     if spec.get('output_storage','data/0')!='data/0':spec={**spec,'_output_storage_id':output_id}
     dependencies=list(requested_dependencies)
+    if 'consolidates' in spec:
+        spec={**spec,'_consolidation_sources':job_work.sources(c,spec['consolidates'],owner)}
+        dependencies.extend(i for i in spec['consolidates'] if i not in dependencies)
     selected=config.get('profiles',{}).get(spec['kind'],{})
     if execution.is_generic(selected):
         for dependency in execution.input_dependencies(selected,params):
@@ -229,6 +234,9 @@ def submit(c, actor, spec, config):
         if {**json.loads(old['spec']),'queue_position':json.loads(old['spec']).get('queue_position','tail')} != json.loads(payload):
             raise ValueError('Idempotency conflict')
         return {'id': old['id']}
+    if spec.get('consolidates'):
+        if job_work.sources(c,spec['consolidates'],owner)!=spec['_consolidation_sources']:
+            raise ValueError('Consolidation source Attempt changed')
     job = uuid.uuid4().hex
     c.execute('INSERT INTO jobs(id,submitter,idem,spec,owner,notify,state,created) VALUES(?,?,?,?,?,?,?,?)',
               (job,actor['id'],key,payload,owner,target,'queued',time.time()))
@@ -254,6 +262,7 @@ def public(row):
     data['spec'] = json.loads(data['spec'])
     data['spec'].pop('_requested_dependencies',None)
     data['spec'].pop('_output_storage_id',None)
+    data['spec'].pop('_consolidation_sources',None)
     data['result'] = json.loads(data['result']) if data['result'] else None
     data.update(job_contract.values(data['spec']))
     data['status']={'complete':'completed','processing':'finalizing','result_failed':'finalizing_failed','blocked':'queued','interrupted':'failed'}.get(data['state'],data['state'])
@@ -761,8 +770,8 @@ OPTIONAL_FIELDS = {
     'resume_job': {'reason':{'type':'string','maxLength':1000}},
     'recover_job':{'lease':{'type':'string'},'patch':{'type':'object'},'reason':{'type':'string'}},
     'list_events': {'kind':{'type':'string','enum':['errors','lifecycle','all'],'default':'errors'},'after':{'type':'integer','minimum':0}},
-    'submit_job': {'output_storage':storage.SELECTOR,'queue_position':{'type':'string','enum':['tail','next'],'default':'tail'},'execution':execution.POLICY_SCHEMA,'depends_on': {'type':'array','items':{'type':'string'}}, **job_contract.FIELDS},
-    'list_jobs': {'category': job_contract.FIELDS['category'],
+    'submit_job': {'consolidates':job_work.CONSOLIDATES_SCHEMA,'output_storage':storage.SELECTOR,'queue_position':{'type':'string','enum':['tail','next'],'default':'tail'},'execution':execution.POLICY_SCHEMA,'depends_on': {'type':'array','items':{'type':'string'}}, **job_contract.FIELDS},
+    'list_jobs': {'include_consolidated':{'type':'boolean','default':False},'category': job_contract.FIELDS['category'],
                   'execution_mode': {'type':'string','enum':list(job_contract.MODES)},
                   'offset': {'type':'integer','minimum':0,'default':0},
                   'limit': {'type':'integer','minimum':1,'maximum':1000,'default':250}},
@@ -842,11 +851,15 @@ def operate(name, args, actor, config):
         if name == 'list_execution_profiles':
             return profiles.describe(component_store.merge(c,config,actor), actor)
         if name == 'list_jobs':
+            if type(args.get('include_consolidated',False)) is not bool:raise ValueError('Invalid consolidation filter')
+            links=job_work.completed_links(c)
             rows = []
             for r in c.execute('SELECT id,state,owner,submitter,created,attempt,spec,queue_order,queue_held FROM jobs'):
                 if not recovery.permitted(actor,r):continue
                 item = dict(r)
                 item['status']={'complete':'completed','processing':'finalizing','result_failed':'finalizing_failed','blocked':'queued','interrupted':'failed'}.get(item['state'],item['state'])
+                item['consolidated_into']=links.get(item['id'])
+                if item['consolidated_into'] and not args.get('include_consolidated',False):continue
                 item['recovery']=recovery.view(c,item['id'])
                 item.update(job_contract.values(json.loads(item.pop('spec'))))
                 rows.append(ownership.decorate(c,'job',item))
@@ -992,6 +1005,14 @@ def operate(name, args, actor, config):
                 c.execute('UPDATE result_outbox SET next_try=0 WHERE job=?',(row['id'],))
             row = c.execute('SELECT * FROM jobs WHERE id=?',(row['id'],)).fetchone()
         response = public(row)
+        spec=json.loads(row['spec'])
+        response['consolidation']={'sources':spec.get('_consolidation_sources',[]),'consolidated_into':job_work.completed_links(c).get(row['id'])}
+        if spec.get('profile',{}).get('steps'):
+            try:
+                folder=relative(storage.output(config,BULK,spec),'runs/'+row['id']+'/'+row['attempt']) if row['attempt'] else None
+                response['internal_steps']=job_work.progress(folder,spec)
+            except (OSError,ValueError):
+                response['internal_steps']={**job_work.progress(None,spec),'status':'unavailable','reason':'Output storage is unavailable'}
         response['stages']=[dict(s) for s in c.execute('SELECT attempt,stage,started,ended,state FROM stage_runs WHERE job=? ORDER BY started',(row['id'],))]
         response['callbacks']=[dict(h) for h in c.execute('SELECT stage,state,retries,error FROM hooks WHERE job=?',(row['id'],))]
         response['recovery']=recovery.view(c,row['id'])
@@ -1172,6 +1193,9 @@ class API(BaseHTTPRequestHandler):
                 if any(len(v) != 1 for v in query.values()):
                     raise ValueError('Repeated Job filter')
                 args = {k:int(v[0]) if k in {'offset','limit'} else v[0] for k,v in query.items()}
+                if 'include_consolidated' in args:
+                    if args['include_consolidated'] not in ('true','false'):raise ValueError('Invalid consolidation filter')
+                    args['include_consolidated']=args['include_consolidated']=='true'
                 result = operate('list_jobs',args,actor,config)
             elif self.path == '/api/registry' and self.command == 'GET':
                 result = operate('list_registry',{},actor,config)

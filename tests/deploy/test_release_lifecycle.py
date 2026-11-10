@@ -7,6 +7,27 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'deploy'))
 import update,tailnet,release,guide_bundle
 import io,zipfile
 
+class OperatorPauseUpdateTests(unittest.TestCase):
+ def test_update_accepts_only_explicit_durable_pause(self):
+  import importlib.util
+  spec=importlib.util.spec_from_file_location('isolated_dispatch',Path(__file__).resolve().parents[2]/'ops/dispatch_control.py')
+  control=importlib.util.module_from_spec(spec);spec.loader.exec_module(control)
+  with tempfile.TemporaryDirectory() as tmp:
+   db=Path(tmp)/'ops.sqlite3'
+   with sqlite3.connect(db) as c:
+    c.execute('CREATE TABLE jobs(state TEXT)');c.execute('CREATE TABLE node_control(id INTEGER,mode TEXT)')
+    c.execute("INSERT INTO node_control VALUES(1,'maintenance')")
+   with self.assertRaisesRegex(ValueError,'already fenced'):update.idle_gate(db)
+   with sqlite3.connect(db) as c:
+    control.init(c);c.execute("UPDATE node_control SET mode='active'")
+   with sqlite3.connect(db) as c:control.change(c,True,'570646e2-3bc4-48d6-9cfa-9c6ed5f10f54','deploy')
+   update.idle_gate(db);update.ungate(db)
+   with sqlite3.connect(db) as c:
+    self.assertTrue(control.status(c)['paused'])
+    self.assertEqual(c.execute('SELECT mode FROM node_control').fetchone()[0],'active')
+   update.idle_gate(db);update.ungate(db,retain_pause=True)
+   with sqlite3.connect(db) as c:self.assertEqual(c.execute('SELECT mode FROM node_control').fetchone()[0],'maintenance')
+
 class EntryReadinessTests(unittest.TestCase):
  def test_entry_checks_running_identity_and_exact_public_private_routes(self):
   with tempfile.TemporaryDirectory() as t:

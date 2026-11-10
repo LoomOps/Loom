@@ -14,7 +14,7 @@ Pin Component/Tool/Profile revisions and image digests used by execution. New de
 
 ## Queue order and holds
 
-jobs.submit queue_position is tail(default) or next. jobs.queue returns the shared queue's IDs, owners, current stages, positions, waiting reasons and available controls. Parameters, logs and artifacts are also shared. jobs.list shows all Jobs by newest submission first.
+jobs.submit queue_position is tail(default) or next. jobs.queue returns the shared queue's IDs, owners, current stages, positions, waiting reasons and available controls. Parameters, logs and artifacts are also shared. jobs.list shows logical Jobs by newest submission first; include_consolidated=true includes preserved constituent executions.
 
 With submit scope, call jobs.reorder on shared Jobs. position is next, tail, before or after; only before/after require reference(Job ID). The reference may be another user's waiting Job. reason is optional. Users coordinate order without operator approval. queue_history records the actor, before/after order and reason. Concurrent changes apply in the order processed by the server.
 
@@ -47,3 +47,46 @@ Loom checks the registered store, path, immutable hash and size, then records th
 location. This neither republishes different contents nor reruns the Job. Readers
 cannot reconnect; ordinary users with submit scope can. Use `results.get` to
 inspect the registered locations afterwards.
+
+## Logical Job and internal steps
+
+One user-requested generation, training or evaluation outcome is one Job by
+default. Batches, shards, cases and scheduling slices are internal implementation
+units, not reasons to submit separate Jobs. Use prepare/run/finalize and a pinned
+runner that loops, parallelizes or vectorizes within its allocated resources.
+Acceleration must preserve the scientific contract; validate equivalence before
+changing vectorization, clocks or resource assumptions. Independent requested
+outcomes, or explicitly approved distributed execution, can use separate Jobs.
+Do not silently turn output/time budgets into a chain of scheduler Jobs. Set a
+verified whole-Job budget or report the limitation before submission.
+
+A Profile may declare `steps: [{"id":"generate","label":"Generate cases"}]`.
+The request's `steps` descriptor identifies the plan and `steps.json` report file.
+The producer atomically replaces that file in request.output_dir with
+`{"schema":"loom-job-steps/v1","profile_sha256":"<request.profile.sha256>",
+"steps":[{"id":"generate","state":"running","detail":"12 / 140"}]}`.
+Allowed states are pending/running/completed/reused/failed/skipped. IDs/labels
+come from the pinned plan; the file is bounded to 256 KiB and 256 steps. Step
+progress is producer-reported display evidence, never a resource-return,
+execution-success or artifact-validation gate. A failed or unreadable report
+must not change Job execution state.
+
+## Consolidate earlier fragmented execution
+
+Existing Job/Attempt history and output provenance are immutable evidence. Do
+not delete rows or relabel past executions as if one process produced them.
+With explicit user authorization, submit one continuation Job using
+`consolidates: ["<completed-source-job>", ...]`, pinned inputs and a stable key.
+Sources must be completed with verified outputs and have the same Owner. They
+become dependencies; the runner verifies/reuses exact bytes and generates only
+missing work. Reused steps name their frozen source_job/source_attempt. No
+scientific condition may run twice merely to simplify the presentation.
+
+Only after the canonical Job completes with verified artifacts does the default
+Job list show it in place of its constituent Jobs. `jobs.list` with
+`include_consolidated:true`, direct `jobs.get` and the Dashboard's source-history
+filter retain access to every original. Job details expose consolidation sources
+and internal progress. A pending or failed canonical Job does not hide sources;
+repair it with the same key/Job instead of making competing continuations.
+Dataset manifests can reference earlier registered archives; consolidation does
+not imply copying every file or a new scientific generation.

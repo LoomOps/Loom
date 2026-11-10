@@ -154,6 +154,8 @@ class APIContractTests(IsolatedOps):
             'params':{'name':'jobs','arguments':{'action':'submit','arguments':spec}}})[1]['result']
         job=json.loads(rpc['content'][0]['text'])['id']
         self.assertEqual(self.request('/api/jobs',spec)[1]['id'],job)
+        self.assertEqual(self.request('/api/jobs?include_consolidated=true')[0],200)
+        self.assertEqual(self.request('/api/jobs?include_consolidated=invalid')[0],400)
         filtered=self.request('/api/jobs?category=fine_tuning&execution_mode=pilot&limit=1&offset=0')
         self.assertEqual(filtered[0],200);self.assertEqual(filtered[1][0]['id'],job)
         self.assertEqual(self.request('/api/jobs/'+job)[1]['execution_mode'],'pilot')

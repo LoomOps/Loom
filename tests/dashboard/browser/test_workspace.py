@@ -1,5 +1,6 @@
 """Real Firefox + real dashboard relay, backed only by deterministic mock Ops."""
 import base64
+import copy
 import os
 from pathlib import Path
 import socket
@@ -48,6 +49,10 @@ class WorkspaceBrowserTests(unittest.TestCase):
     def setUp(self):
         self.api.errors.clear();self.api.fixture=fixture();self.api.actions.clear();self.api.calls.clear();self.ui=Workspace(self.wd)
         self.wd('/window/rect',{'width':1440,'height':1000});self.wd('/url',{'url':self.base})
+        # Each fixture has a separate catalog. Persisted panes from a previous
+        # test must not select a hidden menu or refer to removed fixture entities.
+        # Reload/persistence behavior is still exercised within its own test.
+        self.ui.top();self.ui.js('localStorage.clear();sessionStorage.clear()');self.wd('/refresh',{})
         self.ui.wait("return document.querySelector('iframe')?.hidden===false");self.ui.frame()
         self.ui.wait("return document.querySelector('[data-resource-panel]')?.textContent.includes('/loom/data/0')")
     def test_readable_preview_safely_preserves_content(self):
@@ -563,6 +568,29 @@ const done=arguments[arguments.length-1];
         self.assertTrue(ui.js("return document.querySelector('.pa-job-properties').textContent.includes('Fixture Owner')"))
         self.assertTrue(ui.js("return document.querySelector('.pa-job-properties').textContent.includes('Job Type') && document.querySelector('.pa-job-properties').textContent.includes('Execution Mode') && document.querySelector('.pa-job-properties').closest('.pa-panel').textContent.includes('Job Properties')"))
         self.assertTrue(ui.js("return document.querySelector('.pa-job-properties').textContent.includes('Pilot-test')"))
+
+    def test_canonical_job_keeps_source_history_and_displays_internal_steps(self):
+        f=self.api.fixture
+        source=next(e for e in f['catalog']['entities'] if e['id']=='fixture-live')
+        canonical=copy.deepcopy(source)
+        canonical.update(id='fixture-canonical',label='Canonical generation',loom_job={'id':'fixture-canonical'})
+        source['properties']['consolidated_into']='fixture-canonical'
+        canonical['properties']['consolidates']=['fixture-live']
+        f['catalog']['entities']=[e for e in f['catalog']['entities'] if not e['id'].startswith('work:')]+[canonical];f['catalog']['revision']='consolidated-fixture'
+        record=copy.deepcopy(f['jobs']['fixture-live'])
+        record.update(id='fixture-canonical',consolidation={'sources':[{'job':'fixture-live','attempt':'original-attempt'}]},
+            internal_steps={'status':'reported','authority':'producer_reported',
+                'steps':[{'id':'reuse','label':'Verify <script>source</script>','state':'reused','detail':'140 preserved conditions'}]})
+        f['jobs']['fixture-canonical']=record
+        self.ui.top();self.wd('/refresh',{})
+        self.ui.wait("return document.querySelector('iframe')?.hidden===false");self.ui.frame()
+        self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Canonical generation')")
+        self.assertFalse(self.ui.js("return document.querySelector('#pa-content').textContent.includes('Fixture fixture-live')"))
+        self.ui.click('[data-job-filter=jobSourceHistory]')
+        self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Fixture fixture-live')")
+        self.ui.route('fixture-canonical')
+        self.ui.wait("return document.querySelector('#pa-content').textContent.includes('140 preserved conditions')")
+        self.assertTrue(self.ui.js("return document.querySelector('#pa-content').textContent.includes('Verify <script>source</script>') && document.querySelector('#pa-content').textContent.includes('original-attempt')"))
 
     def test_queue_merges_live_and_imported_history_and_expands(self):
         ui=self.ui
