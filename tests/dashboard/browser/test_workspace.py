@@ -576,11 +576,15 @@ const done=arguments[arguments.length-1];
         canonical.update(id='fixture-canonical',label='Canonical generation',loom_job={'id':'fixture-canonical'})
         source['properties']['consolidated_into']='fixture-canonical'
         canonical['properties']['consolidates']=['fixture-live']
+        canonical['properties'].update(started_at=1794265780,process_exited_at=1794286039)
         f['catalog']['entities']=[e for e in f['catalog']['entities'] if not e['id'].startswith('work:')]+[canonical];f['catalog']['revision']='consolidated-fixture'
         record=copy.deepcopy(f['jobs']['fixture-live'])
+        original={'job':'fixture-live','attempt':'original-attempt','role':'source','started':1794265780,'ended':1794282422}
+        continuation={'job':'fixture-canonical','attempt':'index-attempt','role':'continuation','started':1794286009,'ended':1794286039}
         record.update(id='fixture-canonical',consolidation={'sources':[{'job':'fixture-live','attempt':'original-attempt'}]},
+            work_timeline={'started':1794265780,'ended':1794286039,'executions':[original,continuation]},
             internal_steps={'status':'reported','authority':'producer_reported',
-                'steps':[{'id':'reuse','label':'Verify <script>source</script>','state':'reused','detail':'140 preserved conditions'}]})
+                'steps':[{'id':'reuse','label':'Verify <script>source</script>','state':'reused','detail':'140 preserved conditions','source_execution':original}]})
         f['jobs']['fixture-canonical']=record
         self.ui.top();self.wd('/refresh',{})
         self.ui.wait("return document.querySelector('iframe')?.hidden===false");self.ui.frame()
@@ -591,6 +595,9 @@ const done=arguments[arguments.length-1];
         self.ui.route('fixture-canonical')
         self.ui.wait("return document.querySelector('#pa-content').textContent.includes('140 preserved conditions')")
         self.assertTrue(self.ui.js("return document.querySelector('#pa-content').textContent.includes('Verify <script>source</script>') && document.querySelector('#pa-content').textContent.includes('original-attempt')"))
+        self.assertEqual(self.ui.js("return [...document.querySelectorAll('[data-loom-work-time] time')].map(t=>t.getAttribute('datetime'))"),
+                         ['2026-11-09T23:09:40.000Z','2026-11-10T04:47:19.000Z'])
+        self.assertTrue(self.ui.js("return document.querySelector('#pa-content').textContent.includes('08:09:40') && document.querySelector('#pa-content').textContent.includes('12:47:02') && document.querySelector('#pa-content').textContent.includes('13:46:49')"))
 
     def test_queue_merges_live_and_imported_history_and_expands(self):
         ui=self.ui

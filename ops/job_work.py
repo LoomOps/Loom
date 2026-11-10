@@ -53,6 +53,38 @@ def completed_links(c):
     return links
 
 
+def timeline(c,row,spec):
+    """Project logical elapsed time from frozen execution receipts, without writes."""
+    sources=spec.get('_consolidation_sources',[])
+    if not sources:return None
+    executions=[];missing=[];created=[row['created']]
+    for source in sources:
+        original=c.execute('SELECT created FROM jobs WHERE id=?',(source['job'],)).fetchone()
+        if original is not None:created.append(original['created'])
+        attempt=c.execute('SELECT id,state,started,ended FROM attempts WHERE job=? AND id=?',
+                          (source['job'],source['attempt'])).fetchone()
+        if attempt is None:
+            missing.append(dict(source));continue
+        executions.append({'job':source['job'],'attempt':attempt['id'],'role':'source',
+                           **{key:attempt[key] for key in ('state','started','ended')}})
+    for attempt in c.execute('SELECT id,state,started,ended FROM attempts WHERE job=? ORDER BY started,id',(row['id'],)):
+        executions.append({'job':row['id'],'attempt':attempt['id'],'role':'continuation',
+                           **{key:attempt[key] for key in ('state','started','ended')}})
+    starts=[e['started'] for e in executions if e['started'] is not None]
+    ends=[e['ended'] for e in executions if e['ended'] is not None]
+    ended=max(ends) if ends and not missing and row['state'] in ('complete','failed','cancelled') and all(e['ended'] is not None for e in executions) else None
+    return {'authority':'recorded_attempts','queued':min(created),'started':min(starts) if starts else None,'ended':ended,
+            'executions':executions,'missing_sources':missing}
+
+
+def attach_timeline(progress,value):
+    if progress is None or value is None:return
+    sources={(e['job'],e['attempt']):e for e in value['executions'] if e['role']=='source'}
+    for step in progress['steps']:
+        source=sources.get((step.get('source_job'),step.get('source_attempt')))
+        if source is not None:step['source_execution']=dict(source)
+
+
 def progress(folder,spec):
     plan=spec.get('profile',{}).get('steps',[])
     if not plan:return None

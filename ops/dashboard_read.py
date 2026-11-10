@@ -178,6 +178,7 @@ def projection(db, actor, config, local, bulk=None):
         attempts = [dict(value) for value in db.execute(
             'SELECT id,state,started,ended FROM attempts WHERE job=? ORDER BY started,id',(row['id'],))]
         item['consolidated_into']=consolidations.get(row['id'])
+        item['work_timeline']=job_work.timeline(db,row,spec)
         item.update(result=result, attempts=attempts, indexed=bool(db.execute(
             'SELECT 1 FROM entity_revisions WHERE job=? LIMIT 1',(row['id'],)).fetchone()))
         entities.append(job_history.entity(item, spec))

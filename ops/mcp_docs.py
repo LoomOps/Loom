@@ -53,7 +53,7 @@ ACTIONS = {'system.ssh': ('Personal SSH connection', 'Read the current caller SS
                {'limit': 25, 'offset': 0},
                []),
  'jobs.get': ('Job details',
-              'Read state, Attempts, internal_steps, consolidation provenance, waiting reasons, recovery, callbacks and artifacts.',
+              'Read state, Attempts, internal_steps, consolidation provenance, work_timeline from original execution receipts, waiting reasons, recovery, callbacks and artifacts. Consolidated work elapsed time includes sources; Attempts retain continuation runtime timestamps.',
               'Job · status, scheduling, recovery, attempts, stages, callbacks, result',
               {'id': '<job-id>'},
               ['The ID does not exist.']),

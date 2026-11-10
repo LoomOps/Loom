@@ -3,10 +3,46 @@ import os
 from pathlib import Path
 import job_work
 import ops
+import dashboard_read
 from test_support import IsolatedOps
 
 
 class LogicalJobTests(IsolatedOps):
+    def test_logical_timeline_uses_source_receipts_without_rewriting_attempts(self):
+        sources=[self.completed('time-source-'+str(i)) for i in range(2)]
+        job=self.submit({**self.spec('time-canonical'),'consolidates':sources})
+        row=self.claim(job);spec=json.loads(row['spec'])
+        spec['profile']={'sha256':'f'*64,'steps':[{'id':'first','label':'First source'}]}
+        folder=self.data/'runs'/job/row['attempt'];folder.mkdir(parents=True)
+        (folder/'steps.json').write_text(json.dumps({'schema':'loom-job-steps/v1','profile_sha256':'f'*64,
+            'steps':[{'id':'first','state':'reused','source_job':sources[0],'source_attempt':'attempt-'+sources[0]}]}))
+        with ops.db() as c:
+            for identity,start,end in [(sources[0],100,200),(sources[1],250,400),(job,500,530)]:
+                c.execute('UPDATE jobs SET created=? WHERE id=?',(start-10,identity))
+                c.execute('UPDATE attempts SET started=?,ended=? WHERE job=?',(start,end,identity))
+            c.execute("UPDATE jobs SET state='complete',spec=?,result=? WHERE id=?",(json.dumps(spec),json.dumps({'artifact_ready':True}),job))
+            before=[tuple(a) for a in c.execute('SELECT * FROM attempts ORDER BY id')]
+        detail=ops.operate('get_job',{'id':job},self.reader,self.config)
+        self.assertEqual(detail['work_timeline']['started'],100)
+        self.assertEqual(detail['work_timeline']['ended'],530)
+        self.assertEqual(detail['attempts'][0]['started'],500)
+        self.assertEqual(detail['internal_steps']['steps'][0]['source_execution']['ended'],200)
+        with ops.db() as c:
+            entities=dashboard_read.projection(c,self.reader,self.config,self.local,self.data)[0]['entities']
+            entity=next(e for e in entities if e['id']==job)
+            self.assertEqual(entity['properties']['started_at'],100)
+            self.assertEqual(entity['properties']['queued_at'],90)
+            self.assertEqual(entity['properties']['process_exited_at'],530)
+            self.assertEqual(len(entity['execution_intervals']),3)
+            self.assertEqual(len(entity['steps']),3)
+            self.assertEqual(entity['steps'][0]['actual_started_at'],100)
+            self.assertEqual(entity['steps'][0]['source_attempt'],'attempt-'+sources[0])
+            self.assertEqual(entity['attempts'][0]['started'],500)
+            self.assertEqual([tuple(a) for a in c.execute('SELECT * FROM attempts ORDER BY id')],before)
+            c.execute("UPDATE jobs SET state='running' WHERE id=?",(job,))
+            running=c.execute('SELECT * FROM jobs WHERE id=?',(job,)).fetchone()
+            self.assertIsNone(job_work.timeline(c,running,spec)['ended'])
+
     def completed(self,key):
         job=self.submit(self.spec(key));row=self.claim(job)
         with ops.db() as c:

@@ -90,3 +90,10 @@ and internal progress. A pending or failed canonical Job does not hide sources;
 repair it with the same key/Job instead of making competing continuations.
 Dataset manifests can reference earlier registered archives; consolidation does
 not imply copying every file or a new scientific generation.
+
+`jobs.get.work_timeline` derives the whole elapsed period from frozen source
+Attempt receipts plus the continuation run. Reused internal steps include
+server-derived `source_execution` timestamps. Dashboard start/end and execution
+history include the original runs; `attempts` retain the continuation's actual
+runtime timestamps. Do not backdate Attempts or overwrite source records to
+correct a consolidated Job's display. Missing receipts remain explicitly unknown.

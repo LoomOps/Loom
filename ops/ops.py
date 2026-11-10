@@ -1007,12 +1007,15 @@ def operate(name, args, actor, config):
         response = public(row)
         spec=json.loads(row['spec'])
         response['consolidation']={'sources':spec.get('_consolidation_sources',[]),'consolidated_into':job_work.completed_links(c).get(row['id'])}
+        timeline=job_work.timeline(c,row,spec)
+        if timeline is not None:response['work_timeline']=timeline
         if spec.get('profile',{}).get('steps'):
             try:
                 folder=storage.folder(config,BULK,row,relative) if row['attempt'] else None
                 response['internal_steps']=job_work.progress(folder,spec)
             except (OSError,ValueError):
                 response['internal_steps']={**job_work.progress(None,spec),'status':'unavailable','reason':'Output storage is unavailable'}
+            job_work.attach_timeline(response['internal_steps'],timeline)
         response['stages']=[dict(s) for s in c.execute('SELECT attempt,stage,started,ended,state FROM stage_runs WHERE job=? ORDER BY started',(row['id'],))]
         response['callbacks']=[dict(h) for h in c.execute('SELECT stage,state,retries,error FROM hooks WHERE job=?',(row['id'],))]
         response['recovery']=recovery.view(c,row['id'])

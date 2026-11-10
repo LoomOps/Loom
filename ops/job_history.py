@@ -26,12 +26,24 @@ def entity(record, spec):
         process_exited_at=attempts[-1]['ended'] if attempts else None,
         indexed=record.get('indexed', False),
         verification={'level':spec.get('verification_level')})
+    timeline=record.get('work_timeline')
+    if timeline:
+        properties.update(queued_at=timeline['queued'],started_at=timeline['started'],process_exited_at=timeline['ended'],
+                          work_timeline=timeline)
     return {'id':identity, 'kind':'job', 'namespace':'loom',
         'label':spec.get('kind', identity), 'state':record['state'],
         'created':record['created'], 'attempt':record.get('attempt'),
         'properties':properties, 'attempts':attempts, 'loom_job':{'id':identity},
+        **({'steps':[{'id':identity+'-'+e['attempt'],
+            'label':('Reused execution '+str(i+1)) if e['role']=='source' else 'Consolidation verification',
+            'role':e['role'],'state':e['state'],'source_job':e['job'],'source_attempt':e['attempt'],
+            'actual_started_at':e['started'],'actual_exited_at':e['ended'],
+            'attempts':[{'id':e['attempt'],'state':e['state'],'actual_started_at':e['started'],
+                         'actual_exited_at':e['ended']}]}
+            for i,e in enumerate(timeline['executions'])]} if timeline else {}),
         'execution_intervals':[{'start':a['started'], 'end':a['ended'],
-            'count_runtime':True, 'unknown_exit':a['ended'] is None and a['state']!='running'} for a in attempts]}
+            'count_runtime':True, 'unknown_exit':a['ended'] is None and a['state']!='running'}
+            for a in (timeline['executions'] if timeline else attempts)]}
 
 
 def imported(db, actor, config):

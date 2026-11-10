@@ -3883,14 +3883,19 @@ function loomJobPanel(job, entry) {
   const linked = catalogData.entities.filter(entity =&gt; entity.loom_job_id === job.id)
     .map(entity =&gt; &#x27;&lt;p&gt;&#x27; + catLink(entity.id) + &#x27;&lt;/p&gt;&#x27;).join(&#x27;&#x27;);
   const progress = record.internal_steps;
+  const timeline=record.work_timeline;
+  const timeRange=value=&gt;queueTime(queueMillis(value?.started))+&#x27; → &#x27;+queueTime(queueMillis(value?.ended));
+  const workTime=timeline?panel(&#x27;전체 작업 시간&#x27;,&#x27;&lt;p data-loom-work-time&gt;&#x27;+timeRange(timeline)+&#x27;&lt;/p&gt;&#x27;
+    +&#x27;&lt;p&gt;원본 생성부터 통합 검증까지의 경과 시간입니다. 아래 Attempts는 통합 검증 실행 기록입니다.&lt;/p&gt;&#x27;
+    +catTable([&#x27;실행&#x27;,&#x27;시작&#x27;,&#x27;종료&#x27;],timeline.executions.map(value=&gt;[value.role===&#x27;source&#x27;?catLink(value.job):&#x27;통합 검증&#x27;,queueTime(queueMillis(value.started)),queueTime(queueMillis(value.ended))]))):&#x27;&#x27;;
   const internal = progress ? panel(&#x27;Internal steps&#x27;, &#x27;&lt;p&gt;실행기가 보고한 진행 상태입니다. Job 완료와 결과 검증은 별도로 확인합니다.&lt;/p&gt;&#x27;
     +(progress.status===&#x27;unavailable&#x27;?&#x27;&lt;p&gt;&#x27;+esc(progress.reason)+&#x27;&lt;/p&gt;&#x27;:&#x27;&#x27;)
-    +catTable([&#x27;Step&#x27;,&#x27;상태&#x27;,&#x27;상세&#x27;],(progress.steps||[]).map(step=&gt;[esc(step.label),esc(step.state),esc(step.detail||&#x27;&#x27;)]))):&#x27;&#x27;;
+    +catTable([&#x27;Step&#x27;,&#x27;상태&#x27;,&#x27;원본 실행 시간&#x27;,&#x27;상세&#x27;],(progress.steps||[]).map(step=&gt;[esc(step.label),esc(step.state),step.source_execution?timeRange(step.source_execution):&#x27;—&#x27;,esc(step.detail||&#x27;&#x27;)]))):&#x27;&#x27;;
   const sources=record.consolidation?.sources||[];
   const continuity=sources.length?panel(&#x27;이전 실행 이력&#x27;, &#x27;&lt;p&gt;검증된 기존 산출물을 재사용합니다. 원 실행 기록은 보존됩니다.&lt;/p&gt;&#x27;
     +catTable([&#x27;Job&#x27;,&#x27;Attempt&#x27;],sources.map(source=&gt;[catLink(source.job),esc(source.attempt)]))):&#x27;&#x27;;
   const target=record.consolidation?.consolidated_into;
-  return internal+continuity+(target?panel(&#x27;통합 Job&#x27;,catLink(target)):&#x27;&#x27;)+panel(&#x27;Loom 실행 기록&#x27;, &#x27;&lt;div class=&quot;pa-loom-job-summary&quot;&gt;&#x27; + catTable([&#x27;필드&#x27;,&#x27;값&#x27;], rows.map(row =&gt; row.map(loomText))) + &#x27;&lt;/div&gt;&#x27;)
+  return workTime+internal+continuity+(target?panel(&#x27;통합 Job&#x27;,catLink(target)):&#x27;&#x27;)+panel(&#x27;Loom 실행 기록&#x27;, &#x27;&lt;div class=&quot;pa-loom-job-summary&quot;&gt;&#x27; + catTable([&#x27;필드&#x27;,&#x27;값&#x27;], rows.map(row =&gt; row.map(loomText))) + &#x27;&lt;/div&gt;&#x27;)
     + panel(&#x27;Attempts&#x27;, catTable([&#x27;Attempt&#x27;,&#x27;상태&#x27;,&#x27;시작&#x27;,&#x27;종료&#x27;], attempts))
     + (linked ? panel(&#x27;Registry 기록&#x27;, &#x27;&lt;div class=&quot;pa-loom-job-links&quot;&gt;&#x27; + linked + &#x27;&lt;/div&gt;&#x27;) : &#x27;&#x27;);
 }
