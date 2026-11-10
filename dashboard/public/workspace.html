@@ -3968,8 +3968,11 @@ const loomLegacyWorkRow = workRow;
 workRow = function(entity, current) {
   const row = loomLegacyWorkRow(entity, current);
   if (entity.properties?.record_role === &#x27;loom_job&#x27;) {
+    const steps=entity.properties.internal_step_count || (entity.steps || []).length;
+    const attempts=(entity.attempts || []).length;
+    const summary=steps ? steps+&#x27; Steps&#x27; : attempts+(attempts===1?&#x27; Attempt&#x27;:&#x27; Attempts&#x27;);
     row[0] = &#x27;&lt;div class=&quot;pa-queue-name&quot;&gt;&#x27; + catLink(entity.id) + &#x27;&lt;small&gt;&#x27;
-      + (entity.attempts || []).length + &#x27; Attempts&lt;/small&gt;&lt;/div&gt;&#x27;;
+      + summary + &#x27;&lt;/small&gt;&lt;/div&gt;&#x27;;
   }
   const kind = loomJobClass(entity);
   row[0] += &#x27;&lt;small class=&quot;pa-job-classification&quot;&gt;&#x27;+esc(kind.category)+(kind.mode===&#x27;미기록&#x27;?&#x27;&#x27;:&#x27; (&#x27;+esc(kind.mode)+&#x27;)&#x27;)+&#x27;&lt;/small&gt;&#x27;;

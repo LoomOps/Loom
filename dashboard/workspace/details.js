@@ -154,8 +154,11 @@ const loomLegacyWorkRow = workRow;
 workRow = function(entity, current) {
   const row = loomLegacyWorkRow(entity, current);
   if (entity.properties?.record_role === 'loom_job') {
+    const steps=entity.properties.internal_step_count || (entity.steps || []).length;
+    const attempts=(entity.attempts || []).length;
+    const summary=steps ? steps+' Steps' : attempts+(attempts===1?' Attempt':' Attempts');
     row[0] = '<div class="pa-queue-name">' + catLink(entity.id) + '<small>'
-      + (entity.attempts || []).length + ' Attempts</small></div>';
+      + summary + '</small></div>';
   }
   const kind = loomJobClass(entity);
   row[0] += '<small class="pa-job-classification">'+esc(kind.category)+(kind.mode==='미기록'?'':' ('+esc(kind.mode)+')')+'</small>';

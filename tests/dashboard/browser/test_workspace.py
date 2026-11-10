@@ -576,6 +576,7 @@ const done=arguments[arguments.length-1];
         canonical.update(id='fixture-canonical',label='Canonical generation',loom_job={'id':'fixture-canonical'})
         source['properties']['consolidated_into']='fixture-canonical'
         canonical['properties']['consolidates']=['fixture-live']
+        canonical['properties']['internal_step_count']=14
         canonical['properties'].update(started_at=1794265780,process_exited_at=1794286039)
         f['catalog']['entities']=[e for e in f['catalog']['entities'] if not e['id'].startswith('work:')]+[canonical];f['catalog']['revision']='consolidated-fixture'
         record=copy.deepcopy(f['jobs']['fixture-live'])
@@ -589,6 +590,7 @@ const done=arguments[arguments.length-1];
         self.ui.top();self.wd('/refresh',{})
         self.ui.wait("return document.querySelector('iframe')?.hidden===false");self.ui.frame()
         self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Canonical generation')")
+        self.assertEqual(self.ui.js("return document.querySelector('.pa-queue-name [data-entity=fixture-canonical]').closest('.pa-queue-name').querySelector('small').textContent"),'14 Steps')
         self.assertFalse(self.ui.js("return document.querySelector('#pa-content').textContent.includes('Fixture fixture-live')"))
         self.ui.click('[data-job-filter=jobSourceHistory]')
         self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Fixture fixture-live')")

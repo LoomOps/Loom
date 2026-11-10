@@ -24,6 +24,11 @@ The linked code/schemas define fields, enums and state transitions. This documen
 
 Rebuild the generated workspace after UI source edits. Verify both HTTP behavior and real Firefox for authentication, session or relay changes.
 
+Native Job list rows show the pinned internal step count when present, matching
+the ordinary Job presentation. Jobs without steps show the actual Attempt count.
+Attempt execution receipts remain in the detail view; do not replace step counts
+with the number of continuation Attempts or add migration-specific row labels.
+
 The login profile sits below sidebar software information and opens the `Tailscale` tab available to all users. Ordinary users see Account. Administrators additionally see Member and this machine's Access Request approval, denial and retry controls. No logout button is displayed. Tailnet roles and Loom administrator privileges are independent; administrator identity uses the existing issuer/subject allowlist.
 
 Keep session/CSRF state in the parent only. Restrict iframe messages to permitted queries and decisions. Member data and administrative APIs also enforce administrator authorization server-side. Never suspend or delete users across the entire tailnet. The network feature defines Sharing acceptance, approval and revocation. Only an open administrator tab refreshes every 15 seconds; report failed queries rather than displaying an apparently empty list.
