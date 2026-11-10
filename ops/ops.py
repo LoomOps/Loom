@@ -1009,7 +1009,7 @@ def operate(name, args, actor, config):
         response['consolidation']={'sources':spec.get('_consolidation_sources',[]),'consolidated_into':job_work.completed_links(c).get(row['id'])}
         if spec.get('profile',{}).get('steps'):
             try:
-                folder=relative(storage.output(config,BULK,spec),'runs/'+row['id']+'/'+row['attempt']) if row['attempt'] else None
+                folder=storage.folder(config,BULK,row,relative) if row['attempt'] else None
                 response['internal_steps']=job_work.progress(folder,spec)
             except (OSError,ValueError):
                 response['internal_steps']={**job_work.progress(None,spec),'status':'unavailable','reason':'Output storage is unavailable'}

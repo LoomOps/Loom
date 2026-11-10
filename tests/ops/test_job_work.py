@@ -72,3 +72,24 @@ class LogicalJobTests(IsolatedOps):
         path.unlink();os.mkfifo(path);self.assertEqual(job_work.progress(folder,spec)['status'],'unavailable')
         with self.assertRaises(ValueError):job_work.validate_steps(spec['profile']['steps']*2)
         job_work.validate_steps(spec['profile']['steps'])
+
+    def test_started_job_detail_reads_progress_from_pinned_output_store(self):
+        for selector in ('data/0','data/1'):
+            with self.subTest(storage=selector):
+                root=self.data if selector=='data/0' else self.root/'secondary'
+                root.mkdir(exist_ok=True)
+                identity='fixture-data' if selector=='data/0' else 'secondary-data'
+                (root/'.loom-storage.json').write_text(json.dumps({'storage_id':identity}))
+                self.config['data_stores']={'data/1':{'path':str(root),'storage_id':identity,'mode':'rw'}} if selector=='data/1' else {}
+                job=self.submit({**self.spec('progress-'+selector[-1]),'output_storage':selector})
+                row=self.claim(job);spec=json.loads(row['spec'])
+                spec['profile']={'sha256':'f'*64,'steps':[{'id':'verify','label':'Verify'}]}
+                with ops.db() as c:c.execute('UPDATE jobs SET spec=? WHERE id=?',(json.dumps(spec),job))
+                folder=root/'runs'/job/row['attempt'];folder.mkdir(parents=True)
+                report={'schema':'loom-job-steps/v1','profile_sha256':spec['profile']['sha256'],
+                        'steps':[{'id':'verify','state':'completed'}]}
+                (folder/'steps.json').write_text(json.dumps(report))
+                detail=ops.operate('get_job',{'id':job},self.reader,self.config)
+                self.assertEqual(detail['state'],'running')
+                self.assertEqual(detail['internal_steps']['status'],'reported')
+                self.assertEqual(detail['internal_steps']['steps'][0]['state'],'completed')
