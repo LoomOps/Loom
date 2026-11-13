@@ -41,3 +41,17 @@ Verify large artifacts and external filesystem failures against actual storage.
 Artifact-location repair is exposed as `results.reconnect` and HTTP POST
 `/api/registry/reconnect`, with the same submit scope and storage/path/hash checks.
 Discovery and generated bundle references must include every public result action.
+
+Reindex is idempotent only for the same published output set and immutable
+manifest (components/hashes, metadata, metrics and lineage). Validate existing
+revisions before advertising artifact readiness; never silently skip a conflicting
+existing ID. Publication and cancellation serialize on the current Attempt.
+Cancellation wins even if validation raises. Result errors from stale Attempts
+cannot overwrite a newer execution. Native Registry listing has no silent 250-row
+cutoff; local output IDs remain addressable after Job-ID namespacing.
+
+Successful finalizers with verified outputs have a durable per-Attempt receipt.
+Index retries and reindex of an already published Attempt skip that finalizer;
+they never acquire a new execution Attempt or repeat its side effects. Reindex
+temporarily clears readiness until the result is verified again. Legacy published
+Registry manifests also prove that the original finalizer already succeeded.

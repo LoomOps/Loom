@@ -26,7 +26,7 @@ def build(original):
     inner = patch_logs(inner)
     inner = inner.replace("['component','컴포넌트']", "['component','컴포넌트'],['tool','Tool']")
     inner = inner.replace("component:'컴포넌트'}", "component:'컴포넌트',tool:'Tool'}")
-    inner = inner.replace("if(e.kind==='component')return catComponent(e);", "if(e.loom_extension)return loomExtensionDetail(e);if(e.kind==='component')return catComponent(e);")
+    inner = inner.replace("if(e.kind==='component')return catComponent(e);", "if(e.loom_execution_profile)return loomExecutionProfileDetail(e);if(e.loom_runtime)return loomRuntimeDetail(e);if(e.loom_extension)return loomExtensionDetail(e);if(e.kind==='component')return catComponent(e);")
     inner = replace_once(inner, "['mcp','MCP','plug']", "['mcp','Loom Use','plug']")
     inner = replace_once(inner, '<div class="pa-activity-track"><div class="pa-activity-months">',
                          '<div class="pa-activity-track">${activityYears(weeks)}<div class="pa-activity-months">')
@@ -59,8 +59,12 @@ def build(original):
  const keepOpen=keyed&&current.nodeName==='DETAILS';""")
 
     inner = replace_once(inner, 'const rows=workItems(),current=', 'const rows=loomFilteredWorkItems(),current=')
-    inner = replace_once(inner, "current=rows.filter(e=>!queueState(e).info[3]).sort((a,b)=>(queueTimes(b).created??0)-(queueTimes(a).created??0))", "current=rows.filter(e=>!queueState(e).info[3]).sort(loomQueueCompare)")
+    inner = replace_once(inner, "current=rows.filter(e=>!queueState(e).info[3]).sort((a,b)=>(queueTimes(b).created??0)-(queueTimes(a).created??0))", "current=rows.filter(e=>!e.migration?.read_only&&!queueState(e).info[3]).sort(loomQueueCompare)")
+    inner = replace_once(inner, '+panel(`종료 이력 · ${historyFilter', '+loomHistoricalWorkPanel(rows)+panel(`종료 이력 · ${historyFilter')
+    inner = inner.replace('n:rows.filter(e=>queueState(e).info[0]===key).length', 'n:rows.filter(e=>!e.migration?.read_only&&queueState(e).info[0]===key).length')
+    inner = replace_once(inner, '${typeLabel[x.e.kind]}</span>', '${typeLabel[x.e.kind]}${x.e.loom_registry?\' · 등록\':\'\'}</span>')
     inner = replace_once(inner, 'summary+`<div class="pa-queue-caption">사용자 목표', 'summary+loomJobFilters()+loomQueueFeedback()+`<div class="pa-queue-caption">사용자 목표')
+    inner = replace_once(inner, '+loomHistoricalWorkPanel(rows)+panel(`종료 이력', '+loomTimingNotice(rows)+loomHistoricalWorkPanel(rows)+panel(`종료 이력')
     inner = replace_once(inner, 'table(shown,false)',
         'table(shown.slice(0,state.queueHistoryLimits?.[historyFilter]||10),false)+loomHistoryMore(shown.length,historyFilter)')
     inner = replace_once(inner, '+workLogCard(rows);', ';')
@@ -88,18 +92,21 @@ def build(original):
     inner = inner.replace(
         "['agent','Agent','bot']]", "['tools','Tools','wrench'],['docker','Docker','boxes'],['mcp','MCP','plug'],['access','Tailscale','tailscale']]",
     ).replace(
-        "files};", "files,tools:loomToolsView,docker:loomDockerView,mcp:loomMcpView,access:loomAccessView};",
+        "files};", "files,profiles:loomProfilesView,components:loomComponentsView,runtimes:loomRuntimesView,tools:loomToolsView,docker:loomDockerView,mcp:loomMcpView,access:loomAccessView};",
     ).replace(
-        "issues:'issues',agent:'agent'}", "issues:'issues',agent:'queue',tools:'tools',docker:'docker',mcp:'mcp',tailnet:'access',tailscale:'access'}",
+        "issues:'issues',agent:'agent'}", "issues:'issues',agent:'queue',profiles:'profiles',components:'components',runtimes:'runtimes',tools:'tools',docker:'docker',mcp:'mcp',tailnet:'access',tailscale:'access'}",
     )
     if "['tools','Tools','wrench']" not in inner:
         inner=replace_once(inner,"['docker','Docker','boxes']","['tools','Tools','wrench'],['docker','Docker','boxes']")
-    inner=replace_once(inner,"['tools','Tools','wrench']","['tools','Extensions','puzzle']")
-    inner=replace_once(inner,"return {page:e?.kind==='model'?", "return {page:['tool','component'].includes(e?.kind)?'tools':e?.kind==='model'?")
+    inner=replace_once(inner,"['tools','Tools','wrench']","['profiles','Runtimes','boxes']")
+    inner=replace_once(inner,"return {page:e?.kind==='model'?", "return {page:e?.kind==='execution_profile'?'profiles':e?.kind==='component'?'components':e?.kind==='runtime'?'runtimes':e?.kind==='tool'?'tools':e?.kind==='model'?")
     inner=replace_once(inner,"const catEntity=id=>catalogData.entities.find(e=>e.id===id)||(typeof workStepRecord==='function'?workStepRecord(id):null);",
-        "const catEntity=id=>catalogData.entities.find(e=>e.id===id)||(typeof workStepRecord==='function'?workStepRecord(id):null)||loomHistoricalExtensionEntity(id);")
+        "const catEntity=id=>(catalogData.all_entities||catalogData.entities).find(e=>e.id===id)||(typeof workStepRecord==='function'?workStepRecord(id):null)||loomHistoricalExtensionEntity(id);")
+    inner=replace_once(inner,"state.page===id?'active':''","(state.page===id||id==='profiles'&&loomIsHubPage(state.page))?'active':''")
+    inner=replace_once(inner,"state.page===id?'page':'false'","(state.page===id||id==='profiles'&&loomIsHubPage(state.page))?'page':'false'")
+    inner=replace_once(inner,"(navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')","({profiles:'Profiles',components:'Components',tools:'Tools',runtimes:'Runtimes'}[v.page]||navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')")
     marker = "catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');"
-    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "details.js", "queue.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js"))
+    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js"))
     inner = replace_once(inner, marker, inner_additions + "\n" + (HERE.parent/"branding/brand.js").read_text() + "\n" + marker)
     inner = inner.replace("</head>", "<style>" + (HERE / "frame.css").read_text() + "</style></head>", 1)
     style = (HERE / "operations-desk.css").read_text() + (HERE.parent/"branding/brand.css").read_text()

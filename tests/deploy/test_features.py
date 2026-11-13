@@ -4,6 +4,57 @@ ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'deploy'))
 import features
 
 class FeatureCatalogTests(unittest.TestCase):
+    def test_expected_failure_and_unexpected_success_are_never_recorded_as_passes(self):
+        import importlib.util,io
+        spec=importlib.util.spec_from_file_location('loom_test_result',ROOT/'tests/suite.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        class Fixture(unittest.TestCase):
+            @unittest.expectedFailure
+            def test_known_failure(self):self.fail('known fixture failure')
+            @unittest.expectedFailure
+            def test_unexpected_success(self):pass
+        result=unittest.TextTestRunner(stream=io.StringIO(),resultclass=module.Result).run(
+            unittest.defaultTestLoader.loadTestsFromTestCase(Fixture))
+        statuses={case['name'].split('.')[-1]:case['status'] for case in result.records.values()}
+        self.assertEqual(statuses,{'test_known_failure':'expected_failure','test_unexpected_success':'unexpected_success'})
+        self.assertFalse(result.wasSuccessful())
+
+    def test_verification_matrix_and_catalog_fingerprint_cover_all_blocks(self):
+        import re
+        c=features.load();ids={f['id'] for f in c['features']}
+        text=(ROOT/'docs/features/VERIFICATION.md').read_text()
+        rows=set(re.findall(r'^\|\s*([a-z][a-z-]+)\s*\|',text,re.M))
+        self.assertEqual(rows,ids)
+        testing=next(f for f in c['features'] if f['id']=='testing')
+        self.assertIn('docs/features/catalog.json',testing['contracts'])
+
+    def test_audit_returns_invalid_for_a_broken_catalog_instead_of_crashing(self):
+        import tempfile
+        catalog=features.load();catalog['features'][0]['tests'].append('tests/missing.py')
+        with tempfile.TemporaryDirectory() as temp:
+            result=features.audit(catalog,Path(temp))
+        self.assertFalse(result['valid']);self.assertTrue(result['errors'])
+
+    def test_failed_suite_summary_cannot_be_overridden_by_passed_case_rows(self):
+        import tempfile,hashlib,ast
+        c=features.load();f=next(f for f in c['features'] if f['id']=='ssh')
+        paths=f['sources']+f['tests']+f['contracts']+[f['spec']]
+        sources={p:hashlib.sha256((ROOT/p).read_bytes()).hexdigest() for p in paths}
+        cases={}
+        for path in f['tests']:
+            suite='packaging' if Path(path).parts[1]=='deploy' else Path(path).parts[1]
+            tree=ast.parse((ROOT/path).read_text())
+            for cls in tree.body:
+                if isinstance(cls,ast.ClassDef):
+                    for fn in cls.body:
+                        if isinstance(fn,ast.FunctionDef) and fn.name.startswith('test_'):
+                            cases.setdefault(suite,[]).append({'name':Path(path).stem+'.'+cls.name+'.'+fn.name,'status':'passed'})
+        with tempfile.TemporaryDirectory() as temp:
+            for suite,rows in cases.items():
+                (Path(temp)/(suite+'.json')).write_text(json.dumps({'successful':False,'sources':sources,'cases':rows}))
+            block=next(b for b in features.audit(c,Path(temp))['blocks'] if b['id']=='ssh')
+        self.assertFalse(block['passed']);self.assertTrue(block['suite_errors'])
+
     def test_all_current_sources_tests_and_links_have_a_feature(self):
         import jsonschema
         c=features.load();schema=json.loads((ROOT/'docs/features/catalog.schema.json').read_text())

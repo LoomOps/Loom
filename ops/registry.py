@@ -91,15 +91,16 @@ def output_members(output):
         str(Path(ref).parent/item['ref']):item['sha256'] for item in output.get('components',[])}}
 
 
-def index(c,row,result,config,bulk,relative,*,historical=False,prepared=None):
+def index(c,row,result,config,bulk,relative,*,historical=False,prepared=None,validate_only=False):
     if prepared is None:
         prepared=prepare(result,bulk,relative,historical=historical,config=config)
     local_ids={e['id']:e['kind'] for e in result['entities']}
+    published={r['id'] for r in c.execute('SELECT id FROM entity_revisions WHERE job=?',(row['id'],))}
+    if published and published!={row['id']+'.'+identity for identity in local_ids}:
+        raise ValueError('Published output identities are immutable')
     spec=json.loads(row['spec'])
     for e in result['entities']:
         eid=row['id']+'.'+e['id']
-        if c.execute('SELECT 1 FROM entity_revisions WHERE id=? AND revision=1',(eid,)).fetchone():
-            continue
         components,locations=prepared[e['id']]
         relations=[{'kind':r['kind'],'id':row['id']+'.'+r['entity_id'],'revision':1}
                    for r in e.get('relations',[]) if r['entity_id'] in local_ids]
@@ -139,6 +140,12 @@ def index(c,row,result,config,bulk,relative,*,historical=False,prepared=None):
                   **{k:e[k] for k in ('metadata','label','description') if k in e},
                   'metadata_schema':spec.get('profile',{}).get('metadata_schemas',{}).get(e['id'],spec.get('profile',{}).get('metadata_schemas',{}).get('*')),
                   'metrics':[m for m in result['metrics'] if m['entity_id']==e['id']]}
+        old=c.execute('SELECT manifest FROM entity_revisions WHERE id=? AND revision=1',(eid,)).fetchone()
+        if old:
+            if encode(json.loads(old['manifest']))!=encode(manifest):
+                raise ValueError('Published result differs from immutable Registry revision')
+            continue
+        if validate_only:continue
         c.execute('INSERT INTO entity_revisions VALUES(?,?,?,?,?,?,?)',
                   (eid,1,row['id'],e['kind'],row['owner'],row['submitter'],encode(manifest)))
         job_owner=c.execute("SELECT owner FROM item_owners WHERE kind='job' AND id=?",(row['id'],)).fetchone()
@@ -151,7 +158,8 @@ def view(c,actor,eid=None,revision=1):
     where='1=1'
     if eid is None:
         return [ownership.decorate(c,'entity',dict(r)) for r in c.execute(
-            'SELECT id,revision,kind,job,owner,submitter FROM entity_revisions WHERE '+where+' ORDER BY id LIMIT 250',args)]
+            'SELECT id,revision,kind,job,owner,submitter FROM entity_revisions WHERE '+where+' ORDER BY id',args)]
+    if type(revision) is not int or revision<1:raise ValueError('Invalid entity revision')
     row=c.execute('SELECT manifest,owner FROM entity_revisions WHERE '+where+' AND id=? AND revision=?',
                   (*args,eid,revision)).fetchone()
     if not row:

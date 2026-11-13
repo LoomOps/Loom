@@ -2,7 +2,7 @@
 
 Run `python3 deploy/installer/setup.py inspect` from the source checkout. In a kit use `python3 setup.py inspect`. If prerequisites/login are missing, complete the relevant host preparation in step 2 and return here.
 
-Recommend **host `/loom/data` as `data/0`**. Ask explicitly: “Keep `/loom/data` as data/0? Are there additional RW directories to register, or existing disks/filesystems to mount at another location?” Inventory disks and current mounts first; never select, format or repartition a disk automatically. A separate disk is optional. Use `/dependencies` for selected editable sources and recommend GPU only from detected hardware/driver/container support.
+Recommend **host `/loom/data` as `data/0`**. Ask explicitly: “Keep `/loom/data` as data/0? Are there additional RW directories to register, or existing disks/filesystems to mount at another location?” Inventory disks and current mounts first; never select, format or repartition a disk automatically. A separate disk is optional. Ask for the dependency directory (`/dependencies` is only an example/default); save it in plan.dependencies and pass that exact path to the executor for source and Runtime installations and recommend GPU only from detected hardware/driver/container support.
 
 Ask for the login email of the Tailscale account that will administer Loom: “Which Tailscale account will administer Loom? Provide that account’s Tailscale login email.” A contact email or OS username is not sufficient. Do not infer the Admin from the OS user or a tagged machine's owner. No research framework is a prerequisite.
 

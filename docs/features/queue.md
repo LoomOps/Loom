@@ -24,6 +24,10 @@ The linked code/schemas define fields, enums and state transitions. This documen
 
 When queue policy changes, verify dispatch, catalog ordering and control capabilities with the same scenarios.
 
+Dependency readiness accepts completed Jobs or verified returned artifacts in
+processing/result_failed. A stale readiness flag on cancelled/failed execution
+does not qualify. Recovery patches refresh inferred inputs and reject graph cycles.
+
 ## Tests and failure boundaries
 
 - [tests/ops/test_queue_contract.py](../../tests/ops/test_queue_contract.py)

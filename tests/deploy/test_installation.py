@@ -34,11 +34,15 @@ class InstallationTests(unittest.TestCase):
    root=Path(temp)/'instance';data=Path(temp)/'data';executor=Path(temp)/'executor'
    uid=os.getuid() or 1001;gid=os.getgid() or 1001
    installer.install(root,data,19021,19022,19023,'fixture','x','y',uid=uid,gid=gid)
+   dependencies=Path(temp)/'custom-dependencies';dependencies.mkdir()
+   (root/'config/installation-plan.json').write_text(json.dumps({'dependencies':str(dependencies)}))
    argv=['executor-attach.py',str(root),'--data',str(data),'--instance','fixture','--executor',str(executor),'--network','bridge','--driver-capability','compute','--driver-capability','utility','--driver-capability','graphics']
    with patch.object(sys,'argv',argv),patch('os.geteuid',return_value=0),patch('os.chown'),patch('host_identity.protected_chain'),contextlib.redirect_stdout(io.StringIO()):
     runpy.run_path(str(ROOT/'deploy/executor-attach.py'),run_name='__main__')
    config=json.loads((executor/'config.json').read_text())
    self.assertEqual(config['uid'],0)
+   self.assertEqual(config['instances']['fixture']['dependencies'],str(dependencies))
+   self.assertEqual(json.loads((root/'config/api.json').read_text())['dependency_directory'],str(dependencies))
    self.assertEqual((config['instances']['fixture']['uid'],config['instances']['fixture']['gid']),(uid,gid))
    self.assertEqual(config['instances']['fixture']['declared_runtime']['network'],'bridge')
    self.assertEqual(config['instances']['fixture']['declared_runtime']['driver_capabilities'],['compute','utility','graphics'])

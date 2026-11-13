@@ -14,7 +14,7 @@ ROOT=Path('/loom/ops')
 FSTAB=Path('/etc/fstab')
 DEFAULT={'data':'/loom/data','dependencies':'/dependencies','mount':None,'repositories':[],
          'additional_data':[],'mounts':[],'host_ssh':True,'runtime_options':{},'gpu':False,'tailscale':None,'api_port':18892,'dashboard_port':18893,'tls_port':18894}
-TOOLS=['docker','openssl','setfacl','getfacl','findmnt','lsblk','blkid','mount','systemctl']
+TOOLS=['docker','openssl','setfacl','getfacl','findmnt','lsblk','blkid','mount','systemctl','ip']
 
 def run(*args):
  return subprocess.check_output([str(a) for a in args],text=True,stderr=subprocess.PIPE).strip()
@@ -231,7 +231,7 @@ def apply(plan):
  # Keep the boot-time Compose code independent of the downloaded/extracted kit.
  dest=Path('/loom/distribution')/info['build_id'];shutil.copytree(src,dest)
  for p in [dest.parent,dest,*dest.rglob('*')]:os.chown(p,0,0);p.chmod(0o755 if p.is_dir() else 0o644)
- args=[sys.executable,dest/'deploy/executor-attach.py',ROOT,'--instance','alpha','--data',plan['data'],'--install-service']
+ args=[sys.executable,dest/'deploy/executor-attach.py',ROOT,'--instance','alpha','--data',plan['data'],'--dependencies',plan['dependencies'],'--install-service']
  from runtime_policy import options
  selected=options(plan.get('runtime_options',{}));args.extend(['--network',selected['network']])
  for capability in selected['driver_capabilities']:args.extend(['--driver-capability',capability])
@@ -262,7 +262,8 @@ TimeoutStopSec=120
 [Install]
 WantedBy=multi-user.target
 '''
- Path('/etc/systemd/system/loom-stack.service').write_text(unit)
+ from boot_readiness import harden_unit
+ Path('/etc/systemd/system/loom-stack.service').write_text(harden_unit(unit,stack=True))
  run('systemctl','daemon-reload');run('systemctl','enable','--now','loom-stack.service');step('compose')
  for _ in range(30):
   try:result=verify_core(plan);break

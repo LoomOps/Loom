@@ -105,14 +105,17 @@ def action(c,row,actor,operation,args,validate_patch):
         if rec['rounds']>=MAX_ROUNDS:raise ValueError('Recovery budget exhausted')
         spec=json.loads(row['spec']);patch=args.get('patch',{})
         if not isinstance(patch,dict) or set(patch)-{'params','kind','execution'}:raise ValueError('Recovery may update parameters, runtime profile and execution limits only')
-        spec=validate_patch(spec,patch)
+        finalization=row['state']=='result_failed'
+        if finalization and patch:raise ValueError('Result-only retry cannot change execution inputs')
+        if not finalization:spec=validate_patch(spec,patch)
         reason=args.get('reason','agent recovery')
         if not isinstance(reason,str) or not 1<=len(reason)<=1000:raise ValueError('Recovery reason required')
         revision=c.execute('SELECT COALESCE(MAX(revision),0)+1 FROM job_revisions WHERE job=?',(row['id'],)).fetchone()[0]
         c.execute('INSERT INTO job_revisions VALUES(?,?,?,?,?)',(row['id'],revision,json.dumps(spec),reason,now))
-        finalization=row['state']=='result_failed'
-        if finalization and patch:raise ValueError('Result-only retry cannot change execution inputs')
+        if not finalization and row['attempt'] and row['result']:
+            c.execute('INSERT OR IGNORE INTO attempt_results VALUES(?,?,?)',(row['id'],row['attempt'],row['result']))
         c.execute("UPDATE jobs SET spec=?,state=?,cancel=0,available_at=0 WHERE id=?",(json.dumps(spec),'processing' if finalization else 'queued',row['id']))
+        if not finalization:c.execute('UPDATE jobs SET result=NULL WHERE id=?',(row['id'],))
         if finalization:c.execute('UPDATE result_outbox SET retries=0,next_try=0 WHERE job=?',(row['id'],))
         c.execute("UPDATE recovery SET state='pending',token=NULL,updated=? WHERE job=?",(now,row['id']))
     else:raise ValueError('Unknown recovery operation')

@@ -56,7 +56,10 @@ def detail(c,owner,identity,revision=None):
     if revision is not None:query+=' AND revision=?';args.append(revision)
     row=c.execute(query+' ORDER BY revision DESC LIMIT 1',args).fetchone()
     if not row:raise ValueError('Tool revision not found')
-    return {**dict(row),'manifest':json.loads(row['manifest']),**ownership.extension(c,'tool',owner,identity)}
+    import software_metadata
+    manifest=json.loads(row['manifest'])
+    return {**dict(row),'manifest':manifest,**ownership.extension(c,'tool',owner,identity),
+        'classification':software_metadata.read(c,'tool',owner,identity,row['revision'],manifest)}
 
 
 def operate(c,actor,args,config):

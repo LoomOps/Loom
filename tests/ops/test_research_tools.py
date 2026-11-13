@@ -124,7 +124,8 @@ class ResearchToolTests(IsolatedOps):
     def test_dashboard_lists_tools_separately_from_components(self):
         self.register();self.action('register',id='lifecycle',manifest={},files={'run.py':'adapter'})
         with ops.db() as c:catalog,_=dashboard_read.projection(c,self.owner,self.config,self.local)
-        self.assertEqual({e['kind'] for e in catalog['entities']},{'tool','component'})
+        self.assertEqual({e['kind'] for e in catalog['entities']},{'tool','component','execution_profile'})
+        self.assertTrue(any(e['id']=='profile:cpu.smoke' for e in catalog['entities']))
         self.assertEqual(next(e for e in catalog['entities'] if e['kind']=='tool')['label'],'Motion planner')
 
     def test_dashboard_revisions_preserve_exact_profile_bindings_without_writes(self):

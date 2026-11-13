@@ -1,5 +1,6 @@
 """Current execution profile discovery and typed artifact validation."""
 import execution
+import runtime_catalog
 import hashlib
 import math
 import re
@@ -9,7 +10,7 @@ APP = Path(__file__).resolve().parent
 HEX = re.compile('[a-f0-9]{64}')
 
 def describe(config, actor):
-    if 'submit' not in actor['scopes']:return []
+    if 'read' not in actor['scopes']:return []
     rows=[{'kind':'cpu.smoke','params_schema':{'type':'object','properties':{
         'seconds':{'type':'integer','minimum':0,'maximum':20},'fail':{'type':'boolean'}},
         'required':['seconds','fail'],'additionalProperties':False},'outputs':{'observation':'artifact'},
@@ -20,6 +21,8 @@ def describe(config, actor):
             'params_schema':p['params_schema'],'outputs':p['outputs'],'defaults':p.get('defaults',{}),
             'metadata_schemas':p.get('metadata_schemas',{}),'tool_pins':{alias:{k:v for k,v in ref.items() if k not in ('path','source_pins')} for alias,ref in p.get('tool_pins',{}).items()},'limits':p['limits'],'preparation':bool(p.get('prepare')),
             'lane':p['runtime'].get('lane','cpu'),'execution_schema':execution.POLICY_SCHEMA,
+            'usage':p.get('usage'),
+            'runtime_bindings':{stage:({**runner['runtime_pin'],**runtime_catalog.dependency_preview(runner['runtime_pin'].get('dependencies',[]))} if runner.get('runtime_pin') else {'legacy_id':runner.get('runtime_id'),'image':runner.get('image')}) for stage in ('runtime','prepare','finalize','on_complete','on_error','on_cancel') if (runner:=p.get(stage))},
             **config.get('_profile_owners',{}).get(kind,{})})
     return rows
 
@@ -30,6 +33,12 @@ def installed(config,kind,actor,params,bulk,relative,ident,dependencies=()):
     profile=config.get('profiles',{}).get(kind)
     if not profile:raise PermissionError('Installed profile outside grant')
     validate_profile(profile,relative)
+    for stage in ('runtime','prepare','finalize','on_complete','on_error','on_cancel'):
+        runner=profile.get(stage,{})
+        if 'runtime_ref' in runner:
+            pin=runner.get('runtime_pin',{})
+            if not pin.get('sha256') or {k:pin.get(k) for k in ('id','revision')}!=runner['runtime_ref']:
+                raise ValueError('Profile Runtime reference must be sealed by registration')
     execution.validate(profile['params_schema'],params)
     execution.admit_inputs(profile,params,config,bulk,relative,ident,dependencies)
     return profile

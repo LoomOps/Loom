@@ -63,7 +63,8 @@ def extension(c, kind, namespace, identity):
 
 
 def assign(c, kind, identity, owner, author):
-    if not c.execute('SELECT 1 FROM user_profiles WHERE id=?',(owner,)).fetchone():
+    builtin=owner=='built-in' and kind in ('component','tool','profile')
+    if not builtin and not c.execute('SELECT 1 FROM user_profiles WHERE id=?',(owner,)).fetchone():
         raise ValueError('Owner profile is not registered')
     previous=c.execute('SELECT owner FROM item_owners WHERE kind=? AND id=?',(kind,identity)).fetchone()
     if previous and previous[0]==owner:return False
@@ -89,6 +90,8 @@ def decorate(c, kind, item, fallback=None):
 def inventory(c):
     """Current items, including imported views; source snapshots stay immutable."""
     items={('job',r[0]) for r in c.execute('SELECT id FROM jobs')}
+    if c.execute("SELECT 1 FROM sqlite_master WHERE name='job_workflows'").fetchone():
+        items.update(('job',r[0]) for r in c.execute('SELECT id FROM job_workflows'))
     items.update(('entity',r[0]) for r in c.execute('SELECT id FROM entity_revisions'))
     for row in c.execute('SELECT source,kind,id,body FROM history_records'):
         body=json.loads(row['body'])
@@ -97,6 +100,6 @@ def inventory(c):
         elif row['source']=='catalog' and 'original' in body:
             item=body['original'];items.add(('job' if item.get('kind')=='job' else 'entity',item['id']))
         items.add(('history',':'.join((row['source'],row['kind'],row['id']))))
-    for table,kind in (('components','component'),('execution_profiles','profile')):
+    for table,kind in (('components','component'),('tools','tool'),('execution_profiles','profile')):
         items.update((kind,owner+':'+identity) for owner,identity in c.execute(f'SELECT DISTINCT owner,id FROM {table}'))
     return sorted(items)

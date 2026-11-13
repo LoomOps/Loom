@@ -1,5 +1,6 @@
 """Single, non-replicated online transfer authority for one logical node."""
 import argparse
+import errno
 import hashlib
 import hmac
 import json
@@ -7,6 +8,7 @@ import os
 import secrets
 import sqlite3
 import ssl
+import time
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError
@@ -95,6 +97,18 @@ def initialize(path):
         c.execute("INSERT INTO fence VALUES(1,'source','source',0,NULL,NULL)")
 
 
+def listener(host,port,handler,timeout=120,*,clock=time.monotonic,sleep=time.sleep,factory=ThreadingHTTPServer):
+    """Wait only for a not-yet-assigned address; other bind failures stay errors."""
+    deadline=clock()+timeout
+    while True:
+        try:return factory((host,port),handler)
+        except OSError as exc:
+            if exc.errno!=errno.EADDRNOTAVAIL:raise
+            remaining=deadline-clock()
+            if remaining<=0:raise TimeoutError('Configured authority bind address did not become available') from exc
+            sleep(min(1,remaining))
+
+
 def serve(path,policy,host,port,cert=None,key=None):
     database=path.resolve().as_uri()+'?mode=rw'
     with sqlite3.connect(database,uri=True) as c:
@@ -137,7 +151,7 @@ def serve(path,policy,host,port,cert=None,key=None):
             self.send_header('Content-Length',str(len(payload)))
             self.end_headers()
             self.wfile.write(payload)
-    server=ThreadingHTTPServer((host,port),Handler)
+    server=listener(host,port,Handler)
     if cert:
         context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.minimum_version=ssl.TLSVersion.TLSv1_2

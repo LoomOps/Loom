@@ -11,6 +11,28 @@ from unittest.mock import patch
 from test_support import IsolatedOps
 
 class ExecutorBoundaryTests(IsolatedOps):
+ def test_registered_runtime_executes_pinned_image_and_enforces_instance_grant(self):
+  import runtime_store
+  manifest={'runtime':{'image':'sha256:'+'b'*64,'network':'none'},'validation':{'status':'passed'},'dependencies':[]}
+  ref=runtime_store.register(self.executor_root,'sim',manifest,['alpha'])
+  request=self.request(lane='cpu');request.pop('runtime_id');request['runtime_ref']=ref
+  with self.assertRaises(PermissionError):self.executor.handle('other','start',request)
+  with self.assertRaises(ValueError):self.executor.handle('alpha','start',{**request,'runtime_ref':{'id':'sim','revision':1}})
+  result=self.executor.handle('alpha','start',request)
+  self.assertIn('ticket',result)
+  self.assertIn('sha256:'+'b'*64,next(c for c in self.calls if c[0]=='create'))
+  with self.assertRaises(ValueError):self.executor.handle('alpha','start',{**request,'ticket':'different','runtime_id':'python'})
+
+ def test_unreturned_runtime_validation_and_installer_lock_block_gpu_only(self):
+  import runtime_store,fcntl
+  with (self.executor_root/'runtime-install.lock').open('a') as f:
+   fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
+   self.assertTrue(self.executor.handle('alpha','start',self.request())['busy'])
+   self.assertIn('ticket',self.executor.handle('dev','start',self.request(lane='cpu')))
+  runtime_store.installation(self.executor_root,'attempt','sim','failed',{'validation_gpu':True,'container_returned':False})
+  self.assertTrue(self.executor.handle('alpha','start',self.request())['busy'])
+  self.assertFalse(any(c[0]=='create' and '--gpus' in c for c in self.calls))
+
  def test_runtime_owner_labels_do_not_partition_shared_jobs(self):
   self.executor.CONFIG['runtimes']['python']['owners']=['someone-else']
   request={**self.request(),'owner':'colleague'}

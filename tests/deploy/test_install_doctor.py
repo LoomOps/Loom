@@ -35,6 +35,7 @@ class InstallationDoctorTests(unittest.TestCase):
   p=setup.ROOT/name;p.parent.mkdir(parents=True,exist_ok=True)
   p.write_text(value if isinstance(value,str) else json.dumps(value));return p
  def configured(self):
+  Path(self.plan['dependencies']).mkdir(exist_ok=True)
   s=self.plan['tailscale']['sso'];issuer=self.access['admins'][0]['issuer']
   self.write('config/api.json',{'machine_id':self.access['machine_id'],'machine_name':self.access['name'],
    'dashboard_auth':{'enabled':True,'issuer':issuer},'tailscale_auth':{'enabled':True,'trusted_proxies':['10.203.41.1','10.203.41.3']},'executor':{'host_data':self.plan['data'],'storage':{'data/0':self.plan['data']}},'data_stores':{'data/0':{'path':'/loom/data/0','mode':'rw','storage_id':'primary'}}})
@@ -72,6 +73,12 @@ class InstallationDoctorTests(unittest.TestCase):
   self.assertFalse(doctor.doctor(setup,self.plan,'configuration')['ready'])
   self.write('build.env','LOOM_DEV_NO_AUTH=0\n');self.access['admins'][0]['subject']='changed';self.save_access()
   self.assertFalse(doctor.doctor(setup,self.plan,'configuration')['ready'])
+ def test_dependency_directory_uses_saved_plan_and_rejects_drift(self):
+  self.configured()
+  self.assertTrue(doctor.dependency_directory_ready(setup.ROOT,self.plan))
+  path=setup.ROOT.parent/'shared/executor/config.json';config=json.loads(path.read_text())
+  config['instances']['alpha']['dependencies']=str(self.root/'other');path.write_text(json.dumps(config))
+  self.assertFalse(doctor.dependency_directory_ready(setup.ROOT,self.plan))
  def test_storage_list_is_explicit_read_write_and_nonoverlapping(self):
   other=self.root/'archive';other.mkdir();self.plan['additional_data']=[str(other)]
   setup.validate(self.plan);setup.ROOT.mkdir()

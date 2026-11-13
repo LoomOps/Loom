@@ -21,3 +21,10 @@ Compose startup waits up to 90 seconds for configured healthchecks. Doctor repor
 health:starting as waiting, unhealthy as fail, and an absent smoke receipt as not_run.
 Neither waiting nor not_run means ready. Run server doctor with sudo; client setup
 remains unprivileged. SSH setup follows final executor storage registration.
+
+Startup waits for the exact configured published host addresses, including a
+Tailscale address that appears after network-online.target. This bounded address
+wait is separate from the 90-second Compose health wait. Generated stack units
+allow both phases and retry failed starts with backoff. Shutdown and read-only
+Compose commands must remain usable while the address is missing. Do not widen a
+private listener to 0.0.0.0 to work around boot ordering.

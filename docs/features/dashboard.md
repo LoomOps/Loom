@@ -29,19 +29,31 @@ the ordinary Job presentation. Jobs without steps show the actual Attempt count.
 Attempt execution receipts remain in the detail view; do not replace step counts
 with the number of continuation Attempts or add migration-specific row labels.
 
+Actual Job phase is the primary badge during recovery execution; recovery rounds
+remain detail metadata. Queue position/reason does not repeat the running label.
+Read-only imported nonterminal records have a separate preserved-record panel,
+not a position in the active queue. Missing historical classification displays
+unrecorded rather than an intentional Other category.
+
+Activity includes native Jobs and registered dataset/model/experiment outputs.
+Consolidated source Jobs/outputs do not count again beside their completed
+canonical Job. Native publication receipts are labeled registration time, not
+invented research creation time. Stage intervals exclude preparation-to-run queue
+gaps; old Attempt-only receipts remain a labeled timing limitation. Cross-Job
+parallel time remains additive; intervals within one logical Job are unioned.
+
 The login profile sits below sidebar software information and opens the `Tailscale` tab available to all users. Ordinary users see Account. Administrators additionally see Member and this machine's Access Request approval, denial and retry controls. No logout button is displayed. Tailnet roles and Loom administrator privileges are independent; administrator identity uses the existing issuer/subject allowlist.
 
 Keep session/CSRF state in the parent only. Restrict iframe messages to permitted queries and decisions. Member data and administrative APIs also enforce administrator authorization server-side. Never suspend or delete users across the entire tailnet. The network feature defines Sharing acceptance, approval and revocation. Only an open administrator tab refreshes every 15 seconds; report failed queries rather than displaying an apparently empty list.
 
 ## Tests and failure boundaries
 
-The Extensions sidebar entry uses a puzzle icon, distinct from the
-Troubleshooting wrench. Its shared inventory filters by software type, namespace
+The Runtimes sidebar entry opens a shared workspace with Profiles, Components, Tools
+and Runtimes views. Each view filters by category, owner
 and text, separating registered immutable extensions from preserved catalog
 records. Details display source pins, revision history, execution stages and exact
 Tool/Profile bindings. Old revision URLs remain readable after a newer registration;
-per-document revision/filter selection survives catalog refresh. No browser action
-registers, executes or rewrites software. Native extension ownership is integrated
+per-document revision/filter selection survives catalog refresh. The workspace supports authenticated display curation, read-only inspection/comparison and submission-draft preparation; it does not enqueue Jobs or execute installers. Native extension ownership is integrated
 in its Identity panel rather than a duplicate generic Properties card.
 
 - [tests/dashboard/test_proxy.py](../../tests/dashboard/test_proxy.py)
@@ -221,3 +233,28 @@ The MCP reference tab and page are displayed as **Loom Use**. The route `mcp`,
 tool groups and protocol names remain stable; the server and guide manifest expose
 `title: "Loom Use"` for display. Package paths and the `loom-use` skill identifier
 remain unchanged.
+
+Profiles are the default view of the Runtimes sidebar entry, alongside Components, Tools and Runtimes. The default detail shows shared Component/Tool pins above stage-specific environments and dependency versions. Conditional hooks are labeled by their trigger. Job history, input/output settings and identity are collapsed; no Profile self-node or duplicate dependency table is shown. The built-in CPU check is projected from code even in an otherwise empty development catalog, with its real worker stage and no fabricated Component or registered Runtime. Development acceptance checks the running instance source mounts as well as fixture-backed browser tests.
+
+Revision-scoped software annotations supply evidence-backed categories and concise
+labels without changing sealed source/Job contracts. The Profile table separates
+Components and Tools, and details keep aliases, categories and stage environments
+visible without boilerplate definitions. Missing declared purpose can display
+observed Job categories with an explicit tooltip/style distinction. Reuse counts
+are distinct executed logical Jobs; consolidated sources and same-Job Attempts do
+not increase reuse.
+
+Administrator Runtime inventory probes measure immutable images and declared
+mounted package/source metadata without a build, GPU launch or research execution.
+Current observations bind the exact administrator policy, image ID and metadata
+hashes; legacy runtime_id and direct-image execution fields stay unchanged. A
+changed tag/policy/metadata cannot be silently presented as the current observation.
+New Runtime bindings verify observed metadata again. Inventory-only validation
+never certifies framework imports, graphics or scientific compatibility. Package
+names with conflicting context versions cannot satisfy an ambiguous requirement.
+
+Consolidated execution records remain associated with their canonical logical Job,
+even when that Job uses another Profile kind. They increase recorded-execution
+counts, not the number of independent Jobs/reuses. Profile details retain source
+record links alongside the canonical Job link; consolidation must not make an
+actually used Profile appear unused.

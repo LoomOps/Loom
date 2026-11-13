@@ -171,7 +171,7 @@ arbitrary mounts, Docker arguments and privileges are not accepted from profiles
 GPU remains an explicit lane and instance grant. Administrator-owned compatibility
 runtimes may retain read-only dataset/library mounts for existing Jobs.
 
-The private executor is installed with root-owned server.py and runtime_policy.py beneath protected parents. Compose and Job runner UID/GID are taken from the loom service identity. Fresh
+The private executor is installed with root-owned server.py, runtime_policy.py and runtime_store.py beneath protected parents. Compose and Job runner UID/GID are taken from the loom service identity. Fresh
 installation creates owned components/profile directories. Attach it with
 `deploy/executor-attach.py`; see its help for instance/data/UID/GID options.
 

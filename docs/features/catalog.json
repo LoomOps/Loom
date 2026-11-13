@@ -91,7 +91,8 @@
         "tests/ops/test_mcp_docs.py",
         "tests/ops/test_job_contract.py",
         "tests/ops/test_generic_agent.py",
-        "tests/ops/test_initialization.py"
+        "tests/ops/test_initialization.py",
+        "tests/ops/test_job_lifecycle.py"
       ],
       "depends_on": [
         "identity",
@@ -148,7 +149,8 @@
       ],
       "tests": [
         "tests/ops/test_queue_contract.py",
-        "tests/ops/test_queue_control.py"
+        "tests/ops/test_queue_control.py",
+        "tests/ops/test_job_lifecycle.py"
       ],
       "depends_on": [
         "identity",
@@ -200,11 +202,14 @@
         "ops/hooks.py",
         "ops/runtime_client.py",
         "ops/runtime_contract.py",
-        "ops/job_work.py"
+        "ops/job_work.py",
+        "ops/workflows.py"
       ],
       "tests": [
         "tests/ops/test_executor_boundary.py",
-        "tests/ops/test_job_work.py"
+        "tests/ops/test_job_work.py",
+        "tests/ops/test_job_lifecycle.py",
+        "tests/ops/test_research_workflows.py"
       ],
       "depends_on": [
         "extensions"
@@ -252,7 +257,8 @@
         "ops/recovery.py"
       ],
       "tests": [
-        "tests/ops/test_worker_recovery.py"
+        "tests/ops/test_worker_recovery.py",
+        "tests/ops/test_job_lifecycle.py"
       ],
       "depends_on": [
         "identity",
@@ -304,7 +310,8 @@
         "tests/ops/test_result_pipeline.py",
         "tests/ops/test_output_contract.py",
         "tests/ops/test_installation_smoke.py",
-        "tests/ops/test_storage_results.py"
+        "tests/ops/test_storage_results.py",
+        "tests/ops/test_job_lifecycle.py"
       ],
       "depends_on": [
         "identity",
@@ -338,17 +345,25 @@
     },
     {
       "id": "extensions",
-      "summary": "Components, Tools, Profiles and execution environment contracts",
+      "summary": "Components, Tools, Profiles and immutable Runtime environment contracts",
       "sources": [
         "ops/component_store.py",
         "ops/profile_store.py",
         "ops/profiles.py",
-        "ops/tool_store.py"
+        "ops/tool_store.py",
+        "ops/runtime_catalog.py",
+        "executor/runtime_store.py",
+        "ops/profile_inventory.py",
+        "ops/software_metadata.py",
+        "ops/runtime_hub.py"
       ],
       "tests": [
         "tests/ops/test_components_platform.py",
         "tests/ops/test_independent_profiles.py",
-        "tests/ops/test_research_tools.py"
+        "tests/ops/test_research_tools.py",
+        "tests/ops/test_runtime_catalog.py",
+        "tests/ops/test_profile_inventory.py",
+        "tests/ops/test_runtime_hub.py"
       ],
       "depends_on": [
         "identity"
@@ -356,12 +371,15 @@
       "spec": "docs/features/extensions.md",
       "contracts": [
         "ops/runtime_contract.py",
-        "ops/profiles.py"
+        "ops/profiles.py",
+        "loom_use/runtimes.md",
+        "ops/execution.py"
       ],
       "invariants": [
-        "Registering a new component must not require new MCP tools or platform redeployment. Preserve profile revision pins on submitted Jobs."
+        "Registering a new component must not require new MCP tools or platform redeployment. Preserve profile revision pins on submitted Jobs.",
+        "Runtime metadata is separate from Job state; instance grants and exact revisions are verified, and dependency discovery does not authorize host installation."
       ],
-      "change_rule": "When Profiles, Components or Tools change, check input schemas, prepare/run/completion hooks, executor runtime policy, registration/read MCP actions and guides.",
+      "change_rule": "When Profiles, Components, Tools or Runtimes change, review stage pins, dependency requirements, executor grants/policy, API/MCP discovery, Dashboard, configured installation directories and preservation.",
       "live_validation": [
         "The execution-environment owner verifies actual external image dependencies, caches and GPU compatibility."
       ],
@@ -385,6 +403,38 @@
             "api",
             "execution"
           ]
+        },
+        {
+          "name": "Granted Runtime inventory",
+          "entrypoint": "ops/runtime_catalog.py#inventory",
+          "accepts": "Instance executor configuration plus read-only Profile/Job catalog",
+          "returns": "Granted exact Runtime revisions, validation evidence and actual consumers, or explicit unavailable status",
+          "consumers": [
+            "api",
+            "dashboard",
+            "execution"
+          ]
+        },
+        {
+          "name": "Exact Runtime resolution",
+          "entrypoint": "executor/runtime_store.py#detail",
+          "accepts": "Executor state, instance and exact id/revision with optional sealed digest",
+          "returns": "Integrity-checked immutable manifest within instance grant; denies missing/changed revisions",
+          "consumers": [
+            "execution",
+            "installation"
+          ]
+        },
+        {
+          "name": "Profile combinations",
+          "entrypoint": "ops/profile_inventory.py#inventory",
+          "accepts": "Read-only registry and installed config, actor and recorded Jobs",
+          "returns": "Exact software and stage environment combinations with declared/observed usage and current attribution; no execution or Job gate",
+          "consumers": [
+            "api",
+            "dashboard",
+            "onboarding"
+          ]
         }
       ]
     },
@@ -394,13 +444,15 @@
       "sources": [
         "ops/dashboard_read.py",
         "ops/history_store.py",
-        "ops/job_history.py"
+        "ops/job_history.py",
+        "ops/research.py"
       ],
       "tests": [
         "tests/ops/test_job_history.py",
         "tests/ops/test_dashboard_resources.py",
         "tests/ops/test_file_preview.py",
-        "tests/ops/test_history_availability.py"
+        "tests/ops/test_history_availability.py",
+        "tests/ops/test_job_lifecycle.py"
       ],
       "depends_on": [
         "identity",
@@ -483,7 +535,7 @@
     },
     {
       "id": "dashboard",
-      "summary": "Dashboard HTTP relay·workspace UI",
+      "summary": "Dashboard HTTP relay\u00b7workspace UI",
       "sources": [
         "dashboard/.dockerignore",
         "dashboard/Dockerfile",
@@ -514,7 +566,9 @@
         "dashboard/workspace/queue.js",
         "dashboard/workspace/surfaces.js",
         "dashboard/workspace/template.html",
-        "dashboard/workspace/text-preview.js"
+        "dashboard/workspace/text-preview.js",
+        "dashboard/workspace/job-activity.js",
+        "dashboard/workspace/research.js"
       ],
       "tests": [
         "tests/dashboard/test_proxy.py",
@@ -570,7 +624,8 @@
         "ops/onboarding.py",
         "loom_use/client-release.json",
         "deploy/client_release.py",
-        "tests/ops/client_source.py"
+        "tests/ops/client_source.py",
+        "loom_use/runtimes.md"
       ],
       "tests": [
         "tests/ops/test_onboarding.py",
@@ -629,7 +684,8 @@
         "tests/dashboard/test_gateway.py",
         "tests/dashboard/test_sharing.py",
         "tests/deploy/test_managed_resources.py",
-        "tests/dashboard/test_managed_permissions.py"
+        "tests/dashboard/test_managed_permissions.py",
+        "tests/deploy/test_boot_readiness.py"
       ],
       "depends_on": [
         "identity",
@@ -700,7 +756,8 @@
         "ops/remote_fence.py"
       ],
       "tests": [
-        "tests/ops/test_remote_ownership.py"
+        "tests/ops/test_remote_ownership.py",
+        "tests/deploy/test_boot_readiness.py"
       ],
       "depends_on": [
         "identity",
@@ -789,7 +846,10 @@
         "ops/host_layout.py",
         "ops/release_updates.py",
         "deploy/runtime_doctor.py",
-        "deploy/queue_control_cli.py"
+        "deploy/queue_control_cli.py",
+        "deploy/boot_readiness.py",
+        "deploy/runtime.py",
+        "deploy/runtime_inventory.py"
       ],
       "tests": [
         "tests/deploy/test_host_identity.py",
@@ -804,7 +864,9 @@
         "tests/deploy/test_uninstall.py",
         "tests/deploy/test_upgrade_migrations.py",
         "tests/ops/test_release_updates.py",
-        "tests/deploy/test_runtime_doctor.py"
+        "tests/deploy/test_runtime_doctor.py",
+        "tests/deploy/test_boot_readiness.py",
+        "tests/deploy/test_runtime_install.py"
       ],
       "depends_on": [
         "network",
@@ -921,7 +983,8 @@
       "contracts": [
         "docs/features/catalog.schema.json",
         "deploy/features.py",
-        "docs/features/VERIFICATION.md"
+        "docs/features/VERIFICATION.md",
+        "docs/features/catalog.json"
       ],
       "invariants": [
         "Development validation adds no new gates to Job execution. Distinguish test results from actual deployment state."

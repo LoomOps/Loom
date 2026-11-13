@@ -103,7 +103,7 @@ def scheduling(c,row,lane_for):
  waiting=[];failed=False
  for ident in dependencies:
   upstream=c.execute("SELECT state,json_extract(result,'$.artifact_ready') FROM jobs WHERE id=?",(ident,)).fetchone()
-  if upstream and (upstream['state']=='complete' or upstream[1]==1):continue
+  if upstream and (upstream['state']=='complete' or (upstream['state'] in ('processing','result_failed') and upstream[1]==1)):continue
   waiting.append(ident)
   failed |= upstream is None or upstream['state'] in ('failed','cancelled','interrupted','blocked','result_failed')
  if waiting:return stopped('dependencies',waiting_for=waiting,dependency_failed=failed)
@@ -131,4 +131,20 @@ def view(c,actor,lane_for):
  revision=hashlib.sha256(json.dumps(rows,sort_keys=True).encode()).hexdigest()
  control=dispatch_control.status(c)
  revision=hashlib.sha256(json.dumps({'entries':rows,'dispatch':control},sort_keys=True).encode()).hexdigest()
- return {'revision':revision,'entries':rows,'dispatch':control}
+ import research
+ for item in rows:
+  record=c.execute('SELECT id,spec FROM jobs WHERE id=?',(item['id'],)).fetchone()
+  item['presentation']=research.job(c,record)
+  item['presentation']['visible']=item['presentation'].get('scope')=='research' and item['presentation'].get('role')=='main' and not item['presentation'].get('parent_job')
+ import workflows
+ logical=[];byid={r['id']:r for r in rows}
+ for w in workflows.listing(c):
+  children=[byid[n['job']] for n in w['executions'] if n['job'] in byid]
+  if not children:continue
+  held=all(n['held'] for n in children)
+  p=w['presentation'];p['visible']=p.get('scope')=='research' and p.get('role')=='main' and not p.get('parent_job')
+  logical.append({'id':w['id'],'owner':w['owner'],'state':w['state'],'status':w['status'],
+   'position':min((n['position'] for n in children if n['position'] is not None),default=None),
+   'held':held,'reason':'held' if held else 'executing' if w['state'] in ('running','preparing') else 'recovery_required' if w['errors'] else children[0]['reason'],
+   'eligible':False,'can_reorder':False,'can_hold':any(n['can_hold'] for n in children),'can_resume':any(n['can_resume'] for n in children),'presentation':p})
+ return {'revision':revision,'entries':rows,'logical_entries':logical,'dispatch':control}

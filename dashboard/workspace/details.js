@@ -81,8 +81,10 @@ function loomJobPanel(job, entry) {
   const continuity=sources.length?panel('이전 실행 이력', '<p>검증된 기존 산출물을 재사용합니다. 원 실행 기록은 보존됩니다.</p>'
     +catTable(['Job','Attempt'],sources.map(source=>[catLink(source.job),esc(source.attempt)]))):'';
   const target=record.consolidation?.consolidated_into;
-  return workTime+internal+continuity+(target?panel('통합 Job',catLink(target)):'')+panel('Loom 실행 기록', '<div class="pa-loom-job-summary">' + catTable(['필드','값'], rows.map(row => row.map(loomText))) + '</div>')
-    + panel('Attempts', catTable(['Attempt','상태','시작','종료'], attempts))
+  const previous=record.previous_result;
+  const prior=previous?panel('이전 결과 기록','<p>현재 Attempt의 결과가 아닙니다.</p>'+catTable(['사유','Stage','Exit code'],[[previous.reason,previous.stage,previous.exit_code].map(loomText)])):'';
+  return workTime+internal+continuity+prior+(target?panel('통합 Job',catLink(target)):'')+panel('Loom 실행 기록', '<div class="pa-loom-job-summary">' + catTable(['필드','값'], rows.map(row => row.map(loomText))) + '</div>')
+    + (attempts.length?panel('Attempts', catTable(['Attempt','상태','시작','종료'], attempts)):'')
     + (linked ? panel('Registry 기록', '<div class="pa-loom-job-links">' + linked + '</div>') : '');
 }
 
@@ -120,10 +122,12 @@ function loomJobContract() {
 }
 function loomJobClass(entity) {
   const p = entity.properties || {}, c = loomJobContract();
-  return {category:c.categories[p.category] || 'Other', mode:c.execution_modes[p.execution_mode] || '미기록'};
+  return {category:p.category_recorded===false?'미기록':c.categories[p.category] || '미기록', mode:c.execution_modes[p.execution_mode] || '미기록'};
 }
 function loomFilteredWorkItems() {
-  return workItems().filter(e => (!state.jobCategory || (e.properties?.category || 'other') === state.jobCategory)
+  const items=workItems(),known=new Set(items.map(e=>e.id));
+  if(state.jobSourceHistory)items.push(...(catalogData.all_entities||[]).filter(e=>e.kind==='job'&&!known.has(e.id)&&e.properties?.consolidated_into&&known.has(e.properties.consolidated_into)));
+  return items.filter(e => (!state.jobCategory || (e.properties?.category || 'other') === state.jobCategory)
     && (!state.jobExecutionMode || e.properties?.execution_mode === state.jobExecutionMode)
     && (state.jobSourceHistory || !e.properties?.consolidated_into));
 }
@@ -277,7 +281,8 @@ function loomDetailHeading(html, id) {
       row.classList.add('pa-entity-title-row');
       row.append(menu);
     }
-    template.content.prepend(title);
+    const hub=template.content.querySelector('.pa-hub-context')||template.content.querySelector('.pa-hub-tabs');
+    if(hub)hub.after(title);else template.content.prepend(title);
     const entity = catEntity(id);
     const owner = entity?.owner_profile || {};
     const ownerRow = '<div><dt>Owner</dt><dd title="'+esc(owner.login || '')+'">'+esc(owner.display_name || entity?.properties?.owner_name || entity?.owner || 'Unassigned')+'</dd></div>';
@@ -290,7 +295,7 @@ function loomDetailHeading(html, id) {
         + '<div><dt>Job Type</dt><dd>' + esc(loomJobClass(entity).category) + '</dd></div>'
         + '<div><dt title="Full: main run; Pilot: reduced trial; Smoke: startup check">Execution Mode</dt><dd>' + esc(loomJobClass(entity).mode) + '</dd></div></dl>');
       title.after(...properties.children);
-    } else if (entity && !entity.loom_extension) {
+    } else if (entity && !entity.loom_extension && !entity.loom_runtime && !entity.loom_execution_profile) {
       const properties = document.createElement('div');
       properties.innerHTML = panel('Properties', '<dl class="pa-job-properties">'+ownerRow+'</dl>');
       title.after(...properties.children);
@@ -380,8 +385,9 @@ window.addEventListener('message', event => {
 const loomPriorQueueState=queueState;
 queueState=function(entity){
   const base=loomPriorQueueState(entity), p=entity.properties||{}, r=p.recovery;
-  if(r && ['waiting','claimed','pending','executing'].includes(r.state)) return {raw:base.raw,info:['recovery',r.state==='claimed'?'Recovering':'Recovery · '+r.state,'!',false]};
-  if(r && ['deferred','exhausted'].includes(r.state)) return {raw:base.raw,info:['failed',r.state==='deferred'?'Deferred':'Recovery exhausted','!',true]};
+  // Recovery rounds describe repair ownership; the Job phase owns execution status.
+  if(['failed','interrupted','result_failed'].includes(base.raw) && r && ['waiting','claimed'].includes(r.state)) return {raw:base.raw,info:['recovery',r.state==='claimed'?'Recovering':'Awaiting recovery','!',false]};
+  if(['failed','interrupted','result_failed'].includes(base.raw) && r && ['deferred','exhausted'].includes(r.state)) return {raw:base.raw,info:['failed',r.state==='deferred'?'Deferred':'Recovery exhausted','!',true]};
   const labels={queued:'Queued',blocked:'Waiting for inputs',preparing:'Preparing',ready:'Ready',running:'Running',processing:'Finalizing',complete:'Completed',result_failed:'Finalizing failed'};
   return {raw:base.raw,info:[base.info[0],labels[base.raw]||base.info[1],base.info[2],base.info[3]]};
 };

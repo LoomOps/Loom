@@ -82,6 +82,13 @@
     return (await get(path, signal)).json();
   }
 
+  let researchIncoming=null;
+  window.addEventListener('message',event=>{
+    if(event.source!==frame.contentWindow||event.data?.type!=='loom-research-view'||!['research','operations','builtin','all'].includes(event.data.view)||!researchIncoming)return;
+    loomPresentationView=event.data.view;
+    const catalog=loomCatalogProjection(researchIncoming);
+    emit('pai-catalog-data',{catalog,connected:true});
+  });
   async function refreshCatalog() {
     if (!signedIn() || catalogRequest) return;
     const signal = lifetime.signal;
@@ -91,8 +98,9 @@
       if (signal.aborted) return;
       if (!Array.isArray(incoming.entities)) throw new Error('Invalid catalog response');
       catalogRevision = incoming.revision;
+      researchIncoming=incoming;
       const catalog = loomCatalogProjection(incoming);
-      catalogEntities = new Map(catalog.entities.map(entity => [entity.id, entity]));
+      catalogEntities = new Map((catalog.all_entities||catalog.entities).map(entity => [entity.id, entity]));
       emit('pai-catalog-data', {catalog, connected: true});
       window.dispatchEvent(new Event('pai-auth-restored'));
       catalogLoaded = true;
@@ -236,6 +244,16 @@
       if (authError(error)) return reset('현재 credential로 다시 연결해 주세요.');
       emit('loom-detail-response', {identity, requestId, error: error.status || 503});
     }
+  }
+
+  async function runtimeAction(message) {
+    if (!signedIn() || !['inspect_profile','compare_profiles','curate'].includes(message.action) || typeof message.id!=='string' || message.id.length>128) return;
+    try {
+      const response=await fetch('/api/runtimes/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(30000)});
+      const value=await response.json();
+      emit('loom-runtime-action-result',{id:message.id,ok:response.ok,value});
+      if (response.ok && message.action==='curate') refreshCatalog();
+    } catch(error) { emit('loom-runtime-action-result',{id:message.id,ok:false,value:{error:'request_unavailable'}}); }
   }
 
   async function queueAction(message) {
@@ -383,6 +401,8 @@
       showBuild(buildInfo);
       refreshCatalog();
       updates();
+    } else if (message.type === 'loom-runtime-action') {
+      runtimeAction(message);
     } else if (message.type === 'loom-queue-action') {
       queueAction(message);
     } else if (message.type === 'loom-detail-request') {

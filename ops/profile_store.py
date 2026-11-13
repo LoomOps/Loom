@@ -5,7 +5,9 @@ import os
 from pathlib import Path
 import execution
 import job_work
+import research
 import ownership
+import runtime_catalog
 from runtime_contract import seal
 
 ROOT=Path(os.environ.get('LOOM_PROFILES','/loom/profiles'))
@@ -15,12 +17,14 @@ RUNNER_SCHEMA={'type':'object','properties':{
     'executor':{'const':'container'},'command':{'type':'array','minItems':1,'items':{'type':'string','minLength':1}},
     'image':{'type':'string','description':'Cached Docker reference; resolved to image ID when registering.'},
     'runtime_id':{'type':'string','description':'Optional administrator-installed compatibility runtime.'},
+    'runtime_ref':runtime_catalog.REF_SCHEMA,
     'resources':{'type':'object','properties':{'cpus':{'type':'number','exclusiveMinimum':0},'memory':{'type':'string','pattern':'^[1-9][0-9]*[kmg]$'},'pids':{'type':'integer','minimum':16}},'additionalProperties':False},
     'storage':{'type':'array','uniqueItems':True,'items':{'type':'string','pattern':'^data/[0-9]+$'},'description':'Opt-in RW stores from system.status.data_stores; mounted at /loom/data/N. Omit for only the Job workspace.'},
     'lane':{'enum':['cpu','gpu']},'env':{'type':'object','additionalProperties':{'type':'string'}},
     'timeout':{'type':'integer','minimum':1},'depends_on':{'type':'array','items':{'type':'string'}},'inputs':{'type':'array','items':{'type':'string'}}},
-    'required':['executor','command'],'oneOf':[{'required':['image'],'not':{'required':['runtime_id']}},{'required':['runtime_id'],'not':{'required':['image']}}], 'additionalProperties':False}
-PROFILE_SCHEMA={'type':'object','properties':{
+    'required':['executor','command'],'oneOf':[{'required':[key],'not':{'anyOf':[{'required':[other]} for other in ('image','runtime_id','runtime_ref') if other!=key]}} for key in ('image','runtime_id','runtime_ref')], 'additionalProperties':False}
+PROFILE_SCHEMA={'type':'object','properties':{'presentation':research.PROFILE_PRESENTATION,
+    'usage':execution.USAGE_SCHEMA,
     'steps':job_work.STEPS_SCHEMA,
     'tools':{'type':'object','description':'Alias to an exact registered Tool owner/id/revision.', 'additionalProperties':{'type':'object','properties':{'owner':{'type':'string'},'id':{'type':'string'},'revision':{'type':'integer','minimum':1}},'required':['id','revision'],'additionalProperties':False}},
     'params_schema':{'type':'object','description':'Local JSON Schema for resolved Job params.'},
@@ -53,7 +57,12 @@ def bind_runners(profile,config,owner):
         execution.validate_storage(runner.get('storage',[]))
         if set(runner.get('storage',[]))-set(config.get('executor',{}).get('storage',{})):raise ValueError('Storage outside instance grant')
         if runner.get('lane','cpu')=='gpu' and not config.get('allow_gpu',False):raise PermissionError('GPU execution disabled for this instance')
-        if 'image' in runner:
+        if 'runtime_pin' in runner:raise ValueError('Runtime pins are assigned by Loom')
+        if 'runtime_ref' in runner:
+            if 'image' in runner or 'runtime_id' in runner:raise ValueError('Choose one execution environment')
+            if 'resources' in runner:raise ValueError('Registered Runtime resource policy is administrator-owned')
+            runtime_catalog.bind(runner,config)
+        elif 'image' in runner:
             if 'runtime_id' in runner:raise ValueError('Choose image or runtime_id')
             if 'executor' not in config:raise ValueError('Container executor unavailable')
             resolved=call(config['executor'],'resolve',{'image':runner['image'],'resources':runner.get('resources',{}),'owner':owner})
@@ -79,18 +88,24 @@ def operate(c,actor,args,config):
     import tool_store
     references=definition.pop('tools',{})
     if references:definition['tool_pins']=tool_store.bind(c,references,owner)
+    for ref in references.values():
+        tool=tool_store.detail(c,ref.get('owner',owner),ref['id'],ref['revision'])
+        runtime_catalog.check_requirements(tool['manifest'],definition)
     if component:=args.get('component'):
         row=c.execute('SELECT manifest,profiles FROM components WHERE owner=? AND id=? AND revision=?',(owner,component['id'],component['revision'])).fetchone()
         if not row:raise ValueError('Component revision not found')
         from component_store import ROOT as COMPONENTS
         folder=COMPONENTS/owner/component['id']/'revisions'/str(component['revision'])
         from component_store import pinned_sources
+        runtime_catalog.check_requirements(json.loads(row['manifest']),definition)
         pins=pinned_sources(row)
         definition.update(component_path=str(folder),source_pins=pins)
     from component_store import mutation
     mutation(c)
     version=c.execute('SELECT coalesce(max(revision),0)+1 FROM execution_profiles WHERE owner=? AND id=?',(owner,identity)).fetchone()[0]
     kind=f'{owner}.{identity}.r{version}'
+    from component_store import merge
+    if kind in merge(c,config)['profiles']:raise ValueError('Execution profile identity already registered')
     profile=seal({**definition,'schema':execution.REVISION,'revision':kind,'owners':[owner],'submitters':[actor['id'],owner]})
     folder=ROOT/owner/identity/'revisions'
     if not folder.resolve().is_relative_to(ROOT.resolve()):raise ValueError('Profile leaves owner root')

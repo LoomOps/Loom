@@ -33,3 +33,9 @@ Test sources define the concrete scenarios. `deploy/test.sh` records individual 
 ## Live validation
 
 Actual external-agent reactivation and duplicate callback effects belong to client acceptance testing.
+
+Original-key replay compares submission revision zero and frozen defaults, not a
+later repaired spec. Prior failure outcomes are stored per Attempt; a new execution
+clears the current result. Legacy active rows expose preserved previous_result
+without attributing it to the active Attempt. Result-only recovery retains the
+same Attempt and does not rerun execution admission or reload mutable inputs.

@@ -110,7 +110,7 @@
 #pai-studio .pa-workspace .pa-node-environment { letter-spacing: 0; white-space: nowrap; }
 
 /* Keep the first tab flush with the pane edge. */
-#pai-studio .pa-document-tabs { padding-left: 0; }
+#pai-studio .pa-document-tabs { padding-left: 0; scrollbar-width:thin; scrollbar-color:var(--pa-muted) var(--pa-side); }
 #pai-studio .pa-document-tab > [role=tab] { padding-left: 14px; }
 #pai-studio .pa-history-more { display: flex; gap: 8px; margin-top: 16px; }
 #pai-studio .pa-host-online.is-online,
@@ -318,13 +318,47 @@
 #pai-studio [data-ssh-username][readonly]{border-color:transparent;background:transparent;padding-left:0}
 
 /* Software inventory shares the workspace palette and remains usable in split panes. */
-#pai-studio .pa-extension-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:24px}
+#pai-studio .pa-extension-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:16px;margin-bottom:24px}
 #pai-studio .pa-extension-summary>div{padding:20px 24px;border:1px solid var(--pa-line);border-radius:20px;background:var(--pa-paper)}
 #pai-studio .pa-extension-summary span{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
 #pai-studio .pa-extension-summary strong{display:block;margin:8px 0;font-size:30px;line-height:1.1;font-weight:650;font-variant-numeric:tabular-nums}
 #pai-studio .pa-extension-summary p{margin:0;color:var(--pa-muted);font-size:12px;line-height:1.6}
+#pai-studio .pa-profile-purposes{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+#pai-studio .pa-profile-purpose{display:inline-flex;padding:5px 10px;border:1px solid var(--pa-line);border-radius:9px;background:var(--pa-paper);font-size:12px;white-space:nowrap}
+#pai-studio .pa-profile-list{overflow-x:auto;margin-top:16px}
+#pai-studio .pa-profile-list table{width:100%;border-collapse:collapse;text-align:left;font-size:13px}
+#pai-studio .pa-profile-list th{color:var(--pa-muted);font-size:12px;font-weight:500;padding:12px 16px;border-bottom:1px solid var(--pa-line)}
+#pai-studio .pa-profile-list td{padding:20px 16px;vertical-align:top;border-bottom:1px solid var(--pa-line);overflow-wrap:anywhere}
+#pai-studio .pa-profile-list td:first-child{min-width:180px}
+#pai-studio .pa-profile-list td small{display:block;color:var(--pa-muted);font-size:11px;margin-top:5px}
+#pai-studio .pa-profile-meta{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 0 24px}
+#pai-studio .pa-profile-software{display:flex;flex-wrap:wrap;gap:20px;padding:0 0 22px;border-bottom:1px solid var(--pa-line)}
+#pai-studio .pa-profile-software>div{display:flex;flex-direction:column;gap:8px;min-width:0;overflow-wrap:anywhere}
+#pai-studio .pa-profile-software small{color:var(--pa-muted);font-size:11px}
+#pai-studio .pa-profile-flow{list-style:none;margin:0;padding:0}
+#pai-studio .pa-profile-flow>li{display:grid;grid-template-columns:120px minmax(0,1fr);gap:24px;padding:24px 0;border-bottom:1px solid var(--pa-line)}
+#pai-studio .pa-profile-flow>li:last-child{border-bottom:0;padding-bottom:4px}
+#pai-studio .pa-profile-flow>li.is-conditional{border-left:2px dashed var(--pa-line);padding-left:16px}
+#pai-studio .pa-profile-stage-name{display:flex;flex-direction:column;gap:8px;font-size:14px}
+#pai-studio .pa-profile-stage-name small{color:var(--pa-muted);font-size:11px}
+#pai-studio .pa-profile-stage-environment{overflow-wrap:anywhere;font-size:14px}
+#pai-studio .pa-profile-stage-environment>small{display:none}
+#pai-studio .pa-profile-dependencies{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:12px}
+#pai-studio .pa-profile-dependency{padding:6px 10px;border-radius:8px;background:var(--pa-tint)}
+#pai-studio .pa-profile-dependency b{font-weight:500;color:var(--pa-muted)}
+#pai-studio .pa-execution-options{border-bottom:1px solid var(--pa-line);padding:18px 0;font-size:13px}
+#pai-studio .pa-execution-options>summary{cursor:pointer;color:var(--pa-muted)}
+#pai-studio .pa-execution-options[open]>summary{margin-bottom:20px}
+@media(max-width:700px){
+ #pai-studio .pa-profile-flow>li{grid-template-columns:80px minmax(0,1fr);gap:14px}
+ #pai-studio .pa-profile-list th,#pai-studio .pa-profile-list td{padding:14px 10px}
+}
+@media(max-width:700px){
+  #pai-studio .pa-extension-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  #pai-studio .pa-extension-summary>div{padding:14px;border-radius:14px}
+}
 #pai-studio .pa-extension-toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-#pai-studio .pa-extension-filters{display:flex;gap:3px;padding:3px;border-radius:10px;background:var(--pa-bg)}
+#pai-studio .pa-extension-filters{display:flex;flex-wrap:wrap;gap:3px;padding:3px;border-radius:10px;background:var(--pa-bg)}
 #pai-studio .pa-extension-filters button{border:0;border-radius:7px;padding:7px 10px;background:transparent;color:var(--pa-muted);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}
 #pai-studio .pa-extension-filters button[aria-pressed=true]{background:var(--pa-paper);color:var(--pa-ink);box-shadow:0 1px 3px #0001}
 #pai-studio .pa-extension-search{display:flex;align-items:center;gap:8px;flex:1 1 180px;min-width:0;border:1px solid var(--pa-line);border-radius:9px;padding:8px 10px}
@@ -380,3 +414,104 @@
 #pai-studio .pa-extension-id{background:transparent;padding:0}
 #pai-studio .pa-extension-detail-grid table{table-layout:fixed;width:100%}
 #pai-studio .pa-extension-detail-grid th:first-child{width:50%}
+
+#pai-studio .pa-heading h1{overflow-wrap:anywhere;min-width:0}
+#pai-studio .pa-heading>div{min-width:0;max-width:100%}
+#pai-studio .pa-software-tags{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+#pai-studio .pa-software-tags>span{padding:3px 7px;border-radius:6px;background:var(--pa-tint);color:var(--pa-ink);font-size:11px;white-space:nowrap}
+#pai-studio .pa-software-filter{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+#pai-studio .pa-software-filter button{border:1px solid transparent;border-radius:8px;background:none;padding:0;cursor:pointer}
+#pai-studio .pa-software-filter button[aria-pressed=true]{border-color:var(--pa-accent)}
+#pai-studio .pa-software-filter .pa-software-tags{margin:0}
+#pai-studio .pa-profile-software{display:grid;grid-template-columns:minmax(180px,1fr) minmax(0,2fr)}
+#pai-studio .pa-profile-software:not(:has(.pa-profile-component)){grid-template-columns:minmax(0,1fr)}
+#pai-studio .pa-profile-tools{border-left:1px solid var(--pa-line);padding-left:20px;min-width:0}
+#pai-studio .pa-profile-tools h3{font-size:11px;color:var(--pa-muted);font-weight:500;margin:0 0 12px}
+#pai-studio .pa-profile-tools>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:16px}
+#pai-studio [data-software-kind]{min-width:0;overflow-wrap:anywhere}
+#pai-studio [data-software-kind]>small{display:block;margin-bottom:7px}
+#pai-studio .pa-profile-purpose.is-observed{border-style:dashed;background:transparent}
+#pai-studio .pa-profile-list table{table-layout:fixed;min-width:840px}
+#pai-studio .pa-profile-list th:first-child{width:23%}
+#pai-studio .pa-profile-list th:nth-child(2){width:18%}
+#pai-studio .pa-profile-list th:nth-child(3){width:24%}
+#pai-studio .pa-profile-list th:nth-child(5){width:8%}
+#pai-studio .pa-profile-list th:nth-child(6){width:10%}
+@container pane (max-width:740px){
+ #pai-studio .pa-profile-software{grid-template-columns:minmax(0,1fr)}
+ #pai-studio .pa-profile-tools{border-left:0;border-top:1px solid var(--pa-line);padding:16px 0 0}
+}
+
+@media(max-height:1000px){#pai-studio .pa-nav-item{padding:8px 12px}#pai-studio nav{gap:3px}}
+@media(max-height:760px){#pai-studio .pa-nav-item{padding:6px 10px}#pai-studio nav{gap:2px}}
+
+@media(max-width:760px) and (max-height:520px){
+ #pai-studio #pa-nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px;flex:0 1 auto}
+ #pai-studio #pa-nav .pa-nav-item{min-height:22px;padding:1px 0}
+ #pai-studio #pa-nav .pa-nav-item svg{width:18px;height:18px}
+}
+
+@container pane (max-width:740px){
+ #pai-studio .pa-profile-list table{min-width:0;display:block}
+ #pai-studio .pa-profile-list thead{display:none}
+ #pai-studio .pa-profile-list tbody{display:block}
+ #pai-studio .pa-profile-list tr{display:block;border-top:1px solid var(--pa-line);padding:16px 0}
+ #pai-studio .pa-profile-list td{display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px;min-width:0;border:0;padding:7px 0}
+ #pai-studio .pa-profile-list td:first-child{display:block;min-width:0;font-size:14px;margin-bottom:8px}
+ #pai-studio .pa-profile-list td:not(:first-child):before{content:attr(data-label);font-size:11px;color:var(--pa-muted)}
+ #pai-studio .pa-profile-list td>div{min-width:0}
+}
+
+#pai-studio .pa-heading p:empty{display:none}
+/* The Runtimes workspace keeps one navigation context across its four registries. */
+#pai-studio .pa-hub-tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--pa-line);padding:0 0 14px;margin-bottom:24px}
+#pai-studio .pa-hub-tabs button{display:inline-flex;gap:7px;align-items:center;border:0;border-radius:8px;padding:9px 14px;background:transparent;color:var(--pa-muted);font:inherit;font-size:13px;cursor:pointer}
+#pai-studio .pa-hub-tabs button[aria-current=page]{background:var(--pa-tint);color:var(--pa-accent);font-weight:600}
+#pai-studio .pa-hub-tabs svg{width:15px;height:15px}
+#pai-studio .pa-hub-context{display:flex;gap:12px;align-items:center;margin:-8px 0 18px;font-size:12px;overflow-wrap:anywhere}
+#pai-studio .pa-hub-context span{color:var(--pa-muted)}
+#pai-studio .pa-hub-toggle{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--pa-muted)}
+#pai-studio .pa-hub-group{margin:30px 0}
+#pai-studio .pa-hub-group>h2{font-size:14px;color:var(--pa-muted);font-weight:500;margin:0 0 14px}
+#pai-studio .pa-profile-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,450px),1fr));gap:16px;overflow:visible;margin-top:0}
+#pai-studio .pa-profile-choice{border:1px solid var(--pa-line);background:var(--pa-paper);border-radius:16px;padding:22px;min-width:0;overflow-wrap:anywhere}
+#pai-studio .pa-profile-choice-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#pai-studio .pa-profile-choice h3{font-size:16px;line-height:1.45;margin:0;flex:1 1 200px;min-width:0}
+#pai-studio .pa-profile-choice-title .pa-profile-purposes{width:100%}
+#pai-studio .pa-profile-choice footer{display:flex;flex-wrap:wrap;align-items:center;gap:10px;border-top:1px solid var(--pa-line);margin-top:18px;padding-top:13px;color:var(--pa-muted);font-size:11px}
+#pai-studio .pa-profile-choice footer>.pa-extension-card-head{margin-left:auto}
+#pai-studio .pa-hub-io{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:16px;align-items:center;margin:20px 0;color:var(--pa-muted);font-size:12px}
+#pai-studio .pa-hub-io>div{display:flex;flex-wrap:wrap;gap:6px;min-width:0;overflow-wrap:anywhere}
+#pai-studio .pa-hub-io small{display:block;width:100%;color:var(--pa-muted);font-size:11px;margin-bottom:3px}
+#pai-studio .pa-hub-io span{color:var(--pa-ink)}
+#pai-studio .pa-hub-combination{display:grid;gap:12px;font-size:12px}
+#pai-studio .pa-hub-combination>div{display:grid;grid-template-columns:85px minmax(0,1fr);gap:10px;align-items:start;min-width:0}
+#pai-studio .pa-hub-combination>div>small{color:var(--pa-muted);font-size:11px}
+#pai-studio .pa-hub-combination>div .pa-link{font-size:12px}
+#pai-studio .pa-hub-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 20px}
+#pai-studio [data-profile-revision],#pai-studio .pa-hub-actions select{max-width:100%;border:1px solid var(--pa-line);border-radius:7px;background:var(--pa-paper);color:var(--pa-ink);font:inherit;font-size:12px;padding:6px}
+#pai-studio .pa-hub-stage-tools{margin-top:12px;font-size:12px}
+#pai-studio .pa-extension-card .pa-profile-dependencies{min-height:30px;margin-bottom:18px}
+#pai-studio [data-runtime-inventory] .pa-extension-toolbar{margin-bottom:16px}
+#pai-studio .pa-hub-dialog{background:var(--pa-paper);color:var(--pa-ink);border:1px solid var(--pa-line);border-radius:16px;padding:24px;width:min(720px,calc(100vw - 40px));max-height:85vh;overflow:auto;box-sizing:border-box;font:inherit;font-size:13px}
+#pai-studio .pa-hub-dialog::backdrop{background:#0006}
+#pai-studio .pa-hub-dialog header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
+#pai-studio .pa-hub-dialog h2{font-size:18px;margin:0}
+#pai-studio .pa-hub-dialog label{display:block;margin:12px 0;overflow-wrap:anywhere}
+#pai-studio .pa-hub-dialog input:not([type=checkbox]),#pai-studio .pa-hub-dialog textarea,#pai-studio .pa-hub-dialog select,#pai-studio [data-inventory-query],#pai-studio [data-inventory-origin]{box-sizing:border-box;width:100%;min-width:0;max-width:100%;border:1px solid var(--pa-line);border-radius:7px;background:var(--pa-paper);color:inherit;padding:9px;font:inherit;margin-top:5px}
+#pai-studio .pa-hub-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
+#pai-studio .pa-hub-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
+#pai-studio .pa-hub-dialog fieldset{min-width:0;border:1px solid var(--pa-line);border-radius:9px;max-height:260px;overflow:auto;padding:10px}
+#pai-studio .pa-hub-dialog small{color:var(--pa-muted)}
+@media(max-width:600px){
+ #pai-studio .pa-hub-tabs{gap:2px}#pai-studio .pa-hub-tabs button{padding:9px;font-size:12px}
+ #pai-studio .pa-profile-choice{padding:18px}#pai-studio .pa-hub-fields{grid-template-columns:minmax(0,1fr)}
+ #pai-studio .pa-hub-combination>div{grid-template-columns:70px minmax(0,1fr)}
+}
+#pai-studio .pa-hub-tabs{flex-direction:row;align-items:center;width:auto}
+#pai-studio .pa-hub-tabs button{flex:0 0 auto;width:auto;min-width:0}
+#pai-studio .pa-hub-io details{width:100%;color:var(--pa-muted)}
+#pai-studio .pa-hub-io summary{cursor:pointer;margin:4px 0}
+#pai-studio .pa-hub-stage-labels{font-size:11px;color:var(--pa-muted);margin:12px 0}
+
+[data-research-view]{margin-inline-start:auto;max-width:10rem;font:inherit;color:inherit;background:var(--pa-bg);border:1px solid var(--pa-line);border-radius:6px;padding:4px 8px;}

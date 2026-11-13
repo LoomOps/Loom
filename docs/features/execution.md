@@ -35,6 +35,12 @@ Test sources define the concrete scenarios. `deploy/test.sh` records individual 
 
 Actual Docker/GPU runtimes and power loss after container creation are outside mock coverage.
 
+Unconfirmed executor start/cancel/return raises an ownership error rather than an
+ordinary launch failure. The worker stops claiming until restart reconciliation
+returns current execution, pending finalizer and callback tickets. No timeout or
+lost response alone proves release. Finish/return receipts are fenced by current
+Job/Attempt; stage receipts close before finalizing or ready is advertised.
+
 ## Registered RW storage
 
 Optional runner.storage is a unique list of data/N IDs. Profile registration checks the installation grant; executor startup rechecks IDs, the configured host roots and symlink changes. Paths are never supplied by the caller. Explicit mounts are RW at /loom/data/N and appear in request.storage. Omission preserves existing Job isolation, /work result publication and read-only pinned input mounts. system.status.data_stores reports this capability; both HTTP and MCP use the same profile schema. New installation grants all selected stores, but image updates preserve existing grants and data locations.
@@ -104,3 +110,18 @@ continuation's `attempts` and timestamps remain unchanged: they describe the
 verification/index run, not the original generation. Missing receipts are
 reported and never replaced with invented timestamps. This is a read projection;
 no source, runtime timestamp, profile or result manifest is rewritten.
+
+
+## Research outcomes and internal executions
+
+`ops/workflows.py` atomically creates a logical Job and immutable scheduler nodes.
+Dependencies, input alias resolution, resource ownership, retries and result checks
+remain on real node Jobs. Aggregate reads never create Attempts or copy results.
+A root failure identifies its execution; independent nodes may continue. Worker
+refresh emits root transition events; normal per-node event evidence remains.
+`ops/research.py` applies additive reviewed scope/role/parent overlays across Job,
+registry and Dashboard reads. Hidden records remain directly addressable. The
+Dashboard Research/Operations/All modes and internal execution details consume
+this shared metadata. Built-in is origin, not ownership or scientific importance.
+Curation must preserve original rows, reject cycles and replay exact batch keys.
+Real queue resource consumers are never removed by a research presentation filter.

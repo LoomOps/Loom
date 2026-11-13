@@ -47,7 +47,7 @@ def pinned_sources(row):
     return pins
 
 def action_schema(action):
-    fields={'owner':{'type':'string','description':'Stable namespace. Register/write/get default to the authenticated principal; list defaults to all shared namespaces. Use built-in explicitly for common components. Display responsibility is returned in owner_profile.'}}
+    fields={'owner':{'type':'string','description':'Stable namespace. Register/write/get default to the authenticated principal; list defaults to all shared namespaces. built-in denotes Loom-supplied software, not shared access. Display responsibility is returned in owner_profile; assign_owner changes attribution without moving this namespace.'}}
     required=[]
     if action!='list':fields['id']={'type':'string','pattern':ID.pattern};required=['id']
     if action=='get':fields['revision']={'type':'integer','minimum':1}
@@ -72,7 +72,10 @@ def operate(c,actor,args,config):
         if 'revision' in args:query+=' AND revision=?';values.append(args['revision'])
         row=c.execute(query+' ORDER BY revision DESC LIMIT 1',values).fetchone()
         if not row:raise ValueError('Component not found')
-        return {**dict(row),**ownership.extension(c,'component',owner,identity),'manifest':json.loads(row['manifest']),'profiles':json.loads(row['profiles'])}
+        import software_metadata
+        manifest=json.loads(row['manifest'])
+        return {**dict(row),**ownership.extension(c,'component',owner,identity),'manifest':manifest,'profiles':json.loads(row['profiles']),
+            'classification':software_metadata.read(c,'component',owner,identity,row['revision'],manifest)}
     if action=='write':
         if 'submit' not in actor['scopes']:raise PermissionError('Submit grant required')
         mutation(c)
@@ -84,7 +87,7 @@ def operate(c,actor,args,config):
         return {'owner':owner,'id':identity,'path':ref,'bytes':len(content.encode()),**ownership.extension(c,'component',owner,identity)}
     if action!='register':raise ValueError('Unknown component operation')
     if 'submit' not in actor['scopes']:raise PermissionError('Submit grant required')
-    manifest=args['manifest'];files=args.get('files',{})
+    manifest=json.loads(json.dumps(args['manifest'],allow_nan=False));files=args.get('files',{})
     if not files:
         base=ROOT/owner/identity/'src'
         if not base.resolve().is_relative_to(ROOT.resolve()):raise ValueError('Source outside owner root')
@@ -111,15 +114,21 @@ def operate(c,actor,args,config):
     base=ROOT/owner/identity;folder=base/'revisions'/str(version)
     if not folder.resolve().is_relative_to(ROOT.resolve()):raise ValueError('Invalid component root')
     profiles={}
+    known=merge(c,config)['profiles']
     for name,definition in manifest.get('profiles',{}).items():
         if not ID.fullmatch(name):raise ValueError('Invalid profile name')
         if 'tool_pins' in definition:raise ValueError('Tool pins are assigned by Loom')
-        profile={**definition,'schema':execution.REVISION,'revision':f'{owner}.{identity}.{name}.r{version}',
+        profile={**json.loads(json.dumps(definition)),'schema':execution.REVISION,'revision':f'{owner}.{identity}.{name}.r{version}',
             'component_path':str(folder),'source_pins':{ref:hashlib.sha256(content.encode()).hexdigest() for ref,content in files.items()},'submitters':[actor['id'],owner],'owners':[owner]}
+        if profile['revision'] in known:raise ValueError('Execution profile identity already registered')
         import tool_store
         references=profile.pop('tools',manifest.get('tools',{}))
         if references:profile['tool_pins']=tool_store.bind(c,references,owner)
         profile_store.bind_runners(profile,config,owner)
+        import runtime_catalog
+        runtime_catalog.check_requirements(manifest,profile)
+        for ref in references.values():
+            runtime_catalog.check_requirements(tool_store.detail(c,ref.get('owner',owner),ref['id'],ref['revision'])['manifest'],profile)
         profiles[profile['revision']]=seal(profile)
     manifest={**manifest,'source_pins':{ref:hashlib.sha256(content.encode()).hexdigest() for ref,content in files.items()}}
     snapshot={**files,'component.json':json.dumps(manifest,indent=2)}

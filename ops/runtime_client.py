@@ -13,13 +13,21 @@ class Connection(http.client.HTTPConnection):
     def __init__(self,path):super().__init__('localhost',timeout=50);self.path=path
     def connect(self):self.sock=socket.socket(socket.AF_UNIX);self.sock.settimeout(self.timeout);self.sock.connect(self.path)
 
-def call(config,action,body):
+class ExecutorError(RuntimeError):
+    def __init__(self,message,status):super().__init__(message);self.status=status
+
+class Unreturned(RuntimeError):
+    """The worker must reconcile resource ownership before another claim."""
+
+
+def call(config,action,body,timeout=50):
     conn=Connection(config['socket'])
+    conn.timeout=timeout
     try:
         token=Path(config['credential']).read_text().strip()
         conn.request('POST','/'+action,json.dumps(body),{'Authorization':'Bearer '+token,'Content-Type':'application/json'})
         reply=conn.getresponse();result=json.loads(reply.read())
-        if reply.status!=200:raise RuntimeError(result.get('error','Executor unavailable'))
+        if reply.status!=200:raise ExecutorError(result.get('error','Executor unavailable'),reply.status)
         return result
     finally:conn.close()
 
@@ -63,19 +71,35 @@ class Container:
         if output_name!='data/0':payload['output_storage']=output_name
         if stores:payload['storage']=stores
         if 'image' in runner:payload.update(image=runner['image'],resources=runner.get('resources',{}))
+        if 'runtime_ref' in runner:
+            pin=runner.get('runtime_pin')
+            if not pin:raise ValueError('Runtime reference is not sealed')
+            payload['runtime_ref']={k:pin[k] for k in ('id','revision','sha256')}
+            data['runtime']=pin
+            target.write_text(json.dumps(data))
         if component and 'host_components' in self.config:
             payload['component']=str(Path(self.config['host_components'])/Path(component).relative_to('/loom/components'))
         if tools:
             import component_store
             base=Path(self.config.get('host_components','/loom/components'))
             payload['tools']={alias:str(base/Path(pin['path']).relative_to(component_store.ROOT)) for alias,pin in tools.items()}
-        state=call(self.config,'start',payload)
+        try:state=call(self.config,'start',payload)
+        except ExecutorError as exc:
+            if exc.status<500:raise
+            raise Unreturned('Executor start outcome is unconfirmed; reconcile this Attempt') from exc
+        except (OSError,ValueError,RuntimeError,http.client.HTTPException) as exc:
+            raise Unreturned('Executor start outcome is unconfirmed; reconcile this Attempt') from exc
         if state.get('busy'):raise Busy('GPU is owned by another instance')
         self.ticket=state['ticket']
         ticket_data={'ticket':self.ticket,'stage':stage,'runtime_id':runner.get('runtime_id'),'image_id':state.get('image_id'),'lane':runner.get('lane','cpu')}
-        (folder/(stage+'-ticket.json')).write_text(json.dumps(ticket_data))
-        if stage in ('run','prepare'):(folder/'container-ticket.json').write_text(json.dumps(ticket_data))
-        self.poll()
+        if 'runtime_ref' in payload:ticket_data['runtime_ref']=payload['runtime_ref']
+        try:
+            (folder/(stage+'-ticket.json')).write_text(json.dumps(ticket_data))
+            if stage in ('run','prepare'):(folder/'container-ticket.json').write_text(json.dumps(ticket_data))
+            self.poll()
+        except (OSError,ValueError,RuntimeError,http.client.HTTPException):
+            self.stop()
+            raise
     def __enter__(self):return self
     def __exit__(self,*args):
         if self.returncode is None:self.stop()
@@ -97,8 +121,10 @@ class Container:
             time.sleep(.1)
         return self.returncode
     def stop(self):
-        state=call(self.config,'cancel',{'ticket':self.ticket})
-        if not state['returned']:raise RuntimeError('Container did not return')
+        try:state=call(self.config,'cancel',{'ticket':self.ticket})
+        except (OSError,ValueError,RuntimeError,http.client.HTTPException) as exc:
+            raise Unreturned('Container return is unconfirmed') from exc
+        if not state.get('returned'):raise Unreturned('Container did not return')
         self.returncode=state['exit_code'];return 'container_stopped'
     def logs(self):
         text=call(self.config,'logs',{'ticket':self.ticket})['text'];self._logs_collected=True;return text

@@ -9,6 +9,11 @@ Use the **Loom URL and authentication method** supplied by the administrator. A 
 
 Work within the user's authorized scope. Normal execution does not require another agent, manager or resident supervisor. Use the Loom API as the authority for execution, queue and result state; do not edit its database directly. Caller-side operations determine which agent owns recovery and receives events.
 
-For direct host access: `/loom` is service-owned operational state; `/dependencies` contains shared external source and patched dependency recipes. User workspaces may live in the user's home or another chosen location. Administrators operate Compose and the executor. Host filesystem access and Job mount permissions are separate.
+For direct host access: `/loom` is service-owned operational state; the installation-configured dependency directory contains shared external source and patched dependency recipes. User workspaces may live in the user's home or another chosen location. Administrators operate Compose and the executor. Host filesystem access and Job mount permissions are separate.
 
 If an older server lacks `system.guide`, compare this bundle's `manifest.json` with the actual `system.status` version, then use the available `system.describe` and bundled documentation. Do not assume new features have been deployed. This guide is not an installer that overrides personal settings.
+
+Before creating a Component or Profile, list existing Profiles and inspect suitable
+exact kinds. Reuse a compatible kind for a new Job with params/inputs; create a new
+revision only for a real source/interface/stage/environment change. Read the
+components guide for reuse, categories and exact software/environment combinations.

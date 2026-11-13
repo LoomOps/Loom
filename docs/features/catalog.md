@@ -68,3 +68,18 @@ Browser regression must cover the list route as well as an individual detail pag
 Verified canonical Jobs may group explicitly consolidated completed executions in
 the default Job view. Original source rows/Attempts remain directly readable and
 are included by the source-history filter. No historical payload is rewritten.
+
+
+## Research outcomes and internal executions
+
+`ops/workflows.py` atomically creates a logical Job and immutable scheduler nodes.
+Dependencies, input alias resolution, resource ownership, retries and result checks
+remain on real node Jobs. Aggregate reads never create Attempts or copy results.
+A root failure identifies its execution; independent nodes may continue. Worker
+refresh emits root transition events; normal per-node event evidence remains.
+`ops/research.py` applies additive reviewed scope/role/parent overlays across Job,
+registry and Dashboard reads. Hidden records remain directly addressable. The
+Dashboard Research/Operations/All modes and internal execution details consume
+this shared metadata. Built-in is origin, not ownership or scientific importance.
+Curation must preserve original rows, reject cycles and replay exact batch keys.
+Real queue resource consumers are never removed by a research presentation filter.

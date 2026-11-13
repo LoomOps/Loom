@@ -9,6 +9,44 @@ import ops
 from test_support import IsolatedOps
 
 class APIContractTests(IsolatedOps):
+    def test_workflow_http_mcp_replay_and_read_scope(self):
+        args={'key':'workflow-http','label':'One requested outcome','owner':'owner','notify':'owner',
+              'nodes':[{'id':'check','label':'Check','spec':{'kind':'cpu.smoke','params':{'seconds':0,'fail':False}}}]}
+        status,created=self.request('/api/jobs/workflow',args)
+        self.assertEqual(status,200)
+        reply=self.request('/mcp',{'jsonrpc':'2.0','id':1,'method':'tools/call',
+            'params':{'name':'jobs','arguments':{'action':'submit_workflow','arguments':args}}})[1]['result']
+        self.assertFalse(reply.get('isError'));self.assertEqual(json.loads(reply['content'][0]['text']),created)
+        detail=self.request('/api/jobs/'+created['id'],token='fixture-reader')
+        self.assertEqual(detail[0],200);self.assertTrue(detail[1]['workflow']);self.assertEqual(detail[1]['attempts'],[])
+        self.assertEqual(self.request('/api/jobs/workflow',args,token='fixture-reader')[0],403)
+        self.assertEqual([j['id'] for j in self.request('/api/jobs')[1]],[created['id']])
+        self.assertEqual(len(self.request('/api/jobs?view=all')[1]),2)
+        bad={**args,'nodes':[{'id':'bad','label':'Bad','spec':{'kind':'cpu.smoke','params':[]}}],'key':'invalid-params'}
+        self.assertEqual(self.request('/api/jobs/workflow',bad)[0],400)
+
+    def test_extension_attribution_http_mcp_and_readonly_scope_preserve_software(self):
+        import component_store,ownership
+        with patch.object(component_store,'ROOT',self.root/'extensions'):
+            registered=ops.operate('components',{'action':'register_tool','arguments':{
+                'id':'planner','manifest':{'label':'Planner'},'files':{'plan.py':'pass'}}},self.owner,self.config)
+            with ops.db() as c:person=ownership.register(c,'person@example.test','Researcher')
+            args={'kind':'tool','namespace':'owner','id':'planner','owner':'built-in'}
+            http=self.request('/api/actions',{'group':'components','action':'assign_owner','arguments':args})
+            self.assertEqual(http[0],200);self.assertEqual(http[1]['owner_kind'],'built-in')
+            def mcp(arguments,token='fixture-owner'):
+                reply=self.request('/mcp',{'jsonrpc':'2.0','id':1,'method':'tools/call',
+                    'params':{'name':'components','arguments':{'action':'assign_owner','arguments':arguments}}},token=token)
+                return reply[1]['result']
+            args['owner']=person['id'];reply=mcp(args)
+            self.assertFalse(reply.get('isError'));self.assertEqual(json.loads(reply['content'][0]['text'])['owner_name'],'Researcher')
+            self.assertFalse(json.loads(mcp(args)['content'][0]['text'])['changed'])
+            self.assertTrue(mcp(args,'fixture-reader')['isError'])
+            self.assertEqual(self.request('/api/actions',{'group':'components','action':'assign_owner','arguments':args},token='fixture-reader')[0],403)
+            self.assertTrue(mcp({**args,'kind':'job'})['isError'])
+            current=ops.operate('components',{'action':'get_tool','arguments':{'owner':'owner','id':'planner','revision':1}},self.reader,self.config)
+            self.assertEqual(current['sha256'],registered['sha256']);self.assertEqual(current['owner'],'owner')
+
     def test_release_actions_share_api_mcp_contract_and_require_auth(self):
         value={'status':'update_available','latest':{'tag':'0.2.0'},'automatic_install':False}
         with patch.object(ops.release_updates,'status',return_value=value),patch.object(ops.release_updates,'request',return_value={'accepted':True,'updates':value}):
@@ -122,7 +160,7 @@ class APIContractTests(IsolatedOps):
             self.assertEqual(status,200);self.assertTrue(reply['result']['isError'])
         with ops.db() as c:self.assertEqual(c.execute('select count(*) from jobs').fetchone()[0],0)
 
-    def test_profile_discovery_exposes_inputs_only_with_submit_grant(self):
+    def test_profile_discovery_readscope_combinations_omit_private_commands(self):
         self.config['profiles']={'fixture.train':{'schema':ops.execution.REVISION,'owners':['owner'],'revision':'v1',
             'inputs':{'dataset':'inputs'},'outputs':{'model':'model'},
             'params_schema':{'type':'object','properties':{'dataset':{'type':'object'}},'required':['dataset']},
@@ -132,7 +170,9 @@ class APIContractTests(IsolatedOps):
         p=next(x for x in profiles if x['kind']=='fixture.train')
         self.assertEqual(p['params_schema']['required'],['dataset'])
         self.assertNotIn('private/entry.py',json.dumps(profiles))
-        self.assertEqual(self.request('/api/jobs/profiles',token='fixture-reader')[1],[])
+        readonly=self.request('/api/jobs/profiles',token='fixture-reader')[1]
+        self.assertTrue(any(p['kind']=='fixture.train' for p in readonly))
+        self.assertNotIn('private/entry.py',json.dumps(readonly))
 
     def test_malformed_mcp_requests_do_not_drop_connection(self):
         self.assertEqual(self.request('/mcp',[])[0],400)

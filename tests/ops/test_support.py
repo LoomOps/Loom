@@ -23,7 +23,7 @@ class IsolatedOps(unittest.TestCase):
         ops.init()
     def spec(self,key='job',**params):
         return {'key':key,'kind':'cpu.smoke','owner':'owner','notify':'owner',
-            'params':{'seconds':0,'fail':False,**params}}
+            'params':{'seconds':0,'fail':False,**params},'presentation':{'scope':'research','role':'main'}}
     def submit(self,spec=None,actor=None):
         with ops.db() as c:return ops.submit(c,actor or self.owner,spec or self.spec(),self.config)['id']
     def row(self,job):

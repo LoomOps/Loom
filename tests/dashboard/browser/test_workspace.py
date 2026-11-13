@@ -21,6 +21,21 @@ from verify_browser import request,FIREFOX
 from verify_workspace import Workspace
 
 class WorkspaceBrowserTests(unittest.TestCase):
+    def test_research_modes_hide_operational_fixtures_but_keep_direct_evidence(self):
+        model={'id':'fixture-operational-model','kind':'model','label':'Operational fixture model',
+            'namespace':'fixture','properties':{},'metrics':[],'relations':[],'artifacts':[],
+            'presentation':{'scope':'operations','role':'test','visible':False}}
+        self.api.fixture['catalog']['entities'].append(model)
+        self.ui.top();self.wd('/refresh',{});self.ui.connect();self.ui.nav('Models')
+        self.assertNotIn(model['label'],self.ui.js("return document.querySelector('#pa-content').innerText"))
+        self.ui.js("const e=document.querySelector('[data-research-view]');e.value='operations';e.dispatchEvent(new Event('change',{bubbles:true}))")
+        self.ui.wait("return document.querySelector('#pa-content').innerText.includes(arguments[0])",model['label'])
+        self.ui.js("const e=document.querySelector('[data-research-view]');e.value='research';e.dispatchEvent(new Event('change',{bubbles:true}))")
+        self.ui.wait("return !document.querySelector('#pa-content').innerText.includes(arguments[0])",model['label'])
+        self.ui.route(model['id'])
+        self.ui.wait("return document.querySelector('#pa-content').innerText.includes(arguments[0])",model['label'])
+        self.assertFalse(self.api.actions)
+
     @classmethod
     def setUpClass(cls):
         binary=Path(os.environ.get('LOOM_TEST_FIREFOX',str(FIREFOX/'firefox')))
@@ -90,12 +105,106 @@ const done=arguments[arguments.length-1];
         self.api.fixture['catalog']['revision']='tools-fixture'
         self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
         self.ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('tools-fixture')")
-        self.ui.click('[data-go="tools"]')
+        self.ui.nav('Tools')
         self.ui.wait("return document.querySelector('.pa-pane-body')?.textContent.includes('Motion planner')")
         self.ui.click('[data-entity="tool:owner:planner:r1"]')
         self.ui.wait("return document.querySelector('.pa-pane-body')?.textContent.includes('Research software')")
         self.assertTrue(self.ui.js("return document.querySelector('.pa-pane-body').textContent.includes('planner.py')"))
         self.assertFalse(self.ui.js("return !!window.toolInjected"))
+
+    def test_runtime_inventory_exact_dependencies_consumers_and_narrow_layout(self):
+        item={'id':'simulation','revision':2,'sha256':'a'*64,'legacy':False,
+            'manifest':{'label':'Simulation 6','runtime':{'image':'sha256:'+'b'*64,'network':'none'},
+                'dependencies':[{'name':'sim','version':'6.0.0','kind':'python','url':'<img src=x onerror="window.runtimeInjected=true">'}],
+                'installation':{'path':'/custom-dependencies/installations/simulation/attempt'},
+                'validation':{'status':'passed','checks':{'physics-step':True}}},
+            'used_by_profiles':[{'kind':'owner.training.r3','stages':['runtime']}],
+            'used_by_jobs':[]}
+        entity={'id':'runtime:simulation:2','kind':'runtime','label':'Simulation 6','namespace':'loom','summary':'Pinned environment',
+            'loom_runtime':item,'properties':{},'relations':[],'artifacts':[]}
+        self.api.fixture['catalog']['entities'].append(entity)
+        self.api.fixture['catalog']['revision']='runtime-inventory'
+        self.api.fixture['catalog']['runtime_catalog']={'status':'ok','installations':[{'runtime':'failed-environment','state':'failed','path':'/custom-dependencies/failed-attempt'}]}
+        ui=self.ui;ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('runtime-inventory')")
+        ui.nav('Runtimes')
+        ui.wait("return document.querySelector('[data-extension-card=\"runtime:simulation:2\"]')!==null")
+        self.assertTrue(ui.js("return document.querySelector('.pa-pane-body').textContent.includes('failed-environment')"))
+        ui.click('[data-entity="runtime:simulation:2"]')
+        ui.wait("return document.querySelector('.pa-pane-body').textContent.includes('owner.training.r3')")
+        text=ui.js("return document.querySelector('.pa-pane-body').textContent")
+        for value in ('6.0.0','/custom-dependencies/','physics-step'):
+            self.assertIn(value,text)
+        self.assertNotIn('Unassigned',text)
+        self.assertFalse(ui.js("return !!window.runtimeInjected"))
+        for width in (1440,500):
+            ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+            for theme in ('light','dark'):
+                ui.click('[data-theme='+theme+']')
+                self.assertTrue(ui.js("return document.querySelector('.pa-pane-body').scrollWidth<=document.querySelector('.pa-pane-body').clientWidth+1"))
+                self.assertEqual(ui.js("return getComputedStyle(document.querySelector('.pa-document-tabs')).scrollbarWidth"),'thin')
+                if folder:=os.environ.get('LOOM_TEST_SCREENSHOTS'):
+                    output=Path(folder);output.mkdir(parents=True,exist_ok=True)
+                    ui.top();(output/f'runtime-{theme}-{width}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));ui.frame()
+
+    def test_profile_combinations_purpose_owner_links_and_layout(self):
+        tool_id,component_id=self.software_fixture();ui=self.ui
+        profile={'kind':'owner.combo.r1','label':'Generate and evaluate <img src=x onerror="window.profileInjected=true">','sha256':'a'*64,
+            'description':'Mixed work <img src=x onerror="window.profileInjected=true">',
+            'usage':{'categories':['sdg','evaluation'],'execution_modes':['pilot','full']},
+            'observed_usage':{'categories':['evaluation'],'execution_modes':['smoke']},
+            'origin':{'type':'standalone','owner':'owner','id':'combo','revision':1},
+            'namespace':'owner','owner_profile':{'id':'person','display_name':'Researcher'},'owner_kind':'user',
+            'component':{'owner':'owner','id':'hybrid','revision':2,'entity':component_id,'requires':{},'classification':{'tags':['training']}},
+            'tools':[{'owner':'owner','id':'planner','revision':1,'sha256':'d'*64,'alias':'planner','label':'Planner','requires':{'sim':'6.0'},'classification':{'tags':['motion-planning']}}],
+            'stages':[{'stage':'prepare','lane':'cpu','environment':{'type':'legacy','id':'python','dependencies':None}},
+                      {'stage':'runtime','lane':'gpu','environment':{'type':'registered','id':'simulation','revision':2,'entity':'runtime:simulation:2','dependencies':[{'name':'sim','version':'6.0','kind':'python'}]}},
+                      {'stage':'on_error','lane':'cpu','environment':{'type':'legacy','id':'python','dependencies':None}}],
+            'inputs':{},'outputs':{'data':'dataset'},'limits':{},'steps':[],'jobs':[]}
+        entity={'id':'profile:owner.combo.r1','kind':'execution_profile','label':profile['label'],'summary':profile['description'],
+                'owner_profile':profile['owner_profile'],'owner_kind':'user','loom_execution_profile':profile,'properties':{}}
+        runtime={'id':'runtime:simulation:2','kind':'runtime','label':'Sim 6','properties':{},'loom_runtime':{'id':'simulation','revision':2,'legacy':False,
+                 'manifest':{'runtime':{'image':'sha256:'+'c'*64},'dependencies':[{'name':'sim','version':'6.0'}]},
+                 'used_by_profiles':[{'kind':profile['kind'],'stages':['runtime']}],'used_by_jobs':[]}}
+        legacy=copy.deepcopy(entity);legacy['id']='profile:legacy';legacy['label']='Legacy Profile';legacy['owner_profile']={'id':'other-person','display_name':'Researcher'}
+        legacy['loom_execution_profile'].update(kind='legacy',label='Legacy Profile',usage=None)
+        self.api.fixture['catalog']['entities'].extend([entity,legacy,runtime]);self.api.fixture['catalog']['revision']='profile-combinations'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('profile-combinations')")
+        ui.nav('Profiles')
+        self.assertEqual(ui.js("return document.querySelectorAll('[data-extension-card]').length"),2)
+        self.assertIn('Researcher',ui.js("return document.querySelector('[data-extension-card]').textContent"))
+        ui.js("const field=document.querySelector('[data-extension-query]');field.value='Pilot-test';field.dispatchEvent(new Event('input',{bubbles:true}))")
+        self.assertEqual(ui.js("return document.querySelectorAll('[data-extension-card]').length"),1)
+        ui.js("const field=document.querySelector('[data-extension-query]');field.value='';field.dispatchEvent(new Event('input',{bubbles:true}))")
+        ui.js("const field=document.querySelector('[data-extension-owner]');field.value='person';field.dispatchEvent(new Event('change',{bubbles:true}))")
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-extension-card]')].map(e=>e.dataset.extensionCard)"),['profile:owner.combo.r1'])
+        ui.click('[data-entity="profile:owner.combo.r1"]');ui.wait("return !!document.querySelector('[data-profile-declared]')")
+        for value in ('SDG','Evaluation','Pilot-test','Full'):
+            self.assertIn(value,ui.js("return document.querySelector('[data-profile-declared]').textContent"))
+        self.assertNotIn('Smoke-test',ui.js("return document.querySelector('[data-profile-declared]').textContent"))
+        ui.click('details:has([data-profile-observed]) summary')
+        self.assertIn('Smoke-test',ui.js("return document.querySelector('[data-profile-observed]').textContent"))
+        self.assertNotIn('의존성 미기록',ui.js("return document.querySelector('[data-profile-stage=prepare]').textContent"))
+        self.assertFalse(ui.js("return !!window.profileInjected"))
+        self.assertEqual(ui.js("return document.querySelectorAll('.pa-profile-software [data-software-kind]').length"),2)
+        self.assertIn('Motion planning',ui.js("return document.querySelector('.pa-profile-software').textContent"))
+        self.assertIn('sim 6.0',ui.js("return document.querySelector('[data-profile-stage=runtime]').textContent"))
+        self.assertTrue(ui.js("return !!document.querySelector('[data-go=profiles][aria-current=page]')"))
+        self.assertTrue(ui.js("return document.querySelector('[data-profile-stage=on_error]').classList.contains('is-conditional')"))
+        self.assertFalse(ui.js("return [...document.querySelectorAll('.pa-execution-options')].find(e=>e.textContent.includes('SHA256')).open"))
+        for width in (1440,500):
+            ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+            for theme in ('light','dark'):
+                ui.click('[data-theme='+theme+']')
+                self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-execution-options')].every(e=>getComputedStyle(e).display!=='none'&&e.getBoundingClientRect().height>0)"))
+                self.assertTrue(ui.js("return document.querySelector('.pa-pane-body').scrollWidth<=document.querySelector('.pa-pane-body').clientWidth+1"))
+                if folder:=os.environ.get('LOOM_TEST_SCREENSHOTS'):
+                    output=Path(folder);output.mkdir(parents=True,exist_ok=True)
+                    ui.top();(output/f'profiles-{theme}-{width}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));ui.frame()
+        ui.click('[data-entity="runtime:simulation:2"]');ui.wait("return document.querySelector('.pa-pane-body').textContent.includes('Dependencies')")
+        ui.click('[data-entity="profile:owner.combo.r1"]');ui.wait("return !!document.querySelector('[data-profile-declared]')")
+        ui.click('[data-extension-open="tool:owner:planner:r2"]')
+        ui.wait("return document.querySelector('.pa-pane-body').textContent.includes('planner/old_solver.py')")
 
     def software_fixture(self):
         tool_id='tool:owner:planner:r2';component_id='component:owner:hybrid:r2'
@@ -117,33 +226,63 @@ const done=arguments[arguments.length-1];
         self.api.fixture['catalog']['revision']='software-browser-fixture'
         self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
         self.ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('software-browser-fixture')")
-        self.ui.nav('Extensions')
+        self.ui.nav('Tools')
         return tool_id,component_id
 
     def test_software_inventory_filters_and_distinct_navigation_icon(self):
         tool_id,component_id=self.software_fixture();ui=self.ui
-        self.assertTrue(ui.js("return !!document.querySelector('[data-go=tools] svg[data-lucide=puzzle]') && !!document.querySelector('[data-go=issues] svg[data-lucide=wrench]')"))
-        ui.click('[data-extension-kind=tool]')
+        self.assertTrue(ui.js("return !!document.querySelector('[data-hub-page=tools] svg[data-lucide=square-terminal]') && !!document.querySelector('[data-go=issues] svg[data-lucide=wrench]')"))
+        ui.nav('Tools')
         self.assertEqual(ui.js("return document.querySelectorAll('[data-extension-card]').length"),2)
         ui.js("const f=document.querySelector('[data-extension-owner]');f.value='owner';f.dispatchEvent(new Event('change',{bubbles:true}))")
         self.assertEqual(ui.js("return [...document.querySelectorAll('[data-extension-card]')].map(n=>n.dataset.extensionCard)"),[tool_id])
         ui.js("const f=document.querySelector('[data-extension-query]');f.value='no match';f.dispatchEvent(new Event('input',{bubbles:true}))")
         self.assertTrue(ui.js("return document.querySelector('.pa-extension-empty').textContent.includes('조건에 맞는')"))
-        ui.click('[data-extension-clear]');ui.click('[data-extension-kind=component]')
+        ui.click('[data-extension-clear]');ui.nav('Components')
         self.assertTrue(ui.js("return !!document.querySelector('[data-extension-card=\"'+arguments[0]+'\"]')",component_id))
         self.assertTrue(ui.js("return [...document.querySelectorAll('[data-extension-card]')].every(n=>n.querySelector('[data-kind=component]'))"))
         self.assertFalse(self.api.actions)
 
+    def test_software_category_tags_filter_without_definitions_or_mixed_kinds(self):
+        tool_id,component_id=self.software_fixture();ui=self.ui
+        for e in self.api.fixture['catalog']['entities']:
+            if e['id']==tool_id:e['loom_extension']['classification']={'tags':['motion-planning']}
+            if e['id']=='tool:other:policy:r1':e['loom_extension']['classification']={'tags':['policy']}
+        self.api.fixture['catalog']['revision']='classification-tags'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return !!document.querySelector('[data-software-tag=motion-planning]')")
+        ui.click('[data-software-tag=motion-planning]')
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-extension-card]')].map(e=>e.dataset.extensionCard)"),[tool_id])
+        ui.click('[data-entity="'+tool_id+'"]')
+        visible=ui.js("return document.querySelector('.pa-pane-body').innerText")
+        self.assertIn('Motion planning',visible)
+        for unwanted in ['Job 안에서 호출하는','연구 소프트웨어입니다','Research software']:
+            self.assertNotIn(unwanted,visible)
+        ui.nav('Components')
+        self.assertTrue(ui.js("return [...document.querySelectorAll('[data-extension-card]')].every(e=>e.dataset.extensionCard.startsWith('component:'))"))
+        self.assertTrue(ui.js("return !!document.querySelector('[data-hub-page=components][aria-current=page]')"))
+
     def test_software_revisions_and_profile_links_keep_exact_tool_revision(self):
         tool_id,component_id=self.software_fixture();ui=self.ui
+        item=next(e['loom_extension'] for e in self.api.fixture['catalog']['entities'] if e['id']==tool_id)
+        item['classification']={'label':'Latest planner','tags':['policy']}
+        item['revisions'][0]['classification']=item['classification']
+        item['revisions'][1]['classification']={'label':'Pinned planner','tags':['motion-planning']}
+        self.api.fixture['catalog']['revision']='software-revision-tags'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('software-revision-tags')")
+        ui.nav('Components')
         ui.click('[data-entity="'+component_id+'"]')
         ui.wait("return !!document.querySelector('[data-extension-open]')")
         self.assertIn('/component/hybrid.py',ui.js("return document.querySelector('.pa-extension-stages').textContent"))
         ui.click('[data-extension-open="'+tool_id+'"]')
         ui.wait("return document.querySelector('[data-extension-select=\"1\"]')?.getAttribute('aria-pressed')==='true'")
+        self.assertTrue(ui.js("return document.querySelector('.pa-pane-body h1').textContent.includes('Pinned planner')"))
+        self.assertTrue(ui.js("return document.querySelector('.pa-pane-body').innerText.includes('Motion planning')"))
         self.assertTrue(ui.js("return document.querySelector('.pa-extension-detail-grid').textContent.includes('planner/old_solver.py')"))
         self.assertTrue(ui.js("return document.querySelector('.pa-extension-consumer').textContent.includes('owner.hybrid.run.r2')"))
         ui.click('[data-extension-select="2"]')
+        self.assertTrue(ui.js("return document.querySelector('.pa-pane-body h1').textContent.includes('Latest planner')"))
         self.assertTrue(ui.js("return document.querySelector('.pa-extension-detail-grid').textContent.includes('planner/new_solver.py')"))
         self.assertFalse(ui.js("return document.querySelector('.pa-extension-detail-grid').textContent.includes('planner/old_solver.py')"))
         ui.click('[data-extension-select="1"]')
@@ -161,7 +300,7 @@ const done=arguments[arguments.length-1];
         ui.js("const saved=structuredClone(history.state);for(const pane of saved.paiTabsV25.workspace.panes)for(const tab of pane.tabs)if(tab.view.entity)tab.view.page='experiments';history.replaceState(saved,'',location.href)")
         self.wd('/refresh',{});ui.wait("return !document.querySelector('iframe').hidden");ui.frame()
         ui.wait("return !!document.querySelector('.pa-extension-detail-grid')")
-        self.assertEqual(ui.js("return document.querySelector('[data-go=tools]').getAttribute('aria-current')"),'page')
+        self.assertEqual(ui.js("return document.querySelector('[data-hub-page=tools]').getAttribute('aria-current')"),'page')
         self.assertEqual(ui.js("return document.querySelector('[data-extension-version]').value"),'2')
         self.assertFalse(self.api.actions)
 
@@ -476,8 +615,8 @@ const done=arguments[arguments.length-1];
         ui.wait("return document.querySelectorAll('[data-tailnet-member]').length===1 && document.querySelector('[data-tailnet-member]').dataset.tailnetMember.startsWith('admin:')")
         self.assertFalse(ui.js("return !!document.querySelector('[data-tailnet-member] [data-share-revoke]')"))
         self.assertEqual(f.api.shares,[])
-        ui.wait("return !!document.querySelector('[data-access-action=remove]')")
-        ui.click('[data-access-action=remove]')
+        ui.wait("return !!document.querySelector('[data-access-action=remove][data-access-id=\"'+arguments[0]+'\"]')",r['id'])
+        ui.click('[data-access-action=remove][data-access-id="'+r['id']+'"]')
         ui.wait("return !document.querySelector('table[aria-label=\"Access Request\"]')?.textContent.includes('member@example.test')")
         self.assertFalse(any(x['email']=='member@example.test' for x in f.a.rows(f.admin,admin=True)))
         ui.click('[data-access-action=remove]')
@@ -608,6 +747,39 @@ const done=arguments[arguments.length-1];
         self.assertTrue(ui.js("return !document.querySelector('#pa-content').textContent.includes('Loom Jobs')"))
         ui.click('[data-history-collapse]');self.assertEqual(rows(),10)
         self.assertTrue(ui.js("return document.querySelector('[data-resource-panel]').textContent.includes('data/0') && !document.querySelector('[data-resource-panel]').textContent.includes('data/1')"))
+
+    def test_running_recovery_shows_execution_phase_and_historical_pause_is_separate(self):
+        f=self.api.fixture;entity,record=native('fixture-running')
+        entity['state']=entity['properties']['state']='running'
+        entity['properties']['recovery']={'state':'executing','rounds':1,'max_rounds':3}
+        record.update(state='running',status='running',recovery=entity['properties']['recovery'])
+        old={'id':'work:preserved-pause','kind':'job','label':'Preserved paused work',
+            'migration':{'read_only':True},'properties':{'record_role':'work','state':'paused','category':'other','category_recorded':False},'steps':[]}
+        f['catalog']['entities']=[entity,old];f['jobs'][entity['id']]=record
+        f['catalog']['queue']={'entries':[{'id':entity['id'],'state':'running','position':None,'held':False,'reason':'executing','lane':'gpu','stage':'run'}]}
+        self.ui.top();self.wd('/refresh',{});self.ui.wait("return document.querySelector('iframe')?.hidden===false");self.ui.frame()
+        self.ui.wait("return document.querySelector('.pa-current-work-queue')?.textContent.includes('Running')")
+        self.assertEqual(self.ui.js("return document.querySelector('.pa-current-work-queue').closest('.pa-panel').querySelector('h2').textContent"),'현재 큐 · 1')
+        self.assertEqual(self.ui.js("return document.querySelector('.pa-queue-position').textContent"),'실행 중')
+        self.assertFalse(self.ui.js("return document.querySelector('.pa-current-work-queue').textContent.includes('Recovery')"))
+        self.assertTrue(self.ui.js("return [...document.querySelectorAll('.pa-panel')].some(p=>p.querySelector('h2')?.textContent==='이관된 미종료 기록 · 1' && p.textContent.includes('미기록'))"))
+
+    def test_native_activity_counts_one_canonical_job_and_dated_registrations(self):
+        now=time.time();canonical,_=native('activity-canonical');source,_=native('activity-source')
+        source['properties']['consolidated_into']=canonical['id']
+        canonical['execution_intervals']=[{'start':now-40,'end':now-30,'count_runtime':True},
+            {'start':now-20,'end':now-10,'count_runtime':True}]
+        canonical['attempts']=[{'id':'a','state':'complete','started':now-20,'ended':now-10}]
+        asset={'id':'activity-dataset','kind':'dataset','label':'Native registered dataset','namespace':'loom',
+            'loom_registry':{'id':'activity-dataset','revision':1},'loom_job':{'id':canonical['id']},
+            'registered_at':now-10,'contribution':{'eligible':True,'key':'activity-dataset','time_kind':'registered'},'properties':{}}
+        excluded={**asset,'id':'source-dataset','label':'Source dataset','contribution':{'eligible':False,'key':'source-dataset'}}
+        self.api.fixture['catalog']['entities']=[canonical,source,asset,excluded]
+        self.ui.top();self.wd('/refresh',{});self.ui.wait("return document.querySelector('iframe')?.hidden===false");self.ui.frame()
+        self.ui.wait("return document.querySelector('.pa-activity-heading small')?.textContent.includes('1 JOB · 1 산출물')")
+        self.assertTrue(self.ui.js("return document.querySelector('.pa-activity-selected').textContent.includes('Native registered dataset') && document.querySelector('.pa-activity-selected').textContent.includes('Dataset · 등록')"))
+        self.assertFalse(self.ui.js("return document.querySelector('.pa-activity-selected').textContent.includes('Source dataset') || document.querySelector('.pa-activity-selected').textContent.includes('Fixture activity-source')"))
+        self.assertTrue(self.ui.js("return document.querySelector('.pa-activity-heading small').textContent.includes('20초')"))
     def test_agent_navigation_removed_and_old_bookmark_redirects(self):
         ui=self.ui;ui.nav('Dashboard')
         self.assertFalse(ui.js("return !!document.querySelector('#pa-nav [data-go=agent]')"))
@@ -1067,3 +1239,70 @@ const done=arguments[arguments.length-1];
                 (path/('ssh-'+theme+'.png')).write_bytes(base64.b64decode(self.wd('/screenshot')))
         ui.click('[data-ssh-action=disable]');ui.wait("return document.querySelector('table[aria-label=\"SSH accounts\"]').innerText.includes('disabled')")
         self.assertEqual(calls[-1],'disable');self.assertEqual(ssh_access.SSHAccess(f.a).rows()[0]['state'],'disabled')
+
+    def test_runtimes_hub_prepares_readonly_draft_and_preserves_context(self):
+        tool_id,component_id=self.software_fixture();ui=self.ui
+        kind='owner.evaluate.r1'
+        p={'kind':kind,'family':'eval','label':'Evaluation','usage':{'categories':['evaluation'],'execution_modes':['full']},'origin':{'type':'standalone','owner':'owner','id':'eval','revision':1},
+           'component':{'entity':component_id,'id':'hybrid','revision':2},'tools':[{'owner':'owner','id':'planner','revision':1,'alias':'planner','classification':{'tags':['motion-planning']}}],
+           'stages':[{'stage':'runtime','lane':'cpu','environment':{'type':'builtin','id':'Worker','primary_dependencies':[]}}],'inputs':{'checkpoint':'inputs/checkpoint'},'outputs':{'metrics':'artifact'},'jobs':[],'curation':{},'defaults':{'episodes':2},'params_schema':{'type':'object','required':['episodes'],'properties':{'episodes':{'type':'integer'}}}}
+        self.api.fixture['catalog']['entities'].append({'id':'profile:'+kind,'kind':'execution_profile','label':'Evaluation','loom_execution_profile':p,'properties':{}})
+        self.api.fixture['catalog']['capabilities']={'curate':True}
+        self.api.fixture['runtime_actions']={'inspect_profile':{'params':{'status':'valid'},'checks':[{'stage':'runtime','status':'pinned'}],'draft':{'kind':kind,'params':{'episodes':2}}},'curate':{'label':'Evaluation updated'}}
+        self.api.fixture['catalog']['revision']='runtime-hub-workflow';ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('runtime-hub-workflow')")
+        ui.nav('Profiles')
+        self.assertEqual(ui.js("return [...document.querySelectorAll('#pa-nav button')].filter(e=>e.textContent.trim()==='Runtimes').length"),1)
+        self.assertTrue(ui.js("return new Set([...document.querySelectorAll('.pa-hub-tabs button')].map(e=>Math.round(e.getBoundingClientRect().top))).size===1"))
+        self.assertFalse(ui.js("return [...document.querySelectorAll('#pa-nav button')].some(e=>['Profiles','Components','Tools'].includes(e.textContent.trim()))"))
+        ui.click('[data-entity="profile:'+kind+'"]');ui.click('[data-profile-prepare]')
+        ui.js("for(const name of ['key','owner','notify']){const e=document.querySelector('[data-profile-draft] [name='+name+']');e.value=name==='key'?'evaluation-test':'owner';e.dispatchEvent(new Event('input',{bubbles:true}));}")
+        ui.click('[data-profile-draft] button[type=submit]')
+        try:ui.wait("return !document.querySelector('[data-draft-copy]').disabled")
+        except AssertionError:
+            self.fail(str({'status':ui.js("return document.querySelector('[data-hub-result]').textContent"),'actions':self.api.actions,'form':ui.js("return [...document.querySelector('form').elements].map(e=>[e.name,e.value,e.validity?.valid])")}))
+        self.assertEqual(self.api.actions,[{'group':'components','action':'inspect_profile','arguments':{'kind':kind,'params':{'episodes':2}}}])
+        ui.top();ui.js("window.hubCopied=null;Object.defineProperty(navigator,'clipboard',{value:{writeText:async()=>{}},configurable:true});window.addEventListener('message',e=>{if(e.data?.type==='loom-doc-copy')window.hubCopied=e.data.text})");ui.frame()
+        ui.click('[data-draft-copy]');ui.top();ui.wait("return window.hubCopied!==null")
+        copied=__import__('json').loads(ui.js("return window.hubCopied"));self.assertEqual(copied['jsonrpc'],'2.0');self.assertEqual(copied['method'],'tools/call')
+        self.assertEqual(copied['params']['name'],'jobs');self.assertEqual(copied['params']['arguments']['arguments']['params'],{'episodes':2});ui.frame()
+
+        ui.js("const e=document.querySelector('[name=params]');e.value='{}';e.dispatchEvent(new Event('input',{bubbles:true}))")
+        self.assertTrue(ui.js("return document.querySelector('[data-draft-copy]').disabled"))
+        ui.click('[data-hub-close]');ui.click('[data-extension-open="'+component_id+'"]')
+        self.assertTrue(ui.js("return document.querySelector('.pa-hub-context').textContent.includes('Evaluation')"))
+        ui.click('.pa-hub-context [data-entity="profile:'+kind+'"]');ui.click('[data-hub-edit]')
+        ui.js("document.querySelector('[data-hub-editor] [name=label]').value='Evaluation updated'")
+        ui.click('[data-hub-editor] button[type=submit]');ui.wait("return !document.querySelector('[data-hub-dialog]')")
+        self.assertEqual(self.api.actions[-1]['action'],'curate')
+        self.assertEqual(self.api.actions[-1]['arguments']['id'],kind)
+        self.assertFalse(any(a['group']=='jobs' for a in self.api.actions))
+
+    def test_runtime_representatives_hide_bulk_inventory_and_keep_origin_filters(self):
+        ui=self.ui
+        deps=[{'name':'IsaacSim','version':'5.1','scope':'image'},{'name':'own-lib','version':'2','scope':'/opt/lib','origin':{'type':'managed-directory'}},{'name':'old-extension','version':'1','scope':'isaac-extension','deprecated':True}]+[{'name':'os-package-'+str(i),'version':'1','scope':'image-os','kind':'system'} for i in range(995)]
+        item={'id':'sim','revision':1,'aliases':['sim'],'primary_dependencies':[deps[0],deps[1]],'curation':{},'manifest':{'runtime':{'image':'sha256:'+'b'*64},'dependencies':deps,'reconciliation':{'runtime_id':'sim'}},'used_by_profiles':[],'executed_jobs':[]}
+        self.api.fixture['catalog']['entities'].append({'id':'runtime:sim:1','kind':'runtime','label':'Simulation','loom_runtime':item,'properties':{}})
+        self.api.fixture['catalog']['revision']='representative-dependencies';ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('representative-dependencies')")
+        ui.nav('Runtimes');text=ui.js("return document.querySelector('.pa-pane-body').innerText")
+        self.assertIn('Isaac Sim',text);self.assertNotIn('995',text);self.assertNotIn('os-package',text)
+        ui.click('[data-entity="runtime:sim:1"]');text=ui.js("return document.querySelector('.pa-pane-body').innerText")
+        self.assertNotIn('os-package',text);self.assertNotIn('old-extension',text)
+        ui.click('[data-runtime-inventory]>summary');self.assertIn('own-lib',ui.js("return document.querySelector('[data-runtime-inventory]').innerText"))
+        ui.js("const e=document.querySelector('[data-inventory-origin]');e.value='deprecated';e.dispatchEvent(new Event('change',{bubbles:true}))")
+        self.assertIn('old-extension',ui.js("return document.querySelector('[data-runtime-inventory]').innerText"))
+        self.assertNotIn('own-lib',ui.js("return document.querySelector('[data-runtime-inventory]').innerText"))
+        self.assertFalse(self.api.actions)
+
+    def test_profile_preparation_does_not_guess_missing_job_category_or_mode(self):
+        ui=self.ui;kind='owner.unclassified.r1'
+        p={'kind':kind,'label':'Unclassified','origin':{'type':'installation','id':kind},'component':None,'tools':[],'stages':[{'stage':'runtime','lane':'cpu','environment':{'type':'builtin','id':'Worker'}}],'inputs':{},'outputs':{},'usage':None,'jobs':[],'defaults':{},'params_schema':{'type':'object'}}
+        self.api.fixture['catalog']['entities'].append({'id':'profile:'+kind,'kind':'execution_profile','label':'Unclassified','loom_execution_profile':p,'properties':{}})
+        self.api.fixture['catalog']['revision']='unknown-profile-purpose';ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('unknown-profile-purpose')")
+        ui.nav('Profiles');ui.click('[data-entity="profile:'+kind+'"]');ui.click('[data-profile-prepare]')
+        self.assertTrue(ui.js("return ['category','mode'].every(n=>{const e=document.querySelector('[data-profile-draft] [name='+n+']');return e.required&&e.value===''})"))
+        ui.js("for(const n of ['key','owner','notify'])document.querySelector('[data-profile-draft] [name='+n+']').value='owner'")
+        ui.click('[data-profile-draft] button[type=submit]')
+        self.assertTrue(ui.js("return document.querySelector('[data-draft-copy]').disabled"));self.assertFalse(self.api.actions)

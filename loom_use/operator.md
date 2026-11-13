@@ -47,7 +47,7 @@ One `/mcp` endpoint provides stateless Streamable HTTP. Supported versions are `
 
 Source installation starts at deploy/install.py, host execution attachment at deploy/executor-attach.py, and Compose at deploy/compose.sh. Prepare Docker/Compose and Python 3; GPU execution also requires NVIDIA drivers and Container Toolkit. Read deploy/PLATFORM.md and deploy/README.md from the selected deployment source.
 
-/loom/ops stores instance configuration, DB and secrets. /loom/shared stores executor, authority and observation services. /loom/components and /loom/profiles store registered revisions. /loom/loom_use stores versioned user guides. External data storage is declared in Compose; /dependencies holds external source and installation adjustments.
+/loom/ops stores instance configuration, DB and secrets. /loom/shared stores executor, authority and observation services. /loom/components and /loom/profiles store registered revisions. /loom/loom_use stores versioned user guides. External data storage is declared in Compose; the installation-configured dependency directory holds external source, Runtime recipes and installation evidence.
 
 Updates deploy immutable images with matching guides. Block execution admission and confirm actual worker/lease return before backing up the DB, configuration and image identity and switching versions. Use isolated dev-build for development; never copy its authentication bypass into deployment defaults.
 

@@ -12,7 +12,7 @@ The repository contains deployable source. Do not symlink `/loom` into it or inc
 | `/loom/components`, `/loom/profiles` | Users/agents | Preserve Component/Tool/Profile revisions (Tools are under components/.tools); new registrations are immediately available through API/MCP |
 | Code under `/loom/shared/executor`, shared/services | Release | Replace code after idle verification; retain settings/keys |
 | `/loom/loom_use/<version>` | Installed guide copies | Generate from the new image, preserve versions, switch `current` after health checks; restore the previous pointer on rollback |
-| Data stores (default `/loom/data`, optional other host paths), `/dependencies` | Operator | Contents/locations preserved; Job storage grants remain explicit |
+| Data stores (default `/loom/data`, optional other host paths), configured dependency directory | Operator | Contents/locations preserved; Job storage grants remain explicit; use the saved installation choice rather than a fixed dependency path |
 
 Compose order is base → executor/observations/data → dev → generated network/tailnet/admission → **user compose.override.yaml**. override.env also applies last. Overrides are operating settings, not credentials. Operators must review changed ports/mounts. Validate the final combination with `compose.sh config --quiet` when changing versions.
 
@@ -139,3 +139,38 @@ its host service and Compose overlay at an idle maintenance point; ordinary imag
 updates do not issue accounts. Later updates preserve accounts/homes and refresh
 the protected helper with rollback backups. Apply data-group ACLs only to the
 explicitly registered data stores. See [SSH](SSH.md).
+
+## Boot address readiness
+
+The boot-order correction is applied during an explicit idle update, not by
+release discovery. The updater refreshes the installed stack and optional authority
+unit policy and retains both original units for rollback. The new Compose wrapper
+waits for exact published host IPs before up/start/restart; it does not block stop
+or configuration/log queries. Each address probe is bounded to 120 seconds and
+managed units retry failures after 15 seconds. Existing longer operator timeouts
+and machine drop-ins remain authoritative. Neither update nor this probe logs in
+to Tailscale, changes listener exposure, initializes authority state or resumes a
+research Job. After deployment, inspect effective systemd policy and perform a
+separately authorized idle reboot acceptance; a current health response does not
+prove boot ordering.
+
+The updater stops the matching managed stack unit before running Compose, cancelling
+pending systemd retries that could race container replacement. It checks the unit's
+effective instance and project environment first. A previously active/retrying unit
+is started again only after readiness and preservation checks; failed updates leave
+it stopped for explicit recovery. Resume retains the original activation decision.
+
+Managed Runtime revisions are persistent host state in a separate executor
+runtimes.sqlite3. Updates ship the catalog helper, preserve existing Runtime/Job
+pins and take a private catalog backup alongside the instance snapshot. Runtime
+installation and platform update share an exclusive executor lock; unconfirmed
+validation return blocks update. Rollback does not replace the Runtime catalog
+with older metadata or erase later environment registrations. Dependency trees
+and Docker images remain in place and require their own host backup policy.
+
+On a partial startup failure, the updater stops instance writers before recording
+failure DB fingerprints, so additive startup schema cannot race the resume guard.
+Preservation still compares every identity, grant, state and token column. Only
+`updated`/`next_attempt` scheduler clocks in admission share_requests may progress;
+the raw backup retains their original values. No authorizations or Job data are
+relaxed by this narrow operational-clock comparison.

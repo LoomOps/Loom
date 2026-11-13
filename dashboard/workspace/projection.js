@@ -1,3 +1,4 @@
+let loomPresentationView='research';
 // Adapt scoped Ops records to the original workspace's presentation fields.
 function loomHost(host) {
   return typeof host === 'string' ? {name:host, hostname:host} : host;
@@ -34,6 +35,7 @@ function loomCatalogProjection(catalog) {
     return [{...displayRecord, revision:entity.revision ?? entity.loom_history?.revision,
       ...(originalWork ? {loom_history:originalWork.loom_history} : {})}];
   });
-  return {...catalog, entities, host:loomHost(catalog.host),
+  const selected=entities.filter(e=>loomPresentationView==='all'||(loomPresentationView==='builtin'?e.owner_kind==='built-in':loomPresentationView==='operations'?e.presentation?.scope==='operations':e.presentation?.visible!==false));
+  return {...catalog,entities:selected,all_entities:entities,presentation_view:loomPresentationView,host:loomHost(catalog.host),
     sources:(catalog.sources || []).filter(source => source && typeof source === 'object')};
 }

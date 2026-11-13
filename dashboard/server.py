@@ -27,7 +27,7 @@ FILES = {"/": "workspace.html", "/icon.svg": "icon.svg"}
 IDENTIFIER = r"[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}"
 READ_ROUTES = (
     "/api/guide", r"/api/guide/[a-z][a-z-]{0,40}",
-    "/api/status", "/api/ssh", "/api/updates", "/api/docker", "/api/principal", "/api/jobs", "/api/events", "/api/registry",
+    "/api/status", "/api/runtimes", "/api/ssh", "/api/updates", "/api/docker", "/api/principal", "/api/jobs", "/api/events", "/api/registry",
     "/api/dashboard/catalog", "/api/dashboard/resources", "/api/dashboard/revision",
     rf"/api/registry/{IDENTIFIER}",
     rf"/api/jobs/{IDENTIFIER}",
@@ -378,6 +378,14 @@ class WebHandler(BaseHTTPRequestHandler):
                 if json.loads(self.rfile.read(length)) != {}:raise ValueError()
             except (ValueError,TypeError):return self.error(400,'invalid_update_check')
             return self.relay('POST','/api/updates/check',b'{}')
+        if self.path == '/api/runtimes/actions':
+            try:
+                size=int(self.headers.get('Content-Length','0'))
+                if not 0<size<=65536 or self.headers.get_content_type()!='application/json':raise ValueError()
+                payload=json.loads(self.rfile.read(size))
+                if not isinstance(payload,dict) or set(payload)!={'action','arguments'} or payload['action'] not in ('inspect_profile','compare_profiles','curate') or not isinstance(payload['arguments'],dict):raise ValueError()
+            except (ValueError,TypeError):return self.error(400,'invalid_runtime_action')
+            return self.relay('POST','/api/actions',json.dumps({'group':'components',**payload}).encode())
         if self.path != '/api/jobs/queue-actions':return self.error(405, 'read_only')
         try:
             size=int(self.headers.get('Content-Length','0'))

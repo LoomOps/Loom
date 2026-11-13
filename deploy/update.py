@@ -1,10 +1,11 @@
 """Explicit idle-instance update/rollback. Never replaces data, profiles or components."""
-import argparse,contextlib,fcntl,hashlib,json,os,shutil,sqlite3,subprocess,time
+import argparse,contextlib,fcntl,hashlib,json,os,shlex,shutil,sqlite3,subprocess,time
 from pathlib import Path
 from tailnet import env_values,write
 import guide_bundle
 import migrations
 import state_snapshot
+from boot_readiness import harden_unit
 
 ACTIVE=('preparing','running','processing')
 
@@ -15,6 +16,23 @@ def digest_db(path):
 def backup_db(source,destination):
  with sql(source) as a,sqlite3.connect(destination) as b:a.backup(b)
  os.chmod(destination,0o600)
+
+@contextlib.contextmanager
+def runtime_install_lock(root,platform):
+ env=env_values(Path(root)/'executor.env') if (Path(root)/'executor.env').exists() else {}
+ executor=Path(env.get('LOOM_EXECUTOR_HOST',Path(platform)/'shared/executor'))
+ if not executor.exists():yield;return
+ path=executor/'runtime-install.lock'
+ if executor.resolve()!=executor or path.is_symlink():raise ValueError('Redirected Runtime installation lock')
+ with path.open('a') as lock:
+  try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+  except BlockingIOError:raise ValueError('Runtime installation is active; wait before updating') from None
+  catalog=executor/'runtimes.sqlite3'
+  if catalog.exists():
+   with sql(catalog) as c:
+    for (value,) in c.execute('SELECT evidence FROM runtime_installations'):
+     if json.loads(value).get('container_returned') is False:raise ValueError('Runtime validation container return is unconfirmed')
+  yield
 
 def idle_gate(path):
  """Same SQLite transaction as dispatch: no check-then-fence race."""
@@ -62,6 +80,40 @@ def inspect(root,release):
 
 def compose(source,root,project,*args):
  return run('bash',source/'deploy/compose.sh',*args,env={**os.environ,'LOOM_INSTANCE':str(root),'LOOM_PROJECT':project})
+
+def pause_stack(root,project,record,record_path):
+ """Cancel the target unit's pending restart before Compose takes ownership."""
+ unit='loom-stack.service'
+ if not Path('/etc/systemd/system/'+unit).exists():return
+ props=dict(line.split('=',1) for line in run('systemctl','show',unit,'--property=Environment','--property=ActiveState','--property=SubState').splitlines() if '=' in line)
+ env=dict(item.split('=',1) for item in shlex.split(props.get('Environment','')) if '=' in item)
+ if env.get('LOOM_INSTANCE')!=str(root) or env.get('LOOM_PROJECT')!=project:return
+ if 'managed_stack' not in record:
+  record['managed_stack']={'unit':unit,'resume':props.get('ActiveState') in ('active','activating','reloading') or props.get('SubState')=='auto-restart'}
+  write(record_path,record)
+ run('systemctl','stop',unit)
+
+def start_stack(record):
+ if record.get('managed_stack',{}).get('resume'):run('systemctl','start',record['managed_stack']['unit'])
+
+def update_boot_units(source,archive,record):
+ """Adopt boot recovery on update/resume and retain the original rollback baseline."""
+ import re
+ changed=False
+ for name in ('loom-stack.service','loom-authority.service'):
+  if name=='loom-stack.service' and not record.get('managed_stack'):continue
+  unit=Path('/etc/systemd/system/'+name)
+  if not unit.exists():continue
+  if unit.is_symlink():raise ValueError('Linked boot unit must be reviewed before update')
+  original=unit.read_text()
+  body=re.sub(r'/\S+/deploy/compose\.sh',str(source/'deploy/compose.sh'),original) if name=='loom-stack.service' else original
+  body=harden_unit(body,stack=name=='loom-stack.service')
+  if body==original:continue
+  if str(unit) not in record['files']:
+   backup=archive/name;shutil.copy2(unit,backup);record['files'][str(unit)]=str(backup)
+   write(archive/'record.json',record)
+  unit.write_text(body);changed=True
+ if changed:run('systemctl','daemon-reload')
 
 def check_entry(root):
  """Verify the installed user entry, not just healthy containers."""
@@ -117,9 +169,9 @@ def check_health(source,root,project,expected=None):
 
 def helper_files(platform,source):
  result={}
- for name in ('server.py','runtime_policy.py'):
+ for name in ('server.py','runtime_policy.py','runtime_store.py'):
   dest=platform/'shared/executor'/name
-  if dest.exists():result[dest]=source/'executor'/name
+  if (dest.exists() or name=='runtime_store.py' and (platform/'shared/executor/server.py').exists()) and (source/'executor'/name).is_file():result[dest]=source/'executor'/name
  for name in ('docker_status.py','host_metrics.py','remote_fence.py','collect-dashboard-gpus.py','collect-observations.py'):
   dest=platform/'shared/services'/name
   if dest.exists():result[dest]=source/('deploy' if name.startswith('collect-') else 'ops')/name
@@ -176,7 +228,7 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
  installed=previous_source(root,platform)
  if (platform/'distribution'/info['build_id']).exists():raise ValueError('Distribution version already installed')
  archive=platform/'updates'/str(time.time_ns());archive.mkdir(parents=True,mode=0o700)
- with (platform/'updates/.lock').open('a') as lock:
+ with (platform/'updates/.lock').open('a') as lock, runtime_install_lock(root,platform):
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
   # Another administrator may have finished an update before this lock arrived.
   info=inspect(root,release);upgrade=migrations.plan(root,release);installed=previous_source(root,platform)
@@ -197,6 +249,7 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
      if c.execute("SELECT 1 FROM tickets WHERE state!='returned' LIMIT 1").fetchone():raise ValueError('Executor has unreturned tickets')
    # Stop writers before taking snapshots or replacing shared helper code.
    record['state']='backing_up';write(archive/'record.json',record)
+   pause_stack(root,project,record,archive/'record.json')
    compose(old_source,root,project,'stop')
    helpers=helper_files(platform,src)
    if helpers:run('systemctl','stop','loom-executor.service','loom-observations.timer','loom-observations.service')
@@ -205,7 +258,8 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
    for path in state_snapshot.databases(root):
     record['databases'].setdefault(str(path),str(preserved/'instance'/path.relative_to(root)))
    for dest,new in helpers.items():
-    backup=archive/('helper-'+dest.name);shutil.copy2(dest,backup);record['helpers'][str(dest)]=str(backup)
+    if dest.exists():
+     backup=archive/('helper-'+dest.name);shutil.copy2(dest,backup);record['helpers'][str(dest)]=str(backup)
    for rel in ['build.env']:
     dest=root/rel;backup=archive/rel;shutil.copy2(dest,backup);record['files'][str(dest)]=str(backup)
    record['state']='applying';write(archive/'record.json',record)
@@ -216,21 +270,19 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
    shutil.copytree(src,dest)
    for target,new in helpers.items():shutil.copyfile(new,target);os.chmod(target,0o644)
    st=(root/'build.env').stat();write(root/'build.env',(release/'build.env').read_text(),st.st_uid,st.st_gid)
-   # Existing boot unit follows the newly installed, immutable Compose source.
-   unit=Path('/etc/systemd/system/loom-stack.service')
-   if unit.exists():
-    backup=archive/'loom-stack.service';shutil.copy2(unit,backup);record['files'][str(unit)]=str(backup);write(archive/'record.json',record)
-    import re
-    unit.write_text(re.sub(r'/\S+/deploy/compose\.sh',str(dest/'deploy/compose.sh'),unit.read_text()));run('systemctl','daemon-reload')
+   update_boot_units(dest,archive,record)
    if helpers:run('systemctl','start','loom-executor.service','loom-observations.timer')
    restart_ssh(root)
    args=['up','-d','--no-build']+(['--force-recreate'] if mode=='rebuild' else [])
    compose(dest,root,project,*args);check_health(dest,root,project,info['build_id'])
    verify_executor_settings(record)
    record['preservation']=state_snapshot.verify(root,preserved)
+   start_stack(record)
    guide_bundle.select(guides,info['build_id'])
    record.update(state='complete',source=str(dest),previous_source=str(old_source))
   except BaseException:
+   if record['state'] in ('backing_up','applying'):
+    freeze_failed_writers(record,src,root,project)
    if record['state']=='preparing':
     for db in gated:ungate(db,retain_pause=True)
    record['state']='failed';write(archive/'record.json',record)
@@ -249,13 +301,23 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
     elif record['state']=='preparing':ungate(db,retain_pause=True)
   return {'updated':info['build_id'],'mode':mode,'record':str(archive/'record.json'),'preserved':'accounts, tokens, installation identity, overrides, components, tools, profiles, history, data'}
 
+def freeze_failed_writers(record,source,root,project):
+ """Stabilize failure evidence before hashing DBs after a partial startup."""
+ try:
+  if record.get('managed_stack'):run('systemctl','stop',record['managed_stack']['unit'])
+  compose(source,root,project,'stop')
+  record['writers_stopped_after_failure']=True
+ except (OSError,subprocess.SubprocessError):
+  record['writers_stopped_after_failure']=False
+
+
 def resume(record_path):
  """Resume an owned failed update without issuing another installation identity."""
  path=Path(record_path);record=json.loads(path.read_text())
  if record['state']=='complete':return {'updated':record['build'],'already_complete':True,'record':str(path)}
  if record['state']!='failed' or not record.get('preserved_state'):raise ValueError('No resumable preservation snapshot; use rollback')
  root=Path(record['root']);release=Path(record['release']);platform=path.parent.parent.parent;project=record['project']
- with (platform/'updates/.lock').open('a') as lock:
+ with (platform/'updates/.lock').open('a') as lock, runtime_install_lock(root,platform):
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
   record=json.loads(path.read_text())
   if record['state']=='complete':return {'updated':record['build'],'already_complete':True,'record':str(path)}
@@ -269,6 +331,7 @@ def resume(record_path):
    with sql(Path(name)) as c:
     if c.execute('SELECT mode FROM node_control WHERE id=1').fetchone()[0]!='maintenance':raise ValueError('Resume requires the retained maintenance fence')
   info=inspect(root,release);src=release/'source';dest=platform/'distribution'/info['build_id']
+  pause_stack(root,project,record,path)
   compose(Path(record['previous_source']),root,project,'stop')
   if record['helpers']:
    run('systemctl','stop','loom-executor.service','loom-observations.timer','loom-observations.service')
@@ -280,18 +343,19 @@ def resume(record_path):
    else:shutil.copytree(src,dest)
    for target,new in helper_files(platform,src).items():shutil.copyfile(new,target);os.chmod(target,0o644)
    owner=(root/'build.env').stat();write(root/'build.env',(release/'build.env').read_text(),owner.st_uid,owner.st_gid)
-   unit=Path('/etc/systemd/system/loom-stack.service')
-   if unit.exists():
-    import re
-    unit.write_text(re.sub(r'/\S+/deploy/compose\.sh',str(dest/'deploy/compose.sh'),unit.read_text()));run('systemctl','daemon-reload')
+   update_boot_units(dest,path.parent,record)
    if record['helpers']:run('systemctl','start','loom-executor.service','loom-observations.timer')
    restart_ssh(root)
    compose(dest,root,project,'up','-d','--no-build',*(['--force-recreate'] if record.get('mode')=='rebuild' else []))
    check_health(dest,root,project,info['build_id'])
    verify_executor_settings(record)
    record['preservation']=state_snapshot.verify(root,record['preserved_state'])
+   start_stack(record)
    guide_bundle.select(record['guides']['parent'],record['guides']['version'])
    record.update(state='complete',source=str(dest));write(path,record)
+  except BaseException:
+   freeze_failed_writers(record,src,root,project)
+   raise
   finally:
    record['post_databases']={db:digest_db(Path(db)) for db in record['databases']}
    record['post_files']=state_snapshot.file_inventory(root)
@@ -304,7 +368,7 @@ def resume(record_path):
 
 def rollback(record_path):
  path=Path(record_path)
- with (path.parent.parent/'.lock').open('a') as lock:
+ with (path.parent.parent/'.lock').open('a') as lock, runtime_install_lock(Path(json.loads(path.read_text())['root']),path.parent.parent.parent):
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
   return _rollback(path)
 
@@ -328,6 +392,7 @@ def _rollback(record_path):
    elif mode!='maintenance':raise ValueError('Unexpected admission state')
    gated.append(db)
   mutated=True
+  pause_stack(root,project,record,path)
   compose(source,root,project,'stop')
   for db,digest in record['post_databases'].items():
    if digest_db(Path(db))!=digest:raise ValueError('Database changed while starting rollback; records retained')
@@ -338,12 +403,13 @@ def _rollback(record_path):
    if Path(db).is_symlink() or not Path(db).parent.resolve().is_relative_to(root.resolve()):raise ValueError('Database restore leaves the preserved instance')
    with sqlite3.connect(backup) as a,sql(db) as b:a.backup(b)
   if record.get('preserved_state'):state_snapshot.restore(root,record['preserved_state'])
-  if '/etc/systemd/system/loom-stack.service' in record['files']:run('systemctl','daemon-reload')
+  if any(name.endswith('.service') for name in record['files']):run('systemctl','daemon-reload')
   if record['helpers']:run('systemctl','start','loom-executor.service','loom-observations.timer')
   restart_ssh(root)
   previous=Path(record['previous_source']) if record.get('previous_source') else Path(__file__).resolve().parents[1]
   compose(previous,root,project,'up','-d','--no-build');check_health(previous,root,project)
   if record.get('preserved_state'):state_snapshot.verify(root,record['preserved_state'])
+  start_stack(record)
   if record.get('guides'):guide_bundle.select(record['guides']['parent'],record['guides']['previous'])
   for db in gated:ungate(db,retain_pause=True)
   record['state']='rolled_back';write(path,record)

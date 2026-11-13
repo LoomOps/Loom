@@ -86,17 +86,20 @@ def impact(paths,catalog,transitive=False):
 
 def audit(catalog,evidence,root=ROOT):
     """Map actual suite results to every block. Missing/skipped tests are not passes."""
+    errors=check(catalog,root)
+    if errors:return {'valid':False,'errors':errors,'blocks':[]}
     reports={}
     for name in ('ops','dashboard','packaging','browser'):
         p=Path(evidence)/(name+'.json')
         if p.is_file():reports[name]=json.loads(p.read_text())
     blocks=[]
     for feature in catalog['features']:
-        missing=[];cases=[];stale=[]
+        missing=[];cases=[];stale=[];suite_errors=set()
         for path in feature['tests']:
             parts=Path(path).parts
             suite='browser' if 'browser' in parts else 'packaging' if parts[1]=='deploy' else parts[1]
             report=reports.get(suite,{})
+            if report.get('successful') is not True:suite_errors.add(suite)
             found=[c for c in report.get('cases',[]) if c['name'].startswith(Path(path).stem+'.')]
             tree=ast.parse((root/path).read_text())
             expected={Path(path).stem+'.'+cls.name+'.'+fn.name for cls in tree.body if isinstance(cls,ast.ClassDef) for fn in cls.body if isinstance(fn,ast.FunctionDef) and fn.name.startswith('test_')}
@@ -108,10 +111,11 @@ def audit(catalog,evidence,root=ROOT):
             for source in set(feature['sources']+feature['tests']+feature['contracts']+[feature['spec']]):
                 if recorded.get(source)!=hashlib.sha256((root/source).read_bytes()).hexdigest():stale.append(source)
         failures=[c['name'] for c in cases if c['status']!='passed']
-        blocks.append({'id':feature['id'],'passed':not(missing or failures or stale),'tests':len(cases),
+        blocks.append({'id':feature['id'],'passed':not(missing or failures or stale or suite_errors),'tests':len(cases),
                        'missing':missing,'not_passed':failures,'stale_or_unrecorded':sorted(set(stale)),
+                       'suite_errors':sorted(suite_errors),
                        'live_validation':feature['live_validation']})
-    return {'valid':not check(catalog,root) and all(b['passed'] for b in blocks),'blocks':blocks,
+    return {'valid':all(b['passed'] for b in blocks),'errors':[],'blocks':blocks,
             'scope':'Recorded automated checks only; listed live boundaries remain separate.'}
 
 

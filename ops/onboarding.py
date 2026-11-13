@@ -7,10 +7,10 @@ import build_version,job_contract,mcp_groups,mcp_docs
 ROOT=Path(__file__).resolve().parent
 GUIDES=ROOT.parent/'loom_use'
 TITLES={'entry':'Server entry','quickstart':'First use','jobs':'Jobs and pipelines',
-        'components':'Components, Tools, Profiles and dependencies','recovery':'Completion and error recovery','updates':'Version updates',
+        'components':'Components, Tools and Profiles','runtimes':'Runtime installation and dependencies','recovery':'Completion and error recovery','updates':'Version updates',
         'operator':'Administrator installation and operations','inventory':'Package inventory'}
-CONTRACT_FILES=('storage.py','mcp_groups.py','mcp_docs.py','ops.py','job_contract.py','execution.py',
-                'component_store.py','tool_store.py','profile_store.py','runtime_contract.py','queue_control.py','recovery.py','onboarding.py')
+CONTRACT_FILES=('runtime_hub.py','software_metadata.py','storage.py','mcp_groups.py','mcp_docs.py','ops.py','job_contract.py','execution.py',
+                'component_store.py','tool_store.py','profile_store.py','profile_inventory.py','runtime_contract.py','runtime_catalog.py','queue_control.py','recovery.py','onboarding.py')
 
 def digest(value):return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 

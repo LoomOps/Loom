@@ -22,6 +22,10 @@ class Result(unittest.TextTestResult):
         super().addError(test,err);self.record(test,'error',self._exc_info_to_string(err,test))
     def addSkip(self,test,reason):
         super().addSkip(test,reason);self.record(test,'skipped',reason)
+    def addExpectedFailure(self,test,err):
+        super().addExpectedFailure(test,err);self.record(test,'expected_failure',self._exc_info_to_string(err,test))
+    def addUnexpectedSuccess(self,test):
+        super().addUnexpectedSuccess(test);self.record(test,'unexpected_success','Unexpected success of an expected-failure test')
     def addSubTest(self,test,subtest,err):
         super().addSubTest(test,subtest,err)
         if err:self.record(subtest,'failed',self._exc_info_to_string(err,test));self.record(test,'failed','Subtest failed')
@@ -40,12 +44,14 @@ if __name__=='__main__':
     sources={str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}
     started=time.monotonic();result=unittest.TextTestRunner(verbosity=2,resultclass=Result).run(suite)
     report={'sources':sources,'tests':result.testsRun,'failures':len(result.failures),'errors':len(result.errors),
-        'skipped':len(result.skipped),'seconds':time.monotonic()-started,'successful':result.wasSuccessful(),
+        'skipped':len(result.skipped),'expected_failures':len(result.expectedFailures),
+        'unexpected_successes':len(result.unexpectedSuccesses),
+        'seconds':time.monotonic()-started,'successful':result.wasSuccessful(),
         'cases':list(result.records.values())}
     a.report.parent.mkdir(parents=True,exist_ok=True);a.report.write_text(json.dumps(report,indent=2)+'\n')
-    xml=ET.Element('testsuite',name=a.directory.name,tests=str(result.testsRun),failures=str(len(result.failures)),errors=str(len(result.errors)),skipped=str(len(result.skipped)),time=str(report['seconds']))
+    xml=ET.Element('testsuite',name=a.directory.name,tests=str(result.testsRun),failures=str(len(result.failures)+len(result.unexpectedSuccesses)),errors=str(len(result.errors)),skipped=str(len(result.skipped)+len(result.expectedFailures)),time=str(report['seconds']))
     for case in report['cases']:
         item=ET.SubElement(xml,'testcase',name=case['name'],time=str(case.get('seconds',0)))
-        if case['status']!='passed':ET.SubElement(item,{'failed':'failure','error':'error','skipped':'skipped'}[case['status']]).text=case.get('detail','')
+        if case['status']!='passed':ET.SubElement(item,{'failed':'failure','error':'error','skipped':'skipped','expected_failure':'skipped','unexpected_success':'failure'}[case['status']]).text=case.get('detail','')
     ET.ElementTree(xml).write(a.report.with_suffix('.xml'),encoding='utf-8',xml_declaration=True)
     raise SystemExit(0 if result.wasSuccessful() else 1)

@@ -91,16 +91,19 @@ def storage_label(bulk):
 
 def extension_profile(kind,profile):
     return {'kind':kind,'stages':[{'stage':stage,'lane':runner.get('lane','cpu'),
-        'runtime':runner.get('runtime_id') or runner.get('image'),'command':runner.get('command',[])}
+        'runtime':runner.get('runtime_id') or runner.get('image'),'runtime_pin':runner.get('runtime_pin'),'command':runner.get('command',[])}
         for stage in ('prepare','runtime','finalize','on_complete','on_error','on_cancel')
         if (runner:=profile.get(stage))], 'tools':{alias:{k:pin.get(k) for k in ('owner','id','revision','sha256')}
             for alias,pin in profile.get('tool_pins',{}).items()},'limits':profile.get('limits',{})}
 
 
 def extension_inventory(db,actor,config):
+    import software_metadata
     """Read immutable software revisions and actual bindings; never infer readiness."""
     import tool_store,component_store
     tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    import runtime_hub
+    usage=runtime_hub.software_usage(db)
     entries=[];consumers={}
     def references(profile,owner,component=None):
         for alias,pin in profile['tools'].items():
@@ -125,8 +128,10 @@ def extension_inventory(db,actor,config):
                 for profile in profiles:references(profile,row['owner'],kind+':'+row['owner']+':'+row['id']+':r'+str(row['revision']))
                 revisions.append({'revision':item['revision'],'sha256':item['sha256'] if kind=='tool' else None,
                     'label':manifest.get('label',row['id']),'description':manifest.get('description',''),
-                    'source_pins':pins or {},'source_pins_recorded':pins is not None,'profiles':profiles,'origin':manifest.get('origin')})
+                    'classification':software_metadata.read(db,kind,row['owner'],row['id'],item['revision'],manifest),
+                    'pinned_jobs':sorted(usage.get((kind,row['owner'],row['id'],item['revision']),set())),'invocations':None,'source_pins':pins or {},'source_pins_recorded':pins is not None,'profiles':profiles,'origin':manifest.get('origin')})
             value['revisions']=revisions
+            value['classification']=revisions[0]['classification']
             entries.append({'id':kind+':'+row['owner']+':'+row['id']+':r'+str(row['revision']),
                 'kind':kind,'namespace':'loom','label':value['manifest'].get('label',row['id']),
                 'summary':value['manifest'].get('description',''),'properties':{'revision':row['revision']},
@@ -179,10 +184,13 @@ def projection(db, actor, config, local, bulk=None):
             'SELECT id,state,started,ended FROM attempts WHERE job=? ORDER BY started,id',(row['id'],))]
         item['consolidated_into']=consolidations.get(row['id'])
         item['work_timeline']=job_work.timeline(db,row,spec)
+        item['execution_intervals']=job_work.execution_intervals(db,row,item['work_timeline'])
         item.update(result=result, attempts=attempts, indexed=bool(db.execute(
             'SELECT 1 FROM entity_revisions WHERE job=? LIMIT 1',(row['id'],)).fetchone()))
         entities.append(job_history.entity(item, spec))
     entities.extend(imported_jobs)
+    import workflows
+    entities.extend(workflows.entities(db))
     for record in registry.view(db, actor):
         item = registry.view(db, actor, record['id'], record['revision'])
         components = {entry['ref']:entry for entry in item['components']}
@@ -197,6 +205,7 @@ def projection(db, actor, config, local, bulk=None):
                         '_storage_root':store['path']})
                     break
         typed_metrics = item.pop('metrics')
+        publication=db.execute("SELECT MIN(created) FROM events WHERE job=? AND attempt=? AND code='complete'",(record['job'],item['attempt'])).fetchone()[0]
         metrics = [{'id':metric['name'], 'label':metric['name'], 'kind':'series',
                     'unit':metric.get('unit'), 'definition':metric.get('definition'),
                     'aggregation':metric.get('denominator'), 'x_label':'Step',
@@ -205,6 +214,9 @@ def projection(db, actor, config, local, bulk=None):
         entities.append({**item, **record, 'metrics':metrics, 'loom_metrics':typed_metrics,
                          'properties':{**item.get('metadata',{}),**item['provenance']}, 'loom_registry':{'id':record['id'], 'revision':record['revision']},
                          'loom_job':{'id':record['job']}, 'namespace':'loom',
+                         'registered_at':publication,
+                         'contribution':{'eligible':publication is not None and record['kind'] in ('dataset','model','experiment') and record['job'] not in consolidations,
+                                         'key':record['id'],'time_kind':'registered'},
                          'label':item.get('label',record['id']),
                          'loom_location_counts':dict(Counter(entry['status'] for entry in locations)),
                          'loom_media':add_media(media, ['registry',record['id'],record['revision']], locations),
@@ -213,11 +225,46 @@ def projection(db, actor, config, local, bulk=None):
     # Research Tools and Job lifecycle Components are separate registry entries.
     # Historical catalog entries and their original classification remain intact.
     entities.extend(extension_inventory(db,actor,config))
+    import profile_inventory
+    import runtime_catalog
+    runtime_listing=runtime_catalog.listing(config)
+    profile_entities=profile_inventory.entities(db,config,actor,runtime_listing)
+    entities.extend(profile_entities)
+    for entity in entities:
+        if not entity.get('loom_extension'):continue
+        item=entity['loom_extension']
+        for revision in item['revisions']:
+            consumers=[]
+            for profile in profile_entities:
+                p=profile['loom_execution_profile'];refs=([p['component']] if entity['kind']=='component' and p['component'] else p['tools'] if entity['kind']=='tool' else [])
+                matching=[ref for ref in refs if (ref['owner'],ref['id'],ref['revision'])==(item['owner'],item['id'],revision['revision'])]
+                if matching:consumers.append({'kind':p['kind'],'aliases':[r['alias'] for r in matching if 'alias' in r],'stages':[s['stage'] for s in p['stages']] if entity['kind']=='component' else sorted({s for r in matching for s in (r.get('role') or {}).get('stages',[])})})
+            revision['connected_profiles']=consumers
+
+    runtimes=runtime_catalog.inventory(db,config,runtime_listing)
+    for item in runtimes['runtimes']:
+        manifest=item['manifest']
+        entities.append({'id':'runtime:'+item['id']+':'+str(item['revision'] or 'legacy'),'kind':'runtime',
+            'namespace':'loom','label':manifest.get('label',item['id']),'summary':manifest.get('description',''),
+            'loom_runtime':item,'properties':{'revision':item['revision']},'relations':[],'artifacts':[]})
+    import research
+    research.decorate(db,entities)
+    for entity in entities:
+        if entity['kind']!='job' or entity.get('loom_workflow'):continue
+        record=research.enrich(db,entity)
+        if record is entity:continue
+        entity.update(execution_intervals=record['execution_intervals'],reviewed_executions=record['executions'])
+        starts=[x['start'] for x in record['execution_intervals'] if x['start'] is not None]
+        ends=[x['end'] for x in record['execution_intervals'] if x['end'] is not None]
+        p=entity['properties'];p['recorded_started_at']=p.get('started_at');p['recorded_ended_at']=p.get('process_exited_at')
+        if starts:p['started_at']=min(starts)
+        if ends and all(x['end'] is not None for x in record['execution_intervals']):p['process_exited_at']=max(ends)
+        p['internal_step_count']=len(record['executions'])
     queue = queue_control.view(db,actor,queue_control.execution_lane)
-    revision = hashlib.sha256(json.dumps({'entities':entities,'queue':queue}, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    revision = hashlib.sha256(json.dumps({'entities':entities,'queue':queue,'runtime_catalog':runtimes}, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return {'entities':entities, 'queue':queue, 'sources':[{'id':source, 'status':'ok'} for source in
                        sorted(sources | {'catalog','queue','loom-ops'})], 'revision':revision,
-            'host':host(config, local), 'job_contract':job_contract.contract()}, media
+            'capabilities':{'curate':'submit' in actor['scopes']},'host':host(config, local), 'job_contract':job_contract.contract(),'runtime_catalog':runtimes}, media
 
 
 def open_media(index, key, bulk):

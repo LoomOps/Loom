@@ -45,6 +45,8 @@ import dashboard_read
 import docker_status
 import history_store
 import job_history
+import research
+import workflows
 import job_contract
 import profiles
 from urllib.parse import urlsplit, parse_qs, unquote
@@ -146,40 +148,65 @@ def _init_schema():
         queue_control.init(c)
         ownership.init(c)
         component_store.init(c)
+        import software_metadata
+        software_metadata.init(c)
+        import runtime_hub
+        runtime_hub.init(c)
         hooks.init(c)
+        research.init(c)
+        workflows.init(c)
         c.execute("CREATE TABLE IF NOT EXISTS stage_runs(job TEXT,attempt TEXT,stage TEXT,started REAL,ended REAL,state TEXT,PRIMARY KEY(job,attempt,stage))")
+        c.execute('CREATE TABLE IF NOT EXISTS attempt_results(job TEXT,attempt TEXT,result TEXT NOT NULL,PRIMARY KEY(job,attempt))')
+        c.execute('CREATE TABLE IF NOT EXISTS finalizer_receipts(job TEXT,attempt TEXT,completed REAL NOT NULL,PRIMARY KEY(job,attempt))')
+
+
+def submission_matches(c, old, requested):
+    """A retry identifies the original request, never a later recovery revision."""
+    original=c.execute('SELECT spec FROM job_revisions WHERE job=? AND revision=0',(old['id'],)).fetchone()
+    frozen=json.loads(original['spec'] if original else old['spec'])
+    candidate={**requested,'params':execution.apply_defaults(frozen.get('profile',{}),requested['params'])}
+    return (all(frozen.get(field)==candidate[field] for field in ('key','kind','owner','notify','params'))
+        and all(frozen.get(field,default)==candidate.get(field,frozen.get('presentation',{}) if field=='presentation' else default) for field,default in
+                [('consolidates',[]),('execution',{}),('queue_position','tail'),('output_storage','data/0')])
+        and frozen.get('_requested_presentation',frozen.get('presentation'))==requested.get('presentation')
+        and job_contract.values(frozen)==job_contract.values(candidate,strict=True)
+        and frozen.get('_requested_dependencies',sorted(frozen.get('depends_on',[])))==sorted(candidate.get('depends_on',[])))
 
 
 def submit(c, actor, spec, config):
-    if not isinstance(spec, dict) or set(spec)-{'depends_on','execution','queue_position','output_storage','consolidates', *job_contract.FIELDS} != {'key','kind','owner','notify','params'}:
+    if not isinstance(spec, dict) or set(spec)-{'depends_on','execution','queue_position','output_storage','consolidates','presentation', *job_contract.FIELDS} != {'key','kind','owner','notify','params'}:
         raise ValueError('Invalid job specification')
     if spec.get('queue_position','tail') not in ('next','tail'):raise ValueError('Invalid submission queue_position')
-    config=component_store.merge(c,config,actor)
+    if 'presentation' in spec:execution.validate(research.PRESENTATION,spec['presentation'])
+    spec={**spec,'params':workflows.resolve_inputs(c,spec['params'])} if isinstance(spec.get('params'),dict) else spec
     classification = job_contract.values(spec, strict=True)
     owner, target, key = (ident(spec[k]) for k in ('owner','notify','key'))
     params = spec['params']
     if not isinstance(params, dict):
         raise ValueError('Job params must be an object')
-    params=execution.apply_defaults(config.get('profiles',{}).get(spec['kind'],{}),params)
-    spec={**spec,'params':params,'queue_position':spec.get('queue_position','tail')}
     dependencies=spec.get('depends_on',[])
+    if isinstance(dependencies,list):
+        expanded=[]
+        for dependency in dependencies:
+            if isinstance(dependency,str) and workflows.exists(c,dependency):
+                expanded.extend(r[0] for r in c.execute('SELECT job FROM workflow_nodes WHERE root=?',(dependency,)))
+            else:expanded.append(dependency)
+        dependencies=list(dict.fromkeys(expanded)) if all(isinstance(d,str) for d in expanded) else expanded
+        spec={**spec,'depends_on':dependencies} if 'depends_on' in spec else spec
     if not isinstance(dependencies,list) or len(dependencies)>64 or len(set(map(ident,dependencies)))!=len(dependencies):
         raise ValueError('Invalid job dependencies')
     requested_dependencies=sorted(dependencies)
     old = c.execute('SELECT id,spec FROM jobs WHERE submitter=? AND idem=?',(actor['id'],key)).fetchone()
     if old:
-        frozen=json.loads(old['spec'])
-        if (any(frozen.get(field)!=spec[field] for field in ('key','kind','owner','notify','params'))
-                or frozen.get('consolidates',[]) != spec.get('consolidates',[])
-                or frozen.get('execution',{}) != spec.get('execution',{})
-                or frozen.get('queue_position','tail') != spec.get('queue_position','tail')
-                or frozen.get('output_storage','data/0') != spec.get('output_storage','data/0')
-                or job_contract.values(frozen) != classification
-                or frozen.get('_requested_dependencies',sorted(frozen.get('depends_on',[])))!=requested_dependencies):
+        if not submission_matches(c,old,spec):
             raise ValueError('Idempotency conflict')
         if registry.mode(c) != 'active':
             raise PermissionError('Job admission fenced')
         return {'id':old['id']}
+    requested=json.loads(dump(spec))
+    config=component_store.merge(c,config,actor)
+    params=execution.apply_defaults(config.get('profiles',{}).get(spec['kind'],{}),params)
+    spec={**spec,'params':params,'queue_position':spec.get('queue_position','tail')}
     _,output_id=storage.select(config,BULK,spec.get('output_storage','data/0'),verify=True)
     if spec.get('output_storage','data/0')!='data/0':spec={**spec,'_output_storage_id':output_id}
     dependencies=list(requested_dependencies)
@@ -212,7 +239,7 @@ def submit(c, actor, spec, config):
         if set(params) != {'seconds','fail'} or type(params['seconds']) is not int or not 0 <= params['seconds'] <= 20 or type(params['fail']) is not bool:
             raise ValueError('Invalid bounded CPU smoke parameters')
     else:
-        ident(kind)
+        if not isinstance(kind,str) or not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,255}',kind):raise ValueError('Invalid profile identity')
         profile = installed(config,kind,actor,params,BULK,relative,ident,dependencies)
         spec = {**spec,'profile':profile}
     for item in params.values():
@@ -224,14 +251,14 @@ def submit(c, actor, spec, config):
             elif not any(Path(item['ref']).is_relative_to(prefix) for prefixes in config.get('input_grants',{}).values() for prefix in prefixes):
                 raise PermissionError('Input outside user storage grant')
     execution.policy(spec,spec.get('profile',{'timeout':30,'budget':{'attempts':2}}))
-    spec = {**spec, **classification}
+    spec = {**spec, **classification,'presentation':research.defaults(c,spec),'_requested_presentation':requested.get('presentation')}
     payload = dump(spec)
-    c.execute('BEGIN IMMEDIATE')
+    if not c.in_transaction:c.execute('BEGIN IMMEDIATE')
     if registry.mode(c) != 'active':
         raise PermissionError('Job admission fenced')
     old = c.execute('SELECT id,spec FROM jobs WHERE submitter=? AND idem=?',(actor['id'],key)).fetchone()
     if old:
-        if {**json.loads(old['spec']),'queue_position':json.loads(old['spec']).get('queue_position','tail')} != json.loads(payload):
+        if not submission_matches(c,old,requested):
             raise ValueError('Idempotency conflict')
         return {'id': old['id']}
     if spec.get('consolidates'):
@@ -261,9 +288,14 @@ def public(row):
     data = dict(row)
     data['spec'] = json.loads(data['spec'])
     data['spec'].pop('_requested_dependencies',None)
+    data['spec'].pop('_requested_presentation',None)
     data['spec'].pop('_output_storage_id',None)
     data['spec'].pop('_consolidation_sources',None)
     data['result'] = json.loads(data['result']) if data['result'] else None
+    if data['state'] in ('queued','preparing','ready','running') and data['result'] is not None:
+        # Old installations may retain an earlier Attempt's result on the Job.
+        # Preserve that evidence without attributing it to current execution.
+        data['previous_result']=data['result'];data['result']=None
     data.update(job_contract.values(data['spec']))
     data['status']={'complete':'completed','processing':'finalizing','result_failed':'finalizing_failed','blocked':'queued','interrupted':'failed'}.get(data['state'],data['state'])
     data.pop('idem')
@@ -321,13 +353,23 @@ def finish(row, state, result=None, config=None, prepared=None):
     if state=='failed':diagnostics.record('worker','finish',code='job_failed')
     with db() as c:
         c.execute('BEGIN IMMEDIATE')
+        current=c.execute('SELECT * FROM jobs WHERE id=?',(row['id'],)).fetchone()
+        if (current is None or current['attempt']!=row['attempt'] or
+                current['state'] not in ('running','preparing','ready','processing')):
+            return False
+        if state=='complete' and current['state']!='processing':return False
+        if current['cancel']:
+            state,result='cancelled',{'execution':(result or {}).get('execution',{}),
+                                      'process_group_returned':True,'reason':'cancelled'}
         if state == 'complete' and registry.mode(c) != 'active':
             return
-        if state == 'complete' and c.execute('SELECT cancel FROM jobs WHERE id=?',(row['id'],)).fetchone()[0]:
-            state, result = 'cancelled', {'execution':result['execution']}
         if state == 'complete':
             registry.index(c,row,result,config,BULK,relative,prepared=prepared)
         c.execute('UPDATE jobs SET state=?,result=? WHERE id=?',(state,dump(result) if result else None,row['id']))
+        if row['attempt'] and result:
+            c.execute('INSERT OR REPLACE INTO attempt_results VALUES(?,?,?)',(row['id'],row['attempt'],dump(result)))
+        if (result or {}).get('process_group_returned'):
+            c.execute("UPDATE stage_runs SET state=?,ended=COALESCE(ended,?) WHERE job=? AND attempt=? AND state='running'",(state,time.time(),row['id'],row['attempt']))
         c.execute("UPDATE attempts SET state=?,ended=? WHERE id=? AND state='running'",(state,time.time(),row['attempt']))
         c.execute('DELETE FROM result_outbox WHERE job=? AND attempt=?',(row['id'],row['attempt']))
         event(c,row,state)
@@ -343,7 +385,7 @@ def finish(row, state, result=None, config=None, prepared=None):
         if automatic:
             recovery.open_incident(c,row,reason)
             c.execute("UPDATE recovery SET state='pending',deadline=NULL WHERE job=?",(row['id'],))
-            c.execute("UPDATE jobs SET state='queued',available_at=? WHERE id=?",(time.time()+policy['retry_backoff_seconds'],row['id']))
+            c.execute("UPDATE jobs SET state='queued',result=NULL,available_at=? WHERE id=?",(time.time()+policy['retry_backoff_seconds'],row['id']))
             event(c,row,'retry_scheduled')
         elif state in ('failed','interrupted'):
             recovery.open_incident(c,row,reason)
@@ -365,8 +407,7 @@ def wait_process_group(child, grace):
         time.sleep(.1)
 
 
-class UnreturnedProcessGroup(RuntimeError):
-    pass
+UnreturnedProcessGroup = runtime_client.Unreturned
 
 
 def stop_process_group(child):
@@ -403,7 +444,11 @@ def output_size(folder):
 
 
 def mark_returned(c,row,receipt):
+    current=c.execute('SELECT state,attempt FROM jobs WHERE id=?',(row['id'],)).fetchone()
+    if current is None or current['attempt']!=row['attempt'] or current['state'] not in ('running','preparing'):
+        return False
     c.execute("UPDATE attempts SET state='complete',ended=? WHERE id=?",(receipt['ended'],row['attempt']))
+    c.execute("UPDATE stage_runs SET state='returned',ended=COALESCE(ended,?) WHERE job=? AND attempt=? AND stage='run'",(receipt['ended'],row['id'],row['attempt']))
     c.execute("UPDATE jobs SET state='processing',result=? WHERE id=?",
               (dump({'execution':receipt['execution']}),row['id']))
     c.execute('INSERT OR IGNORE INTO result_outbox(job,attempt) VALUES(?,?)',(row['id'],row['attempt']))
@@ -455,10 +500,16 @@ def execute(row, config, stage="run"):
         runner=spec.get('profile',{}).get('prepare' if stage=='prepare' else 'runtime',{})
         with (folder/('prepare.log' if stage=='prepare' else 'worker.log')).open('ab') as log:
             child = runtime_client.Container(config,row,spec,stage,request,folder,BULK) if runner.get('executor')=='container' else subprocess.Popen(command,stdout=log,stderr=log,start_new_session=True,env=environment)
-            with db() as c:c.execute("INSERT OR REPLACE INTO stage_runs VALUES(?,?,?,?,NULL,'running')",(row['id'],row['attempt'],stage,time.time()))
             with child:
-                monitor_child(row,config,spec,folder,stage,child,log,timeout,generic)
-            with db() as c:c.execute("UPDATE stage_runs SET ended=?,state=? WHERE job=? AND attempt=? AND stage=?",(time.time(),'returned' if child.returncode==0 else 'failed',row['id'],row['attempt'],stage))
+                try:
+                    with db() as c:c.execute("INSERT OR REPLACE INTO stage_runs VALUES(?,?,?,?,NULL,'running')",(row['id'],row['attempt'],stage,time.time()))
+                    monitor_child(row,config,spec,folder,stage,child,log,timeout,generic)
+                except UnreturnedProcessGroup:
+                    raise
+                except Exception:
+                    stop_process_group(child)
+                    raise
+            with db() as c:c.execute("UPDATE stage_runs SET ended=COALESCE(ended,?),state=? WHERE job=? AND attempt=? AND stage=?",(time.time(),'returned' if child.returncode==0 else 'failed',row['id'],row['attempt'],stage))
             return
     except runtime_client.Busy:
         with db() as c:c.execute("UPDATE jobs SET state='ready',available_at=? WHERE id=?",(time.time()+2,row['id']))
@@ -504,6 +555,7 @@ def monitor_child(row,config,spec,folder,stage,child,log,timeout,generic):
                 if c.execute('SELECT cancel FROM jobs WHERE id=?',(row['id'],)).fetchone()[0]:
                     finish(row,'cancelled',{'process_group_returned':True})
                 else:
+                    c.execute("UPDATE stage_runs SET state='returned',ended=? WHERE job=? AND attempt=? AND stage='prepare'",(time.time(),row['id'],row['attempt']))
                     c.execute("UPDATE jobs SET state='ready' WHERE id=?",(row['id'],))
             return
         receipt=returned_receipt(row)
@@ -514,7 +566,9 @@ def monitor_child(row,config,spec,folder,stage,child,log,timeout,generic):
         # down its process namespace; a new worker records the interruption.
         raise
     except (OSError,ValueError,KeyError,TypeError,RuntimeError,subprocess.SubprocessError) as exc:
-        finish(row,'failed',{'reason':'launch_failed','error_type':type(exc).__name__})
+        disposition=stop_process_group(child)
+        finish(row,'failed',{'reason':'launch_failed','error_type':type(exc).__name__,
+                            'cleanup':disposition,'process_group_returned':True})
 
 
 def process_result(row, config):
@@ -526,8 +580,12 @@ def process_result(row, config):
         folder = storage.folder(config,BULK,row,relative)
         spec=json.loads(row['spec'])
         if spec.get('profile',{}).get('finalize'):
-            with db() as c:rec=recovery.view(c,row['id'])
-            run_hook(row,config,'finalize',row.get('retries',0)+100*(rec['rounds'] if rec else 0),required=True)
+            with db() as c:
+                rec=recovery.view(c,row['id'])
+                finalized=c.execute('SELECT 1 FROM finalizer_receipts WHERE job=? AND attempt=?',(row['id'],row['attempt'])).fetchone()
+                published=c.execute("SELECT 1 FROM entity_revisions WHERE job=? AND json_extract(manifest,'$.attempt')=? LIMIT 1",(row['id'],row['attempt'])).fetchone()
+            if not finalized and not published:
+                run_hook(row,config,'finalize',row.get('retries',0)+100*(rec['rounds'] if rec else 0),required=True)
         with (folder/'result.json').open('rb') as stream:
             os.fsync(stream.fileno())
         facts = {}
@@ -535,6 +593,10 @@ def process_result(row, config):
         result['execution'] = {'exit_code':0,'process_group_returned':True}
         if (folder/'container-ticket.json').exists():result['runtime']=read(folder/'container-ticket.json')
         prepared = registry.prepare(result,BULK,relative,facts=facts,config=config)
+        if spec.get('profile',{}).get('finalize'):
+            # Once finalization produced verified outputs, indexing retries must
+            # not execute it again. Old published Attempts are equally conclusive.
+            with db() as c:c.execute('INSERT OR IGNORE INTO finalizer_receipts VALUES(?,?,?)',(row['id'],row['attempt'],time.time()))
         fd = os.open(folder,os.O_RDONLY | os.O_DIRECTORY)
         try:
             os.fsync(fd)
@@ -542,11 +604,30 @@ def process_result(row, config):
             os.close(fd)
         result['artifact_ready'] = True
         with db() as c:
-            c.execute("UPDATE jobs SET result=? WHERE id=? AND state='processing' AND cancel=0",
-                      (dump(result),row['id']))
+            c.execute('BEGIN IMMEDIATE')
+            current=c.execute('SELECT attempt,state,cancel FROM jobs WHERE id=?',(row['id'],)).fetchone()
+            if current is None or current['attempt']!=row['attempt'] or current['state']!='processing':return
+            if not current['cancel']:
+                registry.index(c,row,result,config,BULK,relative,prepared=prepared,validate_only=True)
+                c.execute("UPDATE jobs SET result=? WHERE id=? AND attempt=? AND state='processing' AND cancel=0",
+                          (dump(result),row['id'],row['attempt']))
         finish(row,'complete',result,config,prepared)
+    except UnreturnedProcessGroup:
+        raise
     except (OSError,ValueError,KeyError,TypeError,RuntimeError,sqlite3.Error) as exc:
         with db() as c:
+            c.execute('BEGIN IMMEDIATE')
+            current=c.execute('SELECT * FROM jobs WHERE id=?',(row['id'],)).fetchone()
+            if current is None or current['attempt']!=row['attempt'] or current['state']!='processing':return
+            if current['cancel']:
+                c.execute("UPDATE jobs SET state='cancelled',result=? WHERE id=?",(dump({'reason':'cancelled','execution':{'exit_code':0,'process_group_returned':True}}),row['id']))
+                c.execute('DELETE FROM result_outbox WHERE job=? AND attempt=?',(row['id'],row['attempt']))
+                event(c,current,'cancelled');hooks.enqueue(c,dict(current),'cancelled');recovery.close(c,row['id'],'cancelled')
+                return
+            # A failed revalidation must not publish a new readiness claim.
+            # The last immutable Registry revision remains independently readable.
+            stored=json.loads(current['result'] or '{}');stored.pop('artifact_ready',None)
+            c.execute('UPDATE jobs SET result=? WHERE id=?',(dump(stored),row['id']))
             c.execute('UPDATE result_outbox SET retries=retries+1,next_try=? WHERE job=?',
                       (time.time()+min(300,2**min(8,row['retries'])),row['id']))
             if row['retries'] == 0:
@@ -589,6 +670,8 @@ def process_hook(item,config):
     try:
         run_hook(row,config,item['stage'],item['retries'])
         with db() as c:c.execute("UPDATE hooks SET state='complete',error=NULL WHERE job=? AND attempt=? AND stage=?",(item['job'],item['attempt'],item['stage']))
+    except UnreturnedProcessGroup:
+        raise
     except Exception as exc:
         diagnostics.record('worker','hook',exc,code='hook_failed')
         with db() as c:
@@ -616,6 +699,13 @@ def worker(config):
         lanes = ThreadPoolExecutor(max_workers=3)
         jobs = {'cpu':None,'gpu':None,'result':None}
         try:
+            if config.get('executor'):
+                # An uncertain hook/finalizer must return before any retry or
+                # unrelated CPU work. Pending records retain bounded retry IDs.
+                with db() as c:
+                    pending=c.execute("SELECT id AS job,attempt FROM jobs WHERE state='processing' UNION SELECT job,attempt FROM hooks WHERE state='pending'").fetchall()
+                for item in pending:
+                    runtime_client.call(config['executor'],'recover',dict(item))
             with db() as c:
                 rows=c.execute("SELECT * FROM jobs WHERE state IN ('running','preparing')").fetchall()
             for row in rows:
@@ -626,7 +716,8 @@ def worker(config):
                     finish(row,'failed',{'reason':'storage_unavailable','process_group_returned':True})
                     continue
                 ticket_path=folder/'container-ticket.json'
-                if config.get('executor') and json.loads(row['spec']).get('profile',{}).get('runtime',{}).get('executor')=='container':
+                runner='prepare' if row['state']=='preparing' else 'runtime'
+                if config.get('executor') and json.loads(row['spec']).get('profile',{}).get(runner,{}).get('executor')=='container':
                     recovered=runtime_client.call(config['executor'],'recover',{'job':row['id'],'attempt':row['attempt']})
                     for entry in recovered:
                         if entry['stage']==('prepare' if row['state']=='preparing' else 'run'):
@@ -641,7 +732,9 @@ def worker(config):
                         if not state['returned']:raise UnreturnedProcessGroup('Previous container still owns resources')
                     elif state.get('exit_code')==0 and ticket.get('natural_return',True):
                         if ticket.get('natural_return',True) and ticket['stage']=='prepare':
-                            with db() as c:c.execute("UPDATE jobs SET state='ready' WHERE id=?",(row['id'],))
+                            with db() as c:
+                                c.execute("UPDATE stage_runs SET state='returned' WHERE job=? AND attempt=? AND stage='prepare'",(row['id'],row['attempt']))
+                                c.execute("UPDATE jobs SET state='ready' WHERE id=?",(row['id'],))
                             continue
                         receipt=returned_receipt(row)
                         with db() as c:mark_returned(c,row,receipt)
@@ -683,6 +776,7 @@ def worker(config):
                 with db() as c:
                     c.execute('BEGIN IMMEDIATE')
                     recovery.expire(c)
+                    workflows.refresh(c)
                     row = None
                     if registry.mode(c)=='active':
                         for candidate in c.execute("SELECT * FROM jobs WHERE state IN ('queued','ready','blocked') AND cancel=0 AND available_at<=? ORDER BY COALESCE(queue_order,created),id",(time.time(),)):
@@ -714,7 +808,7 @@ def worker(config):
             lanes.shutdown()
             if grant:
                 with db() as c:
-                    running=c.execute("SELECT 1 FROM jobs WHERE state='running'").fetchone()
+                    running=c.execute("SELECT 1 FROM jobs WHERE state IN ('preparing','running','processing') UNION SELECT 1 FROM hooks WHERE state='pending' LIMIT 1").fetchone()
                 if not running:
                     grant.request('release')
 
@@ -729,9 +823,18 @@ def cpu(folder, params):
     return 0
 
 TOOLS = {
+    'submit_workflow': ('submit', {}),
+    'curate_research': ('submit', {}),
+    'curate_runtime_item': ('submit', {}),
+    'inspect_execution_profile': ('read', {}),
+    'compare_execution_profiles': ('read', {}),
+    'annotate_software': ('submit', {}),
+    'runtime_list': ('read', {}),
+    'runtime_get': ('read', {'id':'string','revision':'integer'}),
     'list_users': ('read', {}),
     'assign_job_owner': ('submit', {'id':'string','owner':'string'}),
     'assign_entity_owner': ('submit', {'id':'string','owner':'string'}),
+    'assign_extension_owner': ('submit', {'kind':'string','namespace':'string','id':'string','owner':'string'}),
     'recover_job': ('submit', {'id':'string','action':'string'}),
     'submit_job': ('submit', {'key':'string','kind':'string','owner':'string','notify':'string','params':'object'}),
     'docker_status': ('read', {}),
@@ -764,14 +867,15 @@ TOOLS = {
 
 
 OPTIONAL_FIELDS = {
+    'list_registry':{'view':{'enum':['research','all','operations'],'default':'research'}},
     'reconnect_location':{'storage':storage.SELECTOR},
     'reorder_job': {'reference':{'type':'string'},'reason':{'type':'string','maxLength':1000}},
     'hold_job': {'reason':{'type':'string','maxLength':1000}},
     'resume_job': {'reason':{'type':'string','maxLength':1000}},
     'recover_job':{'lease':{'type':'string'},'patch':{'type':'object'},'reason':{'type':'string'}},
     'list_events': {'kind':{'type':'string','enum':['errors','lifecycle','all'],'default':'errors'},'after':{'type':'integer','minimum':0}},
-    'submit_job': {'consolidates':job_work.CONSOLIDATES_SCHEMA,'output_storage':storage.SELECTOR,'queue_position':{'type':'string','enum':['tail','next'],'default':'tail'},'execution':execution.POLICY_SCHEMA,'depends_on': {'type':'array','items':{'type':'string'}}, **job_contract.FIELDS},
-    'list_jobs': {'include_consolidated':{'type':'boolean','default':False},'category': job_contract.FIELDS['category'],
+    'submit_job': {'presentation':research.PRESENTATION,'consolidates':job_work.CONSOLIDATES_SCHEMA,'output_storage':storage.SELECTOR,'queue_position':{'type':'string','enum':['tail','next'],'default':'tail'},'execution':execution.POLICY_SCHEMA,'depends_on': {'type':'array','items':{'type':'string'}}, **job_contract.FIELDS},
+    'list_jobs': {'view':{'enum':['research','all','operations'],'default':'research'},'include_consolidated':{'type':'boolean','default':False},'category': job_contract.FIELDS['category'],
                   'execution_mode': {'type':'string','enum':list(job_contract.MODES)},
                   'offset': {'type':'integer','minimum':0,'default':0},
                   'limit': {'type':'integer','minimum':1,'maximum':1000,'default':250}},
@@ -779,7 +883,18 @@ OPTIONAL_FIELDS = {
 
 
 def tool_schema(name):
+    if name=='submit_workflow':return workflows.SCHEMA
+    if name=='curate_research':return research.CURATE
+    if name in ('curate_runtime_item','inspect_execution_profile','compare_execution_profiles'):
+        from runtime_hub import SCHEMAS
+        return SCHEMAS[name]
     fields = TOOLS[name][1]
+    if name=='assign_extension_owner':
+        return {'type':'object','properties':{'kind':{'enum':['component','tool','profile']},
+            'namespace':{'type':'string','pattern':'^'+component_store.ID.pattern+'$'},
+            'id':{'type':'string','pattern':'^'+component_store.ID.pattern+'$'},
+            'owner':{'type':'string','description':'Registered responsible user ID or built-in for Loom-supplied software. Does not restrict sharing.'}},
+            'required':list(fields),'additionalProperties':False}
     if name=='reorder_job':
         return {'type':'object','properties':{'id':{'type':'string'},'position':queue_control.POSITION_SCHEMA,**OPTIONAL_FIELDS[name]},'required':['id','position'],'additionalProperties':False}
     return {'type':'object', 'properties':{
@@ -815,6 +930,40 @@ def operate(name, args, actor, config):
             with db() as c:return component_store.operate(c,actor,{'action':action,**payload},config)
         if name=='recovery':payload={**payload,'action':action}
         return operate(operation,payload,actor,config)
+    if name=='annotate_software':
+        import software_metadata
+        with db() as c:return software_metadata.annotate(c,actor,args)
+    if name in ('curate_runtime_item','inspect_execution_profile','compare_execution_profiles'):
+        import runtime_hub
+        if TOOLS[name][0] not in actor['scopes']:raise PermissionError('Scope denied')
+        execution.validate(runtime_hub.SCHEMAS[name],args)
+        with db() as c:
+            return {'curate_runtime_item':runtime_hub.curate,'inspect_execution_profile':runtime_hub.inspect_profile,'compare_execution_profiles':runtime_hub.compare}[name](c,actor,args,config)
+    if name in ('submit_workflow','curate_research'):
+        if 'submit' not in actor['scopes']:raise PermissionError('Submit scope required')
+        guard(config)
+        with db() as c:
+            if name=='submit_workflow':return workflows.submit(c,actor,args,config,submit)
+            c.execute('BEGIN IMMEDIATE')
+            if registry.mode(c)!='active':raise PermissionError('Job admission fenced')
+            catalog,_=dashboard_read.projection(c,actor,config,LOCAL,bulk=BULK)
+            return research.curate(c,actor,args,catalog['entities'])
+    if name in ('get_job','cancel_job','hold_job','resume_job') and isinstance(args,dict) and set(args)<={'id','reason'} and args.get('id'):
+        with db() as c:
+            logical=workflows.get(c,args['id'])
+            if logical:logical=ownership.decorate(c,'job',logical)
+        if logical:
+            execution.validate(tool_schema(name),args)
+            required='read' if name=='get_job' else 'cancel' if name=='cancel_job' else 'submit'
+            if required not in actor['scopes']:raise PermissionError('Scope denied')
+            if name=='get_job':return logical
+            results=[operate(name,{'id':node['job'],**({'reason':args['reason']} if 'reason' in args and name!='cancel_job' else {})},actor,config) for node in logical['executions'] if name!='cancel_job' or node['state'] not in ('complete','cancelled')]
+            return {'id':logical['id'],'executions':results}
+    if name in ('get_job_logs','reindex_job','recover_job','reorder_job') and isinstance(args,dict) and isinstance(args.get('id'),str):
+        with db() as c:
+            if workflows.exists(c,args['id']):
+                if TOOLS[name][0] not in actor['scopes']:raise PermissionError('Scope denied')
+                raise ValueError('Select an actual execution ID from jobs.get.executions')
     scope, fields = TOOLS[name]
     if scope not in actor['scopes']:
         raise PermissionError('Scope denied')
@@ -823,6 +972,16 @@ def operate(name, args, actor, config):
     if name == 'release_status':return release_updates.status()
     if name == 'check_releases':return release_updates.request()
     with db() as c:
+        if name in ('runtime_list','runtime_get'):
+            import runtime_catalog
+            result=runtime_catalog.inventory(c,config)
+            if name=='runtime_list':return result
+            for item in result['runtimes']:
+                if (item['id'],item['revision'])==(args['id'],args['revision']):
+                    import runtime_client
+                    exact=runtime_client.call(config['executor'],'resolve_runtime',{'runtime_ref':{'id':args['id'],'revision':args['revision']}})
+                    return {**item,'manifest':exact['manifest'],'manifest_summary':False}
+            raise ValueError('Runtime revision unavailable or outside instance grant')
         if name in {'cancel_job','reindex_job','annotate_job','reconnect_location','record_delivery','ack_event','recover_job'} and registry.mode(c) != 'active':
             raise PermissionError('Job admission fenced')
         if name == 'submit_job':
@@ -833,6 +992,14 @@ def operate(name, args, actor, config):
             return connection(actor)
         if name == 'list_users':
             return [dict(r) for r in c.execute('SELECT id,provider,login,display_name FROM user_profiles ORDER BY display_name,id')]
+        if name == 'assign_extension_owner':
+            execution.validate(tool_schema(name),args)
+            identity=args['namespace']+':'+args['id']
+            if (args['kind'],identity) not in ownership.inventory(c):raise ValueError('Extension not found')
+            component_store.mutation(c)
+            changed=ownership.assign(c,args['kind'],identity,args['owner'],actor['id'])
+            return {'kind':args['kind'],'id':args['id'],'changed':changed,
+                    **ownership.extension(c,args['kind'],args['namespace'],args['id'])}
         if name in ('assign_job_owner','assign_entity_owner'):
             kind='job' if name=='assign_job_owner' else 'entity'
             if (kind,args['id']) not in ownership.inventory(c):raise ValueError('Item not found')
@@ -849,7 +1016,9 @@ def operate(name, args, actor, config):
                     'queue_policy':{'default_position':'tail','placements':['next','tail','before','after'],'scope':'submit','target':'all_jobs','running_preemption':False,'hold_preserves_order':True,'reason_optional':True},
                     'recovery_policy':{'response_seconds':900,'idle_seconds':900,'round_seconds':1800,'max_rounds':3}}
         if name == 'list_execution_profiles':
-            return profiles.describe(component_store.merge(c,config,actor), actor)
+            import profile_inventory
+            combinations={p['kind']:p for p in profile_inventory.inventory(c,config,actor)}
+            return [{**p,'usage':combinations[p['kind']]['usage'],'combination':combinations[p['kind']]} for p in profiles.describe(component_store.merge(c,config,actor), actor)]
         if name == 'list_jobs':
             if type(args.get('include_consolidated',False)) is not bool:raise ValueError('Invalid consolidation filter')
             links=job_work.completed_links(c)
@@ -861,15 +1030,36 @@ def operate(name, args, actor, config):
                 item['consolidated_into']=links.get(item['id'])
                 if item['consolidated_into'] and not args.get('include_consolidated',False):continue
                 item['recovery']=recovery.view(c,item['id'])
-                item.update(job_contract.values(json.loads(item.pop('spec'))))
+                spec=json.loads(item.pop('spec'))
+                item.update(job_contract.values(spec))
+                item['presentation']=research.job(c,{'id':item['id'],'spec':dump(spec)})
+                item['presentation']['visible']=item['presentation']['scope']=='research' and item['presentation']['role']=='main' and not item['presentation'].get('parent_job')
                 rows.append(ownership.decorate(c,'job',item))
-            return job_contract.select(rows + job_history.listing(c, actor, config), args)
+            old=job_history.listing(c,actor,config)
+            overlays=research.read(c)
+            for item in old:
+                item['presentation']={'scope':'research','role':'main',**overlays.get(('job',item['id']),{})}
+                item['presentation']['visible']=item['presentation']['scope']=='research' and item['presentation']['role']=='main' and not item['presentation'].get('parent_job')
+            logical=workflows.listing(c)
+            for item in logical:
+                item['presentation'].update(overlays.get(('job',item['id']),{}))
+                item['presentation']['visible']=item['presentation'].get('scope')=='research' and item['presentation'].get('role')=='main' and not item['presentation'].get('parent_job')
+            selected=research.view(rows+old+logical,args.get('view','research'))
+            if args.get('include_consolidated'):
+                visible={item['id'] for item in selected}
+                selected.extend(item for item in rows if item['id'] not in visible and item.get('consolidated_into') in visible)
+            return job_contract.select(selected,args)
         if name == 'queue_view':return queue_control.view(c,actor,execution_lane)
         if name == 'list_registry':
             native = registry.view(c,actor)
-            return native + history_store.catalog_results(c, (item['id'] for item in native))
+            records=native+history_store.catalog_results(c,(item['id'] for item in native))
+            proxies=[{**e,'kind':e['kind'],'loom_registry':{'id':e['id']},'loom_job':{'id':e.get('job')}} for e in records]
+            research.decorate(c,proxies)
+            for record,proxy in zip(records,proxies):record['presentation']=proxy['presentation']
+            return research.view(records,args.get('view','research'))
         if name == 'get_entity':
-            return registry.view(c,actor,ident(args['id']),args['revision'])
+            if not isinstance(args['id'],str) or not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,255}',args['id']):raise ValueError('Invalid entity identity')
+            return registry.view(c,actor,args['id'],args['revision'])
         if name in {'list_history','get_history'}:
             if name=='list_history':
                 return history_store.list_records(c,**args)
@@ -886,7 +1076,7 @@ def operate(name, args, actor, config):
                     'principal':{k:actor[k] for k in ('id','scopes','owners','notify','identity','profile_id','profile','credential_id') if k in actor},
                     'installation_id':config.get('installation_id'),'collaboration':'shared',
                     'authentication':{'tailscale':bool(config.get('tailscale_auth',{}).get('enabled')),
-                                      'dashboard_sso':bool(config.get('dashboard_auth',{}).get('enabled'))},'api_revision':job_contract.API_REVISION,'job_contract_revision':job_contract.REVISION,'admission':registry.mode(c),'inventory':config['inventory'],'execution_contract_revision':execution.REVISION,'data_stores':{name:{**item,'path':'/loom/'+name} for name,item in storage.stores(config,BULK).items()},'runtime_ids':config.get('runtime_ids',[]),'gpu_execution_enabled':config.get('allow_gpu',False),
+                                      'dashboard_sso':bool(config.get('dashboard_auth',{}).get('enabled'))},'api_revision':job_contract.API_REVISION,'job_contract_revision':job_contract.REVISION,'admission':registry.mode(c),'inventory':config['inventory'],'execution_contract_revision':execution.REVISION,'data_stores':{name:{**item,'path':'/loom/'+name} for name,item in storage.stores(config,BULK).items()},'runtime_ids':config.get('runtime_ids',[]),'runtime_catalog':{'discovery':{'group':'components','action':'runtimes'},'dependency_directory':config.get('dependency_directory'),'pinned_revisions':True},'gpu_execution_enabled':config.get('allow_gpu',False),
                     'profiles':{kind:p['revision'] for kind,p in config.get('profiles',{}).items()
 }}
         if name == 'record_delivery':
@@ -931,6 +1121,14 @@ def operate(name, args, actor, config):
         if name == 'recover_job':
             def validate_patch(frozen,patch):
                 candidate={**frozen,**patch}
+                if not isinstance(candidate.get('params'),dict):raise ValueError('Recovery params must be an object')
+                dependencies=list(frozen.get('_requested_dependencies',frozen.get('depends_on',[])))
+                candidate['_requested_dependencies']=list(dependencies)
+                dependencies.extend(i for i in frozen.get('consolidates',[]) if i not in dependencies)
+                merged=component_store.merge(c,config,actor)
+                selected=merged.get('profiles',{}).get(candidate['kind'],{})
+                for dependency in execution.input_dependencies(selected,candidate['params']):
+                    if dependency not in dependencies:dependencies.append(dependency)
                 for item in candidate['params'].values():
                     if isinstance(item,dict) and 'job' in item:
                         upstream=c.execute('SELECT owner,submitter FROM jobs WHERE id=?',(item['job'],)).fetchone()
@@ -940,13 +1138,27 @@ def operate(name, args, actor, config):
                         if parts and parts[0]=='runs':
                             upstream=c.execute('SELECT owner,submitter FROM jobs WHERE id=?',(parts[1],)).fetchone() if len(parts)>1 else None
                             if not upstream or not recovery.permitted(actor,upstream):raise PermissionError('Input belongs to another owner')
+                            attempt=c.execute('SELECT attempt FROM jobs WHERE id=?',(parts[1],)).fetchone()[0]
+                            if len(parts)<4 or parts[2]!=attempt:raise ValueError('Input does not name the upstream Attempt')
+                            if parts[1] not in dependencies:dependencies.append(parts[1])
                         elif not any(Path(item['ref']).is_relative_to(prefix) for prefixes in config.get('input_grants',{}).values() for prefix in prefixes):raise PermissionError('Input outside storage grant')
                 if candidate['kind']=='cpu.smoke':
                     params=candidate['params']
                     if set(params)!={'seconds','fail'} or type(params['seconds']) is not int or not 0<=params['seconds']<=20 or type(params['fail']) is not bool:raise ValueError('Invalid smoke parameters')
                 else:
-                    selected=installed(component_store.merge(c,config,actor),candidate['kind'],actor,candidate['params'],BULK,relative,ident,candidate.get('depends_on',[]))
+                    selected=installed(merged,candidate['kind'],actor,candidate['params'],BULK,relative,ident,dependencies)
                     candidate['profile']=selected
+                if len(dependencies)>64:raise ValueError('Too many recovery dependencies')
+                visited=set();pending=list(dependencies)
+                while pending:
+                    dependency=ident(pending.pop())
+                    if dependency==row['id']:raise ValueError('Recovery would create a dependency cycle')
+                    if dependency in visited:continue
+                    visited.add(dependency)
+                    upstream=c.execute('SELECT spec FROM jobs WHERE id=?',(dependency,)).fetchone()
+                    if not upstream:raise ValueError('Recovery dependency is missing')
+                    pending.extend(json.loads(upstream['spec']).get('depends_on',[]))
+                candidate['depends_on']=dependencies
                 execution.policy(candidate,candidate.get('profile',{'timeout':30,'budget':{'attempts':2}}))
                 return candidate
             return recovery.action(c,row,actor,args['action'],args,validate_patch)
@@ -974,7 +1186,8 @@ def operate(name, args, actor, config):
                 raise PermissionError('Result reindex outside execution owner or Attempt')
             if row['state'] not in {'complete','result_failed','processing'}:
                 raise ValueError('Reindex requires a returned successful execution')
-            c.execute("UPDATE jobs SET state='processing' WHERE id=?",(row['id'],))
+            pending_result=json.loads(row['result'] or '{}');pending_result.pop('artifact_ready',None)
+            c.execute("UPDATE jobs SET state='processing',result=? WHERE id=?",(dump(pending_result),row['id']))
             c.execute("""INSERT INTO result_outbox(job,attempt) VALUES(?,?)
                 ON CONFLICT(job) DO UPDATE SET retries=0,next_try=0""",(row['id'],row['attempt']))
             return {'id':row['id'],'attempt':row['attempt'],'state':'processing'}
@@ -999,6 +1212,7 @@ def operate(name, args, actor, config):
                 event(c,row,'cancelled')
                 c.execute("UPDATE attempts SET state='cancelled',ended=? WHERE id=? AND state='running'",(time.time(),row['attempt']))
                 recovery.close(c,row['id'],'cancelled')
+                if row['attempt']:hooks.enqueue(c,dict(row),'cancelled')
             if row['state']=='result_failed':
                 c.execute('DELETE FROM result_outbox WHERE job=?',(row['id'],))
             else:
@@ -1029,9 +1243,10 @@ def operate(name, args, actor, config):
             'SELECT payload FROM job_annotations WHERE job=? ORDER BY id',(row['id'],))]
         if annotations:
             response['annotations']=annotations
-        response['attempts'] = [dict(item) for item in c.execute(
-            'SELECT id,state,started,ended FROM attempts WHERE job=? ORDER BY started',(row['id'],))]
-        return ownership.decorate(c,'job',response)
+        response['presentation']=research.job(c,row)
+        response['attempts'] = [{**dict(item),'result':json.loads(item['result']) if item['result'] else None} for item in c.execute(
+            'SELECT a.id,a.state,a.started,a.ended,r.result FROM attempts a LEFT JOIN attempt_results r ON r.job=a.job AND r.attempt=a.id WHERE a.job=? ORDER BY a.started,a.id',(row['id'],))]
+        return ownership.decorate(c,'job',research.enrich(c,response))
 
 
 MCP_VERSIONS = ('2025-03-26','2025-06-18','2025-11-25')
@@ -1152,6 +1367,8 @@ class API(BaseHTTPRequestHandler):
                 result = operate('check_releases',body,actor,config)
             elif self.path == '/api/ssh' and self.command == 'GET':
                 result = operate('ssh_connection',{},actor,config)
+            elif self.path == '/api/runtimes' and self.command == 'GET':
+                result = operate('runtime_list',{},actor,config)
             elif self.path == '/api/status' and self.command == 'GET':
                 result = operate('system_status',{},actor,config)
             elif self.command=='POST' and self.path in {
@@ -1200,10 +1417,16 @@ class API(BaseHTTPRequestHandler):
                     if args['include_consolidated'] not in ('true','false'):raise ValueError('Invalid consolidation filter')
                     args['include_consolidated']=args['include_consolidated']=='true'
                 result = operate('list_jobs',args,actor,config)
-            elif self.path == '/api/registry' and self.command == 'GET':
-                result = operate('list_registry',{},actor,config)
+            elif urlsplit(self.path).path == '/api/registry' and self.command == 'GET':
+                query=parse_qs(urlsplit(self.path).query,keep_blank_values=True)
+                if any(len(v)!=1 for v in query.values()):raise ValueError('Repeated registry view')
+                result=operate('list_registry',{k:v[0] for k,v in query.items()},actor,config)
             elif self.path.startswith('/api/registry/') and self.command == 'GET':
                 result = operate('get_entity',{'id':self.path.removeprefix('/api/registry/'),'revision':1},actor,config)
+            elif self.path == '/api/jobs/workflow' and self.command == 'POST':
+                result=operate('submit_workflow',body,actor,config)
+            elif self.path == '/api/research/curate' and self.command == 'POST':
+                result=operate('curate_research',body,actor,config)
             elif self.path == '/api/jobs' and self.command == 'POST':
                 result = operate('submit_job',body,actor,config)
             elif self.path.startswith('/api/jobs/') and self.command == 'GET':

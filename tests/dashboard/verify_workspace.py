@@ -30,6 +30,13 @@ class Workspace:
                      return true;""", selector)
 
     def nav(self, name):
+        if name in ('Profiles','Components','Tools','Runtimes'):
+            page={'Profiles':'profiles','Components':'components','Tools':'tools','Runtimes':'runtimes'}[name]
+            if not self.js("return !!document.querySelector('[data-hub-page]')"):
+                self.click('#pa-nav [data-go=profiles]')
+            self.click('[data-hub-page="'+page+'"]')
+            self.wait("return document.querySelector('[data-hub-page='+arguments[0]+']')?.getAttribute('aria-current')==='page'",page)
+            return
         self.wait("""const button = [...document.querySelectorAll('#pa-nav button')]
                        .find(button => button.textContent.trim() === arguments[0]);
                      if (!button) return false;

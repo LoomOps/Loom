@@ -126,3 +126,33 @@ executor/runtime_policy.py OPTIONS_SCHEMA. Existing plans remain valid. The
 installation doctor verifies explicit options against the actual matching executor
 grant. deploy/runtime_doctor.py is a separate opt-in diagnostic, never a required
 research or Job gate; see [runtime doctor](../RUNTIME-DOCTOR.md).
+
+## Boot-time listener readiness
+
+Compose up/start/restart waits up to 120 seconds for the exact non-loopback,
+non-wildcard published host addresses in the fully merged Compose configuration,
+including machine-owned overrides. This checks assigned local IPv4/IPv6 addresses;
+network-online.target or a started tailscaled process alone is not readiness.
+Configuration/probe failures do not launch Compose or print expanded private
+configuration. Stop, down and read-only commands never wait for these addresses.
+
+Managed stack/authority units retry failures after 15 seconds without exhausting
+a short boot rate limit. New stack units allow 300 seconds for address readiness
+and Compose health startup; explicit longer/unlimited operator timeouts survive.
+Update and resume adopt the same unit policy while preserving listeners, mounts,
+instance environment and machine drop-ins. Original unit backups are retained
+across retries and restored by rollback. Optional authority state and TLS material
+are not initialized or replaced. Installer kits include the readiness helper and
+require iproute2's ip command. Real reboot acceptance remains separate from mocks.
+
+Update/resume/rollback stop the matching managed stack unit before replacing
+containers, so a pending systemd restart cannot run a second Compose transaction.
+The effective instance/project environment must match; unrelated units are not
+claimed. Original activation is restored after readiness/preservation, retained
+across resume, and suppressed while failed updates remain fenced.
+
+Runtime provisioning uses plan.dependencies, passed to the matching executor
+instance and API configuration. Missing/mismatching/redirected directories fail;
+there is no hardcoded fallback. Installer kits and updates ship runtime_store.py
+with the host executor. Research images, dependency trees and the separate Runtime
+catalog are persistent host state; platform upgrades never rebuild them.

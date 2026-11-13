@@ -85,6 +85,26 @@ def attach_timeline(progress,value):
         if source is not None:step['source_execution']=dict(source)
 
 
+def execution_intervals(c,row,value=None):
+    """Stage receipts exclude preparation-to-runtime queue gaps; old receipts stay explicit."""
+    executions=value['executions'] if value else [dict(a) for a in c.execute(
+        'SELECT id AS attempt,started,ended,state FROM attempts WHERE job=? ORDER BY started,id',(row['id'],))]
+    intervals=[]
+    for attempt in executions:
+        job=attempt.get('job',row['id'])
+        stages=c.execute("SELECT stage,started,ended,state FROM stage_runs WHERE job=? AND attempt=? AND stage IN ('prepare','run') ORDER BY started,stage",(job,attempt['attempt'])).fetchall()
+        if stages:
+            for stage in stages:
+                intervals.append({'start':stage['started'],'end':stage['ended'],'count_runtime':True,
+                    'unknown_exit':stage['ended'] is None and (stage['state']!='running' or attempt['state']!='running'),
+                    'authority':'stage_receipt','stage':stage['stage'],'job':job,'attempt':attempt['attempt']})
+        else:
+            intervals.append({'start':attempt['started'],'end':attempt['ended'],'count_runtime':True,
+                'unknown_exit':attempt['ended'] is None and attempt['state']!='running',
+                'authority':'attempt_receipt','may_include_waiting':True,'job':job,'attempt':attempt['attempt']})
+    return intervals
+
+
 def progress(folder,spec):
     plan=spec.get('profile',{}).get('steps',[])
     if not plan:return None

@@ -202,3 +202,21 @@ class PreservedRebuildTests(lifecycle.ReleaseLifecycleTests):
         info=source.lstat()
         chown.assert_called_once_with(link,info.st_uid,info.st_gid,follow_symlinks=False)
         self.assertTrue(state_snapshot.verify(self.root,saved)['preserved'])
+
+
+class AdmissionPreservationTests(unittest.TestCase):
+    def test_reconcile_clocks_can_progress_but_grants_and_tokens_remain_exact(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)/'instance';(root/'admission').mkdir(parents=True);platform=Path(tmp)
+            (root/'compose.env').write_text('')
+            (platform/'backup').mkdir()
+            database=root/'admission/requests.sqlite3'
+            with sqlite3.connect(database) as c:
+                c.executescript("CREATE TABLE share_requests(id TEXT,state TEXT,approved_by TEXT,updated REAL,next_attempt REAL); INSERT INTO share_requests VALUES('request','ready','admin',1,2); CREATE TABLE tokens(id TEXT,revoked INTEGER); INSERT INTO tokens VALUES('existing',0)")
+            saved=state_snapshot.capture(root,platform/'backup',platform)
+            with sqlite3.connect(database) as c:c.execute('UPDATE share_requests SET updated=100,next_attempt=200')
+            self.assertTrue(state_snapshot.verify(root,saved)['preserved'])
+            with sqlite3.connect(database) as c:c.execute("UPDATE share_requests SET approved_by='another'")
+            with self.assertRaisesRegex(ValueError,'share_requests'):state_snapshot.verify(root,saved)
+            with sqlite3.connect(database) as c:c.execute("UPDATE share_requests SET approved_by='admin'");c.execute('UPDATE tokens SET revoked=1')
+            with self.assertRaisesRegex(ValueError,'tokens'):state_snapshot.verify(root,saved)

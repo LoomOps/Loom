@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+from boot_readiness import harden_unit
 from host_identity import directory, protected_chain
 
 SOURCE=Path(__file__).resolve().parents[1]
@@ -72,7 +73,7 @@ def install_authority(platform, bind, port, *, activate=True):
     # Existing authority state/credentials are required; never initialize a grant here.
     for name in ('authority.sqlite3','policy.json','cert.pem','key.pem'):
         if not (state/name).is_file():raise ValueError(f'Missing authority state: {name}')
-    unit('loom-authority.service',f'''[Unit]
+    unit('loom-authority.service',harden_unit(f'''[Unit]
 Description=Loom handoff authority
 After=network-online.target tailscaled.service
 Wants=network-online.target
@@ -86,7 +87,7 @@ RestartSec=1
 ExecStart=/usr/bin/python3 -B {services}/remote_fence.py {state}/authority.sqlite3 {state}/policy.json --bind {bind} --port {port} --tls-cert {state}/cert.pem --tls-key {state}/key.pem
 [Install]
 WantedBy=multi-user.target
-''')
+'''))
     if activate:
         subprocess.run(['systemctl','daemon-reload'],check=True)
         subprocess.run(['systemctl','enable','--now','loom-authority.service'],check=True)

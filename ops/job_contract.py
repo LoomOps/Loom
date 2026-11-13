@@ -1,6 +1,6 @@
 """Job display metadata, independent of execution profiles and verification."""
 REVISION = 'loom-job/v2'
-API_REVISION = 'loom-ops/v40'
+API_REVISION = 'loom-ops/v46'
 CATEGORIES = {
     'sdg': 'SDG', 'data_preparation': 'Data Preparation',
     'fine_tuning': 'Fine-tuning', 'evaluation': 'Evaluation',
@@ -29,7 +29,7 @@ def values(spec, *, strict=False):
 def contract():
     return {'revision': REVISION, 'fields': FIELDS, 'categories': CATEGORIES,
             'execution_modes': MODES,
-            'work_unit_policy':{'default':'one requested outcome is one Job','internal_steps':'profile.steps and producer steps.json; not scheduler Jobs','consolidation':'jobs.submit.consolidates preserves completed source execution; list(include_consolidated=true) exposes all sources'},
+            'work_unit_policy':{'default':'one requested outcome is one Job','internal_steps':'profile.steps for progress; jobs.submit_workflow for pinned execution DAGs','consolidation':'jobs.submit.consolidates preserves completed source execution; list(include_consolidated=true) exposes all sources'},
             'semantics': 'Classification does not change kind, params, task level, verification, or dispatch.'}
 
 

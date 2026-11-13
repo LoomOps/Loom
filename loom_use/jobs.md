@@ -10,7 +10,7 @@ run uses an allocated lane; GPU ownership is released after the actual process/c
 
 Connect Jobs through depends_on and `{job,entity}` input references. Skipping a failed predecessor does not allow a dependent Job to run without its output; only independent Jobs proceed. A Job timeout limits execution time. Automatic retries and agent-triggered reruns share a maximum three-round recovery budget; automatic retries also obey max_attempts.
 
-Pin Component/Tool/Profile revisions and image digests used by execution. New deployments or guidance changes do not change a running Job's revision. Registering a normal new profile does not require a platform deployment.
+Pin Component/Tool/Profile/Runtime revisions and image digests used by execution. New deployments or guidance changes do not change a running Job's revision. Registering a normal new profile does not require a platform deployment.
 
 ## Queue order and holds
 
@@ -24,6 +24,12 @@ Position is priority among eligible Jobs, not a guaranteed start time or strict 
 
 Resending the same key returns the existing Job without moving it forward again. Changing queue_position while reusing that key conflicts; use jobs.reorder instead. Restarting or holding preserves order. Completed historical Jobs cannot be reordered or resumed.
 
+An idempotency key identifies the original accepted request, including its frozen
+defaults. Replay that original request after recovery; a recovery patch changes
+the execution revision, not the key's identity. A different request with the same
+key conflicts. Current execution results are separate from prior Attempt results;
+an active legacy Job may expose `previous_result` as preserved evidence.
+
 Eligible means the local Ops dependency, hold, reservation and lane conditions are satisfied. At actual container startup, the host executor also checks GPU ownership by other instances; UI eligibility does not guarantee resource acquisition.
 
 ## Owner
@@ -35,6 +41,13 @@ owner_profile and properties.owner identify the current responsible person, not 
 Read `system.status.data_stores`, then set `output_storage` on `jobs.submit`, for example `"output_storage":"data/1"`. Omission uses data/0. Loom freezes the selected store identity for the Job, creates its `runs/<job>/<attempt>` workspace there and passes `/work` as `request.output_dir` to containers. Preparation, run, finalization, callbacks and logs follow that workspace. The producer keeps writing relative paths in result.json; it must not construct host paths or edit the DB.
 
 Loom validates the files/hashes and indexes the selected storage ID, relative paths, metadata, metrics and lineage. Dependent Jobs can use `{ "job":"<producer-id>", "entity":"<output-id>" }`; registered locator inputs work across stores too. Inputs are mounted read-only, without mounting their entire store. `runtime.storage` is a separate opt-in for general shared RW access, not the output selector.
+
+A cancelled or failed execution never supplies dependency readiness merely
+because an old result contains `artifact_ready`. Early consumption is limited to
+verified artifacts of successful returned execution in finalizing/finalizing_failed,
+or completed Jobs. Reindexing preserves the entire published output identity set,
+hashes, metadata and lineage. Changed results are rejected, not silently published
+over the immutable Registry. Use reconnect for an identical replacement copy.
 
 A missing/replaced store fails that Job instead of falling back to data/0. Result-indexing retries use the same output store and do not rerun compute. Recovery cannot change output_storage on an existing Job; submit a new Job to choose another output store. Image updates preserve configured paths and markers. Older installations expose data/0 by default; additional output stores require their persistent storage IDs and executor grants to be configured, not just an Explorer mount.
 
@@ -97,3 +110,47 @@ server-derived `source_execution` timestamps. Dashboard start/end and execution
 history include the original runs; `attempts` retain the continuation's actual
 runtime timestamps. Do not backdate Attempts or overwrite source records to
 correct a consolidated Job's display. Missing receipts remain explicitly unknown.
+
+
+## Pinned execution graphs and research presentation
+
+When a requested outcome requires multiple Profiles or CPU/GPU stages, use
+`jobs.submit_workflow` after reading its live schema. Submit `nodes` with unique
+IDs, labels, pinned Profile specs and `depends_on` node IDs. Internal inputs use
+`{"node":"producer","entity":"output"}` and must name a declared predecessor.
+`outputs` maps public aliases to exact node/entity references. A later consumer
+may use `{"job":"<main-id>","entity":"<alias>"}`; submission resolves it to the
+original verified producer, preserving lineage and dependency checks.
+
+The complete graph is accepted atomically or rejected without orphan executions.
+Replay its exact key/request after uncertainty. Each node uses the ordinary
+scheduler, resource-return checks and recovery budget. The main Job has execution
+nodes, no invented Attempt. Repair/log/reindex target the actual node; cancel or
+hold/resume on the main Job delegates to its nodes. Per-node responses describe
+partial control outcomes. Reorder targets a waiting node. A failed node is exposed
+in main Job errors; independent eligible nodes may continue. A main completion
+requires every node completed; supporting receipts are not new research outcomes.
+
+`presentation` records scope (research/operations), role (main/support/test),
+optional label, experiment, request_ref and output_roles. An explicitly requested
+research diagnostic can be main; a platform acceptance fixture is operations/test.
+Use server-side roles instead of guessing from names, Owner or Built-in origin.
+`jobs.list` and `results.list` default to research; `view=all` retains full audit
+access and `view=operations` exposes operational checks. Direct reads remain.
+The shared queue always retains all real resource consumers.
+
+`jobs.curate` previews additive presentation/binding changes by default. Apply a
+reviewed batch with dry_run=false and a stable key/reason. Originals, timestamps,
+outputs and execution pins are preserved; applying another batch can restore the
+previous overlay. Historical grouping does not reschedule or change dependency
+readiness. Prefer an execution graph for new multi-stage work. Platform tests run
+in isolated dev instances; production-only acceptance stays operational.
+
+Reusable Profiles can declare presentation.scope/role/output_roles. Submission freezes these defaults; explicit Job presentation overrides them. Platform-check Component tags default new Jobs to operations/test. Neither later tag changes nor display overlays rewrite frozen submission identity.
+
+Declare output_roles for each experiment-shaped output when a Profile produces
+multiple experiments (for example an evaluation and a budget receipt). Without
+these declarations, ambiguous experiment outputs remain supporting records on
+the Job, rather than being counted as independent scientific experiments. Exact
+records and input references remain available; a published workflow output alias
+explicitly identifies the requested primary result.

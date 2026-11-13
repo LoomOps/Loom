@@ -85,10 +85,11 @@ class ReleaseLifecycleTests(unittest.TestCase):
   from contextlib import ExitStack
   stack=ExitStack();stack.enter_context(patch.object(update,'previous_source',return_value=self.old))
   # A real installation may exist on the development host. Never touch its unit.
-  stack.enter_context(patch.object(update,'Path',side_effect=lambda value: self.p/'loom-stack.service' if str(value)=='/etc/systemd/system/loom-stack.service' else Path(value)))
+  stack.enter_context(patch.object(update,'Path',side_effect=lambda value: self.p/Path(value).name if str(value) in ('/etc/systemd/system/loom-stack.service','/etc/systemd/system/loom-authority.service') else Path(value)))
   stack.enter_context(patch.object(update,'inspect',return_value=self.info));stack.enter_context(patch.object(update,'instance_paths',return_value=[self.root]));stack.enter_context(patch.object(update,'helper_files',return_value={}))
   stack.enter_context(patch.object(guide_bundle,'generate',return_value=bundle('new')))
-  stack.enter_context(patch.object(update,'run',return_value=''));stack.enter_context(patch.object(update,'compose',return_value=''));stack.enter_context(patch.object(update,'check_health'))
+  props=f'Environment=LOOM_INSTANCE={self.root} LOOM_PROJECT=fixture\nActiveState=active\nSubState=exited'
+  stack.enter_context(patch.object(update,'run',side_effect=lambda *args,**kw:props if args[:2]==('systemctl','show') else ''));stack.enter_context(patch.object(update,'compose',return_value=''));stack.enter_context(patch.object(update,'check_health'))
   return stack
  def test_gate_rejects_running_jobs_and_pending_hooks_without_state_change(self):
   with sqlite3.connect(self.db) as c:c.execute("update jobs set state='running'")
@@ -113,6 +114,91 @@ class ReleaseLifecycleTests(unittest.TestCase):
    self.assertEqual(guide_bundle.selected(self.p/'loom_use'),'old')
    self.assertTrue((self.p/'loom_use/new/manifest.json').exists())
    with sqlite3.connect(self.db) as c:self.assertEqual(c.execute('select * from jobs').fetchall(),[('old','complete','{}')])
+
+ def boot_units(self):
+  stack='[Unit]\nRequiresMountsFor=/data/custom\n[Service]\nType=oneshot\nRemainAfterExit=yes\nTimeoutStartSec=180\nEnvironment=LOOM_PROJECT=custom\nExecStart=/bin/bash /old/deploy/compose.sh up -d --no-build\nExecStop=/bin/bash /old/deploy/compose.sh stop\n'
+  authority='[Unit]\nAfter=tailscaled.service\n[Service]\nUser=loom\nRestart=on-failure\nRestartSec=1\nExecStart=/usr/bin/python3 /protected/remote_fence.py --bind 100.64.0.42 --port 19924\n'
+  originals={self.p/'loom-stack.service':stack,self.p/'loom-authority.service':authority}
+  for path,body in originals.items():path.write_text(body)
+  return originals
+
+ def test_update_adopts_both_boot_policies_and_rollback_restores_exact_units(self):
+  originals=self.boot_units()
+  with self.contexts():
+   receipt=update.apply(self.root,self.rel,'fixture',self.p)
+   for path in originals:
+    body=path.read_text();self.assertIn('RestartSec=15',body);self.assertIn('StartLimitIntervalSec=0',body)
+   stack=(self.p/'loom-stack.service').read_text()
+   self.assertIn('RequiresMountsFor=/data/custom',stack);self.assertIn('Environment=LOOM_PROJECT=custom',stack)
+   self.assertIn('TimeoutStartSec=300',stack);self.assertIn('/distribution/new/deploy/compose.sh',stack)
+   record=json.loads(Path(receipt['record']).read_text())
+   for path,body in originals.items():self.assertEqual(Path(record['files'][str(path)]).read_text(),body)
+   update.rollback(receipt['record'])
+   for path,body in originals.items():self.assertEqual(path.read_text(),body)
+
+ def test_resume_retains_original_unit_backups_after_policy_was_already_applied(self):
+  originals=self.boot_units()
+  with self.contexts(),patch.object(update,'check_health',side_effect=RuntimeError('fixture startup failure')):
+   with self.assertRaises(RuntimeError):update.apply(self.root,self.rel,'fixture',self.p)
+  path=next((self.p/'updates').glob('*/record.json'))
+  with self.contexts():
+   update.resume(path)
+   record=json.loads(path.read_text())
+   for unit,body in originals.items():self.assertEqual(Path(record['files'][str(unit)]).read_text(),body)
+   update.rollback(path)
+   for unit,body in originals.items():self.assertEqual(unit.read_text(),body)
+ def test_partial_start_is_stopped_before_failure_database_checkpoint(self):
+  commands=[]
+  def boundary(source,root,project,*args):
+   commands.append(args[0])
+   if args[0]=='up':raise __import__('subprocess').CalledProcessError(1,['compose','up'])
+   if args[0]=='stop' and 'up' in commands:
+    with sqlite3.connect(self.db) as c:c.execute('CREATE TABLE late_startup_schema(id TEXT)')
+  with self.contexts(),patch.object(update,'compose',side_effect=boundary):
+   with self.assertRaises(__import__('subprocess').CalledProcessError):update.apply(self.root,self.rel,'fixture',self.p)
+  path=next((self.p/'updates').glob('*/record.json'));record=json.loads(path.read_text())
+  self.assertEqual(commands[-2:],['up','stop'])
+  self.assertTrue(record['writers_stopped_after_failure'])
+  self.assertEqual(record['post_databases'][str(self.db)],update.digest_db(self.db))
+  self.assertEqual(self.mode(),'maintenance')
+
+ def test_stack_restart_is_cancelled_before_compose_and_restored_after_health(self):
+  self.boot_units();events=[]
+  props=f'Environment=LOOM_INSTANCE={self.root} LOOM_PROJECT=fixture\nActiveState=activating\nSubState=auto-restart'
+  def command(*args,**kwargs):
+   events.append(args)
+   return props if args[:2]==('systemctl','show') else ''
+  with self.contexts(),patch.object(update,'run',side_effect=command),patch.object(update,'compose',side_effect=lambda *args:events.append(('compose',*args[3:]))),patch.object(update,'check_health',side_effect=lambda *args:events.append(('healthy',))):
+   receipt=update.apply(self.root,self.rel,'fixture',self.p)
+  stop=events.index(('systemctl','stop','loom-stack.service'))
+  self.assertLess(stop,events.index(('compose','stop')))
+  self.assertLess(events.index(('healthy',)),events.index(('systemctl','start','loom-stack.service')))
+  record=json.loads(Path(receipt['record']).read_text());self.assertTrue(record['managed_stack']['resume'])
+
+ def test_stack_failure_stays_stopped_and_resume_remembers_original_activation(self):
+  self.boot_units();events=[];props=f'Environment=LOOM_INSTANCE={self.root} LOOM_PROJECT=fixture\nActiveState=active\nSubState=exited'
+  def command(*args,**kwargs):
+   events.append(args)
+   return props if args[:2]==('systemctl','show') else ''
+  with self.contexts(),patch.object(update,'run',side_effect=command),patch.object(update,'check_health',side_effect=RuntimeError('startup')):
+   with self.assertRaises(RuntimeError):update.apply(self.root,self.rel,'fixture',self.p)
+  self.assertNotIn(('systemctl','start','loom-stack.service'),events)
+  self.assertEqual(events[-1],('systemctl','stop','loom-stack.service'))
+  path=next((self.p/'updates').glob('*/record.json'))
+  props=f'Environment=LOOM_INSTANCE={self.root} LOOM_PROJECT=fixture\nActiveState=inactive\nSubState=dead'
+  with self.contexts(),patch.object(update,'run',side_effect=command):update.resume(path)
+  self.assertIn(('systemctl','start','loom-stack.service'),events)
+
+ def test_stack_pause_ignores_other_instances_and_keeps_inactive_unit_inactive(self):
+  self.boot_units();record={};path=self.p/'record.json'
+  with self.contexts(),patch.object(update,'run',return_value='Environment=LOOM_INSTANCE=/another/ops LOOM_PROJECT=fixture\nActiveState=active') as run:
+   update.pause_stack(self.root,'fixture',record,path)
+   self.assertEqual(run.call_count,1);self.assertNotIn('managed_stack',record)
+  props=f'Environment=LOOM_INSTANCE={self.root} LOOM_PROJECT=fixture\nActiveState=inactive\nSubState=dead'
+  with self.contexts(),patch.object(update,'run',return_value=props) as run:
+   update.pause_stack(self.root,'fixture',record,path);update.start_stack(record)
+   self.assertFalse(record['managed_stack']['resume']);self.assertEqual(run.call_count,2)
+
  def test_rollback_refuses_to_erase_new_work(self):
   with self.contexts():
    receipt=update.apply(self.root,self.rel,'fixture',self.p)

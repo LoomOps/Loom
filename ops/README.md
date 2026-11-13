@@ -18,7 +18,7 @@ The username and DNS names below are placeholders; use your installation configu
 - Only private Dashboard origins expose `/mcp`. Dev publication is optional and exists only when explicitly configured; no public Gateway MCP.
 - Numbered build snapshots and image IDs are in `/loom/builds`. Do not overwrite a numbered image.
 - Dev UI has live source mounts; Ops changes require a restart once its active Jobs return.
-- External sources/build recipes can live under `/dependencies`; runtime images and grants are selected through profiles and the host executor.
+- External sources/build recipes use the dependency directory selected in the installation plan; runtime images and grants are selected through profiles and the host executor.
 - The running alpha image remains frozen. Source and dev changes are not automatic alpha releases.
 
 ## Shared execution

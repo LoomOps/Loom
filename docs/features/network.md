@@ -135,3 +135,12 @@ before atomic replacement. Doctor checks ownership/mode as well as JSON identity
 Sharing reports local_permission_denied independently of provider availability and
 records a payload-free local incident. Repair ownership only; never recreate an
 accepted invitation or auto-approve a pending user to recover a local file error.
+
+## Boot listener readiness
+
+A running tailscaled process does not imply that its exact configured address has
+been assigned. Deployment waits for published bind addresses rather than widening
+the listener or changing Tailnet/account identity. A persistent missing address
+ends the bounded probe with an error; systemd can retry with backoff. The optional
+handoff authority retries EADDRNOTAVAIL binding for a bounded interval, while port
+conflicts and permission errors remain genuine startup failures.

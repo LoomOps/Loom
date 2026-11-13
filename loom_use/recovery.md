@@ -8,4 +8,17 @@ If no agent arrives or the limit is reached, defer the failed Job and its depend
 
 finalizing_failed is distinct from run failure. Use results.reindex for publication problems, or the appropriate postprocessing recovery for finalization. Do not rerun training merely to repair result presentation.
 
+`recovery.state=executing` means a recovery round has started. Inspect the Job's
+public `status` for its actual preparing/running/finalizing phase; executing is not
+a stalled-recovery phase. Claim/progress do not consume an execution round.
+Finalization-only resume keeps the same Attempt and frozen inputs without
+readmitting execution. An execution repair refreshes inferred input dependencies,
+preserves explicit dependencies and rejects cycles or obsolete raw Attempt locators.
+
+If executor start/stop has an unconfirmed outcome, Loom keeps ownership unresolved
+and stops dispatch until restart reconciliation confirms return. Do not mark the
+Job failed or resubmit another Job merely because an RPC response was lost.
+The same boundary applies to finalizers and lifecycle callbacks. Callback retries
+retain a stable event id; callback implementations must remain idempotent.
+
 Resident agents, scheduling, callbacks and multi-agent routing are caller choices. Loom provides events and recovery leases; it does not launch a particular client or mandate one supervision policy. A disconnected agent is not automatically assigned repair work without a caller action.

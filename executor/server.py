@@ -1,5 +1,7 @@
 """Local host executor. Only Ops holds the Unix-socket credential; Jobs never do."""
 import hashlib
+import fcntl
+import runtime_store
 from runtime_policy import declared, gpu_driver_capabilities, runtime_network
 import hmac
 import json
@@ -73,9 +75,13 @@ def create_or_reuse(command, name, labels):
     return container
 
 
-def handle(instance,action,data):
+def _handle(instance,action,data):
     cfg=CONFIG['instances'][instance]
     with LOCK:
+        if action=='list_runtimes':return runtime_store.listing(ROOT,CONFIG,instance,image_identity=lambda ref:json.loads(docker('image','inspect',ref))[0]['Id'])
+        if action=='resolve_runtime':
+            item=runtime_store.detail(ROOT,instance,data['runtime_ref'],verify_inventory=True)
+            return {'runtime_ref':{k:item[k] for k in ('id','revision','sha256')},'manifest':item['manifest']}
         if action=='resolve':
             runtime=declared(data,cfg.get('declared_runtime',{}),docker)
             return {'image':runtime['image'],'resources':{k:runtime[k] for k in ('cpus','memory','pids')}}
@@ -91,7 +97,12 @@ def handle(instance,action,data):
                     state=observed(old)
                     if state['state']=='created':docker('start',old['container']);state=observed(old)
                     return {'ticket':ticket,**state}
-                if 'image' in data:
+                if 'runtime_ref' in data:
+                    if data.get('runtime_id') or 'image' in data:raise ValueError('Choose one execution environment')
+                    item=runtime_store.detail(ROOT,instance,data['runtime_ref'],verify_inventory=True)
+                    if 'sha256' not in data['runtime_ref']:raise ValueError('Execution requires a sealed Runtime pin')
+                    runtime=item['manifest']['runtime']
+                elif 'image' in data:
                     runtime=declared(data,cfg.get('declared_runtime',{}),docker)
                     if runtime['image']!=data['image']:raise ValueError('Execution requires a pinned image identity')
                 else:
@@ -170,7 +181,6 @@ def handle(instance,action,data):
             with db() as c:rows=c.execute('SELECT * FROM tickets WHERE instance=? AND id LIKE ?',(instance,instance+'.'+data['job']+'.'+data['attempt']+'.%')).fetchall()
             for row in rows:
                 request=json.loads(row['request'])
-                if request['stage'] not in ('run','prepare'):continue
                 state=observed(row);natural=state['returned']
                 if not natural:
                     docker('stop','--time','10',row['container']);state=observed(row)
@@ -209,6 +219,18 @@ def handle(instance,action,data):
             if row['logs'] is not None:return {'text':row['logs']}
             with logfile.open('rb') as f:f.seek(max(0,logfile.stat().st_size-262144));return {'text':f.read().decode('utf-8','replace')}
         raise ValueError('Unknown executor action')
+
+def handle(instance,action,data):
+    if action=='start' and data.get('lane')=='gpu':
+        path=ROOT/'runtime-install.lock'
+        if path.is_symlink():raise ValueError('Linked Runtime installation lock')
+        with path.open('a') as lock:
+            try:fcntl.flock(lock,fcntl.LOCK_SH|fcntl.LOCK_NB)
+            except BlockingIOError:return {'busy':True,'reason':'Runtime installation in progress'}
+            if runtime_store.validation_fenced(ROOT):return {'busy':True,'reason':'Runtime validation container return is unconfirmed'}
+            return _handle(instance,action,data)
+    return _handle(instance,action,data)
+
 
 class Handler(BaseHTTPRequestHandler):
     def log_message(self,*_):pass

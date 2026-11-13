@@ -38,7 +38,7 @@ class IndependentProfileTests(IsolatedOps):
         self.assertEqual(next(x for x in listed if x['kind']==first['kind'])['metadata_schemas'],self.definition['metadata_schemas'])
     def test_clean_dashboard_requires_no_historical_catalog(self):
         with ops.db() as c:catalog,media=dashboard_read.projection(c,self.owner,self.config,self.local)
-        self.assertEqual(catalog['entities'],[]);self.assertEqual(media,{})
+        self.assertEqual([e['id'] for e in catalog['entities']],['profile:cpu.smoke']);self.assertEqual(media,{})
     def test_scope_and_reserved_fields(self):
         self.register()
         with self.assertRaises(ValueError):self.action('get_profile',id='train',owner='other')
@@ -79,6 +79,22 @@ class IndependentProfileTests(IsolatedOps):
     def test_remote_schema_rejected_before_registration(self):
         self.definition['metadata_schemas']['dataset']={'$ref':'https://example.test/schema'}
         with self.assertRaises(ValueError):self.register()
+
+    def test_component_and_independent_profile_names_cannot_shadow_job_pins(self):
+        def component(identity):
+            return ops.operate('components',{'action':'register','arguments':{'id':identity,
+                'manifest':{'profiles':{'run':copy.deepcopy(self.definition)}},'files':{'run.py':'print("fixture")'}}},self.owner,self.config)
+        registered=component('component-first');kind=registered['profiles'][0]
+        job=self.submit({**self.spec('frozen-collision'),'kind':kind,'params':{}})
+        before=self.row(job)['spec']
+        with self.assertRaisesRegex(ValueError,'identity already'):
+            self.action('register_profile',id='component-first.run',profile=self.definition)
+        self.assertEqual(self.row(job)['spec'],before)
+        self.action('register_profile',id='profile-first.run',profile=self.definition)
+        with self.assertRaisesRegex(ValueError,'identity already'):component('profile-first')
+        with ops.db() as c:
+            self.assertEqual(c.execute('SELECT count(*) FROM components').fetchone()[0],1)
+            self.assertEqual(c.execute('SELECT count(*) FROM execution_profiles').fetchone()[0],1)
     def test_group_action_cannot_be_overridden(self):
         with self.assertRaises(ValueError):self.action('list',action_override='register')
 

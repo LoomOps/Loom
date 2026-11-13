@@ -113,6 +113,15 @@ def capture(root,archive,platform):
         if path.exists():
             copy_tree(path,base/name)
             state['extensions'][name]={'path':str(path),'files':file_inventory(path,instance=False)}
+    from tailnet import env_values
+    env=env_values(root/'executor.env') if (root/'executor.env').exists() else {}
+    catalog=Path(env.get('LOOM_EXECUTOR_HOST',Path(platform)/'shared/executor'))/'runtimes.sqlite3'
+    if catalog.exists():
+        if catalog.is_symlink():raise ValueError('Linked Runtime database')
+        target=base/'runtimes.sqlite3'
+        with sqlite3.connect(catalog.as_uri()+'?mode=ro',uri=True) as a,sqlite3.connect(target) as b:a.backup(b)
+        target.chmod(0o600)
+        state['runtime_catalog']={'path':str(catalog),'tables':db_inventory(target)}
     save(base/'state.json',state)
     return base
 
@@ -131,13 +140,27 @@ def verify(root,base):
         with sqlite3.connect('file:'+str(root/rel)+'?mode=ro',uri=True) as c:
             if c.execute('PRAGMA integrity_check').fetchone()[0]!='ok':problems.append('integrity:'+rel)
             for table,baseline in tables.items():
-                try:actual=rows(c,table,baseline['columns'])
+                columns=baseline['columns'];expected_rows=Counter(baseline['rows'])
+                # Reconciliation clocks are operational progress, not grants. Keep
+                # raw snapshots exact; compare every identity/auth/state column.
+                if rel=='admission/requests.sqlite3' and table=='share_requests' and {'id','state','approved_by'}<=set(columns):
+                    columns=[k for k in columns if k not in ('updated','next_attempt')]
+                    with sqlite3.connect('file:'+str(Path(base)/'instance'/rel)+'?mode=ro',uri=True) as original:
+                        expected_rows=rows(original,table,columns)
+                try:actual=rows(c,table,columns)
                 except sqlite3.DatabaseError:problems.append('table:'+table);continue
-                if Counter(baseline['rows'])-actual:problems.append('rows:'+table)
+                if expected_rows-actual:problems.append('rows:'+table)
     for name,entry in state['extensions'].items():
         current=file_inventory(entry['path'],instance=False)
         for rel,value in entry['files'].items():
             if current.get(rel)!=value:problems.append(name+':'+rel)
+    if entry:=state.get('runtime_catalog'):
+        path=Path(entry['path'])
+        if not path.is_file() or path.is_symlink():problems.append('runtime-catalog')
+        else:
+            actual=db_inventory(path)
+            for table,baseline in entry['tables'].items():
+                if table not in actual or Counter(baseline['rows'])-Counter(actual[table]['rows']):problems.append('runtime-catalog:'+table)
     if problems:raise ValueError('Preserved state changed; keep admission fenced: '+', '.join(problems[:20]))
     return {'preserved':True,'databases':len(state['databases']),'files':len(state['files'])}
 

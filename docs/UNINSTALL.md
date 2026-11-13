@@ -46,7 +46,9 @@ account, images, dependencies and shared host helpers. It does not delete a Tail
 user or run `tailscale logout`, `tailscale down` or global Serve/Funnel `reset`.
 Older installations without a journal retain the conservative legacy policy scope; ownership cannot be reconstructed from names. Those services may be shared with another installation. No global `/loom` deletion
 or Docker prune is performed. Retained runtime data can be migrated/restored; a
-fresh installer must not be run over it blindly.
+fresh installer must not be run over it blindly. The shared Runtime catalog,
+its immutable revisions/grants and the configured dependency directory remain
+preserved; uninstall does not rebuild or delete research environments.
 
 Untracked manual shares are shown as preserved. An invitation whose delivery is
 uncertain must have its provider ID reconciled before uninstall; the command must

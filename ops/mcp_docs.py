@@ -8,6 +8,11 @@ ACTIONS = {'system.ssh': ('Personal SSH connection', 'Read the current caller SS
                   'User[] · id, provider, login, display_name',
                   {},
                   []),
+ 'components.assign_owner': ('Attribute shared software',
+                  'Set the responsible user or built-in attribution for Loom-supplied software. Sharing, namespace, source revisions and Job pins remain unchanged.',
+                  'Attribution · kind, id, namespace, owner_profile, owner_kind, changed',
+                  {'kind':'tool','namespace':'research','id':'planner','owner':'<user-profile-id>'},
+                  ['Unregistered user, missing extension, read-only scope or maintenance fence.']),
  'jobs.assign_owner': ('Assign Job owner',
                        'Set the current responsible user, preserving original execution and submitter '
                        'records.',
@@ -170,13 +175,13 @@ ACTIONS = {'system.ssh': ('Personal SSH connection', 'Read the current caller SS
                          ['Missing source, unavailable runtime, missing GPU permission or profile contract '
                           'mismatch.']),
  'components.register_profile': ('Register profile',
-                                 'Independently register a component revision with its image, stages, '
-                                 'defaults and output schemas. Available without redeployment; Jobs pin the '
-                                 'revision.',
+                                 'Register an execution Profile combining optional Component, exact Tools and stage environments. '
+                                 'Optional multi-purpose usage is descriptive. Available without redeployment; Jobs pin the revision.',
                                  'Profile receipt · owner, id, revision, kind, sha256',
                                  {'id': 'demo-run',
                                   'component': {'id': 'demo', 'revision': 1},
-                                  'profile': {'params_schema': {'type': 'object'},
+                                  'profile': {'usage': {'categories':['pipeline','evaluation'],'execution_modes':['pilot','full']},
+                                              'params_schema': {'type': 'object'},
                                               'defaults': {},
                                               'inputs': {},
                                               'outputs': None,
@@ -195,8 +200,8 @@ ACTIONS = {'system.ssh': ('Personal SSH connection', 'Read the current caller SS
                             {'id': 'demo-run'},
                             ['Profile access denied or missing revision.']),
  'components.profiles': ('Available execution profiles',
-                         'Read profiles and parameter contracts available to the caller.',
-                         'Profile[] · kind, revision, params_schema, outputs, limits',
+                         'Read exact Profile combinations, stage environments and observed Job usage. Repeated environment dependencies are a bounded preview (dependency_count, dependencies_complete); use components.get_runtime for the complete inventory. Read scope does not grant execution or registration rights.',
+                         'Profile[] · kind, revision, params_schema, outputs, limits, usage, combination',
                          {},
                          []),
  'results.list': ('List artifacts',
@@ -210,7 +215,7 @@ ACTIONS = {'system.ssh': ('Personal SSH connection', 'Read the current caller SS
                  {'id': '<entity-id>', 'revision': 1},
                  ['Artifact access denied or missing revision.']),
  'results.reindex': ('Reindex results',
-                     'Retry publication for a returned execution without restarting GPU execution.',
+                     'Retry publication for a returned execution without restarting GPU execution. Published output identities, hashes, metadata and lineage must remain identical; use reconnect to add a verified location.',
                      'Receipt · id, attempt, state=processing',
                      {'id': '<job-id>', 'attempt': '<attempt-id>'},
                      ['Not the current Attempt or publication cannot be retried in this state.']),
@@ -273,6 +278,11 @@ ACTIONS = {'system.ssh': ('Personal SSH connection', 'Read the current caller SS
                      'Documentation index or Action reference · schema, scope, returns, errors, examples',
                      {'group': 'jobs', 'action': 'submit'},
                      ['Unknown action or action outside current scopes.'])}
+ACTIONS.update({
+ 'components.curate':('Curate Runtimes workspace metadata','Set a Profile display name, purpose, preferred/archive state or declared Tool stage roles; set representative dependencies on an exact Runtime. Does not rewrite execution definitions or select a Runtime.','Curation receipt',{'type':'profile','id':'owner.example.run.r1','label':'Evaluation','evidence':'Reviewed entrypoint and outputs.'},['Submit scope, maintenance fence, exact identity, dependency scope or preference conflict.']),
+ 'components.inspect_profile':('Inspect a reusable Profile','Read stage Runtime evidence and scoped dependency requirements; optionally validate parameters. Does not reserve resources, install, import code or submit a Job.','Inspection, parameter validation and partial submission draft',{'kind':'owner.example.run.r1','params':{}},['Unknown Profile or invalid inspection arguments.']),
+ 'components.compare_profiles':('Compare exact Profile definitions','Compare source, stage, Tool/Runtime, parameter and output contracts. Returns changed paths without environment variable values. Display-only changes do not count as execution changes.','Changed paths and execution_equal',{'left':'owner.example.run.r1','right':'owner.example.run.r2'},['Unknown Profile.'])})
+
 FIELD_HELP = {'id': 'ID of the item to read or modify.',
  'key': 'Submission deduplication key. Reuse when resending the same execution.',
  'kind': 'Registered profile ID for execution; record kind for history queries.',
@@ -302,9 +312,16 @@ FIELD_HELP = {'id': 'ID of the item to read or modify.',
 
 
 ACTIONS.update({
+ 'components.annotate': ('Classify software','Attach evidence-backed revision tags and a concise label without changing source, digests, Profiles or Jobs.','Display metadata',{'kind':'tool','owner':'<namespace>','id':'planner','revision':1,'tags':['motion-planning'],'evidence':'Verified planner interface in this revision.'},['Missing revision, invalid tag, submit scope denied or maintenance fence.']),
+ 'components.runtimes': ('List Runtimes','Read administrator-granted execution environments, exact dependencies, validation evidence and Profile/Job usage. Legacy entries are not verification evidence.','Runtime catalog',{},[]),
+ 'components.get_runtime': ('Runtime revision','Read one exact immutable Runtime revision and its consumers. Installation/build is an explicit host-administrator workflow.','Runtime',{'id':'simulation','revision':1},['Missing revision or instance grant.']),
  'components.list_tools': ('List research Tools','List shared reusable software independently of Job Components.','Tool[]',{},[]),
  'components.get_tool': ('Tool revision','Read an exact or latest immutable software revision.','Tool',{'id':'planner','revision':1},['Missing Tool revision.']),
  'components.register_tool': ('Register research Tool','Register source or explicitly copy an exact legacy Component revision; existing Jobs and revisions remain unchanged.','Tool',{'id':'planner','manifest':{'label':'Motion planner'},'files':{'planner.py':'def plan(): return []'}},['Invalid source, missing legacy revision or denied submit scope.'])})
+
+ACTIONS.update({
+ 'jobs.submit_workflow': ('Submit one logical Job', 'Atomically submit pinned internal execution nodes with node dependencies and output aliases. Each node uses the ordinary scheduler and verified artifacts. Replay the exact request key after an uncertain response.', 'Logical Job ID and node execution IDs', {'key':'example-work','label':'Train and evaluate','owner':'<user>','notify':'<user>','nodes':[{'id':'check','label':'Check','spec':{'kind':'cpu.smoke','params':{'seconds':0,'fail':False}}}]}, ['Unknown/cyclic node dependency, conflicting key, invalid Profile or output alias. All nodes roll back on rejection.']),
+ 'jobs.curate': ('Curate research presentation', 'Preview or apply additive, evidence-backed presentation bindings. Original execution, timestamps, results and software revisions remain intact. Omit dry_run for a preview; false applies the exact batch once.', 'Preview or idempotent batch receipt', {'key':'review-1','reason':'Reviewed request and execution evidence','changes':[{'kind':'job','id':'<job>','presentation':{'scope':'operations','role':'test'}}]}, ['Unknown identity, repeated item, parent cycle, conflicting batch key, maintenance or scope denied.'])})
 
 def describe(group,action,actor,known,schema_for):
     visible={t['name']:t['inputSchema']['properties']['action']['enum'] for t in mcp_groups.tools(actor,known)}

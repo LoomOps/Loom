@@ -12,6 +12,18 @@ STEPS = {name: f'steps/{i:02d}-{name}.md' for i, name in enumerate(STAGES, 1)}
 STEPS['acceptance']='steps/07-handoff.md'
 SERVICES = ('loom-ops', 'loom-dashboard', 'loom-gateway')
 
+def dependency_directory_ready(root,plan):
+    from tailnet import env_values
+    root=Path(root);expected=Path(plan['dependencies'])
+    if not expected.is_dir() or expected.resolve()!=expected:return False
+    env=env_values(root/'executor.env') if (root/'executor.env').exists() else {}
+    settings=json.loads((Path(env.get('LOOM_EXECUTOR_HOST',root.parent/'shared/executor'))/'config.json').read_text())
+    token=hashlib.sha256((root/'secrets/executor-token').read_text().strip().encode()).hexdigest()
+    instances=[v for v in settings['instances'].values() if v['token_sha256']==token]
+    api=json.loads((root/'config/api.json').read_text())
+    return (len(instances)==1 and instances[0].get('dependencies',str(expected))==str(expected)
+            and api.get('dependency_directory',str(expected))==str(expected))
+
 def runtime_options_ready(root,plan):
     from runtime_policy import options
     root=Path(root);settings=json.loads((root.parent/'shared/executor/config.json').read_text())
@@ -109,7 +121,7 @@ def recommendations(info):
         {'topic': 'services', 'recommendation': 'Install Ops, Dashboard, Gateway, native Tailscale identity and Sharing together. No token-only fallback.'},
         {'topic': 'gpu', 'recommendation': 'Enable GPU after container exposure verification.' if tools.get('nvidia-smi') else 'Use CPU unless GPU hardware and a compatible host driver are confirmed.'},
         {'topic': 'storage', 'recommendation': 'Default data/0 to /loom/data. Ask whether to add RW stores or mount existing filesystems elsewhere; confirm paths and UUIDs explicitly. Never format or select all disks automatically.'},
-        {'topic': 'dependencies', 'recommendation': 'Use /dependencies for selected editable sources; research runtimes belong to Job profiles, not the host installer.'},
+        {'topic': 'dependencies', 'recommendation': 'Use the dependency directory selected in the installation plan for external sources, verified archives and Runtime recipes. Profiles select exact Runtime revisions; installing a research Runtime is a separate authorized administrator workflow.'},
         {'topic': 'identity', 'recommendation': 'Ask for the login email of the Tailscale account that will administer Loom. This is not an arbitrary contact email or OS account. Do not infer it from a tagged device owner. Store management credentials only in a protected local file.'},
         {'topic': 'handoff', 'recommendation': 'Lead with the verified public Gateway URL. Include private Dashboard/MCP, storage, service version and verification limits; never print an owner token.'},
     ]
@@ -224,6 +236,7 @@ def doctor(setup, plan, stage=None):
     check('images','immutable_images',images,'Build/load the complete matching installation kit; read steps/03-images.md.')
     check('configuration','identity_gateway_config',config,'Apply the SSO/Sharing configuration stage; no token-only fallback.')
     check('configuration','storage_paths',stores,'Reconcile the selected storage paths and generated mounts.')
+    check('configuration','dependency_directory',lambda: dependency_directory_ready(root,plan),'Compare the configured dependency directory with the saved plan and matching executor instance; never select a fallback path.')
     check('configuration','executor_config',lambda: read('config/api.json').get('executor',{}).get('host_data')==plan['data'] and read('config/api.json').get('executor',{}).get('storage')=={f'data/{i}':p for i,p in enumerate([plan['data'],*plan['additional_data']])},'Attach the executor to the selected primary data directory.')
     if 'runtime_options' in plan:
         check('configuration','administrator_runtime_options',lambda: runtime_options_ready(root,plan),'Compare the explicit plan with the matching executor instance runtime policy; do not silently relax network or driver grants.')

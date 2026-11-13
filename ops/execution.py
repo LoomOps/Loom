@@ -1,6 +1,7 @@
 """Versioned, application-independent execution and preparation contracts."""
 import storage
 import job_work
+import job_contract
 import copy
 import json
 import math
@@ -11,6 +12,12 @@ from pathlib import Path
 from jsonschema import Draft202012Validator, ValidationError, SchemaError
 
 REVISION = 'loom-execution/v2'
+USAGE_SCHEMA={'type':'object','properties':{
+    'label':{'type':'string','minLength':1,'maxLength':160},
+    'description':{'type':'string','maxLength':2000},
+    'categories':{'type':'array','minItems':1,'uniqueItems':True,'items':{'enum':list(job_contract.CATEGORIES)}},
+    'execution_modes':{'type':'array','minItems':1,'uniqueItems':True,'items':{'enum':list(job_contract.MODES)}}},
+    'additionalProperties':False}
 POLICY_SCHEMA = {'type':'object','properties':{
     'timeout_seconds':{'type':'integer','minimum':1},
     'max_attempts':{'type':'integer','minimum':1},
@@ -53,6 +60,11 @@ def validate_storage(stores):
 
 def validate_profile(profile):
     if not isinstance(profile,dict):raise ValueError('Profile must be an object')
+    if 'usage' in profile:validate(USAGE_SCHEMA,profile['usage'])
+    if 'presentation' in profile:
+        import research
+        validate(research.PROFILE_PRESENTATION,profile['presentation'])
+        if profile.get('outputs') is not None and set(profile['presentation'].get('output_roles',{}))-set(profile['outputs']):raise ValueError('Presentation names an undeclared output')
     job_work.validate_steps(profile.get('steps',[]))
     for field in ('params_schema','runtime','inputs','limits'):
         if not isinstance(profile.get(field),dict):raise ValueError('Profile requires object '+field)
@@ -62,7 +74,7 @@ def validate_profile(profile):
     check_schema(profile['params_schema'])
     if profile['params_schema'].get('type')!='object':raise ValueError('Parameters must have an object schema')
     for runner in [profile['runtime']] + [profile[k] for k in ('prepare','finalize','on_error','on_complete','on_cancel') if profile.get(k)]:
-        if set(runner)-{'command','env','lane','timeout','depends_on','executor','runtime_id','image','resources','inputs','storage'}:raise ValueError('Unknown runtime fields')
+        if set(runner)-{'command','env','lane','timeout','depends_on','executor','runtime_id','runtime_ref','runtime_pin','image','resources','inputs','storage'}:raise ValueError('Unknown runtime fields')
         validate_storage(runner.get('storage',[]))
         command=runner['command']
         if not isinstance(command,list) or not command or any(not isinstance(v,str) or not v or '\0' in v for v in command):
