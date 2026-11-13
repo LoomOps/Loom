@@ -220,3 +220,34 @@ class AdmissionPreservationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'share_requests'):state_snapshot.verify(root,saved)
             with sqlite3.connect(database) as c:c.execute("UPDATE share_requests SET approved_by='admin'");c.execute('UPDATE tokens SET revoked=1')
             with self.assertRaisesRegex(ValueError,'tokens'):state_snapshot.verify(root,saved)
+
+
+class SQLiteEvidenceTests(unittest.TestCase):
+    def test_reader_pins_one_wal_snapshot_and_closes_before_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'state.sqlite3'
+            with sqlite3.connect(path) as writer:
+                writer.execute('PRAGMA journal_mode=WAL')
+                writer.execute('CREATE TABLE evidence(id INTEGER)');writer.execute('INSERT INTO evidence VALUES(1)')
+            with state_snapshot.database(path,readonly=True) as reader:
+                self.assertEqual(reader.execute('SELECT count(*) FROM evidence').fetchone()[0],1)
+                with sqlite3.connect(path) as writer:writer.execute('INSERT INTO evidence VALUES(2)')
+                self.assertEqual(reader.execute('SELECT count(*) FROM evidence').fetchone()[0],1)
+            with self.assertRaises(sqlite3.ProgrammingError):reader.execute('SELECT 1')
+            with state_snapshot.database(path,readonly=True) as current:
+                self.assertEqual(current.execute('SELECT count(*) FROM evidence').fetchone()[0],2)
+
+    def test_bad_db_fingerprint_does_not_mask_primary_failure_or_lose_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);good=root/'good.sqlite3';bad=root/'bad.sqlite3';bad.write_bytes(b'not a database')
+            with sqlite3.connect(good) as c:c.execute('CREATE TABLE credentials(id TEXT)');c.execute("INSERT INTO credentials VALUES('preserved')")
+            record={'state':'failed','databases':{str(good):'good-backup',str(bad):'bad-backup'},'files':{},'helpers':{}}
+            target=root/'record.json'
+            with self.assertRaisesRegex(RuntimeError,'primary preservation failure'):
+                try:raise RuntimeError('primary preservation failure')
+                finally:update.failure_fingerprints(record,target,root)
+            saved=json.loads(target.read_text())
+            self.assertEqual(saved['state'],'failed');self.assertIn(str(good),saved['post_databases'])
+            self.assertEqual(saved['post_evidence_errors'][str(bad)],'DatabaseError')
+            self.assertNotIn(str(bad),saved['post_databases'])
+            with sqlite3.connect(good) as c:self.assertEqual(c.execute('SELECT * FROM credentials').fetchall(),[('preserved',)])

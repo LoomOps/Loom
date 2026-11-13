@@ -12,9 +12,11 @@ ACTIVE=('preparing','running','processing')
 def run(*args,**kw):return subprocess.check_output([str(a) for a in args],text=True,stderr=subprocess.PIPE,**kw).strip()
 def sql(path):return sqlite3.connect(f'file:{path}?mode=rw',uri=True,timeout=15)
 def digest_db(path):
- with sql(path) as c:return hashlib.sha256('\n'.join(line for line in c.iterdump() if not line.startswith('INSERT INTO "node_control"')).encode()).hexdigest()
+ with contextlib.closing(sql(path)) as c:
+  c.execute('BEGIN')
+  return hashlib.sha256('\n'.join(line for line in c.iterdump() if not line.startswith('INSERT INTO "node_control"')).encode()).hexdigest()
 def backup_db(source,destination):
- with sql(source) as a,sqlite3.connect(destination) as b:a.backup(b)
+ with contextlib.closing(sql(source)) as a,contextlib.closing(sqlite3.connect(destination)) as b:a.backup(b)
  os.chmod(destination,0o600)
 
 @contextlib.contextmanager
@@ -291,11 +293,11 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
   finally:
    # Fingerprint while still fenced. New Jobs accepted after ungating must never
    # become part of the rollback baseline and then disappear on restoration.
-   record['post_databases']={db:digest_db(Path(db)) for db in record['databases']};write(archive/'record.json',record)
-   record['post_files']=state_snapshot.file_inventory(root)
-   record['post_extensions']=state_snapshot.extension_inventory(record.get('preserved_state'))
-   record['post_managed_files']={target:hashlib.sha256(Path(target).read_bytes()).hexdigest() for group in ('files','helpers') for target in record[group]}
-   write(archive/'record.json',record)
+   errors=failure_fingerprints(record,archive/'record.json',root)
+   if errors and record['state']=='complete':
+    freeze_failed_writers(record,src,root,project)
+    record['state']='failed';write(archive/'record.json',record)
+    raise ValueError('Update evidence is incomplete; inspect post_evidence_errors before recovery')
    for db in gated:
     if record['state']=='complete':ungate(db)
     elif record['state']=='preparing':ungate(db,retain_pause=True)
@@ -311,6 +313,21 @@ def freeze_failed_writers(record,source,root,project):
   record['writers_stopped_after_failure']=False
 
 
+def failure_fingerprints(record,path,root):
+ """Keep the primary failure even when a damaged DB cannot be fingerprinted."""
+ record['post_databases']={};record['post_evidence_errors']={}
+ for db in record['databases']:
+  try:record['post_databases'][db]=digest_db(Path(db))
+  except (sqlite3.Error,OSError,ValueError) as exc:record['post_evidence_errors'][db]=type(exc).__name__
+ for field,reader in [('post_files',lambda:state_snapshot.file_inventory(root)),
+                      ('post_extensions',lambda:state_snapshot.extension_inventory(record.get('preserved_state'))),
+                      ('post_managed_files',lambda:{target:hashlib.sha256(Path(target).read_bytes()).hexdigest() for group in ('files','helpers') for target in record[group]})]:
+  try:record[field]=reader()
+  except (sqlite3.Error,OSError,ValueError) as exc:record['post_evidence_errors'][field]=type(exc).__name__
+ write(path,record)
+ return record['post_evidence_errors']
+
+
 def resume(record_path):
  """Resume an owned failed update without issuing another installation identity."""
  path=Path(record_path);record=json.loads(path.read_text())
@@ -322,6 +339,7 @@ def resume(record_path):
   record=json.loads(path.read_text())
   if record['state']=='complete':return {'updated':record['build'],'already_complete':True,'record':str(path)}
   if record['state']!='failed':raise ValueError('Update record changed before resume')
+  if record.get('post_evidence_errors') or set(record.get('post_databases',{}))!=set(record['databases']):raise ValueError('Incomplete failure evidence; inspect named databases and take verified recovery snapshots before resume')
   verify_executor_settings(record)
   for db,digest in record['post_databases'].items():
    if digest_db(Path(db))!=digest:raise ValueError('Database changed after failure; review recovery before resuming')
@@ -357,11 +375,11 @@ def resume(record_path):
    freeze_failed_writers(record,src,root,project)
    raise
   finally:
-   record['post_databases']={db:digest_db(Path(db)) for db in record['databases']}
-   record['post_files']=state_snapshot.file_inventory(root)
-   record['post_extensions']=state_snapshot.extension_inventory(record.get('preserved_state'))
-   record['post_managed_files']={target:hashlib.sha256(Path(target).read_bytes()).hexdigest() for group in ('files','helpers') for target in record[group]}
-   write(path,record)
+   errors=failure_fingerprints(record,path,root)
+   if errors and record['state']=='complete':
+    freeze_failed_writers(record,src,root,project)
+    record['state']='failed';write(path,record)
+    raise ValueError('Update evidence is incomplete; inspect post_evidence_errors before recovery')
   if record['state']=='complete':
    for name in record['gated']:ungate(Path(name))
  return {'updated':record['build'],'resumed':True,'record':str(path)}

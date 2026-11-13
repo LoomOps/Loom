@@ -4,6 +4,7 @@ External datasets, weights, Tailscale and SSH host identities stay in place. No
 fresh-install identities or tokens are issued. Call only after all writers stop.
 """
 from collections import Counter
+from contextlib import contextmanager
 import hashlib
 import json
 import os
@@ -12,6 +13,18 @@ import shutil
 import sqlite3
 import stat
 from migrations import save
+
+
+@contextmanager
+def database(path, readonly=False):
+    """Close readers before WAL cleanup; pin one snapshot for integrity and rows."""
+    path=Path(path).absolute()
+    c=sqlite3.connect(path.as_uri()+'?mode=ro',uri=True) if readonly else sqlite3.connect(path)
+    try:
+        if readonly:c.execute('BEGIN')
+        yield c
+        if not readonly:c.commit()
+    finally:c.close()
 
 
 def sha(path):
@@ -66,7 +79,7 @@ def rows(c,table,columns):
 
 def db_inventory(path):
     result={}
-    with sqlite3.connect('file:'+str(path)+'?mode=ro',uri=True) as c:
+    with database(path,readonly=True) as c:
         if c.execute('PRAGMA integrity_check').fetchone()[0]!='ok':raise ValueError('State database integrity failure')
         for (name,) in c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").fetchall():
             if name=='node_control':continue  # Admission maintenance is intentional.
@@ -103,7 +116,7 @@ def capture(root,archive,platform):
     state={'schema':'loom-preserved-state/v1','root':str(root),'files':file_inventory(root),'databases':{},'database_files':{},'extensions':{}}
     for path in databases(root):
         target=instance/path.relative_to(root)
-        with sqlite3.connect('file:'+str(path)+'?mode=ro',uri=True) as source,sqlite3.connect(target) as dest:source.backup(dest)
+        with database(path,readonly=True) as source,database(target) as dest:source.backup(dest)
         info=path.stat();target.chmod(stat.S_IMODE(info.st_mode))
         if os.geteuid()==0:os.chown(target,info.st_uid,info.st_gid)
         state['databases'][str(path.relative_to(root))]=db_inventory(target)
@@ -119,7 +132,7 @@ def capture(root,archive,platform):
     if catalog.exists():
         if catalog.is_symlink():raise ValueError('Linked Runtime database')
         target=base/'runtimes.sqlite3'
-        with sqlite3.connect(catalog.as_uri()+'?mode=ro',uri=True) as a,sqlite3.connect(target) as b:a.backup(b)
+        with database(catalog,readonly=True) as a,database(target) as b:a.backup(b)
         target.chmod(0o600)
         state['runtime_catalog']={'path':str(catalog),'tables':db_inventory(target)}
     save(base/'state.json',state)
@@ -137,7 +150,7 @@ def verify(root,base):
         info=(root/rel).lstat()
         if (not stat.S_ISREG(info.st_mode) or (expected and expected!={'mode':stat.S_IMODE(info.st_mode),'uid':info.st_uid,'gid':info.st_gid})):
             problems.append('database-permissions:'+rel)
-        with sqlite3.connect('file:'+str(root/rel)+'?mode=ro',uri=True) as c:
+        with database(root/rel,readonly=True) as c:
             if c.execute('PRAGMA integrity_check').fetchone()[0]!='ok':problems.append('integrity:'+rel)
             for table,baseline in tables.items():
                 columns=baseline['columns'];expected_rows=Counter(baseline['rows'])
@@ -145,7 +158,7 @@ def verify(root,base):
                 # raw snapshots exact; compare every identity/auth/state column.
                 if rel=='admission/requests.sqlite3' and table=='share_requests' and {'id','state','approved_by'}<=set(columns):
                     columns=[k for k in columns if k not in ('updated','next_attempt')]
-                    with sqlite3.connect('file:'+str(Path(base)/'instance'/rel)+'?mode=ro',uri=True) as original:
+                    with database(Path(base)/'instance'/rel,readonly=True) as original:
                         expected_rows=rows(original,table,columns)
                 try:actual=rows(c,table,columns)
                 except sqlite3.DatabaseError:problems.append('table:'+table);continue
@@ -174,7 +187,7 @@ def restore(root,base):
         restore_file(source,target,root)
     for rel in state['databases']:
         if (root/rel).is_symlink() or not (root/rel).parent.resolve().is_relative_to(root.resolve()):raise ValueError('Database restore leaves the preserved instance')
-        with sqlite3.connect(base/'instance'/rel) as a,sqlite3.connect(root/rel) as b:a.backup(b)
+        with database(base/'instance'/rel,readonly=True) as a,database(root/rel) as b:a.backup(b)
         info=(base/'instance'/rel).stat()
         (root/rel).chmod(stat.S_IMODE(info.st_mode))
         if os.geteuid()==0:os.chown(root/rel,info.st_uid,info.st_gid)

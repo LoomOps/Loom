@@ -174,3 +174,10 @@ Preservation still compares every identity, grant, state and token column. Only
 `updated`/`next_attempt` scheduler clocks in admission share_requests may progress;
 the raw backup retains their original values. No authorizations or Job data are
 relaxed by this narrow operational-clock comparison.
+
+Preservation readers use a single SQLite read transaction and close connections
+before WAL cleanup. A database fingerprint error retains the primary failure and
+names the failed evidence in the update record. Incomplete failure evidence never
+permits resume or successful admission reopening; an operator must inspect and
+capture verified recovery evidence first. This does not automatically restore or
+repair application data.
