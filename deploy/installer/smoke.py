@@ -50,7 +50,7 @@ def run(setup, plan, timeout=45):
                  'limits':{'timeout_seconds':60,'max_attempts':1},
                  'prepare':{'executor':'container','runtime_id':'python','command':['python3','/component/run.py','prepare'],'lane':'cpu'},
                  'runtime':{'executor':'container','runtime_id':'python','command':['python3','/component/run.py','run'],'lane':'cpu'}}
-        registered=call(setup,plan,'components','register',{'id':'installation-smoke','manifest':{'profiles':{'check':profile}},'files':{'run.py':SOURCE}})
+        registered=call(setup,plan,'components','register',{'id':'installation-smoke-'+build,'manifest':{'profiles':{'check':profile}},'files':{'run.py':SOURCE}})
         receipt={'build':build,'source_sha256':digest,'kind':registered['profiles'][0]}
         write(receipt_path,receipt,uid,gid)
     if not receipt.get('job'):

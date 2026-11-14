@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-alpha.58
+
+- Namespace installation smoke Components by build so post-upgrade acceptance does not collide with immutable earlier smoke registrations or reuse a previous build's execution receipt.
+
 ## 0.1.0-alpha.57
 
 - Record the exact immutable kit build in fresh installation state so the first subsequent upgrade can locate the installed source safely.

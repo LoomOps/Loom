@@ -139,6 +139,17 @@ class InstallationDoctorTests(unittest.TestCase):
   with patch.object(source_install.subprocess,'run',side_effect=[subprocess.CompletedProcess([],1),subprocess.CompletedProcess([],0)]) as run,patch.object(source_install.subprocess,'check_output',return_value='sha256:runtime\n'):
    self.assertEqual(source_install.ensure_runtime(),'sha256:runtime')
   self.assertEqual(run.call_args_list[1].args[0],['docker','pull','python:3.12-slim'])
+ def test_smoke_after_upgrade_registers_a_distinct_versioned_component(self):
+  self.write('config/install-smoke.json',{'build':'old','source_sha256':hashlib.sha256(smoke.SOURCE.encode()).hexdigest(),'job':'old-job','kind':'old-profile'})
+  def call(*args):
+   if args[2:4]==('components','register'):
+    self.assertEqual(args[4]['id'],'installation-smoke-0.1.0-alpha.58')
+    return {'profiles':['new-profile']}
+   if args[2:4]==('jobs','submit'):return {'id':'new-job'}
+   return {'state':'complete'}
+  with patch.object(setup,'manifest',return_value={'build_id':'0.1.0-alpha.58'}),patch.object(smoke,'call',side_effect=call),patch.object(smoke,'verify',return_value=True):
+   result=smoke.run(setup,self.plan)
+  self.assertEqual(result['status'],'passed');self.assertEqual(result['job'],'new-job')
  def test_plan_generator_keeps_explicit_admin_and_does_not_copy_host_accounts(self):
   state={'state':'Running','dns':'fixture.tail.test','tailnet':'example.test','device_id':'d123'}
   raw={'Self':{'HostName':'Fixture RTX','TailscaleIPs':['100.64.0.2']}}
