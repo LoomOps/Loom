@@ -47,6 +47,10 @@ Gateway mount validation permits the optional instance diagnostics directory at
 mounts, wrong diagnostic sources and read-only diagnostic mounts remain failures;
 the Gateway never receives management credentials or SSO relay keys.
 
+Fresh configuration records the verified kit build ID in build.env alongside
+the selected image identities. A later upgrade can therefore locate the exact
+installed source; conflicting existing build identities are never overwritten.
+
 ## Release lifecycle
 
 Source installation, final user overrides and idle update/rollback are defined in [UPDATES.md](../UPDATES.md). `test_release_lifecycle.py` covers real filesystem/SQLite preservation, busy rejection, failed startup recovery and refusal to discard new records. Docker/systemd are mocked there; fresh-host boot and actual release rollback remain explicit live checks.

@@ -115,6 +115,13 @@ def mount_preflight(m):
   parts=line.split()
   if parts and not parts[0].startswith('#') and (parts[0] in ['UUID='+m['uuid'],device] or len(parts)>1 and parts[1]==m['target']):raise ValueError('Existing fstab entry conflicts with selected mount')
 
+def record_build_identity(build_id):
+ if not isinstance(build_id,str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,127}',build_id):raise ValueError('Invalid installation build identity')
+ path=ROOT/'build.env';lines=path.read_text().splitlines()
+ previous=[line.split('=',1)[1] for line in lines if line.startswith('LOOM_BUILD_ID=')]
+ if any(value!=build_id for value in previous):raise ValueError('Installed build identity differs from kit')
+ path.write_text('\n'.join([line for line in lines if not line.startswith('LOOM_BUILD_ID=')]+['LOOM_BUILD_ID='+build_id])+'\n')
+
 def preflight(plan,info):
  if os.geteuid()!=0:raise PermissionError('Run apply with sudo')
  if not Path('/run/systemd/system').is_dir():raise ValueError('A booted systemd host is required')
@@ -208,6 +215,7 @@ def apply(plan):
  step('dependencies')
  src=BUNDLE/'platform'
  run(sys.executable,src/'deploy/install.py','--data',plan['data'],'--api-port',plan['api_port'],'--dashboard-port',plan['dashboard_port'],'--tls-port',plan['tls_port'],'--project','loom','--ops-image',info['images']['ops']['tag'],'--dashboard-image',info['images']['dashboard']['tag'])
+ record_build_identity(info['build_id'])
  step('host_layout')
  from access_setup import register_machine,private_access
  private_access(access_plan,plan['tailscale']['sso']['network_users'])

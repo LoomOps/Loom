@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-alpha.57
+
+- Record the exact immutable kit build in fresh installation state so the first subsequent upgrade can locate the installed source safely.
+
 ## 0.1.0-alpha.56
 
 - Correct fresh-install Gateway diagnostics mount validation while continuing to reject unrelated mounts, incorrect host paths and unusable diagnostics grants.

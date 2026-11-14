@@ -31,6 +31,16 @@ class InstallationDoctorTests(unittest.TestCase):
   self.save_access()
   self.patch=patch.object(setup,'ROOT',self.root/'instance');self.patch.start();self.addCleanup(self.patch.stop)
  def save_access(self):self.access_file.write_text(json.dumps(self.access))
+ def test_fresh_install_records_exact_build_identity_for_later_updates(self):
+  p=self.write('build.env','LOOM_OPS_IMAGE=ops:fixture\nLOOM_DASHBOARD_IMAGE=dashboard:fixture\nLOOM_DEV_NO_AUTH=0\n')
+  p.chmod(0o640);before=p.stat()
+  setup.record_build_identity('0.1.0-alpha.57');first=p.read_bytes()
+  setup.record_build_identity('0.1.0-alpha.57');self.assertEqual(p.read_bytes(),first)
+  self.assertIn('LOOM_OPS_IMAGE=ops:fixture\n',p.read_text());self.assertIn('LOOM_BUILD_ID=0.1.0-alpha.57\n',p.read_text())
+  self.assertEqual((p.stat().st_uid,p.stat().st_gid,p.stat().st_mode),(before.st_uid,before.st_gid,before.st_mode))
+  for invalid in ['different-build','bad\nINJECTED=1']:
+   with self.assertRaises(ValueError):setup.record_build_identity(invalid)
+   self.assertEqual(p.read_bytes(),first)
  def write(self,name,value):
   p=setup.ROOT/name;p.parent.mkdir(parents=True,exist_ok=True)
   p.write_text(value if isinstance(value,str) else json.dumps(value));return p
