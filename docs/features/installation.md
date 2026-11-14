@@ -42,6 +42,11 @@ Test sources define the concrete scenarios. `deploy/test.sh` records individual 
 
 Temporary-filesystem tests do not replace real clean-host installation, reboot and rollback verification.
 
+Gateway mount validation permits the optional instance diagnostics directory at
+`/var/lib/loom-diagnostics` only with its exact host path and RW grant. Unexpected
+mounts, wrong diagnostic sources and read-only diagnostic mounts remain failures;
+the Gateway never receives management credentials or SSO relay keys.
+
 ## Release lifecycle
 
 Source installation, final user overrides and idle update/rollback are defined in [UPDATES.md](../UPDATES.md). `test_release_lifecycle.py` covers real filesystem/SQLite preservation, busy rejection, failed startup recovery and refusal to discard new records. Docker/systemd are mocked there; fresh-host boot and actual release rollback remain explicit live checks.

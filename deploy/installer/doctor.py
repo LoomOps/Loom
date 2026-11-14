@@ -179,7 +179,12 @@ def doctor(setup, plan, stage=None):
             'loom-gateway': {'/etc/loom/gateway.json':root/'secrets/admission/gateway.json','/var/lib/loom-admission':root/'admission'},
         }[service]
         if any(mounts.get(k,{}).get('Source') != str(v) for k,v in expected_mounts.items()):return False
-        if service=='loom-gateway' and set(mounts)!=set(expected_mounts):return False
+        if service=='loom-gateway':
+            diagnostics=mounts.get('/var/lib/loom-diagnostics')
+            if diagnostics is not None:
+                if diagnostics.get('Source')!=str(root/'diagnostics') or diagnostics.get('RW') is not True:return False
+                expected_mounts={**expected_mounts,'/var/lib/loom-diagnostics':root/'diagnostics'}
+            if set(mounts)!=set(expected_mounts):return False
         bindings=c.get('HostConfig',{}).get('PortBindings',{})
         expected_ports={'loom-ops':{'8080/tcp':plan['api_port'],'8443/tcp':plan['tls_port']},
                         'loom-dashboard':{'8080/tcp':plan['dashboard_port']},

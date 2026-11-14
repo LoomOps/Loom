@@ -195,6 +195,18 @@ class InstallationDoctorTests(unittest.TestCase):
   with patch.object(setup,'run',side_effect=run),patch.object(setup,'manifest',return_value={'build_id':'test','images':image_ids}),patch.object(setup,'verify_core',return_value={'build':'test'}),patch.object(doctor,'request',return_value=(200,{'sso':True})),patch('storage_parity.inspect',return_value={'status':'passed'}) as parity:
    self.assertTrue(doctor.doctor(setup,self.plan,'services')['ready'])
    parity.assert_called_with(setup.ROOT)
+   diagnostics={'Destination':'/var/lib/loom-diagnostics','Source':str(setup.ROOT/'diagnostics'),'RW':True}
+   gateway_mounts=containers['loom-gateway']['Mounts'];gateway_mounts.append(diagnostics)
+   self.assertTrue(doctor.doctor(setup,self.plan,'services')['ready'])
+   for source,writable in [(str(self.root/'unrelated'),True),(str(setup.ROOT/'diagnostics'),False)]:
+    with self.subTest(diagnostics_source=source,writable=writable):
+     diagnostics.update(Source=source,RW=writable)
+     failed=doctor.doctor(setup,self.plan,'services')
+     self.assertEqual(next(c for c in failed['checks'] if c['check']=='loom-gateway')['status'],'fail')
+   gateway_mounts.remove(diagnostics)
+   gateway_mounts.append({'Destination':'/unexpected','Source':str(self.root),'RW':True})
+   self.assertFalse(doctor.doctor(setup,self.plan,'services')['ready'])
+   gateway_mounts.pop()
    with patch('storage_parity.inspect',side_effect=ValueError('fixture storage mismatch')):
     failed=doctor.doctor(setup,self.plan,'services')
     self.assertFalse(failed['ready'])

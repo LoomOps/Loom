@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-alpha.56
+
+- Correct fresh-install Gateway diagnostics mount validation while continuing to reject unrelated mounts, incorrect host paths and unusable diagnostics grants.
+
 ## 0.1.0-alpha.46
 
 - Define one requested outcome per Job; batching and acceleration remain internal to the pinned runner by default.
