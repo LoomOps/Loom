@@ -3,6 +3,7 @@ use crate::{
     store::{id, now, Application},
     Error,
 };
+static INCIDENT_WRITER: std::sync::Mutex<()> = std::sync::Mutex::new(());
 impl Application {
     pub fn incident(&self, operation: &str, error: &Error) -> Option<String> {
         use std::io::Write;
@@ -11,7 +12,19 @@ impl Application {
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|| self.local.join("diagnostics"));
         let result = (|| -> std::io::Result<String> {
+            let _writer = INCIDENT_WRITER
+                .lock()
+                .map_err(|_| std::io::Error::other("diagnostic writer unavailable"))?;
+            if directory
+                .symlink_metadata()
+                .is_ok_and(|m| m.file_type().is_symlink())
+            {
+                return Err(std::io::Error::other("linked diagnostic directory"));
+            }
             std::fs::create_dir_all(&directory)?;
+            if directory.canonicalize()? != directory {
+                return Err(std::io::Error::other("redirected diagnostic directory"));
+            }
             std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o700))?;
             let file = directory.join("rust-incidents.jsonl");
             if file

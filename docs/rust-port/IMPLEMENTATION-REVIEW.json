@@ -1115,9 +1115,9 @@
     },
     {
       "path": "docs/features/catalog.json",
-      "sha256": "4d8f33f8f74fcd888ae5ee1d682294f052f630a3f82acde571cbbac66f9c3100",
-      "bytes": 48681,
-      "lines": 1281,
+      "sha256": "c54918ca3e7701332d7ea4f9e805a9ea74267edcd3589e50fa73997b6179a385",
+      "bytes": 49071,
+      "lines": 1291,
       "boundary": "instruction/specification",
       "structural_validation": "JSON decoded; behavioral evidence separate"
     },
@@ -1315,9 +1315,9 @@
     },
     {
       "path": "docs/rust-port/IMPLEMENTATION.md",
-      "sha256": "fcf9fc6ee18ba486258ecbcaef306bc40dde432512d59029cfb9f6bd774e8402",
-      "bytes": 10420,
-      "lines": 143,
+      "sha256": "ac02c95990fe5ada9edfc93d38338b8f410d00cd64fa5447587dcad455e196a2",
+      "bytes": 10479,
+      "lines": 144,
       "boundary": "instruction/specification",
       "structural_validation": "hash/structure inspection"
     },
@@ -2275,9 +2275,9 @@
     },
     {
       "path": "rust/crates/core/src/diagnostics.rs",
-      "sha256": "8963d2d33c787d382a0e6c0d8571abb1dc027eda611a9ed7d53870daa9b40e32",
-      "bytes": 2281,
-      "lines": 55,
+      "sha256": "2fc9595d5b80262b4ff24a6d40f0c051f2d3d82df0703b6ea4695ebd6beaf56f",
+      "bytes": 2894,
+      "lines": 68,
       "boundary": "native implementation/contract",
       "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
     },
@@ -2507,8 +2507,8 @@
     },
     {
       "path": "rust/crates/ops/src/lib.rs",
-      "sha256": "cdf5a4ff8f43ea885755878a79292f7da3b70e1061dbb88a71f68fa80bdc10fc",
-      "bytes": 13952,
+      "sha256": "9e7aaeb5c5b2eeab44b0b218906d616970f1797bda27367043117d8856b363d0",
+      "bytes": 13992,
       "lines": 332,
       "boundary": "native implementation/contract",
       "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
@@ -3219,9 +3219,9 @@
     },
     {
       "path": "tests/rust/application.rs",
-      "sha256": "d919309a70a32abc0eff7ac1e37c28c5546f0e9c206a022efa9d028688edf6a2",
-      "bytes": 33876,
-      "lines": 835,
+      "sha256": "a9f2a696aa61796cfa5376bdc55f4675b8b005790e8fe80cc436a96e555643bd",
+      "bytes": 35213,
+      "lines": 876,
       "boundary": "independent harness/fixture",
       "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
     },

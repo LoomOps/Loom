@@ -67,7 +67,7 @@ impl Service {
                         let _ = s.send(application.read_context(&r));
                     }
                     Message::HttpVerified(r, proofs, s) => {
-                        let path = r.path.clone();
+                        let path = r.path.split('?').next().unwrap_or("http").to_string();
                         let result = application.http_verified(r, proofs);
                         if let Err(error) = &result {
                             let _ = application.incident(&path, error);

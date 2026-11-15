@@ -1155,7 +1155,8 @@
         "rust/crates/core/src/diagnostics.rs"
       ],
       "tests": [
-        "tests/dashboard/test_diagnostics.py"
+        "tests/dashboard/test_diagnostics.py",
+        "tests/rust/application.rs"
       ],
       "depends_on": [],
       "spec": "docs/features/diagnostics.md",
@@ -1180,6 +1181,15 @@
             "network",
             "dashboard",
             "installation"
+          ]
+        },
+        {
+          "name": "Native local incident",
+          "entrypoint": "rust/crates/core/src/diagnostics.rs#incident",
+          "accepts": "Safe operation ID and typed error code/status",
+          "returns": "Private incident ID or absent diagnostic; no operation-state change",
+          "consumers": [
+            "api"
           ]
         }
       ]

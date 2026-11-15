@@ -833,3 +833,44 @@ fn a_read_snapshot_cannot_be_reused_as_a_mutation_authority() {
     assert_eq!(context.http(r).unwrap_err().code, "query_snapshot");
     assert_eq!(f.count("jobs"), 0);
 }
+
+#[test]
+fn diagnostics_fail_open_without_following_a_linked_directory_or_recording_secrets() {
+    use std::os::unix::fs::{symlink, PermissionsExt};
+    let f = Fixture::new();
+    let target = f.root.join("foreign-diagnostics");
+    fs::create_dir(&target).unwrap();
+    fs::set_permissions(&target, fs::Permissions::from_mode(0o755)).unwrap();
+    symlink(&target, f.app.local.join("diagnostics")).unwrap();
+    assert!(f
+        .app
+        .incident(
+            "jobs.submit",
+            &Error::new(
+                "input",
+                "private fixture request body must not be recorded",
+                400
+            )
+        )
+        .is_none());
+    assert_eq!(
+        fs::metadata(&target).unwrap().permissions().mode() & 0o777,
+        0o755
+    );
+    assert_eq!(fs::read_dir(&target).unwrap().count(), 0);
+    fs::remove_file(f.app.local.join("diagnostics")).unwrap();
+    assert!(f
+        .app
+        .incident(
+            "jobs.submit",
+            &Error::new(
+                "input",
+                "private fixture request body must not be recorded",
+                400
+            )
+        )
+        .is_some());
+    let text = fs::read_to_string(f.app.local.join("diagnostics/rust-incidents.jsonl")).unwrap();
+    assert!(!text.contains("private fixture"));
+    assert_eq!(f.count("jobs"), 0);
+}
