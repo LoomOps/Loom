@@ -137,7 +137,11 @@ research diagnostic can be main; a platform acceptance fixture is operations/tes
 Use server-side roles instead of guessing from names, Owner or Built-in origin.
 `jobs.list` and `results.list` default to research; `view=all` retains full audit
 access and `view=operations` exposes operational checks. Direct reads remain.
-The shared queue always retains all real resource consumers.
+The shared queue and Dashboard current queue always retain all real resource
+consumers, independently of catalog or history filters. Dashboard terminal
+history defaults to All and has separate Research/Operations, status, Job Type
+and Execution Mode filters. Workflow executions remain grouped under their
+logical Job; a presentation parent alone does not hide a standalone follow-up.
 
 `jobs.curate` previews additive presentation/binding changes by default. Apply a
 reviewed batch with dry_run=false and a stable key/reason. Originals, timestamps,

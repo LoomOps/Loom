@@ -255,3 +255,12 @@ operational isolation and additive curation with unchanged original records.
 Private real-catalog replay checks constituent SDG ledgers and acceptance fixtures
 without embedding production data in public test fixtures. Browser checks must
 cover direct hidden-record links and Research/Operations/All discovery separately.
+
+Dashboard queue/history regressions in `tests/dashboard/browser/test_workspace.py`
+must additionally verify operational and minimal shared queue rows under every
+catalog/history scope, terminal-only category/status filtering, All as the history
+default, pagination reset and reload persistence, and narrow layouts. Authoritative
+workflow membership groups nodes while a parented independent follow-up remains
+visible. Consolidated source rows remain opt-in and do not inflate summary counts.
+These are isolated browser fixtures; they do not change queue order or
+prove production Job execution.
