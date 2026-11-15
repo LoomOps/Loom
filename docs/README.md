@@ -12,4 +12,5 @@
 
 Historical research contracts and validation policies are archived outside the product repository. Read current Job input and metadata contracts from the running server's `system.contract` and `system.describe`.
 
-- [Rust variant review and block-by-block transition proposal](rust-port/README.md) (planning only; no deployment).
+- [Rust native redesign and implementation status](rust-port/README.md) (development candidate; no operational deployment).
+- [Common Item IDs, file inventory and log search](item-index/README.md) (detailed plan; no implementation or deployment).

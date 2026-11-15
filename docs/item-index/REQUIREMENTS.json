@@ -1,0 +1,358 @@
+{
+  "schema": "loom-item-index-requirements/v1",
+  "status": "design complete; implementation and all new acceptance cases planned",
+  "baseline": "74642cd41de4df3d82934b4eb5b0ca008047a911",
+  "requirements": [
+    {
+      "id": "U01",
+      "requirement": "Common addressable Items while preserving typed domain rules",
+      "designs": [
+        "IDENTITY.md",
+        "ARCHITECTURE.md"
+      ],
+      "phases": [
+        "I1"
+      ],
+      "planned_cases": [
+        "ID-01",
+        "ID-03",
+        "ID-04"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U02",
+      "requirement": "Large string IDs without rounding or a global machine counter",
+      "designs": [
+        "IDENTITY.md",
+        "API.md"
+      ],
+      "phases": [
+        "I1",
+        "I4"
+      ],
+      "planned_cases": [
+        "ID-01",
+        "ID-02"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U03",
+      "requirement": "Preserve native IDs, source revisions and accepted Job semantics",
+      "designs": [
+        "IDENTITY.md",
+        "MIGRATION.md"
+      ],
+      "phases": [
+        "I1",
+        "I6"
+      ],
+      "planned_cases": [
+        "ID-03",
+        "ID-04",
+        "TX-02",
+        "MIG-01"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U04",
+      "requirement": "Separate scalable file/log index DB from compact execution authority",
+      "designs": [
+        "ARCHITECTURE.md",
+        "FILES.md"
+      ],
+      "phases": [
+        "I2"
+      ],
+      "planned_cases": [
+        "TX-03",
+        "TX-04",
+        "FILE-06",
+        "FILE-07"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U05",
+      "requirement": "Stable File IDs survive copy, relocation, index deletion and rebuild",
+      "designs": [
+        "IDENTITY.md",
+        "FILES.md",
+        "RECONCILE.md"
+      ],
+      "phases": [
+        "I2",
+        "I6"
+      ],
+      "planned_cases": [
+        "ID-05",
+        "TX-05",
+        "FILE-01",
+        "FILE-05"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U06",
+      "requirement": "Incremental discovery and bounded safe extraction without request-time traversal",
+      "designs": [
+        "FILES.md",
+        "API.md"
+      ],
+      "phases": [
+        "I2",
+        "I4"
+      ],
+      "planned_cases": [
+        "FILE-02",
+        "FILE-03",
+        "FILE-04",
+        "FILE-06",
+        "QUERY-01",
+        "FILE-07"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U07",
+      "requirement": "Execution logs discoverable and readable through MCP/API",
+      "designs": [
+        "LOGS.md",
+        "API.md"
+      ],
+      "phases": [
+        "I3",
+        "I4"
+      ],
+      "planned_cases": [
+        "LOG-01",
+        "LOG-04",
+        "LOG-05",
+        "QUERY-04"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U08",
+      "requirement": "Slow log/search work cannot block return/cancel or overwrite retry history",
+      "designs": [
+        "LOGS.md",
+        "ARCHITECTURE.md"
+      ],
+      "phases": [
+        "I3"
+      ],
+      "planned_cases": [
+        "LOG-02",
+        "LOG-03",
+        "LOG-04",
+        "LOG-06",
+        "TX-04"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U09",
+      "requirement": "Bounded unified search, stable cursors and honest consistency",
+      "designs": [
+        "API.md",
+        "ARCHITECTURE.md"
+      ],
+      "phases": [
+        "I2",
+        "I4"
+      ],
+      "planned_cases": [
+        "QUERY-01",
+        "QUERY-02",
+        "QUERY-03",
+        "QUERY-04",
+        "TX-05"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U10",
+      "requirement": "Existing source rights, shared ownership and private diagnostic/event boundaries",
+      "designs": [
+        "API.md",
+        "LOGS.md",
+        "blocks/identity.md",
+        "blocks/diagnostics.md"
+      ],
+      "phases": [
+        "I1",
+        "I3",
+        "I4"
+      ],
+      "planned_cases": [
+        "AUTH-01",
+        "AUTH-02",
+        "AUTH-03"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U11",
+      "requirement": "Explicit Scenario/native/historical relations without invented research",
+      "designs": [
+        "IDENTITY.md",
+        "blocks/scenarios.md",
+        "RECONCILE.md"
+      ],
+      "phases": [
+        "I1",
+        "I5"
+      ],
+      "planned_cases": [
+        "SCN-01",
+        "SCN-02",
+        "ID-03"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U12",
+      "requirement": "Reusable software/runtime/dependency inventories preserve exact source/grants",
+      "designs": [
+        "FILES.md",
+        "blocks/extensions.md",
+        "blocks/authoring.md"
+      ],
+      "phases": [
+        "I2",
+        "I4"
+      ],
+      "planned_cases": [
+        "SW-01",
+        "SW-02",
+        "FILE-01",
+        "FILE-04",
+        "FILE-07"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U13",
+      "requirement": "Evidence-based reconcile independent of scientific/Job truth",
+      "designs": [
+        "RECONCILE.md",
+        "FILES.md"
+      ],
+      "phases": [
+        "I2",
+        "I6"
+      ],
+      "planned_cases": [
+        "ID-05",
+        "FILE-02",
+        "FILE-03",
+        "FILE-05",
+        "TX-01",
+        "TX-02"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U14",
+      "requirement": "Durable replay, generation rebuild, compaction and lag without dual-DB atomicity assumptions",
+      "designs": [
+        "ARCHITECTURE.md",
+        "MIGRATION.md"
+      ],
+      "phases": [
+        "I1",
+        "I2",
+        "I6"
+      ],
+      "planned_cases": [
+        "TX-01",
+        "TX-03",
+        "TX-04",
+        "TX-05",
+        "TX-06"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U15",
+      "requirement": "Safe snapshots/upgrade/restore preserving authority and existing credential-export rules",
+      "designs": [
+        "MIGRATION.md",
+        "blocks/installation.md",
+        "blocks/portability.md"
+      ],
+      "phases": [
+        "I6"
+      ],
+      "planned_cases": [
+        "MIG-01",
+        "MIG-02",
+        "MIG-03",
+        "ID-04"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U16",
+      "requirement": "Concise server-backed Dashboard retrieval without file/log catalog clutter",
+      "designs": [
+        "API.md",
+        "blocks/dashboard.md"
+      ],
+      "phases": [
+        "I5"
+      ],
+      "planned_cases": [
+        "UI-01",
+        "UI-02",
+        "UI-03",
+        "SCN-01",
+        "QUERY-03"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U17",
+      "requirement": "Capabilities/guides/independent clients and no duplicate coordinator reports",
+      "designs": [
+        "API.md",
+        "blocks/onboarding.md"
+      ],
+      "phases": [
+        "I4",
+        "I6"
+      ],
+      "planned_cases": [
+        "QUERY-04",
+        "TX-03",
+        "AUTH-02",
+        "VERIFY-01"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    },
+    {
+      "id": "U18",
+      "requirement": "All affected blocks reviewed before implementation with independent acceptance",
+      "designs": [
+        "README.md",
+        "REVIEW.md",
+        "VERIFICATION.md",
+        "ROADMAP.md"
+      ],
+      "phases": [
+        "I0",
+        "I6"
+      ],
+      "planned_cases": [
+        "VERIFY-01",
+        "TX-04",
+        "LOG-02",
+        "UI-03"
+      ],
+      "status": "planned implementation; no executed new acceptance claim"
+    }
+  ]
+}

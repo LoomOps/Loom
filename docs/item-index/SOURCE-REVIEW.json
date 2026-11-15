@@ -1,0 +1,903 @@
+{
+  "schema": "loom-item-index-source-review/v1",
+  "status": "planning source observations; no implemented index or executed new acceptance claim",
+  "loom_baseline": "74642cd41de4df3d82934b4eb5b0ca008047a911",
+  "method": "Trace identity, publication, locations, history, log capture/return, Runtime, API, clients and preservation; cross-check all 19 feature specifications and their existing verification. Fingerprints define the inspected boundary, not a proof of every branch.",
+  "all_existing_features": [
+    "api",
+    "authoring",
+    "catalog",
+    "dashboard",
+    "diagnostics",
+    "execution",
+    "extensions",
+    "identity",
+    "installation",
+    "network",
+    "observations",
+    "onboarding",
+    "portability",
+    "queue",
+    "recovery",
+    "results",
+    "scenarios",
+    "ssh",
+    "testing"
+  ],
+  "source_versions": 106,
+  "entries": [
+    {
+      "repository": "Loom",
+      "path": "Cargo.lock",
+      "sha256": "f9a1c8ccc7d1f593005773edf2f52ed1d9620793186791f1bdb265728239eb9b",
+      "bytes": 56522,
+      "lines": 2299,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "Cargo.toml",
+      "sha256": "3d4b7cbdfc579b90a17c20be247706812dfc0f63c3b6ec88d81cf30b8cc28d70",
+      "bytes": 1054,
+      "lines": 25,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "dashboard/admission.py",
+      "sha256": "e171cd2348b68b00472cb53dabea7c574eb51c59dcf1a2cd4ed36a6089d0b011",
+      "bytes": 5973,
+      "lines": 141,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "dashboard/diagnostics.py",
+      "sha256": "2c7dea3a0b2672bbce77ed9d8910534e673409d305d5fa74fdab3fd1eabc1758",
+      "bytes": 5148,
+      "lines": 111,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "dashboard/gateway.py",
+      "sha256": "9a323db8e618dd9e7f4422a97500ed12ab4b97094ee8d53f7524fede8623a04a",
+      "bytes": 4439,
+      "lines": 83,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "dashboard/server.py",
+      "sha256": "45090ec87a6e2021034d48e7f3be0dca0ba171b347b458df57f771e589695fae",
+      "bytes": 24982,
+      "lines": 442,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "dashboard/sso.py",
+      "sha256": "354c42c8539eab987cd72d35b2b148e61ef631350c48399215db3f103d9c9a41",
+      "bytes": 5092,
+      "lines": 99,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "dashboard/workspace/build.py",
+      "sha256": "2eec94b725989df1e0de5ef121f774660e4d5552dd5c2deedaed4173c3dbe6d3",
+      "bytes": 13942,
+      "lines": 147,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "dashboard/workspace/details.js",
+      "sha256": "e29ed1d5b09c43da17a5c20bd3614bbb7232ca69c6cbff437baedc9550b51910",
+      "bytes": 25557,
+      "lines": 404,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "dashboard/workspace/explorer.js",
+      "sha256": "089c3f2afb61b07970b122ce5e3558aaad223093a4a2d836d5e4de38a48d17d9",
+      "bytes": 5297,
+      "lines": 55,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "dashboard/workspace/frame.js",
+      "sha256": "4cfc72fc780f88abff42be8dad7a88a2d60941416cdd02122af60896fbb214e9",
+      "bytes": 32290,
+      "lines": 424,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "dashboard/workspace/parent.js",
+      "sha256": "77d52a596bb02e9b9df27b4f54fd58bd0741e19011dc3dc52deb1b19b753fec7",
+      "bytes": 25534,
+      "lines": 477,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "dashboard/workspace/scenarios.js",
+      "sha256": "c2f498ec60d64b8fb20606028e62d84b01f404323f6ce12c2930e71b6c4d9c28",
+      "bytes": 11476,
+      "lines": 45,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "deploy/features.py",
+      "sha256": "1796f7736c000ffc825614f38b04a13bdc614e159d0c82b0d3edf5d149ff6fd2",
+      "bytes": 8490,
+      "lines": 140,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "deploy/install.py",
+      "sha256": "4e8660de00134a36a1c075fd08a6778e24949616a7de012cd19e89fddbe7974e",
+      "bytes": 4755,
+      "lines": 65,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "deploy/installer/doctor.py",
+      "sha256": "fcdbe1f97bba30edd938bb7eee356de5c363eb17d33c69bc4d30bb5a28a29142",
+      "bytes": 24763,
+      "lines": 318,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "deploy/migrations/catalog.json",
+      "sha256": "9cdcb690740db80db328679c8d8ccb20cbc2fe153661f07728871a5ee56d94f3",
+      "bytes": 909,
+      "lines": 24,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "deploy/migrations/rust_authority.py",
+      "sha256": "8e1f7b06df415af8df76d1d8b8ff89d3f23a415c6b6167494e618003d07ec669",
+      "bytes": 2959,
+      "lines": 40,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "deploy/release.py",
+      "sha256": "c27675827efc225973f50862e458ec637938054e8b0f10b11cc9e5ea588fb7dc",
+      "bytes": 4919,
+      "lines": 81,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "deploy/snapshot.py",
+      "sha256": "952d744fc70076d6f465c54b44d9718a0428874fe76a868dd4ae1571e0992c79",
+      "bytes": 4887,
+      "lines": 94,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "deploy/source_install.py",
+      "sha256": "cfe6893f359c4a2091c18ff0b9accd763c07a43dc2edd4fc6101fe4b7dffc55e",
+      "bytes": 4247,
+      "lines": 61,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "deploy/ssh_host.py",
+      "sha256": "d73f6bc4b1d901bf8daa229469305024447e28a3da20f8109db9f5db58a1c238",
+      "bytes": 8020,
+      "lines": 148,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "deploy/state_snapshot.py",
+      "sha256": "53ae7f8e8724fdb100b128fd46bcb47e52e2b27f21834ef7785df7e520b17b99",
+      "bytes": 11504,
+      "lines": 214,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "deploy/tailnet.py",
+      "sha256": "8127f73b129a76ca2fbfb352e78d4c3ff8bb48715aa9ae3c75f0376776fed928",
+      "bytes": 17790,
+      "lines": 254,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "deploy/update.py",
+      "sha256": "72de26fe46f201a951a7beb1c20c42545433f15b4b827aa3805bffdcb4ef18f3",
+      "bytes": 30834,
+      "lines": 470,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/README.md",
+      "sha256": "e14fce2985643f4bf0aaaba1cccb8973e6d928f23f4e79e17d3a7f836318f209",
+      "bytes": 6519,
+      "lines": 100,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/VERIFICATION.md",
+      "sha256": "3eea0a1ad2217e3eccdc75e1f94f2cb51caf045feb22c780c7be38ddebb78fbd",
+      "bytes": 21461,
+      "lines": 285,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/api.md",
+      "sha256": "efceb2a28a1a2a184b4b8b1eaca9127d4ac3b3547b1ae21053f5a7003a6221a8",
+      "bytes": 3346,
+      "lines": 60,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/authoring.md",
+      "sha256": "ab98e19b0433f82ec309af9fe47aa3e7331e153fe17cc8d2018bd8f84f031d33",
+      "bytes": 1547,
+      "lines": 26,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/catalog.json",
+      "sha256": "c54918ca3e7701332d7ea4f9e805a9ea74267edcd3589e50fa73997b6179a385",
+      "bytes": 49071,
+      "lines": 1291,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/catalog.md",
+      "sha256": "d39de72e71ff90d2102887ab71d3a1a4432c8f5ad0c475fff88a1b2ce64c0f00",
+      "bytes": 5428,
+      "lines": 90,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/dashboard.md",
+      "sha256": "4febaa23ebf185d8dc42ab3c9baf79ca32420ff670bd0ae4aae6aaf8218ec424",
+      "bytes": 19368,
+      "lines": 277,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/diagnostics.md",
+      "sha256": "0cef20fd31d81b29d1ccd70ceecdfab87af1d3e71b5ed04786be5ac3fcdcac54",
+      "bytes": 3054,
+      "lines": 46,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/execution.md",
+      "sha256": "694e219de724b21e988cc60015b37199752fdb7d89085f446bd5d769da9bc71d",
+      "bytes": 8508,
+      "lines": 132,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/extensions.md",
+      "sha256": "945072836c6ea465d5394b73ca3febf32d1665eeef7cd3199e03257fbfc77db3",
+      "bytes": 13642,
+      "lines": 205,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/identity.md",
+      "sha256": "6dcc8a311e48ef20098151124e0afc480e5085c3ca2a88f4e7e27a5541397942",
+      "bytes": 4067,
+      "lines": 38,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/installation.md",
+      "sha256": "a550d11be14ec3c88bba31dfad1c258c7643d344a34f808b4adb5aca9eff8f92",
+      "bytes": 11063,
+      "lines": 167,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/network.md",
+      "sha256": "5e5eb54d546b3e5d0d139852a313ed4145d54e9faaaef87bf7598faa5cc3b161",
+      "bytes": 10211,
+      "lines": 146,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/observations.md",
+      "sha256": "4cc234623d45d3d08a2016302a4ba50e9ffbd1254f1ae994aed12c8f2b3885cd",
+      "bytes": 1344,
+      "lines": 35,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/onboarding.md",
+      "sha256": "91a36b9dcfb25e743cad6f703fd12e718e661dd7ee6083cd906385e9bbee043d",
+      "bytes": 3216,
+      "lines": 61,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/portability.md",
+      "sha256": "c9387cd31ac1dc4e19d9421d587a8ff11d6742b74764214879e708c49160fc77",
+      "bytes": 2079,
+      "lines": 43,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/queue.md",
+      "sha256": "8003c55b69c6b1be458ccd8e15ad0472be7f8184df771c9c3142c6c920e2ffcb",
+      "bytes": 3101,
+      "lines": 61,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/recovery.md",
+      "sha256": "8aec3f4ff2d14180d071d8c4c843c4e530eae765d85510f6e0e29d109128f8fb",
+      "bytes": 2276,
+      "lines": 46,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/results.md",
+      "sha256": "ce5770987248a3114ad4b35269c6ab78e1b9819d3a5f622a884b1d03ee05cbaa",
+      "bytes": 3594,
+      "lines": 62,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/scenarios.md",
+      "sha256": "dd6382cb77199272bc948de97bfd66641ae512b0a6cd2d272a24a99d4c66a48b",
+      "bytes": 1327,
+      "lines": 22,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/ssh.md",
+      "sha256": "18a0a456240ce4b1d8ca92e586c00e31c1097fe454cac320515295465260335b",
+      "bytes": 2497,
+      "lines": 37,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/features/testing.md",
+      "sha256": "a01f614b96d13e4fc08e40f9e99596c2ba9aacc41505c3ee0b26b86453f647a9",
+      "bytes": 1749,
+      "lines": 37,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "docs/rust-port/IMPLEMENTATION.md",
+      "sha256": "e8e061fa279881befeeb8b538f92edc00da3633517efa263b5cd860869126a7e",
+      "bytes": 10557,
+      "lines": 145,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "loom_use/README.md",
+      "sha256": "fe32ccfbb62cd8375bc9c4b869dce293c4ca1e8ee738ecb1de2f91d4a8c7d649",
+      "bytes": 1291,
+      "lines": 23,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "loom_use/components.md",
+      "sha256": "d4243c416c45ea25f6887eb0f1a6f25618af29ff33891523d5343447fdb5cc45",
+      "bytes": 12978,
+      "lines": 170,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "loom_use/jobs.md",
+      "sha256": "637dfe0eea4b61bb16a3e2963b35b6ab71560e48f127acd9db1b6c8e7c91867b",
+      "bytes": 14281,
+      "lines": 169,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "loom_use/operator.md",
+      "sha256": "d4b627e115e4b7874e0e22e39c5ed25818e7f309b8437be4a97130cb963fd2d6",
+      "bytes": 12151,
+      "lines": 96,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "loom_use/runtimes.md",
+      "sha256": "114920f25e3b0f7dfc7d98fb7e0b5394daeec1916beb40a5c22ae6a97df4ea3d",
+      "bytes": 10658,
+      "lines": 173,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "loom_use/skills/loom-use/SKILL.md",
+      "sha256": "81742bc93f12a3343bbfc10b96ba13b39df3716afe4e13c1a7fa900dbcabfebc",
+      "bytes": 6062,
+      "lines": 96,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "ops/Dockerfile.rust",
+      "sha256": "564d70f8dbc6fad4bd7cd38d8eb9ea30f03056c36f209c22aa93a997e81f8248",
+      "bytes": 1153,
+      "lines": 18,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "ops/compose.rust.yaml",
+      "sha256": "2a7e4208374f8c2df9d4d1de4d48f7ac9e49ece346e3d8421cae1e47854f05a5",
+      "bytes": 314,
+      "lines": 10,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/contracts/action-docs.json",
+      "sha256": "cb0a5b6bac045279cdd20f3052fcea1b0068625d4181f84a8a819e6e07856e0b",
+      "bytes": 25705,
+      "lines": 690,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/contracts/authoring.md",
+      "sha256": "ced3710c1a9e8048244a9c49420df41f837a6a4727928c313dc799336c8dfddd",
+      "bytes": 903,
+      "lines": 13,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/contracts/legacy-actions.json",
+      "sha256": "317018142998362a76b73dde415f4d991889d7a693d210723cdde3ba18e5d697",
+      "bytes": 76631,
+      "lines": 3031,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/contracts/legacy-schema.sql",
+      "sha256": "a67cd295ed78bd8f86b446be77fc6ecf9da8e79351d4947ee58331bb0c6e71cc",
+      "bytes": 7143,
+      "lines": 96,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/contracts/redesign-schema.sql",
+      "sha256": "46b572cda0a492bb9be4f86051bb47d6e09fb910a0ef296c4a05360517dfcc2c",
+      "bytes": 15799,
+      "lines": 97,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/auth.rs",
+      "sha256": "e84b5bb926e5c5c037115c2e842c25b4f67835df8b15e8672f0d008d2baef042",
+      "bytes": 10224,
+      "lines": 273,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/authoring.rs",
+      "sha256": "28734d7657af943e9a4914f1b810138babe0ff9ad09605b28398c243302e14b9",
+      "bytes": 3778,
+      "lines": 100,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/catalog.rs",
+      "sha256": "02042c463fc5aa6eee582ee3663d7ebefec4045e668f5880d0e0354d9b4d5a3a",
+      "bytes": 23836,
+      "lines": 418,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/composition.rs",
+      "sha256": "771a271d3b07bca5769274cbde3e8cdb5be3b1a15f01ba40756246772b59413f",
+      "bytes": 33290,
+      "lines": 644,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/contracts.rs",
+      "sha256": "009b8c89af1962ca31b77634aa8e9af0e9f6d4724e08e242d88d0cdf29987ec7",
+      "bytes": 10609,
+      "lines": 341,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/diagnostics.rs",
+      "sha256": "2fc9595d5b80262b4ff24a6d40f0c051f2d3d82df0703b6ea4695ebd6beaf56f",
+      "bytes": 2894,
+      "lines": 68,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/execution.rs",
+      "sha256": "d0def0f2528366a39a371791ebf719299cd811682b0afb91c0d39853a619b255",
+      "bytes": 30102,
+      "lines": 670,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/history.rs",
+      "sha256": "86786bf2c4418860f1b67d576cbbb4d9b8bd50589dbb7f2fb7cfbf6b41f5eb12",
+      "bytes": 11575,
+      "lines": 143,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/http.rs",
+      "sha256": "5036a90316239b722f5d3e3039e703f672a3cfd6084756a40f567be67c1b9dd2",
+      "bytes": 28617,
+      "lines": 733,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/jobs.rs",
+      "sha256": "1bd883390ca59fffd2a9f886b3e3232c1d9442b36bf45830cf81186d155cab89",
+      "bytes": 43052,
+      "lines": 1004,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/media.rs",
+      "sha256": "52dc5593c7092b61fac2bece7e929bd18fa4dff5536c63406de093f433a36b75",
+      "bytes": 9637,
+      "lines": 280,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/onboarding.rs",
+      "sha256": "6cbddc0b142ef8ddc6e529eb2a7a6cc363dccdab781eff6acb32291fd637f0f7",
+      "bytes": 9280,
+      "lines": 209,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/query.rs",
+      "sha256": "e9e7ba38b9c69e47f3394e2b630e65c079ca8de45703dd9a4ae973e6d6c5955d",
+      "bytes": 38953,
+      "lines": 784,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/results.rs",
+      "sha256": "58afb09685780454dc0270adae4f86e49569be952ba9a86d02eaed21e74d152b",
+      "bytes": 37899,
+      "lines": 853,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/runtime.rs",
+      "sha256": "6e990173ca5de791fa79da158625b99c5ca5789fe20e91df682fecbe53beed11",
+      "bytes": 17260,
+      "lines": 438,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/scenario.rs",
+      "sha256": "81403abb9347094274b8c9eb641e2667a987f07340fab765be41a0355f5b3d42",
+      "bytes": 9956,
+      "lines": 228,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/software.rs",
+      "sha256": "4ffa4883699f5831726163aef8127f276bdd308dac5124a4a3ab689e3b6df2c8",
+      "bytes": 32024,
+      "lines": 802,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/storage.rs",
+      "sha256": "ed3373c195245ac2e8d6d73d54a8f7e5dc2f9a4385cbd881514dc6e8444906be",
+      "bytes": 11427,
+      "lines": 367,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/core/src/store.rs",
+      "sha256": "76b06e966af10400af6a3cb0f8d08e75a6fe6acaa8956404dac9dc44af3c3528",
+      "bytes": 13216,
+      "lines": 354,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/domain/src/lib.rs",
+      "sha256": "f7e3aa13310f701b9f9328b30bcc2b078c1ebb1b07de0b79264c104fdec7a59f",
+      "bytes": 11980,
+      "lines": 348,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/host/src/executor.rs",
+      "sha256": "d56d0a85a12cd9fb5ba0026af79d4adb735508d4f0ccd7ac04b867b178fc8219",
+      "bytes": 43519,
+      "lines": 1130,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/host/src/observe.rs",
+      "sha256": "495bc96aff0503e55cd0ffa6121122a2f0c8c6f1dc966831740b7e56fd1a7188",
+      "bytes": 960,
+      "lines": 20,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/host/src/runtime.rs",
+      "sha256": "51a0d34de685b8a92398c2b1a9e826582aefeb137d829efb960995c8e0816b0e",
+      "bytes": 10282,
+      "lines": 274,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/host/src/wire.rs",
+      "sha256": "36443e309793f5ceb587555a65ff7ee9b0517f8747a3cebfaa5c0251787ec08c",
+      "bytes": 8638,
+      "lines": 242,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/migrate/src/main.rs",
+      "sha256": "52082b5f59ca7130050f735fb32075cc3980d5dc3eb64e2a2f3aedbd302afd70",
+      "bytes": 11491,
+      "lines": 199,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/ops/src/lib.rs",
+      "sha256": "9e7aaeb5c5b2eeab44b0b218906d616970f1797bda27367043117d8856b363d0",
+      "bytes": 13992,
+      "lines": 332,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/ops/src/ownership.rs",
+      "sha256": "adda99aa94783fb6e42583dcf8cfef03a58a41d6279a48e31aaf1a67e5aff71c",
+      "bytes": 5056,
+      "lines": 142,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/ops/src/worker.rs",
+      "sha256": "60720103226a32c7b5880afa9f36784f42c85b6b2c2e906065e07249e6869d75",
+      "bytes": 27315,
+      "lines": 730,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/crates/sdk/src/lib.rs",
+      "sha256": "070dc6661dedb5c23a92b3636534de1566311b7324c42fd49c47db48814cabf5",
+      "bytes": 9507,
+      "lines": 265,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/templates/hybrid.rs",
+      "sha256": "078f912981d88d88a6dc1cf74df638cdd2146879236ef0684cac22ddd1a2ee68",
+      "bytes": 777,
+      "lines": 15,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "rust/templates/runner.rs",
+      "sha256": "4129f05ad968555c0571b5700f7a002e6b6780988b6bc93424421dd073b34013",
+      "bytes": 377,
+      "lines": 10,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "tests/dashboard/browser/test_native_workspace.py",
+      "sha256": "70b9a4a600727051b703288db4c544f3291e0b079e3cee896e76e1cfc646031d",
+      "bytes": 6223,
+      "lines": 55,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "tests/run.py",
+      "sha256": "e6698ac7c4bc48774f65f74f3ea347e2ff97d9622088b68dccb8cb6559776625",
+      "bytes": 3963,
+      "lines": 59,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "tests/rust/application.rs",
+      "sha256": "a9f2a696aa61796cfa5376bdc55f4675b8b005790e8fe80cc436a96e555643bd",
+      "bytes": 35213,
+      "lines": 876,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "tests/rust/run.py",
+      "sha256": "b203e2f5d6989632996a56db263bb5ab345c02bec40a202a498ec45833f86909",
+      "bytes": 3646,
+      "lines": 41,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "tests/rust/test_executor.py",
+      "sha256": "52e5120bfce7009518cd8400a14ac623ceff2d66fd4e685cbce267cd84ae798d",
+      "bytes": 8880,
+      "lines": 92,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "tests/rust/test_installation.py",
+      "sha256": "23821adcaf3a5e66eba1208e594d83d0b083266ca80a9c87070a8e4132c4c0c5",
+      "bytes": 3887,
+      "lines": 34,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom",
+      "path": "tests/rust/test_service.py",
+      "sha256": "0594c0c27bd535eab02b1983877d987971ced282cd0f5a9de03c0a227a6e3d12",
+      "bytes": 14823,
+      "lines": 150,
+      "review_boundary": "current feature spec, authority/source path or existing verification consumer"
+    },
+    {
+      "repository": "Loom-Use",
+      "commit": "c66e46d9c56cf75d1cdf29dffab4e92ab19346bf",
+      "path": "clients/stdio.py",
+      "sha256": "5e44c5790d31bc25e43b6f20c695826b3779172bac7eec6abe6cf48943c13074",
+      "bytes": 3860,
+      "lines": 84,
+      "working_file_differs_from_commit": false,
+      "review_boundary": "read-only consumer/transport compatibility; no code changed"
+    },
+    {
+      "repository": "Loom-Use",
+      "commit": "c66e46d9c56cf75d1cdf29dffab4e92ab19346bf",
+      "path": "skills/loom-use/SKILL.md",
+      "sha256": "81742bc93f12a3343bbfc10b96ba13b39df3716afe4e13c1a7fa900dbcabfebc",
+      "bytes": 6062,
+      "lines": 96,
+      "working_file_differs_from_commit": false,
+      "review_boundary": "read-only consumer/transport compatibility; no code changed"
+    },
+    {
+      "repository": "Loom-Use",
+      "commit": "c66e46d9c56cf75d1cdf29dffab4e92ab19346bf",
+      "path": "skills/loom-ssh/SKILL.md",
+      "sha256": "8163a0c1d0ea2619f06dc542e11fe2d0d979d0b63c78a5319a88187ed61ba083",
+      "bytes": 2563,
+      "lines": 42,
+      "working_file_differs_from_commit": false,
+      "review_boundary": "read-only consumer/transport compatibility; no code changed"
+    },
+    {
+      "repository": "Loom-Use",
+      "commit": "c66e46d9c56cf75d1cdf29dffab4e92ab19346bf",
+      "path": "docs/verification.md",
+      "sha256": "45a7a7e21f80abd7cab6a7ffaf3d93c084a7a723d7d05c09ba974dbbfcc02eae",
+      "bytes": 8106,
+      "lines": 99,
+      "working_file_differs_from_commit": false,
+      "review_boundary": "read-only consumer/transport compatibility; no code changed"
+    },
+    {
+      "repository": "Loom-Use",
+      "commit": "c66e46d9c56cf75d1cdf29dffab4e92ab19346bf",
+      "path": "README.md",
+      "sha256": "ef04338dc9ca9b184912088ea4e605dcd63e03a9a16395c2d77b915bd2869a78",
+      "bytes": 2870,
+      "lines": 52,
+      "working_file_differs_from_commit": false,
+      "review_boundary": "read-only consumer/transport compatibility; no code changed"
+    },
+    {
+      "repository": "external-coordinator",
+      "commit": "f04ac943631aa07bea3f6a0b58eea00d21bbe35c",
+      "path": "rust/src/loom.rs",
+      "sha256": "acf1c904afb9892a653e4eed967ec0a09cc8533a1efd4f65d9f8d495e592d37a",
+      "bytes": 38499,
+      "lines": 955,
+      "working_file_differs_from_commit": false,
+      "review_boundary": "read-only consumer/transport compatibility; no code changed"
+    },
+    {
+      "repository": "external-coordinator",
+      "commit": "f04ac943631aa07bea3f6a0b58eea00d21bbe35c",
+      "path": "rust/src/loom_types.rs",
+      "sha256": "ab6c671aaddff27eb0f804f03b166d7e108e9f5b4648d6b89742ff4477384da1",
+      "bytes": 7236,
+      "lines": 260,
+      "working_file_differs_from_commit": false,
+      "review_boundary": "read-only consumer/transport compatibility; no code changed"
+    }
+  ],
+  "official_references": [
+    "https://www.rfc-editor.org/rfc/rfc9562.html#name-uuid-version-7",
+    "https://www.sqlite.org/wal.html",
+    "https://www.sqlite.org/fts5.html"
+  ],
+  "excluded": [
+    "operational state and catalogs",
+    "remote hosts/conversations",
+    "credentials and installed personal Skills",
+    "new feature implementation/benchmarks"
+  ]
+}

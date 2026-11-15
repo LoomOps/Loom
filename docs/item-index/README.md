@@ -1,0 +1,88 @@
+# Common Items, file inventory and log search — implementation plan
+
+Status: **design only**. This package extends the native Rust candidate; it does
+not implement or advertise new actions, allocate IDs, build an index, migrate data,
+change retention, publish a client or deploy a service. Runtime source is unchanged.
+
+Baseline: Loom `74642cd41de4df3d82934b4eb5b0ca008047a911`; independent client
+`c66e46d9c56cf75d1cdf29dffab4e92ab19346bf`. Source evidence and findings are in
+[REVIEW](REVIEW.md) and [SOURCE-REVIEW.json](SOURCE-REVIEW.json). Existing feature
+verification is a cross-check, not the investigation method or proof of this design.
+
+## Decisions
+
+1. Give externally addressable research/software/execution records a common Item
+   reference. Preserve existing native IDs, immutable revisions, manifests, scopes,
+   Job request keys and current Runtimes navigation.
+2. Use UUIDv7-generated 128-bit Item IDs, encoded as **decimal JSON strings**.
+   Existing IDs remain native aliases; internal SQLite rowids never become public.
+   Time ordering is approximate; no globally serialized number service is added.
+3. Keep a compact authoritative registry/change journal in the core DB. Keep
+   potentially millions of file entries in sealed, segmented inventory manifests
+   and a **separate rebuildable search SQLite DB**, rather than one core row per file.
+4. Distinguish logical file identity, immutable content evidence and physical
+   copies. Equal bytes do not merge scientific records; moving a verified copy
+   does not change a file's Item ID.
+5. Treat logs as streams tied to Attempt, stage and effect generation; segments and
+   lines are not top-level Items. Index text incrementally outside execution locks.
+6. Use one authenticated query service for MCP, HTTP and Dashboard. Queries never
+   scan the filesystem, invoke Docker, install packages or infer scientific lineage.
+7. Keep reconcile bounded and evidence-based. Derived repair is automatic;
+   authority changes require a keyed, verified command. No autonomous host cleanup,
+   inferred scenario assignment or general reconciler is introduced.
+
+## Read in this order
+
+| Document | Decision covered |
+|---|---|
+| [REVIEW](REVIEW.md) | Observed implementation boundaries, gaps and prerequisite corrections |
+| [ARCHITECTURE](ARCHITECTURE.md) | Authority, DB split, Rust modules, crash protocol and backpressure |
+| [IDENTITY](IDENTITY.md) | Item/revision/alias/file/content/location/stream identity |
+| [FILES](FILES.md) | Stable inventories, path search, hashing, content extraction and scale |
+| [LOGS](LOGS.md) | Live/closed streams, effect generations, rotation, retention and retrieval |
+| [API](API.md) | Proposed actions, envelopes, cursors, authorization and client bounds |
+| [RECONCILE](RECONCILE.md) | Evidence states and allowed automatic versus explicit repairs |
+| [MIGRATION](MIGRATION.md) | Additive backfill, snapshots, restore, upgrade and rollback |
+| [VERIFICATION](VERIFICATION.md) | Planned native/protocol/browser/fault/scale acceptance |
+| [ROADMAP](ROADMAP.md) | Dependency order, concrete deliverables and stop conditions |
+| [REQUIREMENTS.json](REQUIREMENTS.json) | Requirements-to-design/phase/case trace |
+
+## All 19 existing feature blocks reviewed
+
+Direct means a proposed contract or implementation changes. Associated means review
+and regression only unless a concrete source finding requires a change.
+
+| Existing feature | Impact | Detailed plan |
+|---|---|---|
+| identity | Direct: ID aliases and authorization at query boundaries | [identity](blocks/identity.md) |
+| api | Direct: common Item/file/log discovery and bounded queries | [api](blocks/api.md) |
+| queue | Associated: occupancy and scheduling must remain independent | [queue](blocks/queue.md) |
+| execution | Direct: stream identity and nonblocking return/log capture | [execution](blocks/execution.md) |
+| recovery | Direct: replay/fences and log generations | [recovery](blocks/recovery.md) |
+| results | Direct: stable file inventories and content/copy evidence | [results](blocks/results.md) |
+| extensions | Direct: Component/Tool/Profile/Runtime/dependency adapters | [extensions](blocks/extensions.md) |
+| catalog | Direct: projections, query index and legacy/current resolution | [catalog](blocks/catalog.md) |
+| observations | Associated: truthful index/collector observations | [observations](blocks/observations.md) |
+| dashboard | Direct: search and related file/log navigation | [dashboard](blocks/dashboard.md) |
+| onboarding | Direct: discoverable schema/guide/client co-change | [onboarding](blocks/onboarding.md) |
+| network | Associated: existing ingress/Sharing permissions | [network](blocks/network.md) |
+| portability | Direct: preserved identity and index rebuild across copies | [portability](blocks/portability.md) |
+| installation | Direct: roots, quotas, schema and service lifecycle | [installation](blocks/installation.md) |
+| testing | Direct: independent proof and feature ownership | [testing](blocks/testing.md) |
+| ssh | Associated: personal SSH is not a search authority | [ssh](blocks/ssh.md) |
+| diagnostics | Direct: strict separation from ordinary execution logs | [diagnostics](blocks/diagnostics.md) |
+| scenarios | Direct: typed links and context-aware search | [scenarios](blocks/scenarios.md) |
+| authoring | Direct: producer manifests and source/build inventory | [authoring](blocks/authoring.md) |
+
+## Scope and completion
+
+The first release includes structured/lexical retrieval, files, execution logs,
+explicit verified bindings and deterministic rebuild. It does not index every
+metric sample, tensor, log line, OS package or filesystem entry as a dashboard Item.
+Credentials, private diagnostics and recipient-specific messages are not ordinary
+search content. IDs do not change current sharing semantics or catalog curation.
+
+Implementation completion requires the planned native and cross-boundary cases,
+source-qualified feature audit, crash-safe rebuild and immutable image acceptance.
+Operational rollout remains a separately requested phase. No implementation or
+performance result for this feature is claimed by these documents.

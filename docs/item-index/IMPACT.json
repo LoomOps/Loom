@@ -1,0 +1,473 @@
+{
+  "schema": "loom-item-index-impact/v1",
+  "status": "planned; no implemented API or executed new acceptance claim",
+  "baseline": "74642cd41de4df3d82934b4eb5b0ca008047a911",
+  "blocks": [
+    {
+      "feature": "identity",
+      "impact": "Direct",
+      "design": "blocks/identity.md",
+      "sources": [
+        "rust/crates/core/src/auth.rs",
+        "rust/crates/core/src/store.rs",
+        "rust/crates/core/src/composition.rs"
+      ],
+      "planned_cases": [
+        "ID-01",
+        "ID-02",
+        "ID-03",
+        "ID-04",
+        "AUTH-01",
+        "AUTH-02",
+        "AUTH-03"
+      ],
+      "review_dependencies": [
+        "api",
+        "portability"
+      ]
+    },
+    {
+      "feature": "api",
+      "impact": "Direct",
+      "design": "blocks/api.md",
+      "sources": [
+        "rust/crates/core/src/contracts.rs",
+        "rust/crates/core/src/http.rs",
+        "rust/crates/ops/src/lib.rs",
+        "rust/crates/core/src/onboarding.rs"
+      ],
+      "planned_cases": [
+        "ID-02",
+        "ID-03",
+        "QUERY-01",
+        "QUERY-02",
+        "QUERY-03",
+        "QUERY-04",
+        "AUTH-01"
+      ],
+      "review_dependencies": [
+        "identity",
+        "catalog",
+        "onboarding"
+      ]
+    },
+    {
+      "feature": "queue",
+      "impact": "Associated \u2014 regression only",
+      "design": "blocks/queue.md",
+      "sources": [
+        "rust/crates/core/src/jobs.rs",
+        "rust/crates/core/src/query.rs",
+        "rust/crates/core/src/execution.rs"
+      ],
+      "planned_cases": [
+        "TX-02",
+        "TX-04",
+        "LOG-02",
+        "QUERY-03",
+        "UI-02"
+      ],
+      "review_dependencies": [
+        "execution",
+        "catalog"
+      ]
+    },
+    {
+      "feature": "execution",
+      "impact": "Direct",
+      "design": "blocks/execution.md",
+      "sources": [
+        "rust/crates/ops/src/worker.rs",
+        "rust/crates/core/src/execution.rs",
+        "rust/crates/host/src/executor.rs",
+        "rust/crates/host/src/wire.rs"
+      ],
+      "planned_cases": [
+        "LOG-01",
+        "LOG-02",
+        "LOG-03",
+        "LOG-04",
+        "LOG-05",
+        "LOG-06",
+        "TX-02"
+      ],
+      "review_dependencies": [
+        "recovery",
+        "results",
+        "installation"
+      ]
+    },
+    {
+      "feature": "recovery",
+      "impact": "Direct",
+      "design": "blocks/recovery.md",
+      "sources": [
+        "rust/crates/core/src/jobs.rs",
+        "rust/crates/core/src/execution.rs",
+        "rust/crates/ops/src/worker.rs"
+      ],
+      "planned_cases": [
+        "TX-02",
+        "TX-03",
+        "TX-04",
+        "LOG-03",
+        "LOG-04",
+        "LOG-06"
+      ],
+      "review_dependencies": [
+        "execution",
+        "diagnostics"
+      ]
+    },
+    {
+      "feature": "results",
+      "impact": "Direct",
+      "design": "blocks/results.md",
+      "sources": [
+        "rust/crates/core/src/results.rs",
+        "rust/crates/core/src/history.rs",
+        "rust/crates/core/src/storage.rs",
+        "rust/crates/core/src/media.rs"
+      ],
+      "planned_cases": [
+        "ID-05",
+        "TX-01",
+        "TX-02",
+        "FILE-01",
+        "FILE-02",
+        "FILE-03",
+        "FILE-05",
+        "MIG-01",
+        "FILE-07"
+      ],
+      "review_dependencies": [
+        "execution",
+        "catalog",
+        "portability"
+      ]
+    },
+    {
+      "feature": "extensions",
+      "impact": "Direct",
+      "design": "blocks/extensions.md",
+      "sources": [
+        "rust/crates/core/src/software.rs",
+        "rust/crates/core/src/composition.rs",
+        "rust/crates/core/src/runtime.rs",
+        "rust/crates/host/src/runtime.rs"
+      ],
+      "planned_cases": [
+        "SW-01",
+        "SW-02",
+        "FILE-01",
+        "ID-03",
+        "ID-04",
+        "AUTH-03"
+      ],
+      "review_dependencies": [
+        "authoring",
+        "identity",
+        "installation"
+      ]
+    },
+    {
+      "feature": "catalog",
+      "impact": "Direct",
+      "design": "blocks/catalog.md",
+      "sources": [
+        "rust/crates/core/src/catalog.rs",
+        "rust/crates/core/src/query.rs",
+        "rust/crates/core/src/history.rs",
+        "rust/crates/core/src/media.rs"
+      ],
+      "planned_cases": [
+        "TX-03",
+        "TX-04",
+        "TX-05",
+        "TX-06",
+        "FILE-06",
+        "QUERY-01",
+        "QUERY-02",
+        "QUERY-03",
+        "UI-02"
+      ],
+      "review_dependencies": [
+        "results",
+        "api",
+        "scenarios"
+      ]
+    },
+    {
+      "feature": "observations",
+      "impact": "Associated \u2014 safe status integration",
+      "design": "blocks/observations.md",
+      "sources": [
+        "rust/crates/host/src/observe.rs",
+        "rust/crates/core/src/catalog.rs",
+        "rust/crates/ops/src/worker.rs"
+      ],
+      "planned_cases": [
+        "TX-04",
+        "FILE-03",
+        "LOG-01",
+        "QUERY-03",
+        "SW-01"
+      ],
+      "review_dependencies": [
+        "catalog",
+        "execution"
+      ]
+    },
+    {
+      "feature": "dashboard",
+      "impact": "Direct",
+      "design": "blocks/dashboard.md",
+      "sources": [
+        "dashboard/workspace/parent.js",
+        "dashboard/workspace/frame.js",
+        "dashboard/workspace/details.js",
+        "dashboard/workspace/explorer.js",
+        "dashboard/workspace/scenarios.js",
+        "dashboard/workspace/build.py",
+        "dashboard/server.py"
+      ],
+      "planned_cases": [
+        "UI-01",
+        "UI-02",
+        "UI-03",
+        "SCN-01",
+        "AUTH-01",
+        "QUERY-03",
+        "QUERY-04"
+      ],
+      "review_dependencies": [
+        "api",
+        "catalog",
+        "scenarios"
+      ]
+    },
+    {
+      "feature": "onboarding",
+      "impact": "Direct",
+      "design": "blocks/onboarding.md",
+      "sources": [
+        "rust/crates/core/src/onboarding.rs",
+        "rust/contracts/action-docs.json",
+        "loom_use/README.md",
+        "loom_use/jobs.md",
+        "loom_use/components.md",
+        "loom_use/runtimes.md",
+        "loom_use/skills/loom-use/SKILL.md"
+      ],
+      "planned_cases": [
+        "QUERY-04",
+        "AUTH-02",
+        "SW-02",
+        "VERIFY-01",
+        "UI-01"
+      ],
+      "review_dependencies": [
+        "api",
+        "authoring"
+      ]
+    },
+    {
+      "feature": "network",
+      "impact": "Associated \u2014 regression only",
+      "design": "blocks/network.md",
+      "sources": [
+        "dashboard/server.py",
+        "dashboard/sso.py",
+        "dashboard/admission.py",
+        "dashboard/gateway.py",
+        "deploy/tailnet.py"
+      ],
+      "planned_cases": [
+        "AUTH-01",
+        "AUTH-02",
+        "AUTH-03",
+        "UI-01"
+      ],
+      "review_dependencies": [
+        "identity",
+        "api"
+      ]
+    },
+    {
+      "feature": "portability",
+      "impact": "Direct",
+      "design": "blocks/portability.md",
+      "sources": [
+        "rust/crates/migrate/src/main.rs",
+        "rust/crates/ops/src/ownership.rs",
+        "deploy/state_snapshot.py",
+        "deploy/update.py"
+      ],
+      "planned_cases": [
+        "ID-04",
+        "TX-05",
+        "TX-06",
+        "MIG-01",
+        "MIG-02",
+        "MIG-03"
+      ],
+      "review_dependencies": [
+        "installation",
+        "identity"
+      ]
+    },
+    {
+      "feature": "installation",
+      "impact": "Direct",
+      "design": "blocks/installation.md",
+      "sources": [
+        "deploy/install.py",
+        "deploy/source_install.py",
+        "deploy/release.py",
+        "deploy/snapshot.py",
+        "deploy/migrations/catalog.json",
+        "deploy/migrations/rust_authority.py",
+        "deploy/installer/doctor.py",
+        "ops/Dockerfile.rust",
+        "ops/compose.rust.yaml"
+      ],
+      "planned_cases": [
+        "TX-04",
+        "TX-06",
+        "MIG-01",
+        "MIG-02",
+        "MIG-03",
+        "LOG-02",
+        "VERIFY-01"
+      ],
+      "review_dependencies": [
+        "portability",
+        "execution",
+        "onboarding"
+      ]
+    },
+    {
+      "feature": "testing",
+      "impact": "Direct",
+      "design": "blocks/testing.md",
+      "sources": [
+        "deploy/features.py",
+        "docs/features/catalog.json",
+        "docs/features/VERIFICATION.md",
+        "tests/rust/run.py",
+        "tests/run.py",
+        "tests/rust/application.rs",
+        "tests/rust/test_service.py",
+        "tests/rust/test_executor.py",
+        "tests/rust/test_installation.py",
+        "tests/dashboard/browser/test_native_workspace.py"
+      ],
+      "planned_cases": [
+        "VERIFY-01",
+        "TX-01",
+        "TX-02",
+        "TX-03",
+        "TX-04",
+        "TX-05",
+        "TX-06",
+        "LOG-02",
+        "QUERY-04"
+      ],
+      "review_dependencies": [
+        "api",
+        "catalog",
+        "installation"
+      ]
+    },
+    {
+      "feature": "ssh",
+      "impact": "Associated \u2014 regression only",
+      "design": "blocks/ssh.md",
+      "sources": [
+        "deploy/ssh_host.py",
+        "rust/crates/core/src/query.rs",
+        "loom_use/operator.md"
+      ],
+      "planned_cases": [
+        "AUTH-03",
+        "MIG-01",
+        "UI-01"
+      ],
+      "review_dependencies": [
+        "identity",
+        "onboarding"
+      ]
+    },
+    {
+      "feature": "diagnostics",
+      "impact": "Direct \u2014 privacy boundary and safe status",
+      "design": "blocks/diagnostics.md",
+      "sources": [
+        "rust/crates/core/src/diagnostics.rs",
+        "dashboard/diagnostics.py",
+        "docs/features/diagnostics.md"
+      ],
+      "planned_cases": [
+        "AUTH-02",
+        "TX-04",
+        "LOG-06",
+        "VERIFY-01"
+      ],
+      "review_dependencies": [
+        "identity",
+        "observations"
+      ]
+    },
+    {
+      "feature": "scenarios",
+      "impact": "Direct",
+      "design": "blocks/scenarios.md",
+      "sources": [
+        "rust/crates/core/src/scenario.rs",
+        "rust/crates/core/src/results.rs",
+        "rust/crates/core/src/catalog.rs",
+        "dashboard/workspace/scenarios.js",
+        "docs/features/scenarios.md"
+      ],
+      "planned_cases": [
+        "SCN-01",
+        "SCN-02",
+        "ID-03",
+        "FILE-01",
+        "UI-01"
+      ],
+      "review_dependencies": [
+        "results",
+        "catalog",
+        "dashboard"
+      ]
+    },
+    {
+      "feature": "authoring",
+      "impact": "Direct",
+      "design": "blocks/authoring.md",
+      "sources": [
+        "rust/crates/core/src/authoring.rs",
+        "rust/crates/core/src/software.rs",
+        "rust/crates/sdk/src/lib.rs",
+        "rust/contracts/authoring.md",
+        "rust/templates/runner.rs",
+        "rust/templates/hybrid.rs"
+      ],
+      "planned_cases": [
+        "SW-02",
+        "FILE-01",
+        "FILE-04",
+        "TX-01",
+        "TX-02",
+        "QUERY-04",
+        "FILE-07"
+      ],
+      "review_dependencies": [
+        "extensions",
+        "onboarding",
+        "results"
+      ]
+    }
+  ]
+}
