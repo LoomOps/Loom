@@ -35,7 +35,7 @@ class RuntimeDoctorTests(unittest.TestCase):
         result=runtime_doctor.run(self.root,self.executor,'sim',gpu=True,paths=['/isaac-sim/python.sh'],request=self.transport)
         self.assertEqual(result['status'],'passed');self.assertFalse(self.work.exists())
         start=next(d for a,d in self.calls if a=='start')
-        self.assertEqual(start['runtime_id'],'sim');self.assertEqual(start['lane'],'gpu');self.assertEqual(start['stage'],'doctor')
+        self.assertEqual(start['runtime_id'],'sim');self.assertEqual(start['lane'],'gpu');self.assertEqual(start['stage'],'run');self.assertEqual(start['job'],'runtime-doctor')
         self.assertNotIn('network',start);self.assertNotIn('driver_capabilities',start)
         record=Path(result['record']);self.assertEqual(record.stat().st_mode&0o777,0o600)
         self.assertNotIn('private-doctor-token',record.read_text());self.assertIn('no scene',result['scope'])

@@ -326,3 +326,8 @@ older immutable check may legitimately reject a newer schema. Regression fixture
 reproduce the incompatible predecessor checks and lost earlier receipts. Real
 image tests verify accessible and missing storage paths using the same POSIX
 probe boundary; host checks remain under the configured service UID.
+
+The retained Runtime diagnostic driver submits the standard execution `run` stage
+under its distinct administrator-owned diagnostic ticket namespace. Native broker
+acceptance executes the real driver with a CPU container, verifies non-root UID,
+read-only root, returned ownership and scratch cleanup, without a research Job.

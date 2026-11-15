@@ -92,7 +92,7 @@ def run(root,executor,runtime_id,*,gpu=False,paths=(),timeout=60,request=call,cl
     config=work/'probe.json';config.write_text(json.dumps(payload));config.chmod(0o644)
     try:
         save(record,result);attempted=True
-        state=request(executor,token,'start',{'ticket':ticket,'job':'runtime-doctor','stage':'doctor',
+        state=request(executor,token,'start',{'ticket':ticket,'job':'runtime-doctor','stage':'run',
             'owner':'administrator','runtime_id':runtime_id,'lane':'gpu' if gpu else 'cpu',
             'host_output':str(work),'command':['python3','-I','-c',PROBE],'inputs':{}})
         if state.get('busy'):

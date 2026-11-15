@@ -149,3 +149,13 @@ class NativeExecutorTests(unittest.TestCase):
   raw=self.host/'logs'/(hashlib.sha256(accepted['ticket'].encode()).hexdigest()+'.'+page['source_generation']+'.log')
   self.assertFalse(raw.exists())
   self.assertEqual(self.rpc('status',{'ticket':accepted['ticket']})['state'],'exited')
+
+ def test_admin_runtime_doctor_executes_and_returns_through_native_broker(self):
+  import importlib.util,sys
+  sys.path.insert(0,str(ROOT/'deploy'))
+  spec=importlib.util.spec_from_file_location('native_runtime_doctor',ROOT/'deploy/runtime_doctor.py');doctor=importlib.util.module_from_spec(spec);spec.loader.exec_module(doctor)
+  node=self.root/'doctor-node';(node/'secrets').mkdir(parents=True);(node/'secrets/executor-token').write_text(self.token)
+  result=doctor.run(node,self.host,'cpu',timeout=10)
+  self.assertEqual(result['status'],'passed',result);self.assertEqual(result['cleanup'],'returned_and_workspace_removed')
+  self.assertTrue(result['probe']['root_readonly']);self.assertEqual(result['probe']['uid'],os.getuid())
+  self.assertTrue(self.rpc('drain_status',{})['ready'])
