@@ -276,6 +276,18 @@ class SQLiteEvidenceTests(unittest.TestCase):
 
 
 class ItemManifestPreservationTests(unittest.TestCase):
+    def test_native_projection_progress_keeps_original_identities_and_revisions(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)/'ops';(root/'runtime').mkdir(parents=True);(root/'compose.env').write_text('');db=root/'runtime/ops.sqlite3'
+            with sqlite3.connect(db) as c:
+                c.executescript("CREATE TABLE original(id,value);INSERT INTO original VALUES('science','preserved');CREATE TABLE rust_runtime_observation(id,value,observed);INSERT INTO rust_runtime_observation VALUES(1,'old',1);CREATE TABLE rust_projection_version(id,version);INSERT INTO rust_projection_version VALUES(1,1);CREATE TABLE catalog_items(id,kind,native_kind,native_key,current_revision,created,deleted);INSERT INTO catalog_items VALUES('item','profile','profile','builtin','r1',1,0);CREATE TABLE catalog_revisions(id,item,body);INSERT INTO catalog_revisions VALUES('r1','item','original revision');CREATE TABLE catalog_aliases(kind,identity,item,revision);INSERT INTO catalog_aliases VALUES('profile','builtin','item','r1');CREATE TABLE catalog_sources(kind,identity,body);INSERT INTO catalog_sources VALUES('profile','builtin','old');")
+            archive=Path(temp)/'backup';archive.mkdir();saved=state_snapshot.capture(root,archive,Path(temp))
+            with sqlite3.connect(db) as c:
+                c.executescript("UPDATE rust_runtime_observation SET value='fresh',observed=2;UPDATE rust_projection_version SET version=2;INSERT INTO catalog_revisions VALUES('r2','item','new version');UPDATE catalog_items SET current_revision='r2';UPDATE catalog_aliases SET revision='r2';UPDATE catalog_sources SET body='fresh';")
+            self.assertTrue(state_snapshot.verify(root,saved)['preserved'])
+            with sqlite3.connect(db) as c:c.execute("DELETE FROM catalog_revisions WHERE id='r1'")
+            with self.assertRaisesRegex(ValueError,'catalog_revisions'):state_snapshot.verify(root,saved)
+
     def test_snapshot_omits_sqlite_sidecars_and_keeps_committed_wal_rows(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)/'ops';(root/'runtime').mkdir(parents=True);(root/'compose.env').write_text('')

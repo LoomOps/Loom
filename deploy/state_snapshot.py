@@ -186,6 +186,21 @@ def verify(root,base):
             if c.execute('PRAGMA integrity_check').fetchone()[0]!='ok':problems.append('integrity:'+rel)
             for table,baseline in tables.items():
                 columns=baseline['columns'];expected_rows=Counter(baseline['rows'])
+                # Native observations and projection heads advance on startup.
+                # Preserve identities/immutable revisions, not cached clocks or work queues.
+                if rel=='runtime/ops.sqlite3':
+                    if table=='catalog_dirty':continue
+                    mutable={'rust_runtime_observation':{'value','observed'},'rust_projection_version':{'version'},
+                             'catalog_items':{'current_revision'},'catalog_aliases':{'revision'},'catalog_sources':{'body'},
+                             'catalog_backfill':{'position','complete'},'catalog_tasks':{'state','progress','receipt','error','updated'}}.get(table,set())
+                    if mutable:
+                        columns=[k for k in columns if k not in mutable]
+                        with database(Path(base)/'instance'/rel,readonly=True) as original:expected_rows=rows(original,table,columns)
+                    if table=='catalog_tasks':
+                        with database(Path(base)/'instance'/rel,readonly=True) as original:
+                            for task,receipt in original.execute('SELECT id,receipt FROM catalog_tasks WHERE receipt IS NOT NULL'):
+                                if c.execute('SELECT receipt FROM catalog_tasks WHERE id=?',(task,)).fetchone()!=(receipt,):problems.append('task-receipt:'+task)
+
                 # Reconciliation clocks are operational progress, not grants. Keep
                 # raw snapshots exact; compare every identity/auth/state column.
                 if rel=='admission/requests.sqlite3' and table=='share_requests' and {'id','state','approved_by'}<=set(columns):
@@ -195,6 +210,9 @@ def verify(root,base):
                 try:actual=rows(c,table,columns)
                 except sqlite3.DatabaseError:problems.append('table:'+table);continue
                 if expected_rows-actual:problems.append('rows:'+table)
+            if rel=='runtime/ops.sqlite3' and 'catalog_items' in tables and 'catalog_revisions' in tables:
+                if c.execute('SELECT 1 FROM catalog_items i WHERE i.current_revision IS NOT NULL AND NOT EXISTS(SELECT 1 FROM catalog_revisions r WHERE r.id=i.current_revision AND r.item=i.id) LIMIT 1').fetchone():problems.append('catalog-head')
+                if 'catalog_aliases' in tables and c.execute('SELECT 1 FROM catalog_aliases a WHERE a.revision IS NOT NULL AND NOT EXISTS(SELECT 1 FROM catalog_revisions r WHERE r.id=a.revision AND r.item=a.item) LIMIT 1').fetchone():problems.append('catalog-alias')
     for name,entry in state['extensions'].items():
         current=file_inventory(entry['path'],instance=False)
         for rel,value in entry['files'].items():

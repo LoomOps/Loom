@@ -331,3 +331,11 @@ The retained Runtime diagnostic driver submits the standard execution `run` stag
 under its distinct administrator-owned diagnostic ticket namespace. Native broker
 acceptance executes the real driver with a CPU container, verifies non-root UID,
 read-only root, returned ownership and scratch cleanup, without a research Job.
+
+Native-to-native preservation compares immutable identities and all original
+revision/scientific/account records while allowing observation clocks, derived
+heads and maintenance/backfill progress to advance. Completed maintenance
+receipts stay immutable, and current heads/aliases must reference revisions of
+the same Item. SQLite sidecars are never copied as authority; committed WAL rows
+are retained through the SQLite backup API. Pre-backup failures retain helper
+stop intent so recovery restores the original operating services.
