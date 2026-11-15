@@ -37,6 +37,12 @@ class ItemImageTests(unittest.TestCase):
  def test_readonly_native_image_search_rebuild_and_packaged_clients_preserve_execution(self):
   absent=subprocess.run(['docker','exec',self.container,'sh','-c','command -v python3 || command -v python'],capture_output=True,text=True,timeout=10)
   self.assertNotEqual(absent.returncode,0);self.assertEqual(self.get('/api/status')['engine'],'rust')
+  # Installed storage parity must work in the actual Python-free image.
+  probe='for path do test -r "$path" && test -w "$path" && test -x "$path" && test -r "$path/.loom-storage.json" && test -s "$path/.loom-storage.json" || exit 1; done'
+  good=subprocess.run(['docker','exec',self.container,'/bin/sh','-ec',probe,'loom-storage-probe','/data'],capture_output=True,timeout=5)
+  self.assertEqual(good.returncode,0,good.stderr)
+  denied=subprocess.run(['docker','exec',self.container,'/bin/sh','-ec',probe,'loom-storage-probe','/missing'],capture_output=True,timeout=5)
+  self.assertNotEqual(denied.returncode,0)
   job=self.call('jobs','submit',{'key':'image-search','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False}})
   for _ in range(150):
    record=self.call('jobs','get',{'id':job['id']})

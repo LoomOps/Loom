@@ -1855,6 +1855,35 @@ fn dependency_items_survive_partial_observations_and_have_exact_runtime_edges() 
         )
         .unwrap();
     assert_eq!(all["items"].as_array().unwrap().len(), 2);
+    let page = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"kinds":["dependency"],"view":"all","role":"all"}),
+        )
+        .unwrap();
+    assert_eq!(page["entities"].as_array().unwrap().len(), 2);
+    for entity in page["entities"].as_array().unwrap() {
+        assert!(entity["item_id"].is_string());
+        assert_eq!(
+            entity["loom_dependency"]["runtimes"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        let detail = f
+            .call(
+                "system",
+                "dashboard_entity",
+                json!({"item_id":entity["item_id"],"revision_id":entity["item_revision_id"]}),
+            )
+            .unwrap();
+        assert_eq!(
+            detail["entities"][0]["loom_dependency"]["versions"],
+            entity["loom_dependency"]["versions"]
+        );
+    }
     let primary = f
         .call("results", "search_items", json!({"kinds":["dependency"]}))
         .unwrap();

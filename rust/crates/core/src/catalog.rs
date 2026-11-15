@@ -290,6 +290,10 @@ impl Application {
         let software = self.extension_inventory_selected(&profiles, selected)?;
         entities.extend(software.clone());
         let mut runtime_catalog = self.runtime_inventory()?;
+        let observed_runtimes = runtime_catalog["runtimes"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
         if let Some(selected) = selected {
             if let Some(items) = runtime_catalog["runtimes"].as_array_mut() {
                 items.retain(|r| {
@@ -300,16 +304,46 @@ impl Application {
                     })
                 });
             }
-            if let Some(items) =
-                runtime_catalog["dependency_catalog"]["dependencies"].as_array_mut()
+            let representatives = runtime_catalog["dependency_catalog"]["dependencies"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default();
+            let runtimes = observed_runtimes;
+            let mut dependencies = vec![];
+            for item in selected
+                .iter()
+                .filter(|v| v["native_ref"]["kind"] == "dependency")
             {
-                items.retain(|d| {
-                    selected.iter().any(|v| {
-                        v["native_ref"]["kind"] == "dependency"
-                            && v["native_ref"]["identity"]["name"] == d["name"]
+                let exact = &item["native_ref"]["identity"];
+                let category = representatives
+                    .iter()
+                    .find(|d| {
+                        d["label"].as_str().is_some_and(|name| {
+                            name.eq_ignore_ascii_case(item["label"].as_str().unwrap_or(""))
+                        })
                     })
-                });
+                    .map(|d| d["category"].clone())
+                    .unwrap_or_else(|| {
+                        item.get("category")
+                            .filter(|v| v.is_string())
+                            .cloned()
+                            .unwrap_or(json!("libraries"))
+                    });
+                let mut uses = vec![];
+                for runtime in &runtimes {
+                    if runtime["manifest"]["dependencies"]
+                        .as_array()
+                        .is_some_and(|deps| {
+                            deps.iter()
+                                .any(|d| crate::items::dependency_ref(runtime, d) == *exact)
+                        })
+                    {
+                        uses.push(json!({"id":runtime["id"],"revision":runtime["revision"],"entity":format!("runtime:{}:{}",runtime["id"].as_str().unwrap_or(""),runtime["revision"]),"label":runtime["manifest"].get("label").unwrap_or(&runtime["id"]),"scope":exact["scope"]}));
+                    }
+                }
+                dependencies.push(json!({"id":item["item_id"],"name":exact["name"],"label":item["label"],"category":category,"versions":[{"version":exact["version"],"installations":[{"origin":exact["origin"],"runtimes":uses}]}],"runtimes":uses,"source_status":if uses.is_empty(){"unavailable"}else{"observed"}}));
             }
+            runtime_catalog["dependency_catalog"]["dependencies"] = json!(dependencies);
         }
         for item in runtime_catalog["runtimes"].as_array_mut().unwrap() {
             let mut consumers = vec![];

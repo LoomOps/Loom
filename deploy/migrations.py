@@ -114,7 +114,7 @@ def apply(plan,root,release,platform):
         successors=[s for s in plan['steps'] if step['id'] in s.get('supersedes_checks',[])]
         # A later additive schema can replace only the predecessor's reality check,
         # never its checksum-bound code or required application order.
-        superseded=any(invoke(s,'check',root,release,platform)=='done' for s in successors)
+        superseded=any(invoke(s,'check',root,release,platform)=='done' for s in reversed(successors))
         status='done' if superseded else invoke(step,'check',root,release,platform)
         if status!='done':
             if step['id'] in state['completed']:raise ValueError('Completed migration no longer verifies: '+step['id'])

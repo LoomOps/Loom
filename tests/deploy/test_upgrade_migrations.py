@@ -77,6 +77,19 @@ print(json.dumps({'status':'done' if done else 'needed'}))
         with patch.object(migrations.subprocess,'run',side_effect=subprocess.TimeoutExpired('fixture',5)),self.assertRaises(subprocess.TimeoutExpired):
             migrations.invoke(plan['steps'][1],'check',self.root,self.release,self.p)
 
+    def test_latest_schema_replaces_older_incompatible_checks_during_resume(self):
+        third={**self.steps[-1],'id':'three','introduced':'0.1.0-alpha.45','requires':['two'],'supersedes_checks':['one','two'],'script':'deploy/migrations/three.py'}
+        third_path=self.source/third['script'];third_path.write_text((self.source/self.steps[0]['script']).read_text().replace("name='one'","name='three'").replace('TABLE one(', 'TABLE three('))
+        self.steps[-1]['supersedes_checks']=['one']
+        for step in self.steps:
+            path=self.source/step['script'];text=path.read_text();text=text.replace(' done=bool(', " if a.phase in ('check','verify') and c.execute(\"SELECT 1 FROM sqlite_master WHERE name='three'\").fetchone():raise RuntimeError('Older schema check cannot inspect schema three')\n done=bool(")
+            path.write_text(text)
+        self.catalog['steps']=[*self.steps,third];self.seal()
+        with sqlite3.connect(self.db) as db:db.executescript('CREATE TABLE one(id);CREATE TABLE two(id);CREATE TABLE three(id);')
+        migrations.apply(migrations.plan(self.root,self.release),self.root,self.release,self.p)
+        self.assertEqual(set(migrations.ledger(self.root)['completed']),{'one','two','three'})
+        with sqlite3.connect(self.db) as db:self.assertEqual(db.execute('SELECT * FROM credentials').fetchall(),[('owner','unchanged')])
+
 
 class PreservedRebuildTests(lifecycle.ReleaseLifecycleTests):
     def identity_state(self):

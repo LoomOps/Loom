@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0-alpha.4
+## 0.2.0-alpha.5
 
 - Add explicit plan/validate/apply reconciliation with immutable source evidence,
   nullable-Job imported assets and verified additive file bindings.
@@ -10,6 +10,8 @@
   compact actual-interval Activity instead of loading the entire catalog.
 - Preserve installed identities, credentials and original records through the
   native schema 4 → 5 → 6 → 7 upgrade chain. Pin Loom Use alpha.10.
+- Check container storage access without Python and resume using the newest
+  superseding schema check. Preserve exact Dependency details in paged catalogs.
 
 ## Unreleased — native Rust candidate
 

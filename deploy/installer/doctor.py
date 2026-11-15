@@ -195,8 +195,8 @@ def doctor(setup, plan, stage=None):
                 m = mounts.get('/loom/data/'+str(i), {})
                 if m.get('Source') != p or m.get('RW') is not True: return False
             paths=['/loom/data/'+str(i) for i in range(1+len(plan.get('additional_data',[])))]
-            code='import os,sys; sys.exit(0 if all(os.access(p,os.R_OK|os.W_OK|os.X_OK) for p in sys.argv[1:]) else 1)'
-            setup.run('docker','exec',ids[0],'python3','-c',code,*paths)
+            code='for path do test -r "$path" && test -w "$path" && test -x "$path" || exit 1; done'
+            setup.run('docker','exec',ids[0],'/bin/sh','-ec',code,'loom-storage-probe',*paths)
         if service == 'loom-gateway':
             if any(m['Destination'].startswith('/etc/loom/admission') or 'relay-key' in m['Destination'] for m in c['Mounts']): return False
         return True

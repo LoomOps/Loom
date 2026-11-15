@@ -5114,7 +5114,7 @@ function loomCatalogProjection(catalog) {
 // Bounded per-view transport. Payload trees, software combinations and logs stay lazy.
 const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityView=null;const loomCatalogOpening=new Set();
 const loomCatalogKinds={models:&#x27;model&#x27;,datasets:&#x27;dataset&#x27;,experiments:&#x27;experiment&#x27;,profiles:&#x27;profile&#x27;,components:&#x27;component&#x27;,tools:&#x27;tool&#x27;,runtimes:&#x27;runtime&#x27;,dependencies:&#x27;dependency&#x27;,scenarios:&#x27;scenario&#x27;,queue:&#x27;job&#x27;};
-function loomCatalogQuery(kind){const view=kind===&#x27;job&#x27;?&#x27;all&#x27;:catalogData.presentation_view||&#x27;research&#x27;;return {kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
+function loomCatalogQuery(kind){const view=kind===&#x27;job&#x27;?&#x27;all&#x27;:catalogData.presentation_view||&#x27;research&#x27;;return {kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 function loomCatalogMerge(value){
  const existing=new Map((catalogData.all_entities||catalogData.entities).map(e=&gt;[e.id,e]));
@@ -5187,8 +5187,8 @@ activitySummary=function(entities,clock=Date.now(),through=clock){
 };
 async function loomCatalogOpen(id){
  const tabKeyBefore=activeTab().id;
- if(id.startsWith(&#x27;history:&#x27;)&amp;&amp;/^history:[0-9]+$/.test(id)){
-  const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:id.slice(8)});
+ if(/^(history|dependency):[0-9]+$/.test(id)){
+  const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:id.slice(id.indexOf(&#x27;:&#x27;)+1)});
   loomCatalogMerge(value);if(activeTab().id===tabKeyBefore)openView(catView(value.entities[0]?.id||id));catalogRefreshViews();return;
  }
  let native=null;

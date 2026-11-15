@@ -81,8 +81,11 @@ def inspect(root,project='loom',status=None,runner=run):
     check="import json,os,sys; from pathlib import Path; paths=json.loads(sys.argv[1]); assert all(os.access(p,os.R_OK|os.W_OK|os.X_OK) and (Path(p)/'.loom-storage.json').read_text() for p in paths)"
     user=pwd.getpwuid(result['uid']).pw_name
     runner('runuser','-u',user,'--',sys.executable,'-I','-c',check,json.dumps(paths))
-    runner('docker','exec','--user',str(result['uid'])+':'+str(result['gid']),ids[0],'python3','-I','-c',check,
-           json.dumps([v['path'] for v in read(root/'config/api.json').get('data_stores',{'data/0':{'path':'/loom/bulk'}}).values()]+['/loom/bulk']))
+    # Both Python and native images provide POSIX sh. Pass paths as arguments,
+    # never interpolate configured roots into shell source.
+    probe='for path do test -r "$path" && test -w "$path" && test -x "$path" && test -r "$path/.loom-storage.json" && test -s "$path/.loom-storage.json" || exit 1; done'
+    runner('docker','exec','--user',str(result['uid'])+':'+str(result['gid']),ids[0],'/bin/sh','-ec',probe,'loom-storage-probe',
+           *[v['path'] for v in read(root/'config/api.json').get('data_stores',{'data/0':{'path':'/loom/bulk'}}).values()],'/loom/bulk')
     return result
 
 

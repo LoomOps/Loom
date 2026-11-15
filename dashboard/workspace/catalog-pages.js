@@ -1,7 +1,7 @@
 // Bounded per-view transport. Payload trees, software combinations and logs stay lazy.
 const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityView=null;const loomCatalogOpening=new Set();
 const loomCatalogKinds={models:'model',datasets:'dataset',experiments:'experiment',profiles:'profile',components:'component',tools:'tool',runtimes:'runtime',dependencies:'dependency',scenarios:'scenario',queue:'job'};
-function loomCatalogQuery(kind){const view=kind==='job'?'all':catalogData.presentation_view||'research';return {kinds:[kind],view:view==='builtin'?'all':view,role:view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
+function loomCatalogQuery(kind){const view=kind==='job'?'all':catalogData.presentation_view||'research';return {kinds:[kind],view:view==='builtin'?'all':view,role:kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 function loomCatalogMerge(value){
  const existing=new Map((catalogData.all_entities||catalogData.entities).map(e=>[e.id,e]));
@@ -74,8 +74,8 @@ activitySummary=function(entities,clock=Date.now(),through=clock){
 };
 async function loomCatalogOpen(id){
  const tabKeyBefore=activeTab().id;
- if(id.startsWith('history:')&&/^history:[0-9]+$/.test(id)){
-  const value=await loomSearchAction('system','dashboard_entity',{item_id:id.slice(8)});
+ if(/^(history|dependency):[0-9]+$/.test(id)){
+  const value=await loomSearchAction('system','dashboard_entity',{item_id:id.slice(id.indexOf(':')+1)});
   loomCatalogMerge(value);if(activeTab().id===tabKeyBefore)openView(catView(value.entities[0]?.id||id));catalogRefreshViews();return;
  }
  let native=null;

@@ -71,4 +71,21 @@ class StorageParityTests(unittest.TestCase):
   with self.assertRaises(PermissionError):storage_parity.inspect(self.root,runner=run)
   self.assertTrue(any(c[0]=='runuser' for c in calls));self.assertFalse(any(c[:2]==('docker','exec') for c in calls))
 
+
+ def test_effective_container_probe_never_requires_python_or_interpolates_paths(self):
+  from unittest.mock import patch
+  self.save(self.root.parent/'shared/executor/config.json',self.executor)
+  calls=[]
+  def runner(*args):
+   calls.append(args)
+   if args[:2]==('docker','ps'):return 'fixture'
+   if args[:2]==('docker','inspect'):return json.dumps([self.container])
+   if args[:2]==('systemctl','show'):return ' '.join(self.hosts.values())
+   return ''
+  with patch.object(storage_parity.pwd,'getpwuid') as user:
+   user.return_value.pw_name='fixture';self.assertEqual(storage_parity.inspect(self.root,status=self.status,runner=runner)['status'],'passed')
+  command=next(c for c in calls if c[:2]==('docker','exec'))
+  self.assertIn('/bin/sh',command);self.assertNotIn('python3',command)
+  self.assertEqual(command[-3:],('/loom/data/0','/loom/data/1','/loom/bulk'))
+
 if __name__=='__main__':unittest.main()

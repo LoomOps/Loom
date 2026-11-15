@@ -317,3 +317,12 @@ Production acceptance uses a bounded representative selection, independently fro
 synthetic scale tests. No whole-store reconciliation, GPU evaluation or simulator
 acceptance follows from these blocks. Deployment receipts must separately record
 each installation, immutable image IDs, pre/post preservation and live API checks.
+
+
+Native upgrade acceptance also covers interpreter-independent container access
+probes: the Ops image has no Python, while the retained Dashboard may use it.
+Migration resume evaluates the newest superseding schema check first, because an
+older immutable check may legitimately reject a newer schema. Regression fixtures
+reproduce the incompatible predecessor checks and lost earlier receipts. Real
+image tests verify accessible and missing storage paths using the same POSIX
+probe boundary; host checks remain under the configured service UID.
