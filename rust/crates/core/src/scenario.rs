@@ -217,6 +217,9 @@ impl Application {
                     link[field] = serde_json::from_str(link[field].as_str().unwrap_or("{}"))?;
                 }
             }
+            for link in &mut links {
+                link["target"] = json!({"kind":link["target_kind"],"identity":link["target"]});
+            }
             result["links"] = json!(links);
             result["execution"] = json!("context only");
         }

@@ -56,7 +56,7 @@ class RustServiceTests(unittest.TestCase):
   job=self.wait(self.submit('first',scenario_ref={'id':s['id'],'revision':1}));self.call('results','update_scenario',{'key':'s2','id':s['id'],'expected_revision':1,'definition':{'label':'Updated task'},'reason':'New protocol'})
   self.assertEqual(self.call('jobs','get',{'id':job['id']})['scenario_ref']['revision'],1)
   link=self.call('results','link_scenario',{'key':'link','scenario_ref':{'id':s['id'],'revision':2},'target':{'kind':'entity','identity':{'id':job['id']+'.observation','revision':1}},'relation':'used_by','provenance':{'reason':'Explicit reuse'}})
-  graph=self.call('results','scenario_graph',{'id':s['id']});self.assertEqual(graph['links'][0]['id'],link['id']);self.assertEqual(len(self.call('results','list',{'view':'all'})),1)
+  graph=self.call('results','scenario_graph',{'id':s['id']});self.assertEqual(graph['links'][0]['id'],link['id']);self.assertEqual(graph['links'][0]['target'],link['target']);self.assertEqual(len(self.call('results','list',{'view':'all'})),1)
  def test_cancelled_native_process_has_no_published_result(self):
   id=self.submit('cancel',seconds=10);self.wait(id,'running');self.call('jobs','cancel',{'id':id});job=self.wait(id,'cancelled');self.assertFalse((job.get('result') or {}).get('artifact_ready'));self.assertFalse(self.call('results','list',{'view':'all'}))
  def test_workflow_has_one_public_completion(self):

@@ -267,8 +267,8 @@
     },
     {
       "path": "dashboard/public/workspace.html",
-      "sha256": "a44ceb17cc328ceb65a3377e76ffac553691fc3aaea1690a5705c774607ca8cd",
-      "bytes": 642845,
+      "sha256": "d82d0853e3336feae620d69a2dcbd416b4a317c6c0459249af68592949f30540",
+      "bytes": 642894,
       "lines": 6904,
       "boundary": "retained web/integration",
       "structural_validation": "hash/structure inspection"
@@ -491,8 +491,8 @@
     },
     {
       "path": "dashboard/workspace/scenarios.js",
-      "sha256": "2ed32c69e6ea8e0a5bfba5ac7b0e384484627f81b7248065ec6664910be64493",
-      "bytes": 11435,
+      "sha256": "c2f498ec60d64b8fb20606028e62d84b01f404323f6ce12c2930e71b6c4d9c28",
+      "bytes": 11476,
       "lines": 45,
       "boundary": "native API consumer",
       "structural_validation": "hash/structure inspection"
@@ -2243,9 +2243,9 @@
     },
     {
       "path": "rust/crates/core/src/catalog.rs",
-      "sha256": "58636a4a72d860298fe790e3d6af8231b80840a7a411b60b4b94024fdc29e37f",
-      "bytes": 23411,
-      "lines": 413,
+      "sha256": "02042c463fc5aa6eee582ee3663d7ebefec4045e668f5880d0e0354d9b4d5a3a",
+      "bytes": 23836,
+      "lines": 418,
       "boundary": "native implementation/contract",
       "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
     },
@@ -2379,9 +2379,9 @@
     },
     {
       "path": "rust/crates/core/src/scenario.rs",
-      "sha256": "2527e06e7244c6315f40898898d10d4d8083aebfcad2fb348ae3721f1d43e315",
-      "bytes": 9809,
-      "lines": 225,
+      "sha256": "81403abb9347094274b8c9eb641e2667a987f07340fab765be41a0355f5b3d42",
+      "bytes": 9956,
+      "lines": 228,
       "boundary": "native implementation/contract",
       "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
     },
@@ -2611,9 +2611,9 @@
     },
     {
       "path": "tests/dashboard/browser/test_native_workspace.py",
-      "sha256": "f2bf7b01133f58eefe36cf0402ec43f2682be0ce89a6572a5e70827bf6f9b777",
-      "bytes": 6007,
-      "lines": 51,
+      "sha256": "70b9a4a600727051b703288db4c544f3291e0b079e3cee896e76e1cfc646031d",
+      "bytes": 6223,
+      "lines": 55,
       "boundary": "independent harness/fixture",
       "structural_validation": "Python AST parsed; behavioral evidence separate"
     },
@@ -3307,8 +3307,8 @@
     },
     {
       "path": "tests/rust/test_service.py",
-      "sha256": "3192cce19c80f9d98a52c92efdcf0c04a4a26774ad8c77f955ef7aea26e9f696",
-      "bytes": 14762,
+      "sha256": "0594c0c27bd535eab02b1983877d987971ced282cd0f5a9de03c0a227a6e3d12",
+      "bytes": 14823,
       "lines": 150,
       "boundary": "independent harness/fixture",
       "structural_validation": "Python AST parsed; behavioral evidence separate"

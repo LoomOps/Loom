@@ -189,8 +189,13 @@ impl Application {
             .iter()
             .filter(|e| e["kind"] == "tool")
             .collect::<Vec<_>>());
-        for scenario in rows(&self.db,"SELECT s.*,r.definition,r.sha256 FROM scenarios s JOIN scenario_revisions r ON r.scenario_id=s.id AND r.revision=s.current_revision ORDER BY s.created",&[])?{entities.push(json!({"id":scenario["id"],"kind":"scenario","namespace":"loom","label":scenario["label"],"loom_scenario":{"id":scenario["id"],"revision":scenario["current_revision"],"archived":scenario["archived"]==1,"links":rows(&self.db,"SELECT revision,target,superseded_by FROM scenario_links WHERE scenario_id=?",&[&scenario["id"].as_str()])?.into_iter().map(|mut r|{if let Some(t)=r["target"].as_str(){r["target"]=serde_json::from_str(t).unwrap_or(Value::Null);}r}).collect::<Vec<_>>(),"definition":serde_json::from_str::<Value>(scenario["definition"].as_str().unwrap_or("{}"))?},"properties":{"revision":scenario["current_revision"],"archived":scenario["archived"]},"relations":[],"artifacts":[]}));}
+        for scenario in rows(&self.db,"SELECT s.*,r.definition,r.sha256 FROM scenarios s JOIN scenario_revisions r ON r.scenario_id=s.id AND r.revision=s.current_revision ORDER BY s.created",&[])?{entities.push(json!({"id":scenario["id"],"kind":"scenario","namespace":"loom","label":scenario["label"],"created_by":scenario["created_by"],"loom_scenario":{"id":scenario["id"],"revision":scenario["current_revision"],"archived":scenario["archived"]==1,"links":rows(&self.db,"SELECT revision,target_kind,target,superseded_by FROM scenario_links WHERE scenario_id=?",&[&scenario["id"].as_str()])?.into_iter().map(|mut r|{if let Some(t)=r["target"].as_str(){r["target"]=json!({"kind":r["target_kind"],"identity":serde_json::from_str::<Value>(t).unwrap_or(Value::Null)});}r}).collect::<Vec<_>>(),"definition":serde_json::from_str::<Value>(scenario["definition"].as_str().unwrap_or("{}"))?},"properties":{"revision":scenario["current_revision"],"archived":scenario["archived"]},"relations":[],"artifacts":[]}));}
         for entity in &mut entities {
+            if entity["kind"] == "scenario" {
+                let identity = entity["id"].as_str().unwrap_or("").to_string();
+                let creator = entity["created_by"].as_str().unwrap_or("").to_string();
+                *entity = self.decorate_owner("scenario", &identity, &creator, entity.clone())?;
+            }
             let keykind = if entity.get("loom_registry").is_some() {
                 "entity"
             } else if entity["kind"] == "execution_profile" {
