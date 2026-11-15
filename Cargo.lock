@@ -922,7 +922,7 @@ checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
 
 [[package]]
 name = "loom-core"
-version = "0.2.0-alpha.6"
+version = "0.2.0-alpha.7"
 dependencies = [
  "base64 0.22.1",
  "hmac",
@@ -939,11 +939,11 @@ dependencies = [
 
 [[package]]
 name = "loom-domain"
-version = "0.2.0-alpha.6"
+version = "0.2.0-alpha.7"
 
 [[package]]
 name = "loom-host"
-version = "0.2.0-alpha.6"
+version = "0.2.0-alpha.7"
 dependencies = [
  "base64 0.22.1",
  "libc",
@@ -958,7 +958,7 @@ dependencies = [
 
 [[package]]
 name = "loom-migrate"
-version = "0.2.0-alpha.6"
+version = "0.2.0-alpha.7"
 dependencies = [
  "libc",
  "loom-core",
@@ -970,7 +970,7 @@ dependencies = [
 
 [[package]]
 name = "loom-ops"
-version = "0.2.0-alpha.6"
+version = "0.2.0-alpha.7"
 dependencies = [
  "axum",
  "axum-server",
@@ -991,7 +991,7 @@ dependencies = [
 
 [[package]]
 name = "loom-sdk"
-version = "0.2.0-alpha.6"
+version = "0.2.0-alpha.7"
 dependencies = [
  "libc",
  "serde",

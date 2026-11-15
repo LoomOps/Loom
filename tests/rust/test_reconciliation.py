@@ -19,7 +19,12 @@ class ReconciliationTests(unittest.TestCase):
   return self.call('results','reconcile_apply',args)
  def search(self,**query):
   for _ in range(150):
-   page=self.call('results','search_items',query)
+   try:page=self.call('results','search_items',query)
+   except HTTPError as error:
+    if error.code!=503:raise
+    body=json.load(error)
+    if body.get('code')!='index_unavailable':raise
+    time.sleep(.05);continue
    if page['items'] and not page['partial']:return page
    time.sleep(.05)
   self.fail('Search did not catch up')

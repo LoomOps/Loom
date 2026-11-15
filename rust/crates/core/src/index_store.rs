@@ -404,7 +404,27 @@ pub(crate) fn read(app: &Application) -> Result<Connection> {
             .query_row("SELECT origin FROM catalog_meta WHERE id=1", [], |r| {
                 r.get(0)
             })?;
-    let actual: Vec<u8> = db.query_row("SELECT origin FROM meta WHERE id=1", [], |r| r.get(0))?;
+    let header_exists: bool = db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='meta')",
+        [],
+        |r| r.get(0),
+    )?;
+    require(
+        header_exists,
+        "index_unavailable",
+        "Search index initialization is pending",
+        503,
+    )?;
+    let actual: Option<Vec<u8>> = db
+        .query_row("SELECT origin FROM meta WHERE id=1", [], |r| r.get(0))
+        .optional()?;
+    let actual = actual.ok_or_else(|| {
+        Error::new(
+            "index_unavailable",
+            "Search index initialization is pending",
+            503,
+        )
+    })?;
     require(
         origin == actual,
         "index_origin",

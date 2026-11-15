@@ -2298,3 +2298,36 @@ fn dependency_identity_does_not_multiply_when_only_runtime_inventory_revision_ch
         .unwrap();
     assert_eq!(page["items"].as_array().unwrap().len(), 1);
 }
+
+#[test]
+fn search_initialization_without_committed_header_is_explicitly_unavailable() {
+    let mut f = Fixture::new();
+    let id = f.submit("header-readiness");
+    let directory = crate::index_store::directory(&f.app.local, &f.app.config);
+    fs::create_dir_all(&directory).unwrap();
+    let db = rusqlite::Connection::open(directory.join("catalog.sqlite3")).unwrap();
+    assert_eq!(
+        f.call("results", "search_items", json!({}))
+            .unwrap_err()
+            .code,
+        "index_unavailable"
+    );
+    db.execute_batch(crate::index_store::SCHEMA).unwrap();
+    assert_eq!(
+        f.call("results", "search_items", json!({}))
+            .unwrap_err()
+            .code,
+        "index_unavailable"
+    );
+    drop(db);
+    f.app.index_once().unwrap();
+    let page = f
+        .call(
+            "results",
+            "search_items",
+            json!({"text":id,"view":"all","role":"all"}),
+        )
+        .unwrap();
+    assert!(!page["items"].as_array().unwrap().is_empty());
+    assert_eq!(f.count("jobs"), 1);
+}
