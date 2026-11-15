@@ -436,6 +436,7 @@ def _rollback(record_path):
   compose(source,root,project,'stop')
   for db,digest in record['post_databases'].items():
    if digest_db(Path(db))!=digest:raise ValueError('Database changed while starting rollback; records retained')
+  state_snapshot.guard_catalog_rollback(root,record.get('preserved_state'))
   if record['helpers']:run('systemctl','stop','loom-executor.service','loom-observations.timer','loom-observations.service')
   for group in ('files','helpers'):
    for target,backup in record[group].items():

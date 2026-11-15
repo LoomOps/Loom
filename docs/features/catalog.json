@@ -235,7 +235,9 @@
         "rust/crates/host/src/executor.rs",
         "rust/crates/host/src/lib.rs",
         "rust/crates/host/src/main.rs",
-        "rust/crates/host/src/wire.rs"
+        "rust/crates/host/src/wire.rs",
+        "rust/crates/host/src/logs.rs",
+        "rust/crates/ops/src/log_collector.rs"
       ],
       "tests": [
         "tests/ops/test_executor_boundary.py",
@@ -245,7 +247,9 @@
         "tests/rust/application.rs",
         "tests/rust/domain.rs",
         "tests/rust/host.rs",
-        "tests/rust/test_executor.py"
+        "tests/rust/test_executor.py",
+        "tests/rust/test_service.py",
+        "tests/rust/test_item_image.py"
       ],
       "depends_on": [
         "extensions"
@@ -352,7 +356,8 @@
         "tests/ops/test_output_contract.py",
         "tests/ops/test_result_pipeline.py",
         "tests/ops/test_storage_results.py",
-        "tests/rust/application.rs"
+        "tests/rust/application.rs",
+        "tests/rust/test_service.py"
       ],
       "depends_on": [
         "identity",
@@ -496,7 +501,15 @@
         "ops/research.py",
         "rust/crates/core/src/catalog.rs",
         "rust/crates/core/src/media.rs",
-        "rust/crates/core/src/query.rs"
+        "rust/crates/core/src/query.rs",
+        "rust/crates/core/src/items.rs",
+        "rust/crates/core/src/index_store.rs",
+        "rust/crates/core/src/inventory.rs",
+        "rust/crates/core/src/log_index.rs",
+        "rust/crates/domain/src/item.rs",
+        "rust/crates/ops/src/indexer.rs",
+        "rust/contracts/item-schema.sql",
+        "rust/contracts/items.md"
       ],
       "tests": [
         "tests/ops/test_dashboard_resources.py",
@@ -504,7 +517,9 @@
         "tests/ops/test_history_availability.py",
         "tests/ops/test_job_history.py",
         "tests/ops/test_job_lifecycle.py",
-        "tests/rust/application.rs"
+        "tests/rust/application.rs",
+        "tests/rust/test_service.py",
+        "tests/rust/test_item_image.py"
       ],
       "depends_on": [
         "identity",
@@ -517,7 +532,8 @@
         "ops/history_store.py"
       ],
       "invariants": [
-        "Distinguish historical originals from current display overlays. Never assume missing files are valid artifacts."
+        "Distinguish historical originals from current display overlays. Never assume missing files are valid artifacts.",
+        "Common IDs are decimal strings. Native identities and historical snapshots remain exact; derived search never owns Job transitions. File identity survives index deletion in authoritative sealed manifests."
       ],
       "change_rule": "When projections change, check revision refresh, detail queries, file MIME/size/path boundaries and the UI. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.",
       "live_validation": [
@@ -622,7 +638,8 @@
         "dashboard/workspace/research.js",
         "dashboard/workspace/surfaces.js",
         "dashboard/workspace/template.html",
-        "dashboard/workspace/text-preview.js"
+        "dashboard/workspace/text-preview.js",
+        "dashboard/workspace/search.js"
       ],
       "tests": [
         "tests/dashboard/browser/test_workspace.py",
@@ -686,7 +703,10 @@
       "tests": [
         "tests/deploy/test_client_release.py",
         "tests/ops/test_client_setup.py",
-        "tests/ops/test_onboarding.py"
+        "tests/ops/test_onboarding.py",
+        "tests/rust/application.rs",
+        "tests/rust/test_service.py",
+        "tests/rust/test_item_image.py"
       ],
       "depends_on": [
         "identity",
@@ -820,7 +840,9 @@
         "tests/deploy/test_boot_readiness.py",
         "tests/ops/test_remote_ownership.py",
         "tests/rust/application.rs",
-        "tests/rust/test_service.py"
+        "tests/rust/test_service.py",
+        "tests/rust/test_installation.py",
+        "tests/rust/test_item_image.py"
       ],
       "depends_on": [
         "identity",
@@ -921,7 +943,8 @@
         "ops/host_layout.py",
         "ops/release_updates.py",
         "rust-toolchain.toml",
-        "rust/crates/ops/src/updates.rs"
+        "rust/crates/ops/src/updates.rs",
+        "deploy/migrations/item_index.py"
       ],
       "tests": [
         "tests/deploy/test_boot_readiness.py",
@@ -941,7 +964,10 @@
         "tests/deploy/test_upgrade_migrations.py",
         "tests/ops/test_release_updates.py",
         "tests/rust/test_installation.py",
-        "tests/rust/updates.rs"
+        "tests/rust/updates.rs",
+        "tests/rust/application.rs",
+        "tests/rust/test_service.py",
+        "tests/rust/test_item_image.py"
       ],
       "depends_on": [
         "network",
@@ -1055,7 +1081,8 @@
       "tests": [
         "tests/deploy/test_distribution.py",
         "tests/deploy/test_features.py",
-        "tests/rust/application.rs"
+        "tests/rust/application.rs",
+        "tests/rust/test_item_image.py"
       ],
       "depends_on": [],
       "spec": "docs/features/testing.md",

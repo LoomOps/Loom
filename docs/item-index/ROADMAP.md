@@ -1,7 +1,9 @@
 # Delivery sequence
 
 Status: proposed implementation sequence. This planning task completes I0 discovery
-and design only. No future phase is approved for deployment by this document.
+and design only. The subsequent [initial implementation](IMPLEMENTATION.md)
+records actual delivered boundaries and the phases still open. No phase is
+approved for deployment by this document.
 
 | Phase | Depends on | Concrete deliverables | Exit evidence |
 |---|---|---|---|

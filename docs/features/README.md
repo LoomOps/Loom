@@ -63,7 +63,7 @@ On the Rust development branch, native execution states and hook transitions are
 | [installation](installation.md) | Compose, installation, updates | All service startup |
 | [testing](testing.md) | Tests and specification checks | Development only |
 
-`ops/ops.py` still contains HTTP/MCP entry points and worker orchestration across several features. API owns the file, while queue/execution/recovery/results relationships are explicit. Future extraction can proceed by feature while retaining the same contract tests. Logical feature blocks do not correspond one-to-one to containers.
+`rust/crates/ops` composes the native service and independent log/index workers; `rust/crates/core` owns transactional mutations and read adapters. `ops/ops.py` remains a compatibility reference. Logical feature blocks do not correspond one-to-one to containers.
 
 | [scenarios](scenarios.md) | Versioned research context and exact links | Jobs, catalog, Dashboard |
 | [authoring](authoring.md) | Rust producer SDK and source/build identities | Components, Tools, Jobs, guides |

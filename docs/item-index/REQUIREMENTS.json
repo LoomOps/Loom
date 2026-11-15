@@ -1,6 +1,6 @@
 {
   "schema": "loom-item-index-requirements/v1",
-  "status": "design complete; implementation and all new acceptance cases planned",
+  "status": "approved target design; initial implementation is documented separately, not full phase acceptance",
   "baseline": "74642cd41de4df3d82934b4eb5b0ca008047a911",
   "requirements": [
     {
@@ -354,5 +354,6 @@
       ],
       "status": "planned implementation; no executed new acceptance claim"
     }
-  ]
+  ],
+  "implementation_ledger": "IMPLEMENTATION.md"
 }

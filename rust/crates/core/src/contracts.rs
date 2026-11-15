@@ -137,7 +137,103 @@ pub fn actions() -> Vec<Action> {
             schema,
         });
     }
+    let item_id = json!({"type":"string","pattern":"^[1-9][0-9]{0,38}$"});
+    for (name, schema) in [
+        (
+            "get_item",
+            object(
+                json!({"item_id":item_id,"revision_id":item_id}),
+                &["item_id"],
+            ),
+        ),
+        (
+            "resolve_item",
+            object(
+                json!({"native_ref":{"type":"object","properties":{"kind":{"type":"string"},"identity":{"type":"object"}},"required":["kind","identity"],"additionalProperties":false}}),
+                &["native_ref"],
+            ),
+        ),
+    ] {
+        result.push(Action {
+            group: "results".into(),
+            action: name.into(),
+            operation: format!("results.{name}"),
+            scope: "read".into(),
+            schema,
+        });
+    }
+    let search = object(
+        json!({"text":{"type":"string","maxLength":1024},"kinds":{"type":"array","items":{"type":"string"},"maxItems":16},"view":{"enum":["all","research","operations"]},"role":{"enum":["all","main","support","test"]},"scenario_ref":reference,"parent_item_id":item_id,"category":{"type":"string","maxLength":128},"availability":{"enum":["verified","source_unavailable","recorded"]},"recorded_from":{"type":"number"},"recorded_to":{"type":"number"},"cursor":{"type":"string","maxLength":4096},"limit":{"type":"integer","minimum":1,"maximum":200}}),
+        &[],
+    );
+    let mut files = search.clone();
+    files["properties"]["item_id"] = item_id.clone();
+    files["properties"]["revision_id"] = item_id.clone();
+    files["required"] = json!(["item_id"]);
+    for (group, name, schema) in [
+        ("results", "search_items", search),
+        ("results", "item_files", files),
+        (
+            "results",
+            "get_file",
+            object(json!({"file_item_id":item_id}), &["file_item_id"]),
+        ),
+        (
+            "results",
+            "read_file",
+            object(
+                json!({"file_item_id":item_id,"offset":{"type":"string","pattern":"^[0-9]{1,20}$"},"limit":{"type":"integer","minimum":1,"maximum":262144}}),
+                &["file_item_id"],
+            ),
+        ),
+        ("system", "search_status", object(json!({}), &[])),
+    ] {
+        result.push(Action {
+            group: group.into(),
+            action: name.into(),
+            operation: format!("{group}.{name}"),
+            scope: "read".into(),
+            schema,
+        });
+    }
+    let stream_args = json!({"id":{"type":"string"},"attempt":{"type":"string"},"stage":{"type":"string"},"after":{"type":"string","pattern":"^[0-9A-F]{32}$"},"limit":{"type":"integer","minimum":1,"maximum":200}});
+    let mut search_logs = stream_args.clone();
+    search_logs["cursor"] = json!({"type":"string","maxLength":4096});
+    search_logs["text"] = json!({"type":"string","minLength":3,"maxLength":1024});
+    search_logs["stream_id"] = item_id.clone();
+    for (group, name, schema) in [
+        (
+            "results",
+            "item_relations",
+            object(
+                json!({"item_id":item_id,"revision_id":item_id}),
+                &["item_id"],
+            ),
+        ),
+        ("system", "dashboard_summary", object(json!({}), &[])),
+        ("jobs", "log_streams", object(stream_args, &["id"])),
+        ("jobs", "search_logs", object(search_logs, &["text"])),
+        (
+            "jobs",
+            "read_log",
+            object(
+                json!({"stream_id":item_id,"source_generation":{"type":"string","maxLength":128},"offset":{"type":"string","pattern":"^[0-9]{1,20}$"},"tail":{"type":"boolean"},"limit":{"type":"integer","minimum":1,"maximum":262144}}),
+                &["stream_id"],
+            ),
+        ),
+    ] {
+        result.push(Action {
+            group: group.into(),
+            action: name.into(),
+            operation: format!("{group}.{name}"),
+            scope: "read".into(),
+            schema,
+        });
+    }
     for entry in &mut result {
+        if entry.group == "results" && entry.action == "historical" {
+            entry.schema["properties"]["snapshot"] = json!({"type":"string"});
+        }
         if entry.group == "jobs" && entry.action == "list" {
             entry.schema["properties"]["view"]["default"] = json!("all");
         }

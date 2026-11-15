@@ -88,3 +88,5 @@
 #pai-studio .pa-dataset-item .pa-entity-facts > div {display:flex;align-items:baseline;gap:8px;min-width:0;max-width:100%}
 #pai-studio .pa-dataset-item .pa-entity-facts dt {flex-shrink:0;white-space:nowrap}
 #pai-studio .pa-dataset-item .pa-entity-facts dd {min-width:0;overflow-wrap:anywhere}
+
+.pa-item-search{min-width:0;max-width:100%;}.pa-item-search form{display:flex;gap:8px;flex-wrap:wrap}.pa-item-search input{min-width:120px;flex:1}.pa-item-search dd{overflow-wrap:anywhere;margin-inline-start:0}.pa-item-search pre{max-height:380px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.pa-search-result{text-align:left;overflow-wrap:anywhere}.pa-item-search [data-search-detail]{max-width:100%;overflow:auto}.pa-item-search table{width:100%;table-layout:fixed}

@@ -111,11 +111,15 @@ def apply(plan,root,release,platform):
     state=ledger(root)
     for step in plan['steps']:
         # Always inspect reality, including a crash between the effect and receipt.
-        status=invoke(step,'check',root,release,platform)
+        successors=[s for s in plan['steps'] if step['id'] in s.get('supersedes_checks',[])]
+        # A later additive schema can replace only the predecessor's reality check,
+        # never its checksum-bound code or required application order.
+        superseded=any(invoke(s,'check',root,release,platform)=='done' for s in successors)
+        status='done' if superseded else invoke(step,'check',root,release,platform)
         if status!='done':
             if step['id'] in state['completed']:raise ValueError('Completed migration no longer verifies: '+step['id'])
             if invoke(step,'apply',root,release,platform)!='done':raise ValueError('Migration did not complete')
-        if invoke(step,'verify',root,release,platform)!='done':raise ValueError('Migration verification failed')
+        if not superseded and invoke(step,'verify',root,release,platform)!='done':raise ValueError('Migration verification failed')
         state['completed'][step['id']]={'sha256':step['sha256'],'release':plan.get('to')}
         save(Path(root)/'runtime/migrations.json',state)
     return list(state['completed'])

@@ -108,7 +108,7 @@ def build(original):
     inner=replace_once(inner,"state.page===id?'page':'false'","(state.page===id||id==='profiles'&&loomIsHubPage(state.page))?'page':'false'")
     inner=replace_once(inner,"(navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')","({profiles:'Profiles',components:'Components',tools:'Tools',runtimes:'Runtimes',dependencies:'Dependencies'}[v.page]||navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')")
     marker = "catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');"
-    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "dependencies.js", "scenarios.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js"))
+    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "dependencies.js", "scenarios.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js", "search.js"))
     inner = replace_once(inner, marker, inner_additions + "\n" + (HERE.parent/"branding/brand.js").read_text() + "\n" + marker)
     inner = inner.replace("</head>", "<style>" + (HERE / "frame.css").read_text() + "</style></head>", 1)
     style = (HERE / "operations-desk.css").read_text() + (HERE.parent/"branding/brand.css").read_text()

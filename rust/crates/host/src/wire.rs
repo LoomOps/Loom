@@ -221,11 +221,20 @@ pub fn serve<D: Docker + 'static>(executor: Executor<D>) -> Result<()> {
     let shared = Arc::new(Mutex::new(executor));
     let (send, receive) = std::sync::mpsc::sync_channel::<UnixStream>(32);
     let receive = Arc::new(Mutex::new(receive));
+    let log_readers = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let mut threads = vec![];
     for _ in 0..4 {
         let receive = receive.clone();
         let shared = shared.clone();
-        threads.push(std::thread::spawn(move||loop{let Ok(mut stream)=receive.lock().unwrap().recv() else{break};let result=(||->Result<Value>{let uid=peer(&stream)?;let (action,token,body)=request(&mut stream)?;let mut executor=shared.lock().map_err(|_|Error::new("executor","Executor unavailable",503))?;let instance=executor.authenticate(&token,uid)?;executor.handle(&instance,&action,body)})();let (status,body)=match result{Ok(v)=>(200,v),Err(e)=>(e.status,json!({"error":e.message,"code":e.code}))};if let Ok(raw)=serde_json::to_vec(&body){let _=write!(stream,"HTTP/1.1 {status} Result\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",raw.len());let _=stream.write_all(&raw);}}));
+        let log_readers = log_readers.clone();
+        threads.push(std::thread::spawn(move||loop{let Ok(mut stream)=receive.lock().unwrap().recv() else{break};let result=(||->Result<Value>{let uid=peer(&stream)?;let (action,token,body)=request(&mut stream)?;let mut executor=shared.lock().map_err(|_|Error::new("executor","Executor unavailable",503))?;let instance=executor.authenticate(&token,uid)?;
+if matches!(action.as_str(),"logs"|"log_range") {
+    use std::sync::atomic::Ordering;
+    require(log_readers.try_update(Ordering::AcqRel,Ordering::Acquire,|n|if n<2{Some(n+1)}else{None}).is_ok(),"busy","Log readers are busy",503)?;
+    let capability=executor.log_read(&instance,&body);drop(executor);
+    let mut args=body;if action=="logs"{args["tail"]=json!(true);args["limit"]=json!(1024*1024);}
+    let result=capability.and_then(|c|c.read(&args));log_readers.fetch_sub(1,Ordering::AcqRel);result
+} else {executor.handle(&instance,&action,body)}})();let (status,body)=match result{Ok(v)=>(200,v),Err(e)=>(e.status,json!({"error":e.message,"code":e.code}))};if let Ok(raw)=serde_json::to_vec(&body){let _=write!(stream,"HTTP/1.1 {status} Result\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",raw.len());let _=stream.write_all(&raw);}}));
     }
     for stream in listener.incoming() {
         let stream = stream?;

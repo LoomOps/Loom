@@ -90,3 +90,49 @@ class NativeExecutorTests(unittest.TestCase):
    if call('get',{'id':job})['state']=='cancelled':break
    time.sleep(.1)
   self.assertEqual(call('get',{'id':job})['state'],'cancelled')
+
+ def test_slow_log_sealing_keeps_executor_cancellation_available(self):
+  import concurrent.futures,shutil
+  first=self.rpc('start',self.request(['/bin/true']));self.wait(first['ticket'])
+  command=['python','-c',"import signal,time,sys; signal.signal(signal.SIGTERM,lambda *a:sys.exit(0)); open('/work/signal-ready','w').write('ready'); time.sleep(30)"]
+  request=self.request(command);request['ticket']='second.attempt.run';request['job']='second';second=self.rpc('start',request)
+  for _ in range(100):
+   if (self.data/'signal-ready').exists():break
+   time.sleep(.05)
+  self.assertTrue((self.data/'signal-ready').exists())
+  self.stop();bin=self.root/'bin';bin.mkdir();docker=shutil.which('docker');wrapper=bin/'docker'
+  wrapper.write_text('#!/bin/sh\nif [ "$1" = logs ]; then sleep 3; fi\nexec '+docker+' "$@"\n');wrapper.chmod(0o700)
+  self.process=subprocess.Popen([str(ROOT/'target/debug/loom-host'),'serve',str(self.host)],env={**os.environ,'PATH':str(bin)+':'+os.environ['PATH']},stdout=self.log,stderr=self.log)
+  for _ in range(100):
+   try:self.rpc('status',{'ticket':second['ticket']});break
+   except OSError:time.sleep(.05)
+  with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+   pending=pool.submit(self.rpc,'log_range',{'ticket':first['ticket'],'offset':0,'limit':16});time.sleep(.3)
+   started=time.monotonic();returned=self.rpc('cancel',{'ticket':second['ticket']});elapsed=time.monotonic()-started
+   self.assertTrue(returned['returned']);self.assertLess(elapsed,2.0);self.assertTrue(pending.result(timeout=15)['closed'])
+
+ def test_capture_seals_after_process_return_without_another_log_read(self):
+  accepted=self.rpc('start',self.request(['/bin/sh','-c','echo BEFORE-RETURN; sleep 1']))
+  live=self.rpc('log_range',{'ticket':accepted['ticket'],'offset':0,'limit':64})
+  generation=live['source_generation'];self.assertEqual(self.wait(accepted['ticket'])['exit_code'],0)
+  pointer=self.host/'logs'/(hashlib.sha256(accepted['ticket'].encode()).hexdigest()+'.source.json')
+  for _ in range(100):
+   if pointer.exists() and json.loads(pointer.read_text()).get('closed'):break
+   time.sleep(.05)
+  self.assertTrue(json.loads(pointer.read_text())['closed'])
+  self.stop();self.start();sealed=self.rpc('log_range',{'ticket':accepted['ticket'],'limit':64})
+  self.assertEqual(sealed['source_generation'],generation);self.assertIn('BEFORE-RETURN',sealed['text'])
+
+ def test_capture_budget_keeps_prefix_and_explicit_gap_without_stopping_job(self):
+  import shutil
+  accepted=self.rpc('start',self.request(['/bin/true']));self.assertEqual(self.wait(accepted['ticket'])['exit_code'],0)
+  self.stop();binary=shutil.which('docker');folder=self.root/'limited-source';folder.mkdir();wrapper=folder/'docker'
+  wrapper.write_text('#!/bin/sh\nif [ "$1" = logs ]; then exec head -c 270000000 /dev/zero; fi\nexec '+binary+' "$@"\n');wrapper.chmod(0o700)
+  self.process=subprocess.Popen([str(ROOT/'target/debug/loom-host'),'serve',str(self.host)],env={**os.environ,'PATH':str(folder)+':'+os.environ['PATH']},stdout=self.log,stderr=self.log)
+  for _ in range(100):
+   try:self.rpc('drain_status',{});break
+   except OSError:time.sleep(.05)
+  page=self.rpc('log_range',{'ticket':accepted['ticket'],'offset':0,'limit':16})
+  self.assertEqual(page['total_bytes'],256*1024*1024);self.assertTrue(page['closed']);self.assertTrue(page['gap'])
+  self.assertEqual(page['data_base64'],'AAAAAAAAAAAAAAAAAAAAAA==');self.assertTrue(self.rpc('drain_status',{})['ready'])
+  self.assertEqual(self.rpc('log_range',{'ticket':accepted['ticket'],'limit':16})['source_generation'],page['source_generation'])

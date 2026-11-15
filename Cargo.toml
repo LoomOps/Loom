@@ -15,7 +15,7 @@ rusqlite = { version = "0.42", features = ["bundled", "backup", "functions"] }
 sha2 = "0.10"
 hmac = "0.12"
 base64 = "0.22"
-uuid = { version = "1", features = ["v4"] }
+uuid = { version = "1", features = ["v4", "v7"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time", "sync", "process", "io-util", "fs"] }
 axum = "0.8"
 jsonschema = { version = "0.61", default-features = false }

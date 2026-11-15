@@ -192,3 +192,14 @@ names the failed evidence in the update record. Incomplete failure evidence neve
 permits resume or successful admission reopening; an operator must inspect and
 capture verified recovery evidence first. This does not automatically restore or
 repair application data.
+
+
+## Native common Item schema
+
+The Item-index candidate adds a separate schema 5 -> 6 migration after the unchanged
+native cutover step. Existing schema 4/5 writers require the explicit drained
+upgrade and a private verified backup; starting a newer binary does not implicitly
+assign replacement IDs. Missing core Item identity metadata blocks startup rather
+than reconstructing new IDs from a surviving search cache. See
+[Item index operations](ITEM-INDEX.md) and the
+[implementation boundary](item-index/IMPLEMENTATION.md) before preparing a release.

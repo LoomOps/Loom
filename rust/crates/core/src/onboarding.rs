@@ -3,6 +3,11 @@ use crate::{auth::Actor, contracts, error::require, store::hash, Error, Result};
 use serde_json::{json, Value};
 const DOCUMENTS: &[(&str, &str, &str)] = &[
     (
+        "items",
+        "Items, files and logs",
+        include_str!("../../../contracts/items.md"),
+    ),
+    (
         "entry",
         "Loom Use",
         include_str!("../../../../loom_use/entry.md"),

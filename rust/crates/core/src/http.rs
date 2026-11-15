@@ -200,7 +200,67 @@ impl Application {
         if r.method == "GET" && path.starts_with("/api/registry/") {
             return Ok(HttpReply::json(200,self.execute(&actor,"results","get",json!({"id":decode_uri(path.trim_start_matches("/api/registry/"))?,"revision":query["revision"].as_i64().unwrap_or(1)}))?));
         }
+        if let Some(rest) = path.strip_prefix("/api/items/") {
+            if rest != "search" && rest != "resolve" {
+                let (identity, suffix) = rest.split_once('/').unwrap_or((rest, ""));
+                require(
+                    r.method == if suffix == "files" { "POST" } else { "GET" },
+                    "method",
+                    "Unsupported Item method",
+                    405,
+                )?;
+                let action = match suffix {
+                    "" => "get_item",
+                    "files" => "item_files",
+                    "relations" => "item_relations",
+                    _ => return Err(Error::input("Unknown Item path")),
+                };
+                let mut args = if r.method != "GET" && r.body.is_object() {
+                    r.body.clone()
+                } else {
+                    query.clone()
+                };
+                args["item_id"] = json!(decode_uri(identity)?);
+                return Ok(HttpReply::json(
+                    200,
+                    self.execute(&actor, "results", action, args)?,
+                ));
+            }
+        }
+        if let Some(rest) = path.strip_prefix("/api/files/") {
+            let (identity, suffix) = rest.split_once('/').unwrap_or((rest, ""));
+            require(
+                r.method == if suffix == "read" { "POST" } else { "GET" },
+                "method",
+                "Unsupported file method",
+                405,
+            )?;
+            let action = if suffix == "read" {
+                "read_file"
+            } else if suffix.is_empty() {
+                "get_file"
+            } else {
+                return Err(Error::input("Unknown file path"));
+            };
+            let mut args = if r.method != "GET" && r.body.is_object() {
+                r.body.clone()
+            } else {
+                query.clone()
+            };
+            args["file_item_id"] = json!(decode_uri(identity)?);
+            return Ok(HttpReply::json(
+                200,
+                self.execute(&actor, "results", action, args)?,
+            ));
+        }
         let route = match (r.method.as_str(), path) {
+            ("POST", "/api/logs/streams") => ("jobs", "log_streams"),
+            ("POST", "/api/logs/read") => ("jobs", "read_log"),
+            ("POST", "/api/logs/search") => ("jobs", "search_logs"),
+            ("GET", "/api/dashboard/summary") => ("system", "dashboard_summary"),
+            ("POST", "/api/items/search") => ("results", "search_items"),
+            ("POST", "/api/items/resolve") => ("results", "resolve_item"),
+            ("GET", "/api/search/status") => ("system", "search_status"),
             ("GET", "/api/status") => ("system", "status"),
             ("GET", "/api/jobs/contract") => ("system", "contract"),
             ("GET", "/api/jobs/queue") => ("jobs", "queue"),
@@ -571,6 +631,42 @@ fn request_action(r: &HttpRequest) -> Option<(&str, &str, Value)> {
                 .cloned()
                 .unwrap_or(json!({})),
         ))
+    } else if let Some((group, action)) = match path {
+        "/api/items/search" => Some(("results", "search_items")),
+        "/api/items/resolve" => Some(("results", "resolve_item")),
+        "/api/logs/streams" => Some(("jobs", "log_streams")),
+        "/api/logs/read" => Some(("jobs", "read_log")),
+        "/api/logs/search" => Some(("jobs", "search_logs")),
+        _ => None,
+    } {
+        Some((group, action, r.body.clone()))
+    } else if let Some(rest) = path.strip_prefix("/api/items/") {
+        let (id, suffix) = rest.split_once('/').unwrap_or((rest, ""));
+        let action = match suffix {
+            "" => "get_item",
+            "files" => "item_files",
+            "relations" => "item_relations",
+            _ => return None,
+        };
+        let mut args = r.body.clone();
+        if !args.is_object() {
+            args = json!({});
+        }
+        args["item_id"] = json!(decode_uri(id).ok()?);
+        Some(("results", action, args))
+    } else if let Some(rest) = path.strip_prefix("/api/files/") {
+        let (id, suffix) = rest.split_once('/').unwrap_or((rest, ""));
+        let action = match suffix {
+            "" => "get_file",
+            "read" => "read_file",
+            _ => return None,
+        };
+        let mut args = r.body.clone();
+        if !args.is_object() {
+            args = json!({});
+        }
+        args["file_item_id"] = json!(decode_uri(id).ok()?);
+        Some(("results", action, args))
     } else {
         None
     }
@@ -589,6 +685,21 @@ pub fn is_read(r: &HttpRequest) -> bool {
                 r.body["method"].as_str(),
                 Some("initialize" | "tools/list" | "notifications/initialized")
             )
+}
+pub fn is_heavy_read(r: &HttpRequest) -> bool {
+    r.path.starts_with("/api/dashboard/catalog")
+        || r.path.starts_with("/api/items/")
+        || r.path.starts_with("/api/files/")
+        || r.path.starts_with("/api/logs/")
+        || request_action(r).is_some_and(|(group, action, _)| {
+            matches!(
+                (group, action),
+                (
+                    "results",
+                    "search_items" | "item_files" | "read_file" | "get_file"
+                ) | ("jobs", "logs" | "read_log" | "search_logs")
+            )
+        })
 }
 pub fn needs_file_proofs(r: &HttpRequest) -> bool {
     request_action(r).is_some_and(|(group, action, args)| {
@@ -685,7 +796,7 @@ impl ReadContext {
         self.http_with_logs(r, None)
     }
     pub fn live_log_request(&self, r: &HttpRequest) -> Result<Option<(Value, Value)>> {
-        let Some(("jobs", "logs", args)) = request_action(r) else {
+        let Some(("jobs", action @ ("logs" | "read_log"), args)) = request_action(r) else {
             return Ok(None);
         };
         let Some(executor) = self.config.extra.get("executor") else {
@@ -699,13 +810,46 @@ impl ReadContext {
         )?;
         let actor = auth::authenticate(&app.db, &app.config, &r.headers, &r.peer, r.dev)?;
         actor.require("read")?;
-        crate::contracts::validate(&crate::contracts::action("jobs", "logs")?.schema, &args)?;
+        crate::contracts::validate(&crate::contracts::action("jobs", action)?.schema, &args)?;
+        if action == "read_log" {
+            let (_, work) = crate::log_index::source(&app, &args["stream_id"])?;
+            if crate::log_index::read_generation(&app, &work, args["source_generation"].as_str())
+                .is_ok_and(|(_, s)| s["closed"] == true)
+            {
+                return Ok(None);
+            }
+            let evidence: Option<String> = app
+                .db
+                .query_row(
+                    "SELECT evidence FROM rust_effects WHERE id=?",
+                    [&work.effect],
+                    |row| row.get(0),
+                )
+                .optional()?
+                .flatten();
+            let Some(evidence) = evidence else {
+                return Ok(None);
+            };
+            let value: Value = serde_json::from_str(&evidence)?;
+            let Some(ticket) = value["ticket"].as_str() else {
+                return Ok(None);
+            };
+            let offset = args["offset"]
+                .as_str()
+                .unwrap_or("0")
+                .parse::<u64>()
+                .map_err(|_| Error::input("Invalid byte offset"))?;
+            return Ok(Some((
+                executor.clone(),
+                json!({"ticket":ticket,"id":work.job,"attempt":work.attempt,"offset":offset,"limit":args["limit"].as_u64().unwrap_or(65536).min(262144),"tail":args["tail"]==true,"source_generation":args["source_generation"]}),
+            )));
+        }
         let job = crate::jobs::load(&app.db, args["id"].as_str().unwrap_or(""))?;
         let attempt = args["attempt"]
             .as_str()
             .or(job.aggregate.fence.attempt.as_ref().map(|a| a.as_str()))
             .ok_or_else(|| Error::input("Attempt required"))?;
-        let evidence: Option<String> = app.db.query_row("SELECT evidence FROM rust_effects WHERE job=? AND attempt=? AND stage='run' AND state IN ('accepted','unknown') ORDER BY created DESC LIMIT 1",params![job.aggregate.id.as_str(),attempt],|row|row.get(0)).optional()?.flatten();
+        let evidence: Option<String> = app.db.query_row("SELECT evidence FROM rust_effects WHERE job=? AND attempt=? AND stage='run' AND state IN ('accepted','unknown','returned') ORDER BY created DESC LIMIT 1",params![job.aggregate.id.as_str(),attempt],|row|row.get(0)).optional()?.flatten();
         let Some(evidence) = evidence else {
             return Ok(None);
         };

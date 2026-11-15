@@ -88,3 +88,13 @@ Dashboard Research/Operations/All modes and internal execution details consume
 this shared metadata. Built-in is origin, not ownership or scientific importance.
 Curation must preserve original rows, reject cycles and replay exact batch keys.
 Real queue resource consumers are never removed by a research presentation filter.
+
+
+## Common Item index
+
+The native candidate adds the Item/file/log discovery adapters documented in
+[Items](../../rust/contracts/items.md) and the administrator
+[operations contract](../ITEM-INDEX.md). Domain identity stays authoritative;
+the separate FTS projection owns no execution or recovery decisions.
+Review source permissions, exact historical refs, projection lag and byte-range
+limits independently from ordinary Job completion.

@@ -32,3 +32,14 @@ class NativeMigrationTests(unittest.TestCase):
   with sqlite3.connect(self.db) as db:db.execute("INSERT INTO user_profiles(id,provider,login,display_name,updated) VALUES('later','test','later@example.test','Later',3)")
   self.invoke('apply','--config',self.cfg,'--data',self.data,'--components',self.components,'--backup',self.backup,'--executor-root',self.root/'stopped-executor',ok=False)
   self.assertEqual(len(self.rows()['user_profiles']),2)
+
+ def test_catalog_boundary_preserves_native_rows_and_refuses_rollback_after_ids(self):
+  self.apply();original=self.rows();backup=self.root/'catalog-backup'
+  self.invoke('catalog-install','--config',self.cfg,'--data',self.data,'--components',self.components,'--backup',backup)
+  after=self.rows();self.assertTrue(all(after[k]==v for k,v in original.items()));self.assertEqual(self.invoke('inspect')['schema'],6);self.assertEqual((backup/'ops.sqlite3').stat().st_mode&0o777,0o600)
+  self.invoke('catalog-backfill','--config',self.cfg,'--data',self.data,'--components',self.components)
+  self.invoke('rollback','--receipt',backup/'receipt.json',ok=False)
+  self.assertEqual(self.invoke('inspect')['schema'],6)
+  self.assertTrue((self.state/'search/catalog.sqlite3').is_file())
+  self.invoke('catalog-rebuild','--config',self.cfg,'--data',self.data,'--components',self.components)
+  rebuilt=self.rows();self.assertTrue(all(rebuilt[k]==v for k,v in original.items()))

@@ -83,6 +83,23 @@ def require_single_store(db, config):
             raise ValueError('Pending Jobs require a secondary store; use a reviewed multi-store migration')
 
 
+def catalog_metadata(db,state,config):
+    tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if 'catalog_manifests' not in tables:return []
+    base=Path(config.get('catalog',{}).get('manifest_directory',state/'catalog-manifests'))
+    files=[]
+    for descriptor,digest in db.execute('SELECT descriptor,sha256 FROM catalog_manifests'):
+        file=relative(base,descriptor)
+        if sha(file)!=digest:raise ValueError('Authoritative inventory descriptor changed')
+        value=json.loads(file.read_bytes());names=[(descriptor,digest)]
+        for chunk in value['chunks']:names.append((str(Path(descriptor).parent/chunk['name']),chunk['sha256']))
+        for name,digest in names:
+            file=relative(base,name)
+            if sha(file)!=digest:raise ValueError('Authoritative inventory chunk changed')
+            files.append({'ref':name,'sha256':digest,'size':file.stat().st_size})
+    return files
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('command',choices=('export','transfer','restore','activate','rollback-source'))
@@ -125,6 +142,9 @@ def main():
                 out.execute('PRAGMA wal_checkpoint(TRUNCATE)')
                 out.execute('PRAGMA journal_mode=DELETE')
                 integrity(out)
+                inventories=catalog_metadata(source,root/'runtime',cfg)
+                base=Path(cfg.get('catalog',{}).get('manifest_directory',root/'runtime/catalog-manifests'))
+                for entry in inventories:copy_verified(relative(base,entry['ref']),relative(archive/'catalog-manifests',entry['ref']),entry)
                 rows=source.execute("SELECT DISTINCT ref FROM entity_locations WHERE machine_id=? AND storage_id=?",
                                     (cfg['machine_id'],cfg['storage_id'])).fetchall()
                 included={ref for (ref,) in source.execute('SELECT ref FROM entity_locations WHERE id IN ('+
@@ -145,7 +165,7 @@ def main():
                     files.append({'ref':ref,'size':expected['size'],'sha256':expected['sha256'],'status':status})
             (archive/'manifest.json').write_text(json.dumps({'schema':1,'source_node':str(root),
                 'machine_id':cfg['machine_id'],'storage_id':cfg['storage_id'],'db_sha256':sha(archive/'ops.sqlite3'),
-                'files':files},indent=2))
+                'files':files,'catalog_manifests':inventories},indent=2))
         elif args.command=='restore':
             if db_path.exists():
                 raise ValueError('Restore requires an unused target runtime')
@@ -156,6 +176,8 @@ def main():
                 raise ValueError('Relocation preserves logical machine ID')
             if args.mode=='clone' and cfg['machine_id']==data['machine_id']:
                 raise ValueError('Clone requires a fresh machine ID')
+            base=Path(cfg.get('catalog',{}).get('manifest_directory',root/'runtime/catalog-manifests'))
+            for entry in data.get('catalog_manifests',[]):copy_verified(relative(archive/'catalog-manifests',entry['ref']),relative(base,entry['ref']),entry)
             locations=[]
             for file in data['files']:
                 ref,status=file['ref'],file['status']

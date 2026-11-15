@@ -19,6 +19,19 @@
       "script": "deploy/migrations/rust_authority.py",
       "timeout_seconds": 900,
       "description": "Drain and preserve the existing schema, credentials, source revisions and roots before a native writer cutover. Unknown execution owners block migration."
+    },
+    {
+      "id": "common-item-index-v1",
+      "introduced": "0.2.0-alpha.2",
+      "requires": [
+        "rust-authority-v1"
+      ],
+      "supersedes_checks": [
+        "rust-authority-v1"
+      ],
+      "script": "deploy/migrations/item_index.py",
+      "timeout_seconds": 900,
+      "description": "Add schema 6 common identities and exact aliases without modifying research rows, credentials or source revisions. Backfill and rebuild remain independent of execution."
     }
   ]
 }

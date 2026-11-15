@@ -77,3 +77,26 @@ fn terminal_state_is_absorbing_for_callbacks() {
         assert!(j.decide(&j.fence, e).is_err());
     }
 }
+
+#[test]
+fn common_ids_round_trip_u128_without_floating_point_or_lossy_aliases() {
+    use crate::item::{ItemId, RevisionId};
+    for n in [1u128, (1u128 << 64) + 1, u128::MAX] {
+        let text = n.to_string();
+        let id = ItemId::parse(&text).unwrap();
+        assert_eq!(id.bytes(), n.to_be_bytes());
+        assert_eq!(id.to_string(), text);
+        assert_eq!(RevisionId::parse(&text).unwrap().to_string(), text);
+    }
+    for s in [
+        "0",
+        "01",
+        "+1",
+        "-1",
+        "1.0",
+        "１",
+        "340282366920938463463374607431768211456",
+    ] {
+        assert!(ItemId::parse(s).is_err());
+    }
+}

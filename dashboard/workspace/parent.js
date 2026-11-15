@@ -246,6 +246,11 @@
     }
   }
 
+  async function searchAction(message) {
+    const allowed={results:['search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file'],jobs:['log_streams','read_log','search_logs'],system:['search_status','dashboard_summary']};
+    if(!signedIn()||!allowed[message.group]?.includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;
+    try{const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({group:message.group,action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(15000)});const value=await response.json();emit('loom-search-result',{id:message.id,ok:response.ok,value});}catch(error){emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});}
+  }
   async function scenarioAction(message) {
     if(!signedIn()||!['scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link'].includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;
     try{const response=await fetch('/api/scenarios/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(30000)});const value=await response.json();emit('loom-scenario-action-result',{id:message.id,ok:response.ok,value});if(response.ok&&!['scenarios','get_scenario','scenario_graph'].includes(message.action))refreshCatalog();}catch(error){emit('loom-scenario-action-result',{id:message.id,ok:false,value:{error:'request_unavailable'}});}
@@ -405,6 +410,8 @@
       showBuild(buildInfo);
       refreshCatalog();
       updates();
+    } else if(message.type==='loom-search-action'){
+      searchAction(message);
     } else if(message.type==='loom-scenario-action'){
       scenarioAction(message);
     } else if (message.type === 'loom-runtime-action') {

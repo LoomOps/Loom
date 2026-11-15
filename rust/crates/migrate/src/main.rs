@@ -121,7 +121,7 @@ fn expected_upgrade(
         )?;
         drop(dest);
         drop(source);
-        let app = Application::open(&temporary, data, components, config.clone())?;
+        let app = Application::open_schema(&temporary, data, components, config.clone(), 5)?;
         let expected = json!(table_hashes(&app_connection(&temporary)?)?);
         drop(app);
         Ok(expected)
@@ -147,6 +147,66 @@ fn main() -> Result<()> {
     }
     let state = Path::new(arg("--state")?);
     match args.get(1).map(String::as_str) {
+        Some("catalog-install")=>{
+            let _lock=WriterLock::acquire(state)?;
+            let config=Config::read(Path::new(arg("--config")?))?;let data=Path::new(arg("--data")?);let components=Path::new(arg("--components")?);
+            let before=inspect(state)?;
+            require(before["schema"]==5||before["schema"]==6,"schema","Catalog migration requires native schema 5",409)?;
+            if before["schema"]==6 {println!("{}",json!({"applied":false,"schema":6}));return Ok(())}
+            require(before["active_executions"]==0&&before["callbacks"]==0,"drain","Return execution and callback owners before catalog migration",409)?;
+            let db=connect(&state.join("ops.sqlite3"))?;
+            require(db.query_row("SELECT NOT EXISTS(SELECT 1 FROM rust_effects WHERE state IN('pending','accepted','unknown') AND stage!='publish')",[],|r|r.get(0))?,"drain","Executor ownership is unresolved",409)?;
+            let backup=Path::new(arg("--backup")?);loom_core::index_store::secure_dir(backup)?;
+            use std::os::unix::fs::PermissionsExt;
+            require(backup.metadata()?.permissions().mode()&0o077==0,"backup_permissions","Catalog backup directory must be private",409)?;
+            let backup_file=backup.join("ops.sqlite3");
+            require(!backup_file.symlink_metadata().is_ok_and(|m|m.file_type().is_symlink()),"backup","Catalog backup is redirected",409)?;
+            if !backup_file.exists(){let mut out=Connection::open(&backup_file)?;rusqlite::backup::Backup::new(&db,&mut out)?.run_to_completion(128,std::time::Duration::from_millis(5),None)?;}
+            std::fs::set_permissions(&backup_file,std::fs::Permissions::from_mode(0o600))?;
+            let original=table_hashes(&connect(&backup_file)?)?;
+            require(original==table_hashes(&db)?,"migration_changed","Native records changed after catalog migration intent",409)?;
+            storage::atomic(&backup.join("config.json"),&std::fs::read(arg("--config")?)?,0o600)?;
+            drop(db);
+            let app=Application::open_schema(state,data,components,config,6)?;
+            let after=inspect(state)?;
+            for (name,expected) in &original { require(after["preservation"][name]==*expected,"preservation","Catalog migration changed an original table",409)?; }
+            let receipt=json!({"schema":"loom-catalog-migration/v1","state":state,"backup":backup,"before":before,"after":after,"created":now(),"rollback":"Only while all recorded table hashes remain unchanged"});
+            storage::atomic(&backup.join("receipt.json"),&serde_json::to_vec_pretty(&receipt)?,0o600)?;drop(app);
+            println!("{}",json!({"applied":true,"schema":6,"receipt":backup.join("receipt.json")}));
+        }
+        Some(command @ ("catalog-backfill"|"catalog-rebuild"|"catalog-verify-file"|"catalog-prune"))=>{
+            let _lock=WriterLock::acquire(state)?;
+            let config=Config::read(Path::new(arg("--config")?))?;let data=Path::new(arg("--data")?);let components=Path::new(arg("--components")?);
+            let mut app=Application::open(state,data,components,config)?;
+            if command=="catalog-verify-file" {
+                let id=arg("--file-id")?;
+                let entry=app.get_file(&json!({"file_item_id":id}))?;
+                let (mut file,_)=loom_core::inventory::open_copy(&app,&entry)?;
+                let stamp=loom_core::inventory::file_stamp(&file.metadata()?);
+                let mut h=Sha256::new();std::io::copy(&mut file,&mut h)?;
+                let digest=format!("{:x}",h.finalize());
+                require(entry["sha256"]==digest&&stamp==loom_core::inventory::file_stamp(&file.metadata()?),"content_changed","File differs from recorded content",409)?;
+                let index=loom_core::index_store::IndexWriter::open(&app)?;
+                index.db.execute("INSERT OR REPLACE INTO file_receipts VALUES(?,?,?,?)",rusqlite::params![loom_core::items::parse(&json!(id))?,stamp,digest,now()])?;
+                println!("{}",json!({"verified":true,"file_item_id":id}));return Ok(())
+            }
+            if command=="catalog-prune" {
+                let index=loom_core::index_store::IndexWriter::open(&app)?;
+                // Five-minute cursor TTL: preserve every projection version still reachable by a live cursor.
+                index.db.execute("UPDATE projection_retention SET min_version=COALESCE((SELECT max(version) FROM projection_versions WHERE created<?),0) WHERE id=1",[now()-600.])?;
+                index.db.execute("DELETE FROM docs WHERE valid_to IS NOT NULL AND valid_to<(SELECT min_version FROM projection_retention WHERE id=1)",[])?;
+                println!("{}",json!({"pruned":true}));return Ok(())
+            }
+            if command=="catalog-rebuild" {
+                loom_core::index_store::validate_layout(&app)?;
+                let directory=loom_core::index_store::directory(&app.local,&app.config);
+                if directory.exists(){let archive=directory.with_extension(format!("retired-{}",loom_core::store::id()));std::fs::rename(&directory,archive)?;}
+            }
+            let limit=args.iter().position(|s|s=="--batches").and_then(|i|args.get(i+1)).and_then(|s|s.parse::<usize>().ok()).unwrap_or(100).min(10000);
+            app.cache_catalog_sources()?;
+            for _ in 0..limit{app.index_once()?;if app.search_status()?["status"]=="ready"{break}}
+            println!("{}",app.search_status()?);
+        }
         Some("inspect")=>println!("{}",inspect(state)?),
         Some("apply")=>{
             let _lock=WriterLock::acquire(state)?;let before=inspect(state)?;
@@ -180,13 +240,13 @@ fn main() -> Result<()> {
                 expected=expected_upgrade(backup,data,components,&config)?;
                 storage::atomic(&backup.join("intent.json"),&serde_json::to_vec(&json!({"state":state,"config_sha256":hash(std::fs::read(config_path)?),"before":before,"expected_after":expected}))?,0o600)?;
             }
-            let app=Application::open(state,data,components,config)?;let after=inspect(state)?;
+            let app=Application::open_schema(state,data,components,config,5)?;let after=inspect(state)?;
             require(after["preservation"]==expected,"preservation","Migration differs from its independently reconstructed additive result",409)?;
             let receipt=json!({"schema":"loom-rust-migration/v1","created":now(),"state":state,"backup":backup,"config_sha256":hash(std::fs::read(config_path)?),"before":before,"after":after,"roots":parity,"authority":app.status()?,"rollback":"Allowed only while the post-migration table hashes remain unchanged"});
             storage::atomic(&backup.join("receipt.json"),&serde_json::to_vec_pretty(&receipt)?,0o600)?;println!("{}",json!({"applied":true,"schema":5,"receipt":backup.join("receipt.json")}));
         }
         Some("rollback")=>{
-            let _lock=WriterLock::acquire(state)?;let receipt:Value=serde_json::from_slice(&std::fs::read(arg("--receipt")?)?)?;require(receipt["schema"]=="loom-rust-migration/v1"&&receipt["state"].as_str()==state.to_str(),"receipt","Migration receipt belongs to another instance",409)?;
+            let _lock=WriterLock::acquire(state)?;let receipt:Value=serde_json::from_slice(&std::fs::read(arg("--receipt")?)?)?;require((receipt["schema"]=="loom-rust-migration/v1"||receipt["schema"]=="loom-catalog-migration/v1")&&receipt["state"].as_str()==state.to_str(),"receipt","Migration receipt belongs to another instance",409)?;
             let current=inspect(state)?;require(current["active_executions"]==0&&current["callbacks"]==0&&current["preservation"]==receipt["after"]["preservation"],"rollback","Data changed after cutover; preserve new records instead of restoring an old DB",409)?;
             let backup=Path::new(receipt["backup"].as_str().ok_or_else(||Error::input("Backup missing"))?).join("ops.sqlite3");let source=connect(&backup)?;
             require(json!(table_hashes(&source)?)==receipt["before"]["preservation"],"backup","Backup differs from migration receipt",409)?;

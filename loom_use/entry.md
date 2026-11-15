@@ -17,3 +17,5 @@ Before creating a Component or Profile, list existing Profiles and inspect suita
 exact kinds. Reuse a compatible kind for a new Job with params/inputs; create a new
 revision only for a real source/interface/stage/environment change. Read the
 components guide for reuse, categories and exact software/environment combinations.
+
+For server-backed discovery, use the advertised `items` guide. Common Item/File/stream IDs are decimal strings and do not replace native Job IDs or exact input contracts.

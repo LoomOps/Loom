@@ -165,3 +165,13 @@ instance and API configuration. Missing/mismatching/redirected directories fail;
 there is no hardcoded fallback. Installer kits and updates ship runtime_store.py
 with the host executor. Research images, dependency trees and the separate Runtime
 catalog are persistent host state; platform upgrades never rebuild them.
+
+
+## Common Item index
+
+The native candidate adds the Item/file/log discovery adapters documented in
+[Items](../../rust/contracts/items.md) and the administrator
+[operations contract](../ITEM-INDEX.md). Domain identity stays authoritative;
+the separate FTS projection owns no execution or recovery decisions.
+Review source permissions, exact historical refs, projection lag and byte-range
+limits independently from ordinary Job completion.

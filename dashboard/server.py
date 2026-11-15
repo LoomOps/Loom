@@ -378,6 +378,15 @@ class WebHandler(BaseHTTPRequestHandler):
                 if json.loads(self.rfile.read(length)) != {}:raise ValueError()
             except (ValueError,TypeError):return self.error(400,'invalid_update_check')
             return self.relay('POST','/api/updates/check',b'{}')
+        if self.path == '/api/search/actions':
+            try:
+                size=int(self.headers.get('Content-Length','0'))
+                if not 0<size<=16384 or self.headers.get_content_type()!='application/json':raise ValueError()
+                payload=json.loads(self.rfile.read(size))
+                allowed={'results':{'search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file'},'jobs':{'log_streams','read_log','search_logs'},'system':{'search_status','dashboard_summary'}}
+                if not isinstance(payload,dict) or set(payload)!={'group','action','arguments'} or payload['action'] not in allowed.get(payload['group'],set()) or not isinstance(payload['arguments'],dict):raise ValueError()
+            except (ValueError,TypeError):return self.error(400,'invalid_search_action')
+            return self.relay('POST','/api/actions',json.dumps(payload).encode())
         if self.path == '/api/scenarios/actions':
             try:
                 size=int(self.headers.get('Content-Length','0'))

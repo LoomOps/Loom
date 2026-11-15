@@ -1,4 +1,6 @@
 //! Bounded service composition; SQLite and lifecycle decisions stay on one application lane.
+pub mod indexer;
+pub mod log_collector;
 pub mod ownership;
 pub mod updates;
 pub mod worker;
@@ -11,6 +13,11 @@ use serde_json::Value;
 use std::{collections::BTreeSet, sync::Arc};
 use tokio::sync::{mpsc, oneshot};
 pub enum Message {
+    CatalogTick(oneshot::Sender<Result<Value>>),
+    Inventory(
+        loom_core::inventory::PreparedInventory,
+        oneshot::Sender<Result<()>>,
+    ),
     Drained(oneshot::Sender<Result<bool>>),
     Runtimes(Value, oneshot::Sender<Result<()>>),
     Media(
@@ -43,17 +50,35 @@ pub enum Message {
 }
 #[derive(Clone)]
 pub struct Service {
+    pub state: std::path::PathBuf,
     pub send: mpsc::Sender<Message>,
     readers: Arc<tokio::sync::Semaphore>,
+    heavy_readers: Arc<tokio::sync::Semaphore>,
     pub stopping: Arc<std::sync::atomic::AtomicBool>,
 }
 impl Service {
     pub fn start(mut application: Application) -> Self {
+        let config = application.config.clone();
+        let local = application.local.clone();
+        let bulk = application.bulk.clone();
+        let components = application.components.clone();
+        let read_only = application.read_only;
+        if !read_only {
+            if let Err(error) = application.cache_catalog_sources() {
+                eprintln!("Loom source catalog: {}", error.code);
+            }
+        }
         let (send, mut receive) = mpsc::channel(64);
         let stopping = Arc::new(std::sync::atomic::AtomicBool::new(false));
         std::thread::spawn(move || {
             while let Some(message) = receive.blocking_recv() {
                 match message {
+                    Message::CatalogTick(s) => {
+                        let _ = s.send(application.catalog_tick());
+                    }
+                    Message::Inventory(p, s) => {
+                        let _ = s.send(application.commit_inventory(p));
+                    }
                     Message::Drained(s) => {
                         let _ = s.send(application.externally_drained());
                     }
@@ -109,11 +134,24 @@ impl Service {
                 }
             }
         });
-        Self {
+        let service = Self {
+            state: local.clone(),
             send,
             stopping,
             readers: Arc::new(tokio::sync::Semaphore::new(4)),
+            heavy_readers: Arc::new(tokio::sync::Semaphore::new(2)),
+        };
+        if !read_only {
+            log_collector::start(
+                service.clone(),
+                config.clone(),
+                local.clone(),
+                bulk.clone(),
+                components.clone(),
+            );
+            indexer::start(service.clone(), config, local, bulk, components);
         }
+        service
     }
     pub async fn drained(&self) -> Result<bool> {
         let (s, r) = oneshot::channel();
@@ -135,6 +173,16 @@ impl Service {
     }
     pub async fn http(&self, r: HttpRequest) -> Result<HttpReply> {
         if loom_core::http::is_read(&r) || loom_core::http::needs_file_proofs(&r) {
+            let heavy = if loom_core::http::is_heavy_read(&r) {
+                Some(
+                    self.heavy_readers
+                        .clone()
+                        .try_acquire_owned()
+                        .map_err(|_| Error::new("busy", "Search/file/log readers are busy", 503))?,
+                )
+            } else {
+                None
+            };
             let permit = self
                 .readers
                 .clone()
@@ -164,6 +212,7 @@ impl Service {
             if loom_core::http::is_read(&r) {
                 return tokio::task::spawn_blocking(move || {
                     let _permit = permit;
+                    let _heavy = heavy;
                     let source = match context.live_log_request(&r) {
                         Ok(source) => source,
                         Err(_) => return context.http(r),
@@ -198,6 +247,7 @@ impl Service {
             }
             let proofs = tokio::task::spawn_blocking(move || {
                 let _permit = permit;
+                let _heavy = heavy;
                 context
                     .files
                     .iter()

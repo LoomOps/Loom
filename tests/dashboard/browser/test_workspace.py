@@ -848,6 +848,7 @@ const done=arguments[arguments.length-1];
         ui.top();self.wd('/refresh',{});ui.connect()
         rows=lambda:ui.js("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelectorAll('tbody tr').length")
         ui.wait("return document.querySelector('[data-job-history-view=all]')?.getAttribute('aria-pressed')==='true'")
+        ui.wait("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelectorAll('tbody tr').length===10")
         self.assertEqual(rows(),10);ui.click('[data-history-more]');self.assertEqual(rows(),13)
         ui.click('[data-job-history-view=research]');self.assertEqual(rows(),0)
         ui.click('[data-job-history-view=operations]');self.assertEqual(rows(),10)

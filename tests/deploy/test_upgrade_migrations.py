@@ -251,3 +251,38 @@ class SQLiteEvidenceTests(unittest.TestCase):
             self.assertEqual(saved['post_evidence_errors'][str(bad)],'DatabaseError')
             self.assertNotIn(str(bad),saved['post_databases'])
             with sqlite3.connect(good) as c:self.assertEqual(c.execute('SELECT * FROM credentials').fetchall(),[('preserved',)])
+
+
+class ItemManifestPreservationTests(unittest.TestCase):
+    def test_private_snapshot_preserves_authority_manifests_and_omits_search_projection(self):
+        with tempfile.TemporaryDirectory() as temp:
+            platform=Path(temp);root=platform/'instance';(root/'runtime/catalog-manifests/rev').mkdir(parents=True);(root/'runtime/search').mkdir()
+            (root/'compose.env').write_text('OPS_BULK='+str(platform/'data')+'\n')
+            chunk=root/'runtime/catalog-manifests/rev/chunk.jsonl';chunk.write_text('{"item_id":"123"}\n')
+            with sqlite3.connect(root/'runtime/search/catalog.sqlite3') as c:c.execute('CREATE TABLE derived(v)');c.execute('INSERT INTO derived VALUES(1)')
+            archive=platform/'backup';archive.mkdir();saved=state_snapshot.capture(root,archive,platform)
+            self.assertFalse((saved/'instance/runtime/search').exists())
+            chunk.write_text('changed')
+            with self.assertRaisesRegex(ValueError,'catalog-manifests'):state_snapshot.verify(root,saved)
+            state_snapshot.restore(root,saved);self.assertEqual(chunk.read_text(),'{"item_id":"123"}\n')
+            self.assertTrue(state_snapshot.verify(root,saved)['preserved'])
+
+    def test_rollback_cannot_drop_ids_assigned_during_a_failed_upgrade(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)/'instance';(root/'runtime').mkdir(parents=True);(root/'compose.env').write_text('')
+            with sqlite3.connect(root/'runtime/ops.sqlite3') as c:c.execute('CREATE TABLE original(v)')
+            archive=Path(temp)/'backup';archive.mkdir();saved=state_snapshot.capture(root,archive,Path(temp))
+            with sqlite3.connect(root/'runtime/ops.sqlite3') as c:c.execute('CREATE TABLE catalog_items(id BLOB PRIMARY KEY)');c.execute('INSERT INTO catalog_items VALUES(?)',(b'i'*16,))
+            with self.assertRaisesRegex(ValueError,'Item identities'):state_snapshot.guard_catalog_rollback(root,saved)
+            with sqlite3.connect(root/'runtime/ops.sqlite3') as c:self.assertEqual(c.execute('SELECT count(*) FROM catalog_items').fetchone()[0],1)
+
+    def test_snapshot_maps_custom_container_manifest_path_and_refuses_unknown_mount(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)/'instance';(root/'runtime/manifests/custom').mkdir(parents=True);(root/'config').mkdir()
+            (root/'compose.env').write_text('')
+            config=root/'config/api.json';config.write_text(json.dumps({'catalog':{'manifest_directory':'/loom/ops/manifests/custom'}}))
+            chunk=root/'runtime/manifests/custom/chunk';chunk.write_text('sealed identities')
+            archive=Path(temp)/'backup';archive.mkdir();saved=state_snapshot.capture(root,archive,Path(temp))
+            chunk.write_text('corrupt');state_snapshot.restore(root,saved);self.assertEqual(chunk.read_text(),'sealed identities')
+            config.write_text(json.dumps({'catalog':{'manifest_directory':'/unmapped/manifest'}}))
+            with self.assertRaisesRegex(ValueError,'preservation plan'):state_snapshot.external_roots(root,Path(temp))

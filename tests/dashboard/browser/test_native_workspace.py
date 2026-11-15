@@ -53,3 +53,26 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.ui.wait("return !!document.querySelector('#pa-content [data-entity=\"profile:browser.profile.r1\"]')")
   self.ui.click('#pa-content [data-entity="profile:browser.profile.r1"]')
   self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Exact profile context')&&!!document.querySelector('[data-share-route=\"profile:browser.profile.r1\"]')")
+
+ def test_server_item_search_preserves_string_ids_and_escapes_labels(self):
+  name='Search fixture <img src=x onerror=alert(1)>'
+  self.call('results','register_scenario',{'key':'search-ui','definition':{'label':name}})
+  for _ in range(100):
+   if self.call('results','search_items',{'text':'Search fixture'})['items']:break
+   time.sleep(.05)
+  self.ui.click('[data-item-search]')
+  self.ui.js("document.querySelector('[data-item-search-form] input').value='Search fixture';document.querySelector('[data-item-search-form] button').click()")
+  self.ui.wait("return !!document.querySelector('[data-search-item]')")
+  self.assertIn(name,self.ui.js("return document.querySelector('[data-search-results]').textContent"))
+  self.assertFalse(self.ui.js("return !!document.querySelector('.pa-item-search img')"))
+  self.ui.click('[data-search-item]');self.ui.wait("return document.querySelector('[data-search-detail]').textContent.includes('Revision')")
+  self.assertTrue(self.ui.js("return document.querySelector('[data-search-item]').dataset.searchItem.length>16"))
+
+  for width in (1440,500):
+   self.ui.top();self.wd('/window/rect',{'width':width,'height':1000});self.ui.frame()
+   for theme in ('light','dark'):
+    self.ui.click('[data-theme='+theme+']')
+    self.assertTrue(self.ui.js("return [...document.querySelectorAll('.pa-item-search')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
+    output=os.environ.get('LOOM_TEST_SCREENSHOTS')
+    if output:
+     path=Path(output);path.mkdir(parents=True,exist_ok=True);self.ui.top();(path/f'native-item-search-{width}-{theme}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));self.ui.frame()

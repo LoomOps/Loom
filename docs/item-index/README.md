@@ -1,8 +1,9 @@
 # Common Items, file inventory and log search — implementation plan
 
-Status: **design only**. This package extends the native Rust candidate; it does
-not implement or advertise new actions, allocate IDs, build an index, migrate data,
-change retention, publish a client or deploy a service. Runtime source is unchanged.
+Status: **approved target design with an initial native implementation**. See
+[IMPLEMENTATION](IMPLEMENTATION.md) for implemented boundaries, evidence and gaps.
+The original design/discovery baseline below is retained; it is not acceptance of
+all planned phases or authorization for operational deployment.
 
 Baseline: Loom `74642cd41de4df3d82934b4eb5b0ca008047a911`; independent client
 `c66e46d9c56cf75d1cdf29dffab4e92ab19346bf`. Source evidence and findings are in
@@ -25,8 +26,9 @@ verification is a cross-check, not the investigation method or proof of this des
    does not change a file's Item ID.
 5. Treat logs as streams tied to Attempt, stage and effect generation; segments and
    lines are not top-level Items. Index text incrementally outside execution locks.
-6. Use one authenticated query service for MCP, HTTP and Dashboard. Queries never
+6. Use one authenticated query service for MCP, HTTP and Dashboard. Search queries never
    scan the filesystem, invoke Docker, install packages or infer scientific lineage.
+   Registered byte reads may use the protected live collector capability.
 7. Keep reconcile bounded and evidence-based. Derived repair is automatic;
    authority changes require a keyed, verified command. No autonomous host cleanup,
    inferred scenario assignment or general reconciler is introduced.
@@ -84,5 +86,5 @@ search content. IDs do not change current sharing semantics or catalog curation.
 
 Implementation completion requires the planned native and cross-boundary cases,
 source-qualified feature audit, crash-safe rebuild and immutable image acceptance.
-Operational rollout remains a separately requested phase. No implementation or
-performance result for this feature is claimed by these documents.
+Operational rollout remains a separately requested phase. The target design does not itself establish implementation or
+performance acceptance; the implementation ledger records actual evidence.

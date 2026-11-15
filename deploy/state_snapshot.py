@@ -51,7 +51,7 @@ def restore_file(source,target,root):
 
 def copy_tree(source,dest,instance=False):
     def ignore(directory,names):
-        return [name for name in names if (instance and Path(directory)==Path(source) and name=='diagnostics') or (Path(directory)/name).is_socket()
+        return [name for name in names if (instance and Path(directory)==Path(source) and name=='diagnostics') or (instance and Path(directory)==Path(source)/'runtime' and name=='search') or (Path(directory)/name).is_socket()
                 or ((Path(directory)/name).is_dir() and (Path(directory)/name/'compose.env').is_file() and (Path(directory)/name/'runtime/ops.sqlite3').is_file())]
     shutil.copytree(source,dest,symlinks=True,copy_function=copy_file,ignore=ignore)
     if os.geteuid()==0:
@@ -63,6 +63,7 @@ def copy_tree(source,dest,instance=False):
 
 def databases(root):
     for p in Path(root).rglob('*'):
+        if Path(root)/'runtime/search' in p.parents:continue  # Rebuildable projection, never authority.
         if not p.is_file() or p.is_symlink() or p.suffix not in ('.sqlite3','.sqlite','.db'):continue
         if any((parent/'compose.env').is_file() and (parent/'runtime/ops.sqlite3').is_file() for parent in p.parents if parent!=Path(root) and parent.is_relative_to(root)):continue
         with p.open('rb') as stream:header=stream.read(16)
@@ -103,15 +104,31 @@ def file_inventory(root,instance=True):
     return result
 
 
+def catalog_host_path(root, value, default):
+    """Map the packaged Ops state mount; never guess an external host mount."""
+    root=Path(root);state=root/'runtime'
+    path=Path(value) if value is not None else state/default
+    if not path.is_absolute() or '..' in path.parts:raise ValueError('Catalog metadata path must be absolute and normalized')
+    if path.is_relative_to('/loom/ops'):return state/path.relative_to('/loom/ops')
+    if path.is_relative_to(state):return path
+    raise ValueError('External catalog metadata needs an explicit host preservation plan before update')
+
+
 def external_roots(root,platform):
     from tailnet import env_values
     env=env_values(Path(root)/'compose.env')
-    return {name:Path(env.get(key,Path(platform)/name)) for name,key in
+    roots={name:Path(env.get(key,Path(platform)/name)) for name,key in
             (('components','LOOM_COMPONENTS_HOST'),('profiles','LOOM_PROFILES_HOST'))}
+    config=Path(root)/'config/api.json'
+    cfg=json.loads(config.read_text()) if config.exists() else {}
+    roots['log-spool']=Path(root)/'runtime/log-spool'
+    roots['catalog-manifests']=catalog_host_path(root,cfg.get('catalog',{}).get('manifest_directory'),'catalog-manifests')
+    return roots
 
 
 def capture(root,archive,platform):
     root=Path(root);archive=Path(archive);base=archive/'preserved';base.mkdir(mode=0o700)
+    extensions=external_roots(root,platform)
     instance=base/'instance';copy_tree(root,instance,instance=True)
     state={'schema':'loom-preserved-state/v1','root':str(root),'files':file_inventory(root),'databases':{},'database_files':{},'extensions':{}}
     for path in databases(root):
@@ -122,7 +139,7 @@ def capture(root,archive,platform):
         state['databases'][str(path.relative_to(root))]=db_inventory(target)
         state['database_files'][str(path.relative_to(root))]={'mode':stat.S_IMODE(info.st_mode),'uid':info.st_uid,'gid':info.st_gid}
         for suffix in ('-wal','-shm'):Path(str(target)+suffix).unlink(missing_ok=True)
-    for name,path in external_roots(root,platform).items():
+    for name,path in extensions.items():
         if path.exists():
             copy_tree(path,base/name)
             state['extensions'][name]={'path':str(path),'files':file_inventory(path,instance=False)}
@@ -212,3 +229,18 @@ def extension_inventory(base):
     if not base:return {}
     state=json.loads((Path(base)/'state.json').read_text())
     return {entry['path']:file_inventory(entry['path'],instance=False) for entry in state['extensions'].values()}
+
+
+def guard_catalog_rollback(root,base):
+    """A derived index is replaceable; accepted Item/File identity is not."""
+    if not base:return
+    root=Path(root);backup=Path(base)/'instance/runtime/ops.sqlite3'
+    if not backup.is_file():return
+    with database(root/'runtime/ops.sqlite3',readonly=True) as current:
+        current.execute('ATTACH DATABASE ? AS previous',(backup.as_uri()+'?mode=ro',))
+        live={r[0] for r in current.execute("SELECT name FROM main.sqlite_master WHERE type='table'")}
+        old={r[0] for r in current.execute("SELECT name FROM previous.sqlite_master WHERE type='table'")}
+        for table,key in (('catalog_items','id'),('catalog_revisions','id'),('catalog_manifests','revision')):
+            if table not in live:continue
+            query=('SELECT 1 FROM main.'+table+' LIMIT 1') if table not in old else ('SELECT 1 FROM main.'+table+' c LEFT JOIN previous.'+table+' p ON p.'+key+'=c.'+key+' WHERE p.'+key+' IS NULL LIMIT 1')
+            if current.execute(query).fetchone():raise ValueError('New Item identities were committed; preserve them and use forward repair instead of restoring an older DB')

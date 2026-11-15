@@ -2,7 +2,7 @@
   "system.ssh": {
     "title": "Personal SSH connection",
     "description": "Read the current caller SSH grant and machine addresses. Same-host clients use local files; Admin enablement is separate.",
-    "returns": "Connection \u00b7 state, host, port, username, authentication, home, addresses",
+    "returns": "Connection · state, host, port, username, authentication, home, addresses",
     "example": {},
     "errors": [
       "Not enabled, unavailable or SSH management not configured."
@@ -11,14 +11,14 @@
   "system.users": {
     "title": "User profiles",
     "description": "List registered user profiles available for ownership assignment.",
-    "returns": "User[] \u00b7 id, provider, login, display_name",
+    "returns": "User[] · id, provider, login, display_name",
     "example": {},
     "errors": []
   },
   "components.assign_owner": {
     "title": "Attribute shared software",
     "description": "Set the responsible user or built-in attribution for Loom-supplied software. Sharing, namespace, source revisions and Job pins remain unchanged.",
-    "returns": "Attribution \u00b7 kind, id, namespace, owner_profile, owner_kind, changed",
+    "returns": "Attribution · kind, id, namespace, owner_profile, owner_kind, changed",
     "example": {
       "kind": "tool",
       "namespace": "research",
@@ -32,7 +32,7 @@
   "jobs.assign_owner": {
     "title": "Assign Job owner",
     "description": "Set the current responsible user, preserving original execution and submitter records.",
-    "returns": "Item \u00b7 id, owner, owner_profile",
+    "returns": "Item · id, owner, owner_profile",
     "example": {
       "id": "<job-id>",
       "owner": "<profile-id>"
@@ -44,7 +44,7 @@
   "results.assign_owner": {
     "title": "Assign result owner",
     "description": "Set the current responsible user for a model, dataset or artifact.",
-    "returns": "Item \u00b7 id, owner, owner_profile",
+    "returns": "Item · id, owner, owner_profile",
     "example": {
       "id": "<entity-id>",
       "owner": "<profile-id>"
@@ -56,14 +56,14 @@
   "jobs.queue": {
     "title": "Shared execution order",
     "description": "Read every user's waiting order and available controls.",
-    "returns": "Queue \u00b7 revision, entries with position, held, reason, capabilities",
+    "returns": "Queue · revision, entries with position, held, reason, capabilities",
     "example": {},
     "errors": []
   },
   "jobs.reorder": {
     "title": "Reorder waiting Job",
     "description": "Move a waiting Job ahead of other users' Jobs. Preserve running Jobs and dependencies.",
-    "returns": "Receipt \u00b7 changed, state, held, position",
+    "returns": "Receipt · changed, state, held, position",
     "example": {
       "id": "<job-id>",
       "position": "next"
@@ -75,7 +75,7 @@
   "jobs.hold": {
     "title": "Hold waiting Job",
     "description": "Prevent new stages of a waiting Job. Active preparation finishes, but run cannot start.",
-    "returns": "Receipt \u00b7 changed, state, held, position",
+    "returns": "Receipt · changed, state, held, position",
     "example": {
       "id": "<job-id>"
     },
@@ -86,7 +86,7 @@
   "jobs.resume": {
     "title": "Resume waiting Job",
     "description": "Release an ordinary hold while preserving order. This is not error recovery or checkpoint restart.",
-    "returns": "Receipt \u00b7 changed, state, held, position",
+    "returns": "Receipt · changed, state, held, position",
     "example": {
       "id": "<job-id>"
     },
@@ -97,7 +97,7 @@
   "system.guide": {
     "title": "Loom guides",
     "description": "Read server version and guide index, or a document by id. Matching known_revision returns not_modified.",
-    "returns": "Guide \u00b7 manifest, documents or content",
+    "returns": "Guide · manifest, documents or content",
     "example": {},
     "errors": [
       "Unknown document ID or invalid arguments."
@@ -106,7 +106,7 @@
   "jobs.list": {
     "title": "List Jobs",
     "description": "List logical Jobs in reverse registration order. include_consolidated=true also returns preserved constituent Jobs.",
-    "returns": "Job[] \u00b7 id, status, state, owner, attempt, recovery, category, execution_mode",
+    "returns": "Job[] · id, status, state, owner, attempt, recovery, category, execution_mode",
     "example": {
       "limit": 25,
       "offset": 0
@@ -116,7 +116,7 @@
   "jobs.get": {
     "title": "Job details",
     "description": "Read state, Attempts, internal_steps, consolidation provenance, work_timeline from original execution receipts, waiting reasons, recovery, callbacks and artifacts. Consolidated work elapsed time includes sources; Attempts retain continuation runtime timestamps.",
-    "returns": "Job \u00b7 status, scheduling, recovery, attempts, stages, callbacks, result",
+    "returns": "Job · status, scheduling, recovery, attempts, stages, callbacks, result",
     "example": {
       "id": "<job-id>"
     },
@@ -127,7 +127,7 @@
   "jobs.submit": {
     "title": "Submit Job",
     "description": "Pin a registered profile and parameters and enter the queue. category does not select the executor. One requested outcome is one Job; batch/vectorized work runs internally. Explicit consolidates reuses completed producer Jobs without rewriting them.",
-    "returns": "Submission \u00b7 id",
+    "returns": "Submission · id",
     "example": {
       "key": "example-run-001",
       "kind": "<registered-profile-id>",
@@ -145,7 +145,7 @@
   "jobs.cancel": {
     "title": "Cancel Job",
     "description": "Cancel the specified Job, regardless of owner. For active execution, verify actual resource return separately.",
-    "returns": "Cancellation receipt \u00b7 id, state",
+    "returns": "Cancellation receipt · id, state",
     "example": {
       "id": "<job-id>"
     },
@@ -156,7 +156,7 @@
   "jobs.logs": {
     "title": "Execution logs",
     "description": "Read Attempt logs using a byte cursor. Continue from next_offset.",
-    "returns": "Log range \u00b7 available, offset, next_offset, text",
+    "returns": "Log range · available, offset, next_offset, text",
     "example": {
       "id": "<job-id>",
       "attempt": "<attempt-id>",
@@ -164,13 +164,13 @@
       "limit": 65536
     },
     "errors": [
-      "Attempt belongs to another Job, negative offset or limit outside 1\u201365536."
+      "Attempt belongs to another Job, negative offset or limit outside 1–65536."
     ]
   },
   "recovery.claim": {
     "title": "Claim recovery",
     "description": "Claim a failed Job awaiting a response. Pass the returned lease to progress/resume.",
-    "returns": "Recovery \u00b7 state, rounds, agent, deadline, hard_deadline, lease",
+    "returns": "Recovery · state, rounds, agent, deadline, hard_deadline, lease",
     "example": {
       "id": "<job-id>"
     },
@@ -181,7 +181,7 @@
   "recovery.progress": {
     "title": "Report recovery progress",
     "description": "Report progress with a valid lease to refresh the idle deadline, without extending the round's hard deadline.",
-    "returns": "Recovery \u00b7 state, rounds, agent, deadline, hard_deadline",
+    "returns": "Recovery · state, rounds, agent, deadline, hard_deadline",
     "example": {
       "id": "<job-id>",
       "lease": "<recovery-lease>"
@@ -193,7 +193,7 @@
   "recovery.resume": {
     "title": "Rerun after repair",
     "description": "Schedule recovery at the reserved queue position. patch permits only params/kind/execution.",
-    "returns": "Recovery \u00b7 state=pending, rounds, agent",
+    "returns": "Recovery · state=pending, rounds, agent",
     "example": {
       "id": "<job-id>",
       "lease": "<recovery-lease>",
@@ -208,7 +208,7 @@
   "recovery.defer": {
     "title": "Defer recovery",
     "description": "Release the current queue reservation. Dependent Jobs wait while independent Jobs proceed.",
-    "returns": "Recovery \u00b7 state=deferred",
+    "returns": "Recovery · state=deferred",
     "example": {
       "id": "<job-id>"
     },
@@ -219,7 +219,7 @@
   "recovery.reactivate": {
     "title": "Reactivate deferred Job",
     "description": "Return a deferred Job to a new queue position without resetting recovery rounds.",
-    "returns": "Recovery \u00b7 state=waiting, deadline",
+    "returns": "Recovery · state=waiting, deadline",
     "example": {
       "id": "<job-id>"
     },
@@ -230,7 +230,7 @@
   "events.list": {
     "title": "Completion and error events",
     "description": "Read up to 100 unacknowledged recipient events in seq order. Use kind=all to include completion.",
-    "returns": "Event[] \u00b7 seq, job, code, kind, ack, delivery_state",
+    "returns": "Event[] · seq, job, code, kind, ack, delivery_state",
     "example": {
       "kind": "all",
       "after": 0
@@ -253,14 +253,14 @@
   "components.list": {
     "title": "List components",
     "description": "Read the latest revision of all components. Set owner to filter the namespace.",
-    "returns": "Component[] \u00b7 owner (namespace), id, revision, owner_profile, owner_name, owner_kind",
+    "returns": "Component[] · owner (namespace), id, revision, owner_profile, owner_name, owner_kind",
     "example": {},
     "errors": []
   },
   "components.get": {
     "title": "Component details",
     "description": "Read an exact or latest Job lifecycle Component manifest and profiles.",
-    "returns": "Component \u00b7 owner (namespace), id, revision, manifest, profiles, owner_profile, owner_name, owner_kind",
+    "returns": "Component · owner (namespace), id, revision, manifest, profiles, owner_profile, owner_name, owner_kind",
     "example": {
       "id": "<component-id>"
     },
@@ -271,7 +271,7 @@
   "components.write": {
     "title": "Write source",
     "description": "Save editable source at a relative path. Active revisions remain unchanged.",
-    "returns": "Source receipt \u00b7 id, path, bytes",
+    "returns": "Source receipt · id, path, bytes",
     "example": {
       "id": "demo",
       "path": "run.py",
@@ -284,7 +284,7 @@
   "components.register": {
     "title": "Register revision",
     "description": "Register source as an immutable revision. profiles is optional; standalone register_profile can reference the revision. New orchestration defaults to Rust; discover Cargo/SDK templates with components.scaffold. Registration never builds or executes source.",
-    "returns": "Registration \u00b7 owner (namespace), id, revision, profiles[], owner_profile, owner_name, owner_kind",
+    "returns": "Registration · owner (namespace), id, revision, profiles[], owner_profile, owner_name, owner_kind",
     "example": {
       "id": "example-rust-package",
       "manifest": {
@@ -303,7 +303,7 @@
   "components.register_profile": {
     "title": "Register profile",
     "description": "Register an execution Profile combining optional Component, exact Tools and stage environments. Optional multi-purpose usage is descriptive. Available without redeployment; Jobs pin the revision.",
-    "returns": "Profile receipt \u00b7 owner, id, revision, kind, sha256",
+    "returns": "Profile receipt · owner, id, revision, kind, sha256",
     "example": {
       "id": "demo-run",
       "component": {
@@ -354,7 +354,7 @@
   "components.get_profile": {
     "title": "Profile details",
     "description": "Read a specific or latest revision of an independently registered profile.",
-    "returns": "Profile \u00b7 owner, id, revision, profile",
+    "returns": "Profile · owner, id, revision, profile",
     "example": {
       "id": "demo-run"
     },
@@ -365,14 +365,14 @@
   "components.profiles": {
     "title": "Available execution profiles",
     "description": "Read exact Profile combinations, stage environments and observed Job usage. Repeated environment dependencies are a bounded preview (dependency_count, dependencies_complete); use components.get_runtime for the complete inventory. Read scope does not grant execution or registration rights.",
-    "returns": "Profile[] \u00b7 kind, revision, params_schema, outputs, limits, usage, combination",
+    "returns": "Profile[] · kind, revision, params_schema, outputs, limits, usage, combination",
     "example": {},
     "errors": []
   },
   "results.list": {
     "title": "List artifacts",
     "description": "Discover native artifacts and imported models/datasets/experiments from the active catalog. For record_type=historical, pass history_ref to results.historical; other entries use results.get. Discovery does not establish file availability.",
-    "returns": "Artifact list \u00b7 native registry entries or historical entries with history_ref and detail_action",
+    "returns": "Artifact list · native registry entries or historical entries with history_ref and detail_action",
     "example": {},
     "errors": []
   },
@@ -391,7 +391,7 @@
   "results.reindex": {
     "title": "Reindex results",
     "description": "Retry publication for a returned execution without restarting GPU execution. Published output identities, hashes, metadata and lineage must remain identical; use reconnect to add a verified location.",
-    "returns": "Receipt \u00b7 id, attempt, state=processing",
+    "returns": "Receipt · id, attempt, state=processing",
     "example": {
       "id": "<job-id>",
       "attempt": "<attempt-id>"
@@ -403,7 +403,7 @@
   "results.reconnect": {
     "title": "Reconnect artifact location",
     "description": "Register a verified replacement location for an existing immutable artifact component. Does not rerun execution or change artifact contents.",
-    "returns": "Location receipt \u00b7 id, revision, component, ref, status=available",
+    "returns": "Location receipt · id, revision, component, ref, status=available",
     "example": {
       "id": "<entity-id>",
       "revision": 1,
@@ -445,7 +445,7 @@
   "results.historical": {
     "title": "Historical record",
     "description": "Read immutable history plus current registered-copy availability. Recorded missing does not prove the original was deleted.",
-    "returns": "Historical record \u00b7 body, source identity and current_availability (not_connected, missing, verified, present_unverified, mismatch or unavailable)",
+    "returns": "Historical record · body, source identity and current_availability (not_connected, missing, verified, present_unverified, mismatch or unavailable)",
     "example": {
       "source": "loom-ops",
       "kind": "job",
@@ -459,14 +459,14 @@
   "system.updates": {
     "title": "Release check status",
     "description": "Compare cached GitHub Releases with the current build. Reads do not wait on network requests or the Job database.",
-    "returns": "ReleaseCheck \u00b7 status, installed, latest, update_available, checked_at, last_success_at, next_check_at, error, stale",
+    "returns": "ReleaseCheck · status, installed, latest, update_available, checked_at, last_success_at, next_check_at, error, stale",
     "example": {},
     "errors": []
   },
   "system.check_updates": {
     "title": "Check for releases",
     "description": "Request a background check respecting the 60-second cooldown and GitHub rate limits. Does not install releases or stop Jobs.",
-    "returns": "Receipt \u00b7 accepted, reason, updates",
+    "returns": "Receipt · accepted, reason, updates",
     "example": {},
     "errors": [
       "Failures appear in updates.error while preserving the last successful result."
@@ -475,14 +475,14 @@
   "system.status": {
     "title": "Service status",
     "description": "Read build, contract revision, admission, registered runtimes and GPU execution availability.",
-    "returns": "Status \u00b7 build, api_revision, admission, inventory, runtime_ids, gpu_execution_enabled",
+    "returns": "Status · build, api_revision, admission, inventory, runtime_ids, gpu_execution_enabled",
     "example": {},
     "errors": []
   },
   "system.docker": {
     "title": "Container status",
     "description": "Read permitted Docker containers and observation status.",
-    "returns": "Docker status \u00b7 status, engine, containers, errors",
+    "returns": "Docker status · status, engine, containers, errors",
     "example": {},
     "errors": [
       "Missing or stale observations are reported through status and errors."
@@ -491,14 +491,14 @@
   "system.contract": {
     "title": "Job contract",
     "description": "Read Job properties, public states, recovery policy and submission schema.",
-    "returns": "Contract \u00b7 revision, submit_schema, status_values, recovery_policy",
+    "returns": "Contract · revision, submit_schema, status_values, recovery_policy",
     "example": {},
     "errors": []
   },
   "system.describe": {
     "title": "Action reference",
     "description": "Without arguments, return the full usage reference. Supply both group/action to describe one action.",
-    "returns": "Documentation index or Action reference \u00b7 schema, scope, returns, errors, examples",
+    "returns": "Documentation index or Action reference · schema, scope, returns, errors, examples",
     "example": {
       "group": "jobs",
       "action": "submit"
@@ -685,6 +685,174 @@
     },
     "errors": [
       "Unknown identity, repeated item, parent cycle, conflicting batch key, maintenance or scope denied."
+    ]
+  },
+  "results.search_items": {
+    "title": "Search Items",
+    "description": "Find compact registered Items by literal text and structured filters; preserve partial status and opaque snapshot cursors.",
+    "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+    "example": {},
+    "errors": [
+      "unknown_item",
+      "index_unavailable",
+      "cursor_expired",
+      "source_unavailable",
+      "content_changed",
+      "query_too_broad"
+    ]
+  },
+  "results.get_item": {
+    "title": "Read Item",
+    "description": "Read a compact typed descriptor using a decimal-string Item ID and optional exact revision.",
+    "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+    "example": {},
+    "errors": [
+      "unknown_item",
+      "index_unavailable",
+      "cursor_expired",
+      "source_unavailable",
+      "content_changed",
+      "query_too_broad"
+    ]
+  },
+  "results.resolve_item": {
+    "title": "Resolve native reference",
+    "description": "Resolve an already adopted full native identity without allocation, promotion or latest-snapshot substitution.",
+    "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+    "example": {},
+    "errors": [
+      "unknown_item",
+      "index_unavailable",
+      "cursor_expired",
+      "source_unavailable",
+      "content_changed",
+      "query_too_broad"
+    ]
+  },
+  "results.item_relations": {
+    "title": "Read Item relations",
+    "description": "Read declared Scenario, producing Job and workflow relationships. Matching names or hashes never infer lineage.",
+    "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+    "example": {},
+    "errors": [
+      "unknown_item",
+      "index_unavailable",
+      "cursor_expired",
+      "source_unavailable",
+      "content_changed",
+      "query_too_broad"
+    ]
+  },
+  "results.item_files": {
+    "title": "List Item files",
+    "description": "Page the sealed registered file inventory for an exact Item revision; File IDs survive derived index rebuilds.",
+    "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+    "example": {},
+    "errors": [
+      "unknown_item",
+      "index_unavailable",
+      "cursor_expired",
+      "source_unavailable",
+      "content_changed",
+      "query_too_broad"
+    ]
+  },
+  "results.get_file": {
+    "title": "Read File descriptor",
+    "description": "Read recorded digest, exact owner revision and currently registered candidate copies.",
+    "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+    "example": {},
+    "errors": [
+      "unknown_item",
+      "index_unavailable",
+      "cursor_expired",
+      "source_unavailable",
+      "content_changed",
+      "query_too_broad"
+    ]
+  },
+  "results.read_file": {
+    "title": "Read registered bytes",
+    "description": "Read at most 262144 verified bytes; offsets are decimal strings and returned data_base64 preserves raw bytes.",
+    "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+    "example": {},
+    "errors": [
+      "unknown_item",
+      "index_unavailable",
+      "cursor_expired",
+      "source_unavailable",
+      "content_changed",
+      "query_too_broad"
+    ]
+  },
+  "jobs.log_streams": {
+    "title": "List log streams",
+    "description": "Discover exact Attempt/stage/effect streams for an existing Job without creating work or acknowledging notifications.",
+    "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+    "example": {},
+    "errors": [
+      "unknown_item",
+      "index_unavailable",
+      "cursor_expired",
+      "source_unavailable",
+      "content_changed",
+      "query_too_broad"
+    ]
+  },
+  "jobs.read_log": {
+    "title": "Read log range",
+    "description": "Read raw byte ranges or bounded tail. Keep source_generation with offsets; report closed, gap and unavailable states.",
+    "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+    "example": {},
+    "errors": [
+      "unknown_item",
+      "index_unavailable",
+      "cursor_expired",
+      "source_unavailable",
+      "content_changed",
+      "query_too_broad"
+    ]
+  },
+  "jobs.search_logs": {
+    "title": "Search log ranges",
+    "description": "Find indexed text within a Job or exact stream. Page the pinned index snapshot and follow raw offset references.",
+    "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+    "example": {},
+    "errors": [
+      "unknown_item",
+      "index_unavailable",
+      "cursor_expired",
+      "source_unavailable",
+      "content_changed",
+      "query_too_broad"
+    ]
+  },
+  "system.dashboard_summary": {
+    "title": "Read Dashboard summary",
+    "description": "Read compact Item counts and index capabilities; does not expand file or log inventories.",
+    "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+    "example": {},
+    "errors": [
+      "unknown_item",
+      "index_unavailable",
+      "cursor_expired",
+      "source_unavailable",
+      "content_changed",
+      "query_too_broad"
+    ]
+  },
+  "system.search_status": {
+    "title": "Read search status",
+    "description": "Read safe generation/checkpoint and partial coverage status without filesystem paths or private diagnostic content.",
+    "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+    "example": {},
+    "errors": [
+      "unknown_item",
+      "index_unavailable",
+      "cursor_expired",
+      "source_unavailable",
+      "content_changed",
+      "query_too_broad"
     ]
   }
 }

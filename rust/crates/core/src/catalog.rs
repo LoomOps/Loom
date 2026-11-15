@@ -241,7 +241,7 @@ impl Application {
             }
         }
         let queue = self.queue()?;
-        let value = json!({"entities":entities,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true},"host":{"machine_id":self.config.machine_id},"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});
+        let value = json!({"entities":entities,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true,"item_search":true},"host":{"machine_id":self.config.machine_id},"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});
         *self
             .catalog_cache
             .lock()

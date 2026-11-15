@@ -365,3 +365,46 @@ pub fn prefix(root: &Path, value: &str) -> Result<PathBuf> {
         relative(root, value)
     }
 }
+
+/// Walk every path component relative to an already configured root without following links.
+pub fn open_registered(root: &Path, reference: &str) -> Result<std::fs::File> {
+    use std::os::fd::{AsRawFd, FromRawFd};
+    let mut fd = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW)
+        .open(root)?;
+    let parts = Path::new(reference).components().collect::<Vec<_>>();
+    require(!parts.is_empty(), "locator", "File reference required", 400)?;
+    for (n, p) in parts.iter().enumerate() {
+        let Component::Normal(name) = p else {
+            return Err(Error::input("Invalid file reference"));
+        };
+        let name = std::ffi::CString::new(name.as_encoded_bytes())
+            .map_err(|_| Error::input("Invalid file reference"))?;
+        let raw = unsafe {
+            libc::openat(
+                fd.as_raw_fd(),
+                name.as_ptr(),
+                libc::O_RDONLY
+                    | libc::O_NOFOLLOW
+                    | libc::O_NONBLOCK
+                    | if n + 1 < parts.len() {
+                        libc::O_DIRECTORY
+                    } else {
+                        0
+                    },
+            )
+        };
+        if raw < 0 {
+            return Err(std::io::Error::last_os_error().into());
+        }
+        fd = unsafe { fs::File::from_raw_fd(raw) };
+    }
+    require(
+        fd.metadata()?.is_file(),
+        "locator",
+        "Regular file required",
+        400,
+    )?;
+    Ok(fd)
+}

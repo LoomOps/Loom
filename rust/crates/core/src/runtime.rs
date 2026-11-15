@@ -217,7 +217,9 @@ impl Application {
                 503,
             )?;
         }
-        self.db.execute("INSERT INTO rust_runtime_observation VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET value=excluded.value,observed=excluded.observed",params![encode(&observation)?,now()])?;
+        let tx = self.transaction()?;
+        tx.execute("INSERT INTO rust_runtime_observation VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET value=excluded.value,observed=excluded.observed",params![encode(&observation)?,now()])?;
+        tx.commit()?;
         Ok(())
     }
     pub fn runtime_inventory(&self) -> Result<Value> {

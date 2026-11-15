@@ -49,6 +49,20 @@ pub struct Config {
 }
 pub trait Docker: Send + Sync {
     fn call(&self, args: &[String]) -> Result<String>;
+    fn log_source(
+        &self,
+        container: &str,
+        path: &Path,
+        returned: bool,
+    ) -> Result<crate::logs::Source> {
+        self.capture_logs(container, path)?;
+        Ok(crate::logs::Source {
+            path: path.into(),
+            generation: uuid::Uuid::new_v4().to_string(),
+            closed: returned,
+            gap: false,
+        })
+    }
     fn capture_logs(&self, container: &str, path: &Path) -> Result<()> {
         let text = self.call(&strings(&["logs", container]))?;
         loom_core::storage::atomic(path, text.as_bytes(), 0o600)
@@ -56,6 +70,14 @@ pub trait Docker: Send + Sync {
 }
 pub struct DockerCli;
 impl Docker for DockerCli {
+    fn log_source(
+        &self,
+        container: &str,
+        path: &Path,
+        returned: bool,
+    ) -> Result<crate::logs::Source> {
+        crate::logs::follow(container, path, returned)
+    }
     fn capture_logs(&self, container: &str, path: &Path) -> Result<()> {
         use std::os::unix::fs::OpenOptionsExt;
         let temporary = path.with_extension(format!("{}.tmp", uuid::Uuid::new_v4()));
@@ -146,7 +168,7 @@ pub struct Executor<D: Docker> {
     pub root: PathBuf,
     pub config: Config,
     pub db: Connection,
-    pub docker: D,
+    pub docker: std::sync::Arc<D>,
 }
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -274,7 +296,7 @@ impl<D: Docker> Executor<D> {
             root: root.into(),
             config,
             db,
-            docker,
+            docker: std::sync::Arc::new(docker),
         })
     }
     pub fn authenticate(&self, token: &str, peer_uid: u32) -> Result<String> {
@@ -439,7 +461,7 @@ impl<D: Docker> Executor<D> {
                         result["declared_images"] = json!(images);
                     }
                 }
-                result["protocol"] = json!({"version":1,"capabilities":["cancel_intent","log_range","runtime_ref","drain_status"]});
+                result["protocol"] = json!({"version":1,"capabilities":["cancel_intent","log_range","log_stream_v1","runtime_ref","drain_status"]});
                 Ok(result)
             }
             "resolve_runtime" => {
@@ -1041,6 +1063,33 @@ impl<D: Docker> Executor<D> {
         Ok(
             json!({"state":state["Status"],"returned":returned,"exit_code":if returned{state["ExitCode"].clone()}else{Value::Null},"image_id":row["image_id"]}),
         )
+    }
+    pub fn log_read(&mut self, instance: &str, args: &Value) -> Result<crate::logs::LogRead<D>> {
+        let ticket = args["ticket"]
+            .as_str()
+            .ok_or_else(|| Error::input("Ticket required"))?;
+        let row = rows(
+            &self.db,
+            "SELECT * FROM tickets WHERE id=? AND instance=?",
+            &[&ticket, &instance],
+        )?
+        .into_iter()
+        .next()
+        .ok_or_else(|| Error::new("ticket", "Ticket outside instance grant", 404))?;
+        let state = self.observed(&row)?;
+        require(
+            state["state"] != "unknown",
+            "container_identity",
+            "Cannot read unverified container logs",
+            503,
+        )?;
+        Ok(crate::logs::LogRead {
+            docker: self.docker.clone(),
+            root: self.root.clone(),
+            container: row["container"].as_str().unwrap_or("").into(),
+            ticket: ticket.into(),
+            returned: state["returned"] == true,
+        })
     }
     fn ticket_action(&mut self, instance: &str, action: &str, args: Value) -> Result<Value> {
         let ticket = args["ticket"]

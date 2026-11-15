@@ -275,3 +275,13 @@ collapsed under Runtime details. No explanatory boilerplate is added to the list
 The UI does not claim discovery of unregistered dependency-directory contents.
 Firefox regression covers filters, versions, escaped paths, Runtime navigation and
 light/dark layouts at 1440px and 500px.
+
+
+## Common Item index
+
+The native candidate adds the Item/file/log discovery adapters documented in
+[Items](../../rust/contracts/items.md) and the administrator
+[operations contract](../ITEM-INDEX.md). Domain identity stays authoritative;
+the separate FTS projection owns no execution or recovery decisions.
+Review source permissions, exact historical refs, projection lag and byte-range
+limits independently from ordinary Job completion.

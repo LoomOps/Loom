@@ -1,6 +1,6 @@
 //! SQLite is an internal repository; no raw SQL crosses an application interface.
 use crate::{auth::Actor, error::require, Error, Result};
-use rusqlite::{params, Connection, Transaction, TransactionBehavior};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -57,6 +57,33 @@ pub struct Application {
 }
 impl Application {
     pub fn open(local: &Path, bulk: &Path, components: &Path, config: Config) -> Result<Self> {
+        let path = local.join("ops.sqlite3");
+        if path.is_file() {
+            let db =
+                Connection::open_with_flags(&path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+            let version: i64 = db.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+            require(
+                !matches!(version, 4 | 5),
+                "schema_migration_required",
+                "Run the explicit drained catalog migration before starting this native writer",
+                409,
+            )?;
+        }
+        Self::open_schema(local, bulk, components, config, 6)
+    }
+    pub fn open_schema(
+        local: &Path,
+        bulk: &Path,
+        components: &Path,
+        config: Config,
+        target: i64,
+    ) -> Result<Self> {
+        require(
+            matches!(target, 5 | 6),
+            "schema",
+            "Unsupported target schema",
+            409,
+        )?;
         if !local.exists() {
             fs::DirBuilder::new()
                 .recursive(true)
@@ -77,7 +104,7 @@ impl Application {
         )?;
         let version: i64 = db.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         require(
-            matches!(version, 0 | 4 | 5),
+            matches!(version, 0 | 4 | 5 | 6) && (version <= target || version == 0),
             "schema",
             "Unsupported Ops schema",
             409,
@@ -100,6 +127,16 @@ impl Application {
                 409,
             )?;
         }
+        if version == 5 && target == 6 {
+            require(!db.query_row("SELECT EXISTS(SELECT 1 FROM rust_effects WHERE state IN('pending','accepted','unknown') AND stage!='publish')",[],|r|r.get::<_,bool>(0))?,"migration_drain","Return all execution owners before the catalog schema boundary",409)?;
+        }
+        if version == 6 {
+            let tables:i64=db.query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN('catalog_meta','catalog_items','catalog_revisions','catalog_aliases','catalog_changes','catalog_dirty','catalog_backfill','catalog_sources','catalog_manifests')",[],|r|r.get(0))?;
+            require(tables==9,"catalog_authority_missing","Restore authoritative Item metadata before starting; an index rebuild cannot replace it",409)?;
+            let meta:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM catalog_meta WHERE id=1 AND length(origin)=16 AND length(cursor_key)=32)",[],|r|r.get(0))?;
+            let broken:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM catalog_revisions r LEFT JOIN catalog_items i ON i.id=r.item WHERE i.id IS NULL) OR EXISTS(SELECT 1 FROM catalog_aliases a LEFT JOIN catalog_items i ON i.id=a.item LEFT JOIN catalog_revisions r ON r.id=a.revision WHERE i.id IS NULL OR r.id IS NULL OR r.item!=a.item) OR EXISTS(SELECT 1 FROM catalog_items i LEFT JOIN catalog_revisions r ON r.id=i.current_revision WHERE i.current_revision IS NOT NULL AND (r.id IS NULL OR r.item!=i.id)) OR EXISTS(SELECT 1 FROM catalog_manifests m LEFT JOIN catalog_revisions r ON r.id=m.revision WHERE r.id IS NULL OR r.item!=m.item) OR EXISTS(SELECT 1 FROM catalog_changes c LEFT JOIN catalog_items i ON i.id=c.item WHERE i.id IS NULL)",[],|r|r.get(0))?;
+            require(meta&&!broken,"catalog_authority_missing","Authoritative Item identity metadata is incomplete; preserve evidence and restore it",409)?;
+        }
         let tx = db.unchecked_transaction()?;
         tx.execute_batch(include_str!("../../../contracts/legacy-schema.sql"))?;
         tx.execute_batch(include_str!("../../../contracts/redesign-schema.sql"))?;
@@ -113,7 +150,10 @@ impl Application {
         )?;
         tx.execute("INSERT OR IGNORE INTO rust_authority VALUES(1,1,1)", [])?;
         tx.execute("INSERT OR IGNORE INTO rust_job_fences SELECT j.id,COALESCE((SELECT max(revision) FROM job_revisions WHERE job=j.id),0),(SELECT epoch FROM rust_authority WHERE id=1) FROM jobs j",[])?;
-        tx.pragma_update(None, "user_version", 5)?;
+        if target == 6 {
+            crate::items::initialize(&tx)?;
+        }
+        tx.pragma_update(None, "user_version", target)?;
         tx.commit()?;
         Ok(Self {
             db,
@@ -139,7 +179,10 @@ impl Application {
             rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
         )?;
         require(
-            db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))? == 5,
+            matches!(
+                db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?,
+                5 | 6
+            ),
             "schema",
             "Read-only serving requires a previously migrated Rust database",
             409,
@@ -183,6 +226,30 @@ impl Application {
         // Token authorization and operation are evaluated on the same serialized lane.
         crate::auth::validate_current(&self.db, actor)?;
         let mut value = match (group, action) {
+            ("jobs", "log_streams") => self.log_streams(&args),
+            ("jobs", "read_log") => self.read_log(&args),
+            ("jobs", "search_logs") => self.search_logs(actor, &args),
+            ("results", "item_relations") => self.item_relations(&args),
+            ("system", "dashboard_summary") => self.dashboard_summary(),
+            ("results", "search_items") => self.search_items(actor, &args),
+            ("results", "item_files") => {
+                let mut query = args.clone();
+                query["parent_item_id"] = args["item_id"].clone();
+                if !args["revision_id"].is_string() {
+                    query["revision_id"] =
+                        self.get_item(&json!({"item_id":args["item_id"]}))?["revision_id"].clone();
+                }
+                query.as_object_mut().unwrap().remove("item_id");
+                query["kinds"] = json!(["file"]);
+                query["view"] = json!("all");
+                query["role"] = json!("all");
+                self.search_items(actor, &query)
+            }
+            ("results", "get_file") => self.get_file(&args),
+            ("results", "read_file") => self.read_file(&args),
+            ("system", "search_status") => self.search_status(),
+            ("results", "get_item") => self.get_item(&args),
+            ("results", "resolve_item") => self.resolve_item(&args),
             ("results", "register_scenario") => {
                 self.create_scenario(actor, crate::contracts::decode(args)?)
             }
@@ -215,10 +282,8 @@ impl Application {
         }
         Ok(value)
     }
-    pub fn transaction(&mut self) -> Result<Transaction<'_>> {
-        Ok(self
-            .db
-            .transaction_with_behavior(TransactionBehavior::Immediate)?)
+    pub fn transaction(&mut self) -> Result<UnitOfWork<'_>> {
+        UnitOfWork::begin(&self.db)
     }
     pub fn externally_drained(&self) -> Result<bool> {
         Ok(!self.db.query_row("SELECT EXISTS(SELECT 1 FROM rust_effects WHERE state IN ('pending','accepted','unknown') AND stage!='publish')",[],|r|r.get::<_,bool>(0))?)
@@ -349,6 +414,78 @@ impl Drop for WriterLock {
         use std::os::fd::AsRawFd;
         unsafe {
             libc::flock(self.0.as_raw_fd(), libc::LOCK_UN);
+        }
+    }
+}
+
+/// All authoritative native mutations and their Item changes share one transaction.
+/// The savepoint branch allows a caller to compose commands without a second writer.
+pub struct UnitOfWork<'a> {
+    db: &'a Connection,
+    savepoint: Option<String>,
+    done: bool,
+    since: i64,
+    catalog: bool,
+}
+impl<'a> UnitOfWork<'a> {
+    fn begin(db: &'a Connection) -> Result<Self> {
+        let savepoint = if db.is_autocommit() {
+            db.execute_batch("BEGIN IMMEDIATE")?;
+            None
+        } else {
+            let name = format!("unit_{}", id());
+            db.execute_batch(&format!("SAVEPOINT {name}"))?;
+            Some(name)
+        };
+        // Construct the guard before any fallible query so BEGIN/SAVEPOINT is
+        // rolled back even if catalog metadata cannot be read.
+        let mut unit = Self {
+            db,
+            savepoint,
+            done: false,
+            since: 0,
+            catalog: false,
+        };
+        unit.catalog = crate::items::installed(db)?;
+        if unit.catalog {
+            unit.since =
+                db.query_row("SELECT COALESCE(max(seq),0) FROM catalog_dirty", [], |r| {
+                    r.get(0)
+                })?;
+        }
+        Ok(unit)
+    }
+    pub fn commit(mut self) -> Result<()> {
+        if self.catalog {
+            crate::items::flush(self.db, self.since, 4096)?;
+        }
+        self.db.execute_batch(
+            &self
+                .savepoint
+                .as_ref()
+                .map(|s| format!("RELEASE {s}"))
+                .unwrap_or("COMMIT".into()),
+        )?;
+        self.done = true;
+        Ok(())
+    }
+}
+impl std::ops::Deref for UnitOfWork<'_> {
+    type Target = Connection;
+    fn deref(&self) -> &Connection {
+        self.db
+    }
+}
+impl Drop for UnitOfWork<'_> {
+    fn drop(&mut self) {
+        if !self.done {
+            let _ = self.db.execute_batch(
+                &self
+                    .savepoint
+                    .as_ref()
+                    .map(|s| format!("ROLLBACK TO {s}; RELEASE {s}"))
+                    .unwrap_or("ROLLBACK".into()),
+            );
         }
     }
 }

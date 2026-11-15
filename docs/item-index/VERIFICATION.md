@@ -3,6 +3,9 @@
 Status: all cases below are **planned**, not executed feature passes. The previous
 native candidate's 812 tests validate its baseline, not this new Item/index model.
 No operational data or host state is needed to write or validate this plan.
+The initial implementation now exercises a subset of these boundaries; see
+[IMPLEMENTATION](IMPLEMENTATION.md). This target matrix is not a blanket PASS
+claim for all phases, scale budgets or failure combinations.
 
 ## Case matrix
 

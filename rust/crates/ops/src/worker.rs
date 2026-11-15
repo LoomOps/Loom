@@ -384,14 +384,6 @@ async fn perform_inner(
             sleep(Duration::from_millis(500)).await;
         }
     }
-    let path = work.folder.join(if work.stage == "run" {
-        "worker.log".into()
-    } else {
-        format!("{}.log", work.stage)
-    });
-    if let Err(error) = sync_logs(executor, &ticket, &path).await {
-        eprintln!("Loom log synchronization: {}", error.code);
-    }
     let code = state["exit_code"]
         .as_i64()
         .ok_or_else(|| Error::new("return", "Missing returned exit code", 503))?
@@ -404,62 +396,6 @@ async fn perform_inner(
     }
     service.returned(work, code, state).await?;
     Ok(())
-}
-async fn sync_logs(executor: &Value, ticket: &str, path: &Path) -> Result<()> {
-    use tokio::io::AsyncWriteExt;
-    let temporary = path.with_extension(format!("{}.tmp", uuid::Uuid::new_v4()));
-    let result = async {
-        let mut file = tokio::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&temporary)
-            .await?;
-        let mut offset = 0;
-        loop {
-            let value = host(
-                executor,
-                "log_range",
-                json!({"ticket":ticket,"offset":offset,"limit":1024*1024}),
-            )
-            .await?;
-            require(
-                value["offset"].as_u64() == Some(offset),
-                "logs",
-                "Container log range changed",
-                409,
-            )?;
-            let bytes = if let Some(encoded) = value["data_base64"].as_str() {
-                use base64::Engine;
-                base64::engine::general_purpose::STANDARD
-                    .decode(encoded)
-                    .map_err(|_| Error::input("Invalid log encoding"))?
-            } else {
-                value["text"].as_str().unwrap_or("").as_bytes().to_vec()
-            };
-            file.write_all(&bytes).await?;
-            let next = value["next_offset"]
-                .as_u64()
-                .ok_or_else(|| Error::input("Missing log offset"))?;
-            if value["eof"] == true {
-                break;
-            }
-            require(
-                next > offset,
-                "logs",
-                "Container log range did not progress",
-                503,
-            )?;
-            offset = next;
-        }
-        file.sync_all().await?;
-        drop(file);
-        tokio::fs::rename(&temporary, path).await?;
-        Ok(())
-    }
-    .await;
-    let _ = tokio::fs::remove_file(temporary).await;
-    result
 }
 fn verify_inputs(request: &Value, _components: &Path) -> Result<()> {
     for (_, item) in request["verified_inputs"].as_object().into_iter().flatten() {
@@ -571,10 +507,13 @@ async fn run_builtin(service: Service, work: Work, request: &mut Value) -> Resul
                 .and_then(|p| p.parent().map(|p| p.join("loom-sdk")))
         })
         .ok_or_else(|| Error::input("Packaged Rust producer required"))?;
+    use std::os::unix::fs::OpenOptionsExt;
+    loom_core::index_store::secure_dir(&service.state.join("log-spool"))?;
     let log = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(work.folder.join("worker.log"))?;
+        .mode(0o600)
+        .open(loom_core::log_index::path(&service.state, &work))?;
     let mut command = Command::new(binary);
     command
         .arg(&file)
@@ -652,6 +591,15 @@ async fn run_builtin(service: Service, work: Work, request: &mut Value) -> Resul
     let code = status.code().unwrap_or(137);
     let proof = json!({"returned":true,"exit_code":code,"process_group_returned":true,"interrupted":service.stopping.load(Ordering::Acquire),"backend":"rust-builtin"});
     storage::atomic(&returned, &serde_json::to_vec(&proof)?, 0o600)?;
+    storage::atomic(
+        &loom_core::log_index::state_path(&service.state, &work),
+        &serde_json::to_vec(&json!({"generation":work.effect,"closed":true,"gap":false}))?,
+        0o600,
+    )?;
+    if work.stage == "run" {
+        let bytes = tokio::fs::read(loom_core::log_index::path(&service.state, &work)).await?;
+        storage::atomic(&work.folder.join("worker.log"), &bytes, 0o600)?;
+    }
     service.returned(work, code, proof).await?;
     Ok(())
 }

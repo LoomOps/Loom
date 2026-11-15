@@ -64,6 +64,7 @@ class RustServiceTests(unittest.TestCase):
   workflow=self.call('jobs','submit_workflow',{'key':'graph','label':'One outcome','owner':'owner','notify':'owner','nodes':[{'id':'a','label':'first','spec':spec},{'id':'b','label':'second','depends_on':['a'],'spec':spec}],'outputs':{'final':{'node':'b','entity':'observation'}}})
   done=self.wait(workflow['id']);self.assertTrue(done['workflow']);self.assertEqual(len(done['executions']),2)
   events=self.call('events','list',{'kind':'all'});self.assertEqual([(e['job'],e['code']) for e in events if e['code']=='complete'],[(workflow['id'],'complete')])
+  streams=self.call('jobs','log_streams',{'id':workflow['id']});self.assertGreaterEqual(len(streams['items']),2);self.assertTrue(all(s['job']!=workflow['id'] for s in streams['items']))
  def test_bad_credential_and_origin_cannot_submit(self):
   with self.assertRaises(HTTPError) as denied:self.post('/api/actions',{'group':'jobs','action':'queue','arguments':{}},token='wrong')
   self.assertEqual(denied.exception.code,401)
@@ -148,3 +149,23 @@ r=t.rpc({'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'system',
   self.assertEqual(self.post('/mcp',{'jsonrpc':'2.0','id':'x','method':'not-a-method'})['error']['code'],-32601)
   value=self.post('/mcp',{'jsonrpc':'2.0','id':2,'method':'tools/call','params':{'name':'jobs','arguments':{'action':'list','arguments':{'unexpected':True}}}})
   self.assertTrue(value['result']['isError'])
+
+ def test_common_search_resolves_real_output_and_reads_effect_logs_without_duplicate_events(self):
+  id=self.submit('indexed-native');self.wait(id)
+  for _ in range(150):
+   result=self.call('results','search_items',{'text':id,'kinds':['artifact'],'view':'all','role':'all'})
+   if result['items']:break
+   time.sleep(.05)
+  self.assertEqual(len(result['items']),1)
+  item=result['items'][0];self.assertIsInstance(item['item_id'],str);self.assertGreater(int(item['item_id']),2**53)
+  for _ in range(100):
+   files=self.call('results','item_files',{'item_id':item['item_id']})
+   if files['items']:break
+   time.sleep(.05)
+  file=files['items'][0];self.assertEqual(self.call('results','get_file',{'file_item_id':file['item_id']})['sha256'],file['sha256'])
+  import base64
+  content=self.call('results','read_file',{'file_item_id':file['item_id']});self.assertEqual(base64.b64decode(content['data_base64']),b'{"synthetic":true}\n')
+  streams=self.call('jobs','log_streams',{'id':id});self.assertTrue(streams['items']);stream=next(s for s in streams['items'] if s['stage']=='run')
+  logs=self.call('jobs','read_log',{'stream_id':stream['item_id'],'tail':True});self.assertIsInstance(logs['offset'],str);self.assertTrue(logs['closed'])
+  events=self.call('events','list',{'kind':'all'});self.assertEqual(sum(e['job']==id and e['code']=='complete' for e in events),1)
+  self.assertNotIn('catalog.sqlite3',json.dumps(self.call('system','search_status',{})))
