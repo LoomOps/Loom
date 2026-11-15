@@ -13,7 +13,7 @@ python3 tests/run.py --browser
 python3 tests/run.py --browser --output /tmp/loom-test-results
 ```
 
-The runner uses standard-library `unittest`. Schema/packaging tests require `jsonschema==4.23.0` and `PyYAML==6.0.2`; authentication runtime uses only the Python standard library. Install the pinned schema dependency in the test environment.
+Native rule/fault tests use Cargo; independent protocol and retained suites use standard-library `unittest`. Schema/packaging tests require `jsonschema==4.23.0` and `PyYAML==6.0.2`; authentication runtime uses only the Python standard library. Install the pinned schema dependency in the test environment.
 
 Browser checks use existing Firefox/geckodriver. The default Firefox path is `/snap/firefox/current/usr/lib/firefox`. Override installations with:
 
@@ -42,7 +42,7 @@ Missing executables are failures when `--browser` was requested. Runs omitting b
 | Packaging | Python dependency modules included in Dockerfiles; runtime state excluded from snapshots |
 | Browser mocks | Unified queue/history expansion, title/menu alignment, Job properties, share/new-window controls, Docker/MCP, viewport/themes, API failure recovery |
 
-SQLite and file validation use real temporary directories. Process lifecycle tests also execute small local subprocesses; Docker, GPU and external infrastructure boundaries are mocked. Browsers connect to a mock Ops API and actual Dashboard server on ephemeral loopback ports. Tests do not mutate production databases, images, containers, GPUs or queues, and do not depend on historical production IDs, counts or tokens.
+SQLite and file validation use real temporary directories. Process lifecycle tests also execute small local subprocesses; Retained suites mock Docker, GPU and external infrastructure. Native tests can explicitly opt into isolated real CPU Docker with `LOOM_NATIVE_DOCKER_TEST=1`. Retained browser cases connect to a mock Ops API; native Scenario/browser cases use the actual Rust Ops and retained Dashboard server on ephemeral loopback ports. Tests do not mutate production databases, images, containers, GPUs or queues, and do not depend on historical production IDs, counts or tokens.
 
 Build generated UI into a temporary file and compare with `dashboard/public/workspace.html`. Stale output fails validation; tests never overwrite the running UI.
 

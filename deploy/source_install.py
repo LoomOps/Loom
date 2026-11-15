@@ -22,6 +22,8 @@ def resume_release(version,destination):
  for role,tag in result['images'].items():
   actual=subprocess.check_output(['docker','image','inspect',tag,'--format','{{.Id}}'],text=True).strip()
   if actual!=result['image_ids'][role]:raise ValueError('Immutable release image changed')
+ import native_artifacts
+ native_artifacts.verify_release(folder)
  return result
 
 
@@ -32,6 +34,9 @@ def prepare(version,destination,resume=False):
  result=resume_release(version,destination) if resume else release.build(version,destination/'releases',None)
  snapshot=Path(result['snapshot']);source=snapshot/'source';kit=Path(tempfile.mkdtemp(prefix='.installer-',dir=destination))
  shutil.copytree(source,kit/'platform')
+ if (snapshot/'native').exists():
+  import native_artifacts
+  native_artifacts.verify(snapshot/'native');shutil.copytree(snapshot/'native',kit/'platform/bin')
  for name in ['setup.py','doctor.py','smoke.py','INSTALL.md','install-plan.example.json','tailnet-plan.example.json','access-plan.example.json']:
   shutil.copy2(source/'deploy/installer'/name,kit/name)
  shutil.copytree(source/'deploy/installer/steps',kit/'steps')

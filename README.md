@@ -2,6 +2,10 @@
 
 Loom lets multiple users and clients queue CPU/GPU Jobs and manage execution state, logs and artifacts. Callers declare preparation, execution, completion and error-handling actions; Loom executes and records them. Error diagnosis, fixes, event consumption and agent operations remain the caller's responsibility.
 
+This development branch implements the Rust redesign. Read the
+[implementation status and boundaries](docs/rust-port/IMPLEMENTATION.md). Operational
+installation updates require a separately selected immutable release.
+
 ## Installation
 
 This repository includes source, Dockerfiles, Compose definitions and host installation scripts. Ops, Dashboard and a separate public Gateway run in containers; a host executor launches Job containers. The host `/loom` directory stores configuration, credentials and databases. Artifact storage and optional external dependencies are connected separately.
@@ -23,9 +27,10 @@ Loom does not embed resident agents or a prescribed agent hierarchy. External op
 ## Repository layout
 
 ```text
-ops/          Jobs, queues, results and MCP/API server
+rust/         Native domain, transactional core, Ops, host executor, SDK and migrator
+ops/          Container definitions and retained Python compatibility reference
 dashboard/    Web UI
-executor/     Host container executor
+executor/     Retained administrator/runtime adapters and reference executor
 loom_use/     Server usage guides, API contracts and pinned client release
 deploy/       Installation, Compose, builds and releases
 tests/        Ops, Dashboard, browser and installation tests; shared runner

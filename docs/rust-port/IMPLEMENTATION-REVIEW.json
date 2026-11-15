@@ -1,0 +1,3333 @@
+{
+  "schema": "loom-implementation-review/v1",
+  "branch": "codex/loom-rust",
+  "method": "Independent complete current Git candidate inventory and parse/hash review; separate from feature catalog. Semantic effect/compatibility review and correction cycles described in IMPLEMENTATION.md. Hash/AST coverage is not a proof of every branch.",
+  "frozen_baseline": "FILE-REVIEW.json",
+  "excluded": [
+    "this generated inventory",
+    "ignored build/runtime/evidence paths"
+  ],
+  "files": 415,
+  "entries": [
+    {
+      "path": ".dockerignore",
+      "sha256": "42ebee4efca00850efd9c04a0989d6e8f1a70f5d212d07df63179a9c5e87bafc",
+      "bytes": 258,
+      "lines": 24,
+      "boundary": "source",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": ".github/workflows/check.yml",
+      "sha256": "a2dcf19fa6ed58b3d8959c8f5e2a95cc398c7ab3e872f3ce599374ce897a06d8",
+      "bytes": 925,
+      "lines": 25,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": ".gitignore",
+      "sha256": "59ecfb7a2fa6b984a6b23c060bf1c3e07d92aaf953795dddb4d423a44fbaabec",
+      "bytes": 318,
+      "lines": 24,
+      "boundary": "source",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "AGENTS.md",
+      "sha256": "9212fea1c589b7f3b5b4ff46cf4b7f4b07baa3519e2111987ce74b090ec7d746",
+      "bytes": 2309,
+      "lines": 16,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "sha256": "76147703196d8b8ea279b04285289663749ef250d4f5383ad7130df09836f30a",
+      "bytes": 17386,
+      "lines": 235,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "Cargo.lock",
+      "sha256": "f9a1c8ccc7d1f593005773edf2f52ed1d9620793186791f1bdb265728239eb9b",
+      "bytes": 56522,
+      "lines": 2299,
+      "boundary": "native implementation/contract",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "Cargo.toml",
+      "sha256": "3d4b7cbdfc579b90a17c20be247706812dfc0f63c3b6ec88d81cf30b8cc28d70",
+      "bytes": 1054,
+      "lines": 25,
+      "boundary": "native implementation/contract",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "INSTALL.md",
+      "sha256": "2426ea81e135b7aaedc7e8c9fc58e33d47ff6021250406c5b5f170e0d3cbdd73",
+      "bytes": 2905,
+      "lines": 23,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "bytes": 35149,
+      "lines": 674,
+      "boundary": "source",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "README.md",
+      "sha256": "f53a0783baf0bc9171a9c12ba5b2aeee49cdb063540064960200aff752d60a17",
+      "bytes": 4804,
+      "lines": 77,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "67a632b954de1d820baa5a5e2177927bd8ac6108d4946a330d66dce5493f4dba",
+      "bytes": 1354,
+      "lines": 16,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "components/README.md",
+      "sha256": "6ecab5646953d6bb26ba9ece57e182082db5ae1923ba0805a4e00ff9facbae92",
+      "bytes": 788,
+      "lines": 12,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/.dockerignore",
+      "sha256": "410e8909baef1ca82e72181cc5e1aa5f503672bb6e66a6518b55b96dbf42f1f1",
+      "bytes": 320,
+      "lines": 28,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/Dockerfile",
+      "sha256": "1eed84e1a0cd2e49db11ee885f27c110851954104785c7b5439c53bfa2f905a7",
+      "bytes": 908,
+      "lines": 16,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "bytes": 35149,
+      "lines": 674,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/README.md",
+      "sha256": "22e11e298c1a883aa317e6aafc8fb362a3212840bd8dc679539a9b7e9626ca23",
+      "bytes": 4690,
+      "lines": 80,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/THIRD_PARTY_NOTICES.md",
+      "sha256": "67a632b954de1d820baa5a5e2177927bd8ac6108d4946a330d66dce5493f4dba",
+      "bytes": 1354,
+      "lines": 16,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/admission.py",
+      "sha256": "e171cd2348b68b00472cb53dabea7c574eb51c59dcf1a2cd4ed36a6089d0b011",
+      "bytes": 5973,
+      "lines": 141,
+      "boundary": "retained web/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "dashboard/admission_http.py",
+      "sha256": "b3c452fa2c2e3b3d39e6f54bbf25f2763137cd8d0c0104879fa19597b7b3ea19",
+      "bytes": 11823,
+      "lines": 211,
+      "boundary": "retained web/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "dashboard/branding/brand.css",
+      "sha256": "43107ab7616b7bfb422c2201305bc4ffb1adea4f8ce378e248a9b5840d24bfc7",
+      "bytes": 2969,
+      "lines": 18,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/branding/brand.js",
+      "sha256": "6118b30df19e6a539b351fad50377a549d1f7779ca0449354d80ca2e50e86e9f",
+      "bytes": 475,
+      "lines": 3,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/branding/logo.svg",
+      "sha256": "50b62efb41712f9434ddd4fc8f89c801126ed353985540460668ac2277f13c85",
+      "bytes": 478,
+      "lines": 1,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/branding/scene.js",
+      "sha256": "6cbd915b63b6f9250ad1003edc056e0ef69c7270927a306fffdbf47bfadf15dc",
+      "bytes": 3430,
+      "lines": 39,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/build_version.py",
+      "sha256": "1e8317d3792a0dcb659c41df8518bde181ea8dd234fbe2b90afcb743a257533e",
+      "bytes": 1817,
+      "lines": 36,
+      "boundary": "retained web/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "dashboard/dev.py",
+      "sha256": "1881f68c34ee2772786ebd1e39146dc96b69b1f4ac71d88f529c4798a915752d",
+      "bytes": 2109,
+      "lines": 58,
+      "boundary": "retained web/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "dashboard/diagnostics.py",
+      "sha256": "2c7dea3a0b2672bbce77ed9d8910534e673409d305d5fa74fdab3fd1eabc1758",
+      "bytes": 5148,
+      "lines": 111,
+      "boundary": "retained web/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "dashboard/gateway.css",
+      "sha256": "cd1f47101e53da4792e185031ea55cdef0231205e809672fe3f6fc25202a1e08",
+      "bytes": 6062,
+      "lines": 67,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/gateway.html",
+      "sha256": "e0b2079ff32b4fd7004013740c957b2c45eef666848bec6feea0d6485bb8ed9b",
+      "bytes": 5053,
+      "lines": 52,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/gateway.js",
+      "sha256": "17d296d75ff03d3a36863d7269656f5fba9aa0001a5ab17d4b2fd96bfad2c034",
+      "bytes": 16228,
+      "lines": 227,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/gateway.py",
+      "sha256": "9a323db8e618dd9e7f4422a97500ed12ab4b97094ee8d53f7524fede8623a04a",
+      "bytes": 4439,
+      "lines": 83,
+      "boundary": "retained web/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "dashboard/managed_resources.py",
+      "sha256": "9ccfba679004cd8c9fbcf97fb9685f0ebc5e6c6b438df62d1fb65f383c0be4e4",
+      "bytes": 9125,
+      "lines": 197,
+      "boundary": "retained web/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "dashboard/public/icon.svg",
+      "sha256": "9fefb62ebd04ce7221d62e06528490046767732c9390e90db07af022a2c4d793",
+      "bytes": 260,
+      "lines": 1,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/public/workspace.html",
+      "sha256": "c076d0a1b5f20d2e3d39ec1bda1e14bb0e082423a6500140e51c2f74260e616b",
+      "bytes": 642027,
+      "lines": 6895,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/requirements.txt",
+      "sha256": "4c24e172a7e2479fb194d2a253a118e052a331b87b6604abd66fee3dc919c8b0",
+      "bytes": 54,
+      "lines": 1,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/server.py",
+      "sha256": "45090ec87a6e2021034d48e7f3be0dca0ba171b347b458df57f771e589695fae",
+      "bytes": 24982,
+      "lines": 442,
+      "boundary": "retained web/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "dashboard/sharing.py",
+      "sha256": "07272219207b96335334b174e8a0fac02610aced505a7b7f524e5f731576eca2",
+      "bytes": 24146,
+      "lines": 350,
+      "boundary": "retained web/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "dashboard/ssh_access.py",
+      "sha256": "edbd5239309ac1d9637662d9a60b78b9ee35c0f1f658ee76e18a4d924702b947",
+      "bytes": 6651,
+      "lines": 118,
+      "boundary": "retained web/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "dashboard/sso.py",
+      "sha256": "354c42c8539eab987cd72d35b2b148e61ef631350c48399215db3f103d9c9a41",
+      "bytes": 5092,
+      "lines": 99,
+      "boundary": "retained web/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "dashboard/theme/style.css",
+      "sha256": "e02d94da8800e6af9c74550079c855562a141cbf1af45aafdf7d9cfc0f8500c3",
+      "bytes": 5684,
+      "lines": 12,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/theme/theme.js",
+      "sha256": "6210d85c3ac0b061b4b2d4a2ea67a32362fa2b6386fda31b763ee5d26fabc87b",
+      "bytes": 1327,
+      "lines": 27,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/access.html",
+      "sha256": "727c933f416aaef693786ef49c62000a678a27a524e8a956e2fea636eb683b38",
+      "bytes": 436,
+      "lines": 8,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/activity.js",
+      "sha256": "4deabb5f6516a32e6bc6f7367afc262a74d573ba6d0b7349dbd4a2635ff87a11",
+      "bytes": 5521,
+      "lines": 96,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/build.py",
+      "sha256": "2eec94b725989df1e0de5ef121f774660e4d5552dd5c2deedaed4173c3dbe6d3",
+      "bytes": 13942,
+      "lines": 147,
+      "boundary": "retained web/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "dashboard/workspace/dependencies.js",
+      "sha256": "ae821deb156d8aafb69d157b49564b3759578e9b531d7fa99413438022aa5ab6",
+      "bytes": 4361,
+      "lines": 25,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/details.js",
+      "sha256": "e29ed1d5b09c43da17a5c20bd3614bbb7232ca69c6cbff437baedc9550b51910",
+      "bytes": 25557,
+      "lines": 404,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/explorer.js",
+      "sha256": "089c3f2afb61b07970b122ce5e3558aaad223093a4a2d836d5e4de38a48d17d9",
+      "bytes": 5297,
+      "lines": 55,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/extensions.js",
+      "sha256": "1b2b084ade9143200351466b06b2b8cccbf133cfd4d288755d4aa58891415653",
+      "bytes": 48003,
+      "lines": 341,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/frame.css",
+      "sha256": "e509500e2983e1234199179441c362c436ea7e99425184c0c13cabf3f9052096",
+      "bytes": 9138,
+      "lines": 90,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/frame.js",
+      "sha256": "4cfc72fc780f88abff42be8dad7a88a2d60941416cdd02122af60896fbb214e9",
+      "bytes": 32290,
+      "lines": 424,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/icons.js",
+      "sha256": "525a5bcfe4f35e46b7fc9c38b5c7e19c25402d7c5ba6495a09337a0386ee72e2",
+      "bytes": 1659,
+      "lines": 13,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/job-activity.js",
+      "sha256": "6bc60e2120360baae48556a324131e43ff9727d565092341b02660112aa20b33",
+      "bytes": 1661,
+      "lines": 30,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/lazy_logs.py",
+      "sha256": "0be35521c5c0d49dc8943b6eea5bb1e18804e942fb1f822ac3377ade624631f5",
+      "bytes": 1821,
+      "lines": 28,
+      "boundary": "retained web/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "dashboard/workspace/mcp.js",
+      "sha256": "03cc0de9e5c16ad1420a474d194b4049ec9e38a3aa2eceedcef1c8a5b27a23ed",
+      "bytes": 7136,
+      "lines": 62,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/media.js",
+      "sha256": "6210027f0b5b8e835874cef5e364218df1f724ee18dff23106433801f0ed385e",
+      "bytes": 4718,
+      "lines": 105,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/operations-desk.css",
+      "sha256": "55d559837b055bbb2740fde725eeee12fd58539e5f4175984b791a195a0e0dc4",
+      "bytes": 43195,
+      "lines": 530,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/parent.css",
+      "sha256": "30892b06b9ff8280e57cf4d4599893a98c540ba0b6ead5c704c782e14d62f4d9",
+      "bytes": 4775,
+      "lines": 38,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/parent.js",
+      "sha256": "77d52a596bb02e9b9df27b4f54fd58bd0741e19011dc3dc52deb1b19b753fec7",
+      "bytes": 25534,
+      "lines": 477,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/projection.js",
+      "sha256": "c8e09ad080459df9d2d3315939acc806953f07e4f4db7436e3cf875d5988d058",
+      "bytes": 2358,
+      "lines": 41,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/queue.js",
+      "sha256": "814f01391436ddccbea00e26307fe1df2c4ccb56bb5b9446f65254718e3daa38",
+      "bytes": 7438,
+      "lines": 96,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/research.js",
+      "sha256": "3711786c49b50f3b9ff04d1c6cb5c4e76815fe5715ba491b217f4361192b3ad0",
+      "bytes": 1753,
+      "lines": 29,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/scenarios.js",
+      "sha256": "fdb5f377d48f2a2c43b02e1e52be865747e91421f29dee07984660944be23a30",
+      "bytes": 10867,
+      "lines": 36,
+      "boundary": "native API consumer",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/surfaces.js",
+      "sha256": "aa16ef777e048f73df35155373e3b73dfa2e4a4b4bb31d58e65ba2117ededb7e",
+      "bytes": 6101,
+      "lines": 106,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/template.html",
+      "sha256": "81edb77dad1269315cbff745751b380d46f2d8ef0a3aa4f3045e8189c696a946",
+      "bytes": 341368,
+      "lines": 3767,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "dashboard/workspace/text-preview.js",
+      "sha256": "88fb064dcc795904a8afcb762f967ec85602b3cb468a473c2fd0aa473f546df8",
+      "bytes": 5221,
+      "lines": 87,
+      "boundary": "retained web/integration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/PLATFORM.md",
+      "sha256": "dd2bbef61a9edefe913589ba5b485d8ccb8ab147951094fd199ea87e7f1f3565",
+      "bytes": 15896,
+      "lines": 240,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/README.md",
+      "sha256": "1eec5aca943cc2830c09bc7ebd3180f5e54493a0a54d75e8a9e3b8a18b5e304b",
+      "bytes": 5022,
+      "lines": 91,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/TESTING.md",
+      "sha256": "013552d91a97d87e5c94107a47ed396e5e8747071a7c3a5effe6b9d5dc57114f",
+      "bytes": 7413,
+      "lines": 82,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/access_setup.py",
+      "sha256": "5f04371831981d3c185cc1d7a78d7881441ccc28f5e53ea08ce02beef73078e3",
+      "bytes": 15421,
+      "lines": 252,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/assign-owner.py",
+      "sha256": "b62af8ab632efe8c3fe15005f5e14a3c6751973cca2ae3ddfa5f69b368a89c47",
+      "bytes": 2828,
+      "lines": 63,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/boot_readiness.py",
+      "sha256": "1045c9d6720bb757c71aeffa241e8ba067d562b177b0a8e13021e73f1829f7f7",
+      "bytes": 5168,
+      "lines": 108,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/build.py",
+      "sha256": "f368a50b14c47d64e34d5a3768dd88be2de37f172b5d6ef70df4dc79e1a1683f",
+      "bytes": 1525,
+      "lines": 34,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/build.sh",
+      "sha256": "01b269cfa5660559907750889d05137235eb7fa9a15aef511b6a0f8015000e5f",
+      "bytes": 81,
+      "lines": 3,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/client_release.py",
+      "sha256": "fbfcbae2b6a21b2b949de7a380c8ce25d5d02c4e9992933e5e497c37a85f46a7",
+      "bytes": 4172,
+      "lines": 63,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/collect-dashboard-gpus.py",
+      "sha256": "dfeb2356ba4293e88ac973dad40191fb1a6ec191fb5aa4fe49678da750bb3e87",
+      "bytes": 1385,
+      "lines": 32,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/collect-observations.py",
+      "sha256": "95fbb90332b89144e04245c225e7ee5fb0e0c4e66bdd848a0b9281cbca179ce3",
+      "bytes": 1575,
+      "lines": 33,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/compose.sh",
+      "sha256": "15295f3c6963bf0bde32b12d4113d62ebe18f736c91d478141b045e4a5ff9ad7",
+      "bytes": 2887,
+      "lines": 48,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/executor-attach.py",
+      "sha256": "5366f41f2caa1a675c5410970ff23d5f3cc57d841deb515346445ec302ff52a8",
+      "bytes": 6383,
+      "lines": 65,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/features.py",
+      "sha256": "1796f7736c000ffc825614f38b04a13bdc614e159d0c82b0d3edf5d149ff6fd2",
+      "bytes": 8490,
+      "lines": 140,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/generate_identity_codec.py",
+      "sha256": "d927f29f6d7ea739b7a0044522c59adfcad440af33c673d01fc4a856c61e3e77",
+      "bytes": 1005,
+      "lines": 19,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/guide_bundle.py",
+      "sha256": "c2ff656b9e6a378f20a8ffedb0b15f6bf6cb49821f2d8ef15eccd60f1a0778f0",
+      "bytes": 3124,
+      "lines": 55,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/host_identity.py",
+      "sha256": "c07141d36bde0ef6e0a6bd8a521e1bd90f6e6ead504e637f7714fb77ebb2164a",
+      "bytes": 4140,
+      "lines": 108,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/host_services.py",
+      "sha256": "287e73306a4e8acd1d524c8605525ec8644bb7b0c1103303ba0da08b1683081f",
+      "bytes": 4505,
+      "lines": 102,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/install-kit.py",
+      "sha256": "148f16cc5e3564942fba777556f845b7b96ff7828aeaac03bae7f1f0e06f17e9",
+      "bytes": 5211,
+      "lines": 67,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/install.py",
+      "sha256": "4e8660de00134a36a1c075fd08a6778e24949616a7de012cd19e89fddbe7974e",
+      "bytes": 4755,
+      "lines": 65,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/installer/INSTALL.md",
+      "sha256": "5d6442569c634565f687024ae72e7da2a320f597778265f9f6a0c50326282108",
+      "bytes": 2532,
+      "lines": 23,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/installer/access-plan.example.json",
+      "sha256": "fd3144db38c7aaa09cfa68aceeb9e5f02f9c5ef2301513c56bc6bdec3e7504eb",
+      "bytes": 842,
+      "lines": 30,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/installer/doctor.py",
+      "sha256": "fcdbe1f97bba30edd938bb7eee356de5c363eb17d33c69bc4d30bb5a28a29142",
+      "bytes": 24763,
+      "lines": 318,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/installer/install-plan.example.json",
+      "sha256": "ae68e429ff9f5d20aed5b0bc9d6a561ea34a828ea964fe900d817cec163067d9",
+      "bytes": 870,
+      "lines": 40,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/installer/setup.py",
+      "sha256": "2da72f17d962ff4681e61361f05ee390ef43fb773a2ccf8f3706a60677c96ecb",
+      "bytes": 27898,
+      "lines": 404,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/installer/smoke.py",
+      "sha256": "a6ba01abedc25c9f4d58dd8be2916f81a9038a85ad75fb6a723339d7228dc2a7",
+      "bytes": 5768,
+      "lines": 83,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/installer/steps/01-plan.md",
+      "sha256": "9179f0d375c1e78a820a81373f2ca3d4e7bad7647cbb3d9ca1507333bcd3bca1",
+      "bytes": 3451,
+      "lines": 27,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/installer/steps/02-host.md",
+      "sha256": "7fdff3534870260b3108d86dc77d4202cef304de3c9586d3e723d2831485f563",
+      "bytes": 1974,
+      "lines": 20,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/installer/steps/03-images.md",
+      "sha256": "d8fa7dc41b488aeddee7fa2d607b0dfb4487d339882b9741acafa5594ab2aa5f",
+      "bytes": 1234,
+      "lines": 18,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/installer/steps/04-configuration.md",
+      "sha256": "fe1924f4d8ffe8f62cb4749263ffd214ab3a9cbc726221d11602d9d86872e764",
+      "bytes": 1424,
+      "lines": 14,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/installer/steps/05-services.md",
+      "sha256": "9cee421e3607af91ef80e35f92d4f7e2b800ec61eb9f08de58d913f6fb7394e4",
+      "bytes": 2381,
+      "lines": 30,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/installer/steps/06-network.md",
+      "sha256": "ee8787768c3d6f5703d3cdfdf2322468bea9c10d30f62301cfae8dd4b204431f",
+      "bytes": 1677,
+      "lines": 23,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/installer/steps/07-handoff.md",
+      "sha256": "4148abc845aaf7322f8d30052640d2f161d621b9c38fcd34a134931f78885cdc",
+      "bytes": 3567,
+      "lines": 55,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/installer/tailnet-plan.example.json",
+      "sha256": "0b4eb6d93adc4f6fd63c8875531b2f9ce85eee8235880a2cdeadda652e73f40f",
+      "bytes": 450,
+      "lines": 20,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/loom-authority.service",
+      "sha256": "7c9a17dec1cedc293e66c4b94acc93d71b66746e2cba2ac43b55a7a295a90a1b",
+      "bytes": 525,
+      "lines": 17,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/migrations.py",
+      "sha256": "ad9ba017d4ced4636e014a889f7a11c38ddd9f86cbe6055049c889ff9db369e4",
+      "bytes": 6841,
+      "lines": 121,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/migrations/catalog.json",
+      "sha256": "9cdcb690740db80db328679c8d8ccb20cbc2fe153661f07728871a5ee56d94f3",
+      "bytes": 909,
+      "lines": 24,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/migrations/research_tools.py",
+      "sha256": "1a53f218de357616256c4a2c2adbe945494c19535f1b2db681b5633e3aa3823c",
+      "bytes": 1173,
+      "lines": 23,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/migrations/rust_authority.py",
+      "sha256": "8e1f7b06df415af8df76d1d8b8ff89d3f23a415c6b6167494e618003d07ec669",
+      "bytes": 2959,
+      "lines": 40,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/native_artifacts.py",
+      "sha256": "bee0a179f49e5fc1554ee18b83cc9f25bb4bc4b34e743a33b826e1cf9674a2f4",
+      "bytes": 2165,
+      "lines": 36,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/policy_cleanup.py",
+      "sha256": "5e66dfea7349d0d35dc1320582bc5184294cea674c4e6e2b155c2c1d9a773e7b",
+      "bytes": 5144,
+      "lines": 70,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/queue_control_cli.py",
+      "sha256": "61532990b4395692bf9f78bc1e9f13bedc6442563db22a3debc3db19e87c9fe4",
+      "bytes": 1056,
+      "lines": 22,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/release.py",
+      "sha256": "c27675827efc225973f50862e458ec637938054e8b0f10b11cc9e5ea588fb7dc",
+      "bytes": 4919,
+      "lines": 81,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/release_check_setup.py",
+      "sha256": "dd0aaa7495dce75bd604f26963f7be370b2a319b7d6740db2b158734a9277ccf",
+      "bytes": 3105,
+      "lines": 59,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/runtime.py",
+      "sha256": "37ede20a40f0687797d79c82e7dda5592b314d1b7853446f9a4df22ea9980c23",
+      "bytes": 18617,
+      "lines": 321,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/runtime.sh",
+      "sha256": "3628a9075fba0174b4000196d89ca8819915eaec1b1cd07080fc52e928f9a7e3",
+      "bytes": 138,
+      "lines": 5,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/runtime_doctor.py",
+      "sha256": "e942e1662c7e54a96c77a59067e32dd8764cbadda220277831c1cb3d3bb4df06",
+      "bytes": 8486,
+      "lines": 136,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/runtime_inventory.py",
+      "sha256": "516f9cd38334761664b1ee10dfd6d287689ef09a979753476402a4b8bec40229",
+      "bytes": 9169,
+      "lines": 144,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/rust_build.py",
+      "sha256": "5cd321bbd27bb94d59755431c5bc9354fb474a77d0f0e8603eded105898bbfc7",
+      "bytes": 3171,
+      "lines": 35,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/snapshot.py",
+      "sha256": "952d744fc70076d6f465c54b44d9718a0428874fe76a868dd4ae1571e0992c79",
+      "bytes": 4887,
+      "lines": 94,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/source_install.py",
+      "sha256": "cfe6893f359c4a2091c18ff0b9accd763c07a43dc2edd4fc6101fe4b7dffc55e",
+      "bytes": 4247,
+      "lines": 61,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/ssh_host.py",
+      "sha256": "d73f6bc4b1d901bf8daa229469305024447e28a3da20f8109db9f5db58a1c238",
+      "bytes": 8020,
+      "lines": 148,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/ssh_setup.py",
+      "sha256": "c32fde13b7c73e9fedde0397fd744caff6abbdc379ec02ba4ec73ec9ea74a870",
+      "bytes": 9647,
+      "lines": 154,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/state_snapshot.py",
+      "sha256": "53ae7f8e8724fdb100b128fd46bcb47e52e2b27f21834ef7785df7e520b17b99",
+      "bytes": 11504,
+      "lines": 214,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/storage_parity.py",
+      "sha256": "7d132024d5035f68a30b264b002a8b9dfd6ad841ccaef074cb5fdd00232a89e5",
+      "bytes": 7050,
+      "lines": 93,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/tailnet.py",
+      "sha256": "8127f73b129a76ca2fbfb352e78d4c3ff8bb48715aa9ae3c75f0376776fed928",
+      "bytes": 17790,
+      "lines": 254,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/test.sh",
+      "sha256": "ee4fd2bc5fdf8a1debf1c1cf8e3f5ca6a46a5e9bb166579e1859ca6713cfc68b",
+      "bytes": 93,
+      "lines": 3,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "deploy/uninstall.py",
+      "sha256": "688955eba926d52c45f562650222aaa9cad1fe217cda0c1a15b752417ad5c751",
+      "bytes": 18659,
+      "lines": 306,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "deploy/update.py",
+      "sha256": "72de26fe46f201a951a7beb1c20c42545433f15b4b827aa3805bffdcb4ef18f3",
+      "bytes": 30834,
+      "lines": 470,
+      "boundary": "administrator/package boundary",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "docs/ACCESS-ENROLLMENT.md",
+      "sha256": "1e7d91c7431b74ff4fd0d10d100c7a98b6c0660edab9e0c0ae4ee753cdd164c4",
+      "bytes": 10234,
+      "lines": 88,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/CLEANUP.md",
+      "sha256": "86e2622c5cd2c3328157f3624e3566e66ecd9ca68abfe0a57a3c66f8c3dfb947",
+      "bytes": 3546,
+      "lines": 36,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/MANAGED-RESOURCES.md",
+      "sha256": "bc3c6b5c955c62f59a92703b97b3e601b9ad14f0373a2b609b11eb70a9e44f16",
+      "bytes": 4152,
+      "lines": 70,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/README.md",
+      "sha256": "80d37e2fc7c10b684b7f2477eea6a24d4165f2ae0f227b134f312eed840b115d",
+      "bytes": 921,
+      "lines": 15,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/RUNTIME-DOCTOR.md",
+      "sha256": "25b9badfe587001149e4d58ccfc1555796f0b310ea0398e67e16369e800022e7",
+      "bytes": 4204,
+      "lines": 70,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/SSH.md",
+      "sha256": "04146557a9bae77b0a4736294d0c16f53cb8b2a5942756f7645bd9c628a4fe66",
+      "bytes": 3311,
+      "lines": 56,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/TAILSCALE-SETUP.md",
+      "sha256": "566c70ce968200dae042d227e340c0ff9ad316471a7aa8f19d66189091b7aff9",
+      "bytes": 3288,
+      "lines": 56,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/TAILSCALE-SSO.md",
+      "sha256": "94c0856bce0b2bdefd89c3d8da29f1e16857f34749f18452d321f404223c54e4",
+      "bytes": 2805,
+      "lines": 32,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/UNINSTALL.md",
+      "sha256": "dd6afee331e18ec36d22c96bb04a80d326e95c8be3eabcf8c442468604ab6ad2",
+      "bytes": 5060,
+      "lines": 83,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/UPDATES.md",
+      "sha256": "a310a82b7c6401e69b52c03bba57ab7ad1cfa5b20c79c24320a957dd8a42dc06",
+      "bytes": 14774,
+      "lines": 194,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/UPGRADE.md",
+      "sha256": "d779a4817f7ef498fe3f53fa4796c1a9c199d3f8dcfd67afeca788f08504ade5",
+      "bytes": 7301,
+      "lines": 118,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/README.md",
+      "sha256": "e14fce2985643f4bf0aaaba1cccb8973e6d928f23f4e79e17d3a7f836318f209",
+      "bytes": 6519,
+      "lines": 100,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/VERIFICATION.md",
+      "sha256": "3eea0a1ad2217e3eccdc75e1f94f2cb51caf045feb22c780c7be38ddebb78fbd",
+      "bytes": 21461,
+      "lines": 285,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/api.md",
+      "sha256": "efceb2a28a1a2a184b4b8b1eaca9127d4ac3b3547b1ae21053f5a7003a6221a8",
+      "bytes": 3346,
+      "lines": 60,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/authoring.md",
+      "sha256": "ab98e19b0433f82ec309af9fe47aa3e7331e153fe17cc8d2018bd8f84f031d33",
+      "bytes": 1547,
+      "lines": 26,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/catalog.json",
+      "sha256": "4d8f33f8f74fcd888ae5ee1d682294f052f630a3f82acde571cbbac66f9c3100",
+      "bytes": 48681,
+      "lines": 1281,
+      "boundary": "instruction/specification",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "docs/features/catalog.md",
+      "sha256": "d39de72e71ff90d2102887ab71d3a1a4432c8f5ad0c475fff88a1b2ce64c0f00",
+      "bytes": 5428,
+      "lines": 90,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/catalog.schema.json",
+      "sha256": "632a7fdf5301e7c24ca90bc6ab65b0f59329f12483aa29d1801e84ea52cbf8e1",
+      "bytes": 3055,
+      "lines": 133,
+      "boundary": "instruction/specification",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "docs/features/dashboard.md",
+      "sha256": "4febaa23ebf185d8dc42ab3c9baf79ca32420ff670bd0ae4aae6aaf8218ec424",
+      "bytes": 19368,
+      "lines": 277,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/diagnostics.md",
+      "sha256": "0cef20fd31d81b29d1ccd70ceecdfab87af1d3e71b5ed04786be5ac3fcdcac54",
+      "bytes": 3054,
+      "lines": 46,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/execution.md",
+      "sha256": "694e219de724b21e988cc60015b37199752fdb7d89085f446bd5d769da9bc71d",
+      "bytes": 8508,
+      "lines": 132,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/extensions.md",
+      "sha256": "945072836c6ea465d5394b73ca3febf32d1665eeef7cd3199e03257fbfc77db3",
+      "bytes": 13642,
+      "lines": 205,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/identity.md",
+      "sha256": "6dcc8a311e48ef20098151124e0afc480e5085c3ca2a88f4e7e27a5541397942",
+      "bytes": 4067,
+      "lines": 38,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/installation.md",
+      "sha256": "a550d11be14ec3c88bba31dfad1c258c7643d344a34f808b4adb5aca9eff8f92",
+      "bytes": 11063,
+      "lines": 167,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/network.md",
+      "sha256": "5e5eb54d546b3e5d0d139852a313ed4145d54e9faaaef87bf7598faa5cc3b161",
+      "bytes": 10211,
+      "lines": 146,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/observations.md",
+      "sha256": "4cc234623d45d3d08a2016302a4ba50e9ffbd1254f1ae994aed12c8f2b3885cd",
+      "bytes": 1344,
+      "lines": 35,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/onboarding.md",
+      "sha256": "91a36b9dcfb25e743cad6f703fd12e718e661dd7ee6083cd906385e9bbee043d",
+      "bytes": 3216,
+      "lines": 61,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/portability.md",
+      "sha256": "c9387cd31ac1dc4e19d9421d587a8ff11d6742b74764214879e708c49160fc77",
+      "bytes": 2079,
+      "lines": 43,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/queue.md",
+      "sha256": "8003c55b69c6b1be458ccd8e15ad0472be7f8184df771c9c3142c6c920e2ffcb",
+      "bytes": 3101,
+      "lines": 61,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/recovery.md",
+      "sha256": "8aec3f4ff2d14180d071d8c4c843c4e530eae765d85510f6e0e29d109128f8fb",
+      "bytes": 2276,
+      "lines": 46,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/results.md",
+      "sha256": "ce5770987248a3114ad4b35269c6ab78e1b9819d3a5f622a884b1d03ee05cbaa",
+      "bytes": 3594,
+      "lines": 62,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/scenarios.md",
+      "sha256": "dd6382cb77199272bc948de97bfd66641ae512b0a6cd2d272a24a99d4c66a48b",
+      "bytes": 1327,
+      "lines": 22,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/ssh.md",
+      "sha256": "18a0a456240ce4b1d8ca92e586c00e31c1097fe454cac320515295465260335b",
+      "bytes": 2497,
+      "lines": 37,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/features/testing.md",
+      "sha256": "a01f614b96d13e4fc08e40f9e99596c2ba9aacc41505c3ee0b26b86453f647a9",
+      "bytes": 1749,
+      "lines": 37,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/API-CHANGES.md",
+      "sha256": "acc94fc981a901fb4b5d079dbc9f79288930ab496e2baa229a44b270e05b748b",
+      "bytes": 4673,
+      "lines": 65,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/ARCHITECTURE.md",
+      "sha256": "ba3c3890cdffa0b877832734bf83eca624b6292b1373de53e18ab4051b8baf26",
+      "bytes": 6999,
+      "lines": 97,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/AUTHORING.md",
+      "sha256": "59c544781d8489e47a5525738a2fde17766d8f17800f86df39897b71b9c3cb5e",
+      "bytes": 7128,
+      "lines": 106,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/COMPATIBILITY.md",
+      "sha256": "e8ee3406dd9d34c947361982eb0c13db3887d74b93c618c4e1ad5514e396bdce",
+      "bytes": 3434,
+      "lines": 58,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/DOMAIN.md",
+      "sha256": "e64ce750980803a332be2b6c4c34cf879a6d8dd917ef221cf8e5da9906f7e8a0",
+      "bytes": 6009,
+      "lines": 94,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/FILE-REVIEW.json",
+      "sha256": "a137626ff1f62d3a99d8755c6dbb95caad27a71d0cad1515cee9c8da6964cd85",
+      "bytes": 631663,
+      "lines": 23636,
+      "boundary": "instruction/specification",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "docs/rust-port/IMPLEMENTATION.md",
+      "sha256": "fcf9fc6ee18ba486258ecbcaef306bc40dde432512d59029cfb9f6bd774e8402",
+      "bytes": 10420,
+      "lines": 143,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/MIGRATION.md",
+      "sha256": "eeda33d2366cba7b61fb4c3298cf7534655bb7b7f33ae8ef9dfd7eac466b9a59",
+      "bytes": 5688,
+      "lines": 86,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/README.md",
+      "sha256": "a48ac794ae712b80a40030913447918e2a007192e60c3f99a17724ba12cf6ed2",
+      "bytes": 7000,
+      "lines": 100,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/REQUIREMENTS.json",
+      "sha256": "9a464cd4923c2dac70a8e4073b7b91fa1c63ac7ffabf9e466d9b4e431def0fa2",
+      "bytes": 6388,
+      "lines": 259,
+      "boundary": "instruction/specification",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "docs/rust-port/REVIEW.md",
+      "sha256": "fd52769fc0b43c12f93f2131b4346d60dbada1f6f1f675a28b48107c3f17d0b3",
+      "bytes": 13650,
+      "lines": 108,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/ROADMAP.md",
+      "sha256": "6cd367416bccf79d8ff8f8c1c057e4684c2fe6988d070e7501a4fc13188d60fe",
+      "bytes": 6464,
+      "lines": 75,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/audit/CONTRACTS.json",
+      "sha256": "59d3a5b912d93a16062d6f1324446254b8d6298bee3b85f9fe37cc6358c5a5f8",
+      "bytes": 9040,
+      "lines": 406,
+      "boundary": "instruction/specification",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "docs/rust-port/audit/MUTATIONS.json",
+      "sha256": "715feae78178e636f840171f3624728ca1415e0cb280aef7ba7686713fac7a8e",
+      "bytes": 117470,
+      "lines": 4200,
+      "boundary": "instruction/specification",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "docs/rust-port/blocks/api.md",
+      "sha256": "5cda7816255846a11c89cbbebd43072bdf53fb7976f0766fc4558ca02a84a05f",
+      "bytes": 4101,
+      "lines": 72,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/authoring.md",
+      "sha256": "2708b50684444d220ccb5aac0b096522f9497b22cc4b216b24d28ec481d268fa",
+      "bytes": 3486,
+      "lines": 55,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/catalog.md",
+      "sha256": "dfef6c2d081621b3cef67632017a3aff75c1fd751eac37391a8e6b489f08d31f",
+      "bytes": 4090,
+      "lines": 72,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/dashboard.md",
+      "sha256": "906c2e7bdd7f66b104619eaeae2285f71fcb7434150677fc97daab2ae25e1eae",
+      "bytes": 6211,
+      "lines": 98,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/diagnostics.md",
+      "sha256": "7a6f071318b42c85d4b93c9bf175266cadc902ea2eee15f2061e19aeea6e3aaf",
+      "bytes": 3097,
+      "lines": 63,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/execution.md",
+      "sha256": "61829fff445e118839546e58da6ba8053466fbcc4214ce191cf82ffc12a9011c",
+      "bytes": 5019,
+      "lines": 80,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/extensions.md",
+      "sha256": "4997ab3012ab9e143e3bcaad226b91b783179ac18d97622ab492a56cd2fdc710",
+      "bytes": 5178,
+      "lines": 82,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/identity.md",
+      "sha256": "0453b02e9c6be7e3bbd8e0b6653f6a20a2e14d3dca2f4c2340fb1e9b703396ef",
+      "bytes": 4186,
+      "lines": 71,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/installation.md",
+      "sha256": "ec7c1e98d43b08ce0ce66dad117379b2f4a2a33721ca4cf8e232d589cc73dd99",
+      "bytes": 8241,
+      "lines": 130,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/network.md",
+      "sha256": "1667f741082805ab007d46b622b42d6d90ab1e305345659fce541fec12fb28bf",
+      "bytes": 4508,
+      "lines": 79,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/observations.md",
+      "sha256": "1e5647b79da2d2319fb99c6240673f1eceb319ae9a97d284aac96a43f3282b76",
+      "bytes": 3416,
+      "lines": 66,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/onboarding.md",
+      "sha256": "4912146d30b57abc62dd110b847ac662fff7c1f9d599a10227fc5987ef4056d4",
+      "bytes": 4007,
+      "lines": 71,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/portability.md",
+      "sha256": "1b35e44b5c99e58352a08e24c91a95e238cc8c3972624cb2de65c3d2fac22f64",
+      "bytes": 3507,
+      "lines": 66,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/queue.md",
+      "sha256": "79ce15e1e9915c31977998669564f727aab20d6c99a075b392803a5746eab56b",
+      "bytes": 3922,
+      "lines": 66,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/recovery.md",
+      "sha256": "6aa3f1fb9db562e409b4c2569ae7045137befccd7c76cee40cba76f547000cdb",
+      "bytes": 3756,
+      "lines": 66,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/research-operations.md",
+      "sha256": "54335eb6b815a22fe98192249c14f7aa092812870248dea36be026d55aa334f2",
+      "bytes": 4732,
+      "lines": 77,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/results.md",
+      "sha256": "3557af4403931da4b8809c50107b3f3d301b125d1b8e569e8a5442b15bc99203",
+      "bytes": 4269,
+      "lines": 71,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/scenario.md",
+      "sha256": "6c8fbe256f77a9fd2178ba97332108c56e02705ee47ae629b37e9cfd29cad5e8",
+      "bytes": 6178,
+      "lines": 97,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/ssh.md",
+      "sha256": "a90bb3d189f2659ef82c1303f49910179d0409057c581020390050d7978f1c94",
+      "bytes": 3505,
+      "lines": 67,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "docs/rust-port/blocks/testing.md",
+      "sha256": "41f0b937dcbbb93544429632872e82312fe67fd0f44f078fa16b160187bdf036",
+      "bytes": 4583,
+      "lines": 76,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "executor/loom-executor.service",
+      "sha256": "ea504cd5fe9d653e332fdd980344d907c336de351aff9d85ea261f101308dd70",
+      "bytes": 242,
+      "lines": 10,
+      "boundary": "packaging/configuration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "executor/runtime_policy.py",
+      "sha256": "d7c44b2477c11586fa745715fcb9faf92e236e7af0a1c33f44a6ac588753b4a7",
+      "bytes": 3116,
+      "lines": 49,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "executor/runtime_store.py",
+      "sha256": "2fca07fc4b9b356b898140124f1e4135b00135454aac32178ef977245d54faa9",
+      "bytes": 9940,
+      "lines": 183,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "executor/server.py",
+      "sha256": "b0f7ba9a882d5de8393efa4080657b408c65d666fcf4c5ee09eb77ff070e21d1",
+      "bytes": 17303,
+      "lines": 258,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "loom_use/LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+      "bytes": 35149,
+      "lines": 674,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "loom_use/README.md",
+      "sha256": "fe32ccfbb62cd8375bc9c4b869dce293c4ca1e8ee738ecb1de2f91d4a8c7d649",
+      "bytes": 1291,
+      "lines": 23,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "loom_use/THIRD_PARTY_NOTICES.md",
+      "sha256": "67a632b954de1d820baa5a5e2177927bd8ac6108d4946a330d66dce5493f4dba",
+      "bytes": 1354,
+      "lines": 16,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "loom_use/client-release.json",
+      "sha256": "5e6a7626926524f5adcb8e21adf062abf461bdfac617cdff840251b433eb1a59",
+      "bytes": 221,
+      "lines": 5,
+      "boundary": "instruction/specification",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "loom_use/components.md",
+      "sha256": "d4243c416c45ea25f6887eb0f1a6f25618af29ff33891523d5343447fdb5cc45",
+      "bytes": 12978,
+      "lines": 170,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "loom_use/entry.md",
+      "sha256": "03870d69e24e3de8186ec0e2aeb78a0298477e8b55a090f80fa3f5bf696aca5d",
+      "bytes": 3364,
+      "lines": 19,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "loom_use/inventory.md",
+      "sha256": "be8e9ead4be75406c0db3540d12c8a8f219415f03ce994c33856f76824b2818e",
+      "bytes": 827,
+      "lines": 14,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "loom_use/jobs.md",
+      "sha256": "637dfe0eea4b61bb16a3e2963b35b6ab71560e48f127acd9db1b6c8e7c91867b",
+      "bytes": 14281,
+      "lines": 169,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "loom_use/operator.md",
+      "sha256": "d4b627e115e4b7874e0e22e39c5ed25818e7f309b8437be4a97130cb963fd2d6",
+      "bytes": 12151,
+      "lines": 96,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "loom_use/quickstart.md",
+      "sha256": "a63eb5babb1941b492dce26bc85ec613cae46396cfa49283f493c559aad5adeb",
+      "bytes": 3126,
+      "lines": 33,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "loom_use/recovery.md",
+      "sha256": "50ccb6018af41bb5b57e053c832566a1d3dc6bc3b232480b4910f10ab504b029",
+      "bytes": 2641,
+      "lines": 24,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "loom_use/runtimes.md",
+      "sha256": "114920f25e3b0f7dfc7d98fb7e0b5394daeec1916beb40a5c22ae6a97df4ea3d",
+      "bytes": 10658,
+      "lines": 173,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "loom_use/skills/loom-use/SKILL.md",
+      "sha256": "81742bc93f12a3343bbfc10b96ba13b39df3716afe4e13c1a7fa900dbcabfebc",
+      "bytes": 6062,
+      "lines": 96,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "loom_use/updates.md",
+      "sha256": "32a6f4316408d80e2467d87ddd6e22f313195c7e3ab41186f7caaf85ee1fe8e7",
+      "bytes": 5302,
+      "lines": 67,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/.dockerignore",
+      "sha256": "65090ab264c9cb73c9b462c51edcc121eef428a8497487465fb53ca28af7eac1",
+      "bytes": 47,
+      "lines": 5,
+      "boundary": "packaging/configuration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/API.md",
+      "sha256": "eaef478ea08375529a589d0fcdb3bd7d0e3bf238f82002173bfaf09103167f39",
+      "bytes": 7478,
+      "lines": 111,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/Dockerfile.loom",
+      "sha256": "7e1c9fb02f3e150ae552e949520ba6b8693dcb3ba3f8eb37c96c9260876d4158",
+      "bytes": 1261,
+      "lines": 15,
+      "boundary": "packaging/configuration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/Dockerfile.rust",
+      "sha256": "564d70f8dbc6fad4bd7cd38d8eb9ea30f03056c36f209c22aa93a997e81f8248",
+      "bytes": 1153,
+      "lines": 18,
+      "boundary": "packaging/configuration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/README.md",
+      "sha256": "cb93e916ba82737d06fe80afa5a7443e57c5dfeb3d02c70909f02ae0ae47708b",
+      "bytes": 6421,
+      "lines": 98,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/REMOTE-FENCING.md",
+      "sha256": "b33a946949d1bf08ad84fe03b9a56ebafea351c66e3a1e822fd1e0bb3adaf76d",
+      "bytes": 4646,
+      "lines": 73,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/access.py",
+      "sha256": "85bf91b068665398726b09658bbc8ac0545fb1797ad97394707f230c5cdc5ab3",
+      "bytes": 7370,
+      "lines": 140,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/build_version.py",
+      "sha256": "952520a2c3160a6774f6f5e5a51b6b6410b6812b75827e3655a6359c7d2b7c6f",
+      "bytes": 2173,
+      "lines": 41,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/component_store.py",
+      "sha256": "571e5a8eb067de330c823987a78857030f1053f5fddd3eca69939e261a22af08",
+      "bytes": 10966,
+      "lines": 170,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/compose.data.yaml",
+      "sha256": "4ab1069d91db53ff0375200fb8c4c66826785fa0c0bddae6ed3748b07e997b49",
+      "bytes": 359,
+      "lines": 12,
+      "boundary": "packaging/configuration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/compose.dev.yaml",
+      "sha256": "96f74a169c8e8fa4c49bb90b62b291f40697b9d1fdfa02b01b770d7732fd3a83",
+      "bytes": 765,
+      "lines": 22,
+      "boundary": "packaging/configuration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/compose.diagnostics.yaml",
+      "sha256": "2fd0772b8058deffb67245e722db2c7f1276dbf2d24f065ff4fdfa9605c10ab6",
+      "bytes": 464,
+      "lines": 13,
+      "boundary": "packaging/configuration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/compose.executor.yaml",
+      "sha256": "0ee3def661318730070cea55753ee2b0fc8660eb1ecdad3055884779a68d6b55",
+      "bytes": 294,
+      "lines": 11,
+      "boundary": "packaging/configuration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/compose.loom.fence.yaml",
+      "sha256": "0aaa0ca3f66e0cdc303bf9356ca5635b9a41c2aceb92ebbf400cbca74a68430c",
+      "bytes": 369,
+      "lines": 15,
+      "boundary": "packaging/configuration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/compose.loom.yaml",
+      "sha256": "08a6ebe30065109b233db5f156e39658defaa2ab5d5ff0b4cb823cb3e513cb36",
+      "bytes": 3596,
+      "lines": 120,
+      "boundary": "packaging/configuration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/compose.observations.yaml",
+      "sha256": "b324dc2e725c28b0ac7dde05e6a5c1e2aa7f4cc6c9e1fd58cd60c45763bdf702",
+      "bytes": 272,
+      "lines": 11,
+      "boundary": "packaging/configuration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/compose.rust.yaml",
+      "sha256": "2a7e4208374f8c2df9d4d1de4d48f7ac9e49ece346e3d8421cae1e47854f05a5",
+      "bytes": 314,
+      "lines": 10,
+      "boundary": "packaging/configuration",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "ops/dashboard_read.py",
+      "sha256": "d06bc25a7813e06f0b8df69fafbbc95d1da9d1f9f2a4e6583d51d0e273c14512",
+      "bytes": 22374,
+      "lines": 372,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/dependency_catalog.py",
+      "sha256": "6cf134abf3bbb9f4250f3b27a7ee5948a241262f283a5a2fbb576ea01b7504c0",
+      "bytes": 5487,
+      "lines": 78,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/dispatch_control.py",
+      "sha256": "f6eef2ca2a47e3b3a7babb9aae4a85fbd5753b9a7f3ba6a9634a9845333b7e18",
+      "bytes": 2652,
+      "lines": 44,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/docker_status.py",
+      "sha256": "7e2266b7be3e4d51750522536859a8b03e83bb80592cbbcd5aa2b9ae53eb7d71",
+      "bytes": 10341,
+      "lines": 207,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/execution.py",
+      "sha256": "2a9b0002840f4de4ea1de2ee7a8458f5089a8c03e362cea0f3bdc12d89f67a66",
+      "bytes": 10464,
+      "lines": 180,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/history_store.py",
+      "sha256": "8bdbf8bf226485f97dc7e203294481f78c54264329ca1d4ce4a18727cfb9deb7",
+      "bytes": 6296,
+      "lines": 123,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/hooks.py",
+      "sha256": "4516ad80725038f704491a2cece725947ebba556da5d6449c532a5640ea98a8b",
+      "bytes": 1405,
+      "lines": 19,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/host_layout.py",
+      "sha256": "039f6eb72119ded52cce7b004511cf94a7c36839a53e48e0d07d6efd66d8679c",
+      "bytes": 854,
+      "lines": 30,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/host_metrics.py",
+      "sha256": "3105238430ea5c755ea5030056bc01c56ef6d5ff1ba7cc1bfb99a63c025992d5",
+      "bytes": 3454,
+      "lines": 70,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/job_contract.py",
+      "sha256": "edab97f59ec7ff3fe18d7c498b616418010fc23cb0584f73d42cee558aa62856",
+      "bytes": 2522,
+      "lines": 45,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/job_history.py",
+      "sha256": "6ee23ce3e2e62b52fd76c07628bc83640c41b632334911127fdc49b84ef335dc",
+      "bytes": 5213,
+      "lines": 85,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/job_work.py",
+      "sha256": "2d5982f07971cc95b43883274c090d372f7d9a243597042c37a5d22fadc3ce9d",
+      "bytes": 8457,
+      "lines": 139,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/mcp_docs.py",
+      "sha256": "7a98278fccdb4e1bf1e1bc1b9e9a89862b1499edebe12762e0446a54b9e0c75d",
+      "bytes": 30666,
+      "lines": 365,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/mcp_groups.py",
+      "sha256": "18c2d2e3e9be29c5eda4c590f8f3ce740003e60f22528283ecff124c37474585",
+      "bytes": 4636,
+      "lines": 41,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/onboarding.py",
+      "sha256": "169490b104e89df35b47a937a07efc2cffd20e94c96322a873eb22d03ad6387f",
+      "bytes": 3905,
+      "lines": 62,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/ops.py",
+      "sha256": "0c0dfb889a6a99a36c2e3817b741a0dc14980bd3f2e11b429e04cf642f596c40",
+      "bytes": 96079,
+      "lines": 1579,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/ownership.py",
+      "sha256": "8d064a61e4a9c09bb164239fb6aeffd6fbd3cedd75b9ee91eeae58061bc17f51",
+      "bytes": 5794,
+      "lines": 105,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/portability.py",
+      "sha256": "c68e486f220da6da1e3493878df7c336b1d4d16e6b9bd02f47585c82a6518d7b",
+      "bytes": 12519,
+      "lines": 236,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/profile_inventory.py",
+      "sha256": "582a602241b01465bd9017fb3ac19465ebfa71c28d1d80dc1cab17dcb96702b6",
+      "bytes": 10991,
+      "lines": 143,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/profile_store.py",
+      "sha256": "64d0902e981d807ddcfd9e1263230c7f657d59a17aea19e5bc097ba167106e2f",
+      "bytes": 9569,
+      "lines": 129,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/profiles.py",
+      "sha256": "980730b62530df223585d24134a561c9e676a55b10aac2c163f9f0e5a1ac9b5b",
+      "bytes": 5654,
+      "lines": 89,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/queue_control.py",
+      "sha256": "0f7c5f80299ac0e36c0930e39d287115017a67ffbbea85dd1f0ffb0739326e15",
+      "bytes": 9571,
+      "lines": 150,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/recovery.py",
+      "sha256": "b768eacef78918176b73028e90ffd0e84e643a41f886c8dd6ad7a72d83afd3c4",
+      "bytes": 7974,
+      "lines": 138,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/registry.py",
+      "sha256": "7268e1eb7e41cb95d5f4fbb53a629e49bae13f3e68c37459013e7737ef39ae5a",
+      "bytes": 10190,
+      "lines": 194,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/release_updates.py",
+      "sha256": "531e732f5536e654813dfbede0320675015590cfc5dd9ef77c5558cd6ed39854",
+      "bytes": 12797,
+      "lines": 263,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/remote-handoff.py",
+      "sha256": "5e6c8bf33899301014ec311c4f6a69410ee2e4bab035e32fa286bcad9701a4d1",
+      "bytes": 3287,
+      "lines": 65,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/remote_fence.py",
+      "sha256": "ea3a71896294df5bee48d4da13d0d0e33ecae86438a729cc88a0f9044d27e6b3",
+      "bytes": 8885,
+      "lines": 188,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/research.py",
+      "sha256": "3f47852bbd66b850677e067b9b2e35c7b52b79d637c495b4dff2e28e47ddda4a",
+      "bytes": 12267,
+      "lines": 189,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/retain-artifact.py",
+      "sha256": "230af8b2b06e87fb26cbc1182b7d05269d86a8fede596e3f319ee82985646e60",
+      "bytes": 1971,
+      "lines": 41,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/runtime_catalog.py",
+      "sha256": "e180cd823aa75ac1c1ddff009cfb41b8e2ad9feb8492afec5b40f8292ed6c219",
+      "bytes": 10048,
+      "lines": 156,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/runtime_client.py",
+      "sha256": "56a9dbea33eff4b16863ed784125e6c2f15bbad9cb236dc7de44b640ed465d69",
+      "bytes": 7579,
+      "lines": 130,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/runtime_contract.py",
+      "sha256": "8e59d00e4e1bfd44b6b544528a65387a70856c665f1ed12df54ece88013f8252",
+      "bytes": 368,
+      "lines": 11,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/runtime_hub.py",
+      "sha256": "a29e5b311d68f479fc95a1b6c58ad8f2a1a2bec75e220be9204859054bcf96c5",
+      "bytes": 10509,
+      "lines": 161,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/serve.py",
+      "sha256": "03ed1d3a37d5f2fcbbee3a6c41eb267ae2653a3aa3795bacb170a30eb5d7bea0",
+      "bytes": 1266,
+      "lines": 43,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/service_tokens.py",
+      "sha256": "1ca8d24bac6c4d217cc7510197e62ba86d3ad686b4d819a264ad7f62a040dec1",
+      "bytes": 4437,
+      "lines": 90,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/software_metadata.py",
+      "sha256": "100ba0b37766ada06c093a8cb488d4a2e02698e4e3003aba0d43b211e90a86b4",
+      "bytes": 3170,
+      "lines": 49,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/ssh_info.py",
+      "sha256": "8e202392865aaaeb9532f53471e3ad1eb8dcdca167c60217ae433a249c298ccd",
+      "bytes": 648,
+      "lines": 13,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/storage.py",
+      "sha256": "c6de2bb3c01ce0b5a9882c9ad5dfc8122e56440b4d51a85caaad83f2f2322175",
+      "bytes": 2184,
+      "lines": 38,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/tool_store.py",
+      "sha256": "9e816a493114d785fc47e0ae86fd663ab1d7bda3410ac25e200a9280f0557143",
+      "bytes": 8055,
+      "lines": 141,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "ops/workflows.py",
+      "sha256": "37433e83fc1e12d12ad56f24af9ae6dcf3679dc8334202d036c62df95ca8a77e",
+      "bytes": 10896,
+      "lines": 157,
+      "boundary": "retained reference/integration",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "rust-toolchain.toml",
+      "sha256": "6b1cf8341d9a08d76c6deb1e9df90a0b208d0ef0d00ee05e0173e9cd4f0f425d",
+      "bytes": 87,
+      "lines": 4,
+      "boundary": "native implementation/contract",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "rust/contracts/action-docs.json",
+      "sha256": "cb0a5b6bac045279cdd20f3052fcea1b0068625d4181f84a8a819e6e07856e0b",
+      "bytes": 25705,
+      "lines": 690,
+      "boundary": "native implementation/contract",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "rust/contracts/authoring.md",
+      "sha256": "ced3710c1a9e8048244a9c49420df41f837a6a4727928c313dc799336c8dfddd",
+      "bytes": 903,
+      "lines": 13,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "rust/contracts/job-contract.json",
+      "sha256": "0c2de4c2711b347ec45ba16220a7301c47e9ff74c7c8319c907a77737195c3be",
+      "bytes": 1531,
+      "lines": 57,
+      "boundary": "native implementation/contract",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "rust/contracts/legacy-actions.json",
+      "sha256": "317018142998362a76b73dde415f4d991889d7a693d210723cdde3ba18e5d697",
+      "bytes": 76631,
+      "lines": 3031,
+      "boundary": "native implementation/contract",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "rust/contracts/legacy-schema.sql",
+      "sha256": "a67cd295ed78bd8f86b446be77fc6ecf9da8e79351d4947ee58331bb0c6e71cc",
+      "bytes": 7143,
+      "lines": 96,
+      "boundary": "native implementation/contract",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "rust/contracts/redesign-schema.sql",
+      "sha256": "46b572cda0a492bb9be4f86051bb47d6e09fb910a0ef296c4a05360517dfcc2c",
+      "bytes": 15799,
+      "lines": 97,
+      "boundary": "native implementation/contract",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "rust/contracts/scenarios.md",
+      "sha256": "267b266a63999d6b5e3aa264a20dcb7edce4ae80d10c68568c1246784cff936d",
+      "bytes": 577,
+      "lines": 9,
+      "boundary": "instruction/specification",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "rust/crates/core/Cargo.toml",
+      "sha256": "0f2e2ed186861240406e4533e5bf8ea18ab50744a73c089ab02a0dd3dc45a42e",
+      "bytes": 533,
+      "lines": 26,
+      "boundary": "native implementation/contract",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "rust/crates/core/build.rs",
+      "sha256": "c2db98a43ccebfb5d94d553fe0867ae2a0599a572828e460de3a58af47f28f8e",
+      "bytes": 1649,
+      "lines": 44,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/auth.rs",
+      "sha256": "e84b5bb926e5c5c037115c2e842c25b4f67835df8b15e8672f0d008d2baef042",
+      "bytes": 10224,
+      "lines": 273,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/authoring.rs",
+      "sha256": "28734d7657af943e9a4914f1b810138babe0ff9ad09605b28398c243302e14b9",
+      "bytes": 3778,
+      "lines": 100,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/casefold.rs",
+      "sha256": "bcd028575d01ad9fac72e5575f00fea38f6de8f257e02ce02ba193b2cafa5b33",
+      "bytes": 46267,
+      "lines": 1534,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/catalog.rs",
+      "sha256": "58636a4a72d860298fe790e3d6af8231b80840a7a411b60b4b94024fdc29e37f",
+      "bytes": 23411,
+      "lines": 413,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/compat.rs",
+      "sha256": "7a2927038bdce746ae93628af145a5a038b93c27ab4ffd5b0a705caf368417f7",
+      "bytes": 2215,
+      "lines": 71,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/composition.rs",
+      "sha256": "771a271d3b07bca5769274cbde3e8cdb5be3b1a15f01ba40756246772b59413f",
+      "bytes": 33290,
+      "lines": 644,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/contracts.rs",
+      "sha256": "009b8c89af1962ca31b77634aa8e9af0e9f6d4724e08e242d88d0cdf29987ec7",
+      "bytes": 10609,
+      "lines": 341,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/diagnostics.rs",
+      "sha256": "8963d2d33c787d382a0e6c0d8571abb1dc027eda611a9ed7d53870daa9b40e32",
+      "bytes": 2281,
+      "lines": 55,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/error.rs",
+      "sha256": "d1f33f11ddc571568e31c6d84f2d0e6931f221310dfcf462251c015d94b7bf0d",
+      "bytes": 2358,
+      "lines": 77,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/execution.rs",
+      "sha256": "d0def0f2528366a39a371791ebf719299cd811682b0afb91c0d39853a619b255",
+      "bytes": 30102,
+      "lines": 670,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/history.rs",
+      "sha256": "86786bf2c4418860f1b67d576cbbb4d9b8bd50589dbb7f2fb7cfbf6b41f5eb12",
+      "bytes": 11575,
+      "lines": 143,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/http.rs",
+      "sha256": "5036a90316239b722f5d3e3039e703f672a3cfd6084756a40f567be67c1b9dd2",
+      "bytes": 28617,
+      "lines": 733,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/jobs.rs",
+      "sha256": "1bd883390ca59fffd2a9f886b3e3232c1d9442b36bf45830cf81186d155cab89",
+      "bytes": 43052,
+      "lines": 1004,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/lib.rs",
+      "sha256": "500825acd42950d71955c93e24501ee6c4c025131e05b6fe571ab57e40a0ba59",
+      "bytes": 622,
+      "lines": 30,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/media.rs",
+      "sha256": "52dc5593c7092b61fac2bece7e929bd18fa4dff5536c63406de093f433a36b75",
+      "bytes": 9637,
+      "lines": 280,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/onboarding.rs",
+      "sha256": "6cbddc0b142ef8ddc6e529eb2a7a6cc363dccdab781eff6acb32291fd637f0f7",
+      "bytes": 9280,
+      "lines": 209,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/progress.rs",
+      "sha256": "69aca02585e90bfed469489cfb2ea9062eaba5d0dbfe4756dbbfd9f06a49dcdc",
+      "bytes": 5056,
+      "lines": 129,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/query.rs",
+      "sha256": "e9e7ba38b9c69e47f3394e2b630e65c079ca8de45703dd9a4ae973e6d6c5955d",
+      "bytes": 38953,
+      "lines": 784,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/results.rs",
+      "sha256": "58afb09685780454dc0270adae4f86e49569be952ba9a86d02eaed21e74d152b",
+      "bytes": 37899,
+      "lines": 853,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/runtime.rs",
+      "sha256": "6e990173ca5de791fa79da158625b99c5ca5789fe20e91df682fecbe53beed11",
+      "bytes": 17260,
+      "lines": 438,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/scenario.rs",
+      "sha256": "2527e06e7244c6315f40898898d10d4d8083aebfcad2fb348ae3721f1d43e315",
+      "bytes": 9809,
+      "lines": 225,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/software.rs",
+      "sha256": "4ffa4883699f5831726163aef8127f276bdd308dac5124a4a3ab689e3b6df2c8",
+      "bytes": 32024,
+      "lines": 802,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/storage.rs",
+      "sha256": "ed3373c195245ac2e8d6d73d54a8f7e5dc2f9a4385cbd881514dc6e8444906be",
+      "bytes": 11427,
+      "lines": 367,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/core/src/store.rs",
+      "sha256": "76b06e966af10400af6a3cb0f8d08e75a6fe6acaa8956404dac9dc44af3c3528",
+      "bytes": 13216,
+      "lines": 354,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/domain/Cargo.toml",
+      "sha256": "a583c9604a5bd074a40e631c27dbbc0b8335bfaa5768b88e6d065cbad01b8fc6",
+      "bytes": 186,
+      "lines": 9,
+      "boundary": "native implementation/contract",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "rust/crates/domain/src/lib.rs",
+      "sha256": "f7e3aa13310f701b9f9328b30bcc2b078c1ebb1b07de0b79264c104fdec7a59f",
+      "bytes": 11980,
+      "lines": 348,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/host/Cargo.toml",
+      "sha256": "92cdd0f29bf2c6b44f9290a79509602a1b958741c0a10f6f96ca65b839ae3cc4",
+      "bytes": 490,
+      "lines": 23,
+      "boundary": "native implementation/contract",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "rust/crates/host/src/executor.rs",
+      "sha256": "d56d0a85a12cd9fb5ba0026af79d4adb735508d4f0ccd7ac04b867b178fc8219",
+      "bytes": 43519,
+      "lines": 1130,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/host/src/lib.rs",
+      "sha256": "8d94842ff8da96f1414fb66f5611be603cc49c23e94bf98e3c214d284b3cd5fe",
+      "bytes": 154,
+      "lines": 5,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/host/src/main.rs",
+      "sha256": "9611e5f6785e971a3308aa2545e015197476f216e706b5d79b44add8c5cab1bf",
+      "bytes": 1379,
+      "lines": 9,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/host/src/observe.rs",
+      "sha256": "495bc96aff0503e55cd0ffa6121122a2f0c8c6f1dc966831740b7e56fd1a7188",
+      "bytes": 960,
+      "lines": 20,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/host/src/runtime.rs",
+      "sha256": "51a0d34de685b8a92398c2b1a9e826582aefeb137d829efb960995c8e0816b0e",
+      "bytes": 10282,
+      "lines": 274,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/host/src/wire.rs",
+      "sha256": "36443e309793f5ceb587555a65ff7ee9b0517f8747a3cebfaa5c0251787ec08c",
+      "bytes": 8638,
+      "lines": 242,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/migrate/Cargo.toml",
+      "sha256": "51a8993b58080d8dc6a8afaa47f78fbddbfc648351226d9ac2a5ffe40719a767",
+      "bytes": 342,
+      "lines": 14,
+      "boundary": "native implementation/contract",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "rust/crates/migrate/src/main.rs",
+      "sha256": "52082b5f59ca7130050f735fb32075cc3980d5dc3eb64e2a2f3aedbd302afd70",
+      "bytes": 11491,
+      "lines": 199,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/ops/Cargo.toml",
+      "sha256": "59b4ad8d8216f4c9b58877f2b6dde3b533e5ed1b7a22a8c271e71b5ad45d70e6",
+      "bytes": 614,
+      "lines": 24,
+      "boundary": "native implementation/contract",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "rust/crates/ops/src/lib.rs",
+      "sha256": "cdf5a4ff8f43ea885755878a79292f7da3b70e1061dbb88a71f68fa80bdc10fc",
+      "bytes": 13952,
+      "lines": 332,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/ops/src/main.rs",
+      "sha256": "aeb427f02f994c3f67271b1cbfaff86177a593bc36eec8075732c2746fa6dc36",
+      "bytes": 9585,
+      "lines": 272,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/ops/src/ownership.rs",
+      "sha256": "adda99aa94783fb6e42583dcf8cfef03a58a41d6279a48e31aaf1a67e5aff71c",
+      "bytes": 5056,
+      "lines": 142,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/ops/src/updates.rs",
+      "sha256": "9f137538a79f2a189aaf94bd2cff100230373ad591194f7b9f6cff200d652f6a",
+      "bytes": 13860,
+      "lines": 371,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/ops/src/worker.rs",
+      "sha256": "60720103226a32c7b5880afa9f36784f42c85b6b2c2e906065e07249e6869d75",
+      "bytes": 27315,
+      "lines": 730,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/sdk/Cargo.toml",
+      "sha256": "ac92fe1ece0419bca80406b4b42897ff1b616b381cdb1d02bf685d62baae9da5",
+      "bytes": 300,
+      "lines": 14,
+      "boundary": "native implementation/contract",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "rust/crates/sdk/src/lib.rs",
+      "sha256": "070dc6661dedb5c23a92b3636534de1566311b7324c42fd49c47db48814cabf5",
+      "bytes": 9507,
+      "lines": 265,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/crates/sdk/src/main.rs",
+      "sha256": "052709e8d07f522bceff4299a78c87a0c7140921d83b06dfefe385b6bcce28f2",
+      "bytes": 1653,
+      "lines": 40,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/templates/hybrid.rs",
+      "sha256": "078f912981d88d88a6dc1cf74df638cdd2146879236ef0684cac22ddd1a2ee68",
+      "bytes": 777,
+      "lines": 15,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/templates/runner.rs",
+      "sha256": "4129f05ad968555c0571b5700f7a002e6b6780988b6bc93424421dd073b34013",
+      "bytes": 377,
+      "lines": 10,
+      "boundary": "native implementation/contract",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "rust/templates/sdk-Cargo.toml",
+      "sha256": "36b0b0b46977593de3fe10b9e4fed2a0df73e829b8fbedab3d642e2f2f49f84e",
+      "bytes": 207,
+      "lines": 10,
+      "boundary": "native implementation/contract",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "rust/templates/worker.py",
+      "sha256": "a9de3c325631fd0e9ededb094456eef951d14f2228ce17eec81e49a7a5080e35",
+      "bytes": 176,
+      "lines": 2,
+      "boundary": "native implementation/contract",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/README.md",
+      "sha256": "01bfd79cb87646a54aa64a44bebed5036942ae3679c4c8261bf7267d6d4bf932",
+      "bytes": 2336,
+      "lines": 38,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "hash/structure inspection"
+    },
+    {
+      "path": "tests/dashboard/browser/test_native_workspace.py",
+      "sha256": "7ec2df503897487ae4981d8f6a6b2c5bb7b805a1d8df3ca184d64355f64628dd",
+      "bytes": 4415,
+      "lines": 41,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/dashboard/browser/test_workspace.py",
+      "sha256": "dc339ef565c7affa36b50a0f71896281ccb97f9cb44faee12076d602f64beb96",
+      "bytes": 131403,
+      "lines": 1448,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/dashboard/mock_ops.py",
+      "sha256": "ea1c2c78cf5b3ba741d0c8549c20988509973545e282e0bef8084cffe50605fa",
+      "bytes": 9236,
+      "lines": 115,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/dashboard/test_admission.py",
+      "sha256": "b438d184ba76b1430de604e2abf40ad626dd2a18bea91f417f6965e1eacf832e",
+      "bytes": 6711,
+      "lines": 122,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/dashboard/test_diagnostics.py",
+      "sha256": "3fde1b66adba4152a7dcd198068b0e58d9ecda1c5f3a94b47708c48d0e682520",
+      "bytes": 3943,
+      "lines": 63,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/dashboard/test_gateway.py",
+      "sha256": "dd5de7c2cf26b86e1c3f08649f753fd8e7b3c769a3c1ab54bbbf56d5f23e8504",
+      "bytes": 6537,
+      "lines": 109,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/dashboard/test_managed_permissions.py",
+      "sha256": "925d30f994300329ca2e8cccc9b71f78d341ece9354f1e18e9567923a4bf6e63",
+      "bytes": 2072,
+      "lines": 36,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/dashboard/test_proxy.py",
+      "sha256": "17a00a645d15d84fbfc838918f80f9b2678e112f197d15db6c651fdf55c41540",
+      "bytes": 18565,
+      "lines": 286,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/dashboard/test_sharing.py",
+      "sha256": "ff900e83c1a74e1118f3ffa6d8b8f4d53325c5b76e85a702511c3dd959b41bb0",
+      "bytes": 24434,
+      "lines": 363,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/dashboard/test_ssh_access.py",
+      "sha256": "92cc4ecc1ee740aee6cd36ba396c56277b0bb46d93b291c2c92601e3087ebdf5",
+      "bytes": 5617,
+      "lines": 83,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/dashboard/test_sso.py",
+      "sha256": "9495f263ab1af5e7a877b0d71a282f62c1fe56f492ae449c63361f83ba708300",
+      "bytes": 8081,
+      "lines": 113,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/dashboard/verify_browser.py",
+      "sha256": "33d7bfe2327e4a437458275d0758093b7dc3dabf8871276f679e8c4bed8fbc17",
+      "bytes": 3050,
+      "lines": 78,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/dashboard/verify_workspace.py",
+      "sha256": "47a2be3cb16fababddaa644edc7f7f79b0bea4a66fca18907be6471f6291cd88",
+      "bytes": 7945,
+      "lines": 164,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_access_setup.py",
+      "sha256": "e6ba18d65358ff15bc4ad878ebbf687936d2a3ff6d8dd8ab775b0137109cdf2b",
+      "bytes": 9503,
+      "lines": 141,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_boot_readiness.py",
+      "sha256": "70760ce346f0ce55405951fbc0050daa454c20702a009e5971b8508b4587fd41",
+      "bytes": 10553,
+      "lines": 171,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_client_release.py",
+      "sha256": "597842f42b06453812cab4636a6a9639869ba1d0022fc5345c383ab3391c63e4",
+      "bytes": 2980,
+      "lines": 49,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_distribution.py",
+      "sha256": "dee195d5707d2725f4b7e7023924b9da4146e1f465e3afe41683c885f40d6463",
+      "bytes": 3604,
+      "lines": 67,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_features.py",
+      "sha256": "6690b344b6c2a33dafa409ad2d0eff361c30eb0b14e684c25a0872ef25b028b4",
+      "bytes": 6230,
+      "lines": 97,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_host_identity.py",
+      "sha256": "4ff75ceb2f1f0db2d26fb6246b9510949b9b19ae1f520d869e8a790f53aa3ec2",
+      "bytes": 2811,
+      "lines": 45,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_install_doctor.py",
+      "sha256": "14e37e8b26c6df877722a3e10d6e11dab689809c78e729c1d73bfbe3573db8e7",
+      "bytes": 26871,
+      "lines": 343,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_install_kit.py",
+      "sha256": "39bbd4d0a6939db76b40142ca96774ba1e60ff1dc35c6a764c8a4cbfaf2e27e9",
+      "bytes": 6941,
+      "lines": 99,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_installation.py",
+      "sha256": "00458fcad819ae5a43db4598b3acc371df2b860eec0e647f288ae43756e6aa17",
+      "bytes": 4098,
+      "lines": 49,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_managed_resources.py",
+      "sha256": "962ddd144baef31974f2d788e9b66f983a2a6fa852b801da49494ce78f0cf54f",
+      "bytes": 6286,
+      "lines": 92,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_native_artifacts.py",
+      "sha256": "3810ba52945438e143b68540767164b86e3397e536fec02ba5e2a17a5a9e981d",
+      "bytes": 2581,
+      "lines": 27,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_packaging.py",
+      "sha256": "22c1257e7bb89317b0df1799ac512c0caf2c2e38275d75b23f5c65c0ba57d1d4",
+      "bytes": 8656,
+      "lines": 138,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_public_source.py",
+      "sha256": "6fd2dfc5fbb7fecb0e0b72ff21d50718f4c70cddf6bdd0dd4269b3473cac2649",
+      "bytes": 2061,
+      "lines": 40,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_release_check_setup.py",
+      "sha256": "0ca4887c1c13d06055161e18d570b53333ec393daac0d0c74b7dbd1899126fb9",
+      "bytes": 1454,
+      "lines": 25,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "sha256": "afee05599b21b0c97a8cfaec5c5559e498a9a9091bccf240f73c51127d61d43d",
+      "bytes": 21355,
+      "lines": 286,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_runtime_doctor.py",
+      "sha256": "d6c257daf8c324b7a28111c55f73a9a550882214c084ec758f020fb6efe4b628",
+      "bytes": 5043,
+      "lines": 75,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_runtime_install.py",
+      "sha256": "b51ff4b694c462dd345b75af18c3995ef2135511103a4ea58e8ee438959ccff3",
+      "bytes": 18781,
+      "lines": 269,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_ssh_host.py",
+      "sha256": "9d73e6a570c183a01fdb22ce6c4bd29a22484704a35b77baf33536fb92156ec0",
+      "bytes": 7493,
+      "lines": 109,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_storage_parity.py",
+      "sha256": "20283c8aa741b17328c1019cb47a2166ae0e0f49639f3e888924817829528d52",
+      "bytes": 5342,
+      "lines": 74,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_tailnet.py",
+      "sha256": "21dda67fdd71a1cd5435fa0cb341eff4590c429e220e52f7ba75f1e22bc0c1bd",
+      "bytes": 9970,
+      "lines": 147,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_uninstall.py",
+      "sha256": "e7ad2ebd2df50e31e3bb06986dee2e8e3c4807cdd153f4bc26b9ed917e86bd03",
+      "bytes": 12504,
+      "lines": 173,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "sha256": "5da4686d6db003f7fc252815047a78d768564b71874d9834fabc4d99302b7f01",
+      "bytes": 18578,
+      "lines": 253,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/client_source.py",
+      "sha256": "301a9245da82d03262efb52708ad7583f93c894ef354012ad4838ea22a0d6d79",
+      "bytes": 529,
+      "lines": 9,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_access_contract.py",
+      "sha256": "d61fb296948d6ead26c2c9b775d5ace389c976eb8c082d6ba7a7818e662f58fa",
+      "bytes": 2208,
+      "lines": 40,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_api_contract.py",
+      "sha256": "7551b50cad2a29a8e547d6d50abb93d76fd33c2b13249648b5feb87fe6421984",
+      "bytes": 23644,
+      "lines": 319,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_client_setup.py",
+      "sha256": "6f37e93b721a65be08cd4980b3d9f81a77bf6604b6e533f7ff122ca4f7455627",
+      "bytes": 6930,
+      "lines": 98,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_components_platform.py",
+      "sha256": "e1553838fae604fbb75afdd10efce915cc264df8504e7662e81294287a925c4d",
+      "bytes": 10911,
+      "lines": 165,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_dashboard_identity.py",
+      "sha256": "2300c73349815274cf84bf6f14c9fe09cd7c4fc8b2e79f7bb38c36b70edf2554",
+      "bytes": 4500,
+      "lines": 69,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_dashboard_resources.py",
+      "sha256": "8428d81e5e3352ff91107601c0f4ed247393d3483595e01aebd056fe26806a4e",
+      "bytes": 3114,
+      "lines": 50,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_dependency_catalog.py",
+      "sha256": "6c04163226a473261d9616e45fa00c5df48e9c46348c541fc005ad01d3a009c7",
+      "bytes": 4247,
+      "lines": 60,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_docker_status.py",
+      "sha256": "a9c55be3729eefd42088591c8b9a702607de7486ae87f9198a6d301ace215ba9",
+      "bytes": 3522,
+      "lines": 64,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_executor_boundary.py",
+      "sha256": "821069b6c409cea6d928ba3b83c5d5a596091394b060cf57f9358c1efea16650",
+      "bytes": 15878,
+      "lines": 238,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_file_preview.py",
+      "sha256": "1a85737f6d082d5ad79aa86cd0beefb2c08dfc5bbc6d28553d5c74cbe9385182",
+      "bytes": 2440,
+      "lines": 38,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_generic_agent.py",
+      "sha256": "a6cb93faa519becc991f2f4719bcd57e2a411c03f4eb0c86905f03d76caa6287",
+      "bytes": 21960,
+      "lines": 349,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_history_availability.py",
+      "sha256": "e5ae8c87921fd292e71444a04be4c89079ff9ea1d8d99530a8121986929b81c5",
+      "bytes": 4224,
+      "lines": 65,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_host_metrics.py",
+      "sha256": "f4f1fa1bbdfa9ed41b92f248be98a9c3057dd32f2ba4848a9b41013e2c3e7ddc",
+      "bytes": 1090,
+      "lines": 20,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_independent_profiles.py",
+      "sha256": "0e9a0d3ee611fb068d8017647fab94232ada2156097510d1f702f5b67fdf2ec3",
+      "bytes": 8833,
+      "lines": 113,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_initialization.py",
+      "sha256": "50bbe11222e663d08777b9142f490796ad18ba9bcc08a3b7545d555833d2825f",
+      "bytes": 501,
+      "lines": 10,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_installation_smoke.py",
+      "sha256": "a3fe26c3b650b8f238f577df0568fa4e3ac49d984770b467541ce80bbb064ed9",
+      "bytes": 1784,
+      "lines": 30,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_job_contract.py",
+      "sha256": "aa2df49aafbd90aabc851f7e53ae76bc085ea13a44893002805fd40eb3ff5fb2",
+      "bytes": 3694,
+      "lines": 59,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_job_history.py",
+      "sha256": "a16319077cd76b58f22168f10e0256d76e1bad8a6de0850fe449b1bcfb7bbe0c",
+      "bytes": 2582,
+      "lines": 48,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_job_lifecycle.py",
+      "sha256": "86ba5be4dde7758a652f2789b0a64109801c0663224667b94b647bf2c7d0e99b",
+      "bytes": 20539,
+      "lines": 309,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_job_work.py",
+      "sha256": "96a6993e7b368df08cffb703209575faf4d1930b0f41bd96ba2748c480d65cfa",
+      "bytes": 9449,
+      "lines": 131,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_mcp_docs.py",
+      "sha256": "f3f92ebae30a5c9fa7d620da116ebd6abed0fa6b3660940f45f9671afbf7e6fd",
+      "bytes": 3980,
+      "lines": 58,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_onboarding.py",
+      "sha256": "3005547d3adcaef4be8e8c021ea86633756eebad6294a8ebb9576f4f41c09c62",
+      "bytes": 8414,
+      "lines": 117,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_output_contract.py",
+      "sha256": "d6e274e5dd2fa56ff28de6c786d3262f6fc36721ec228ea3ebbfe69afc4f969e",
+      "bytes": 2600,
+      "lines": 33,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_profile_inventory.py",
+      "sha256": "78c09f5632bde817cd204e8e5d0ec4612ad422f7ec6b9f87307c5b2ce267087f",
+      "bytes": 16149,
+      "lines": 227,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_queue_contract.py",
+      "sha256": "1946b3cb613cdd13927d270bb563b1ba18c02957d897e2b1d351dfbc262a209e",
+      "bytes": 2090,
+      "lines": 35,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_queue_control.py",
+      "sha256": "7b64fd0200d9af399d4d48a75cc76fbe3f726887d829f75dd2448de295a46bfd",
+      "bytes": 9347,
+      "lines": 128,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_release_updates.py",
+      "sha256": "6a08dd31149019f5332bef35dbedf8749995ae6fff08a33913ceae80944f164e",
+      "bytes": 10255,
+      "lines": 149,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_remote_ownership.py",
+      "sha256": "68b2bd0ec4771ded22ff6c9cf3bb8dd749fc71ada05dd7375baba756855b490f",
+      "bytes": 4933,
+      "lines": 79,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_research_tools.py",
+      "sha256": "05b96d4f37e052392fdea0736517ed869925647ddb17fde8ce82e3e7b26168a1",
+      "bytes": 13235,
+      "lines": 176,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_research_workflows.py",
+      "sha256": "ea0ee6dca8380177f70b85a51e35357b53565ea22ab0cda5cc1ad66a78a9e67f",
+      "bytes": 8813,
+      "lines": 126,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_result_pipeline.py",
+      "sha256": "bb04fedcc8e0711d2a76feffdb4ddd99141d8933bde1a83301eab9664c7f772b",
+      "bytes": 5126,
+      "lines": 74,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_runtime_catalog.py",
+      "sha256": "be1434db33bbca5fa0be9a124fe9f7c465975ed555e0c6774222f5c1371b67a2",
+      "bytes": 10749,
+      "lines": 151,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_runtime_hub.py",
+      "sha256": "21682c04c94e54da53b08fb47c9e8baff150429ca8dbcfabf2a0479a6d253ae7",
+      "bytes": 7473,
+      "lines": 82,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_service_tokens.py",
+      "sha256": "2beb3d6fcdc71b383d49e8ca7ebdf2cd2adaf9107a338e54a38d2dd134331f82",
+      "bytes": 6108,
+      "lines": 88,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_shared_ownership.py",
+      "sha256": "7bce3059239e80511c48efcfe530a767194103df925a12363ce53f625000858d",
+      "bytes": 5147,
+      "lines": 80,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_ssh_info.py",
+      "sha256": "706c0f49df0795010f9ce3f01c69e15158f20fb4145b409973f9f3c516cd7198",
+      "bytes": 1079,
+      "lines": 14,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_storage_results.py",
+      "sha256": "bf52ae8dd9ae1c1037d8b18fcdd6b7232a9c1a02803a20ed5360da6772b1a392",
+      "bytes": 5574,
+      "lines": 72,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_support.py",
+      "sha256": "ee1b65b57c885f024c97dcfb65327670b92403daf05b41a04672cb13e661ba20",
+      "bytes": 2254,
+      "lines": 39,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/ops/test_worker_recovery.py",
+      "sha256": "688d66a1892da3db9d515adf368274a035ed61446375ad2caf1c2eeeee155448",
+      "bytes": 3416,
+      "lines": 82,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/run.py",
+      "sha256": "e6698ac7c4bc48774f65f74f3ea347e2ff97d9622088b68dccb8cb6559776625",
+      "bytes": 3963,
+      "lines": 59,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/rust/application.rs",
+      "sha256": "d919309a70a32abc0eff7ac1e37c28c5546f0e9c206a022efa9d028688edf6a2",
+      "bytes": 33876,
+      "lines": 835,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "tests/rust/codec.rs",
+      "sha256": "62f8177a2192624595bf6f1045823be417ba02df048ac92d7d37fc29a8046c14",
+      "bytes": 303,
+      "lines": 11,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "tests/rust/domain.rs",
+      "sha256": "5534d9b4f46b212a551b052203b71976a4d17989e53c487808aa96b2434811d1",
+      "bytes": 2107,
+      "lines": 79,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "tests/rust/fixtures/casefold.json",
+      "sha256": "c19a0792b6be70601ebe54bb5d523de010244d4a06ea8c103a05ba0e143dd85c",
+      "bytes": 31004,
+      "lines": 1,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "tests/rust/fixtures/json-namespaces.json",
+      "sha256": "0aeebfa3fb9771bd906e97ff611a785eaebf12d2daff037f2d2d193ed8f915d7",
+      "bytes": 50880,
+      "lines": 1,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "JSON decoded; behavioral evidence separate"
+    },
+    {
+      "path": "tests/rust/host.rs",
+      "sha256": "b194535c034ad94d1d6a54ead4d39cadcbed5db256ba02467b57429339788f7a",
+      "bytes": 7862,
+      "lines": 217,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "tests/rust/run.py",
+      "sha256": "b203e2f5d6989632996a56db263bb5ab345c02bec40a202a498ec45833f86909",
+      "bytes": 3646,
+      "lines": 41,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/rust/sdk.rs",
+      "sha256": "b37f2d423974d0a4ab42ba13c6b108ce3caa5ca07909f94ca0529f705839a47e",
+      "bytes": 372,
+      "lines": 14,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "tests/rust/test_authoring.py",
+      "sha256": "aa1f7de40772e9a9a65e8425a634c315a959633384b07314941ec2b414a3c63d",
+      "bytes": 3524,
+      "lines": 31,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/rust/test_executor.py",
+      "sha256": "52e5120bfce7009518cd8400a14ac623ceff2d66fd4e685cbce267cd84ae798d",
+      "bytes": 8880,
+      "lines": 92,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/rust/test_installation.py",
+      "sha256": "23821adcaf3a5e66eba1208e594d83d0b083266ca80a9c87070a8e4132c4c0c5",
+      "bytes": 3887,
+      "lines": 34,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/rust/test_service.py",
+      "sha256": "3192cce19c80f9d98a52c92efdcf0c04a4a26774ad8c77f955ef7aea26e9f696",
+      "bytes": 14762,
+      "lines": 150,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    },
+    {
+      "path": "tests/rust/updates.rs",
+      "sha256": "522cff4117b4807f3dc104654e8e2f7f2667c404d77d22c65792d755c4f98ede",
+      "bytes": 1620,
+      "lines": 45,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "cargo fmt/clippy/test workspace; exact execution recorded in native reports"
+    },
+    {
+      "path": "tests/suite.py",
+      "sha256": "0dca46c2aecceea58ed0533d9cb175600e5a0b00a6b4cdc7486213755ee7389a",
+      "bytes": 3816,
+      "lines": 57,
+      "boundary": "independent harness/fixture",
+      "structural_validation": "Python AST parsed; behavioral evidence separate"
+    }
+  ]
+}

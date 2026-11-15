@@ -1,6 +1,6 @@
 {
   "schema": "loom-rust-redesign-requirements/v1",
-  "status": "proposed implementation; planning completed only",
+  "status": "implemented development candidate; D8 operational cutover not performed",
   "requirements": [
     {
       "id": "U01",
@@ -18,7 +18,7 @@
         "API-01",
         "TEST-01"
       ],
-      "status": "planned"
+      "status": "implemented candidate; boundary acceptance in IMPLEMENTATION.md"
     },
     {
       "id": "U02",
@@ -34,7 +34,7 @@
         "UI-01",
         "ID-03"
       ],
-      "status": "planned"
+      "status": "implemented candidate; boundary acceptance in IMPLEMENTATION.md"
     },
     {
       "id": "U03",
@@ -54,7 +54,7 @@
         "SCN-03",
         "SCN-04"
       ],
-      "status": "planned"
+      "status": "implemented candidate; boundary acceptance in IMPLEMENTATION.md"
     },
     {
       "id": "U04",
@@ -73,7 +73,7 @@
         "VIS-02",
         "VIS-06"
       ],
-      "status": "planned"
+      "status": "implemented candidate; boundary acceptance in IMPLEMENTATION.md"
     },
     {
       "id": "U05",
@@ -90,7 +90,7 @@
         "EXEC-04",
         "VIS-03"
       ],
-      "status": "planned"
+      "status": "implemented candidate; boundary acceptance in IMPLEMENTATION.md"
     },
     {
       "id": "U06",
@@ -112,7 +112,7 @@
         "AUTH-05",
         "INST-01"
       ],
-      "status": "planned"
+      "status": "implemented candidate; boundary acceptance in IMPLEMENTATION.md"
     },
     {
       "id": "U07",
@@ -131,7 +131,7 @@
         "AUTH-04",
         "ONB-02"
       ],
-      "status": "planned"
+      "status": "implemented candidate; boundary acceptance in IMPLEMENTATION.md"
     },
     {
       "id": "U08",
@@ -148,7 +148,7 @@
       "acceptance_cases": [
         "TEST-03"
       ],
-      "status": "planned"
+      "status": "completed independent planning/audit baseline; current implementation review recorded separately"
     },
     {
       "id": "U09",
@@ -165,7 +165,7 @@
         "EXEC-03",
         "RES-01"
       ],
-      "status": "planned"
+      "status": "completed independent planning/audit baseline; current implementation review recorded separately"
     },
     {
       "id": "U10",
@@ -183,7 +183,7 @@
         "MIG-02",
         "PORT-02"
       ],
-      "status": "planned"
+      "status": "implemented and fixture-tested preservation; operational target acceptance pending D8"
     },
     {
       "id": "U11",
@@ -202,7 +202,7 @@
         "EXT-03",
         "EXT-04"
       ],
-      "status": "planned"
+      "status": "implemented candidate; boundary acceptance in IMPLEMENTATION.md"
     },
     {
       "id": "U12",
@@ -219,7 +219,7 @@
         "RES-03",
         "RES-04"
       ],
-      "status": "planned"
+      "status": "implemented candidate; boundary acceptance in IMPLEMENTATION.md"
     },
     {
       "id": "U13",
@@ -237,7 +237,7 @@
         "AUTH-06",
         "ID-02"
       ],
-      "status": "planned"
+      "status": "implemented candidate; boundary acceptance in IMPLEMENTATION.md"
     },
     {
       "id": "U14",
@@ -252,7 +252,8 @@
       "acceptance_cases": [
         "TEST-04"
       ],
-      "status": "planned"
+      "status": "implementation authorized after planning; no deployment, broad reconciler or scientific execution performed"
     }
-  ]
+  ],
+  "implementation": "IMPLEMENTATION.md"
 }

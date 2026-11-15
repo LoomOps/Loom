@@ -1,9 +1,9 @@
 # Implementation roadmap and delivery criteria
 
-This is the complete proposed sequence. Only the planning/audit portion of D0 is
-complete in this task. No crate, endpoint, Scenario migration or Skill deployment
-exists merely because it appears below. Effort estimates follow the D1 contract
-and durability spikes; no date is invented from source line counts.
+D0 is the frozen discovery/design baseline. D1–D7 now have implementation and
+isolated acceptance evidence; see [IMPLEMENTATION](IMPLEMENTATION.md). D8 has not
+been performed. A full fresh-host/systemd/reboot/provider/GPU deployment is not
+implied by native CPU image acceptance or mocked installer tests.
 
 ## Milestones
 

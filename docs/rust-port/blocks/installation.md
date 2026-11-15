@@ -1,6 +1,7 @@
 # Installation, cumulative updates and matching artifacts — detailed design
 
-Status: proposed Rust redesign; no implemented/deployed claim. Phases: D1, D7, D8.
+Status: implemented development candidate; operational deployment not performed.
+Concrete ownership, test boundaries and external limits: [IMPLEMENTATION](../IMPLEMENTATION.md). Phases: D1, D7, D8.
 
 ## Responsibility and model
 

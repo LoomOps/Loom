@@ -1,13 +1,14 @@
 # Rust application architecture
 
-This is the target design, not an implemented workspace. Dependencies point inward:
+This design is implemented as six crates with internal ownership modules; see
+[the concrete mapping](IMPLEMENTATION.md). Dependencies point inward:
 transport and repositories call application operations; pure domain types never
 import SQLite, Tokio, HTTP, Docker, Python or UI code. File names in the legacy
 repository do not determine crate boundaries.
 
 ## Crates and dependency direction
 
-| Proposed crate | Owns | Permitted dependencies / exclusions |
+| Logical boundary | Owns | Permitted dependencies / exclusions |
 |---|---|---|
 | `loom-domain` | Typed identities, Job/execution states, readiness, recovery and Scenario policies | Standard types and domain errors; no I/O or generic JSON state model |
 | `loom-contracts` | Versioned public/private DTOs and one action/schema registry | Domain IDs; JSON only for metadata, schemas and compatibility envelopes |
@@ -76,10 +77,10 @@ processes, never inside the Ops mutation authority.
 
 ## Dependencies and build decision
 
-Proposed starting stack: Tokio for I/O/timers, axum/tower for HTTP, serde for wire
+Locked implementation stack: Tokio for I/O/timers, axum/tower for HTTP, serde for wire
 DTOs, rusqlite for the existing SQLite boundary, and a Draft 2020-12-capable schema
-validator. Exact versions/MSRV, TLS provider, libc floor and license/SBOM are locked
-in D1 after the compatibility spike; `latest` is never an installed artifact pin.
+validator. Exact versions/MSRV and the TLS provider are locked in Cargo.lock and
+rust-toolchain.toml; the native kit includes dependency licenses/SBOM. `latest` is never an installed artifact pin.
 Use a standards-tested MCP transport implementation only if it preserves current
 JSON/SSE/error/notification behavior; a framework choice does not change schemas.
 

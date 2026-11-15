@@ -1,5 +1,10 @@
 # queue — Shared queue ordering, admission and preparation pipelines
 
+Native candidate authority: `rust/crates/core/src/jobs.rs#readiness`, `rust/crates/core/src/jobs.rs#job_action`.
+Retained Python paths below are compatibility references or administrator/web
+integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
+current process boundaries and acceptance limits.
+
 ## Responsibilities and boundaries
 
 Do not preempt running Jobs. Respect dependencies, allow concurrent preparation and never reassign resources before their return.

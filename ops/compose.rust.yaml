@@ -1,0 +1,10 @@
+# Apply only with an immutable Rust Ops image after the migration preflight.
+services:
+  loom-ops:
+    build:
+      dockerfile: ops/Dockerfile.rust
+    environment:
+      LOOM_STATE: /loom/ops
+      LOOM_DATA: /loom/bulk
+      LOOM_COMPONENTS: /loom/components
+    entrypoint: [loom-ops, --listen, '0.0.0.0:8080']

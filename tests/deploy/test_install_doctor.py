@@ -139,6 +139,16 @@ class InstallationDoctorTests(unittest.TestCase):
   with patch.object(source_install.subprocess,'run',side_effect=[subprocess.CompletedProcess([],1),subprocess.CompletedProcess([],0)]) as run,patch.object(source_install.subprocess,'check_output',return_value='sha256:runtime\n'):
    self.assertEqual(source_install.ensure_runtime(),'sha256:runtime')
   self.assertEqual(run.call_args_list[1].args[0],['docker','pull','python:3.12-slim'])
+ def test_native_installer_smoke_selects_the_pinned_rust_image_and_operations_scope(self):
+  image='sha256:'+'a'*64;definition={'build_id':'0.2.0-alpha.1','files':{'platform/bin/loom-sdk':'verified'},'images':{'ops':{'id':image}}}
+  self.write('config/install-smoke.json',{})
+  def invoke(*args):
+   if args[2:4]==('components','register'):
+    request=args[4];self.assertEqual(request['manifest']['implementation']['language'],'rust');self.assertEqual(set(request['files']),{'producer.json'});self.assertEqual(request['manifest']['profiles']['check']['runtime']['image'],image);return {'profiles':['native.r1']}
+   if args[2:4]==('jobs','submit'):
+    self.assertEqual(args[4]['presentation']['scope'],'operations');self.assertEqual(args[4]['execution_mode'],'smoke');return {'id':'native-smoke'}
+   return {'state':'complete'}
+  with patch.object(setup,'manifest',return_value=definition),patch.object(smoke,'call',side_effect=invoke),patch.object(smoke,'verify',return_value=True):self.assertEqual(smoke.run(setup,self.plan)['status'],'passed')
  def test_smoke_after_upgrade_registers_a_distinct_versioned_component(self):
   self.write('config/install-smoke.json',{'build':'old','source_sha256':hashlib.sha256(smoke.SOURCE.encode()).hexdigest(),'job':'old-job','kind':'old-profile'})
   def call(*args):

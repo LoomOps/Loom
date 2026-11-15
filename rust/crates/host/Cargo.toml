@@ -1,0 +1,23 @@
+[package]
+name = "loom-host"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license-file = "../../../LICENSE"
+
+[dependencies]
+base64.workspace = true
+loom-core = { path = "../core" }
+loom-domain = { path = "../domain" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+uuid.workspace = true
+libc.workspace = true
+
+rusqlite.workspace = true
+
+[[test]]
+name = "host_faults"
+path = "../../../tests/rust/host.rs"

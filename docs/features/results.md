@@ -1,5 +1,10 @@
 # results — Artifact registration, indexing, lineage and metadata contracts
 
+Native candidate authority: `rust/crates/core/src/results.rs#publish_result`.
+Retained Python paths below are compatibility references or administrator/web
+integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
+current process boundaries and acceptance limits.
+
 ## Responsibilities and boundaries
 
 Distinguish execution completion from indexing completion. Ownership changes must not overwrite original artifact or execution provenance.

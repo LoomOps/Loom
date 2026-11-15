@@ -164,3 +164,10 @@ stage, name, exact version and optional dependency scope; flat requires retains
 its main-stage semantics. Tool roles curated on a Profile are declarations, not
 proof of calls. Pinned Jobs count distinct started logical Jobs; associations via
 legacy IDs/current observations do not prove a historical exact Runtime revision.
+
+Rust packages select an exact target/libc-compatible Runtime and build receipt.
+Compiler/Cargo caches belong to the installation-configured dependency/build roots;
+client connection or package registration does not install a toolchain. External
+Python frameworks remain explicit pinned worker dependencies, not imports into
+Loom's state authority. A Runtime inventory records installed packages, not proof
+that every Job imported them.

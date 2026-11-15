@@ -7,23 +7,27 @@
       "sources": [
         "dashboard/requirements.txt",
         "dashboard/sso.py",
+        "deploy/generate_identity_codec.py",
         "ops/access.py",
         "ops/ownership.py",
-        "ops/service_tokens.py"
+        "ops/service_tokens.py",
+        "rust/crates/core/src/auth.rs",
+        "rust/crates/core/src/casefold.rs"
       ],
       "tests": [
-        "tests/ops/test_access_contract.py",
-        "tests/ops/test_shared_ownership.py",
-        "tests/ops/test_dashboard_identity.py",
         "tests/dashboard/test_sso.py",
-        "tests/ops/test_service_tokens.py"
+        "tests/ops/test_access_contract.py",
+        "tests/ops/test_dashboard_identity.py",
+        "tests/ops/test_service_tokens.py",
+        "tests/ops/test_shared_ownership.py",
+        "tests/rust/application.rs"
       ],
       "depends_on": [],
       "spec": "docs/features/identity.md",
       "contracts": [
-        "ops/access.py",
         "dashboard/sso.py",
-        "loom_use/operator.md"
+        "loom_use/operator.md",
+        "ops/access.py"
       ],
       "invariants": [
         "Ownership does not restrict access. Browser sessions and MCP authentication are independent; invalidated browser sessions cannot be reused."
@@ -45,7 +49,7 @@
         },
         {
           "name": "Caller identity",
-          "entrypoint": "ops/access.py#dashboard_actor",
+          "entrypoint": "rust/crates/core/src/auth.rs#authenticate",
           "accepts": "Signed, expiring Dashboard identity",
           "returns": "Shared actor with server-selected scopes; invalid/expired assertions rejected",
           "consumers": [
@@ -54,7 +58,7 @@
         },
         {
           "name": "Current responsibility",
-          "entrypoint": "ops/ownership.py#assign",
+          "entrypoint": "rust/crates/core/src/composition.rs#assign_responsibility",
           "accepts": "Item identity + registered profile + actor",
           "returns": "Owner overlay and audit row; original item preserved",
           "consumers": [
@@ -64,7 +68,7 @@
         },
         {
           "name": "Resident agent tokens",
-          "entrypoint": "ops/service_tokens.py#issue",
+          "entrypoint": "rust/crates/core/src/http.rs#admin_tokens",
           "accepts": "Signed Dashboard Admin claim, registered user and allowed scopes",
           "returns": "One-time permanent token; only digest and revocation metadata persisted",
           "consumers": [
@@ -84,15 +88,32 @@
         "ops/mcp_docs.py",
         "ops/mcp_groups.py",
         "ops/ops.py",
-        "ops/serve.py"
+        "ops/serve.py",
+        "rust/contracts/job-contract.json",
+        "rust/contracts/legacy-actions.json",
+        "rust/crates/core/Cargo.toml",
+        "rust/crates/core/build.rs",
+        "rust/crates/core/src/compat.rs",
+        "rust/crates/core/src/contracts.rs",
+        "rust/crates/core/src/error.rs",
+        "rust/crates/core/src/http.rs",
+        "rust/crates/core/src/lib.rs",
+        "rust/crates/core/src/store.rs",
+        "rust/crates/ops/Cargo.toml",
+        "rust/crates/ops/src/lib.rs",
+        "rust/crates/ops/src/main.rs",
+        "rust/crates/ops/src/worker.rs"
       ],
       "tests": [
         "tests/ops/test_api_contract.py",
-        "tests/ops/test_mcp_docs.py",
-        "tests/ops/test_job_contract.py",
         "tests/ops/test_generic_agent.py",
         "tests/ops/test_initialization.py",
-        "tests/ops/test_job_lifecycle.py"
+        "tests/ops/test_job_contract.py",
+        "tests/ops/test_job_lifecycle.py",
+        "tests/ops/test_mcp_docs.py",
+        "tests/rust/application.rs",
+        "tests/rust/codec.rs",
+        "tests/rust/test_service.py"
       ],
       "depends_on": [
         "identity",
@@ -107,8 +128,8 @@
       "spec": "docs/features/api.md",
       "contracts": [
         "ops/job_contract.py",
-        "ops/mcp_groups.py",
-        "ops/mcp_docs.py"
+        "ops/mcp_docs.py",
+        "ops/mcp_groups.py"
       ],
       "invariants": [
         "HTTP and the six MCP groups invoke the same operations. Distinguish request acceptance from successful execution."
@@ -120,7 +141,7 @@
       "interfaces": [
         {
           "name": "Operation dispatch",
-          "entrypoint": "ops/ops.py#operate",
+          "entrypoint": "rust/crates/core/src/store.rs#execute",
           "accepts": "Validated group/action arguments and authenticated actor",
           "returns": "Domain response; ValueError/PermissionError at public boundary",
           "consumers": [
@@ -130,7 +151,7 @@
         },
         {
           "name": "Transport",
-          "entrypoint": "ops/ops.py#API",
+          "entrypoint": "rust/crates/core/src/http.rs#http",
           "accepts": "HTTP or Streamable HTTP JSON-RPC",
           "returns": "Versioned response/errors; notifications and unsupported methods retain their transport semantics",
           "consumers": [
@@ -144,13 +165,15 @@
       "id": "queue",
       "summary": "Shared queue ordering, admission and preparation pipelines",
       "sources": [
+        "ops/dispatch_control.py",
         "ops/queue_control.py",
-        "ops/dispatch_control.py"
+        "rust/crates/core/src/jobs.rs"
       ],
       "tests": [
+        "tests/ops/test_job_lifecycle.py",
         "tests/ops/test_queue_contract.py",
         "tests/ops/test_queue_control.py",
-        "tests/ops/test_job_lifecycle.py"
+        "tests/rust/application.rs"
       ],
       "depends_on": [
         "identity",
@@ -160,8 +183,8 @@
       ],
       "spec": "docs/features/queue.md",
       "contracts": [
-        "ops/queue_control.py",
-        "ops/job_contract.py"
+        "ops/job_contract.py",
+        "ops/queue_control.py"
       ],
       "invariants": [
         "Do not preempt running Jobs. Respect dependencies, allow concurrent preparation and never reassign resources before their return."
@@ -173,7 +196,7 @@
       "interfaces": [
         {
           "name": "Scheduling decision",
-          "entrypoint": "ops/queue_control.py#scheduling",
+          "entrypoint": "rust/crates/core/src/jobs.rs#readiness",
           "accepts": "Job row + DB dependency/recovery/hold state + lane",
           "returns": "Eligibility/stage/waiting reason consumed by worker and UI",
           "consumers": [
@@ -183,7 +206,7 @@
         },
         {
           "name": "Queue mutation",
-          "entrypoint": "ops/queue_control.py#reorder",
+          "entrypoint": "rust/crates/core/src/jobs.rs#job_action",
           "accepts": "Waiting Job, actor, relative/absolute placement",
           "returns": "Persisted order and change receipt; running Job not preempted",
           "consumers": [
@@ -200,25 +223,38 @@
         "executor/server.py",
         "ops/execution.py",
         "ops/hooks.py",
+        "ops/job_work.py",
         "ops/runtime_client.py",
         "ops/runtime_contract.py",
-        "ops/job_work.py",
-        "ops/workflows.py"
+        "ops/workflows.py",
+        "rust/crates/core/src/execution.rs",
+        "rust/crates/core/src/progress.rs",
+        "rust/crates/domain/Cargo.toml",
+        "rust/crates/domain/src/lib.rs",
+        "rust/crates/host/Cargo.toml",
+        "rust/crates/host/src/executor.rs",
+        "rust/crates/host/src/lib.rs",
+        "rust/crates/host/src/main.rs",
+        "rust/crates/host/src/wire.rs"
       ],
       "tests": [
         "tests/ops/test_executor_boundary.py",
-        "tests/ops/test_job_work.py",
         "tests/ops/test_job_lifecycle.py",
-        "tests/ops/test_research_workflows.py"
+        "tests/ops/test_job_work.py",
+        "tests/ops/test_research_workflows.py",
+        "tests/rust/application.rs",
+        "tests/rust/domain.rs",
+        "tests/rust/host.rs",
+        "tests/rust/test_executor.py"
       ],
       "depends_on": [
         "extensions"
       ],
       "spec": "docs/features/execution.md",
       "contracts": [
+        "executor/runtime_policy.py",
         "ops/execution.py",
-        "ops/runtime_contract.py",
-        "executor/runtime_policy.py"
+        "ops/runtime_contract.py"
       ],
       "invariants": [
         "Loom executes Jobs. Release resources based on executor-ticket, container and process return evidence. Never pass platform secrets or Docker sockets into Jobs."
@@ -230,7 +266,7 @@
       "interfaces": [
         {
           "name": "Runtime request",
-          "entrypoint": "ops/execution.py#request_file",
+          "entrypoint": "rust/crates/core/src/execution.rs#request_for",
           "accepts": "Pinned profile, Job params, stage, input locators",
           "returns": "Resolved execution request file; invalid paths/inputs rejected before runtime",
           "consumers": [
@@ -239,7 +275,7 @@
         },
         {
           "name": "Worker lifecycle",
-          "entrypoint": "ops/ops.py#worker",
+          "entrypoint": "rust/crates/core/src/execution.rs#next_work",
           "accepts": "Durable queue/config/resource receipts",
           "returns": "Preparation/run/return/result transitions; no release without resource evidence",
           "consumers": [
@@ -257,8 +293,9 @@
         "ops/recovery.py"
       ],
       "tests": [
+        "tests/ops/test_job_lifecycle.py",
         "tests/ops/test_worker_recovery.py",
-        "tests/ops/test_job_lifecycle.py"
+        "tests/rust/application.rs"
       ],
       "depends_on": [
         "identity",
@@ -266,8 +303,8 @@
       ],
       "spec": "docs/features/recovery.md",
       "contracts": [
-        "ops/recovery.py",
-        "ops/access.py"
+        "ops/access.py",
+        "ops/recovery.py"
       ],
       "invariants": [
         "The caller owns error repair. Preserve reservation deadlines, attempt limits and dependent-Job skipping. Event acknowledgments are recipient-specific."
@@ -279,7 +316,7 @@
       "interfaces": [
         {
           "name": "Recovery action",
-          "entrypoint": "ops/recovery.py#action",
+          "entrypoint": "rust/crates/core/src/jobs.rs#recover",
           "accepts": "Job + actor + claim/progress/resume/defer arguments",
           "returns": "Incident/lease/attempt transition or conflict; caller edits do not auto-run a new unapproved scope",
           "consumers": [
@@ -289,7 +326,7 @@
         },
         {
           "name": "Deadline",
-          "entrypoint": "ops/recovery.py#expire",
+          "entrypoint": "rust/crates/core/src/execution.rs#next_work",
           "accepts": "DB + clock",
           "returns": "Expired reservation no longer blocks unrelated Jobs; dependent Jobs remain ineligible",
           "consumers": [
@@ -304,14 +341,18 @@
       "sources": [
         "ops/registry.py",
         "ops/retain-artifact.py",
-        "ops/storage.py"
+        "ops/storage.py",
+        "rust/crates/core/src/history.rs",
+        "rust/crates/core/src/results.rs",
+        "rust/crates/core/src/storage.rs"
       ],
       "tests": [
-        "tests/ops/test_result_pipeline.py",
-        "tests/ops/test_output_contract.py",
         "tests/ops/test_installation_smoke.py",
+        "tests/ops/test_job_lifecycle.py",
+        "tests/ops/test_output_contract.py",
+        "tests/ops/test_result_pipeline.py",
         "tests/ops/test_storage_results.py",
-        "tests/ops/test_job_lifecycle.py"
+        "tests/rust/application.rs"
       ],
       "depends_on": [
         "identity",
@@ -319,8 +360,8 @@
       ],
       "spec": "docs/features/results.md",
       "contracts": [
-        "ops/registry.py",
-        "ops/mcp_groups.py"
+        "ops/mcp_groups.py",
+        "ops/registry.py"
       ],
       "invariants": [
         "Distinguish execution completion from indexing completion. Ownership changes must not overwrite original artifact or execution provenance."
@@ -332,7 +373,7 @@
       "interfaces": [
         {
           "name": "Output validation/index",
-          "entrypoint": "ops/registry.py#index",
+          "entrypoint": "rust/crates/core/src/results.rs#publish_result",
           "accepts": "Returned Job, typed manifest, storage/config, optional prepared facts",
           "returns": "Registry entities/metrics/lineage or processing error; compute not rerun solely for indexing",
           "consumers": [
@@ -347,35 +388,40 @@
       "id": "extensions",
       "summary": "Components, Tools, Profiles and immutable Runtime environment contracts",
       "sources": [
+        "executor/runtime_store.py",
         "ops/component_store.py",
+        "ops/dependency_catalog.py",
+        "ops/profile_inventory.py",
         "ops/profile_store.py",
         "ops/profiles.py",
-        "ops/tool_store.py",
         "ops/runtime_catalog.py",
-        "executor/runtime_store.py",
-        "ops/profile_inventory.py",
-        "ops/software_metadata.py",
         "ops/runtime_hub.py",
-        "ops/dependency_catalog.py"
+        "ops/software_metadata.py",
+        "ops/tool_store.py",
+        "rust/crates/core/src/composition.rs",
+        "rust/crates/core/src/runtime.rs",
+        "rust/crates/core/src/software.rs",
+        "rust/crates/host/src/runtime.rs"
       ],
       "tests": [
         "tests/ops/test_components_platform.py",
+        "tests/ops/test_dependency_catalog.py",
         "tests/ops/test_independent_profiles.py",
+        "tests/ops/test_profile_inventory.py",
         "tests/ops/test_research_tools.py",
         "tests/ops/test_runtime_catalog.py",
-        "tests/ops/test_profile_inventory.py",
         "tests/ops/test_runtime_hub.py",
-        "tests/ops/test_dependency_catalog.py"
+        "tests/rust/application.rs"
       ],
       "depends_on": [
         "identity"
       ],
       "spec": "docs/features/extensions.md",
       "contracts": [
-        "ops/runtime_contract.py",
-        "ops/profiles.py",
         "loom_use/runtimes.md",
-        "ops/execution.py"
+        "ops/execution.py",
+        "ops/profiles.py",
+        "ops/runtime_contract.py"
       ],
       "invariants": [
         "Registering a new component must not require new MCP tools or platform redeployment. Preserve profile revision pins on submitted Jobs.",
@@ -388,7 +434,7 @@
       "interfaces": [
         {
           "name": "Dynamic profile",
-          "entrypoint": "ops/profile_store.py#operate",
+          "entrypoint": "rust/crates/core/src/software.rs#software_action",
           "accepts": "Actor + profile operation/schema + revision/config",
           "returns": "Stored validated profile revision or reference; submitted Job keeps its pin",
           "consumers": [
@@ -398,7 +444,7 @@
         },
         {
           "name": "Dynamic component",
-          "entrypoint": "ops/component_store.py#operate",
+          "entrypoint": "rust/crates/core/src/software.rs#software_action",
           "accepts": "Actor + component operation/metadata",
           "returns": "Immutable component revision and namespace; no new MCP server required",
           "consumers": [
@@ -408,7 +454,7 @@
         },
         {
           "name": "Granted Runtime inventory",
-          "entrypoint": "ops/runtime_catalog.py#inventory",
+          "entrypoint": "rust/crates/core/src/runtime.rs#runtime_inventory",
           "accepts": "Instance executor configuration plus read-only Profile/Job catalog",
           "returns": "Granted exact Runtime revisions, validation evidence and actual consumers, or explicit unavailable status",
           "consumers": [
@@ -419,7 +465,7 @@
         },
         {
           "name": "Exact Runtime resolution",
-          "entrypoint": "executor/runtime_store.py#detail",
+          "entrypoint": "rust/crates/host/src/runtime.rs#detail",
           "accepts": "Executor state, instance and exact id/revision with optional sealed digest",
           "returns": "Integrity-checked immutable manifest within instance grant; denies missing/changed revisions",
           "consumers": [
@@ -429,7 +475,7 @@
         },
         {
           "name": "Profile combinations",
-          "entrypoint": "ops/profile_inventory.py#inventory",
+          "entrypoint": "rust/crates/core/src/composition.rs#profile_listing",
           "accepts": "Read-only registry and installed config, actor and recorded Jobs",
           "returns": "Exact software and stage environment combinations with declared/observed usage and current attribution; no execution or Job gate",
           "consumers": [
@@ -447,14 +493,18 @@
         "ops/dashboard_read.py",
         "ops/history_store.py",
         "ops/job_history.py",
-        "ops/research.py"
+        "ops/research.py",
+        "rust/crates/core/src/catalog.rs",
+        "rust/crates/core/src/media.rs",
+        "rust/crates/core/src/query.rs"
       ],
       "tests": [
-        "tests/ops/test_job_history.py",
         "tests/ops/test_dashboard_resources.py",
         "tests/ops/test_file_preview.py",
         "tests/ops/test_history_availability.py",
-        "tests/ops/test_job_lifecycle.py"
+        "tests/ops/test_job_history.py",
+        "tests/ops/test_job_lifecycle.py",
+        "tests/rust/application.rs"
       ],
       "depends_on": [
         "identity",
@@ -476,7 +526,7 @@
       "interfaces": [
         {
           "name": "Dashboard projection",
-          "entrypoint": "ops/dashboard_read.py#projection",
+          "entrypoint": "rust/crates/core/src/catalog.rs#dashboard_catalog",
           "accepts": "DB, actor, instance config, storage roots",
           "returns": "Current catalog including Owner overlay and availability facts",
           "consumers": [
@@ -486,7 +536,7 @@
         },
         {
           "name": "Artifact read",
-          "entrypoint": "ops/dashboard_read.py#open_media",
+          "entrypoint": "rust/crates/core/src/media.rs#read",
           "accepts": "Registered media index/key + allowed storage",
           "returns": "Bounded allowed file stream or refusal; no arbitrary host path read",
           "consumers": [
@@ -503,7 +553,8 @@
         "deploy/collect-dashboard-gpus.py",
         "deploy/collect-observations.py",
         "ops/docker_status.py",
-        "ops/host_metrics.py"
+        "ops/host_metrics.py",
+        "rust/crates/host/src/observe.rs"
       ],
       "tests": [
         "tests/ops/test_docker_status.py",
@@ -552,12 +603,14 @@
         "dashboard/workspace/access.html",
         "dashboard/workspace/activity.js",
         "dashboard/workspace/build.py",
+        "dashboard/workspace/dependencies.js",
         "dashboard/workspace/details.js",
         "dashboard/workspace/explorer.js",
         "dashboard/workspace/extensions.js",
         "dashboard/workspace/frame.css",
         "dashboard/workspace/frame.js",
         "dashboard/workspace/icons.js",
+        "dashboard/workspace/job-activity.js",
         "dashboard/workspace/lazy_logs.py",
         "dashboard/workspace/mcp.js",
         "dashboard/workspace/media.js",
@@ -566,16 +619,14 @@
         "dashboard/workspace/parent.js",
         "dashboard/workspace/projection.js",
         "dashboard/workspace/queue.js",
+        "dashboard/workspace/research.js",
         "dashboard/workspace/surfaces.js",
         "dashboard/workspace/template.html",
-        "dashboard/workspace/text-preview.js",
-        "dashboard/workspace/job-activity.js",
-        "dashboard/workspace/research.js",
-        "dashboard/workspace/dependencies.js"
+        "dashboard/workspace/text-preview.js"
       ],
       "tests": [
-        "tests/dashboard/test_proxy.py",
-        "tests/dashboard/browser/test_workspace.py"
+        "tests/dashboard/browser/test_workspace.py",
+        "tests/dashboard/test_proxy.py"
       ],
       "depends_on": [
         "identity",
@@ -623,17 +674,19 @@
       "summary": "User guides, version identification and client entry",
       "sources": [
         "dashboard/build_version.py",
+        "deploy/client_release.py",
+        "loom_use/client-release.json",
+        "loom_use/runtimes.md",
         "ops/build_version.py",
         "ops/onboarding.py",
-        "loom_use/client-release.json",
-        "deploy/client_release.py",
-        "tests/ops/client_source.py",
-        "loom_use/runtimes.md"
+        "rust/contracts/action-docs.json",
+        "rust/crates/core/src/onboarding.rs",
+        "tests/ops/client_source.py"
       ],
       "tests": [
-        "tests/ops/test_onboarding.py",
+        "tests/deploy/test_client_release.py",
         "tests/ops/test_client_setup.py",
-        "tests/deploy/test_client_release.py"
+        "tests/ops/test_onboarding.py"
       ],
       "depends_on": [
         "identity",
@@ -641,8 +694,8 @@
       ],
       "spec": "docs/features/onboarding.md",
       "contracts": [
-        "ops/onboarding.py",
-        "loom_use/entry.md"
+        "loom_use/entry.md",
+        "ops/onboarding.py"
       ],
       "invariants": [
         "The running server is authoritative for guides. Updates do not change personal instructions or active Job pins."
@@ -654,7 +707,7 @@
       "interfaces": [
         {
           "name": "Guide package",
-          "entrypoint": "ops/onboarding.py#bundle",
+          "entrypoint": "rust/crates/core/src/onboarding.rs#bundle",
           "accepts": "Actor, client-known revision, current schemas/contracts",
           "returns": "Version-bound guide package and update identity; no automatic credential issuance",
           "consumers": [
@@ -668,27 +721,27 @@
       "id": "network",
       "summary": "Tailscale enrollment, Serve and native identity configuration",
       "sources": [
-        "deploy/tailnet.py",
         "dashboard/admission.py",
         "dashboard/admission_http.py",
+        "dashboard/gateway.css",
+        "dashboard/gateway.html",
+        "dashboard/gateway.js",
+        "dashboard/gateway.py",
+        "dashboard/managed_resources.py",
+        "dashboard/sharing.py",
         "deploy/access_setup.py",
         "deploy/installer/access-plan.example.json",
-        "dashboard/gateway.py",
-        "dashboard/gateway.js",
-        "dashboard/gateway.html",
-        "dashboard/gateway.css",
-        "dashboard/sharing.py",
-        "dashboard/managed_resources.py"
+        "deploy/tailnet.py"
       ],
       "tests": [
-        "tests/deploy/test_tailnet.py",
         "tests/dashboard/test_admission.py",
-        "tests/deploy/test_access_setup.py",
         "tests/dashboard/test_gateway.py",
-        "tests/dashboard/test_sharing.py",
-        "tests/deploy/test_managed_resources.py",
         "tests/dashboard/test_managed_permissions.py",
-        "tests/deploy/test_boot_readiness.py"
+        "tests/dashboard/test_sharing.py",
+        "tests/deploy/test_access_setup.py",
+        "tests/deploy/test_boot_readiness.py",
+        "tests/deploy/test_managed_resources.py",
+        "tests/deploy/test_tailnet.py"
       ],
       "depends_on": [
         "identity",
@@ -756,11 +809,18 @@
         "deploy/assign-owner.py",
         "ops/portability.py",
         "ops/remote-handoff.py",
-        "ops/remote_fence.py"
+        "ops/remote_fence.py",
+        "rust/contracts/legacy-schema.sql",
+        "rust/contracts/redesign-schema.sql",
+        "rust/crates/migrate/Cargo.toml",
+        "rust/crates/migrate/src/main.rs",
+        "rust/crates/ops/src/ownership.rs"
       ],
       "tests": [
+        "tests/deploy/test_boot_readiness.py",
         "tests/ops/test_remote_ownership.py",
-        "tests/deploy/test_boot_readiness.py"
+        "tests/rust/application.rs",
+        "tests/rust/test_service.py"
       ],
       "depends_on": [
         "identity",
@@ -805,7 +865,10 @@
       "id": "installation",
       "summary": "Compose, host layout, services and immutable builds/releases",
       "sources": [
+        "Cargo.lock",
+        "Cargo.toml",
         "INSTALL.md",
+        "deploy/boot_readiness.py",
         "deploy/build.py",
         "deploy/build.sh",
         "deploy/compose.sh",
@@ -825,10 +888,17 @@
         "deploy/migrations.py",
         "deploy/migrations/catalog.json",
         "deploy/migrations/research_tools.py",
+        "deploy/migrations/rust_authority.py",
+        "deploy/native_artifacts.py",
         "deploy/policy_cleanup.py",
+        "deploy/queue_control_cli.py",
         "deploy/release.py",
         "deploy/release_check_setup.py",
+        "deploy/runtime.py",
         "deploy/runtime.sh",
+        "deploy/runtime_doctor.py",
+        "deploy/runtime_inventory.py",
+        "deploy/rust_build.py",
         "deploy/snapshot.py",
         "deploy/source_install.py",
         "deploy/state_snapshot.py",
@@ -840,36 +910,38 @@
         "executor/loom-executor.service",
         "ops/.dockerignore",
         "ops/Dockerfile.loom",
+        "ops/Dockerfile.rust",
         "ops/compose.data.yaml",
         "ops/compose.dev.yaml",
         "ops/compose.executor.yaml",
         "ops/compose.loom.fence.yaml",
         "ops/compose.loom.yaml",
         "ops/compose.observations.yaml",
+        "ops/compose.rust.yaml",
         "ops/host_layout.py",
         "ops/release_updates.py",
-        "deploy/runtime_doctor.py",
-        "deploy/queue_control_cli.py",
-        "deploy/boot_readiness.py",
-        "deploy/runtime.py",
-        "deploy/runtime_inventory.py"
+        "rust-toolchain.toml",
+        "rust/crates/ops/src/updates.rs"
       ],
       "tests": [
+        "tests/deploy/test_boot_readiness.py",
         "tests/deploy/test_host_identity.py",
         "tests/deploy/test_install_doctor.py",
         "tests/deploy/test_install_kit.py",
         "tests/deploy/test_installation.py",
+        "tests/deploy/test_native_artifacts.py",
         "tests/deploy/test_packaging.py",
         "tests/deploy/test_public_source.py",
         "tests/deploy/test_release_check_setup.py",
         "tests/deploy/test_release_lifecycle.py",
+        "tests/deploy/test_runtime_doctor.py",
+        "tests/deploy/test_runtime_install.py",
         "tests/deploy/test_storage_parity.py",
         "tests/deploy/test_uninstall.py",
         "tests/deploy/test_upgrade_migrations.py",
         "tests/ops/test_release_updates.py",
-        "tests/deploy/test_runtime_doctor.py",
-        "tests/deploy/test_boot_readiness.py",
-        "tests/deploy/test_runtime_install.py"
+        "tests/rust/test_installation.py",
+        "tests/rust/updates.rs"
       ],
       "depends_on": [
         "network",
@@ -967,27 +1039,31 @@
       "id": "testing",
       "summary": "Feature specifications, impact analysis and isolated test tools",
       "sources": [
+        "deploy/TESTING.md",
+        "deploy/features.py",
+        "tests/README.md",
         "tests/dashboard/mock_ops.py",
         "tests/dashboard/verify_browser.py",
         "tests/dashboard/verify_workspace.py",
-        "deploy/features.py",
-        "tests/suite.py",
-        "tests/run.py",
         "tests/ops/test_support.py",
-        "tests/README.md",
-        "deploy/TESTING.md"
+        "tests/run.py",
+        "tests/rust/fixtures/casefold.json",
+        "tests/rust/fixtures/json-namespaces.json",
+        "tests/rust/run.py",
+        "tests/suite.py"
       ],
       "tests": [
+        "tests/deploy/test_distribution.py",
         "tests/deploy/test_features.py",
-        "tests/deploy/test_distribution.py"
+        "tests/rust/application.rs"
       ],
       "depends_on": [],
       "spec": "docs/features/testing.md",
       "contracts": [
-        "docs/features/catalog.schema.json",
         "deploy/features.py",
         "docs/features/VERIFICATION.md",
-        "docs/features/catalog.json"
+        "docs/features/catalog.json",
+        "docs/features/catalog.schema.json"
       ],
       "invariants": [
         "Development validation adds no new gates to Job execution. Distinguish test results from actual deployment state."
@@ -1021,14 +1097,14 @@
       "id": "ssh",
       "summary": "Optional personal host SSH accounts and connection discovery",
       "sources": [
+        "dashboard/ssh_access.py",
         "deploy/ssh_host.py",
         "deploy/ssh_setup.py",
-        "dashboard/ssh_access.py",
         "ops/ssh_info.py"
       ],
       "tests": [
-        "tests/deploy/test_ssh_host.py",
         "tests/dashboard/test_ssh_access.py",
+        "tests/deploy/test_ssh_host.py",
         "tests/ops/test_ssh_info.py"
       ],
       "depends_on": [
@@ -1075,7 +1151,8 @@
       "summary": "Private bounded local error collection; no remote telemetry",
       "sources": [
         "dashboard/diagnostics.py",
-        "ops/compose.diagnostics.yaml"
+        "ops/compose.diagnostics.yaml",
+        "rust/crates/core/src/diagnostics.rs"
       ],
       "tests": [
         "tests/dashboard/test_diagnostics.py"
@@ -1102,6 +1179,99 @@
             "api",
             "network",
             "dashboard",
+            "installation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scenarios",
+      "summary": "Versioned research context and explicit immutable record links",
+      "sources": [
+        "dashboard/workspace/scenarios.js",
+        "rust/contracts/scenarios.md",
+        "rust/crates/core/src/scenario.rs"
+      ],
+      "tests": [
+        "tests/dashboard/browser/test_native_workspace.py",
+        "tests/rust/application.rs",
+        "tests/rust/test_service.py"
+      ],
+      "depends_on": [
+        "identity",
+        "api"
+      ],
+      "spec": "docs/features/scenarios.md",
+      "contracts": [
+        "rust/crates/core/src/contracts.rs"
+      ],
+      "invariants": [
+        "Accepted revisions and execution provenance remain immutable. Source registration never runs user code."
+      ],
+      "change_rule": "Review live schemas, exact bindings, Dashboard, distributed guidance, migration and native acceptance together.",
+      "live_validation": [
+        "Run isolated Rust/HTTP/producer/browser fixtures; operational acceptance requires separately authorized deployment."
+      ],
+      "interfaces": [
+        {
+          "name": "Versioned research context and explicit immutable record links",
+          "entrypoint": "rust/crates/core/src/scenario.rs#create_scenario",
+          "accepts": "Authenticated typed action and exact revision identities",
+          "returns": "Transactional receipt or explicit conflict",
+          "consumers": [
+            "api",
+            "catalog",
+            "dashboard",
+            "onboarding"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "authoring",
+      "summary": "Rust producer SDK, source/build identities and distributed authoring guidance",
+      "sources": [
+        "rust/contracts/authoring.md",
+        "rust/crates/core/src/authoring.rs",
+        "rust/crates/sdk/Cargo.toml",
+        "rust/crates/sdk/src/lib.rs",
+        "rust/crates/sdk/src/main.rs",
+        "rust/templates/hybrid.rs",
+        "rust/templates/runner.rs",
+        "rust/templates/sdk-Cargo.toml",
+        "rust/templates/worker.py"
+      ],
+      "tests": [
+        "tests/rust/application.rs",
+        "tests/rust/sdk.rs",
+        "tests/rust/test_authoring.py",
+        "tests/rust/test_service.py"
+      ],
+      "depends_on": [
+        "identity",
+        "api"
+      ],
+      "spec": "docs/features/authoring.md",
+      "contracts": [
+        "rust/crates/core/src/contracts.rs"
+      ],
+      "invariants": [
+        "Accepted revisions and execution provenance remain immutable. Source registration never runs user code."
+      ],
+      "change_rule": "Review live schemas, exact bindings, Dashboard, distributed guidance, migration and native acceptance together.",
+      "live_validation": [
+        "Run isolated Rust/HTTP/producer/browser fixtures; operational acceptance requires separately authorized deployment."
+      ],
+      "interfaces": [
+        {
+          "name": "Rust producer SDK, source/build identities and distributed authoring guidance",
+          "entrypoint": "rust/crates/core/src/authoring.rs#verify_build",
+          "accepts": "Authenticated typed action and exact revision identities",
+          "returns": "Transactional receipt or explicit conflict",
+          "consumers": [
+            "extensions",
+            "execution",
+            "onboarding",
             "installation"
           ]
         }

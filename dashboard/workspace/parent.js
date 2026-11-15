@@ -246,6 +246,10 @@
     }
   }
 
+  async function scenarioAction(message) {
+    if(!signedIn()||!['scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link'].includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;
+    try{const response=await fetch('/api/scenarios/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(30000)});const value=await response.json();emit('loom-scenario-action-result',{id:message.id,ok:response.ok,value});if(response.ok&&!['scenarios','get_scenario','scenario_graph'].includes(message.action))refreshCatalog();}catch(error){emit('loom-scenario-action-result',{id:message.id,ok:false,value:{error:'request_unavailable'}});}
+  }
   async function runtimeAction(message) {
     if (!signedIn() || !['inspect_profile','compare_profiles','curate'].includes(message.action) || typeof message.id!=='string' || message.id.length>128) return;
     try {
@@ -401,6 +405,8 @@
       showBuild(buildInfo);
       refreshCatalog();
       updates();
+    } else if(message.type==='loom-scenario-action'){
+      scenarioAction(message);
     } else if (message.type === 'loom-runtime-action') {
       runtimeAction(message);
     } else if (message.type === 'loom-queue-action') {

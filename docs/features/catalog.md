@@ -1,5 +1,10 @@
 # catalog — Catalog, preserved records and file access
 
+Native candidate authority: `rust/crates/core/src/catalog.rs#dashboard_catalog`, `rust/crates/core/src/media.rs#read`.
+Retained Python paths below are compatibility references or administrator/web
+integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
+current process boundaries and acceptance limits.
+
 ## Responsibilities and boundaries
 
 Distinguish historical originals from current display overlays. Never assume missing files are valid artifacts.

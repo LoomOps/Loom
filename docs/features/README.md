@@ -39,7 +39,7 @@ flowchart LR
   Onboarding[Versioned guides / schemas] --> Client
 ```
 
-Authoritative execution states and hook stages are implemented by worker/finish in `ops/ops.py`, `ops/execution.py` and `ops/recovery.py`. Do not duplicate their state tables here.
+On the Rust development branch, native execution states and hook transitions are owned by `rust/crates/domain` and the transactional application in `rust/crates/core`. Retained Python files remain compatibility references. Do not duplicate their state tables here.
 
 ## Feature blocks
 
@@ -64,6 +64,9 @@ Authoritative execution states and hook stages are implemented by worker/finish 
 | [testing](testing.md) | Tests and specification checks | Development only |
 
 `ops/ops.py` still contains HTTP/MCP entry points and worker orchestration across several features. API owns the file, while queue/execution/recovery/results relationships are explicit. Future extraction can proceed by feature while retaining the same contract tests. Logical feature blocks do not correspond one-to-one to containers.
+
+| [scenarios](scenarios.md) | Versioned research context and exact links | Jobs, catalog, Dashboard |
+| [authoring](authoring.md) | Rust producer SDK and source/build identities | Components, Tools, Jobs, guides |
 
 ## Adding features
 

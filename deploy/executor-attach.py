@@ -51,7 +51,13 @@ if a.install_service:
         destination=a.executor/name
         if destination.is_symlink():raise SystemExit('Linked executor source')
         shutil.copyfile(source/'executor'/name,destination);os.chown(destination,0,0);destination.chmod(0o644)
+    native=source/'bin/loom-host'
     unit=(source/'executor/loom-executor.service').read_text().replace('/loom/shared/executor',str(a.executor))
+    if native.is_file():
+        from native_artifacts import verify
+        verify(native.parent)
+        shutil.copy2(native,a.executor/'loom-host');os.chown(a.executor/'loom-host',0,0);(a.executor/'loom-host').chmod(0o755)
+        unit=unit.replace('/usr/bin/python3 '+str(a.executor)+'/server.py',str(a.executor)+'/loom-host serve')
     Path('/etc/systemd/system/loom-executor.service').write_text(unit)
     subprocess.run(['systemctl','daemon-reload'],check=True)
     subprocess.run(['systemctl','enable','loom-executor.service'],check=True)

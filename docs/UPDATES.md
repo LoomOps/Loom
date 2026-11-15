@@ -1,5 +1,16 @@
 # Installation, overrides, updates and rollback
 
+## Native candidate cutover
+
+The Rust candidate adds schema 5 and delivers `loom-ops`, `loom-host`, `loom-sdk`
+and `loom-migrate` from the same immutable Ops image. The cumulative migration
+requires old writers, executions, callbacks and Runtime validation owners to drain.
+It preserves old rows/configuration/storage identities and records a private
+backup/intent/receipt. Resume verifies unchanged before/after hashes; rollback
+refuses new post-cutover records. Never start a legacy writer on schema 5.
+See [native acceptance and limitations](rust-port/IMPLEMENTATION.md). This source
+document is not permission to update an operational installation.
+
 ## Source and host state
 
 The repository contains deployable source. Do not symlink `/loom` into it or include `/loom` in Docker images. Installation creates/copies initial configuration, Compose and host helpers, then bind-mounts databases, secrets, user Component/Tool/Profile revisions and external data.

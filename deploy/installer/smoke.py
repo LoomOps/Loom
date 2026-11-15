@@ -16,6 +16,13 @@ else:
 '''
 
 
+NATIVE_SOURCE=json.dumps({'schema':'loom-installation-producer/v1','entrypoint':['/usr/local/bin/loom-sdk','--installation'],'protocol':'loom-producer/v1'},sort_keys=True)
+
+def source(setup):
+    native=bool(setup.manifest().get('files',{}).get('platform/bin/loom-sdk'))
+    return (NATIVE_SOURCE,'producer.json') if native else (SOURCE,'run.py')
+
+
 def call(setup, plan, group, action, arguments=None):
     reply=setup.read_api(plan,'/mcp',{'jsonrpc':'2.0','id':1,'method':'tools/call','params':{
         'name':group,'arguments':{'action':action,'arguments':arguments or {}}}})
@@ -26,7 +33,7 @@ def call(setup, plan, group, action, arguments=None):
 
 def verify(setup, plan):
     receipt=json.loads((setup.ROOT/'config/install-smoke.json').read_text())
-    if receipt.get('build')!=setup.manifest()['build_id'] or receipt.get('source_sha256')!=hashlib.sha256(SOURCE.encode()).hexdigest():return False
+    if receipt.get('build')!=setup.manifest()['build_id'] or receipt.get('source_sha256')!=hashlib.sha256(source(setup)[0].encode()).hexdigest():return False
     job=call(setup,plan,'jobs','get',{'id':receipt['job']})
     if job['state']!='complete' or not job.get('result',{}).get('execution',{}).get('process_group_returned'):return False
     if not all(any(s['stage']==stage and s.get('ended') for s in job['stages']) for stage in ('prepare','run')):return False
@@ -42,20 +49,26 @@ def run(setup, plan, timeout=45):
     from tailnet import write
     uid,gid=setup.ROOT.stat().st_uid,setup.ROOT.stat().st_gid
     receipt_path=setup.ROOT/'config/install-smoke.json'
-    build=setup.manifest()['build_id'];digest=hashlib.sha256(SOURCE.encode()).hexdigest()
+    build=setup.manifest()['build_id'];selected,filename=source(setup);digest=hashlib.sha256(selected.encode()).hexdigest()
     receipt=json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
     if receipt.get('build')!=build or receipt.get('source_sha256')!=digest:
         # Snapshot the component revision before submission; retries reuse this exact Job.
-        profile={'params_schema':{'type':'object','additionalProperties':False},'inputs':{},'outputs':{'proof':'artifact'},
+        profile={'params_schema':{'type':'object','additionalProperties':False},'inputs':{},'outputs':{'proof':'artifact'},'usage':{'group':'platform-check','categories':['other'],'execution_modes':['smoke']},
                  'limits':{'timeout_seconds':60,'max_attempts':1},
                  'prepare':{'executor':'container','runtime_id':'python','command':['python3','/component/run.py','prepare'],'lane':'cpu'},
                  'runtime':{'executor':'container','runtime_id':'python','command':['python3','/component/run.py','run'],'lane':'cpu'}}
-        registered=call(setup,plan,'components','register',{'id':'installation-smoke-'+build,'manifest':{'profiles':{'check':profile}},'files':{'run.py':SOURCE}})
+        definition={'profiles':{'check':profile},'tags':['platform-check'],'group':'platform-check'}
+        if filename=='producer.json':
+            image=setup.manifest()['images']['ops']['id']
+            for stage in ('prepare','runtime'):
+                profile[stage]={'executor':'container','image':image,'resources':{'cpus':1,'memory':'512m','pids':64},'command':['/usr/local/bin/loom-sdk','--installation'],'lane':'cpu'}
+            definition['implementation']={'language':'rust','entrypoint':'/usr/local/bin/loom-sdk','image':image}
+        registered=call(setup,plan,'components','register',{'id':'installation-smoke-'+build,'manifest':definition,'files':{filename:selected}})
         receipt={'build':build,'source_sha256':digest,'kind':registered['profiles'][0]}
         write(receipt_path,receipt,uid,gid)
     if not receipt.get('job'):
         job=call(setup,plan,'jobs','submit',{'key':'installation-smoke-'+build+'-'+digest[:12],
-            'kind':receipt['kind'],'owner':'owner','notify':'owner','params':{}})
+            'kind':receipt['kind'],'owner':'owner','notify':'owner','params':{},'category':'other','execution_mode':'smoke','presentation':{'scope':'operations','role':'test','label':'Installation smoke'}})
         receipt['job']=job['id'];write(receipt_path,receipt,uid,gid)
     deadline=time.monotonic()+timeout
     while time.monotonic()<deadline:

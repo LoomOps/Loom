@@ -4,6 +4,11 @@ This investigation is separate from the design and from the feature verification
 blocks. It records existing evidence, candidate problems and target decisions;
 it is not a report that the proposed Rust services or corrections have passed.
 
+The frozen findings below are historical. Current implementation decisions and
+independent correction cycles are recorded in [IMPLEMENTATION](IMPLEMENTATION.md);
+[IMPLEMENTATION-REVIEW.json](IMPLEMENTATION-REVIEW.json) inventories the current
+source separately, without rewriting this baseline.
+
 ## Inputs and method
 
 The frozen references are recorded by full commit in [FILE-REVIEW](FILE-REVIEW.json).

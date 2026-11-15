@@ -1,0 +1,18 @@
+# Build tooling is confined to this stage; installed Ops contains native binaries only.
+ARG RUST_BUILDER=rust:1.100.0-bookworm
+FROM ${RUST_BUILDER} AS builder
+WORKDIR /src
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY rust/ rust/
+COPY loom_use/ loom_use/
+COPY ops/build-info.json ops/build-info.json
+COPY LICENSE THIRD_PARTY_NOTICES.md ./
+RUN cargo build --release --locked --workspace
+RUN mkdir /native-licenses && find /usr/local/cargo/registry/src -type f \( -iname 'LICENSE*' -o -iname 'COPYING*' -o -iname 'NOTICE*' -o -iname 'COPYRIGHT*' \) -exec cp --parents {} /native-licenses/ \;
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/doc/loom/
+COPY --from=builder /native-licenses/ /usr/share/doc/loom/rust-licenses/
+COPY --from=builder /src/target/release/loom-ops /src/target/release/loom-host /src/target/release/loom-sdk /src/target/release/loom-migrate /usr/local/bin/
+ENV LOOM_STATE=/loom/ops LOOM_DATA=/loom/bulk LOOM_COMPONENTS=/loom/components
+ENTRYPOINT ["loom-ops","--listen","0.0.0.0:8080"]

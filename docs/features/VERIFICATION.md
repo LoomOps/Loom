@@ -264,3 +264,22 @@ workflow membership groups nodes while a parented independent follow-up remains
 visible. Consolidated source rows remain opt-in and do not inflate summary counts.
 These are isolated browser fixtures; they do not change queue order or
 prove production Job execution.
+
+## Native candidate additions
+
+| Block | Native evidence | Consumer / effect evidence | Preservation boundary |
+|---|---|---|---|
+| scenarios | Rust revision/link/Job-pin tests and HTTP fixtures | Firefox revision and linked-record navigation | Existing scientific identities remain unchanged |
+| authoring | Native SDK/package/build-receipt and generated Cargo fixtures | Hybrid worker cancel/return and registered artifact execution | No API-side compiler, imports or source execution |
+
+Native acceptance uses `tests/rust/run.py`: compiled Cargo test listings are
+matched to actual per-case executions and source fingerprints. Retained Python
+checks are compatibility evidence; they cannot satisfy native acceptance alone.
+`--reference-only` is an explicit diagnostic mode and is not Rust release readiness.
+
+Native review also exercises read snapshots alongside cancellation, original-key
+replay after recovery, cancellation before a delayed launch, live container logs,
+and interrupted migration receipt recovery. Each native case is actually executed
+by the Cargo/black-box runner; a suite name or a retained reference test is not a
+native PASS. Use [the implementation map](../rust-port/IMPLEMENTATION.md) to compare
+current ownership with the independent source inventory before this block audit.

@@ -64,7 +64,7 @@ Dependency cache location comes from the installed Runtime/dependency plan. Froz
 lockfiles and verified cache support reproducibility; offline is not presumed if
 crates are missing. Compiler images are not mounted into ordinary runtime Jobs.
 
-## Package fields (proposed, not advertised today)
+## Package fields (advertised by the native candidate)
 
 A new optional versioned `implementation` manifest describes entrypoints, source
 languages, build receipt and Python integrations. Each integration lists stage,
@@ -79,9 +79,10 @@ artifact receipt binds the binary to the same source revision/target; no mutable
 
 ## Built-in migration
 
-Inventory currently includes the embedded `cpu.smoke` producer and Python source
-emitted by `deploy/installer/smoke.py`. Replace these with release-built Rust smoke
-and fixture packages using the same SDK and normal Job/result path. Preserve the
+The native release supplies `loom-sdk` CPU smoke and installation producers.
+`deploy/installer/smoke.py` selects the release-built producer when the kit contains
+its native artifact manifest; the retained branch remains for old Python kits.
+Both native producers use the ordinary Job/result path. Preserve the
 public bounded smoke parameters, old Jobs and output semantics through adapters.
 Expose Built-in as origin, not a claim to ownership of user research code.
 Version package IDs/receipts by immutable source; never overwrite a registered

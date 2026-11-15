@@ -378,6 +378,14 @@ class WebHandler(BaseHTTPRequestHandler):
                 if json.loads(self.rfile.read(length)) != {}:raise ValueError()
             except (ValueError,TypeError):return self.error(400,'invalid_update_check')
             return self.relay('POST','/api/updates/check',b'{}')
+        if self.path == '/api/scenarios/actions':
+            try:
+                size=int(self.headers.get('Content-Length','0'))
+                if not 0<size<=196608 or self.headers.get_content_type()!='application/json':raise ValueError()
+                payload=json.loads(self.rfile.read(size))
+                if not isinstance(payload,dict) or set(payload)!={'action','arguments'} or payload['action'] not in ('scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link') or not isinstance(payload['arguments'],dict):raise ValueError()
+            except (ValueError,TypeError):return self.error(400,'invalid_scenario_action')
+            return self.relay('POST','/api/actions',json.dumps({'group':'results',**payload}).encode())
         if self.path == '/api/runtimes/actions':
             try:
                 size=int(self.headers.get('Content-Length','0'))

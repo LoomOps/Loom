@@ -18,7 +18,7 @@ EXCLUDED = {'evidence', '__pycache__', '.git', 'node_modules', 'secrets'}
 
 
 def sources():
-    for top in ('ops', 'dashboard', 'components', 'deploy', 'loom_use', 'docs', 'executor', 'tests'):
+    for top in ('ops', 'dashboard', 'components', 'deploy', 'loom_use', 'docs', 'executor', 'tests', 'rust'):
         for path in sorted((ROOT/top).rglob('*')):
             if EXCLUDED.intersection(path.relative_to(ROOT).parts):
                 continue
@@ -31,7 +31,7 @@ def sources():
                     raise ValueError(f'Source link leaves the checkout: {path.relative_to(ROOT)}')
             if path.is_file():
                 yield path
-    for name in ('LICENSE','THIRD_PARTY_NOTICES.md','AGENTS.md','README.md','CHANGELOG.md','INSTALL.md','.dockerignore'):
+    for name in ('LICENSE','THIRD_PARTY_NOTICES.md','AGENTS.md','README.md','CHANGELOG.md','INSTALL.md','.dockerignore','Cargo.toml','Cargo.lock','rust-toolchain.toml'):
         if (ROOT/name).is_file():yield ROOT/name
 
 

@@ -57,6 +57,8 @@ def inspect(root,release):
  if (root/'development').exists():raise ValueError('Release updater requires an image-backed instance; dev uses source mounts')
  info=json.loads((release/'result.json').read_text());manifest=json.loads((release/'manifest.json').read_text())
  if info['status']!='built' or info['build_id']!=manifest['build_id']:raise ValueError('Completed matching release required')
+ import native_artifacts
+ native_artifacts.verify_release(release)
  for rel,digest in manifest['files'].items():
   p=release/'source'/rel
   if Path(rel).is_absolute() or '..' in Path(rel).parts or not p.resolve().is_relative_to((release/'source').resolve()) or hashlib.sha256(p.read_bytes()).hexdigest()!=digest:raise ValueError('Release source mismatch: '+rel)
@@ -171,6 +173,12 @@ def check_health(source,root,project,expected=None):
 
 def helper_files(platform,source):
  result={}
+ native=source.parent/'native'
+ if not native.exists():native=source/'bin'
+ if (native/'loom-host').is_file():
+  import native_artifacts
+  native_artifacts.verify(native)
+  if (platform/'shared/executor/config.json').exists():result[platform/'shared/executor/loom-host']=native/'loom-host'
  for name in ('server.py','runtime_policy.py','runtime_store.py'):
   dest=platform/'shared/executor'/name
   if (dest.exists() or name=='runtime_store.py' and (platform/'shared/executor/server.py').exists()) and (source/'executor'/name).is_file():result[dest]=source/'executor'/name
@@ -180,6 +188,17 @@ def helper_files(platform,source):
  dest=Path('/usr/local/lib/loom-ssh/ssh_host.py')
  if (platform/'ops/config/ssh.json').exists() and dest.exists() and (source/'deploy/ssh_host.py').is_file():result[dest]=source/'deploy/ssh_host.py'
  return result
+
+def update_native_executor(platform,archive,record):
+ root=Path(platform)/'shared/executor';binary=root/'loom-host';unit=Path('/etc/systemd/system/loom-executor.service')
+ if not binary.is_file() or not unit.is_file():return
+ body=unit.read_text();old='/usr/bin/python3 '+str(root)+'/server.py';new=str(binary)+' serve'
+ if old not in body and new not in body:raise ValueError('Unrecognized Executor service command; admission remains fenced')
+ if old in body:
+  if str(unit) not in record['files']:
+   backup=Path(archive)/'loom-executor.service';shutil.copy2(unit,backup);record['files'][str(unit)]=str(backup)
+   write(Path(archive)/'record.json',record)
+  unit.write_text(body.replace(old,new));run('systemctl','daemon-reload')
 
 def executor_settings(platform):
  path=Path(platform)/'shared/executor/config.json'
@@ -262,6 +281,7 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
    for dest,new in helpers.items():
     if dest.exists():
      backup=archive/('helper-'+dest.name);shutil.copy2(dest,backup);record['helpers'][str(dest)]=str(backup)
+    else:record['helpers'][str(dest)]=None
    for rel in ['build.env']:
     dest=root/rel;backup=archive/rel;shutil.copy2(dest,backup);record['files'][str(dest)]=str(backup)
    record['state']='applying';write(archive/'record.json',record)
@@ -270,9 +290,10 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
    dest=platform/'distribution'/info['build_id']
    if dest.exists():raise ValueError('Distribution version already installed')
    shutil.copytree(src,dest)
-   for target,new in helpers.items():shutil.copyfile(new,target);os.chmod(target,0o644)
+   for target,new in helpers.items():shutil.copyfile(new,target);os.chmod(target,0o755 if target.name=='loom-host' else 0o644)
    st=(root/'build.env').stat();write(root/'build.env',(release/'build.env').read_text(),st.st_uid,st.st_gid)
    update_boot_units(dest,archive,record)
+   update_native_executor(platform,archive,record)
    if helpers:run('systemctl','start','loom-executor.service','loom-observations.timer')
    restart_ssh(root)
    args=['up','-d','--no-build']+(['--force-recreate'] if mode=='rebuild' else [])
@@ -359,9 +380,10 @@ def resume(record_path):
     for rel,digest in json.loads((release/'manifest.json').read_text())['files'].items():
      if hashlib.sha256((dest/rel).read_bytes()).hexdigest()!=digest:raise ValueError('Incomplete or modified release copy; use rollback')
    else:shutil.copytree(src,dest)
-   for target,new in helper_files(platform,src).items():shutil.copyfile(new,target);os.chmod(target,0o644)
+   for target,new in helper_files(platform,src).items():shutil.copyfile(new,target);os.chmod(target,0o755 if target.name=='loom-host' else 0o644)
    owner=(root/'build.env').stat();write(root/'build.env',(release/'build.env').read_text(),owner.st_uid,owner.st_gid)
    update_boot_units(dest,path.parent,record)
+   update_native_executor(platform,path.parent,record)
    if record['helpers']:run('systemctl','start','loom-executor.service','loom-observations.timer')
    restart_ssh(root)
    compose(dest,root,project,'up','-d','--no-build',*(['--force-recreate'] if record.get('mode')=='rebuild' else []))
@@ -416,7 +438,9 @@ def _rollback(record_path):
    if digest_db(Path(db))!=digest:raise ValueError('Database changed while starting rollback; records retained')
   if record['helpers']:run('systemctl','stop','loom-executor.service','loom-observations.timer','loom-observations.service')
   for group in ('files','helpers'):
-   for target,backup in record[group].items():shutil.copy2(backup,target)
+   for target,backup in record[group].items():
+    if backup is None:Path(target).unlink(missing_ok=True)
+    else:shutil.copy2(backup,target)
   for db,backup in record['databases'].items():
    if Path(db).is_symlink() or not Path(db).parent.resolve().is_relative_to(root.resolve()):raise ValueError('Database restore leaves the preserved instance')
    with sqlite3.connect(backup) as a,sql(db) as b:a.backup(b)

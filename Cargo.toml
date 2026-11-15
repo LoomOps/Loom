@@ -1,0 +1,25 @@
+[workspace]
+members = ["rust/crates/domain", "rust/crates/core", "rust/crates/sdk", "rust/crates/host", "rust/crates/ops", "rust/crates/migrate"]
+resolver = "2"
+
+[workspace.package]
+version = "0.2.0-dev.1"
+edition = "2021"
+rust-version = "1.100"
+publish = false
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["arbitrary_precision"] }
+rusqlite = { version = "0.42", features = ["bundled", "backup", "functions"] }
+sha2 = "0.10"
+hmac = "0.12"
+base64 = "0.22"
+uuid = { version = "1", features = ["v4"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "time", "sync", "process", "io-util", "fs"] }
+axum = "0.8"
+jsonschema = { version = "0.61", default-features = false }
+libc = "0.2"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
+axum-server = { version = "0.8", default-features = false, features = ["tls-rustls-no-provider"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }

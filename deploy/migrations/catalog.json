@@ -9,6 +9,16 @@
       "script": "deploy/migrations/research_tools.py",
       "timeout_seconds": 120,
       "description": "Add the independent Tool registry without rewriting Components, Profiles, Jobs or credentials. Explicitly selected legacy revisions can subsequently be copied through components.register_tool."
+    },
+    {
+      "id": "rust-authority-v1",
+      "introduced": "0.2.0-alpha.1",
+      "requires": [
+        "research-tools-v1"
+      ],
+      "script": "deploy/migrations/rust_authority.py",
+      "timeout_seconds": 900,
+      "description": "Drain and preserve the existing schema, credentials, source revisions and roots before a native writer cutover. Unknown execution owners block migration."
     }
   ]
 }

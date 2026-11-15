@@ -1,5 +1,10 @@
 # extensions — Components, Tools, Profiles and execution environment contracts
 
+Native candidate authority: `rust/crates/core/src/software.rs#software_action`, `rust/crates/core/src/software.rs#software_action`, `rust/crates/core/src/runtime.rs#runtime_inventory`, `rust/crates/host/src/runtime.rs#detail`, `rust/crates/core/src/composition.rs#profile_listing`.
+Retained Python paths below are compatibility references or administrator/web
+integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
+current process boundaries and acceptance limits.
+
 Dashboard's software lists include historical records and
 the latest native registration for each namespace/ID. Native revision summaries
 retain source hashes and exact profile Tool references; usage distinguishes pins

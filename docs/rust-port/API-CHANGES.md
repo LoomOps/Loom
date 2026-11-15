@@ -1,14 +1,15 @@
-# Shared API and instruction contract plan
+# Shared API and instruction contracts
 
-All names in the proposal table are planned capabilities, not available actions.
-Freeze the reference six MCP groups and HTTP behavior first. HTTP, MCP, Dashboard,
+The development registry implements the additions below within the existing six
+MCP groups. Discover the running server before using them; old installations do
+not acquire capabilities from this source checkout. HTTP, MCP, Dashboard,
 CLI and retained clients call the same authorized application commands/queries.
 A typed registry supplies argument schemas, required scopes, safe errors, compact
 reference and guide links; do not hand-maintain duplicate dispatch/schema lists.
 
-## Versioning and proposed additions
+## Versioning and additions
 
-| Capability | Proposed surface | Validation / compatibility |
+| Capability | Surface | Validation / compatibility |
 |---|---|---|
 | Scenario list/detail/graph | `results.scenarios`, `results.get_scenario`, `results.scenario_graph` | Read scope; bounded cursors; unassigned and unavailable links visible |
 | Scenario registration/revision/archive | `results.register_scenario`, `results.update_scenario`, `results.archive_scenario` | Submit/delegated write scope, stable key, expected revision for updates/archive |
@@ -20,9 +21,9 @@ reference and guide links; do not hand-maintain duplicate dispatch/schema lists.
 | Historical current location | Additive `results.bind_historical_location` | Verify immutable historical identity/store/hash; recorded vs current availability separate |
 | Queue/history purpose | Existing queries with explicit independent selectors | All real occupants for queue; history default All; purpose never schedule eligibility |
 
-Naming/group ownership is fixed during D1 registry fixtures before client examples
-are released; prefer these additive actions within the current groups to a seventh
-hard-coded group. If a public break becomes necessary, create a declared revision
+`rust/crates/core/src/contracts.rs` owns the live registry;
+`rust/contracts/legacy-actions.json` preserves the original action shapes. The
+additions do not introduce a seventh group. If a public break becomes necessary, create a declared revision
 with an upgrade adapter rather than silently changing the meaning of an old field.
 
 ## Wire discipline

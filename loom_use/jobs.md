@@ -158,3 +158,12 @@ these declarations, ambiguous experiment outputs remain supporting records on
 the Job, rather than being counted as independent scientific experiments. Exact
 records and input references remain available; a published workflow output alias
 explicitly identifies the requested primary result.
+
+## Rust authoring and Scenario context
+
+Prefer Rust for new runners, batching, orchestration, progress and manifest writing.
+Use explicit pinned Python workers for external SDK integrations. Discover the
+server authoring guide and exact SDK/template compatibility before writing code.
+When advertised, optional scenario_ref pins an exact research task/protocol revision
+at acceptance; a later Scenario revision never repins this Job. Context links do
+not create execution, duplicate outputs, grant access or become a readiness gate.

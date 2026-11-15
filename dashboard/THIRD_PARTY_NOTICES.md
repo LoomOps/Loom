@@ -8,3 +8,9 @@ Loom's original source is licensed under GPL-3.0-only; third-party works retain 
 - The Tailscale symbol identifies the Tailscale integration. Tailscale's name and logo remain its trademarks; no endorsement or trademark license is implied. Source: https://tailscale.com/press.
 
 External Job images, user components, datasets and model artifacts are supplied independently. Their inclusion in an installation does not change their licenses.
+
+The native candidate locks Rust dependencies in `Cargo.lock`. Its acceptance kit
+includes `sbom.json` and dependency LICENSE/COPYING/NOTICE files. The principal
+native libraries include Tokio, axum, serde/serde_json, rusqlite with bundled
+SQLite, jsonschema, RustCrypto hashes/HMAC, reqwest and rustls. Their upstream
+licenses remain applicable; the native Docker base retains distribution notices.

@@ -1,4 +1,4 @@
-"""Run isolated development checks. Does not build, deploy, or submit real Jobs."""
+"""Run isolated development/native checks. No operational deployment or research Jobs."""
 import argparse
 from datetime import datetime
 import json
@@ -12,6 +12,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--reference-only',action='store_true',help='Run retained Python compatibility checks without Rust acceptance')
     parser.add_argument('--browser',action='store_true',help='Also exercise Firefox against the mock Ops fixture')
     parser.add_argument('--output',type=Path,help='JSON/JUnit report and browser screenshot directory')
     args=parser.parse_args()
@@ -31,6 +32,15 @@ def main():
             print('Generated dashboard is stale. Run dashboard/workspace/build.py before browser verification.',file=sys.stderr);return 1
     summary={'suites':{},'successful':True,'tests':0,'scope':'isolated fixtures; no deployment, production DB or GPU execution'}
     env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1','LOOM_TEST_SCREENSHOTS':str(output/'screenshots')}
+    if not args.reference_only:
+        rust=subprocess.run([sys.executable,'-B',str(ROOT/'tests/rust/run.py'),'--output',str(output)],cwd=ROOT,env=env,capture_output=True,text=True)
+        (output/'rust-run.log').write_text(rust.stdout+rust.stderr)
+        print(rust.stdout,flush=True)
+        for name in ('rust','native'):
+            report=output/(name+'.json');value=json.loads(report.read_text()) if report.exists() else {'tests':0,'successful':False}
+            summary['suites'][name]={'tests':value['tests'],'successful':value['successful']};summary['tests']+=value['tests'];summary['successful'] &= value['successful']
+        summary['successful'] &= rust.returncode==0
+    summary['reference_only']=args.reference_only
     for name,directory in suites.items():
         report=output/(name+'.json')
         process=subprocess.run([sys.executable,'-B',str(ROOT/'tests/suite.py'),str(directory),str(report)],cwd=ROOT,env=env,capture_output=True,text=True)

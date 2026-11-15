@@ -1,5 +1,10 @@
 # recovery — Recovery reservations, recipient events and retries
 
+Native candidate authority: `rust/crates/core/src/jobs.rs#recover`, `rust/crates/core/src/execution.rs#next_work`.
+Retained Python paths below are compatibility references or administrator/web
+integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
+current process boundaries and acceptance limits.
+
 ## Responsibilities and boundaries
 
 The caller owns error repair. Preserve reservation deadlines, attempt limits and dependent-Job skipping. Event acknowledgments are recipient-specific.

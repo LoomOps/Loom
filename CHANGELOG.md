@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — native Rust candidate
+
+- Add a native domain/application, scoped host executor, producer SDK and offline migrator; retain web, scientific SDKs and administrator integrations.
+- Add immutable Scenario revisions, explicit research links, preserved historical location bindings and Rust-first authoring/templates.
+- Preserve actual queue occupants, Job/Step/Attempt evidence and original request keys; fence delayed starts, stale returns, recovery and publication.
+- Deliver same-image native binaries with additive schema/preservation receipts, read snapshots, live log ranges and native/browser/package acceptance.
+- This development entry does not announce a published release or an operational cutover.
+
 ## 0.1.0-alpha.60
 
 - Add a Dependencies catalog within Runtimes, grouped into major software categories with search, exact versions, recorded origins and consuming Runtime/Profile links.

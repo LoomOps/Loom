@@ -6,14 +6,16 @@ ROOT=Path(__file__).resolve().parents[1]
 HOST_FILES={
  'docs':['SSH.md','TAILSCALE-SSO.md','TAILSCALE-SETUP.md','MANAGED-RESOURCES.md','UNINSTALL.md','ACCESS-ENROLLMENT.md','UPDATES.md','UPGRADE.md','RUNTIME-DOCTOR.md'],
  'dashboard':['diagnostics.py','admission.py','sharing.py','sso.py','managed_resources.py','ssh_access.py'],
- 'deploy':['install.py','executor-attach.py','host_identity.py','host_services.py','boot_readiness.py','ssh_host.py','ssh_setup.py','storage_parity.py','collect-dashboard-gpus.py','collect-observations.py','runtime_doctor.py','queue_control_cli.py','runtime.py','runtime_inventory.py','compose.sh','tailnet.py','access_setup.py','uninstall.py','policy_cleanup.py','update.py','migrations.py','state_snapshot.py','guide_bundle.py','release_check_setup.py'],
- 'ops':['dispatch_control.py','host_layout.py','release_updates.py','docker_status.py','host_metrics.py','remote_fence.py','compose.loom.yaml','compose.diagnostics.yaml','compose.executor.yaml','compose.observations.yaml','compose.data.yaml'],
+ 'deploy':['install.py','executor-attach.py','native_artifacts.py','host_identity.py','host_services.py','boot_readiness.py','ssh_host.py','ssh_setup.py','storage_parity.py','collect-dashboard-gpus.py','collect-observations.py','runtime_doctor.py','queue_control_cli.py','runtime.py','runtime_inventory.py','compose.sh','tailnet.py','access_setup.py','uninstall.py','policy_cleanup.py','update.py','migrations.py','state_snapshot.py','guide_bundle.py','release_check_setup.py'],
+ 'ops':['dispatch_control.py','host_layout.py','release_updates.py','docker_status.py','host_metrics.py','remote_fence.py','compose.loom.yaml','compose.rust.yaml','compose.diagnostics.yaml','compose.executor.yaml','compose.observations.yaml','compose.data.yaml'],
  'executor':['server.py','runtime_policy.py','runtime_store.py','loom-executor.service'],
 }
 
 def build(release,output,guide):
  info=json.loads((release/'result.json').read_text())
  if info['status']!='built':raise ValueError('A completed immutable release is required')
+ import native_artifacts
+ native_artifacts.verify_release(release)
  if output.exists():raise ValueError('Choose a new output directory')
  engine=['docker']
  if subprocess.run(engine+['info'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode:engine=['sudo','-n','docker']
@@ -25,6 +27,9 @@ def build(release,output,guide):
  output.mkdir(parents=True)
  for name in ('LICENSE','THIRD_PARTY_NOTICES.md'):shutil.copy2(release/'source'/name,output/name)
  shutil.copytree(release/'source',output/'source')
+ if (release/'native').exists():
+  import native_artifacts
+  native_artifacts.verify(release/'native');shutil.copytree(release/'native',output/'platform/bin')
  for directory,names in HOST_FILES.items():
   for name in names:
    dest=output/'platform'/directory/name;dest.parent.mkdir(parents=True,exist_ok=True)

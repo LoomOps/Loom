@@ -5,6 +5,8 @@ from pathlib import Path
 
 def generate(image):
  script="import sys,ops,onboarding,job_contract; actor={'id':'documentation','scopes':['read','submit','cancel','events','control','admin'],'owners':['*'],'notify':[]}; sys.stdout.buffer.write(onboarding.bundle(actor,ops.TOOLS,ops.tool_schema,job_contract.contract()))"
+ probe=subprocess.run(['docker','run','--rm','--network','none','--entrypoint','loom-ops',image,'--guide-bundle'],capture_output=True)
+ if probe.returncode==0:return probe.stdout
  return subprocess.check_output(['docker','run','--rm','--network','none','--entrypoint','python3',image,'-c',script])
 
 

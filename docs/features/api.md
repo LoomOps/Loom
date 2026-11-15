@@ -1,5 +1,10 @@
 # api — Public HTTP/MCP contracts and request routing
 
+Native candidate authority: `rust/crates/core/src/store.rs#execute`, `rust/crates/core/src/http.rs#http`.
+Retained Python paths below are compatibility references or administrator/web
+integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
+current process boundaries and acceptance limits.
+
 ## Responsibilities and boundaries
 
 HTTP and the six MCP groups invoke the same operations. Distinguish request acceptance from successful execution.

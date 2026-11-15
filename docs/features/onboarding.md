@@ -1,5 +1,10 @@
 # onboarding — User guides, version identification and client entry
 
+Native candidate authority: `rust/crates/core/src/onboarding.rs#bundle`.
+Retained Python paths below are compatibility references or administrator/web
+integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
+current process boundaries and acceptance limits.
+
 ## Responsibilities and boundaries
 
 The running server is authoritative for guides. Updates do not change personal instructions or active Job pins. Distributable guides, document titles and generated MCP/API reference descriptions use English; Dashboard UI localization remains independent.

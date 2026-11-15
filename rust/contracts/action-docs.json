@@ -1,0 +1,690 @@
+{
+  "system.ssh": {
+    "title": "Personal SSH connection",
+    "description": "Read the current caller SSH grant and machine addresses. Same-host clients use local files; Admin enablement is separate.",
+    "returns": "Connection \u00b7 state, host, port, username, authentication, home, addresses",
+    "example": {},
+    "errors": [
+      "Not enabled, unavailable or SSH management not configured."
+    ]
+  },
+  "system.users": {
+    "title": "User profiles",
+    "description": "List registered user profiles available for ownership assignment.",
+    "returns": "User[] \u00b7 id, provider, login, display_name",
+    "example": {},
+    "errors": []
+  },
+  "components.assign_owner": {
+    "title": "Attribute shared software",
+    "description": "Set the responsible user or built-in attribution for Loom-supplied software. Sharing, namespace, source revisions and Job pins remain unchanged.",
+    "returns": "Attribution \u00b7 kind, id, namespace, owner_profile, owner_kind, changed",
+    "example": {
+      "kind": "tool",
+      "namespace": "research",
+      "id": "planner",
+      "owner": "<user-profile-id>"
+    },
+    "errors": [
+      "Unregistered user, missing extension, read-only scope or maintenance fence."
+    ]
+  },
+  "jobs.assign_owner": {
+    "title": "Assign Job owner",
+    "description": "Set the current responsible user, preserving original execution and submitter records.",
+    "returns": "Item \u00b7 id, owner, owner_profile",
+    "example": {
+      "id": "<job-id>",
+      "owner": "<profile-id>"
+    },
+    "errors": [
+      "Unregistered profile or missing Job."
+    ]
+  },
+  "results.assign_owner": {
+    "title": "Assign result owner",
+    "description": "Set the current responsible user for a model, dataset or artifact.",
+    "returns": "Item \u00b7 id, owner, owner_profile",
+    "example": {
+      "id": "<entity-id>",
+      "owner": "<profile-id>"
+    },
+    "errors": [
+      "Unregistered profile or missing artifact."
+    ]
+  },
+  "jobs.queue": {
+    "title": "Shared execution order",
+    "description": "Read every user's waiting order and available controls.",
+    "returns": "Queue \u00b7 revision, entries with position, held, reason, capabilities",
+    "example": {},
+    "errors": []
+  },
+  "jobs.reorder": {
+    "title": "Reorder waiting Job",
+    "description": "Move a waiting Job ahead of other users' Jobs. Preserve running Jobs and dependencies.",
+    "returns": "Receipt \u00b7 changed, state, held, position",
+    "example": {
+      "id": "<job-id>",
+      "position": "next"
+    },
+    "errors": [
+      "Permission denied, invalid position or reference no longer waiting. If execution was claimed first, changed=false."
+    ]
+  },
+  "jobs.hold": {
+    "title": "Hold waiting Job",
+    "description": "Prevent new stages of a waiting Job. Active preparation finishes, but run cannot start.",
+    "returns": "Receipt \u00b7 changed, state, held, position",
+    "example": {
+      "id": "<job-id>"
+    },
+    "errors": [
+      "Permission denied. If the main run already started, changed=false."
+    ]
+  },
+  "jobs.resume": {
+    "title": "Resume waiting Job",
+    "description": "Release an ordinary hold while preserving order. This is not error recovery or checkpoint restart.",
+    "returns": "Receipt \u00b7 changed, state, held, position",
+    "example": {
+      "id": "<job-id>"
+    },
+    "errors": [
+      "Permission denied. Releasing a failed Job's hold does not rerun its failed execution."
+    ]
+  },
+  "system.guide": {
+    "title": "Loom guides",
+    "description": "Read server version and guide index, or a document by id. Matching known_revision returns not_modified.",
+    "returns": "Guide \u00b7 manifest, documents or content",
+    "example": {},
+    "errors": [
+      "Unknown document ID or invalid arguments."
+    ]
+  },
+  "jobs.list": {
+    "title": "List Jobs",
+    "description": "List logical Jobs in reverse registration order. include_consolidated=true also returns preserved constituent Jobs.",
+    "returns": "Job[] \u00b7 id, status, state, owner, attempt, recovery, category, execution_mode",
+    "example": {
+      "limit": 25,
+      "offset": 0
+    },
+    "errors": []
+  },
+  "jobs.get": {
+    "title": "Job details",
+    "description": "Read state, Attempts, internal_steps, consolidation provenance, work_timeline from original execution receipts, waiting reasons, recovery, callbacks and artifacts. Consolidated work elapsed time includes sources; Attempts retain continuation runtime timestamps.",
+    "returns": "Job \u00b7 status, scheduling, recovery, attempts, stages, callbacks, result",
+    "example": {
+      "id": "<job-id>"
+    },
+    "errors": [
+      "The ID does not exist."
+    ]
+  },
+  "jobs.submit": {
+    "title": "Submit Job",
+    "description": "Pin a registered profile and parameters and enter the queue. category does not select the executor. One requested outcome is one Job; batch/vectorized work runs internally. Explicit consolidates reuses completed producer Jobs without rewriting them.",
+    "returns": "Submission \u00b7 id",
+    "example": {
+      "key": "example-run-001",
+      "kind": "<registered-profile-id>",
+      "owner": "<owner-id>",
+      "notify": "<agent-id>",
+      "params": {},
+      "category": "fine_tuning",
+      "execution_mode": "smoke"
+    },
+    "errors": [
+      "Unregistered profile, parameter schema mismatch, denied input access or stopped admission.",
+      "Reusing a key with different execution content causes a conflict."
+    ]
+  },
+  "jobs.cancel": {
+    "title": "Cancel Job",
+    "description": "Cancel the specified Job, regardless of owner. For active execution, verify actual resource return separately.",
+    "returns": "Cancellation receipt \u00b7 id, state",
+    "example": {
+      "id": "<job-id>"
+    },
+    "errors": [
+      "Missing cancel scope."
+    ]
+  },
+  "jobs.logs": {
+    "title": "Execution logs",
+    "description": "Read Attempt logs using a byte cursor. Continue from next_offset.",
+    "returns": "Log range \u00b7 available, offset, next_offset, text",
+    "example": {
+      "id": "<job-id>",
+      "attempt": "<attempt-id>",
+      "offset": 0,
+      "limit": 65536
+    },
+    "errors": [
+      "Attempt belongs to another Job, negative offset or limit outside 1\u201365536."
+    ]
+  },
+  "recovery.claim": {
+    "title": "Claim recovery",
+    "description": "Claim a failed Job awaiting a response. Pass the returned lease to progress/resume.",
+    "returns": "Recovery \u00b7 state, rounds, agent, deadline, hard_deadline, lease",
+    "example": {
+      "id": "<job-id>"
+    },
+    "errors": [
+      "Waiting deadline expired or another agent already claimed recovery."
+    ]
+  },
+  "recovery.progress": {
+    "title": "Report recovery progress",
+    "description": "Report progress with a valid lease to refresh the idle deadline, without extending the round's hard deadline.",
+    "returns": "Recovery \u00b7 state, rounds, agent, deadline, hard_deadline",
+    "example": {
+      "id": "<job-id>",
+      "lease": "<recovery-lease>"
+    },
+    "errors": [
+      "Lease mismatch, claimant mismatch or expired recovery deadline."
+    ]
+  },
+  "recovery.resume": {
+    "title": "Rerun after repair",
+    "description": "Schedule recovery at the reserved queue position. patch permits only params/kind/execution.",
+    "returns": "Recovery \u00b7 state=pending, rounds, agent",
+    "example": {
+      "id": "<job-id>",
+      "lease": "<recovery-lease>",
+      "patch": {},
+      "reason": "Rerun after repairing the cause"
+    },
+    "errors": [
+      "Lease mismatch, three recovery rounds exhausted or invalid patched inputs.",
+      "For finalization-only failure, retry postprocessing without a patch."
+    ]
+  },
+  "recovery.defer": {
+    "title": "Defer recovery",
+    "description": "Release the current queue reservation. Dependent Jobs wait while independent Jobs proceed.",
+    "returns": "Recovery \u00b7 state=deferred",
+    "example": {
+      "id": "<job-id>"
+    },
+    "errors": [
+      "No valid reservation. Another user's reservation can be explicitly released; the acting user is recorded."
+    ]
+  },
+  "recovery.reactivate": {
+    "title": "Reactivate deferred Job",
+    "description": "Return a deferred Job to a new queue position without resetting recovery rounds.",
+    "returns": "Recovery \u00b7 state=waiting, deadline",
+    "example": {
+      "id": "<job-id>"
+    },
+    "errors": [
+      "Job is not deferred."
+    ]
+  },
+  "events.list": {
+    "title": "Completion and error events",
+    "description": "Read up to 100 unacknowledged recipient events in seq order. Use kind=all to include completion.",
+    "returns": "Event[] \u00b7 seq, job, code, kind, ack, delivery_state",
+    "example": {
+      "kind": "all",
+      "after": 0
+    },
+    "errors": [
+      "Unsupported kind or invalid cursor."
+    ]
+  },
+  "events.ack": {
+    "title": "Acknowledge event",
+    "description": "Record receipt of an event. This does not claim recovery or mark work complete.",
+    "returns": "Acknowledgment receipt",
+    "example": {
+      "seq": 123
+    },
+    "errors": [
+      "Event belongs to another recipient or seq does not exist."
+    ]
+  },
+  "components.list": {
+    "title": "List components",
+    "description": "Read the latest revision of all components. Set owner to filter the namespace.",
+    "returns": "Component[] \u00b7 owner (namespace), id, revision, owner_profile, owner_name, owner_kind",
+    "example": {},
+    "errors": []
+  },
+  "components.get": {
+    "title": "Component details",
+    "description": "Read an exact or latest Job lifecycle Component manifest and profiles.",
+    "returns": "Component \u00b7 owner (namespace), id, revision, manifest, profiles, owner_profile, owner_name, owner_kind",
+    "example": {
+      "id": "<component-id>"
+    },
+    "errors": [
+      "Missing component or owner access denied."
+    ]
+  },
+  "components.write": {
+    "title": "Write source",
+    "description": "Save editable source at a relative path. Active revisions remain unchanged.",
+    "returns": "Source receipt \u00b7 id, path, bytes",
+    "example": {
+      "id": "demo",
+      "path": "run.py",
+      "content": "import json, sys\nfrom pathlib import Path\nr = json.loads(Path(sys.argv[-1]).read_text())\no = Path(r[\"output_dir\"])\n(o/\"sample.txt\").write_text(\"hello\")\np = {\"profile\": r[\"profile\"][\"revision\"], \"producer_sha256\": r[\"profile\"][\"sha256\"]}\n(o/\"result.json\").write_text(json.dumps({\"entities\": [{\"id\": \"sample\", \"kind\": \"artifact\", \"path\": \"sample.txt\", \"provenance\": p, \"relations\": []}], \"metrics\": []}))\n"
+    },
+    "errors": [
+      "Absolute path, parent-directory escape or owner access denied."
+    ]
+  },
+  "components.register": {
+    "title": "Register revision",
+    "description": "Register source as an immutable revision. profiles is optional; standalone register_profile can reference the revision. New orchestration defaults to Rust; discover Cargo/SDK templates with components.scaffold. Registration never builds or executes source.",
+    "returns": "Registration \u00b7 owner (namespace), id, revision, profiles[], owner_profile, owner_name, owner_kind",
+    "example": {
+      "id": "example-rust-package",
+      "manifest": {
+        "implementation": {
+          "language": "rust"
+        }
+      },
+      "files": {
+        "src/lib.rs": "pub fn sample() -> u32 { 1 }"
+      }
+    },
+    "errors": [
+      "Missing source, unavailable runtime, missing GPU permission or profile contract mismatch."
+    ]
+  },
+  "components.register_profile": {
+    "title": "Register profile",
+    "description": "Register an execution Profile combining optional Component, exact Tools and stage environments. Optional multi-purpose usage is descriptive. Available without redeployment; Jobs pin the revision.",
+    "returns": "Profile receipt \u00b7 owner, id, revision, kind, sha256",
+    "example": {
+      "id": "demo-run",
+      "component": {
+        "id": "demo",
+        "revision": 1
+      },
+      "profile": {
+        "usage": {
+          "categories": [
+            "pipeline",
+            "evaluation"
+          ],
+          "execution_modes": [
+            "pilot",
+            "full"
+          ]
+        },
+        "params_schema": {
+          "type": "object"
+        },
+        "defaults": {},
+        "inputs": {},
+        "outputs": null,
+        "metadata_schemas": {},
+        "runtime": {
+          "executor": "container",
+          "image": "python:3.12-slim",
+          "resources": {
+            "cpus": 1,
+            "memory": "1g"
+          },
+          "command": [
+            "python3",
+            "/component/run.py"
+          ],
+          "lane": "cpu"
+        },
+        "limits": {
+          "timeout_seconds": 60,
+          "max_attempts": 4
+        }
+      }
+    },
+    "errors": [
+      "Uncached image, resource limit exceeded, unregistered component or invalid schema."
+    ]
+  },
+  "components.get_profile": {
+    "title": "Profile details",
+    "description": "Read a specific or latest revision of an independently registered profile.",
+    "returns": "Profile \u00b7 owner, id, revision, profile",
+    "example": {
+      "id": "demo-run"
+    },
+    "errors": [
+      "Profile access denied or missing revision."
+    ]
+  },
+  "components.profiles": {
+    "title": "Available execution profiles",
+    "description": "Read exact Profile combinations, stage environments and observed Job usage. Repeated environment dependencies are a bounded preview (dependency_count, dependencies_complete); use components.get_runtime for the complete inventory. Read scope does not grant execution or registration rights.",
+    "returns": "Profile[] \u00b7 kind, revision, params_schema, outputs, limits, usage, combination",
+    "example": {},
+    "errors": []
+  },
+  "results.list": {
+    "title": "List artifacts",
+    "description": "Discover native artifacts and imported models/datasets/experiments from the active catalog. For record_type=historical, pass history_ref to results.historical; other entries use results.get. Discovery does not establish file availability.",
+    "returns": "Artifact list \u00b7 native registry entries or historical entries with history_ref and detail_action",
+    "example": {},
+    "errors": []
+  },
+  "results.get": {
+    "title": "Artifact details",
+    "description": "Read an artifact record by ID and revision.",
+    "returns": "Registry entity view",
+    "example": {
+      "id": "<entity-id>",
+      "revision": 1
+    },
+    "errors": [
+      "Artifact access denied or missing revision."
+    ]
+  },
+  "results.reindex": {
+    "title": "Reindex results",
+    "description": "Retry publication for a returned execution without restarting GPU execution. Published output identities, hashes, metadata and lineage must remain identical; use reconnect to add a verified location.",
+    "returns": "Receipt \u00b7 id, attempt, state=processing",
+    "example": {
+      "id": "<job-id>",
+      "attempt": "<attempt-id>"
+    },
+    "errors": [
+      "Not the current Attempt or publication cannot be retried in this state."
+    ]
+  },
+  "results.reconnect": {
+    "title": "Reconnect artifact location",
+    "description": "Register a verified replacement location for an existing immutable artifact component. Does not rerun execution or change artifact contents.",
+    "returns": "Location receipt \u00b7 id, revision, component, ref, status=available",
+    "example": {
+      "id": "<entity-id>",
+      "revision": 1,
+      "component": "model.bin",
+      "ref": "restored/model.bin",
+      "storage": "data/1"
+    },
+    "errors": [
+      "Requires submit scope; unknown store/component, unsafe path or mismatched size/hash is rejected."
+    ]
+  },
+  "results.annotate": {
+    "title": "Add annotation",
+    "description": "Append evidence and a note without overwriting existing results.",
+    "returns": "Annotation receipt",
+    "example": {
+      "id": "<job-id>",
+      "annotation_id": "note-001",
+      "reason": "Review note",
+      "evidence": {}
+    },
+    "errors": [
+      "Requires submit scope."
+    ]
+  },
+  "results.history": {
+    "title": "Preserved history",
+    "description": "Read all preserved records with pagination.",
+    "returns": "History page",
+    "example": {
+      "kind": "",
+      "offset": 0,
+      "limit": 50
+    },
+    "errors": [
+      "Requires read scope."
+    ]
+  },
+  "results.historical": {
+    "title": "Historical record",
+    "description": "Read immutable history plus current registered-copy availability. Recorded missing does not prove the original was deleted.",
+    "returns": "Historical record \u00b7 body, source identity and current_availability (not_connected, missing, verified, present_unverified, mismatch or unavailable)",
+    "example": {
+      "source": "loom-ops",
+      "kind": "job",
+      "id": "<history-id>",
+      "revision": "1"
+    },
+    "errors": [
+      "The specified record does not exist."
+    ]
+  },
+  "system.updates": {
+    "title": "Release check status",
+    "description": "Compare cached GitHub Releases with the current build. Reads do not wait on network requests or the Job database.",
+    "returns": "ReleaseCheck \u00b7 status, installed, latest, update_available, checked_at, last_success_at, next_check_at, error, stale",
+    "example": {},
+    "errors": []
+  },
+  "system.check_updates": {
+    "title": "Check for releases",
+    "description": "Request a background check respecting the 60-second cooldown and GitHub rate limits. Does not install releases or stop Jobs.",
+    "returns": "Receipt \u00b7 accepted, reason, updates",
+    "example": {},
+    "errors": [
+      "Failures appear in updates.error while preserving the last successful result."
+    ]
+  },
+  "system.status": {
+    "title": "Service status",
+    "description": "Read build, contract revision, admission, registered runtimes and GPU execution availability.",
+    "returns": "Status \u00b7 build, api_revision, admission, inventory, runtime_ids, gpu_execution_enabled",
+    "example": {},
+    "errors": []
+  },
+  "system.docker": {
+    "title": "Container status",
+    "description": "Read permitted Docker containers and observation status.",
+    "returns": "Docker status \u00b7 status, engine, containers, errors",
+    "example": {},
+    "errors": [
+      "Missing or stale observations are reported through status and errors."
+    ]
+  },
+  "system.contract": {
+    "title": "Job contract",
+    "description": "Read Job properties, public states, recovery policy and submission schema.",
+    "returns": "Contract \u00b7 revision, submit_schema, status_values, recovery_policy",
+    "example": {},
+    "errors": []
+  },
+  "system.describe": {
+    "title": "Action reference",
+    "description": "Without arguments, return the full usage reference. Supply both group/action to describe one action.",
+    "returns": "Documentation index or Action reference \u00b7 schema, scope, returns, errors, examples",
+    "example": {
+      "group": "jobs",
+      "action": "submit"
+    },
+    "errors": [
+      "Unknown action or action outside current scopes."
+    ]
+  },
+  "components.curate": {
+    "title": "Curate Runtimes workspace metadata",
+    "description": "Set a Profile display name, purpose, preferred/archive state or declared Tool stage roles; set representative dependencies on an exact Runtime. Does not rewrite execution definitions or select a Runtime.",
+    "returns": "Curation receipt",
+    "example": {
+      "type": "profile",
+      "id": "owner.example.run.r1",
+      "label": "Evaluation",
+      "evidence": "Reviewed entrypoint and outputs."
+    },
+    "errors": [
+      "Submit scope, maintenance fence, exact identity, dependency scope or preference conflict."
+    ]
+  },
+  "components.inspect_profile": {
+    "title": "Inspect a reusable Profile",
+    "description": "Read stage Runtime evidence and scoped dependency requirements; optionally validate parameters. Does not reserve resources, install, import code or submit a Job.",
+    "returns": "Inspection, parameter validation and partial submission draft",
+    "example": {
+      "kind": "owner.example.run.r1",
+      "params": {}
+    },
+    "errors": [
+      "Unknown Profile or invalid inspection arguments."
+    ]
+  },
+  "components.compare_profiles": {
+    "title": "Compare exact Profile definitions",
+    "description": "Compare source, stage, Tool/Runtime, parameter and output contracts. Returns changed paths without environment variable values. Display-only changes do not count as execution changes.",
+    "returns": "Changed paths and execution_equal",
+    "example": {
+      "left": "owner.example.run.r1",
+      "right": "owner.example.run.r2"
+    },
+    "errors": [
+      "Unknown Profile."
+    ]
+  },
+  "components.annotate": {
+    "title": "Classify software",
+    "description": "Attach evidence-backed revision tags and a concise label without changing source, digests, Profiles or Jobs.",
+    "returns": "Display metadata",
+    "example": {
+      "kind": "tool",
+      "owner": "<namespace>",
+      "id": "planner",
+      "revision": 1,
+      "tags": [
+        "motion-planning"
+      ],
+      "evidence": "Verified planner interface in this revision."
+    },
+    "errors": [
+      "Missing revision, invalid tag, submit scope denied or maintenance fence."
+    ]
+  },
+  "components.runtimes": {
+    "title": "List Runtimes",
+    "description": "Read administrator-granted execution environments, exact dependencies, validation evidence and Profile/Job usage. Legacy entries are not verification evidence.",
+    "returns": "Runtime catalog",
+    "example": {},
+    "errors": []
+  },
+  "components.dependencies": {
+    "title": "Dependencies",
+    "description": "Read major software units grouped across current granted Runtimes, with exact versions, distinct installation origins and Runtime links. Full transitive package inventories remain on each Runtime. This is recorded metadata, not filesystem discovery or proof of scientific use.",
+    "returns": "Dependency catalog",
+    "example": {},
+    "errors": []
+  },
+  "components.get_dependency": {
+    "title": "Dependency versions",
+    "description": "Read all recorded versions and origins of one dependency across granted Runtime revisions, including history.",
+    "returns": "Dependency",
+    "example": {
+      "id": "dependency-<id>"
+    },
+    "errors": [
+      "Dependency unavailable or outside instance grant."
+    ]
+  },
+  "components.get_runtime": {
+    "title": "Runtime revision",
+    "description": "Read one exact immutable Runtime revision and its consumers. Installation/build is an explicit host-administrator workflow.",
+    "returns": "Runtime",
+    "example": {
+      "id": "simulation",
+      "revision": 1
+    },
+    "errors": [
+      "Missing revision or instance grant."
+    ]
+  },
+  "components.list_tools": {
+    "title": "List research Tools",
+    "description": "List shared reusable software independently of Job Components.",
+    "returns": "Tool[]",
+    "example": {},
+    "errors": []
+  },
+  "components.get_tool": {
+    "title": "Tool revision",
+    "description": "Read an exact or latest immutable software revision.",
+    "returns": "Tool",
+    "example": {
+      "id": "planner",
+      "revision": 1
+    },
+    "errors": [
+      "Missing Tool revision."
+    ]
+  },
+  "components.register_tool": {
+    "title": "Register research Tool",
+    "description": "Register source or explicitly copy an exact legacy Component revision; existing Jobs and revisions remain unchanged. New orchestration defaults to Rust; discover Cargo/SDK templates with components.scaffold. Registration never builds or executes source.",
+    "returns": "Tool",
+    "example": {
+      "id": "example-rust-package",
+      "manifest": {
+        "implementation": {
+          "language": "rust"
+        }
+      },
+      "files": {
+        "src/lib.rs": "pub fn sample() -> u32 { 1 }"
+      }
+    },
+    "errors": [
+      "Invalid source, missing legacy revision or denied submit scope."
+    ]
+  },
+  "jobs.submit_workflow": {
+    "title": "Submit one logical Job",
+    "description": "Atomically submit pinned internal execution nodes with node dependencies and output aliases. Each node uses the ordinary scheduler and verified artifacts. Replay the exact request key after an uncertain response.",
+    "returns": "Logical Job ID and node execution IDs",
+    "example": {
+      "key": "example-work",
+      "label": "Train and evaluate",
+      "owner": "<user>",
+      "notify": "<user>",
+      "nodes": [
+        {
+          "id": "check",
+          "label": "Check",
+          "spec": {
+            "kind": "cpu.smoke",
+            "params": {
+              "seconds": 0,
+              "fail": false
+            }
+          }
+        }
+      ]
+    },
+    "errors": [
+      "Unknown/cyclic node dependency, conflicting key, invalid Profile or output alias. All nodes roll back on rejection."
+    ]
+  },
+  "jobs.curate": {
+    "title": "Curate research presentation",
+    "description": "Preview or apply additive, evidence-backed presentation bindings. Original execution, timestamps, results and software revisions remain intact. Omit dry_run for a preview; false applies the exact batch once.",
+    "returns": "Preview or idempotent batch receipt",
+    "example": {
+      "key": "review-1",
+      "reason": "Reviewed request and execution evidence",
+      "changes": [
+        {
+          "kind": "job",
+          "id": "<job>",
+          "presentation": {
+            "scope": "operations",
+            "role": "test"
+          }
+        }
+      ]
+    },
+    "errors": [
+      "Unknown identity, repeated item, parent cycle, conflicting batch key, maintenance or scope denied."
+    ]
+  }
+}

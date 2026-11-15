@@ -1,6 +1,7 @@
 # Host and Docker observations — detailed design
 
-Status: proposed Rust redesign; no implemented/deployed claim. Phases: D3, D5.
+Status: implemented development candidate; operational deployment not performed.
+Concrete ownership, test boundaries and external limits: [IMPLEMENTATION](../IMPLEMENTATION.md). Phases: D3, D5.
 
 ## Responsibility and model
 

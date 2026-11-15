@@ -1,5 +1,10 @@
 # execution — Job lifecycle, script execution and container ownership
 
+Native candidate authority: `rust/crates/core/src/execution.rs#request_for`, `rust/crates/core/src/execution.rs#next_work`.
+Retained Python paths below are compatibility references or administrator/web
+integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
+current process boundaries and acceptance limits.
+
 ## Responsibilities and boundaries
 
 Loom executes Jobs. Release resources based on executor-ticket, container and process return evidence. Never pass platform secrets or Docker sockets into Jobs.

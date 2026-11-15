@@ -58,9 +58,12 @@ def build(version,destination,instance):
     try:
         for name in ('ops','dashboard'):
             context=target/'source' if name=='ops' else target/'source/dashboard'
-            dockerfile=target/'source'/name/('Dockerfile.loom' if name=='ops' else 'Dockerfile')
+            dockerfile=target/'source'/name/('Dockerfile.rust' if name=='ops' and (target/'source/Cargo.toml').is_file() else 'Dockerfile.loom' if name=='ops' else 'Dockerfile')
             subprocess.run(engine+['build','-t',info['images'][name],'-f',str(dockerfile),str(context)],check=True)
         result['image_ids']={name:subprocess.check_output(engine+['image','inspect',tag,'--format','{{.Id}}'],text=True).strip() for name,tag in info['images'].items()}
+        if (target/'source/Cargo.toml').is_file():
+            import native_artifacts
+            result['native']=native_artifacts.extract(result['image_ids']['ops'],target/'native',engine)
         result['status']='built'
     except BaseException:
         result['status']='failed'

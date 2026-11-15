@@ -1,9 +1,11 @@
 # Loom Rust redesign — complete development plan
 
-Status: design only. Work branch: `codex/loom-rust`. This package supersedes the
-previous port proposal. No Rust Loom executable, new Scenario API, installed Skill
-change, operational data migration or deployment is claimed by this document.
-Implementation starts after review of this plan; deployment requires its own request.
+Status: implemented development candidate on `codex/loom-rust`. D1–D7 source,
+SDK, native services, additive migration and package paths are present. Operational
+cutover (D8), real provider acceptance and GPU/scientific validation remain separate.
+See [implementation and verification](IMPLEMENTATION.md) for actual module ownership,
+commands, compatibility decisions and limits. The frozen audit below remains the
+planning baseline; it is not evidence that a running installation was updated.
 
 ## Reference inputs and audit boundary
 
@@ -21,7 +23,7 @@ Implementation starts after review of this plan; deployment requires its own req
 
 Read the [independent investigation](REVIEW.md), [file ledger](FILE-REVIEW.json),
 [mutation candidates](audit/MUTATIONS.json) and [contract inventory](audit/CONTRACTS.json)
-separately from the proposed implementation. Existing feature verification blocks
+separately from the implementation. Existing feature verification blocks
 are a cross-check, not the method used to choose migration targets.
 
 ## Decisions replacing the old proposal
@@ -54,7 +56,7 @@ are a cross-check, not the method used to choose migration targets.
 | [ARCHITECTURE](ARCHITECTURE.md) | Crates, process authorities, concurrency, ports and dependency choices |
 | [DOMAIN](DOMAIN.md) | Job/execution/Step/Attempt/Scenario types and state/effect invariants |
 | [AUTHORING](AUTHORING.md) | Rust SDK/templates, built-ins, hybrid integrations and Loom Use co-change |
-| [API-CHANGES](API-CHANGES.md) | Shared action registry, additive proposed APIs and compatibility |
+| [API-CHANGES](API-CHANGES.md) | Shared action registry, additive APIs and compatibility |
 | [MIGRATION](MIGRATION.md) | Additive schema, storage, publication, cumulative update and rollback |
 | [COMPATIBILITY](COMPATIBILITY.md) | Exact old bytes/IDs/protocols and retained boundaries |
 | [ROADMAP](ROADMAP.md) | Dependencies, deliverables, exit tests and implementation sequence |
@@ -88,7 +90,7 @@ are a cross-check, not the method used to choose migration targets.
 
 ## Completion definition and non-goals
 
-A Rust build alone is insufficient. Completion requires the frozen compatibility
+A Rust build alone is insufficient. Operational completion requires the frozen compatibility
 matrix, corrected business cases, actual retained-client/browser acceptance, durable
 fault tests, immutable package acceptance and a separately authorized cutover.
 No research dataset re-generation, model re-training, host cleanup, external sharing

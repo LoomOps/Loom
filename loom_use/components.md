@@ -159,3 +159,12 @@ Runtime must satisfy the exact scoped version at registration. Flat requires
 keeps its main-stage behavior. Installed inventory is not a declaration of required
 or invoked packages. Tool role metadata records intended placement; pinned
 availability in a started Job is not function-call instrumentation.
+
+## Rust producer packages
+
+New Component and Tool orchestration defaults to Rust. Discover the authoring guide
+and scaffold/package-validation actions when supported. Reuse an exact Profile for
+parameter/seed/input changes. Register source/build/target receipts, not a mutable
+local executable. Registration does not build, import or install code. Python is
+allowed for a concrete external SDK/library worker stage pinned in the Runtime;
+existing accepted Python revisions remain unchanged. See system.guide authoring.

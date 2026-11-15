@@ -2,22 +2,32 @@
 import argparse
 import ast
 import fnmatch
+import re
 import json
 import hashlib
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
-CODE_ROOTS=['ops','dashboard','executor','deploy','loom_use','integrations','tests']
+CODE_ROOTS=['ops','dashboard','executor','deploy','loom_use','integrations','tests','rust']
 
 
 def candidates(root):
+    for name in ('Cargo.toml','Cargo.lock','rust-toolchain.toml'):
+        if (root/name).is_file():yield name
     for name in CODE_ROOTS:
         for path in (root/name).rglob('*'):
             rel=path.relative_to(root)
             if not path.is_file() or set(rel.parts)&{'evidence','__pycache__'}:continue
-            if (path.suffix in ('.py','.js','.sh','.yaml','.css','.html','.json','.service') and path.name not in ('build-info.json','workspace.html')) or path.name in ('.dockerignore','requirements.txt') or path.name.startswith('Dockerfile'):
+            if (path.suffix in ('.py','.js','.sh','.yaml','.css','.html','.json','.service','.rs','.sql','.toml') and path.name not in ('build-info.json','workspace.html')) or path.name in ('.dockerignore','requirements.txt') or path.name.startswith('Dockerfile'):
                 yield str(rel)
 
+
+def test_cases(path):
+    if path.suffix=='.rs':
+        return {path.stem+'.Rust.'+name for name in re.findall(r'#\[test\]\s*(?:#\[[^\]]*\]\s*)*(?:pub\s+)?fn\s+([A-Za-z_][A-Za-z_0-9]*)',path.read_text())}
+    tree=ast.parse(path.read_text())
+    if not path.name.startswith('test_'):return set()
+    return {path.stem+'.'+cls.name+'.'+fn.name for cls in tree.body if isinstance(cls,ast.ClassDef) for fn in cls.body if isinstance(fn,ast.FunctionDef) and fn.name.startswith('test_')}
 
 def load(root=ROOT):
     return json.loads((root/'docs/features/catalog.json').read_text())
@@ -39,9 +49,12 @@ def check(catalog,root=ROOT):
         for interface in f.get('interfaces',[]):
             try:
                 file,symbol=interface['entrypoint'].split('#')
-                tree=ast.parse((root/file).read_text())
-                if symbol not in {n.name for n in tree.body if isinstance(n,(ast.FunctionDef,ast.ClassDef))}:
-                    errors.append(f"{f['id']}: missing interface symbol {interface['entrypoint']}")
+                text=(root/file).read_text()
+                if Path(file).suffix=='.rs':
+                    symbols=set(re.findall(r'\b(?:fn|struct|enum|trait)\s+([A-Za-z_][A-Za-z_0-9]*)',text))
+                else:
+                    tree=ast.parse(text);symbols={n.name for n in tree.body if isinstance(n,(ast.FunctionDef,ast.ClassDef))}
+                if symbol not in symbols:errors.append(f"{f['id']}: missing interface symbol {interface['entrypoint']}")
                 if any(v not in ids for v in interface['consumers']):errors.append(f"{f['id']}: unknown interface consumer")
             except (ValueError,OSError,SyntaxError):errors.append(f"{f['id']}: invalid interface entrypoint")
         for dependency in f.get('depends_on',[]):
@@ -54,9 +67,7 @@ def check(catalog,root=ROOT):
         for p in f.get('tests',[]):
             test_owners.setdefault(p,[]).append(f['id'])
             try:
-                tree=ast.parse((root/p).read_text())
-                if not Path(p).name.startswith('test_') or not any(isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name.startswith('test_') for n in ast.walk(tree)):
-                    errors.append(f"{f['id']}: no discoverable tests in {p}")
+                if not test_cases(root/p):errors.append(f"{f['id']}: no discoverable tests in {p}")
             except (OSError,SyntaxError):errors.append(f"{f['id']}: invalid test source {p}")
         if not f.get('tests') or not f.get('invariants') or not f.get('live_validation'):errors.append(f"{f['id']}: missing behavior/test boundary")
     for p,owners in source_owners.items():
@@ -89,7 +100,7 @@ def audit(catalog,evidence,root=ROOT):
     errors=check(catalog,root)
     if errors:return {'valid':False,'errors':errors,'blocks':[]}
     reports={}
-    for name in ('ops','dashboard','packaging','browser'):
+    for name in ('ops','dashboard','packaging','browser','rust','native'):
         p=Path(evidence)/(name+'.json')
         if p.is_file():reports[name]=json.loads(p.read_text())
     blocks=[]
@@ -97,12 +108,11 @@ def audit(catalog,evidence,root=ROOT):
         missing=[];cases=[];stale=[];suite_errors=set()
         for path in feature['tests']:
             parts=Path(path).parts
-            suite='browser' if 'browser' in parts else 'packaging' if parts[1]=='deploy' else parts[1]
+            suite='rust' if Path(path).suffix=='.rs' else 'native' if parts[1]=='rust' else 'browser' if 'browser' in parts else 'packaging' if parts[1]=='deploy' else parts[1]
             report=reports.get(suite,{})
             if report.get('successful') is not True:suite_errors.add(suite)
             found=[c for c in report.get('cases',[]) if c['name'].startswith(Path(path).stem+'.')]
-            tree=ast.parse((root/path).read_text())
-            expected={Path(path).stem+'.'+cls.name+'.'+fn.name for cls in tree.body if isinstance(cls,ast.ClassDef) for fn in cls.body if isinstance(fn,ast.FunctionDef) and fn.name.startswith('test_')}
+            expected=test_cases(root/path)
             actual={c['name'] for c in found}
             if not found:missing.append(path)
             missing.extend(sorted(expected-actual))

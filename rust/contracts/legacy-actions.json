@@ -1,0 +1,3031 @@
+[
+  {
+    "group": "jobs",
+    "action": "list",
+    "operation": "list_jobs",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "view": {
+          "enum": [
+            "research",
+            "all",
+            "operations"
+          ],
+          "default": "research"
+        },
+        "include_consolidated": {
+          "type": "boolean",
+          "default": false
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "sdg",
+            "data_preparation",
+            "fine_tuning",
+            "evaluation",
+            "pipeline",
+            "other"
+          ],
+          "default": "other",
+          "description": "Job purpose; does not select an execution runner."
+        },
+        "execution_mode": {
+          "type": "string",
+          "enum": [
+            "full",
+            "pilot",
+            "smoke"
+          ]
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 250
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "jobs",
+    "action": "get",
+    "operation": "get_job",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "jobs",
+    "action": "submit",
+    "operation": "submit_job",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "notify": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object"
+        },
+        "presentation": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "enum": [
+                "research",
+                "operations"
+              ]
+            },
+            "role": {
+              "enum": [
+                "main",
+                "support",
+                "test"
+              ]
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "experiment": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "request_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "parent_job": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "output_roles": {
+              "type": "object",
+              "maxProperties": 256,
+              "additionalProperties": {
+                "enum": [
+                  "main",
+                  "support",
+                  "test"
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "consolidates": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{32}$"
+          },
+          "description": "Explicitly consolidate completed producer Jobs into this logical Job. Original execution/history and outputs remain intact."
+        },
+        "output_storage": {
+          "type": "string",
+          "pattern": "^data/[0-9]+$",
+          "default": "data/0",
+          "description": "Registered output store from system.status.data_stores. Defaults to data/0; frozen per Job."
+        },
+        "queue_position": {
+          "type": "string",
+          "enum": [
+            "tail",
+            "next"
+          ],
+          "default": "tail"
+        },
+        "execution": {
+          "type": "object",
+          "properties": {
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "max_attempts": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "retry_on": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "exit_nonzero",
+                  "timeout",
+                  "launch_failed",
+                  "interrupted"
+                ]
+              }
+            },
+            "retry_backoff_seconds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 86400
+            }
+          },
+          "additionalProperties": false
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "sdg",
+            "data_preparation",
+            "fine_tuning",
+            "evaluation",
+            "pipeline",
+            "other"
+          ],
+          "default": "other",
+          "description": "Job purpose; does not select an execution runner."
+        },
+        "execution_mode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "full",
+            "pilot",
+            "smoke",
+            null
+          ],
+          "default": null,
+          "description": "Full run, reduced pilot, or short smoke check. Null means unrecorded."
+        }
+      },
+      "required": [
+        "key",
+        "kind",
+        "owner",
+        "notify",
+        "params"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "jobs",
+    "action": "submit_workflow",
+    "operation": "submit_workflow",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "owner": {
+          "type": "string"
+        },
+        "notify": {
+          "type": "string"
+        },
+        "presentation": {
+          "type": "object",
+          "properties": {
+            "scope": {
+              "enum": [
+                "research",
+                "operations"
+              ]
+            },
+            "role": {
+              "enum": [
+                "main",
+                "support",
+                "test"
+              ]
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "experiment": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "request_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "parent_job": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "output_roles": {
+              "type": "object",
+              "maxProperties": 256,
+              "additionalProperties": {
+                "enum": [
+                  "main",
+                  "support",
+                  "test"
+                ]
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "category": {
+          "enum": [
+            "sdg",
+            "data_preparation",
+            "fine_tuning",
+            "evaluation",
+            "pipeline",
+            "other"
+          ]
+        },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "depends_on": {
+                "type": "array",
+                "maxItems": 64,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$"
+                }
+              },
+              "spec": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "label",
+              "spec"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "outputs": {
+          "type": "object",
+          "maxProperties": 256,
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "node": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$"
+              },
+              "entity": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "node",
+              "entity"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "key",
+        "label",
+        "owner",
+        "notify",
+        "nodes"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "jobs",
+    "action": "curate",
+    "operation": "curate_research",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "dry_run": {
+          "type": "boolean",
+          "default": true
+        },
+        "changes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "job",
+                  "entity",
+                  "component",
+                  "tool",
+                  "profile",
+                  "runtime"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              },
+              "presentation": {
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "enum": [
+                      "research",
+                      "operations"
+                    ]
+                  },
+                  "role": {
+                    "enum": [
+                      "main",
+                      "support",
+                      "test"
+                    ]
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "experiment": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "request_ref": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  },
+                  "parent_job": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "output_roles": {
+                    "type": "object",
+                    "maxProperties": 256,
+                    "additionalProperties": {
+                      "enum": [
+                        "main",
+                        "support",
+                        "test"
+                      ]
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "kind",
+              "id",
+              "presentation"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "key",
+        "reason",
+        "changes"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "jobs",
+    "action": "cancel",
+    "operation": "cancel_job",
+    "scope": "cancel",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "jobs",
+    "action": "logs",
+    "operation": "get_job_logs",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "attempt": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "attempt",
+        "offset",
+        "limit"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "jobs",
+    "action": "queue",
+    "operation": "queue_view",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "jobs",
+    "action": "reorder",
+    "operation": "reorder_job",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "position": {
+          "type": "string",
+          "enum": [
+            "next",
+            "tail",
+            "before",
+            "after"
+          ]
+        },
+        "reference": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "id",
+        "position"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "jobs",
+    "action": "hold",
+    "operation": "hold_job",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "jobs",
+    "action": "resume",
+    "operation": "resume_job",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "jobs",
+    "action": "assign_owner",
+    "operation": "assign_job_owner",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "owner"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "recovery",
+    "action": "claim",
+    "operation": "recover_job",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "lease": {
+          "type": "string"
+        },
+        "patch": {
+          "type": "object"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "recovery",
+    "action": "progress",
+    "operation": "recover_job",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "lease": {
+          "type": "string"
+        },
+        "patch": {
+          "type": "object"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "lease"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "recovery",
+    "action": "resume",
+    "operation": "recover_job",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "lease": {
+          "type": "string"
+        },
+        "patch": {
+          "type": "object"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "lease"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "recovery",
+    "action": "defer",
+    "operation": "recover_job",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "lease": {
+          "type": "string"
+        },
+        "patch": {
+          "type": "object"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "recovery",
+    "action": "reactivate",
+    "operation": "recover_job",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "lease": {
+          "type": "string"
+        },
+        "patch": {
+          "type": "object"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "events",
+    "action": "list",
+    "operation": "list_events",
+    "scope": "events",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "errors",
+            "lifecycle",
+            "all"
+          ],
+          "default": "errors"
+        },
+        "after": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "events",
+    "action": "ack",
+    "operation": "ack_event",
+    "scope": "events",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "seq": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seq"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "list",
+    "operation": "component_list",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "type": "string",
+          "description": "Stable namespace. Register/write/get default to the authenticated principal; list defaults to all shared namespaces. built-in denotes Loom-supplied software, not shared access. Display responsibility is returned in owner_profile; assign_owner changes attribution without moving this namespace."
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "get",
+    "operation": "component_get",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "type": "string",
+          "description": "Stable namespace. Register/write/get default to the authenticated principal; list defaults to all shared namespaces. built-in denotes Loom-supplied software, not shared access. Display responsibility is returned in owner_profile; assign_owner changes attribution without moving this namespace."
+        },
+        "id": {
+          "type": "string",
+          "pattern": "[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "register",
+    "operation": "component_register",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "type": "string",
+          "description": "Stable namespace. Register/write/get default to the authenticated principal; list defaults to all shared namespaces. built-in denotes Loom-supplied software, not shared access. Display responsibility is returned in owner_profile; assign_owner changes attribution without moving this namespace."
+        },
+        "id": {
+          "type": "string",
+          "pattern": "[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}"
+        },
+        "manifest": {
+          "type": "object",
+          "description": "profiles: name \u2192 execution v2 profile."
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Relative path \u2192 UTF-8 source; omit to use saved editable sources."
+        }
+      },
+      "required": [
+        "id",
+        "manifest"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "write",
+    "operation": "component_write",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "type": "string",
+          "description": "Stable namespace. Register/write/get default to the authenticated principal; list defaults to all shared namespaces. built-in denotes Loom-supplied software, not shared access. Display responsibility is returned in owner_profile; assign_owner changes attribution without moving this namespace."
+        },
+        "id": {
+          "type": "string",
+          "pattern": "[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}"
+        },
+        "path": {
+          "type": "string",
+          "description": "Relative source path."
+        },
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "path",
+        "content"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "profiles",
+    "operation": "list_execution_profiles",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "register_profile",
+    "operation": "profile_register",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}$"
+        },
+        "profile": {
+          "type": "object",
+          "properties": {
+            "presentation": {
+              "type": "object",
+              "properties": {
+                "scope": {
+                  "enum": [
+                    "research",
+                    "operations"
+                  ]
+                },
+                "role": {
+                  "enum": [
+                    "main",
+                    "support",
+                    "test"
+                  ]
+                },
+                "output_roles": {
+                  "type": "object",
+                  "maxProperties": 256,
+                  "additionalProperties": {
+                    "enum": [
+                      "main",
+                      "support",
+                      "test"
+                    ]
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "usage": {
+              "type": "object",
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "categories": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "enum": [
+                      "sdg",
+                      "data_preparation",
+                      "fine_tuning",
+                      "evaluation",
+                      "pipeline",
+                      "other"
+                    ]
+                  }
+                },
+                "execution_modes": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {
+                    "enum": [
+                      "full",
+                      "pilot",
+                      "smoke"
+                    ]
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "steps": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}$"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                },
+                "required": [
+                  "id",
+                  "label"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "tools": {
+              "type": "object",
+              "description": "Alias to an exact registered Tool owner/id/revision.",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "owner": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "id",
+                  "revision"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "params_schema": {
+              "type": "object",
+              "description": "Local JSON Schema for resolved Job params."
+            },
+            "defaults": {
+              "type": "object"
+            },
+            "inputs": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Input parameter name to allowed data-relative prefix."
+            },
+            "outputs": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": {
+                "enum": [
+                  "artifact",
+                  "dataset",
+                  "model",
+                  "experiment"
+                ]
+              }
+            },
+            "metadata_schemas": {
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "object",
+                  "boolean"
+                ]
+              },
+              "description": "Output ID or * to local JSON Schema for entity.metadata."
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "timeout_seconds": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "max_attempts": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                },
+                "max_output_bytes": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "timeout_seconds",
+                "max_attempts"
+              ],
+              "additionalProperties": false
+            },
+            "runtime": {
+              "type": "object",
+              "properties": {
+                "executor": {
+                  "const": "container"
+                },
+                "command": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "image": {
+                  "type": "string",
+                  "description": "Cached Docker reference; resolved to image ID when registering."
+                },
+                "runtime_id": {
+                  "type": "string",
+                  "description": "Optional administrator-installed compatibility runtime."
+                },
+                "runtime_ref": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                },
+                "resources": {
+                  "type": "object",
+                  "properties": {
+                    "cpus": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "memory": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*[kmg]$"
+                    },
+                    "pids": {
+                      "type": "integer",
+                      "minimum": 16
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "storage": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^data/[0-9]+$"
+                  },
+                  "description": "Opt-in RW stores from system.status.data_stores; mounted at /loom/data/N. Omit for only the Job workspace."
+                },
+                "lane": {
+                  "enum": [
+                    "cpu",
+                    "gpu"
+                  ]
+                },
+                "env": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "timeout": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "depends_on": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "executor",
+                "command"
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "image"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "runtime_id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_ref"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "runtime_id"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "image"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_ref"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "runtime_ref"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "image"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_id"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "additionalProperties": false
+            },
+            "prepare": {
+              "type": "object",
+              "properties": {
+                "executor": {
+                  "const": "container"
+                },
+                "command": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "image": {
+                  "type": "string",
+                  "description": "Cached Docker reference; resolved to image ID when registering."
+                },
+                "runtime_id": {
+                  "type": "string",
+                  "description": "Optional administrator-installed compatibility runtime."
+                },
+                "runtime_ref": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                },
+                "resources": {
+                  "type": "object",
+                  "properties": {
+                    "cpus": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "memory": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*[kmg]$"
+                    },
+                    "pids": {
+                      "type": "integer",
+                      "minimum": 16
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "storage": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^data/[0-9]+$"
+                  },
+                  "description": "Opt-in RW stores from system.status.data_stores; mounted at /loom/data/N. Omit for only the Job workspace."
+                },
+                "lane": {
+                  "enum": [
+                    "cpu",
+                    "gpu"
+                  ]
+                },
+                "env": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "timeout": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "depends_on": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "executor",
+                "command"
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "image"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "runtime_id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_ref"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "runtime_id"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "image"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_ref"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "runtime_ref"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "image"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_id"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "additionalProperties": false
+            },
+            "finalize": {
+              "type": "object",
+              "properties": {
+                "executor": {
+                  "const": "container"
+                },
+                "command": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "image": {
+                  "type": "string",
+                  "description": "Cached Docker reference; resolved to image ID when registering."
+                },
+                "runtime_id": {
+                  "type": "string",
+                  "description": "Optional administrator-installed compatibility runtime."
+                },
+                "runtime_ref": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                },
+                "resources": {
+                  "type": "object",
+                  "properties": {
+                    "cpus": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "memory": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*[kmg]$"
+                    },
+                    "pids": {
+                      "type": "integer",
+                      "minimum": 16
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "storage": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^data/[0-9]+$"
+                  },
+                  "description": "Opt-in RW stores from system.status.data_stores; mounted at /loom/data/N. Omit for only the Job workspace."
+                },
+                "lane": {
+                  "enum": [
+                    "cpu",
+                    "gpu"
+                  ]
+                },
+                "env": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "timeout": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "depends_on": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "executor",
+                "command"
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "image"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "runtime_id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_ref"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "runtime_id"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "image"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_ref"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "runtime_ref"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "image"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_id"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "additionalProperties": false
+            },
+            "on_complete": {
+              "type": "object",
+              "properties": {
+                "executor": {
+                  "const": "container"
+                },
+                "command": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "image": {
+                  "type": "string",
+                  "description": "Cached Docker reference; resolved to image ID when registering."
+                },
+                "runtime_id": {
+                  "type": "string",
+                  "description": "Optional administrator-installed compatibility runtime."
+                },
+                "runtime_ref": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                },
+                "resources": {
+                  "type": "object",
+                  "properties": {
+                    "cpus": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "memory": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*[kmg]$"
+                    },
+                    "pids": {
+                      "type": "integer",
+                      "minimum": 16
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "storage": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^data/[0-9]+$"
+                  },
+                  "description": "Opt-in RW stores from system.status.data_stores; mounted at /loom/data/N. Omit for only the Job workspace."
+                },
+                "lane": {
+                  "enum": [
+                    "cpu",
+                    "gpu"
+                  ]
+                },
+                "env": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "timeout": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "depends_on": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "executor",
+                "command"
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "image"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "runtime_id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_ref"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "runtime_id"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "image"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_ref"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "runtime_ref"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "image"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_id"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "additionalProperties": false
+            },
+            "on_error": {
+              "type": "object",
+              "properties": {
+                "executor": {
+                  "const": "container"
+                },
+                "command": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "image": {
+                  "type": "string",
+                  "description": "Cached Docker reference; resolved to image ID when registering."
+                },
+                "runtime_id": {
+                  "type": "string",
+                  "description": "Optional administrator-installed compatibility runtime."
+                },
+                "runtime_ref": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                },
+                "resources": {
+                  "type": "object",
+                  "properties": {
+                    "cpus": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "memory": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*[kmg]$"
+                    },
+                    "pids": {
+                      "type": "integer",
+                      "minimum": 16
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "storage": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^data/[0-9]+$"
+                  },
+                  "description": "Opt-in RW stores from system.status.data_stores; mounted at /loom/data/N. Omit for only the Job workspace."
+                },
+                "lane": {
+                  "enum": [
+                    "cpu",
+                    "gpu"
+                  ]
+                },
+                "env": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "timeout": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "depends_on": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "executor",
+                "command"
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "image"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "runtime_id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_ref"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "runtime_id"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "image"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_ref"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "runtime_ref"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "image"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_id"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "additionalProperties": false
+            },
+            "on_cancel": {
+              "type": "object",
+              "properties": {
+                "executor": {
+                  "const": "container"
+                },
+                "command": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "image": {
+                  "type": "string",
+                  "description": "Cached Docker reference; resolved to image ID when registering."
+                },
+                "runtime_id": {
+                  "type": "string",
+                  "description": "Optional administrator-installed compatibility runtime."
+                },
+                "runtime_ref": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision"
+                  ],
+                  "additionalProperties": false
+                },
+                "resources": {
+                  "type": "object",
+                  "properties": {
+                    "cpus": {
+                      "type": "number",
+                      "exclusiveMinimum": 0
+                    },
+                    "memory": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*[kmg]$"
+                    },
+                    "pids": {
+                      "type": "integer",
+                      "minimum": 16
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "storage": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^data/[0-9]+$"
+                  },
+                  "description": "Opt-in RW stores from system.status.data_stores; mounted at /loom/data/N. Omit for only the Job workspace."
+                },
+                "lane": {
+                  "enum": [
+                    "cpu",
+                    "gpu"
+                  ]
+                },
+                "env": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "timeout": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "depends_on": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "executor",
+                "command"
+              ],
+              "oneOf": [
+                {
+                  "required": [
+                    "image"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "runtime_id"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_ref"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "runtime_id"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "image"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_ref"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "required": [
+                    "runtime_ref"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "image"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "runtime_id"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "params_schema",
+            "inputs",
+            "outputs",
+            "runtime",
+            "limits"
+          ],
+          "additionalProperties": false
+        },
+        "component": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "id",
+            "revision"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "profile"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "get_profile",
+    "operation": "profile_get",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}$"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "list_tools",
+    "operation": "tool_list",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "get_tool",
+    "operation": "tool_get",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "register_tool",
+    "operation": "tool_register",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}"
+        },
+        "manifest": {
+          "type": "object"
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "component": {
+          "type": "object",
+          "properties": {
+            "owner": {
+              "type": "string"
+            },
+            "id": {
+              "type": "string"
+            },
+            "revision": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "id",
+            "revision"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "manifest"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "runtimes",
+    "operation": "runtime_list",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "get_runtime",
+    "operation": "runtime_get",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "dependencies",
+    "operation": "dependency_list",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "get_dependency",
+    "operation": "dependency_get",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "assign_owner",
+    "operation": "assign_extension_owner",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "component",
+            "tool",
+            "profile"
+          ]
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}$"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}$"
+        },
+        "owner": {
+          "type": "string",
+          "description": "Registered responsible user ID or built-in for Loom-supplied software. Does not restrict sharing."
+        }
+      },
+      "required": [
+        "kind",
+        "namespace",
+        "id",
+        "owner"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "annotate",
+    "operation": "annotate_software",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "component",
+            "tool"
+          ]
+        },
+        "owner": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "[a-zA-Z0-9][a-zA-Z0-9_.-]{0,80}"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "sdg",
+              "training",
+              "evaluation",
+              "validation",
+              "data-processing",
+              "motion-planning",
+              "policy",
+              "control",
+              "simulation",
+              "rendering",
+              "sensing",
+              "perception",
+              "metrics",
+              "packaging",
+              "platform-check",
+              "utility"
+            ]
+          },
+          "uniqueItems": true,
+          "maxItems": 16
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "required": [
+        "kind",
+        "owner",
+        "id",
+        "revision",
+        "tags",
+        "evidence"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "curate",
+    "operation": "curate_runtime_item",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "enum": [
+            "profile",
+            "runtime"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "categories": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "sdg",
+              "data_preparation",
+              "fine_tuning",
+              "evaluation",
+              "pipeline",
+              "other"
+            ]
+          }
+        },
+        "execution_modes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "full",
+              "pilot",
+              "smoke"
+            ]
+          }
+        },
+        "group": {
+          "enum": [
+            "research",
+            "platform-check",
+            "other"
+          ]
+        },
+        "state": {
+          "enum": [
+            "active",
+            "archived"
+          ]
+        },
+        "preferred": {
+          "type": "boolean"
+        },
+        "primary_dependencies": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "scope": {
+                "type": "string",
+                "maxLength": 1024
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "stage_dependencies": {
+          "type": "object",
+          "propertyNames": {
+            "enum": [
+              "prepare",
+              "runtime",
+              "finalize",
+              "on_complete",
+              "on_error",
+              "on_cancel"
+            ]
+          },
+          "additionalProperties": {
+            "type": "array",
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "scope": {
+                  "type": "string",
+                  "maxLength": 1024
+                }
+              },
+              "required": [
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "tool_roles": {
+          "type": "object",
+          "maxProperties": 64,
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "stages": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "prepare",
+                    "runtime",
+                    "finalize",
+                    "on_complete",
+                    "on_error",
+                    "on_cancel"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "role",
+              "stages"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "evidence"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "inspect_profile",
+    "operation": "inspect_execution_profile",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "components",
+    "action": "compare_profiles",
+    "operation": "compare_execution_profiles",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "left": {
+          "type": "string"
+        },
+        "right": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "left",
+        "right"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "results",
+    "action": "list",
+    "operation": "list_registry",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "view": {
+          "enum": [
+            "research",
+            "all",
+            "operations"
+          ],
+          "default": "research"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "results",
+    "action": "get",
+    "operation": "get_entity",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "results",
+    "action": "reindex",
+    "operation": "reindex_job",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "attempt": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "attempt"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "results",
+    "action": "reconnect",
+    "operation": "reconnect_location",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "integer"
+        },
+        "component": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "storage": {
+          "type": "string",
+          "pattern": "^data/[0-9]+$",
+          "default": "data/0",
+          "description": "Registered output store from system.status.data_stores. Defaults to data/0; frozen per Job."
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "component",
+        "ref"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "results",
+    "action": "annotate",
+    "operation": "annotate_job",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "annotation_id": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "annotation_id",
+        "reason",
+        "evidence"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "results",
+    "action": "history",
+    "operation": "list_history",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "limit": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "kind",
+        "offset",
+        "limit"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "results",
+    "action": "historical",
+    "operation": "get_history",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "kind",
+        "id",
+        "revision"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "results",
+    "action": "assign_owner",
+    "operation": "assign_entity_owner",
+    "scope": "submit",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "owner"
+      ],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "system",
+    "action": "ssh",
+    "operation": "ssh_connection",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "system",
+    "action": "users",
+    "operation": "list_users",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "system",
+    "action": "status",
+    "operation": "system_status",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "system",
+    "action": "updates",
+    "operation": "release_status",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "system",
+    "action": "check_updates",
+    "operation": "check_releases",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "system",
+    "action": "docker",
+    "operation": "docker_status",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "system",
+    "action": "contract",
+    "operation": "get_job_contract",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "group": "system",
+    "action": "describe",
+    "operation": "describe_action",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "group": {
+          "type": "string",
+          "enum": [
+            "jobs",
+            "recovery",
+            "events",
+            "components",
+            "results",
+            "system"
+          ]
+        },
+        "action": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "additionalProperties": false,
+      "description": "Omit both fields for the full documentation index; provide group for its compact action index, or group and action for one schema."
+    }
+  },
+  {
+    "group": "system",
+    "action": "guide",
+    "operation": "read_guide",
+    "scope": "read",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "known_revision": {
+          "type": "string"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  }
+]

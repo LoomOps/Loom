@@ -1,6 +1,7 @@
 # Dashboard and retained web integration — detailed design
 
-Status: proposed Rust redesign; no implemented/deployed claim. Phases: D5, D6.
+Status: implemented development candidate; operational deployment not performed.
+Concrete ownership, test boundaries and external limits: [IMPLEMENTATION](../IMPLEMENTATION.md). Phases: D5, D6.
 
 ## Responsibility and model
 

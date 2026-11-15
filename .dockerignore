@@ -16,3 +16,9 @@
 
 !dashboard/
 !dashboard/diagnostics.py
+
+!Cargo.toml
+!Cargo.lock
+!rust-toolchain.toml
+!rust/
+!rust/**
