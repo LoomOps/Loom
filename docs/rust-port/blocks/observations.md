@@ -1,88 +1,65 @@
-# observations — Rust transition plan
+# Host and Docker observations — detailed design
 
-Status: proposed; no Loom Rust implementation or deployment is performed by this document.
+Status: proposed Rust redesign; no implemented/deployed claim. Phases: D3, D5.
 
-Baseline: `4d93ab9bdcb5750f3d0be161925e834984492f89` (Loom alpha.60).
+## Responsibility and model
 
-## Decision and sequence
+**Authority:** loom-observer bounded read-only host services and loom-query projections.
 
-- Target: Retained collectors initially; typed Rust observation readers and freshness model.
-- Sequence: 3 read-only parity; optional later collector rewrite.
-- Existing feature dependencies: none.
+**Typed model:** ObservationTime, SourceInstance, ResourceSample, ContainerObservation, Staleness and ObservationError.
 
-## Current source and authority
+**Operations:** CollectMetrics/CollectDockerStatus under existing read-only grants; queries consume snapshots with timestamps and source identity.
 
-Host, GPU and Docker observations. The implemented contract is in the linked source and [observations feature specification](../../features/observations.md).
+**Persistence:** Existing host observation files/receipts and configured locations; observation failure is not execution return evidence.
 
-| File | Planning treatment |
-|---|---|
-| [deploy/collect-dashboard-gpus.py](../../../deploy/collect-dashboard-gpus.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [deploy/collect-observations.py](../../../deploy/collect-observations.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [ops/docker_status.py](../../../ops/docker_status.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [ops/host_metrics.py](../../../ops/host_metrics.py) | Retain interface/tooling; review exact bridge and packaging behavior |
+## Reference source and consumers
 
-## Retained code and external dependencies
+- [deploy/collect-dashboard-gpus.py](../../../deploy/collect-dashboard-gpus.py)
+- [deploy/collect-observations.py](../../../deploy/collect-observations.py)
+- [ops/docker_status.py](../../../ops/docker_status.py)
+- [ops/host_metrics.py](../../../ops/host_metrics.py)
 
-Keep host/NVIDIA/Docker collectors and installed collection services initially. External driver/tool output and platform-specific probes are independent of the language of the Job core.
+Existing feature dependencies: none declared.
+The references establish old behavior, not target Rust module boundaries.
 
-## Compatibility invariants
+## Implementation work
 
-- Observations are read-only and do not affect queue dispatch. Preserve missing/stale/partial distinctions.
-- Preserve existing IDs, authentication, configured roots, sealed bytes and operational history unless an explicit separate schema change is approved.
-- Keep missing, null, false, zero, unknown, stale and unavailable distinctions required by this block.
-- Development checks are evidence, not extra Job or agent-ACK execution gates.
+1. Preserve protected host vs unprivileged Ops split; no Docker socket or new GPU permission in Ops or Jobs.
 
-## Detailed implementation work
+2. Use bounded collection intervals/process timeouts, atomic sample publication and backpressure; do not let a slow collector block Job transactions.
 
-1. Enumerate collector inputs, files, observation timestamps and missing/stale/partial/error states from host_metrics.py and docker_status.py.
-2. Port the reader/response model first, preserving source timestamps and bounded parsing of malformed or incomplete snapshots.
-3. Keep actual driver/GPU inventory distinct from an executable Runtime grant or an available scheduler resource.
-4. Preserve the read-only boundary: collection failure cannot change admission, cancel a Job or infer container return.
-5. Retain existing mount ownership and collector timer/unit settings when installing a Rust consumer.
-6. Only propose a collector rewrite after measured complexity/performance evidence; use bounded subprocess argv and existing privilege separation if it is later selected.
-7. Exercise the unchanged Dashboard resource and Docker views with valid, stale and malformed observations.
-8. Document actual hardware/tool acceptance separately from deterministic collector fixtures.
+3. Distinguish unavailable, stale, zero and permission denied. Never report zero usage solely because a collector failed.
 
-## Acceptance matrix
+4. Keep observation ownership/instance labels so foreign containers are not adopted or stopped.
 
-| Scenario | Required observable result |
-|---|---|
-| GPU tool is absent or fails | Unavailable observation, not zero GPUs. |
-| Snapshot is old or partial | Retain stale/partial status and source time. |
-| Docker inspection fails | Do not release a scheduler ticket based on observation loss. |
-| Collector file is malformed/oversized | Bound failure and preserve service availability. |
-| Installed collector uses custom paths/UIDs | Read configured grants; do not hardcode another installation. |
-| No observation available during a Job | Job ownership/state remains authoritative and unchanged. |
+5. Migrate stdlib/CLI collectors to Rust when implementing the bounded host binary; retain vendor-specific probes only behind narrow adapters where their SDK is required.
 
-### Existing regression sources
+## Transaction and effect boundary
+
+Samples are independently published/read snapshots; they cannot release a ticket, reassign resources or modify queue order. Durable execution return remains the Executor authority.
+
+## Retained code and compatibility
+
+Vendor/driver tools and existing read-only access patterns. Do not rewrite scientific/GPU libraries or turn monitoring into a scheduler.
+
+Keep existing collection paths and ownership until matching service packaging is ready. Include new binary in helper inventory/doctor and retain consumer DTOs.
+
+## Acceptance cases
+
+| Case | Trigger | Required result |
+|---|---|---|
+| OBS-01 | Collector times out or loses permissions | Bounded stale/unavailable sample; Jobs remain independent. |
+| OBS-02 | Foreign container with similar name | Excluded or read-only described; never adopted. |
+| OBS-03 | Partial snapshot write/restart | Last complete sample or explicit unavailable, no malformed success. |
+
+Reference regression modules (adapt moved internals to actual Rust boundaries):
 
 - [tests/ops/test_docker_status.py](../../../tests/ops/test_docker_status.py)
 - [tests/ops/test_host_metrics.py](../../../tests/ops/test_host_metrics.py)
 
-Existing Python-internal tests need boundary adaptation when their implementation moves. Passing the old implementation alone does not establish Rust parity. Add state/trace and crash cases from this matrix; keep actual external acceptance separately identified.
+## Exit review
 
-## State, cutover and rollback
-
-No collector/service replacement is required for the first Rust backend. Keep file formats and grants; rollback is a reader change only, with no hardware or queue mutation.
-
-## Main risk and design review
-
-Observations look similar to executor status but carry different authority. Sharing a convenient Rust status type across both would be dangerous.
-
-## Contracts and documentation to review
-
-- [ops/docker_status.py](../../../ops/docker_status.py)
-- [ops/host_metrics.py](../../../ops/host_metrics.py)
-
-Change rule: When collector fields change, check host mounts, collection services, API projections and UI rendering. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.
-
-Before implementation, apply the cross-block [compatibility contract](../COMPATIBILITY.md), [sequence and ownership rules](../README.md), and [whole-tree review findings](../REVIEW.md). Update the implementation source, public schema/guide, consumers and installation packaging together when an accepted contract changes.
-
-## Exit criteria
-
-- The implemented responsibilities and deliberately retained Python/external boundaries are explicit.
-- Every acceptance row has a reproducible test or is named as an unverified external acceptance boundary.
-- Affected consumers pass against the selected Rust implementation, including its error and restart paths.
-- Preservation and rollback checks use the same state format/identities; no second writer or duplicated external action is introduced.
-- Feature mappings and source-qualified verification evidence match the exact candidate build.
-- No production activation, user-thread inference, credential rotation or research execution is inferred from source/test completion.
+Validate the cases above plus the shared [domain](../DOMAIN.md), [API](../API-CHANGES.md),
+[compatibility](../COMPATIBILITY.md) and [migration](../MIGRATION.md) contracts.
+Record exact source/artifact hashes and which external boundaries remain unverified.
+A passing old Python suite or compiling crate alone does not close this block.

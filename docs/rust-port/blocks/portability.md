@@ -1,88 +1,65 @@
-# portability — Rust transition plan
+# Portability, snapshots and writer fencing — detailed design
 
-Status: proposed; no Loom Rust implementation or deployment is performed by this document.
+Status: proposed Rust redesign; no implemented/deployed claim. Phases: D1, D4, D7.
 
-Baseline: `4d93ab9bdcb5750f3d0be161925e834984492f89` (Loom alpha.60).
+## Responsibility and model
 
-## Decision and sequence
+**Authority:** loom-migrate/loom-app fencing + retained administrator transfer drivers.
 
-- Target: Rust read/write compatibility for preserved records and fences; retained operator migration tools.
-- Sequence: 1 preservation fixtures; 7 migration/rollback acceptance.
-- Existing feature dependencies: identity, catalog, results, execution.
+**Typed model:** InstallationId, StoreId, FenceEpoch, SnapshotIdentity, PreservationManifest and MigrationReceipt.
 
-## Current source and authority
+**Operations:** Snapshot/Verify/Restore under explicit admin scope; DrainAdmission, FenceOldWriter and VerifyOwnership before transfer.
 
-Preserved data, Job migration and remote ownership. The implemented contract is in the linked source and [portability feature specification](../../features/portability.md).
+**Persistence:** All existing DBs, source revisions, Runtime grants, receipts, configured roots and instance-specific secrets.
 
-| File | Planning treatment |
-|---|---|
-| [deploy/assign-owner.py](../../../deploy/assign-owner.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [ops/portability.py](../../../ops/portability.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [ops/remote-handoff.py](../../../ops/remote-handoff.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [ops/remote_fence.py](../../../ops/remote_fence.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
+## Reference source and consumers
 
-## Retained code and external dependencies
+- [deploy/assign-owner.py](../../../deploy/assign-owner.py)
+- [ops/portability.py](../../../ops/portability.py)
+- [ops/remote-handoff.py](../../../ops/remote-handoff.py)
+- [ops/remote_fence.py](../../../ops/remote_fence.py)
 
-Keep snapshot/archive tooling and explicit operator-owned transfer workflows until Rust state compatibility is proven. Never migrate research bytes or issue new identities as a side effect of the port.
+Existing feature dependencies: identity, catalog, results, execution.
+The references establish old behavior, not target Rust module boundaries.
 
-## Compatibility invariants
+## Implementation work
 
-- Distinguish original preservation from current presentation and retain installation identifiers. Cloned installations running concurrently require distinct identities.
-- Preserve existing IDs, authentication, configured roots, sealed bytes and operational history unless an explicit separate schema change is approved.
-- Keep missing, null, false, zero, unknown, stale and unavailable distinctions required by this block.
-- Development checks are evidence, not extra Job or agent-ACK execution gates.
+1. Preserve independent installation/store/credential identities; a restored binary is not permission to clone one host identity into another.
 
-## Detailed implementation work
+2. Use consistent DB backup plus matching source/config/file manifest, exact hashes and current epoch. Large scientific payload copies remain explicit, verified operations.
 
-1. Inventory immutable original snapshots versus mutable attribution/presentation overlays and exact installation/storage IDs.
-2. Capture representative old-schema Ops/executor/Runtime databases with synthetic or explicitly sanitized data; retain original request and content hashes.
-3. Port remote ownership grants/fencing with stable epoch/expiry semantics and a single active execution authority.
-4. Keep clone identity rules: two running installations require independent identities; restoring one installation must preserve its own accepted references.
-5. Validate locator resolution and selective migration exclusions without inferring paths from another host.
-6. Compare row counts and normalized row hashes before/after a no-op Rust open and a controlled approved mutation.
-7. Exercise upgrade and rollback using the same storage/settings/credentials and resolve unreturned execution before any ownership transfer.
-8. Keep a recoverable previous executable/image/source and preservation receipt; do not automatically delete the original archive.
+3. Fence old and shared helpers before new ownership and retain unresolved execution tickets. Network loss does not prove the old writer is dead.
 
-## Acceptance matrix
+4. Include Scenario revisions/links and authoring/build receipts in preservation manifests without rewriting historical identities.
 
-| Scenario | Required observable result |
-|---|---|
-| No-op open of an existing database | No historical payload, identity or pin rewrite. |
-| Old snapshot hash differs from a later live DB | Keep distinct evidence; no automatic replacement. |
-| Two workers claim a remote execution authority | Reject stale/duplicate owner rather than overlap. |
-| Selective migration excludes an operational fixture | Retain references and original archive evidence consistently. |
-| Secondary store is moved with the same logical ID | Verify marker/grants and exact referenced bytes. |
-| Rollback after an uncertain external action | Preserve its unresolved ownership and original operation key. |
+5. Rollback keeps post-cutover data: validate schema/code readability or use a complete consistent documented restore/forward repair. Never replace just one old DB beside newer files.
 
-### Existing regression sources
+## Transaction and effect boundary
+
+Fencing and admission changes are authoritative transactions; multi-DB/file snapshots use the documented staged preservation protocol and remain unusable until independently verified.
+
+## Retained code and compatibility
+
+Existing explicit transfer/copy tools and private host settings, outside public source. A generic autonomous reconciler remains deferred.
+
+Honor current migration/fence protocols and cumulative update graph. Do not erase credentials by reusing a fresh-install path.
+
+## Acceptance cases
+
+| Case | Trigger | Required result |
+|---|---|---|
+| PORT-01 | Old worker reconnects after transfer | Epoch/grant rejects mutation/launch; no dual owner. |
+| PORT-02 | Snapshot has mismatched DB/files/store marker | Restore refuses readiness with exact mismatch. |
+| MIG-01 | Skipped-version preserved rebuild | Credentials, registries, Scenario links and immutable pins survive. |
+
+Reference regression modules (adapt moved internals to actual Rust boundaries):
 
 - [tests/ops/test_remote_ownership.py](../../../tests/ops/test_remote_ownership.py)
 - [tests/deploy/test_boot_readiness.py](../../../tests/deploy/test_boot_readiness.py)
 
-Existing Python-internal tests need boundary adaptation when their implementation moves. Passing the old implementation alone does not establish Rust parity. Add state/trace and crash cases from this matrix; keep actual external acceptance separately identified.
+## Exit review
 
-## State, cutover and rollback
-
-Run preservation checks before switching and compare again afterward. Retain all installation-specific state independently; never use another machine's state as a template.
-
-## Main risk and design review
-
-A language migration is not a new-machine installation. Treating it as reinstall-and-import would unnecessarily threaten credentials, storage IDs and historical references.
-
-## Contracts and documentation to review
-
-- [ops/portability.py](../../../ops/portability.py)
-- [ops/remote_fence.py](../../../ops/remote_fence.py)
-
-Change rule: When migration changes, check locator/storage IDs, original hashes, ownership overlays, selective exclusions and rerun idempotency.
-
-Before implementation, apply the cross-block [compatibility contract](../COMPATIBILITY.md), [sequence and ownership rules](../README.md), and [whole-tree review findings](../REVIEW.md). Update the implementation source, public schema/guide, consumers and installation packaging together when an accepted contract changes.
-
-## Exit criteria
-
-- The implemented responsibilities and deliberately retained Python/external boundaries are explicit.
-- Every acceptance row has a reproducible test or is named as an unverified external acceptance boundary.
-- Affected consumers pass against the selected Rust implementation, including its error and restart paths.
-- Preservation and rollback checks use the same state format/identities; no second writer or duplicated external action is introduced.
-- Feature mappings and source-qualified verification evidence match the exact candidate build.
-- No production activation, user-thread inference, credential rotation or research execution is inferred from source/test completion.
+Validate the cases above plus the shared [domain](../DOMAIN.md), [API](../API-CHANGES.md),
+[compatibility](../COMPATIBILITY.md) and [migration](../MIGRATION.md) contracts.
+Record exact source/artifact hashes and which external boundaries remain unverified.
+A passing old Python suite or compiling crate alone does not close this block.

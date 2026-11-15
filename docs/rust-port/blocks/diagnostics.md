@@ -1,84 +1,62 @@
-# diagnostics — Rust transition plan
+# Private diagnostics — detailed design
 
-Status: proposed; no Loom Rust implementation or deployment is performed by this document.
+Status: proposed Rust redesign; no implemented/deployed claim. Phases: D1, D6, D7.
 
-Baseline: `4d93ab9bdcb5750f3d0be161925e834984492f89` (Loom alpha.60).
+## Responsibility and model
 
-## Decision and sequence
+**Authority:** Rust safe error/incident adapter; retained Python collector for retained services.
 
-- Target: Retained private collector initially; Rust sanitized error producers.
-- Sequence: 1 error envelope; every phase acceptance.
-- Existing feature dependencies: none.
+**Typed model:** IncidentId, ComponentCode, OperationCode, Severity, DiagnosticRevision.
 
-## Current source and authority
+**Operations:** RecordBoundedIncident and read authorized opaque diagnostic references; no automatic upload.
 
-Private bounded local error collection; no remote telemetry. The implemented contract is in the linked source and [diagnostics feature specification](../../features/diagnostics.md).
+**Persistence:** Private bounded per-service JSONL/rotation files, never platform state or release source.
 
-| File | Planning treatment |
-|---|---|
-| [dashboard/diagnostics.py](../../../dashboard/diagnostics.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [ops/compose.diagnostics.yaml](../../../ops/compose.diagnostics.yaml) | Inspect domain/consumer boundary; port only the selected core responsibility |
+## Reference source and consumers
 
-## Retained code and external dependencies
+- [dashboard/diagnostics.py](../../../dashboard/diagnostics.py)
+- [ops/compose.diagnostics.yaml](../../../ops/compose.diagnostics.yaml)
 
-Keep the current bounded collector, diagnostics volume ownership and optional independent client collection. Do not introduce telemetry upload or a new operational gate.
+Existing feature dependencies: none declared.
+The references establish old behavior, not target Rust module boundaries.
 
-## Compatibility invariants
+## Implementation work
 
-- Collection failures never block authentication, Jobs or responses. No secret/request/exception-message capture and no automatic upload.
-- Preserve existing IDs, authentication, configured roots, sealed bytes and operational history unless an explicit separate schema change is approved.
-- Keep missing, null, false, zero, unknown, stale and unavailable distinctions required by this block.
-- Development checks are evidence, not extra Job or agent-ACK execution gates.
+1. Preserve the shared diagnostic envelope and UUID correlation across HTTP/MCP/external-coordinator/Loom Use.
 
-## Detailed implementation work
+2. Only fixed safe codes and allowlisted metadata are recorded. Do not capture raw params, credentials, scientific records, arbitrary upstream bodies or exception messages.
 
-1. Freeze diagnostic incident UUID and public error locator fields used across Ops, Dashboard and clients.
-2. Create a Rust error taxonomy separating input/scope/conflict/unavailable/internal errors; public errors use product-defined messages rather than Debug/source exception text.
-3. Send only the current allowlisted bounded diagnostic fields to the protected collector/file boundary.
-4. Preserve local retention, file modes, size limits and unavailable-collector behavior. Log failures must not break authentication, Jobs or responses.
-5. Check every new Rust process and bridge for accidental stdout/stderr exposure of tokens, request bodies, environment, SQL parameters or private paths.
-6. Keep engine/build identity in diagnostics accurate without embedding host configuration or operational snapshots in release source.
-7. Test matching opaque locators across Rust API and retained Dashboard/Loom Use/Pale decoding.
-8. Validate collector packaging/mount permissions with the immutable Rust image and a disposable installation.
+3. Make record/rotate failures non-blocking with bounded buffers, dedup and explicit retention. Files/directories preserve service ownership/private modes.
 
-## Acceptance matrix
+4. Keep client and server collection on their respective machines; no hidden telemetry or evidence copying on connection.
 
-| Scenario | Required observable result |
-|---|---|
-| Malformed input contains a token-like secret | Public response/log contains no rejected value or raw exception. |
-| Collector is missing, full or unwritable | Primary request behavior remains correct. |
-| Upstream error includes a malformed incident ID | Discard it; preserve only validated opaque UUIDs. |
-| Rust binary panics or bridge loses a reply | Sanitized failure plus accurate uncertainty; no automatic replay. |
-| Diagnostic body exceeds limits | Bound collection and retention without blocking work. |
-| Build identity differs from selected source | Report accurate provenance rather than borrowing another process's version. |
+5. Classify internal Rust panics/storage faults into safe typed errors with private incident IDs; avoid leaking backtraces into public errors.
 
-### Existing regression sources
+## Transaction and effect boundary
+
+Diagnostics are best-effort outside authoritative state commits. Failure to record an incident cannot roll back a successful Job command or create one.
+
+## Retained code and compatibility
+
+Existing diagnostics implementation for web/client services and retention knobs. One cross-language envelope, not one forced process.
+
+Keep existing paths/retention and verify actual mounts on fresh install/upgrade. Private evidence directories never enter source bundles.
+
+## Acceptance cases
+
+| Case | Trigger | Required result |
+|---|---|---|
+| DIAG-01 | Unwritable/full diagnostics directory | Operation outcome unchanged; no credential leakage. |
+| DIAG-02 | Malformed upstream incident string | No arbitrary text reflected as a locator. |
+| DIAG-03 | Concurrent rotation and duplicate errors | Bounded valid files with private ownership. |
+
+Reference regression modules (adapt moved internals to actual Rust boundaries):
 
 - [tests/dashboard/test_diagnostics.py](../../../tests/dashboard/test_diagnostics.py)
 
-Existing Python-internal tests need boundary adaptation when their implementation moves. Passing the old implementation alone does not establish Rust parity. Add state/trace and crash cases from this matrix; keep actual external acceptance separately identified.
+## Exit review
 
-## State, cutover and rollback
-
-Retain the collector and private mount. Add sanitized Rust producers first and verify failure isolation; rollback never requires uploading or publishing private evidence.
-
-## Main risk and design review
-
-Rust error chains and convenient Debug logging can leak more than the existing sanitized Python boundary. Error improvements must not become a telemetry expansion.
-
-## Contracts and documentation to review
-
-- [dashboard/diagnostics.py](../../../dashboard/diagnostics.py)
-
-Change rule: Review every caller, image packaging, private volume ownership and independent Loom Use collector schema before changing collection fields.
-
-Before implementation, apply the cross-block [compatibility contract](../COMPATIBILITY.md), [sequence and ownership rules](../README.md), and [whole-tree review findings](../REVIEW.md). Update the implementation source, public schema/guide, consumers and installation packaging together when an accepted contract changes.
-
-## Exit criteria
-
-- The implemented responsibilities and deliberately retained Python/external boundaries are explicit.
-- Every acceptance row has a reproducible test or is named as an unverified external acceptance boundary.
-- Affected consumers pass against the selected Rust implementation, including its error and restart paths.
-- Preservation and rollback checks use the same state format/identities; no second writer or duplicated external action is introduced.
-- Feature mappings and source-qualified verification evidence match the exact candidate build.
-- No production activation, user-thread inference, credential rotation or research execution is inferred from source/test completion.
+Validate the cases above plus the shared [domain](../DOMAIN.md), [API](../API-CHANGES.md),
+[compatibility](../COMPATIBILITY.md) and [migration](../MIGRATION.md) contracts.
+Record exact source/artifact hashes and which external boundaries remain unverified.
+A passing old Python suite or compiling crate alone does not close this block.

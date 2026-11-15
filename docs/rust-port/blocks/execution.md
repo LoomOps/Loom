@@ -1,95 +1,79 @@
-# execution — Rust transition plan
+# Execution plans, tickets and return evidence — detailed design
 
-Status: proposed; no Loom Rust implementation or deployment is performed by this document.
+Status: proposed Rust redesign; no implemented/deployed claim. Phases: D1, D3, D4.
 
-Baseline: `4d93ab9bdcb5750f3d0be161925e834984492f89` (Loom alpha.60).
+## Responsibility and model
 
-## Decision and sequence
+**Authority:** loom-domain plan/state decisions + loom-app coordinator + privileged loom-executor.
 
-- Target: Rust loom-executor host service and Rust stage/worker state machine.
-- Sequence: 2 host Executor; 4 worker/stage integration.
-- Existing feature dependencies: extensions.
+**Typed model:** JobId, PlanRevision, NodeId, StepId, AttemptId, Stage, TicketId, LaunchFingerprint, ReturnEvidence.
 
-## Current source and authority
+**Operations:** AcceptExecutionPlan, ReserveStage, LaunchStage, ObserveProgress, RequestCancellation, ObserveReturn and EnqueueFinalization.
 
-Job lifecycle, script execution and container ownership. The implemented contract is in the linked source and [execution feature specification](../../features/execution.md).
+**Persistence:** jobs/attempts/stage_runs/tickets/return receipts/finalizer receipts/result_outbox/hooks, preserving existing Job and execution identities.
 
-| File | Planning treatment |
-|---|---|
-| [executor/runtime_policy.py](../../../executor/runtime_policy.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [executor/server.py](../../../executor/server.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [ops/execution.py](../../../ops/execution.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [ops/hooks.py](../../../ops/hooks.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [ops/runtime_client.py](../../../ops/runtime_client.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [ops/runtime_contract.py](../../../ops/runtime_contract.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [ops/job_work.py](../../../ops/job_work.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [ops/workflows.py](../../../ops/workflows.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
+## Reference source and consumers
 
-## Retained code and external dependencies
+- [executor/runtime_policy.py](../../../executor/runtime_policy.py)
+- [executor/server.py](../../../executor/server.py)
+- [ops/execution.py](../../../ops/execution.py)
+- [ops/hooks.py](../../../ops/hooks.py)
+- [ops/runtime_client.py](../../../ops/runtime_client.py)
+- [ops/runtime_contract.py](../../../ops/runtime_contract.py)
+- [ops/job_work.py](../../../ops/job_work.py)
+- [ops/workflows.py](../../../ops/workflows.py)
 
-Keep registered Component/Tool source bytes, Python/Isaac/ML commands and their container images. Initially retain Docker CLI execution and its established policy semantics rather than simultaneously adopting a different Docker client API.
+Existing feature dependencies: extensions.
+The references establish old behavior, not target Rust module boundaries.
 
-## Compatibility invariants
+## Implementation work
 
-- Loom executes Jobs. Release resources based on executor-ticket, container and process return evidence. Never pass platform secrets or Docker sockets into Jobs.
-- Preserve existing IDs, authentication, configured roots, sealed bytes and operational history unless an explicit separate schema change is approved.
-- Keep missing, null, false, zero, unknown, stale and unavailable distinctions required by this block.
-- Development checks are evidence, not extra Job or agent-ACK execution gates.
+1. Build an explicit immutable plan from exact Profile/Tool/Runtime pins; validate DAG acyclicity/output aliases at acceptance. One requested outcome owns real nodes, not a hierarchy inferred from names.
 
-## Detailed implementation work
+2. Distinguish producer Step progress, independently scheduled nodes and retry Attempts. SDK observations carry per-source sequence and identity; no collector invents an earlier execution.
 
-1. Freeze the Unix-socket request/response envelopes and credential/instance grants exposed by executor/server.py. Preserve every configured UID/GID, image pin, store grant and resource limit.
-2. Port ticket lookup, create-or-reuse and label/request fingerprints before launch. Persist the accepted ticket before start and reconcile a lost Docker reply against the same container identity.
-3. Port container policy construction: non-root, read-only rootfs, dropped capabilities, explicit mounts, driver capabilities, network and output path validation. Keep Docker/native/API secrets outside Jobs.
-4. Use typed Job, Attempt, stage and ticket identities; preserve ticket strings and old request/launch hashes. Unknown container state must remain resource-owned.
-5. Port bounded cancellation and log/exit collection. Distinguish a requested stop, observed process/container return, natural successful return and successful artifact indexing.
-6. Move worker restart reconciliation, return receipts, result outbox, finalizer receipts and callbacks together with their transaction/fence rules. Preserve fsync/rename and directory durability.
-7. Keep one requested outcome as one logical Job; internal steps remain producer-reported evidence, while workflow nodes retain real independent scheduler ownership.
-8. Execute CPU acceptance with exact input/output mounts and crash injection at create, ticket commit, start reply, return receipt and finalizer boundaries. GPU/driver acceptance is a later explicit test boundary.
+3. Retain private Executor grants and peer/instance verification. Build Docker argv through typed policy; initial Docker CLI adapter preserves container labels, isolation, mounts and image digests.
 
-## Acceptance matrix
+4. Persist create/start/cancel intent under a stable ticket before external I/O. Reconcile lost replies against the same container/process identity; unknown state keeps ownership.
 
-| Scenario | Required observable result |
-|---|---|
-| Docker create succeeds and reply is lost | Recover only the matching unstarted container; no second launch. |
-| Worker restarts with an active or uncertain ticket | Reconcile/cancel and prove return before assigning resources. |
-| Late return receipt from an older Attempt | Ignore for the current Attempt; preserve original evidence. |
-| Finalizer or callback fails after training returns | Retry that stage only, without retraining. |
-| Job cancellation races successful return | Preserve cancellation and the actual return evidence consistently. |
-| Secondary storage or granted Runtime changes identity | Reject launch; never fall back to another store/image. |
+5. Cancellation waits for verified process group/container return, including failures entering or leaving context. An I/O failure while recording a stage must not leak a child.
 
-### Existing regression sources
+6. Apply all returns/finalization/callback observations under current Attempt/plan/epoch fences. A stale old Attempt is preserved as history without updating the current run.
+
+7. Retry finalizers/callbacks separately from training. Emit completion only after required result facts; publication failure must not imply the container is still running.
+
+8. Port the existing lifecycle correction tests as semantic scenarios, not Python mocks copied into Rust. Model cancellation/publication and release-owner races explicitly.
+
+## Transaction and effect boundary
+
+Execution decisions commit state plus durable outbox; Docker/process effects and return observations happen outside the DB transaction. Only evidence for the current owner releases a lane. Cancellation is not inferred from dropping a Rust task.
+
+## Retained code and compatibility
+
+Registered scientific Python code/images and wire compatibility. Native Rust control orchestration is new; old Python worker helpers are not retained as state-authority RPC.
+
+Drain all execution/result/callback/validation owners before changing coordinator/helper. Switch the worker and its protocol-compatible Executor together; a partial Rust API cannot share a live Python state machine.
+
+## Acceptance cases
+
+| Case | Trigger | Required result |
+|---|---|---|
+| EXEC-01 | Create/start reply lost | One matching launch; no duplicate or early resource release. |
+| EXEC-02 | Old Attempt finishes after retry starts | Current Attempt/state/results unchanged; old evidence remains. |
+| EXEC-03 | Cancel races publication or stage-record failure | Cancel survives and process return is proven; no leaked resource. |
+| EXEC-04 | Parallel nodes and thirteen preserved source executions | One logical Job, real node/Step/Attempt details and unioned active time. |
+| EXEC-05 | Runtime image/store/grant identity changed | Launch rejected; no silent fallback. |
+
+Reference regression modules (adapt moved internals to actual Rust boundaries):
 
 - [tests/ops/test_executor_boundary.py](../../../tests/ops/test_executor_boundary.py)
 - [tests/ops/test_job_work.py](../../../tests/ops/test_job_work.py)
 - [tests/ops/test_job_lifecycle.py](../../../tests/ops/test_job_lifecycle.py)
 - [tests/ops/test_research_workflows.py](../../../tests/ops/test_research_workflows.py)
 
-Existing Python-internal tests need boundary adaptation when their implementation moves. Passing the old implementation alone does not establish Rust parity. Add state/trace and crash cases from this matrix; keep actual external acceptance separately identified.
+## Exit review
 
-## State, cutover and rollback
-
-Executor can be the first running Rust component only after wire/hash/ticket compatibility is proven. Drain/reconcile all attached instances before changing shared helpers; keep the old executor executable and existing databases for rollback.
-
-## Main risk and design review
-
-This is the highest-consequence block. Tokio task cancellation, process exit and Docker resource return are not equivalent and cannot share a single completion flag.
-
-## Contracts and documentation to review
-
-- [ops/execution.py](../../../ops/execution.py)
-- [ops/runtime_contract.py](../../../ops/runtime_contract.py)
-- [executor/runtime_policy.py](../../../executor/runtime_policy.py)
-
-Change rule: When execution contracts change, verify the worker, executor, restart/idempotency behavior, cancellation, result collection and Compose mounts. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.
-
-Before implementation, apply the cross-block [compatibility contract](../COMPATIBILITY.md), [sequence and ownership rules](../README.md), and [whole-tree review findings](../REVIEW.md). Update the implementation source, public schema/guide, consumers and installation packaging together when an accepted contract changes.
-
-## Exit criteria
-
-- The implemented responsibilities and deliberately retained Python/external boundaries are explicit.
-- Every acceptance row has a reproducible test or is named as an unverified external acceptance boundary.
-- Affected consumers pass against the selected Rust implementation, including its error and restart paths.
-- Preservation and rollback checks use the same state format/identities; no second writer or duplicated external action is introduced.
-- Feature mappings and source-qualified verification evidence match the exact candidate build.
-- No production activation, user-thread inference, credential rotation or research execution is inferred from source/test completion.
+Validate the cases above plus the shared [domain](../DOMAIN.md), [API](../API-CHANGES.md),
+[compatibility](../COMPATIBILITY.md) and [migration](../MIGRATION.md) contracts.
+Record exact source/artifact hashes and which external boundaries remain unverified.
+A passing old Python suite or compiling crate alone does not close this block.

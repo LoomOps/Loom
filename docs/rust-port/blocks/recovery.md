@@ -1,85 +1,65 @@
-# recovery — Rust transition plan
+# Recovery incidents, leases and retry policy — detailed design
 
-Status: proposed; no Loom Rust implementation or deployment is performed by this document.
+Status: proposed Rust redesign; no implemented/deployed claim. Phases: D1, D4, D6.
 
-Baseline: `4d93ab9bdcb5750f3d0be161925e834984492f89` (Loom alpha.60).
+## Responsibility and model
 
-## Decision and sequence
+**Authority:** loom-domain recovery policy + loom-app fenced recovery commands.
 
-- Target: Rust recovery incidents, leases, rounds and recipient events in loom-ops.
-- Sequence: 1 incident/lease model; 4 worker/queue cutover.
-- Existing feature dependencies: identity, execution.
+**Typed model:** IncidentId, LeaseToken, LeaseDeadline, RetryBudget, FailureStage, RecoveryMode, AttemptRevision.
 
-## Current source and authority
+**Operations:** Claim, Progress, ResumeExecution, RetryFinalization, Defer and Reactivate under the existing live action contract.
 
-Recovery reservations, recipient events and retries. The implemented contract is in the linked source and [recovery feature specification](../../features/recovery.md).
+**Persistence:** Existing recovery rows, audit, job_revisions, attempt_results and result_outbox; lease secrets remain private.
 
-| File | Planning treatment |
-|---|---|
-| [ops/recovery.py](../../../ops/recovery.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
+## Reference source and consumers
 
-## Retained code and external dependencies
+- [ops/recovery.py](../../../ops/recovery.py)
 
-Keep caller-owned diagnosis and repair, existing MCP actions and user-facing recovery presentation. No resident repair model or new approval/ACK gate is introduced.
+Existing feature dependencies: identity, execution.
+The references establish old behavior, not target Rust module boundaries.
 
-## Compatibility invariants
+## Implementation work
 
-- The caller owns error repair. Preserve reservation deadlines, attempt limits and dependent-Job skipping. Event acknowledgments are recipient-specific.
-- Preserve existing IDs, authentication, configured roots, sealed bytes and operational history unless an explicit separate schema change is approved.
-- Keep missing, null, false, zero, unknown, stale and unavailable distinctions required by this block.
-- Development checks are evidence, not extra Job or agent-ACK execution gates.
+1. Use separate recovery pending/claimed/executing facts and execution/publication facts. A running recovery Attempt stays running even with an old failed previous_result.
 
-## Detailed implementation work
+2. Preserve shared automatic/agent budget and configured retry reasons/backoff. Do not grant a second budget or restore a deprecated client permission by default.
 
-1. Extract incident, reservation, lease and execution phase into separate types; Recovery executing must not replace the current Job execution phase.
-2. Preserve persisted deadlines and shared recovery-round accounting from recovery.py and finish(): initial execution plus at most three shared repair rounds, with automatic attempts potentially reducing the budget.
-3. Port claim/progress/resume/defer/reactivate with the exact actor scope and stable request fingerprint behavior.
-4. Keep result-only recovery on the same Attempt and avoid re-running execution admission, mutable input resolution or training.
-5. Preserve prior outcomes in attempt_results and job_revisions, while clearing only the current execution result when a new Attempt begins.
-6. Use transactional clock-bound comparisons for concurrent claims and expiry; event ACK remains recipient receipt and never grants a lease.
-7. Integrate recovery reservation changes with queue selection and returned-resource evidence in the same worker cutover.
-8. Test through both MCP/HTTP and durable database restart fixtures, including old records that lack newer optional fields.
+3. Resume execution against the original submission identity and new accepted revision. Archive old result evidence and clear only the current projection.
 
-## Acceptance matrix
+4. For result_failed, reject execution-input patches and retry only the frozen publication/finalizer path on the same Attempt; no admission/prepare/training repeat.
 
-| Scenario | Required observable result |
-|---|---|
-| Two agents claim the same incident | One valid owner; the other gets the current conflict. |
-| Progress after the maximum repair deadline | Do not extend beyond the original repair-round cap. |
-| Automatic retry followed by manual recovery | Consume the same shared round budget. |
-| Result-only failure | Reuse returned execution and the same Attempt. |
-| Old failure beside a running repair | Display current execution; do not submit another repair automatically. |
-| Deferred recovery reactivated | Assign the documented new queue order without preempting active work. |
+5. Claim/progress/resume/defer validate current actor, lease, deadline and Job/Attempt/epoch; late progress cannot reclaim a newer lease. Expose uncertainty rather than invent a repair success.
 
-### Existing regression sources
+6. Keep operator pause, explicit hold and agent recovery separate. Recovery APIs cannot secretly remove a user pause; client access_mode only restricts upstream authority.
+
+## Transaction and effect boundary
+
+Lease/budget/revision changes and recovery event commit atomically. Any required external observation is fenced and revalidated before the next command. Never expose lease secrets through public errors or catalog snapshots.
+
+## Retained code and compatibility
+
+Existing API capability discovery, lease deadlines and client/external coordinator no-replay policy. No resident supervisor or agent-ACK execution dependency is added.
+
+Preserve all incident IDs/tokens/deadlines/budgets and prior Attempt history. Unknown or incompatible leased work prevents cutover rather than clearing it.
+
+## Acceptance cases
+
+| Case | Trigger | Required result |
+|---|---|---|
+| REC-01 | Finalization retry after successful execution | Same Attempt and frozen inputs; training never restarts. |
+| REC-02 | Original submit replay after recovery patch | Original Job receipt; changed request conflicts. |
+| REC-03 | Executing recovery with prior failure | Current run status shown, history preserved; no duplicate repair alert. |
+| REC-04 | Lease expires beside operator pause | Lease releases only its reservation; pause remains. |
+
+Reference regression modules (adapt moved internals to actual Rust boundaries):
 
 - [tests/ops/test_worker_recovery.py](../../../tests/ops/test_worker_recovery.py)
 - [tests/ops/test_job_lifecycle.py](../../../tests/ops/test_job_lifecycle.py)
 
-Existing Python-internal tests need boundary adaptation when their implementation moves. Passing the old implementation alone does not establish Rust parity. Add state/trace and crash cases from this matrix; keep actual external acceptance separately identified.
+## Exit review
 
-## State, cutover and rollback
-
-Recovery must switch with its queue/worker consumers. Reuse existing incident/lease/round rows and recognize existing request hashes; no incident reset or fabricated ACK during rollback.
-
-## Main risk and design review
-
-Language types can separate lease and execution state, but expiry, retry budgets and resource evidence remain transactional business rules.
-
-## Contracts and documentation to review
-
-- [ops/recovery.py](../../../ops/recovery.py)
-- [ops/access.py](../../../ops/access.py)
-
-Change rule: When state transitions change, check queue dispatch, notification events, claim leases, concurrency and expiry tests. Authoritative transitions live in ops/ops.py worker/finish and ops/recovery.py.
-
-Before implementation, apply the cross-block [compatibility contract](../COMPATIBILITY.md), [sequence and ownership rules](../README.md), and [whole-tree review findings](../REVIEW.md). Update the implementation source, public schema/guide, consumers and installation packaging together when an accepted contract changes.
-
-## Exit criteria
-
-- The implemented responsibilities and deliberately retained Python/external boundaries are explicit.
-- Every acceptance row has a reproducible test or is named as an unverified external acceptance boundary.
-- Affected consumers pass against the selected Rust implementation, including its error and restart paths.
-- Preservation and rollback checks use the same state format/identities; no second writer or duplicated external action is introduced.
-- Feature mappings and source-qualified verification evidence match the exact candidate build.
-- No production activation, user-thread inference, credential rotation or research execution is inferred from source/test completion.
+Validate the cases above plus the shared [domain](../DOMAIN.md), [API](../API-CHANGES.md),
+[compatibility](../COMPATIBILITY.md) and [migration](../MIGRATION.md) contracts.
+Record exact source/artifact hashes and which external boundaries remain unverified.
+A passing old Python suite or compiling crate alone does not close this block.

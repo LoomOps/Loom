@@ -1,0 +1,4200 @@
+{
+  "schema": "loom-rust-state-boundaries/v1",
+  "method": "AST literal SQL and effect call inventory; dynamic SQL may require focused review",
+  "boundaries": [
+    {
+      "repo": "Loom",
+      "path": "dashboard/admission.py",
+      "line": 102,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "audit",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/admission.py",
+      "line": 102,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "policy_backups",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/admission_http.py",
+      "line": 27,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "receipts",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/admission_http.py",
+      "line": 39,
+      "operation": "DELETE FROM",
+      "table": "receipts",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/admission_http.py",
+      "line": 42,
+      "operation": "INSERT INTO",
+      "table": "receipts",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/admission_http.py",
+      "line": 50,
+      "operation": "UPDATE",
+      "table": "receipts",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/admission_http.py",
+      "line": 54,
+      "operation": "DELETE FROM",
+      "table": "receipts",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/admission_http.py",
+      "line": 60,
+      "operation": "UPDATE",
+      "table": "receipts",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 70,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 70,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "share_receipts",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 108,
+      "operation": "INSERT OR REPLACE INTO",
+      "table": "share_receipts",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 150,
+      "operation": "UPDATE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 151,
+      "operation": "INSERT INTO",
+      "table": "audit",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 177,
+      "operation": "INSERT INTO",
+      "table": "audit",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 105,
+      "operation": "INSERT INTO",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 106,
+      "operation": "INSERT INTO",
+      "table": "audit",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 130,
+      "operation": "INSERT INTO",
+      "table": "audit",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 163,
+      "operation": "DELETE FROM",
+      "table": "share_receipts",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 164,
+      "operation": "DELETE FROM",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 222,
+      "operation": "INSERT INTO",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 254,
+      "operation": "INSERT INTO",
+      "table": "policy_backups",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 128,
+      "operation": "UPDATE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 167,
+      "operation": "UPDATE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 170,
+      "operation": "UPDATE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 173,
+      "operation": "UPDATE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sharing.py",
+      "line": 176,
+      "operation": "UPDATE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/ssh_access.py",
+      "line": 30,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "ssh_accounts",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/ssh_access.py",
+      "line": 37,
+      "operation": "INSERT INTO",
+      "table": "ssh_accounts",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/ssh_access.py",
+      "line": 103,
+      "operation": "INSERT INTO",
+      "table": "audit",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sso.py",
+      "line": 55,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "sessions",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sso.py",
+      "line": 81,
+      "operation": "DELETE FROM",
+      "table": "sessions",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sso.py",
+      "line": 82,
+      "operation": "INSERT INTO",
+      "table": "sessions",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "dashboard/sso.py",
+      "line": 94,
+      "operation": "DELETE FROM",
+      "table": "sessions",
+      "overlay": false,
+      "owner_target": "Existing web / browser relay; new Rust-backed DTO consumers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/build.py",
+      "line": 1,
+      "operation": "UPDATE",
+      "table": "the",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/migrations/research_tools.py",
+      "line": 16,
+      "operation": "CREATE TABLE",
+      "table": "tools",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/ssh_host.py",
+      "line": 53,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "accounts",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/ssh_host.py",
+      "line": 54,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "audit",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/ssh_host.py",
+      "line": 118,
+      "operation": "UPDATE",
+      "table": "accounts",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/ssh_host.py",
+      "line": 119,
+      "operation": "INSERT INTO",
+      "table": "audit",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/ssh_host.py",
+      "line": 82,
+      "operation": "INSERT INTO",
+      "table": "accounts",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/ssh_host.py",
+      "line": 88,
+      "operation": "UPDATE",
+      "table": "accounts",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/state_snapshot.py",
+      "line": 1,
+      "operation": "UPDATE",
+      "table": "and",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/update.py",
+      "line": 332,
+      "operation": "UPDATE",
+      "table": "without",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/update.py",
+      "line": 48,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/update.py",
+      "line": 53,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/update.py",
+      "line": 395,
+      "operation": "UPDATE",
+      "table": "record",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/update.py",
+      "line": 341,
+      "operation": "UPDATE",
+      "table": "record",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/update.py",
+      "line": 300,
+      "operation": "UPDATE",
+      "table": "evidence",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "deploy/update.py",
+      "line": 382,
+      "operation": "UPDATE",
+      "table": "evidence",
+      "overlay": false,
+      "owner_target": "Rust artifact/migration contracts; existing Python administrator drivers"
+    },
+    {
+      "repo": "Loom",
+      "path": "executor/runtime_store.py",
+      "line": 35,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "runtime_revisions",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "executor/runtime_store.py",
+      "line": 35,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "runtime_grants",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "executor/runtime_store.py",
+      "line": 35,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "runtime_installations",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "executor/runtime_store.py",
+      "line": 78,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "runtime_grants",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "executor/runtime_store.py",
+      "line": 173,
+      "operation": "INSERT INTO",
+      "table": "runtime_installations",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "executor/runtime_store.py",
+      "line": 76,
+      "operation": "INSERT INTO",
+      "table": "runtime_revisions",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "executor/server.py",
+      "line": 36,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "tickets",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom",
+      "path": "executor/server.py",
+      "line": 51,
+      "operation": "UPDATE",
+      "table": "tickets",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom",
+      "path": "executor/server.py",
+      "line": 175,
+      "operation": "INSERT INTO",
+      "table": "tickets",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom",
+      "path": "executor/server.py",
+      "line": 210,
+      "operation": "UPDATE",
+      "table": "tickets",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/access.py",
+      "line": 88,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "principals",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/access.py",
+      "line": 88,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "credentials",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/access.py",
+      "line": 88,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "delivery",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/access.py",
+      "line": 88,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "delivery_history",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/access.py",
+      "line": 127,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "delivery",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/access.py",
+      "line": 137,
+      "operation": "UPDATE",
+      "table": "delivery",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/access.py",
+      "line": 139,
+      "operation": "INSERT INTO",
+      "table": "delivery_history",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/component_store.py",
+      "line": 20,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "components",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/component_store.py",
+      "line": 156,
+      "operation": "INSERT INTO",
+      "table": "components",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/dispatch_control.py",
+      "line": 7,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "dispatch_control",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/dispatch_control.py",
+      "line": 8,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "dispatch_control",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/dispatch_control.py",
+      "line": 43,
+      "operation": "UPDATE",
+      "table": "dispatch_control",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/dispatch_control.py",
+      "line": 41,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/dispatch_control.py",
+      "line": 42,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/history_store.py",
+      "line": 17,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "history_imports",
+      "overlay": false,
+      "owner_target": "loom-query + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/history_store.py",
+      "line": 17,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "history_records",
+      "overlay": false,
+      "owner_target": "loom-query + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/hooks.py",
+      "line": 6,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "hooks",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/hooks.py",
+      "line": 16,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "hooks",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 268,
+      "operation": "INSERT INTO",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 278,
+      "operation": "INSERT INTO",
+      "table": "job_revisions",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 283,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "events",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 450,
+      "operation": "UPDATE",
+      "table": "attempts",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 451,
+      "operation": "UPDATE",
+      "table": "stage_runs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 452,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 454,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "result_outbox",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 121,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 121,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "attempts",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 121,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "result_outbox",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 121,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "events",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 158,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "stage_runs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 159,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "attempt_results",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 160,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "finalizer_receipts",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 368,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 373,
+      "operation": "UPDATE",
+      "table": "attempts",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 374,
+      "operation": "DELETE FROM",
+      "table": "result_outbox",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 370,
+      "operation": "INSERT OR REPLACE INTO",
+      "table": "attempt_results",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 372,
+      "operation": "UPDATE",
+      "table": "stage_runs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 387,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 388,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 672,
+      "operation": "UPDATE",
+      "table": "hooks",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 1198,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 1199,
+      "operation": "INSERT INTO",
+      "table": "result_outbox",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 1213,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "job_annotations",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 1218,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 512,
+      "operation": "UPDATE",
+      "table": "stage_runs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 515,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 599,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "finalizer_receipts",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 612,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 630,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 631,
+      "operation": "UPDATE",
+      "table": "result_outbox",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 678,
+      "operation": "UPDATE",
+      "table": "hooks",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 1221,
+      "operation": "UPDATE",
+      "table": "attempts",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 1225,
+      "operation": "DELETE FROM",
+      "table": "result_outbox",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 1227,
+      "operation": "UPDATE",
+      "table": "result_outbox",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 558,
+      "operation": "UPDATE",
+      "table": "stage_runs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 559,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 623,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 624,
+      "operation": "DELETE FROM",
+      "table": "result_outbox",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 636,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 505,
+      "operation": "INSERT OR REPLACE INTO",
+      "table": "stage_runs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 801,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 1107,
+      "operation": "UPDATE",
+      "table": "events",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 800,
+      "operation": "INSERT INTO",
+      "table": "attempts",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 736,
+      "operation": "UPDATE",
+      "table": "stage_runs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 737,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ops.py",
+      "line": 787,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ownership.py",
+      "line": 8,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "auth_identities",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ownership.py",
+      "line": 8,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "user_profiles",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ownership.py",
+      "line": 8,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "item_owners",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ownership.py",
+      "line": 8,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "ownership_history",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ownership.py",
+      "line": 45,
+      "operation": "INSERT INTO",
+      "table": "user_profiles",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ownership.py",
+      "line": 72,
+      "operation": "INSERT INTO",
+      "table": "ownership_history",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ownership.py",
+      "line": 74,
+      "operation": "INSERT INTO",
+      "table": "item_owners",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ownership.py",
+      "line": 32,
+      "operation": "INSERT INTO",
+      "table": "user_profiles",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ownership.py",
+      "line": 36,
+      "operation": "INSERT INTO",
+      "table": "auth_identities",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/ownership.py",
+      "line": 34,
+      "operation": "UPDATE",
+      "table": "user_profiles",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/portability.py",
+      "line": 120,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/portability.py",
+      "line": 177,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/portability.py",
+      "line": 178,
+      "operation": "INSERT INTO",
+      "table": "entity_locations",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/portability.py",
+      "line": 182,
+      "operation": "UPDATE",
+      "table": "entity_locations",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/portability.py",
+      "line": 217,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/portability.py",
+      "line": 232,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/portability.py",
+      "line": 229,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/profile_store.py",
+      "line": 39,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "execution_profiles",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/profile_store.py",
+      "line": 119,
+      "operation": "INSERT INTO",
+      "table": "execution_profiles",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/queue_control.py",
+      "line": 15,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "queue_history",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/queue_control.py",
+      "line": 29,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/queue_control.py",
+      "line": 37,
+      "operation": "INSERT INTO",
+      "table": "queue_history",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/queue_control.py",
+      "line": 65,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/queue_control.py",
+      "line": 75,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 14,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "recovery",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 14,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "recovery_history",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 14,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "job_revisions",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 33,
+      "operation": "INSERT INTO",
+      "table": "recovery_history",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 43,
+      "operation": "INSERT INTO",
+      "table": "recovery",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 127,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 131,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 29,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 53,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 83,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 91,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 97,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 103,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 114,
+      "operation": "INSERT INTO",
+      "table": "job_revisions",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 117,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 120,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 107,
+      "operation": "UPDATE",
+      "table": "parameters",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 116,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "attempt_results",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 118,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/recovery.py",
+      "line": 119,
+      "operation": "UPDATE",
+      "table": "result_outbox",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/registry.py",
+      "line": 16,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/registry.py",
+      "line": 16,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/registry.py",
+      "line": 16,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "entity_revisions",
+      "overlay": false,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/registry.py",
+      "line": 16,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "entity_locations",
+      "overlay": false,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/registry.py",
+      "line": 16,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "job_annotations",
+      "overlay": false,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/registry.py",
+      "line": 191,
+      "operation": "INSERT INTO",
+      "table": "entity_locations",
+      "overlay": false,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/registry.py",
+      "line": 149,
+      "operation": "INSERT INTO",
+      "table": "entity_revisions",
+      "overlay": false,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/registry.py",
+      "line": 153,
+      "operation": "INSERT INTO",
+      "table": "entity_locations",
+      "overlay": false,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/remote-handoff.py",
+      "line": 53,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/remote-handoff.py",
+      "line": 64,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/remote_fence.py",
+      "line": 53,
+      "operation": "UPDATE",
+      "table": "fence",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/remote_fence.py",
+      "line": 96,
+      "operation": "CREATE TABLE",
+      "table": "fence",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/remote_fence.py",
+      "line": 97,
+      "operation": "INSERT INTO",
+      "table": "fence",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/remote_fence.py",
+      "line": 62,
+      "operation": "UPDATE",
+      "table": "fence",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/remote_fence.py",
+      "line": 70,
+      "operation": "UPDATE",
+      "table": "fence",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/remote_fence.py",
+      "line": 81,
+      "operation": "UPDATE",
+      "table": "fence",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/remote_fence.py",
+      "line": 85,
+      "operation": "UPDATE",
+      "table": "fence",
+      "overlay": false,
+      "owner_target": "loom-app + loom-migrate"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/research.py",
+      "line": 51,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "research_overlays",
+      "overlay": false,
+      "owner_target": "loom-query + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/research.py",
+      "line": 52,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "research_batches",
+      "overlay": false,
+      "owner_target": "loom-query + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/research.py",
+      "line": 188,
+      "operation": "INSERT INTO",
+      "table": "research_batches",
+      "overlay": false,
+      "owner_target": "loom-query + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/research.py",
+      "line": 186,
+      "operation": "INSERT INTO",
+      "table": "research_overlays",
+      "overlay": false,
+      "owner_target": "loom-query + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/runtime_hub.py",
+      "line": 29,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "runtime_curation",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/runtime_hub.py",
+      "line": 83,
+      "operation": "INSERT INTO",
+      "table": "runtime_curation",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/service_tokens.py",
+      "line": 12,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "resident_tokens",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/service_tokens.py",
+      "line": 67,
+      "operation": "INSERT INTO",
+      "table": "resident_tokens",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/service_tokens.py",
+      "line": 79,
+      "operation": "UPDATE",
+      "table": "resident_tokens",
+      "overlay": false,
+      "owner_target": "loom-auth + loom-app"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/software_metadata.py",
+      "line": 18,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "software_metadata",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/software_metadata.py",
+      "line": 47,
+      "operation": "INSERT INTO",
+      "table": "software_metadata",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/tool_store.py",
+      "line": 27,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "tools",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/tool_store.py",
+      "line": 115,
+      "operation": "INSERT INTO",
+      "table": "tools",
+      "overlay": false,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/workflows.py",
+      "line": 22,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "job_workflows",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/workflows.py",
+      "line": 24,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "workflow_nodes",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/workflows.py",
+      "line": 66,
+      "operation": "INSERT INTO",
+      "table": "job_workflows",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/workflows.py",
+      "line": 152,
+      "operation": "UPDATE",
+      "table": "job_workflows",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/workflows.py",
+      "line": 78,
+      "operation": "INSERT INTO",
+      "table": "workflow_nodes",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom",
+      "path": "ops/workflows.py",
+      "line": 157,
+      "operation": "INSERT INTO",
+      "table": "events",
+      "overlay": false,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/dashboard/browser/test_workspace.py",
+      "line": 1253,
+      "operation": "UPDATE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/dashboard/test_admission.py",
+      "line": 117,
+      "operation": "CREATE TABLE",
+      "table": "requests",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/dashboard/test_admission.py",
+      "line": 118,
+      "operation": "INSERT INTO",
+      "table": "requests",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 73,
+      "operation": "CREATE TABLE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 73,
+      "operation": "INSERT INTO",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 73,
+      "operation": "CREATE TABLE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 73,
+      "operation": "INSERT INTO",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 73,
+      "operation": "CREATE TABLE",
+      "table": "hooks",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 95,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 98,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 98,
+      "operation": "INSERT INTO",
+      "table": "hooks",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 217,
+      "operation": "CREATE TABLE",
+      "table": "tickets",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 217,
+      "operation": "INSERT INTO",
+      "table": "tickets",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 18,
+      "operation": "CREATE TABLE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 18,
+      "operation": "CREATE TABLE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 19,
+      "operation": "INSERT INTO",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 22,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 205,
+      "operation": "INSERT INTO",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 231,
+      "operation": "INSERT INTO",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 235,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_release_lifecycle.py",
+      "line": 156,
+      "operation": "CREATE TABLE",
+      "table": "late_startup_schema",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_uninstall.py",
+      "line": 46,
+      "operation": "CREATE TABLE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_uninstall.py",
+      "line": 47,
+      "operation": "INSERT INTO",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_uninstall.py",
+      "line": 49,
+      "operation": "CREATE TABLE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_uninstall.py",
+      "line": 49,
+      "operation": "CREATE TABLE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_uninstall.py",
+      "line": 49,
+      "operation": "INSERT INTO",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_uninstall.py",
+      "line": 86,
+      "operation": "INSERT INTO",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_uninstall.py",
+      "line": 91,
+      "operation": "INSERT INTO",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_uninstall.py",
+      "line": 98,
+      "operation": "UPDATE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_uninstall.py",
+      "line": 124,
+      "operation": "CREATE TABLE",
+      "table": "tickets",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_uninstall.py",
+      "line": 124,
+      "operation": "INSERT INTO",
+      "table": "tickets",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_uninstall.py",
+      "line": 133,
+      "operation": "INSERT INTO",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_uninstall.py",
+      "line": 171,
+      "operation": "UPDATE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 22,
+      "operation": "CREATE TABLE",
+      "table": "credentials",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 22,
+      "operation": "INSERT INTO",
+      "table": "credentials",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 87,
+      "operation": "CREATE TABLE",
+      "table": "resident_tokens",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 87,
+      "operation": "INSERT INTO",
+      "table": "resident_tokens",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 87,
+      "operation": "INSERT INTO",
+      "table": "resident_tokens",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 87,
+      "operation": "CREATE TABLE",
+      "table": "user_profiles",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 87,
+      "operation": "INSERT INTO",
+      "table": "user_profiles",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 87,
+      "operation": "CREATE TABLE",
+      "table": "entity_revisions",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 87,
+      "operation": "INSERT INTO",
+      "table": "entity_revisions",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 89,
+      "operation": "CREATE TABLE",
+      "table": "shares",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 89,
+      "operation": "INSERT INTO",
+      "table": "shares",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 152,
+      "operation": "INSERT INTO",
+      "table": "shares",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 115,
+      "operation": "DELETE FROM",
+      "table": "resident_tokens",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 159,
+      "operation": "INSERT INTO",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 215,
+      "operation": "CREATE TABLE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 215,
+      "operation": "INSERT INTO",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 215,
+      "operation": "CREATE TABLE",
+      "table": "tokens",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 215,
+      "operation": "INSERT INTO",
+      "table": "tokens",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 217,
+      "operation": "UPDATE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 219,
+      "operation": "UPDATE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 221,
+      "operation": "UPDATE",
+      "table": "share_requests",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 221,
+      "operation": "UPDATE",
+      "table": "tokens",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 231,
+      "operation": "CREATE TABLE",
+      "table": "evidence",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 231,
+      "operation": "INSERT INTO",
+      "table": "evidence",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 243,
+      "operation": "CREATE TABLE",
+      "table": "credentials",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 243,
+      "operation": "INSERT INTO",
+      "table": "credentials",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 29,
+      "operation": "CREATE TABLE",
+      "table": "__TABLE__",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/deploy/test_upgrade_migrations.py",
+      "line": 234,
+      "operation": "INSERT INTO",
+      "table": "evidence",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_access_contract.py",
+      "line": 15,
+      "operation": "INSERT INTO",
+      "table": "principals",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_access_contract.py",
+      "line": 16,
+      "operation": "INSERT INTO",
+      "table": "credentials",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_access_contract.py",
+      "line": 24,
+      "operation": "UPDATE",
+      "table": "credentials",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_components_platform.py",
+      "line": 48,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_components_platform.py",
+      "line": 61,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_components_platform.py",
+      "line": 62,
+      "operation": "INSERT INTO",
+      "table": "attempts",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_dashboard_identity.py",
+      "line": 63,
+      "operation": "INSERT INTO",
+      "table": "user_profiles",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_dashboard_identity.py",
+      "line": 64,
+      "operation": "INSERT INTO",
+      "table": "auth_identities",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_dashboard_identity.py",
+      "line": 65,
+      "operation": "INSERT INTO",
+      "table": "item_owners",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_dashboard_resources.py",
+      "line": 13,
+      "operation": "CREATE TABLE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_dashboard_resources.py",
+      "line": 25,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_dashboard_resources.py",
+      "line": 17,
+      "operation": "INSERT INTO",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_generic_agent.py",
+      "line": 138,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_generic_agent.py",
+      "line": 222,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_history_availability.py",
+      "line": 11,
+      "operation": "INSERT INTO",
+      "table": "history_records",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_history_availability.py",
+      "line": 34,
+      "operation": "INSERT INTO",
+      "table": "history_records",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_installation_smoke.py",
+      "line": 21,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_contract.py",
+      "line": 24,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_history.py",
+      "line": 13,
+      "operation": "CREATE TABLE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_history.py",
+      "line": 34,
+      "operation": "INSERT INTO",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_history.py",
+      "line": 18,
+      "operation": "INSERT INTO",
+      "table": "history_records",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 38,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 92,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 103,
+      "operation": "INSERT INTO",
+      "table": "attempts",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 104,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 114,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 124,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 125,
+      "operation": "UPDATE",
+      "table": "attempts",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 126,
+      "operation": "INSERT INTO",
+      "table": "stage_runs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 136,
+      "operation": "UPDATE",
+      "table": "entity_revisions",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 153,
+      "operation": "INSERT INTO",
+      "table": "entity_revisions",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 169,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 198,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 229,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 264,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 284,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 299,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 304,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 305,
+      "operation": "INSERT INTO",
+      "table": "hooks",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_work.py",
+      "line": 23,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_work.py",
+      "line": 42,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_work.py",
+      "line": 49,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_work.py",
+      "line": 50,
+      "operation": "UPDATE",
+      "table": "attempts",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_work.py",
+      "line": 66,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_work.py",
+      "line": 77,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_work.py",
+      "line": 80,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_work.py",
+      "line": 89,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_work.py",
+      "line": 21,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_work.py",
+      "line": 22,
+      "operation": "UPDATE",
+      "table": "attempts",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_job_work.py",
+      "line": 123,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_profile_inventory.py",
+      "line": 90,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_profile_inventory.py",
+      "line": 96,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_profile_inventory.py",
+      "line": 159,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_profile_inventory.py",
+      "line": 172,
+      "operation": "UPDATE",
+      "table": "components",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_profile_inventory.py",
+      "line": 195,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_profile_inventory.py",
+      "line": 203,
+      "operation": "INSERT INTO",
+      "table": "attempts",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_profile_inventory.py",
+      "line": 210,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_profile_inventory.py",
+      "line": 220,
+      "operation": "INSERT INTO",
+      "table": "attempts",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_profile_inventory.py",
+      "line": 222,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_queue_contract.py",
+      "line": 20,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_queue_control.py",
+      "line": 22,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_queue_control.py",
+      "line": 81,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_queue_control.py",
+      "line": 90,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_queue_control.py",
+      "line": 103,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_queue_control.py",
+      "line": 119,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_remote_ownership.py",
+      "line": 42,
+      "operation": "CREATE TABLE",
+      "table": "entity_locations",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_remote_ownership.py",
+      "line": 43,
+      "operation": "CREATE TABLE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_remote_ownership.py",
+      "line": 46,
+      "operation": "INSERT INTO",
+      "table": "entity_locations",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_remote_ownership.py",
+      "line": 48,
+      "operation": "DELETE FROM",
+      "table": "entity_locations",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_remote_ownership.py",
+      "line": 49,
+      "operation": "INSERT INTO",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_remote_ownership.py",
+      "line": 60,
+      "operation": "INSERT INTO",
+      "table": "resident_tokens",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_remote_ownership.py",
+      "line": 68,
+      "operation": "INSERT INTO",
+      "table": "resident_tokens",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_research_tools.py",
+      "line": 62,
+      "operation": "UPDATE",
+      "table": "components",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_research_tools.py",
+      "line": 70,
+      "operation": "UPDATE",
+      "table": "components",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_research_tools.py",
+      "line": 170,
+      "operation": "UPDATE",
+      "table": "components",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_research_tools.py",
+      "line": 81,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_research_workflows.py",
+      "line": 54,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_research_workflows.py",
+      "line": 57,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_research_workflows.py",
+      "line": 60,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_research_workflows.py",
+      "line": 120,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_research_workflows.py",
+      "line": 121,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_result_pipeline.py",
+      "line": 46,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_result_pipeline.py",
+      "line": 58,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_result_pipeline.py",
+      "line": 68,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_runtime_catalog.py",
+      "line": 49,
+      "operation": "UPDATE",
+      "table": "runtime_revisions",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_runtime_hub.py",
+      "line": 19,
+      "operation": "UPDATE",
+      "table": "node_control",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_service_tokens.py",
+      "line": 68,
+      "operation": "UPDATE",
+      "table": "resident_tokens",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_shared_ownership.py",
+      "line": 38,
+      "operation": "INSERT INTO",
+      "table": "entity_revisions",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_shared_ownership.py",
+      "line": 39,
+      "operation": "INSERT INTO",
+      "table": "history_records",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_support.py",
+      "line": 34,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom",
+      "path": "tests/ops/test_support.py",
+      "line": 35,
+      "operation": "INSERT INTO",
+      "table": "attempts",
+      "overlay": false,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom-Use",
+      "path": "clients/ssh.py",
+      "line": 23,
+      "operation": "UPDATE",
+      "table": "Loom",
+      "overlay": false,
+      "owner_target": "Loom Use generic transport / client setup; authoring.md policy co-change"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "executor/server.py",
+      "line": 34,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "tickets",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "executor/server.py",
+      "line": 49,
+      "operation": "UPDATE",
+      "table": "tickets",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "executor/server.py",
+      "line": 164,
+      "operation": "INSERT INTO",
+      "table": "tickets",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "executor/server.py",
+      "line": 199,
+      "operation": "UPDATE",
+      "table": "tickets",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app + loom-executor"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/component_store.py",
+      "line": 20,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "components",
+      "overlay": true,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/component_store.py",
+      "line": 149,
+      "operation": "INSERT INTO",
+      "table": "components",
+      "overlay": true,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 249,
+      "operation": "INSERT INTO",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 259,
+      "operation": "INSERT INTO",
+      "table": "job_revisions",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 264,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "events",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 430,
+      "operation": "UPDATE",
+      "table": "attempts",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 431,
+      "operation": "UPDATE",
+      "table": "stage_runs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 432,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 434,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "result_outbox",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 119,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 119,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "attempts",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 119,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "result_outbox",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 119,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "events",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 150,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "stage_runs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 151,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "attempt_results",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 152,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "finalizer_receipts",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 348,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 353,
+      "operation": "UPDATE",
+      "table": "attempts",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 354,
+      "operation": "DELETE FROM",
+      "table": "result_outbox",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 350,
+      "operation": "INSERT OR REPLACE INTO",
+      "table": "attempt_results",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 352,
+      "operation": "UPDATE",
+      "table": "stage_runs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 367,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 368,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 652,
+      "operation": "UPDATE",
+      "table": "hooks",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 1074,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 1075,
+      "operation": "INSERT INTO",
+      "table": "result_outbox",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 1089,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "job_annotations",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 1094,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 492,
+      "operation": "UPDATE",
+      "table": "stage_runs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 495,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 579,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "finalizer_receipts",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 592,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 610,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 611,
+      "operation": "UPDATE",
+      "table": "result_outbox",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 658,
+      "operation": "UPDATE",
+      "table": "hooks",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 1097,
+      "operation": "UPDATE",
+      "table": "attempts",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 1101,
+      "operation": "DELETE FROM",
+      "table": "result_outbox",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 1103,
+      "operation": "UPDATE",
+      "table": "result_outbox",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 538,
+      "operation": "UPDATE",
+      "table": "stage_runs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 539,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 603,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 604,
+      "operation": "DELETE FROM",
+      "table": "result_outbox",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 616,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 485,
+      "operation": "INSERT OR REPLACE INTO",
+      "table": "stage_runs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 780,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 983,
+      "operation": "UPDATE",
+      "table": "events",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 779,
+      "operation": "INSERT INTO",
+      "table": "attempts",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 716,
+      "operation": "UPDATE",
+      "table": "stage_runs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 717,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/ops.py",
+      "line": 766,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-api + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/profile_store.py",
+      "line": 35,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "execution_profiles",
+      "overlay": true,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/profile_store.py",
+      "line": 106,
+      "operation": "INSERT INTO",
+      "table": "execution_profiles",
+      "overlay": true,
+      "owner_target": "loom-app + loom-software"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/queue_control.py",
+      "line": 15,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "queue_history",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/queue_control.py",
+      "line": 29,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/queue_control.py",
+      "line": 37,
+      "operation": "INSERT INTO",
+      "table": "queue_history",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/queue_control.py",
+      "line": 65,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/queue_control.py",
+      "line": 75,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 14,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "recovery",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 14,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "recovery_history",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 14,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "job_revisions",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 33,
+      "operation": "INSERT INTO",
+      "table": "recovery_history",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 43,
+      "operation": "INSERT INTO",
+      "table": "recovery",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 127,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 131,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 29,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 53,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 83,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 91,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 97,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 103,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 114,
+      "operation": "INSERT INTO",
+      "table": "job_revisions",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 117,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 120,
+      "operation": "UPDATE",
+      "table": "recovery",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 107,
+      "operation": "UPDATE",
+      "table": "parameters",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 116,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "attempt_results",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 118,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/recovery.py",
+      "line": 119,
+      "operation": "UPDATE",
+      "table": "result_outbox",
+      "overlay": true,
+      "owner_target": "loom-domain + loom-app"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/registry.py",
+      "line": 16,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "node_control",
+      "overlay": true,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/registry.py",
+      "line": 16,
+      "operation": "INSERT OR IGNORE INTO",
+      "table": "node_control",
+      "overlay": true,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/registry.py",
+      "line": 16,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "entity_revisions",
+      "overlay": true,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/registry.py",
+      "line": 16,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "entity_locations",
+      "overlay": true,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/registry.py",
+      "line": 16,
+      "operation": "CREATE TABLE IF NOT EXISTS",
+      "table": "job_annotations",
+      "overlay": true,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/registry.py",
+      "line": 191,
+      "operation": "INSERT INTO",
+      "table": "entity_locations",
+      "overlay": true,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/registry.py",
+      "line": 149,
+      "operation": "INSERT INTO",
+      "table": "entity_revisions",
+      "overlay": true,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "ops/registry.py",
+      "line": 153,
+      "operation": "INSERT INTO",
+      "table": "entity_locations",
+      "overlay": true,
+      "owner_target": "loom-app + loom-storage"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/dashboard/browser/test_workspace.py",
+      "line": 974,
+      "operation": "UPDATE",
+      "table": "share_requests",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 38,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 92,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 103,
+      "operation": "INSERT INTO",
+      "table": "attempts",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 104,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 114,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 124,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 125,
+      "operation": "UPDATE",
+      "table": "attempts",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 126,
+      "operation": "INSERT INTO",
+      "table": "stage_runs",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 136,
+      "operation": "UPDATE",
+      "table": "entity_revisions",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 153,
+      "operation": "INSERT INTO",
+      "table": "entity_revisions",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 169,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 198,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 229,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 264,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 284,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 299,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 304,
+      "operation": "UPDATE",
+      "table": "jobs",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    },
+    {
+      "repo": "Loom legacy candidate",
+      "path": "tests/ops/test_job_lifecycle.py",
+      "line": 305,
+      "operation": "INSERT INTO",
+      "table": "hooks",
+      "overlay": true,
+      "owner_target": "Rust domain/fault tests plus independent Python/browser acceptance"
+    }
+  ]
+}

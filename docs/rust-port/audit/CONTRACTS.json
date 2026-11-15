@@ -1,0 +1,406 @@
+{
+  "schema": "loom-rust-contract-review/v1",
+  "baseline_commit": "07c90e4913c5335b79789fe8ae066d3cb7a5e7ab",
+  "contracts": [
+    {
+      "path": "ops/execution.py",
+      "sha256": "2a9b0002840f4de4ea1de2ee7a8458f5089a8c03e362cea0f3bdc12d89f67a66",
+      "declarations": [
+        {
+          "name": "check_schema",
+          "line": 30
+        },
+        {
+          "name": "validate",
+          "line": 45
+        },
+        {
+          "name": "is_generic",
+          "line": 53
+        },
+        {
+          "name": "validate_storage",
+          "line": 57
+        },
+        {
+          "name": "validate_profile",
+          "line": 61
+        },
+        {
+          "name": "policy",
+          "line": 102
+        },
+        {
+          "name": "input_dependencies",
+          "line": 111
+        },
+        {
+          "name": "admit_inputs",
+          "line": 115
+        },
+        {
+          "name": "resolve_inputs",
+          "line": 132
+        },
+        {
+          "name": "request_file",
+          "line": 151
+        },
+        {
+          "name": "command",
+          "line": 167
+        },
+        {
+          "name": "apply_defaults",
+          "line": 172
+        }
+      ],
+      "semantic_focus": "freeze valid wire/legacy codecs; redesign typed commands and state ownership"
+    },
+    {
+      "path": "ops/job_contract.py",
+      "sha256": "edab97f59ec7ff3fe18d7c498b616418010fc23cb0584f73d42cee558aa62856",
+      "declarations": [
+        {
+          "name": "values",
+          "line": 18
+        },
+        {
+          "name": "contract",
+          "line": 29
+        },
+        {
+          "name": "select",
+          "line": 36
+        }
+      ],
+      "semantic_focus": "freeze valid wire/legacy codecs; redesign typed commands and state ownership"
+    },
+    {
+      "path": "ops/mcp_groups.py",
+      "sha256": "18c2d2e3e9be29c5eda4c590f8f3ce740003e60f22528283ecff124c37474585",
+      "declarations": [
+        {
+          "name": "tools",
+          "line": 10
+        },
+        {
+          "name": "action_schema",
+          "line": 17
+        }
+      ],
+      "semantic_focus": "freeze valid wire/legacy codecs; redesign typed commands and state ownership"
+    },
+    {
+      "path": "ops/profile_store.py",
+      "sha256": "64d0902e981d807ddcfd9e1263230c7f657d59a17aea19e5bc097ba167106e2f",
+      "declarations": [
+        {
+          "name": "init",
+          "line": 38
+        },
+        {
+          "name": "action_schema",
+          "line": 41
+        },
+        {
+          "name": "bind_runners",
+          "line": 51
+        },
+        {
+          "name": "operate",
+          "line": 72
+        },
+        {
+          "name": "merge",
+          "line": 122
+        }
+      ],
+      "semantic_focus": "freeze valid wire/legacy codecs; redesign typed commands and state ownership"
+    },
+    {
+      "path": "ops/registry.py",
+      "sha256": "7268e1eb7e41cb95d5f4fbb53a629e49bae13f3e68c37459013e7737ef39ae5a",
+      "declarations": [
+        {
+          "name": "encode",
+          "line": 10
+        },
+        {
+          "name": "init",
+          "line": 14
+        },
+        {
+          "name": "mode",
+          "line": 33
+        },
+        {
+          "name": "stamp",
+          "line": 37
+        },
+        {
+          "name": "stable_file",
+          "line": 41
+        },
+        {
+          "name": "inspect",
+          "line": 48
+        },
+        {
+          "name": "prepare",
+          "line": 58
+        },
+        {
+          "name": "output_members",
+          "line": 88
+        },
+        {
+          "name": "index",
+          "line": 94
+        },
+        {
+          "name": "view",
+          "line": 156
+        },
+        {
+          "name": "reconnect",
+          "line": 174
+        }
+      ],
+      "semantic_focus": "freeze valid wire/legacy codecs; redesign typed commands and state ownership"
+    },
+    {
+      "path": "ops/research.py",
+      "sha256": "3f47852bbd66b850677e067b9b2e35c7b52b79d637c495b4dff2e28e47ddda4a",
+      "declarations": [
+        {
+          "name": "defaults",
+          "line": 26
+        },
+        {
+          "name": "init",
+          "line": 50
+        },
+        {
+          "name": "read",
+          "line": 55
+        },
+        {
+          "name": "job",
+          "line": 60
+        },
+        {
+          "name": "logical_id",
+          "line": 67
+        },
+        {
+          "name": "decorate",
+          "line": 77
+        },
+        {
+          "name": "view",
+          "line": 137
+        },
+        {
+          "name": "enrich",
+          "line": 142
+        },
+        {
+          "name": "curate",
+          "line": 164
+        }
+      ],
+      "semantic_focus": "freeze valid wire/legacy codecs; redesign typed commands and state ownership"
+    },
+    {
+      "path": "ops/runtime_contract.py",
+      "sha256": "8e59d00e4e1bfd44b6b544528a65387a70856c665f1ed12df54ece88013f8252",
+      "declarations": [
+        {
+          "name": "seal",
+          "line": 7
+        }
+      ],
+      "semantic_focus": "freeze valid wire/legacy codecs; redesign typed commands and state ownership"
+    },
+    {
+      "path": "ops/tool_store.py",
+      "sha256": "9e816a493114d785fc47e0ae86fd663ab1d7bda3410ac25e200a9280f0557143",
+      "declarations": [
+        {
+          "name": "root",
+          "line": 20
+        },
+        {
+          "name": "init",
+          "line": 26
+        },
+        {
+          "name": "action_schema",
+          "line": 30
+        },
+        {
+          "name": "snapshot_path",
+          "line": 41
+        },
+        {
+          "name": "checked_files",
+          "line": 45
+        },
+        {
+          "name": "detail",
+          "line": 54
+        },
+        {
+          "name": "operate",
+          "line": 65
+        },
+        {
+          "name": "bind",
+          "line": 119
+        },
+        {
+          "name": "verify",
+          "line": 130
+        }
+      ],
+      "semantic_focus": "freeze valid wire/legacy codecs; redesign typed commands and state ownership"
+    },
+    {
+      "path": "ops/workflows.py",
+      "sha256": "37433e83fc1e12d12ad56f24af9ae6dcf3679dc8334202d036c62df95ca8a77e",
+      "declarations": [
+        {
+          "name": "init",
+          "line": 21
+        },
+        {
+          "name": "exists",
+          "line": 27
+        },
+        {
+          "name": "resolve_inputs",
+          "line": 32
+        },
+        {
+          "name": "submit",
+          "line": 44
+        },
+        {
+          "name": "get",
+          "line": 89
+        },
+        {
+          "name": "listing",
+          "line": 127
+        },
+        {
+          "name": "entities",
+          "line": 132
+        },
+        {
+          "name": "refresh",
+          "line": 146
+        }
+      ],
+      "semantic_focus": "freeze valid wire/legacy codecs; redesign typed commands and state ownership"
+    },
+    {
+      "path": "ops/job_contract.py",
+      "sha256": "120c60583562005022d6611bd9d9c8102613a2d9890914f8209e0404e975316d",
+      "declarations": [
+        {
+          "name": "values",
+          "line": 18
+        },
+        {
+          "name": "contract",
+          "line": 29
+        },
+        {
+          "name": "select",
+          "line": 36
+        }
+      ],
+      "semantic_focus": "freeze valid wire/legacy codecs; redesign typed commands and state ownership"
+    },
+    {
+      "path": "ops/profile_store.py",
+      "sha256": "61aaf25ab8ad05e96289ad4f5aede76f37ba8cd81fa75e3ff8e9e50afa81a034",
+      "declarations": [
+        {
+          "name": "init",
+          "line": 34
+        },
+        {
+          "name": "action_schema",
+          "line": 37
+        },
+        {
+          "name": "bind_runners",
+          "line": 47
+        },
+        {
+          "name": "operate",
+          "line": 63
+        },
+        {
+          "name": "merge",
+          "line": 109
+        }
+      ],
+      "semantic_focus": "freeze valid wire/legacy codecs; redesign typed commands and state ownership"
+    },
+    {
+      "path": "ops/registry.py",
+      "sha256": "7268e1eb7e41cb95d5f4fbb53a629e49bae13f3e68c37459013e7737ef39ae5a",
+      "declarations": [
+        {
+          "name": "encode",
+          "line": 10
+        },
+        {
+          "name": "init",
+          "line": 14
+        },
+        {
+          "name": "mode",
+          "line": 33
+        },
+        {
+          "name": "stamp",
+          "line": 37
+        },
+        {
+          "name": "stable_file",
+          "line": 41
+        },
+        {
+          "name": "inspect",
+          "line": 48
+        },
+        {
+          "name": "prepare",
+          "line": 58
+        },
+        {
+          "name": "output_members",
+          "line": 88
+        },
+        {
+          "name": "index",
+          "line": 94
+        },
+        {
+          "name": "view",
+          "line": 156
+        },
+        {
+          "name": "reconnect",
+          "line": 174
+        }
+      ],
+      "semantic_focus": "freeze valid wire/legacy codecs; redesign typed commands and state ownership"
+    }
+  ]
+}

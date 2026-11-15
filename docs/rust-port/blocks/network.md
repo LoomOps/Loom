@@ -1,68 +1,65 @@
-# network — Rust transition plan
+# Networking, Sharing and provider boundaries — detailed design
 
-Status: proposed; no Loom Rust implementation or deployment is performed by this document.
+Status: proposed Rust redesign; no implemented/deployed claim. Phases: D1, D6, D7.
 
-Baseline: `4d93ab9bdcb5750f3d0be161925e834984492f89` (Loom alpha.60).
+## Responsibility and model
 
-## Decision and sequence
+**Authority:** Retained Gateway/Sharing/Tailscale integration with Rust Ops typed endpoints.
 
-- Target: Retained Python Tailscale enrollment/Sharing/Gateway services; Rust receives existing trusted API requests.
-- Sequence: retain initially; 6 trust-boundary acceptance.
-- Existing feature dependencies: identity, diagnostics.
+**Typed model:** ServerOrigin, TrustedProxy, ShareGrant, UpstreamAvailability and RequestIdentity.
 
-## Current source and authority
+**Operations:** Existing authenticated route forwarding/sharing lifecycle; Rust receives verified identity context only from configured trusted boundaries.
 
-Tailscale enrollment, Serve and native identity configuration. The implemented contract is in the linked source and [network feature specification](../../features/network.md).
+**Persistence:** Existing private provider/share request and managed-resource journals; no migration of external rights based on display metadata.
 
-| File | Planning treatment |
-|---|---|
-| [deploy/tailnet.py](../../../deploy/tailnet.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [dashboard/admission.py](../../../dashboard/admission.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [dashboard/admission_http.py](../../../dashboard/admission_http.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [deploy/access_setup.py](../../../deploy/access_setup.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [deploy/installer/access-plan.example.json](../../../deploy/installer/access-plan.example.json) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [dashboard/gateway.py](../../../dashboard/gateway.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [dashboard/gateway.js](../../../dashboard/gateway.js) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [dashboard/gateway.html](../../../dashboard/gateway.html) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [dashboard/gateway.css](../../../dashboard/gateway.css) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [dashboard/sharing.py](../../../dashboard/sharing.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [dashboard/managed_resources.py](../../../dashboard/managed_resources.py) | Retain interface/tooling; review exact bridge and packaging behavior |
+## Reference source and consumers
 
-## Retained code and external dependencies
+- [deploy/tailnet.py](../../../deploy/tailnet.py)
+- [dashboard/admission.py](../../../dashboard/admission.py)
+- [dashboard/admission_http.py](../../../dashboard/admission_http.py)
+- [deploy/access_setup.py](../../../deploy/access_setup.py)
+- [deploy/installer/access-plan.example.json](../../../deploy/installer/access-plan.example.json)
+- [dashboard/gateway.py](../../../dashboard/gateway.py)
+- [dashboard/gateway.js](../../../dashboard/gateway.js)
+- [dashboard/gateway.html](../../../dashboard/gateway.html)
+- [dashboard/gateway.css](../../../dashboard/gateway.css)
+- [dashboard/sharing.py](../../../dashboard/sharing.py)
+- [dashboard/managed_resources.py](../../../dashboard/managed_resources.py)
 
-Keep Tailscale provider integration, SSO/enrollment cryptography, public request-only Gateway, protected resource journal and policy cleanup behavior. No network re-enrollment is part of a Rust port.
+Existing feature dependencies: identity, diagnostics.
+The references establish old behavior, not target Rust module boundaries.
 
-## Compatibility invariants
+## Implementation work
 
-- New installations keep Dashboard and MCP on private Serve and require a separate public request-only Gateway. tag:loom supports Hub discovery; user grants apply per machine.
-- tag:loom is Hub discovery only; access approvals target one stable machine/device identity and exact addresses. Public request listener exposes no operational data or MCP.
-- Preserve existing IDs, authentication, configured roots, sealed bytes and operational history unless an explicit separate schema change is approved.
-- Keep missing, null, false, zero, unknown, stale and unavailable distinctions required by this block.
-- Development checks are evidence, not extra Job or agent-ACK execution gates.
+1. Freeze trusted assertions, TLS, Origin, upstream allowlists and provider identity fixtures before switching Ops.
 
-## Detailed implementation work
+2. Retain public request-only Gateway and separate private Admin services. Do not put a privileged Rust registrar on a public route.
 
-1. Freeze private Dashboard/MCP and public Gateway exposure, approved trusted peers and native identity assertion rules.
-2. Keep exact per-machine/device/address grants; tag-based discovery must not become authorization to every Loom host.
-3. Preserve managed-resources intent journaling, ambiguous external-write states and stable installation identity.
-4. Preserve atomic journal replacement, service-account ownership, 0600 modes and no-symlink lock/file validation. Ported helpers must not recreate the prior root-only journal failure.
-5. Keep accepted/pending invitation state separate from upstream connectivity and local permission errors; preserve actionable diagnostics.
-6. Test private/public ingress against the Rust API while leaving provider resources and browser origin unchanged.
-7. Only consider rewriting provider clients after explicit SDK/cryptographic compatibility and operator acceptance, not merely to reduce Python file count.
-8. Keep sharing removal and uninstall scoped to resources recorded as owned by the installation; never revoke unrelated user/device access.
+3. Keep bounded HTTP timeouts/errors and exact reconnect/unknown-external-write reconciliation. A 503 must not erase a specific permissions/local-state fault in private diagnostics.
 
-## Acceptance matrix
+4. Preserve service-account readability on atomic managed-resource journal replacement: UID/GID, mode, no-symlink checks and directory durability.
 
-| Scenario | Required observable result |
-|---|---|
-| Public request URL is queried for Jobs/MCP | No operational data or API access. |
-| Same host tag on another device | No unintended access grant. |
-| Provider write succeeds but reply is lost | Preserve pending journal; reconcile, do not resend blindly. |
-| Root-run update replaces journal | Service UID/GID and private mode remain correct. |
-| Invite accepted but local journal unreadable | Report the actual local error rather than inferring provider outage. |
-| Sharing cleanup or rollback | Preserve unrelated identities, policy entries and other installations. |
+5. Observe and report external approval/adoption state separately from local grant/read failures. No automatic network/account reset during a language cutover.
 
-### Existing regression sources
+## Transaction and effect boundary
+
+Provider calls occur outside short journal transactions and retain intent/receipt identities. Rust Ops trusts only verified scope/issuer context, never arbitrary forwarded headers.
+
+## Retained code and compatibility
+
+Web/network/provider integrations and existing host helpers. Rewriting these libraries offers no prerequisite benefit to the Job domain redesign.
+
+Preserve private share/token/journal state and external identities independently per installation. Real provider approval/TLS/user access is separate from mocked tests.
+
+## Acceptance cases
+
+| Case | Trigger | Required result |
+|---|---|---|
+| NET-01 | Local management journal unreadable | Specific private diagnosis; no fabricated provider outage/approval state. |
+| NET-02 | Forged identity/proxy header | Rejected outside configured trust boundary. |
+| NET-03 | Share reply lost after upstream acceptance | Reconcile same intent; no duplicate grant or automatic deny. |
+
+Reference regression modules (adapt moved internals to actual Rust boundaries):
 
 - [tests/deploy/test_tailnet.py](../../../tests/deploy/test_tailnet.py)
 - [tests/dashboard/test_admission.py](../../../tests/dashboard/test_admission.py)
@@ -73,30 +70,9 @@ Keep Tailscale provider integration, SSO/enrollment cryptography, public request
 - [tests/dashboard/test_managed_permissions.py](../../../tests/dashboard/test_managed_permissions.py)
 - [tests/deploy/test_boot_readiness.py](../../../tests/deploy/test_boot_readiness.py)
 
-Existing Python-internal tests need boundary adaptation when their implementation moves. Passing the old implementation alone does not establish Rust parity. Add state/trace and crash cases from this matrix; keep actual external acceptance separately identified.
+## Exit review
 
-## State, cutover and rollback
-
-Keep provider resources, origins, TLS and identities in place. The Rust backend consumes existing authenticated ingress; network changes require their own evidence and are not prerequisites to language parity.
-
-## Main risk and design review
-
-The highest-cost external integrations already live behind useful Python boundaries. A new Rust implementation must not widen ingress or lose resource ownership journals.
-
-## Contracts and documentation to review
-
-- [deploy/installer/tailnet-plan.example.json](../../../deploy/installer/tailnet-plan.example.json)
-- [docs/ACCESS-ENROLLMENT.md](../../../docs/ACCESS-ENROLLMENT.md)
-
-Change rule: When enrollment or proxy behavior changes, verify installation plans, exact trusted peers, callback URLs, reruns/pending approvals, TLS and policy scope. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.
-
-Before implementation, apply the cross-block [compatibility contract](../COMPATIBILITY.md), [sequence and ownership rules](../README.md), and [whole-tree review findings](../REVIEW.md). Update the implementation source, public schema/guide, consumers and installation packaging together when an accepted contract changes.
-
-## Exit criteria
-
-- The implemented responsibilities and deliberately retained Python/external boundaries are explicit.
-- Every acceptance row has a reproducible test or is named as an unverified external acceptance boundary.
-- Affected consumers pass against the selected Rust implementation, including its error and restart paths.
-- Preservation and rollback checks use the same state format/identities; no second writer or duplicated external action is introduced.
-- Feature mappings and source-qualified verification evidence match the exact candidate build.
-- No production activation, user-thread inference, credential rotation or research execution is inferred from source/test completion.
+Validate the cases above plus the shared [domain](../DOMAIN.md), [API](../API-CHANGES.md),
+[compatibility](../COMPATIBILITY.md) and [migration](../MIGRATION.md) contracts.
+Record exact source/artifact hashes and which external boundaries remain unverified.
+A passing old Python suite or compiling crate alone does not close this block.

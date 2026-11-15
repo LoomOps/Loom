@@ -1,88 +1,66 @@
-# ssh — Rust transition plan
+# Personal SSH access and authoring workspace — detailed design
 
-Status: proposed; no Loom Rust implementation or deployment is performed by this document.
+Status: proposed Rust redesign; no implemented/deployed claim. Phases: D1, D6, D7.
 
-Baseline: `4d93ab9bdcb5750f3d0be161925e834984492f89` (Loom alpha.60).
+## Responsibility and model
 
-## Decision and sequence
+**Authority:** Retained protected account helper; read-only Rust connection discovery.
 
-- Target: Retained privileged Python SSH helper; Rust read-only connection discovery.
-- Sequence: retain; 6 discovery and Admin relay acceptance.
-- Existing feature dependencies: identity, network, installation.
+**Typed model:** PersonalAccountId, HostIdentity, AccessStatus, ConnectionMode and GrantedRoots.
 
-## Current source and authority
+**Operations:** Existing Admin-only personal account lifecycle via protected helper; read-only own-connection lookup for Loom Use/authoring.
 
-Optional personal host SSH accounts and connection discovery. The implemented contract is in the linked source and [ssh feature specification](../../features/ssh.md).
+**Persistence:** Private managed account receipts/config, current UID ownership and approved host keys; not a source repository catalog.
 
-| File | Planning treatment |
-|---|---|
-| [deploy/ssh_host.py](../../../deploy/ssh_host.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [deploy/ssh_setup.py](../../../deploy/ssh_setup.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [dashboard/ssh_access.py](../../../dashboard/ssh_access.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [ops/ssh_info.py](../../../ops/ssh_info.py) | Retain interface/tooling; review exact bridge and packaging behavior |
+## Reference source and consumers
 
-## Retained code and external dependencies
+- [deploy/ssh_host.py](../../../deploy/ssh_host.py)
+- [deploy/ssh_setup.py](../../../deploy/ssh_setup.py)
+- [dashboard/ssh_access.py](../../../dashboard/ssh_access.py)
+- [ops/ssh_info.py](../../../ops/ssh_info.py)
 
-Keep the established host-account provisioning/helper and Dashboard Admin/CSRF boundary. Do not rebuild an SSH server, change user authentication or expand access as part of a Rust rewrite.
+Existing feature dependencies: identity, network, installation.
+The references establish old behavior, not target Rust module boundaries.
 
-## Compatibility invariants
+## Implementation work
 
-- Admin-only mutations; never adopt existing accounts or grant sudo/Docker. Disable blocks the personal UID before remote cleanup. Same-host clients require no SSH.
-- Preserve existing IDs, authentication, configured roots, sealed bytes and operational history unless an explicit separate schema change is approved.
-- Keep missing, null, false, zero, unknown, stale and unavailable distinctions required by this block.
-- Development checks are evidence, not extra Job or agent-ACK execution gates.
+1. Preserve same-host local mode and existing explicitly authorized personal connections; no SSH loopback or synthetic account requirement.
 
-## Detailed implementation work
+2. No sudo/Docker membership or platform service identity is granted for Component/Tool authoring. Work in personal drafts and register via public contracts.
 
-1. Capture caller-specific SSH info/discovery results and optional/not-enabled/unavailable distinctions from ssh_info.py.
-2. Keep Admin-only enable/disable mutations on the current protected host helper; ordinary MCP discovery remains read-only.
-3. Preserve UID account ownership, group/ACL grants, storage/dependency paths and disable-before-cleanup ordering.
-4. Ensure a Rust discovery consumer validates the same installed identity and does not infer credentials or another machine's path.
-5. Keep same-host workflows on direct files; no new SSH dependency for local operations.
-6. Test revocation/uninstall interactions with Sharing and unknown external host state, using isolated account/helper fixtures.
-7. Verify Dashboard relay Origin/CSRF and trusted peer behavior before wiring discovery into the Rust system group.
-8. If the helper is ever rewritten later, require separate privilege/path/cleanup review and keep its wire contract unchanged first.
+3. Update optional Loom SSH Skill to prefer Rust drafts/build receipts and configured Runtime/dependency roots while preserving host-key verification.
 
-## Acceptance matrix
+4. Restrict helper operations to managed identities and current Admin grants; never adopt arbitrary existing accounts or execute user-provided shell commands.
 
-| Scenario | Required observable result |
-|---|---|
-| Non-Admin attempts to enable an account | Reject before host mutation. |
-| Existing unrelated host account has a matching name | Never adopt it. |
-| Caller has no SSH grant | Report disabled/unavailable without inventing credentials. |
-| Disable interrupted during cleanup | Personal UID is blocked before remote resource removal. |
-| Same-host caller discovers a connection | Local access needs no SSH setup. |
-| Other installation or user remains active | Preserve unrelated accounts and grants. |
+5. Link Scenario/Job data only through granted filesystem/API identities, not private cross-machine chat searches.
 
-### Existing regression sources
+## Transaction and effect boundary
+
+Account operations retain their own intent/read-back receipts; registration/Job state is never edited through SSH. User files/pins survive helper replacement.
+
+## Retained code and compatibility
+
+Existing OS account libraries/helper and SSH transport. Rust only owns selected discovery/typed application decisions initially.
+
+Preserve personal UID, disabled/access state, root configuration and keys. Any helper language change is independently packaged and tested under its existing privilege boundary.
+
+## Acceptance cases
+
+| Case | Trigger | Required result |
+|---|---|---|
+| SSH-01 | Same host authoring | Local user permissions used; no unnecessary SSH/account creation. |
+| SSH-02 | Unmanaged existing account or unknown host key | Explicit refusal/verification requirement, no adoption. |
+| SSH-03 | Rust package draft registered over MCP | Exact source/build receipt, no direct registry/DB edit. |
+
+Reference regression modules (adapt moved internals to actual Rust boundaries):
 
 - [tests/deploy/test_ssh_host.py](../../../tests/deploy/test_ssh_host.py)
 - [tests/dashboard/test_ssh_access.py](../../../tests/dashboard/test_ssh_access.py)
 - [tests/ops/test_ssh_info.py](../../../tests/ops/test_ssh_info.py)
 
-Existing Python-internal tests need boundary adaptation when their implementation moves. Passing the old implementation alone does not establish Rust parity. Add state/trace and crash cases from this matrix; keep actual external acceptance separately identified.
+## Exit review
 
-## State, cutover and rollback
-
-No account or key migration is required. Keep the current helper and socket; the Rust reader can be rolled back without touching user permissions.
-
-## Main risk and design review
-
-Rust memory safety does not make an overprivileged account/helper policy correct. The privilege boundary must survive unchanged.
-
-## Contracts and documentation to review
-
-- [docs/SSH.md](../../../docs/SSH.md)
-
-Change rule: Review host helper, private Admin CSRF routes, Sharing revocation, readonly MCP, installation/update/uninstall and Loom Use together.
-
-Before implementation, apply the cross-block [compatibility contract](../COMPATIBILITY.md), [sequence and ownership rules](../README.md), and [whole-tree review findings](../REVIEW.md). Update the implementation source, public schema/guide, consumers and installation packaging together when an accepted contract changes.
-
-## Exit criteria
-
-- The implemented responsibilities and deliberately retained Python/external boundaries are explicit.
-- Every acceptance row has a reproducible test or is named as an unverified external acceptance boundary.
-- Affected consumers pass against the selected Rust implementation, including its error and restart paths.
-- Preservation and rollback checks use the same state format/identities; no second writer or duplicated external action is introduced.
-- Feature mappings and source-qualified verification evidence match the exact candidate build.
-- No production activation, user-thread inference, credential rotation or research execution is inferred from source/test completion.
+Validate the cases above plus the shared [domain](../DOMAIN.md), [API](../API-CHANGES.md),
+[compatibility](../COMPATIBILITY.md) and [migration](../MIGRATION.md) contracts.
+Record exact source/artifact hashes and which external boundaries remain unverified.
+A passing old Python suite or compiling crate alone does not close this block.

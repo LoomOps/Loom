@@ -1,92 +1,70 @@
-# onboarding — Rust transition plan
+# Live guides, manifests and client coordination — detailed design
 
-Status: proposed; no Loom Rust implementation or deployment is performed by this document.
+Status: proposed Rust redesign; no implemented/deployed claim. Phases: D1, D2, D6.
 
-Baseline: `4d93ab9bdcb5750f3d0be161925e834984492f89` (Loom alpha.60).
+## Responsibility and model
 
-## Decision and sequence
+**Authority:** loom-contracts generated registry + immutable server guides; independent Loom Use package.
 
-- Target: Rust build/provenance and live-guide endpoints; retained Loom Use client/Skill installer.
-- Sequence: 1 contract fixtures; 6 server guide integration.
-- Existing feature dependencies: identity, api.
+**Typed model:** GuideRevision, ContractRevision, ClientReleasePin, SdkCompatibility and BuildIdentity.
 
-## Current source and authority
+**Operations:** system.status/guide/describe/contract and versioned guide bundle reads; client setup/update remain user-side operations.
 
-User guides, version identification and client entry. The implemented contract is in the linked source and [onboarding feature specification](../../features/onboarding.md).
+**Persistence:** Immutable packaged guides/schemas/examples and declared client-release descriptor; named client credentials/profiles remain external.
 
-| File | Planning treatment |
-|---|---|
-| [dashboard/build_version.py](../../../dashboard/build_version.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [ops/build_version.py](../../../ops/build_version.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [ops/onboarding.py](../../../ops/onboarding.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [loom_use/client-release.json](../../../loom_use/client-release.json) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [deploy/client_release.py](../../../deploy/client_release.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [tests/ops/client_source.py](../../../tests/ops/client_source.py) | Inspect domain/consumer boundary; port only the selected core responsibility |
-| [loom_use/runtimes.md](../../../loom_use/runtimes.md) | Inspect domain/consumer boundary; port only the selected core responsibility |
+## Reference source and consumers
 
-## Retained code and external dependencies
+- [dashboard/build_version.py](../../../dashboard/build_version.py)
+- [ops/build_version.py](../../../ops/build_version.py)
+- [ops/onboarding.py](../../../ops/onboarding.py)
+- [loom_use/client-release.json](../../../loom_use/client-release.json)
+- [deploy/client_release.py](../../../deploy/client_release.py)
+- [tests/ops/client_source.py](../../../tests/ops/client_source.py)
+- [loom_use/runtimes.md](../../../loom_use/runtimes.md)
 
-Keep independent Loom Use installation, Codex refresh, credential management and optional Skills. Do not bundle a second stale copy of server-owned usage rules into Rust.
+Existing feature dependencies: identity, api.
+The references establish old behavior, not target Rust module boundaries.
 
-## Compatibility invariants
+## Implementation work
 
-- The running server is authoritative for guides. Updates do not change personal instructions or active Job pins.
-- Preserve existing IDs, authentication, configured roots, sealed bytes and operational history unless an explicit separate schema change is approved.
-- Keep missing, null, false, zero, unknown, stale and unavailable distinctions required by this block.
-- Development checks are evidence, not extra Job or agent-ACK execution gates.
+1. Generate API references from the same Rust registry used by dispatch and scope filtering; correct stale PLATFORM/static enumerations.
 
-## Detailed implementation work
+2. Publish Scenario, Rust authoring/package/build and Runtime installation instructions as server-owned guides; guide-only updates cannot change accepted Job pins.
 
-1. Capture the live manifest, guide index, guide bytes and contract revisions from onboarding.py and build_version modules.
-2. Keep server guides authoritative and versioned; preserve update-on-connect/response semantics without mutating active Job pins.
-3. Define Rust build identity including commit, source inventory and modified-state detection; include Rust sources/lockfiles in snapshot and component provenance.
-4. Preserve the pinned client-release descriptor until the existing client cannot consume an accepted contract. A language change alone is not a client protocol break.
-5. Generate guides/reference examples from the same Rust action registry or retained verified registry used at runtime.
-6. Test compact describe/discovery and large Runtime/Profile summaries through the pinned actual Loom Use transport, not only an HTTP mock.
-7. Where contract changes require it, update the client repository and Skill instructions together, preserving existing connection profiles and user authentication.
-8. Validate a packaged guide against the immutable image build, not the mutable development tree.
+3. Version SDK/producer protocol separately from server/client. A guide advertises only implemented capabilities and includes older-server fallback instructions.
 
-## Acceptance matrix
+4. Co-release changed Loom Use Skills/examples with a real immutable client artifact, then update Loom pin and verify installed cache/refresh behavior.
 
-| Scenario | Required observable result |
-|---|---|
-| Server guide revision changes with the same client pin | Refresh guidance without replacing credentials or rerunning Jobs. |
-| Stale numbered Rust image or modified mounted source | Expose accurate provenance; no false immutable claim. |
-| Caller has restricted scopes | Reference/index omit unavailable capabilities. |
-| Versioned guide ZIP is installed twice | Reuse identical bytes; reject a different existing version. |
-| New action with an older loaded Codex connection | Verify supported MCP refresh and an actual action call. |
-| Large discovery response | Retain on-demand exact detail and existing transport limits. |
+5. Test main/support/operations classification, exact Profile reuse and Rust/hybrid authoring through behavioral fixtures. A string-match test for Rust is insufficient.
 
-### Existing regression sources
+## Transaction and effect boundary
+
+Read endpoints are side-effect free. Guide cache refresh/client installation does not grant server/host permissions, build software, issue tokens or restart a daemon.
+
+## Retained code and compatibility
+
+Loom Use Python stdio/connection/credential/refresh tooling. Server-owned schemas remain authoritative; do not copy them into an independent Rust client implementation.
+
+Update bundle inventories/hashes, client release pin and cross-repo tests together. A source-only plan does not update any installed Skill.
+
+## Acceptance cases
+
+| Case | Trigger | Required result |
+|---|---|---|
+| ONB-01 | Guide changes but client pin stays | Refresh only changed verified guides; credentials and Jobs unchanged. |
+| AUTH-01 | Agent fixture requests a new pure lifecycle runner | Rust template/reuse path; Python exception only for declared external integration. |
+| ONB-02 | Old server lacks new authoring/Scenario API | Discover capability and use supported contract; no invented fields. |
+| ONB-03 | Published package vs mutable source | Accurate source/guide/SDK identity; no false immutable report. |
+
+Reference regression modules (adapt moved internals to actual Rust boundaries):
 
 - [tests/ops/test_onboarding.py](../../../tests/ops/test_onboarding.py)
 - [tests/ops/test_client_setup.py](../../../tests/ops/test_client_setup.py)
 - [tests/deploy/test_client_release.py](../../../tests/deploy/test_client_release.py)
 
-Existing Python-internal tests need boundary adaptation when their implementation moves. Passing the old implementation alone does not establish Rust parity. Add state/trace and crash cases from this matrix; keep actual external acceptance separately identified.
+## Exit review
 
-## State, cutover and rollback
-
-Keep the existing client/Skill registration unless the accepted protocol requires change. Install guide artifacts by immutable build and verify native client calls without daemon restart or new inference turns.
-
-## Main risk and design review
-
-Code, client release and usage guide revisions are separate. Reusing a Python build marker for a Rust binary would give false readiness.
-
-## Contracts and documentation to review
-
-- [ops/onboarding.py](../../../ops/onboarding.py)
-- [loom_use/entry.md](../../../loom_use/entry.md)
-
-Change rule: When usage contracts change, update Loom Use documents, bundle inventory, revisions and the stdio client. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.
-
-Before implementation, apply the cross-block [compatibility contract](../COMPATIBILITY.md), [sequence and ownership rules](../README.md), and [whole-tree review findings](../REVIEW.md). Update the implementation source, public schema/guide, consumers and installation packaging together when an accepted contract changes.
-
-## Exit criteria
-
-- The implemented responsibilities and deliberately retained Python/external boundaries are explicit.
-- Every acceptance row has a reproducible test or is named as an unverified external acceptance boundary.
-- Affected consumers pass against the selected Rust implementation, including its error and restart paths.
-- Preservation and rollback checks use the same state format/identities; no second writer or duplicated external action is introduced.
-- Feature mappings and source-qualified verification evidence match the exact candidate build.
-- No production activation, user-thread inference, credential rotation or research execution is inferred from source/test completion.
+Validate the cases above plus the shared [domain](../DOMAIN.md), [API](../API-CHANGES.md),
+[compatibility](../COMPATIBILITY.md) and [migration](../MIGRATION.md) contracts.
+Record exact source/artifact hashes and which external boundaries remain unverified.
+A passing old Python suite or compiling crate alone does not close this block.

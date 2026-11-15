@@ -1,95 +1,75 @@
-# testing — Rust transition plan
+# Verification architecture and independent audit — detailed design
 
-Status: proposed; no Loom Rust implementation or deployment is performed by this document.
+Status: proposed Rust redesign; no implemented/deployed claim. Phases: D0–D8.
 
-Baseline: `4d93ab9bdcb5750f3d0be161925e834984492f89` (Loom alpha.60).
+## Responsibility and model
 
-## Decision and sequence
+**Authority:** Rust domain/application/fault suites plus independent Python/JS/browser/package harnesses.
 
-- Target: Retain Python/Firefox harnesses; add Rust unit/property/contract and fault-injection suites.
-- Sequence: 0 review baseline; every subsequent phase.
-- Existing feature dependencies: none.
+**Typed model:** CaseId, SourceFingerprint, EvidenceLevel, BoundaryOutcome, PerformanceBaseline and UnverifiedLimit.
 
-## Current source and authority
+**Operations:** Run isolated suites, compare frozen valid contracts and intended corrections, audit feature mappings and source-qualified evidence.
 
-Feature specifications, impact analysis and isolated test tools. The implemented contract is in the linked source and [testing feature specification](../../features/testing.md).
+**Persistence:** Synthetic fixtures and ignored private test evidence; never operational DBs/tokens/data in release source.
 
-| File | Planning treatment |
-|---|---|
-| [tests/dashboard/mock_ops.py](../../../tests/dashboard/mock_ops.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [tests/dashboard/verify_browser.py](../../../tests/dashboard/verify_browser.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [tests/dashboard/verify_workspace.py](../../../tests/dashboard/verify_workspace.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [deploy/features.py](../../../deploy/features.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [tests/suite.py](../../../tests/suite.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [tests/run.py](../../../tests/run.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [tests/ops/test_support.py](../../../tests/ops/test_support.py) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [tests/README.md](../../../tests/README.md) | Retain interface/tooling; review exact bridge and packaging behavior |
-| [deploy/TESTING.md](../../../deploy/TESTING.md) | Retain interface/tooling; review exact bridge and packaging behavior |
+## Reference source and consumers
 
-## Retained code and external dependencies
+- [tests/dashboard/mock_ops.py](../../../tests/dashboard/mock_ops.py)
+- [tests/dashboard/verify_browser.py](../../../tests/dashboard/verify_browser.py)
+- [tests/dashboard/verify_workspace.py](../../../tests/dashboard/verify_workspace.py)
+- [deploy/features.py](../../../deploy/features.py)
+- [tests/suite.py](../../../tests/suite.py)
+- [tests/run.py](../../../tests/run.py)
+- [tests/ops/test_support.py](../../../tests/ops/test_support.py)
+- [tests/README.md](../../../tests/README.md)
+- [deploy/TESTING.md](../../../deploy/TESTING.md)
 
-Keep existing pytest/unittest fixtures, browser automation, feature ownership catalog and isolated integration tooling. Porting tests wholesale to Rust would remove a useful independent implementation boundary.
+Existing feature dependencies: none declared.
+The references establish old behavior, not target Rust module boundaries.
 
-## Compatibility invariants
+## Implementation work
 
-- Development validation adds no new gates to Job execution. Distinguish test results from actual deployment state.
-- Preserve existing IDs, authentication, configured roots, sealed bytes and operational history unless an explicit separate schema change is approved.
-- Keep missing, null, false, zero, unknown, stale and unavailable distinctions required by this block.
-- Development checks are evidence, not extra Job or agent-ACK execution gates.
+1. Keep all files inventoried independently of the feature catalog. Review mutation/effect boundaries and then cross-check all 17 existing plus three new design blocks.
 
-## Detailed implementation work
+2. Rust tests own transition matrices, typed validation, SQLite transactions, publication fences, concurrency, actual kill/restart and uncertain external-effect reconciliation.
 
-1. Classify every existing test as pure domain behavior, Python implementation coupling, HTTP/MCP contract, filesystem/SQLite fault boundary, packaging or real external acceptance.
-2. Capture state/input/output traces from the current verified base commit. Store only synthetic/sanitized fixtures in Git, with generated IDs/times normalized explicitly.
-3. Add Rust domain/property tests for states, graph/ordering invariants, serialization and authorization; keep black-box Python clients independent of Rust implementation details.
-4. Replace monkeypatches of Python internals with equivalent faults at the actual Rust boundary: SQLite aborts, process death, pipe/socket reply loss and restart reconciliation.
-5. Provide an isolated differential runner that reads the same fixture/clock for both implementations. Only one may perform a real external mutation; shadow execution is read-only.
-6. Extend feature catalog ownership, source hashes and audit evidence for Rust crates, schema snapshots, binaries and Python bridges. Test counts are not a substitute for complete behavior coverage.
-7. Run retained Firefox suites against Rust-generated API projections and record both list/detail and narrow/light/dark behavior.
-8. Keep Docker/GPU, actual Tailscale, native client and power-loss boundaries explicit. A skipped/unavailable external check is never a pass or an execution admission gate.
+3. Python/JS retain independent HTTP/MCP/external-coordinator/Loom Use/browser/install clients. Replace Python internal imports/patches for moved domains with real process/protocol behavior; do not create fake SQL/helper production APIs.
 
-## Acceptance matrix
+4. Add two reference expectations: preserved compatibility fixtures and explicit corrected outcomes for known bugs. A differential test must not require cancellation/data-loss bugs to stay compatible.
 
-| Scenario | Required observable result |
-|---|---|
-| Rust behavior differs while both suites are green | Differential trace reports the precise contract difference. |
-| Mutation commits but response is lost | Original key reconciles once; no automatic duplicate effect. |
-| Process dies between filesystem and DB publication | Recover/reuse a matching snapshot or report a safe conflict. |
-| Tests are run against modified sources after evidence capture | Feature audit rejects stale hashes. |
-| Client/backend transport uses a different representation | Hash/type/null/error fixtures detect the mismatch. |
-| An external acceptance tool is absent | Report the unverified boundary without borrowing production state. |
+5. Close test engines/servers and reset process-local caches per test. Trigger faults on the actual connection/process, not a separate Python fixture connection.
 
-### Existing regression sources
+6. Test current pinned client and candidate packaged Skills/examples, actual source-qualified wheel/binary/image paths and skipped-version/fresh installs. Track all skips/stale evidence explicitly.
+
+7. Benchmark control-plane CPU/memory/latency on the same workload/durability/auth settings; do not claim GPU/Sim speedups or use performance checks as user Job gates.
+
+## Transaction and effect boundary
+
+Tests use disposable state and bounded children. Shadow comparison has no external mutation authority. Fault hooks are test-only and absent from distributed production binaries.
+
+## Retained code and compatibility
+
+Independent Python regression harnesses and Firefox; language statistics are not a test migration target.
+
+Re-register moved/new source and tests in feature catalog; add Scenario/authoring/presentation ownership and Rust paths when implementation exists. Planning matrices are proposed cases, never reported execution passes.
+
+## Acceptance cases
+
+| Case | Trigger | Required result |
+|---|---|---|
+| TEST-01 | Kill between write and commit, and after external accept | No partial state, no duplicate effect and preserved unknown owner. |
+| TEST-02 | Rust decoder differs from old valid schema/hash | Parity fixture identifies change; no silent new admission semantics. |
+| TEST-03 | All feature blocks pass but unmapped source changes | Independent ledger/impact review identifies uncovered boundary. |
+| TEST-04 | Mock-only checks pass | GPU/provider/native/reboot acceptance stays explicitly unverified. |
+
+Reference regression modules (adapt moved internals to actual Rust boundaries):
 
 - [tests/deploy/test_features.py](../../../tests/deploy/test_features.py)
 - [tests/deploy/test_distribution.py](../../../tests/deploy/test_distribution.py)
 
-Existing Python-internal tests need boundary adaptation when their implementation moves. Passing the old implementation alone does not establish Rust parity. Add state/trace and crash cases from this matrix; keep actual external acceptance separately identified.
+## Exit review
 
-## State, cutover and rollback
-
-Tests and fixtures change before switching writers. Preserve the Python implementation as a bounded comparison reference during development, then remove duplicate production authorities only after acceptance.
-
-## Main risk and design review
-
-Most current tests import Python functions directly. Merely copying the 710-pass baseline onto a Rust branch would not test Rust behavior.
-
-## Contracts and documentation to review
-
-- [docs/features/catalog.schema.json](../../../docs/features/catalog.schema.json)
-- [deploy/features.py](../../../deploy/features.py)
-- [docs/features/VERIFICATION.md](../../../docs/features/VERIFICATION.md)
-- [docs/features/catalog.json](../../../docs/features/catalog.json)
-
-Change rule: Register each new feature's unique ID, owned files, inputs/outputs, dependencies, tests and live-validation limitations. Test behavior and failure boundaries rather than adding generic assertions.
-
-Before implementation, apply the cross-block [compatibility contract](../COMPATIBILITY.md), [sequence and ownership rules](../README.md), and [whole-tree review findings](../REVIEW.md). Update the implementation source, public schema/guide, consumers and installation packaging together when an accepted contract changes.
-
-## Exit criteria
-
-- The implemented responsibilities and deliberately retained Python/external boundaries are explicit.
-- Every acceptance row has a reproducible test or is named as an unverified external acceptance boundary.
-- Affected consumers pass against the selected Rust implementation, including its error and restart paths.
-- Preservation and rollback checks use the same state format/identities; no second writer or duplicated external action is introduced.
-- Feature mappings and source-qualified verification evidence match the exact candidate build.
-- No production activation, user-thread inference, credential rotation or research execution is inferred from source/test completion.
+Validate the cases above plus the shared [domain](../DOMAIN.md), [API](../API-CHANGES.md),
+[compatibility](../COMPATIBILITY.md) and [migration](../MIGRATION.md) contracts.
+Record exact source/artifact hashes and which external boundaries remain unverified.
+A passing old Python suite or compiling crate alone does not close this block.
