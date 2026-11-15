@@ -126,7 +126,8 @@ suite passes were followed by another review and regression corrections:
 3. Large-history query shape and writer isolation, catalog cache invalidation,
    workflow queue movement, failed-recovery cancellation, late-start cancellation,
    archive/context independence, live logs, crash-safe migration receipt resume
-   and private diagnostics that reject redirected directories.
+   private diagnostics that reject redirected directories, and exact typed Scenario
+   record links that cannot appear on unrelated records.
 
 Each correction has an executable fixture in the boundaries above. Whole-tree
 inventory/parse/hash inspection is not a mathematical proof of every branch; it

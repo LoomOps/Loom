@@ -10,7 +10,7 @@ class NativeWorkspaceTests(unittest.TestCase):
  @classmethod
  def setUpClass(cls):
   reference.WorkspaceBrowserTests.setUpClass.__func__(cls)
-  temp=tempfile.TemporaryDirectory(prefix='loom-native-browser-');cls.addClassCleanup(temp.cleanup);root=Path(temp.name);data=root/'data';data.mkdir();(data/'.loom-storage.json').write_text('{"storage_id":"browser-data"}');components=root/'components';components.mkdir();cfg=root/'config.json';cfg.write_text(json.dumps({'machine_id':'browser-fixture','storage_id':'browser-data','actors':[{'id':'owner','scopes':['read','submit','cancel','events'],'owners':['owner'],'notify':['owner']}]}))
+  temp=tempfile.TemporaryDirectory(prefix='loom-native-browser-');cls.addClassCleanup(temp.cleanup);root=Path(temp.name);data=root/'data';data.mkdir();(data/'.loom-storage.json').write_text('{"storage_id":"browser-data"}');components=root/'components';components.mkdir();cfg=root/'config.json';cfg.write_text(json.dumps({'machine_id':'browser-fixture','storage_id':'browser-data','profiles':{'browser.profile.r1':{'schema':'loom-execution/v2','revision':'browser.profile.r1','sha256':'a'*64,'params_schema':{'type':'object'},'runtime':{'executor':'container','runtime_id':'cpu','command':['/bin/true']},'inputs':{},'outputs':None,'limits':{'timeout_seconds':30,'max_attempts':1}}},'actors':[{'id':'owner','scopes':['read','submit','cancel','events'],'owners':['owner'],'notify':['owner']}]}))
   with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
   cls.native='http://127.0.0.1:'+str(port);log=open(root/'ops.log','wb');cls.addClassCleanup(log.close)
   process=subprocess.Popen([str(ROOT/'target/debug/loom-ops'),'--config',str(cfg),'--state',str(root/'state'),'--data',str(data),'--components',str(components),'--listen','127.0.0.1:'+str(port)],env={**os.environ,'LOOM_DEV_NO_AUTH':'1','LOOM_SDK_BINARY':str(ROOT/'target/debug/loom-sdk')},stdout=log,stderr=log)
@@ -39,3 +39,13 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.ui.nav('Profiles');self.ui.wait("return document.querySelector('#pa-content').innerText.includes('cpu.smoke')")
   job=self.call('jobs','submit',{'key':'browser-cpu','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':1,'fail':False}})
   self.assertIsInstance(job['id'],str);queue=self.call('jobs','queue',{});self.assertIn(job['id'],[j['id'] for j in queue['entries']])
+
+ def test_scenario_profile_link_navigates_to_the_exact_profile_and_not_unrelated_jobs(self):
+  scenario=self.call('results','register_scenario',{'key':'profile-context','definition':{'label':'Exact profile context'}})
+  self.call('results','link_scenario',{'key':'profile-link','scenario_ref':{'id':scenario['id'],'revision':1},'target':{'kind':'profile','identity':{'kind':'browser.profile.r1','sha256':'a'*64}},'relation':'implements','provenance':{'reason':'Browser profile association fixture'}})
+  job=self.call('jobs','submit',{'key':'unrelated-profile-job','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False}})
+  self.wd('/url',{'url':self.base});self.ui.connect()
+  self.ui.wait("return !!catEntity('profile:browser.profile.r1')&&!!catEntity("+json.dumps(job['id'])+")&&loomScenarios().some(s=>s.label==='Exact profile context')")
+  self.assertIn('Exact profile context',self.ui.js("return loomScenarioContext(catEntity('profile:browser.profile.r1'))"))
+  self.assertEqual(self.ui.js("return loomScenarioContext(catEntity("+json.dumps(job['id'])+"))"),'')
+  self.assertIn('data-entity="profile:browser.profile.r1"',self.ui.js("return loomScenarioTargetLink({target:{kind:'profile',identity:{kind:'browser.profile.r1',sha256:'a'.repeat(64)}}})"))

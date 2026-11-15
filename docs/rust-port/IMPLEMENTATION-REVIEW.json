@@ -267,9 +267,9 @@
     },
     {
       "path": "dashboard/public/workspace.html",
-      "sha256": "c076d0a1b5f20d2e3d39ec1bda1e14bb0e082423a6500140e51c2f74260e616b",
-      "bytes": 642027,
-      "lines": 6895,
+      "sha256": "a44ceb17cc328ceb65a3377e76ffac553691fc3aaea1690a5705c774607ca8cd",
+      "bytes": 642845,
+      "lines": 6904,
       "boundary": "retained web/integration",
       "structural_validation": "hash/structure inspection"
     },
@@ -491,9 +491,9 @@
     },
     {
       "path": "dashboard/workspace/scenarios.js",
-      "sha256": "fdb5f377d48f2a2c43b02e1e52be865747e91421f29dee07984660944be23a30",
-      "bytes": 10867,
-      "lines": 36,
+      "sha256": "2ed32c69e6ea8e0a5bfba5ac7b0e384484627f81b7248065ec6664910be64493",
+      "bytes": 11435,
+      "lines": 45,
       "boundary": "native API consumer",
       "structural_validation": "hash/structure inspection"
     },
@@ -1315,9 +1315,9 @@
     },
     {
       "path": "docs/rust-port/IMPLEMENTATION.md",
-      "sha256": "ac02c95990fe5ada9edfc93d38338b8f410d00cd64fa5447587dcad455e196a2",
-      "bytes": 10479,
-      "lines": 144,
+      "sha256": "e8e061fa279881befeeb8b538f92edc00da3633517efa263b5cd860869126a7e",
+      "bytes": 10557,
+      "lines": 145,
       "boundary": "instruction/specification",
       "structural_validation": "hash/structure inspection"
     },
@@ -2611,9 +2611,9 @@
     },
     {
       "path": "tests/dashboard/browser/test_native_workspace.py",
-      "sha256": "7ec2df503897487ae4981d8f6a6b2c5bb7b805a1d8df3ca184d64355f64628dd",
-      "bytes": 4415,
-      "lines": 41,
+      "sha256": "f2bf7b01133f58eefe36cf0402ec43f2682be0ce89a6572a5e70827bf6f9b777",
+      "bytes": 6007,
+      "lines": 51,
       "boundary": "independent harness/fixture",
       "structural_validation": "Python AST parsed; behavioral evidence separate"
     },
