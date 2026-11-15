@@ -92,7 +92,7 @@
   async function refreshCatalog() {
     if (!signedIn() || catalogRequest) return;
     const signal = lifetime.signal;
-    catalogRequest = read('/api/dashboard/catalog', signal);
+    catalogRequest = read('/api/dashboard/bootstrap', signal).catch(error=>{if(error.status===404)return read('/api/dashboard/catalog',signal);throw error;});
     try {
       const incoming = await catalogRequest;
       if (signal.aborted) return;
@@ -247,9 +247,9 @@
   }
 
   async function searchAction(message) {
-    const allowed={results:['search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file'],jobs:['log_streams','read_log','search_logs'],system:['search_status','dashboard_summary']};
+    const allowed={results:['search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file'],jobs:['log_streams','read_log','search_logs'],system:['search_status','dashboard_summary','dashboard_page','dashboard_activity','dashboard_entity']};
     if(!signedIn()||!allowed[message.group]?.includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;
-    try{const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({group:message.group,action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(15000)});const value=await response.json();emit('loom-search-result',{id:message.id,ok:response.ok,value});}catch(error){emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});}
+    try{const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({group:message.group,action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(15000)});const value=await response.json();if(response.ok&&message.group==='system'&&['dashboard_page','dashboard_entity'].includes(message.action)){for(const entity of value.entities||[])catalogEntities.set(entity.id,entity);}emit('loom-search-result',{id:message.id,ok:response.ok,value});}catch(error){emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});}
   }
   async function scenarioAction(message) {
     if(!signedIn()||!['scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link'].includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;

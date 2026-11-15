@@ -283,3 +283,37 @@ and interrupted migration receipt recovery. Each native case is actually execute
 by the Cargo/black-box runner; a suite name or a retained reference test is not a
 native PASS. Use [the implementation map](../rust-port/IMPLEMENTATION.md) to compare
 current ownership with the independent source inventory before this block audit.
+
+
+## Native Item, file, log and reconciliation boundary
+
+Schema 7 adds nullable-Job imported assets, additive copy bindings and durable
+reconciliation/maintenance receipts. It never invents a producing Job or scientific
+acceptance for imported records. Native tests cover exact historical snapshots,
+frozen Profile definitions, typed result listing, batch identity conflicts,
+changed source bytes/grants, idempotent apply, source preservation and private
+migration resume. Retained archive tests exercise streamed inventory export,
+byte-verified relocation and payload-index tamper rejection. Multi-store and
+changed-identity streamed cloning deliberately require a separately reviewed plan.
+
+File inventories and exact member inputs are authoritative without per-file rows
+in the core registry. Native HTTP/image tests exercise paged discovery, bounded
+ranges, alternate verified copies, large-file proof reuse, downstream member
+inputs, explicit log retention and online shadow replacement. Runtime inventories
+require protected configured-root grants; complete observations and partial
+observations have different deletion semantics. File indexing is not permission
+to install software or scan arbitrary host directories.
+
+Dashboard native Firefox cases cover bounded bootstrap/pages, lazy linked details,
+old revisions, activity and support/operations visibility. Search/graph consumers
+must preserve requested revision and source identity; a current record cannot
+substitute for a historical snapshot. Log gaps, projection lag and unknown timing
+remain explicit rather than being reported as successful complete coverage.
+
+The opt-in catalog_scale example generates only synthetic metadata. Record CPU,
+memory, physical corpus size, coverage/partial flags and all latency samples;
+synthetic FTS documents are not evidence of equivalent physical payload I/O.
+Production acceptance uses a bounded representative selection, independently from
+synthetic scale tests. No whole-store reconciliation, GPU evaluation or simulator
+acceptance follows from these blocks. Deployment receipts must separately record
+each installation, immutable image IDs, pre/post preservation and live API checks.

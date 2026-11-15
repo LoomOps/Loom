@@ -147,6 +147,57 @@ fn main() -> Result<()> {
     }
     let state = Path::new(arg("--state")?);
     match args.get(1).map(String::as_str) {
+        Some("reconcile-install")=>{
+            let _lock=WriterLock::acquire(state)?;
+            let before=inspect(state)?;
+            require(before["schema"]==6||before["schema"]==7,"schema","Install the common Item schema before reconciliation",409)?;
+            require(before["active_executions"]==0&&before["callbacks"]==0,"drain","Drain execution and callbacks before migration",409)?;
+            let backup=Path::new(arg("--backup")?);
+            let path=backup.join("ops.sqlite3");
+            if before["schema"]==7&&!path.exists() {
+                let config=Config::read(Path::new(arg("--config")?))?;
+                let _app=Application::open_schema(state,Path::new(arg("--data")?),Path::new(arg("--components")?),config,7)?;
+                println!("{}",json!({"applied":false,"schema":7}));return Ok(())
+            }
+            if before["schema"]==7 && backup.join("receipt.json").is_file() {
+                let receipt:Value=serde_json::from_slice(&std::fs::read(backup.join("receipt.json"))?)?;
+                require(receipt["schema"]=="loom-reconciliation-migration/v1" && receipt["state"].as_str()==state.to_str(),"receipt","Reconciliation receipt belongs to another instance",409)?;
+                let config=Config::read(Path::new(arg("--config")?))?;
+                let _app=Application::open_schema(state,Path::new(arg("--data")?),Path::new(arg("--components")?),config,7)?;
+                println!("{}",json!({"applied":false,"schema":7}));return Ok(())
+            }
+            loom_core::index_store::secure_dir(backup)?;
+            use std::os::unix::fs::PermissionsExt;
+            require(backup.metadata()?.permissions().mode()&0o077==0,"backup_permissions","Private backup directory required",409)?;
+            let config_bytes=std::fs::read(arg("--config")?)?;
+            if path.exists() {
+                require(!path.symlink_metadata()?.file_type().is_symlink(),"backup","Linked reconciliation backup refused",409)?;
+                require(std::fs::read(backup.join("config.json"))?==config_bytes,"migration_intent","Reconciliation roots changed during resume",409)?;
+                if before["schema"]==6 {require(table_hashes(&connect(&path)?)?==table_hashes(&connect(&state.join("ops.sqlite3"))?)?,"migration_changed","Records changed after migration intent",409)?;}
+            } else {
+                let db=connect(&state.join("ops.sqlite3"))?;
+                {let mut out=Connection::open(&path)?;rusqlite::backup::Backup::new(&db,&mut out)?.run_to_completion(128,std::time::Duration::from_millis(5),None)?;}
+                std::fs::set_permissions(&path,std::fs::Permissions::from_mode(0o600))?;
+                storage::atomic(&backup.join("config.json"),&config_bytes,0o600)?;
+                storage::atomic(&backup.join("before.json"),&serde_json::to_vec(&before)?,0o600)?;
+            }
+            let original=table_hashes(&connect(&path)?)?;
+            let config=Config::read(Path::new(arg("--config")?))?;
+            let app=Application::open_schema(state,Path::new(arg("--data")?),Path::new(arg("--components")?),config,7)?;
+            let after=inspect(state)?;
+            let current=connect(&state.join("ops.sqlite3"))?;
+            current.execute("ATTACH DATABASE ? AS previous",[path.to_string_lossy().as_ref()])?;
+            for(name,value)in original{
+                if name=="catalog_backfill" {
+                    require(!current.query_row("SELECT EXISTS(SELECT * FROM previous.catalog_backfill EXCEPT SELECT * FROM main.catalog_backfill)",[],|r|r.get::<_,bool>(0))?,"preservation","Existing catalog progress changed",409)?;
+                } else {
+                    require(after["preservation"][&name]==value,"preservation","Reconciliation schema changed existing state",409)?;
+                }
+            }
+            let original_before:Value=serde_json::from_slice(&std::fs::read(backup.join("before.json"))?)?;
+            storage::atomic(&backup.join("receipt.json"),&serde_json::to_vec(&json!({"schema":"loom-reconciliation-migration/v1","state":state,"before":original_before,"after":after,"rollback":"Forward repair after accepted Item or plan writes"}))?,0o600)?;
+            drop(app);println!("{}",json!({"applied":before["schema"]==6,"schema":7}));
+        }
         Some("catalog-install")=>{
             let _lock=WriterLock::acquire(state)?;
             let config=Config::read(Path::new(arg("--config")?))?;let data=Path::new(arg("--data")?);let components=Path::new(arg("--components")?);
@@ -177,7 +228,8 @@ fn main() -> Result<()> {
         Some(command @ ("catalog-backfill"|"catalog-rebuild"|"catalog-verify-file"|"catalog-prune"))=>{
             let _lock=WriterLock::acquire(state)?;
             let config=Config::read(Path::new(arg("--config")?))?;let data=Path::new(arg("--data")?);let components=Path::new(arg("--components")?);
-            let mut app=Application::open(state,data,components,config)?;
+            let version=inspect(state)?["schema"].as_i64().ok_or_else(||Error::input("Schema missing"))?;
+            let mut app=Application::open_schema(state,data,components,config,version)?;
             if command=="catalog-verify-file" {
                 let id=arg("--file-id")?;
                 let entry=app.get_file(&json!({"file_item_id":id}))?;

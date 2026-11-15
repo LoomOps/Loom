@@ -348,7 +348,9 @@
         "ops/storage.py",
         "rust/crates/core/src/history.rs",
         "rust/crates/core/src/results.rs",
-        "rust/crates/core/src/storage.rs"
+        "rust/crates/core/src/storage.rs",
+        "rust/crates/core/src/file_set.rs",
+        "rust/crates/core/src/reconcile.rs"
       ],
       "tests": [
         "tests/ops/test_installation_smoke.py",
@@ -406,7 +408,8 @@
         "rust/crates/core/src/composition.rs",
         "rust/crates/core/src/runtime.rs",
         "rust/crates/core/src/software.rs",
-        "rust/crates/host/src/runtime.rs"
+        "rust/crates/host/src/runtime.rs",
+        "rust/crates/host/src/runtime_files.rs"
       ],
       "tests": [
         "tests/ops/test_components_platform.py",
@@ -509,7 +512,11 @@
         "rust/crates/domain/src/item.rs",
         "rust/crates/ops/src/indexer.rs",
         "rust/contracts/item-schema.sql",
-        "rust/contracts/items.md"
+        "rust/contracts/items.md",
+        "rust/crates/core/src/graph.rs",
+        "rust/crates/core/src/maintenance.rs",
+        "rust/crates/ops/src/catalog_maintenance.rs",
+        "rust/crates/core/src/activity.rs"
       ],
       "tests": [
         "tests/ops/test_dashboard_resources.py",
@@ -519,7 +526,8 @@
         "tests/ops/test_job_lifecycle.py",
         "tests/rust/application.rs",
         "tests/rust/test_service.py",
-        "tests/rust/test_item_image.py"
+        "tests/rust/test_item_image.py",
+        "tests/rust/test_reconciliation.py"
       ],
       "depends_on": [
         "identity",
@@ -639,7 +647,8 @@
         "dashboard/workspace/surfaces.js",
         "dashboard/workspace/template.html",
         "dashboard/workspace/text-preview.js",
-        "dashboard/workspace/search.js"
+        "dashboard/workspace/search.js",
+        "dashboard/workspace/catalog-pages.js"
       ],
       "tests": [
         "tests/dashboard/browser/test_workspace.py",
@@ -944,7 +953,9 @@
         "ops/release_updates.py",
         "rust-toolchain.toml",
         "rust/crates/ops/src/updates.rs",
-        "deploy/migrations/item_index.py"
+        "deploy/migrations/item_index.py",
+        "deploy/migrations/reconciliation.py",
+        "rust/contracts/reconcile-schema.sql"
       ],
       "tests": [
         "tests/deploy/test_boot_readiness.py",
@@ -1076,7 +1087,8 @@
         "tests/rust/fixtures/casefold.json",
         "tests/rust/fixtures/json-namespaces.json",
         "tests/rust/run.py",
-        "tests/suite.py"
+        "tests/suite.py",
+        "rust/crates/core/examples/catalog_scale.rs"
       ],
       "tests": [
         "tests/deploy/test_distribution.py",

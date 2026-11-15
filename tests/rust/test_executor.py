@@ -136,3 +136,16 @@ class NativeExecutorTests(unittest.TestCase):
   self.assertEqual(page['total_bytes'],256*1024*1024);self.assertTrue(page['closed']);self.assertTrue(page['gap'])
   self.assertEqual(page['data_base64'],'AAAAAAAAAAAAAAAAAAAAAA==');self.assertTrue(self.rpc('drain_status',{})['ready'])
   self.assertEqual(self.rpc('log_range',{'ticket':accepted['ticket'],'limit':16})['source_generation'],page['source_generation'])
+
+ def test_expired_provider_generation_never_recaptures_container_bytes(self):
+  accepted=self.rpc('start',self.request(['/bin/sh','-c','echo EXPIRE-SECRET']))
+  self.assertEqual(self.wait(accepted['ticket'])['exit_code'],0)
+  page=self.rpc('log_range',{'ticket':accepted['ticket'],'limit':64})
+  self.assertTrue(page['closed'])
+  receipt=self.rpc('log_expire',{'ticket':accepted['ticket'],'source_generation':page['source_generation']})
+  self.assertTrue(receipt['expired'])
+  error=self.rpc('log_range',{'ticket':accepted['ticket'],'source_generation':page['source_generation'],'limit':64},status=409)
+  self.assertEqual(error['code'],'retention_gap')
+  raw=self.host/'logs'/(hashlib.sha256(accepted['ticket'].encode()).hexdigest()+'.'+page['source_generation']+'.log')
+  self.assertFalse(raw.exists())
+  self.assertEqual(self.rpc('status',{'ticket':accepted['ticket']})['state'],'exited')

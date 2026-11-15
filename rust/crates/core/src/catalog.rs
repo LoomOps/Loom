@@ -26,6 +26,21 @@ impl Application {
         ]))?))
     }
     pub fn dashboard_catalog(&self) -> Result<Value> {
+        self.dashboard_catalog_selected(None)
+    }
+    pub fn dashboard_catalog_selected(&self, selected: Option<&[Value]>) -> Result<Value> {
+        let all = selected.is_none();
+        let ids_for = |kind: &str| -> Result<String> {
+            encode(&json!(selected
+                .unwrap_or_default()
+                .iter()
+                .filter(|v| v["native_ref"]["kind"] == kind)
+                .map(|v| v["native_ref"]["identity"]["id"].clone())
+                .collect::<Vec<_>>()))
+        };
+        let job_ids = ids_for("job")?;
+        let selected_json = encode(&json!(selected.unwrap_or_default()))?;
+        let history_ids = ids_for("historical")?;
         let revision = self.dashboard_revision()?;
         if let Some((cached, value)) = self
             .catalog_cache
@@ -33,14 +48,14 @@ impl Application {
             .map_err(|_| Error::new("projection", "Projection cache unavailable", 503))?
             .as_ref()
         {
-            if cached == &revision {
+            if all && cached == &revision {
                 return Ok(value.clone());
             }
         }
 
         let mut entities = vec![];
         let mut ids = std::collections::BTreeSet::new();
-        for r in rows(&self.db, "SELECT id FROM jobs ORDER BY created,id", &[])? {
+        for r in rows(&self.db, "SELECT id FROM jobs WHERE ? OR id IN(SELECT value FROM json_each(?)) ORDER BY created,id", &[&all,&job_ids])? {
             let id = r["id"].as_str().unwrap_or("");
             let d = self.job_detail(id)?;
             let spec = &d["spec"];
@@ -69,8 +84,8 @@ impl Application {
         }
         for w in rows(
             &self.db,
-            "SELECT id FROM job_workflows ORDER BY created,id",
-            &[],
+            "SELECT id FROM job_workflows WHERE ? OR id IN(SELECT value FROM json_each(?)) ORDER BY created,id",
+            &[&all,&job_ids],
         )? {
             let id = w["id"].as_str().unwrap_or("");
             let d = self.job_detail(id)?;
@@ -84,8 +99,8 @@ impl Application {
         }
         for row in rows(
             &self.db,
-            "SELECT * FROM entity_revisions ORDER BY id,revision",
-            &[],
+            "SELECT * FROM all_entity_revisions e WHERE ? OR EXISTS(SELECT 1 FROM json_each(?) x WHERE json_extract(x.value,'$.native_ref.kind')='entity' AND json_extract(x.value,'$.native_ref.identity.id')=e.id AND json_extract(x.value,'$.native_ref.identity.revision')=e.revision) ORDER BY id,revision",
+            &[&all,&selected_json],
         )? {
             let mut entity: Value = serde_json::from_str(row["manifest"].as_str().unwrap_or("{}"))?;
             let id = row["id"].as_str().unwrap_or("");
@@ -107,7 +122,10 @@ impl Application {
             entity["registered_at"] = json!(registered);
             entity["contribution"] = json!({"eligible":registered.is_some()&&matches!(entity["kind"].as_str(),Some("dataset"|"model"|"experiment")),"key":entity["id"],"time_kind":"registered"});
             entity["metrics"] = entity.get("metrics").cloned().unwrap_or(json!([]));
-            entity["presentation"] = json!({"scope":"research","role":"main"});
+            entity["presentation"] = entity
+                .get("presentation")
+                .cloned()
+                .unwrap_or(json!({"scope":"research","role":"main"}));
             if let Some(job) = row["job"].as_str() {
                 let record = jobs::load(&self.db, job)?;
                 entity["presentation"] = record
@@ -119,7 +137,7 @@ impl Application {
             }
             let locations = rows(
                 &self.db,
-                "SELECT * FROM entity_locations WHERE id=? AND revision=?",
+                "SELECT * FROM all_entity_locations WHERE id=? AND revision=?",
                 &[&id, &row["revision"].as_i64()],
             )?;
             let (files, media) = crate::media::file_dtos(
@@ -135,24 +153,164 @@ impl Application {
             entities.push(entity);
             ids.insert(id.into());
         }
-        for entity in self.imported_entities()? {
-            ids.insert(entity["id"].as_str().unwrap_or("").into());
-            entities.push(entity);
+        if all {
+            for entity in
+                self.imported_entities_selected(if all { None } else { Some(&history_ids) })?
+            {
+                ids.insert(entity["id"].as_str().unwrap_or("").into());
+                entities.push(entity);
+            }
+            let snapshot:Option<String>=self.db.query_row("SELECT snapshot FROM history_records WHERE source='catalog' ORDER BY rowid DESC LIMIT 1",[],|r|r.get(0)).optional()?;
+            if let Some(snapshot) = snapshot {
+                for row in rows(&self.db,"SELECT * FROM history_records WHERE source='catalog' AND snapshot=? AND (? OR id IN(SELECT value FROM json_each(?))) ORDER BY rowid DESC",&[&snapshot,&all,&history_ids])?{let id=row["id"].as_str().unwrap_or("");if ids.contains(id){continue;}let body:Value=serde_json::from_str(row["body"].as_str().unwrap_or("{}"))?;let mut entity=body.get("entity").or_else(||body.get("original")).cloned().unwrap_or(json!({}));if !entity.is_object(){continue}entity["id"]=json!(id);entity["kind"]=row["kind"].clone();entity["namespace"]=json!("history");entity["loom_history"]=json!({"source":row["source"],"kind":row["kind"],"id":id,"revision":row["revision"],"snapshot":snapshot});let (manifest,locations)=self.historical_files(&entity["loom_history"])?;let(files,media)=crate::media::file_dtos(&entity["loom_history"],&manifest,&locations,&self.config);entity["loom_files"]=files;entity["loom_media"]=media;entity["payload_status"]=body["payload_status"].clone();if entity.get("label").is_none(){entity["label"]=json!(id);}entities.push(entity);ids.insert(id.into());}
+            }
+        } else {
+            for item in selected
+                .unwrap_or_default()
+                .iter()
+                .filter(|v| v["native_ref"]["kind"] == "historical")
+            {
+                let identity = &item["native_ref"]["identity"];
+                let row=rows(&self.db,"SELECT body FROM history_records WHERE source=? AND kind=? AND id=? AND revision=? AND snapshot=?",&[&identity["source"].as_str(),&identity["kind"].as_str(),&identity["id"].as_str(),&identity["revision"].as_str(),&identity["snapshot"].as_str()])?.into_iter().next().ok_or_else(||Error::new("history","Exact historical snapshot unavailable",404))?;
+                let body: Value = serde_json::from_str(row["body"].as_str().unwrap_or("{}"))?;
+                let mut entity = body
+                    .get("entity")
+                    .or_else(|| body.get("original"))
+                    .filter(|v| v.is_object())
+                    .cloned()
+                    .unwrap_or(json!({}));
+                entity["id"] = json!(format!(
+                    "history:{}",
+                    item["item_id"].as_str().unwrap_or("")
+                ));
+                entity["kind"] = if identity["kind"] == "run" {
+                    json!("run")
+                } else {
+                    item["kind"].clone()
+                };
+                entity["namespace"] = json!("history");
+                entity["loom_history"] = identity.clone();
+                entity["migration"] = json!({"read_only":true,"source":identity["source"],"snapshot":identity["snapshot"]});
+                if !entity["label"].is_string() {
+                    entity["label"] = identity["id"].clone();
+                }
+                let (mut manifest, locations) = self.historical_files(identity)?;
+                let count = manifest["components"].as_array().map(Vec::len).unwrap_or(0);
+                if let Some(components) = manifest["components"].as_array_mut() {
+                    components.truncate(200);
+                }
+                let (files, media) =
+                    crate::media::file_dtos(identity, &manifest, &locations, &self.config);
+                entity["loom_files"] = files;
+                entity["loom_media"] = media;
+                entity["files_complete"] = json!(count <= 200);
+                let who = entity["owner"]
+                    .as_str()
+                    .or_else(|| entity["properties"]["owner"].as_str())
+                    .unwrap_or("")
+                    .to_string();
+                entity = self.decorate_owner(
+                    "entity",
+                    identity["id"].as_str().unwrap_or(""),
+                    &who,
+                    entity,
+                )?;
+                entities.push(entity);
+            }
         }
-        let snapshot:Option<String>=self.db.query_row("SELECT snapshot FROM history_records WHERE source='catalog' ORDER BY rowid DESC LIMIT 1",[],|r|r.get(0)).optional()?;
-        if let Some(snapshot) = snapshot {
-            for row in rows(&self.db,"SELECT * FROM history_records WHERE source='catalog' AND snapshot=? ORDER BY rowid DESC",&[&snapshot])?{let id=row["id"].as_str().unwrap_or("");if ids.contains(id){continue;}let body:Value=serde_json::from_str(row["body"].as_str().unwrap_or("{}"))?;let mut entity=body.get("entity").or_else(||body.get("original")).cloned().unwrap_or(json!({}));if !entity.is_object(){continue}entity["id"]=json!(id);entity["kind"]=row["kind"].clone();entity["namespace"]=json!("history");entity["loom_history"]=json!({"source":row["source"],"kind":row["kind"],"id":id,"revision":row["revision"],"snapshot":snapshot});let (manifest,locations)=self.historical_files(&entity["loom_history"])?;let(files,media)=crate::media::file_dtos(&entity["loom_history"],&manifest,&locations,&self.config);entity["loom_files"]=files;entity["loom_media"]=media;entity["payload_status"]=body["payload_status"].clone();if entity.get("label").is_none(){entity["label"]=json!(id);}entities.push(entity);ids.insert(id.into());}
+        let mut profiles = if all {
+            self.profile_listing()?
+        } else {
+            let mut profiles = vec![];
+            for item in selected
+                .unwrap_or_default()
+                .iter()
+                .filter(|v| v["native_ref"]["kind"] == "profile")
+            {
+                let native = &item["native_ref"]["identity"];
+                if let Some(kind) = native["kind"]
+                    .as_str()
+                    .or_else(|| item["profile_kind"].as_str())
+                {
+                    profiles.extend(
+                        self.profile_listing_qualified(
+                            Some(kind),
+                            native["sha256"]
+                                .as_str()
+                                .or_else(|| item["profile_sha256"].as_str()),
+                        )?
+                        .as_array()
+                        .cloned()
+                        .unwrap_or_default(),
+                    );
+                }
+            }
+            json!(profiles)
+        };
+        if !all {
+            let mut related = std::collections::BTreeMap::new();
+            for item in selected.unwrap_or_default().iter().filter(|v| {
+                matches!(
+                    v["native_ref"]["kind"].as_str(),
+                    Some("component" | "tool" | "runtime")
+                )
+            }) {
+                if let Ok(page)=self.item_graph(&crate::auth::person_actor("catalog-reader"),&json!({"item_id":item["item_id"],"revision_id":item["revision_id"],"limit":50})) {
+                    for edge in page["items"].as_array().into_iter().flatten().filter(|e|e["native_ref"]["kind"]=="profile") {
+                        let native=&edge["native_ref"]["identity"];
+                        let body=edge["item_id"].as_str().and_then(|id|self.get_item(&json!({"item_id":id,"revision_id":edge["revision_id"]})).ok()).unwrap_or(Value::Null);
+                        if let Some(kind)=native["kind"].as_str().or_else(||body["profile_kind"].as_str()) {
+                            related.insert(kind.to_string(),native["sha256"].as_str().or_else(||body["profile_sha256"].as_str()).map(String::from));
+                        }
+                    }
+                }
+            }
+            for (kind, sha) in related {
+                if !profiles
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|p| p["kind"] == kind)
+                {
+                    if let Ok(value) = self.profile_listing_qualified(Some(&kind), sha.as_deref()) {
+                        profiles
+                            .as_array_mut()
+                            .unwrap()
+                            .extend(value.as_array().cloned().unwrap_or_default());
+                    }
+                }
+            }
         }
-        let profiles = self.profile_listing()?;
         let mut combinations = vec![];
         for p in profiles.as_array().unwrap() {
             let kind = p["kind"].as_str().unwrap_or("");
             entities.push(json!({"id":format!("profile:{kind}"),"kind":"execution_profile","namespace":"loom","label":kind,"loom_execution_profile":p,"presentation":if p["group"]=="platform-check"&&p["origin"]["type"]!="builtin"{json!({"scope":"operations","role":"test"})}else{json!({"scope":"research","role":"main"})},"properties":{"revision":p["revision"],"used_by_jobs":p["used_by_jobs"]},"relations":[],"artifacts":[]}));
             combinations.push(p.clone());
         }
-        let software = self.extension_inventory(&profiles)?;
+        let software = self.extension_inventory_selected(&profiles, selected)?;
         entities.extend(software.clone());
         let mut runtime_catalog = self.runtime_inventory()?;
+        if let Some(selected) = selected {
+            if let Some(items) = runtime_catalog["runtimes"].as_array_mut() {
+                items.retain(|r| {
+                    selected.iter().any(|v| {
+                        v["native_ref"]["kind"] == "runtime"
+                            && v["native_ref"]["identity"]["id"] == r["id"]
+                            && v["native_ref"]["identity"]["revision"] == r["revision"]
+                    })
+                });
+            }
+            if let Some(items) =
+                runtime_catalog["dependency_catalog"]["dependencies"].as_array_mut()
+            {
+                items.retain(|d| {
+                    selected.iter().any(|v| {
+                        v["native_ref"]["kind"] == "dependency"
+                            && v["native_ref"]["identity"]["name"] == d["name"]
+                    })
+                });
+            }
+        }
         for item in runtime_catalog["runtimes"].as_array_mut().unwrap() {
             let mut consumers = vec![];
             for profile in profiles.as_array().unwrap() {
@@ -189,7 +347,7 @@ impl Application {
             .iter()
             .filter(|e| e["kind"] == "tool")
             .collect::<Vec<_>>());
-        for scenario in rows(&self.db,"SELECT s.*,r.definition,r.sha256 FROM scenarios s JOIN scenario_revisions r ON r.scenario_id=s.id AND r.revision=s.current_revision ORDER BY s.created",&[])?{entities.push(json!({"id":scenario["id"],"kind":"scenario","namespace":"loom","label":scenario["label"],"created_by":scenario["created_by"],"loom_scenario":{"id":scenario["id"],"revision":scenario["current_revision"],"archived":scenario["archived"]==1,"links":rows(&self.db,"SELECT revision,target_kind,target,superseded_by FROM scenario_links WHERE scenario_id=?",&[&scenario["id"].as_str()])?.into_iter().map(|mut r|{if let Some(t)=r["target"].as_str(){r["target"]=json!({"kind":r["target_kind"],"identity":serde_json::from_str::<Value>(t).unwrap_or(Value::Null)});}r}).collect::<Vec<_>>(),"definition":serde_json::from_str::<Value>(scenario["definition"].as_str().unwrap_or("{}"))?},"properties":{"revision":scenario["current_revision"],"archived":scenario["archived"]},"relations":[],"artifacts":[]}));}
+        for scenario in rows(&self.db,"SELECT s.*,r.revision AS displayed_revision,r.definition,r.sha256 FROM scenarios s JOIN scenario_revisions r ON r.scenario_id=s.id AND r.revision=CASE WHEN ? THEN s.current_revision ELSE (SELECT json_extract(value,'$.native_ref.identity.revision') FROM json_each(?) WHERE json_extract(value,'$.native_ref.kind')='scenario' AND json_extract(value,'$.native_ref.identity.id')=s.id LIMIT 1) END ORDER BY s.created",&[&all,&selected_json])?{entities.push(json!({"id":scenario["id"],"kind":"scenario","namespace":"loom","label":serde_json::from_str::<Value>(scenario["definition"].as_str().unwrap_or("{}"))?["label"],"created_by":scenario["created_by"],"loom_scenario":{"id":scenario["id"],"revision":scenario["displayed_revision"],"archived":scenario["archived"]==1,"links":rows(&self.db,"SELECT revision,target_kind,target,superseded_by FROM scenario_links WHERE scenario_id=?",&[&scenario["id"].as_str()])?.into_iter().map(|mut r|{if let Some(t)=r["target"].as_str(){r["target"]=json!({"kind":r["target_kind"],"identity":serde_json::from_str::<Value>(t).unwrap_or(Value::Null)});}r}).collect::<Vec<_>>(),"definition":serde_json::from_str::<Value>(scenario["definition"].as_str().unwrap_or("{}"))?},"properties":{"revision":scenario["displayed_revision"],"archived":scenario["archived"]},"relations":[],"artifacts":[]}));}
         for entity in &mut entities {
             if entity["kind"] == "scenario" {
                 let identity = entity["id"].as_str().unwrap_or("").to_string();
@@ -242,12 +400,120 @@ impl Application {
         }
         let queue = self.queue()?;
         let value = json!({"entities":entities,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true,"item_search":true},"host":{"machine_id":self.config.machine_id},"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});
-        *self
-            .catalog_cache
-            .lock()
-            .map_err(|_| Error::new("projection", "Projection cache unavailable", 503))? =
-            Some((revision, value.clone()));
+        if all {
+            *self
+                .catalog_cache
+                .lock()
+                .map_err(|_| Error::new("projection", "Projection cache unavailable", 503))? =
+                Some((revision, value.clone()));
+        }
         Ok(value)
+    }
+    pub fn dashboard_bootstrap(&self) -> Result<Value> {
+        let mut selected = vec![];
+        for row in rows(&self.db,"SELECT r.body FROM catalog_items i JOIN catalog_revisions r ON r.id=i.current_revision WHERE i.deleted=0 AND i.kind IN('scenario','job','dataset','model','experiment','artifact','profile','component','tool','runtime','dependency') ORDER BY i.rowid DESC LIMIT 50",&[])? {
+            selected.push(serde_json::from_str::<Value>(row["body"].as_str().unwrap_or("{}"))?);
+        }
+        let queue = self.queue()?;
+        for entry in queue["entries"].as_array().into_iter().flatten().take(200) {
+            let id = entry
+                .get("workflow")
+                .filter(|v| v.is_string())
+                .unwrap_or(&entry["id"]);
+            if let Ok(resolved) =
+                self.resolve_item(&json!({"native_ref":{"kind":"job","identity":{"id":id}}}))
+            {
+                if let Ok(item) = self.get_item(&json!({"item_id":resolved["item_id"]})) {
+                    if !selected.iter().any(|v| v["item_id"] == item["item_id"]) {
+                        selected.push(item);
+                    }
+                }
+            }
+        }
+        let mut catalog = self.dashboard_catalog_selected(Some(&selected))?;
+        catalog["summary"] = self.dashboard_summary()?;
+        catalog["activity"] = self.dashboard_activity("research")?;
+        catalog["capabilities"]["catalog_pages"] = json!(true);
+        catalog["initial_page_complete"] = json!(false);
+        Ok(catalog)
+    }
+    pub fn dashboard_entity(&self, args: &Value) -> Result<Value> {
+        let item = self.get_item(args)?;
+        let mut catalog = self.dashboard_catalog_selected(Some(std::slice::from_ref(&item)))?;
+        for entity in catalog["entities"].as_array_mut().unwrap() {
+            entity["item_id"] = item["item_id"].clone();
+            entity["item_revision_id"] = item["revision_id"].clone();
+        }
+        Ok(catalog)
+    }
+    /// List DTOs are projected only for the selected index page; payload trees stay lazy.
+    pub fn dashboard_page(&self, actor: &crate::auth::Actor, args: &Value) -> Result<Value> {
+        let mut query = args.clone();
+        if query["kinds"].as_array().is_none_or(Vec::is_empty) {
+            query["kinds"] = json!([
+                "scenario",
+                "job",
+                "dataset",
+                "model",
+                "experiment",
+                "artifact",
+                "profile",
+                "component",
+                "tool",
+                "runtime",
+                "dependency"
+            ]);
+        }
+        let page = self.search_items(actor, &query)?;
+        let selected = page["items"]
+            .as_array()
+            .ok_or_else(|| Error::input("Search page missing"))?;
+        let mut catalog = self.dashboard_catalog_selected(Some(selected))?;
+        catalog["next_cursor"] = page["next_cursor"].clone();
+        catalog["partial"] = page["partial"].clone();
+        catalog["consistency"] = page["consistency"].clone();
+        catalog["warnings"] = page["warnings"].clone();
+        catalog["capabilities"]["catalog_pages"] = json!(true);
+        for entity in catalog["entities"].as_array_mut().unwrap() {
+            let item = selected.iter().find(|item| {
+                let native = &item["native_ref"];
+                let id = &native["identity"];
+                match native["kind"].as_str().unwrap_or("") {
+                    "job" | "entity" | "scenario" => entity["id"] == id["id"],
+                    "historical" => entity["loom_history"] == *id,
+                    "profile" => {
+                        entity["id"]
+                            == format!(
+                                "profile:{}",
+                                id["kind"]
+                                    .as_str()
+                                    .or_else(|| item["profile_kind"].as_str())
+                                    .unwrap_or("")
+                            )
+                    }
+                    "runtime" => {
+                        entity["loom_runtime"]["id"] == id["id"]
+                            && entity["loom_runtime"]["revision"] == id["revision"]
+                    }
+                    "component" | "tool" => {
+                        entity["loom_extension"]["owner"] == id["owner"]
+                            && entity["loom_extension"]["id"] == id["id"]
+                    }
+                    "dependency" => entity["loom_dependency"]["name"] == id["name"],
+                    _ => false,
+                }
+            });
+            if let Some(item) = item {
+                entity["item_id"] = item["item_id"].clone();
+                entity["item_revision_id"] = item["revision_id"].clone();
+            }
+        }
+        // Search pagination follows authority items, not extra related DTOs.
+        catalog["entities"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|e| e["item_id"].is_string());
+        Ok(catalog)
     }
     pub fn observation_path(&self, name: &str) -> std::path::PathBuf {
         std::env::var_os("LOOM_OBSERVATIONS")

@@ -1,4 +1,5 @@
 //! Bounded service composition; SQLite and lifecycle decisions stay on one application lane.
+pub mod catalog_maintenance;
 pub mod indexer;
 pub mod log_collector;
 pub mod ownership;
@@ -13,6 +14,12 @@ use serde_json::Value;
 use std::{collections::BTreeSet, sync::Arc};
 use tokio::sync::{mpsc, oneshot};
 pub enum Message {
+    Maintenance(
+        String,
+        Value,
+        Option<String>,
+        oneshot::Sender<Result<Value>>,
+    ),
     CatalogTick(oneshot::Sender<Result<Value>>),
     Inventory(
         loom_core::inventory::PreparedInventory,
@@ -30,7 +37,7 @@ pub enum Message {
     ),
     HttpVerified(
         HttpRequest,
-        std::collections::BTreeMap<std::path::PathBuf, loom_core::storage::VerifiedFile>,
+        loom_core::reconcile::PreparedFiles,
         oneshot::Sender<Result<HttpReply>>,
     ),
     Http(HttpRequest, oneshot::Sender<Result<HttpReply>>),
@@ -43,7 +50,7 @@ pub enum Message {
     Publish(
         Work,
         Value,
-        std::collections::BTreeMap<std::path::PathBuf, loom_core::storage::VerifiedFile>,
+        loom_core::reconcile::PreparedFiles,
         oneshot::Sender<Result<Value>>,
     ),
     Cancelled(Work, oneshot::Sender<Result<bool>>),
@@ -73,6 +80,9 @@ impl Service {
         std::thread::spawn(move || {
             while let Some(message) = receive.blocking_recv() {
                 match message {
+                    Message::Maintenance(id, p, e, s) => {
+                        let _ = s.send(application.advance_maintenance(&id, &p, e.as_deref()));
+                    }
                     Message::CatalogTick(s) => {
                         let _ = s.send(application.catalog_tick());
                     }
@@ -126,7 +136,10 @@ impl Service {
                         let _ = s.send(application.effect_unknown(&w));
                     }
                     Message::Publish(w, v, proofs, s) => {
-                        let _ = s.send(application.publish_work_verified(&w, v, Some(&proofs)));
+                        application.set_file_sets(proofs.inventories);
+                        let result = application.publish_work_verified(&w, v, Some(&proofs.files));
+                        application.set_file_sets(Default::default());
+                        let _ = s.send(result);
                     }
                     Message::Cancelled(w, s) => {
                         let _ = s.send(application.cancelled(&w));
@@ -213,6 +226,23 @@ impl Service {
                 return tokio::task::spawn_blocking(move || {
                     let _permit = permit;
                     let _heavy = heavy;
+                    if let Some((executor, args)) = context.live_file_request(&r)? {
+                        let value = loom_host::wire::call(
+                            std::path::Path::new(
+                                executor["socket"]
+                                    .as_str()
+                                    .ok_or_else(|| Error::input("Executor socket required"))?,
+                            ),
+                            std::path::Path::new(
+                                executor["credential"]
+                                    .as_str()
+                                    .ok_or_else(|| Error::input("Executor credential required"))?,
+                            ),
+                            "runtime_file_read",
+                            &args,
+                        );
+                        return context.http_with_file(r, value);
+                    }
                     let source = match context.live_log_request(&r) {
                         Ok(source) => source,
                         Err(_) => return context.http(r),
@@ -248,11 +278,7 @@ impl Service {
             let proofs = tokio::task::spawn_blocking(move || {
                 let _permit = permit;
                 let _heavy = heavy;
-                context
-                    .files
-                    .iter()
-                    .map(|path| Ok((path.clone(), loom_core::storage::VerifiedFile::read(path)?)))
-                    .collect::<Result<std::collections::BTreeMap<_, _>>>()
+                context.prepare_files()
             })
             .await
             .map_err(|_| Error::new("verification", "File verification worker stopped", 503))??;
@@ -360,7 +386,7 @@ impl Service {
         &self,
         w: Work,
         v: Value,
-        proofs: std::collections::BTreeMap<std::path::PathBuf, loom_core::storage::VerifiedFile>,
+        proofs: loom_core::reconcile::PreparedFiles,
     ) -> Result<Value> {
         let (s, r) = oneshot::channel();
         self.send

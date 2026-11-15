@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0-alpha.3
+
+- Add explicit plan/validate/apply reconciliation with immutable source evidence,
+  nullable-Job imported assets and verified additive file bindings.
+- Complete bounded file inventories, exact member inputs, Runtime file discovery,
+  source-qualified search/graphs and online search/log maintenance.
+- Page Dashboard catalogs and preserve exact historical/Profile revisions; use
+  compact actual-interval Activity instead of loading the entire catalog.
+- Preserve installed identities, credentials and original records through the
+  native schema 4 → 5 → 6 → 7 upgrade chain. Pin Loom Use alpha.10.
+
 ## Unreleased — native Rust candidate
 
 - Add a native domain/application, scoped host executor, producer SDK and offline migrator; retain web, scientific SDKs and administrator integrations.

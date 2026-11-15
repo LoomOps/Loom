@@ -44,6 +44,13 @@ pub fn initialize(db: &Connection) -> Result<()> {
         ],
     )?;
     for (table, keys) in sources() {
+        if !db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name=?)",
+            [table],
+            |r| r.get::<_, bool>(0),
+        )? {
+            continue;
+        }
         let identity = sql_identity(&keys, "NEW");
         let old = sql_identity(&keys, "OLD");
         for (verb, key) in [
@@ -85,6 +92,8 @@ pub fn sources() -> Vec<(&'static str, Vec<&'static str>)> {
         ("jobs", vec!["id"]),
         ("job_workflows", vec!["id"]),
         ("entity_revisions", vec!["id", "revision"]),
+        ("asset_revisions", vec!["id", "revision"]),
+        ("asset_locations", vec!["id", "revision"]),
         (
             "history_records",
             vec!["source", "kind", "id", "revision", "snapshot"],
@@ -109,7 +118,12 @@ fn source(db: &Connection, topic: &str, key: &Value) -> Result<Option<Value>> {
         .find(|(t, _)| *t == topic)
         .ok_or_else(|| Error::input("Unknown catalog source"))?;
     let sql = format!(
-        "SELECT * FROM {table} WHERE {} LIMIT 1",
+        "SELECT {}* FROM {table} WHERE {} LIMIT 1",
+        if topic == "history_records" {
+            "rowid AS source_order,"
+        } else {
+            ""
+        },
         fields
             .iter()
             .map(|k| format!("{k} IS ?"))
@@ -140,7 +154,11 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
     }
     if matches!(
         topic,
-        "entity_locations" | "historical_bindings" | "research_overlays" | "scenario_links"
+        "entity_locations"
+            | "asset_locations"
+            | "historical_bindings"
+            | "research_overlays"
+            | "scenario_links"
     ) {
         return Ok(None);
     }
@@ -170,7 +188,7 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
                 json!({"kind":"job","label":spec["presentation"].get("label").or_else(||spec.get("label")).or_else(||spec.get("kind")).unwrap_or(&row["id"]),"recorded_at":row["created"],"state":row["state"],"owner":row["owner"],"category":spec["category"],"scope":if spec["presentation"]["scope"].is_string(){spec["presentation"]["scope"].clone()}else{json!("research")},"role":if root.is_some(){json!("support")}else{spec["presentation"].get("role").cloned().unwrap_or(json!("main"))},"workflow_root":root,"scenario_ref":spec["scenario_ref"],"workflow":topic=="job_workflows"}),
             )
         }
-        "entity_revisions" => {
+        "entity_revisions" | "asset_revisions" => {
             let m = decode(&row["manifest"]);
             let p: Value = db
                 .query_row(
@@ -186,7 +204,7 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
                 json!({"id":row["id"]}),
                 json!({"id":row["id"],"revision":row["revision"]}),
                 m.clone(),
-                json!({"kind":row["kind"],"label":m.get("label").unwrap_or(&row["id"]),"owner":row["owner"],"recorded_at":null,"job":row["job"],"scope":p["presentation"].get("scope").cloned().unwrap_or(json!("research")),"role":p["presentation"].get("role").cloned().unwrap_or(json!("main")),"scenario_ref":p["scenario_ref"],"summary":m.get("description").and_then(Value::as_str).unwrap_or("")}),
+                json!({"kind":row["kind"],"label":m.get("label").unwrap_or(&row["id"]),"owner":row["owner"],"recorded_at":null,"job":row["job"],"scope":p["presentation"].get("scope").or_else(||m["presentation"].get("scope")).cloned().unwrap_or(json!("research")),"role":p["presentation"].get("role").or_else(||m["presentation"].get("role")).cloned().unwrap_or(json!("main")),"scenario_ref":p.get("scenario_ref").or_else(||m.get("scenario_ref")),"summary":m.get("description").and_then(Value::as_str).unwrap_or("")}),
             )
         }
         "history_records" => {
@@ -203,6 +221,8 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
             .unwrap_or(json!({}));
             let kind = if row["kind"] == "job_view" {
                 json!("job")
+            } else if row["kind"] == "run" {
+                json!("experiment")
             } else {
                 row["kind"].clone()
             };
@@ -211,7 +231,7 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
                 key.clone(),
                 key.clone(),
                 m.clone(),
-                json!({"kind":kind,"label":m["original"].get("label").or_else(||m["entity"].get("label")).or_else(||m["record"]["spec"]["presentation"].get("label")).unwrap_or(&row["id"]),"scope":presentation.get("scope").cloned().unwrap_or(json!("research")),"role":presentation.get("role").cloned().unwrap_or(json!("main")),"historical":true,"recorded_at":m["record"]["created"].as_f64(),"snapshot":row["snapshot"],"state":m["record"].get("state").or_else(||m["entity"].get("state")).cloned()}),
+                json!({"kind":kind,"label":m["original"].get("label").or_else(||m["entity"].get("label")).or_else(||m["record"]["spec"]["presentation"].get("label")).unwrap_or(&row["id"]),"scope":presentation.get("scope").cloned().unwrap_or(json!("research")),"role":presentation.get("role").cloned().unwrap_or(json!("main")),"historical":true,"source_order":row["source_order"],"recorded_at":m["record"]["created"].as_f64(),"snapshot":row["snapshot"],"state":m["record"].get("state").or_else(||m["entity"].get("state")).cloned()}),
             )
         }
         "components" | "tools" | "execution_profiles" => {
@@ -264,6 +284,19 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
         }
         _ => return Ok(None),
     };
+    if topic == "execution_profiles" {
+        body["profile_kind"] = definition["revision"].clone();
+        body["profile_sha256"] = definition["sha256"].clone();
+    }
+    if body.get("origin_type").is_none() {
+        body["origin_type"] = json!(if native_kind == "historical" {
+            "preserved"
+        } else if topic == "entity_revisions" || topic == "asset_revisions" {
+            definition["origin"]["type"].as_str().unwrap_or("produced")
+        } else {
+            "registered"
+        });
+    }
     let id = exact["id"].as_str().unwrap_or("");
     let overlay: Option<String> = db
         .query_row(
@@ -294,6 +327,21 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
     Ok(Some((native_kind.into(), logical, definition, body)))
 }
 pub fn adopt(db: &Connection, topic: &str, key: &Value) -> Result<()> {
+    if topic == "components" {
+        if let Some(row) = source(db, topic, key)? {
+            let profiles = decode(&row["profiles"]);
+            for (kind, p) in profiles.as_object().into_iter().flatten() {
+                let identity = encode(&json!({"kind":kind}))?;
+                let body = json!({"kind":"profile","profile_kind":kind,"profile_sha256":p["sha256"],"label":p["usage"]["label"].as_str().unwrap_or(kind),"summary":p["usage"]["description"].as_str().unwrap_or(""),"scope":"research","role":"main","origin_type":"registered","source_key":p["sha256"].as_str().map(String::from).unwrap_or(hash(encode(p)?)),"native_ref":{"kind":"profile","identity":{"kind":kind,"sha256":p["sha256"]}},"component_ref":{"owner":row["owner"],"id":row["id"],"revision":row["revision"]}});
+                db.execute("INSERT INTO catalog_sources VALUES('profile',?,?) ON CONFLICT(kind,identity) DO UPDATE SET body=excluded.body WHERE body!=excluded.body",params![identity,encode(&body)?])?;
+                adopt(
+                    db,
+                    "catalog_sources",
+                    &json!({"kind":"profile","identity":identity}),
+                )?;
+            }
+        }
+    }
     if topic == "rust_runtime_observation" {
         return adopt_runtimes(db);
     }
@@ -307,7 +355,7 @@ pub fn adopt(db: &Connection, topic: &str, key: &Value) -> Result<()> {
         }
         return Ok(());
     }
-    if topic == "entity_locations" {
+    if matches!(topic, "entity_locations" | "asset_locations") {
         return emit_parent_refresh(db, "entity", key);
     }
     if topic == "historical_bindings" {
@@ -332,7 +380,20 @@ pub fn adopt(db: &Connection, topic: &str, key: &Value) -> Result<()> {
         let refs=crate::store::rows(db,"SELECT r.native_ref FROM catalog_items i JOIN catalog_revisions r ON i.current_revision=r.id WHERE i.native_kind=? AND json_extract(r.native_ref,'$.identity.id')=?",&[&native_kind,&key["id"].as_str()])?;
         for r in refs {
             let native: Value = serde_json::from_str(r["native_ref"].as_str().unwrap_or("{}"))?;
-            adopt(db, table, &native["identity"])?;
+            let actual = if table == "entity_revisions"
+                && db.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM asset_revisions WHERE id=? AND revision=?)",
+                    params![
+                        native["identity"]["id"].as_str(),
+                        native["identity"]["revision"].as_i64()
+                    ],
+                    |r| r.get::<_, bool>(0),
+                )? {
+                "asset_revisions"
+            } else {
+                table
+            };
+            adopt(db, actual, &native["identity"])?;
         }
 
         return emit_parent_refresh(
@@ -440,7 +501,14 @@ pub fn adopt(db: &Connection, topic: &str, key: &Value) -> Result<()> {
         "INSERT OR IGNORE INTO catalog_revisions VALUES(?,?,?,?,?)",
         params![revision, item, source_key, encode(&native_ref)?, encoded],
     )?;
-    for identity in [&logical, &native_ref["identity"]] {
+    let secondary = body["profile_kind"]
+        .as_str()
+        .map(|kind| json!({"kind":kind,"sha256":body["profile_sha256"]}));
+    let mut identities = vec![logical.clone(), native_ref["identity"].clone()];
+    if let Some(secondary) = secondary {
+        identities.push(secondary)
+    }
+    for identity in &identities {
         if !current && identity == &logical {
             continue;
         }
@@ -507,6 +575,15 @@ pub fn flush(db: &Connection, since: i64, limit: usize) -> Result<usize> {
     Ok(batch.len())
 }
 impl Application {
+    pub fn catalog_head(&self) -> Result<i64> {
+        Ok(self.db.query_row(
+            "SELECT COALESCE(max(seq),0) FROM catalog_changes",
+            [],
+            |r| r.get(0),
+        )?)
+    }
+}
+impl Application {
     pub fn get_item(&self, args: &Value) -> Result<Value> {
         let item = parse(&args["item_id"])?;
         let exists: bool = self.db.query_row(
@@ -554,9 +631,20 @@ impl Application {
         let tx = self.transaction()?;
         let mut left = 128;
         for (topic, keys) in sources() {
+            if !tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name=?)",
+                [topic],
+                |r| r.get::<_, bool>(0),
+            )? {
+                continue;
+            }
             if matches!(
                 topic,
-                "entity_locations" | "historical_bindings" | "research_overlays" | "scenario_links"
+                "entity_locations"
+                    | "asset_locations"
+                    | "historical_bindings"
+                    | "research_overlays"
+                    | "scenario_links"
             ) {
                 tx.execute(
                     "UPDATE catalog_backfill SET complete=1 WHERE topic=?",
@@ -612,7 +700,11 @@ impl Application {
         self.catalog_tick()?;
         let tasks = self.pending_inventories()?;
         for (item, revision) in tasks {
-            let prepared = crate::inventory::prepare(self, &item, &revision)?;
+            let prepared = match crate::inventory::prepare(self, &item, &revision) {
+                Ok(p) => p,
+                Err(e) if e.code == "runtime_provider_required" => continue,
+                Err(e) => return Err(e),
+            };
             self.commit_inventory(prepared)?;
         }
         let mut index = crate::index_store::IndexWriter::open(self)?;
@@ -631,7 +723,7 @@ impl Application {
             let body = json!({"kind":"profile","label":p.get("label").and_then(Value::as_str).unwrap_or(&kind),"summary":p.get("description").and_then(Value::as_str).unwrap_or(""),"source_key":p["sha256"].as_str().map(String::from).unwrap_or(hash(encode(&p)?)),"native_ref":{"kind":"profile","identity":{"kind":kind,"sha256":p["sha256"]}},"scope":"research","role":"main","origin_type":"installation"});
             tx.execute("INSERT INTO catalog_sources VALUES('profile',?,?) ON CONFLICT(kind,identity) DO UPDATE SET body=excluded.body WHERE body!=excluded.body",params![encode(&identity)?,encode(&body)?])?;
         }
-        let body = json!({"kind":"profile","label":"cpu.smoke","native_ref":{"kind":"profile","identity":{"kind":"cpu.smoke"}},"origin_type":"builtin","scope":"operations","role":"test","source_key":hash(env!("CARGO_PKG_VERSION"))});
+        let body = json!({"kind":"profile","label":"cpu.smoke","native_ref":{"kind":"profile","identity":{"kind":"cpu.smoke"}},"origin_type":"builtin","scope":"research","role":"main","source_key":hash(env!("CARGO_PKG_VERSION"))});
         tx.execute(
             "INSERT OR IGNORE INTO catalog_sources VALUES('profile',?,?)",
             params![encode(&json!({"kind":"cpu.smoke"}))?, encode(&body)?],
@@ -641,6 +733,16 @@ impl Application {
     }
 }
 
+pub fn dependency_ref(runtime: &Value, dep: &Value) -> Value {
+    let origin = dep.get("origin").cloned().unwrap_or_else(|| {
+        if dep["scope"] == "image" {
+            json!({"type":"image","image":runtime["manifest"]["runtime"]["image"]})
+        } else {
+            json!({"type":"runtime","id":runtime["id"]})
+        }
+    });
+    json!({"name":dep["name"].as_str().unwrap_or("").to_lowercase(),"version":dep["version"],"scope":dep["scope"].as_str().unwrap_or("unrecorded"),"origin":origin})
+}
 fn adopt_runtimes(db: &Connection) -> Result<()> {
     let encoded: Option<String> = db
         .query_row(
@@ -653,15 +755,44 @@ fn adopt_runtimes(db: &Connection) -> Result<()> {
         return Ok(());
     };
     let value: Value = serde_json::from_str(&encoded)?;
+    if !value["runtimes"].is_array() || value["status"] == "unavailable" {
+        return Ok(());
+    }
+    let mut dependencies_present = std::collections::BTreeSet::new();
     let mut present = vec![];
     for runtime in value["runtimes"].as_array().into_iter().flatten() {
         if runtime["legacy"] == true {
             continue;
         }
+        let primary = crate::runtime::primary(&runtime["manifest"], None)?;
+        for dep in runtime["manifest"]["dependencies"]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
+            if !dep["name"].is_string() || !dep["version"].is_string() {
+                continue;
+            }
+            let exact = dependency_ref(runtime, dep);
+            let logical =
+                json!({"name":exact["name"],"scope":exact["scope"],"origin":exact["origin"]});
+            let key = encode(&logical)?;
+            dependencies_present.insert(key.clone());
+            let main = primary
+                .iter()
+                .any(|d| d["name"] == dep["name"] && d["version"] == dep["version"]);
+            let body = json!({"kind":"dependency","label":dep["name"],"version":dep["version"],"category":dep["category"],"scope":if main{"research"}else{"operations"},"role":if main{"main"}else{"support"},"origin_type":"host","source_key":hash(encode(&exact)?),"native_ref":{"kind":"dependency","identity":exact},"source_status":"observed","recorded_at":null});
+            db.execute("INSERT INTO catalog_sources VALUES('dependency',?,?) ON CONFLICT(kind,identity) DO UPDATE SET body=excluded.body WHERE body!=excluded.body",params![key,encode(&body)?])?;
+            adopt(
+                db,
+                "catalog_sources",
+                &json!({"kind":"dependency","identity":key}),
+            )?;
+        }
         let identity = json!({"id":runtime["id"]});
         let exact =
             json!({"id":runtime["id"],"revision":runtime["revision"],"sha256":runtime["sha256"]});
-        let body = json!({"kind":"runtime","label":runtime["manifest"].get("label").unwrap_or(&runtime["id"]),"scope":"research","role":"main","source_key":runtime["sha256"],"native_ref":{"kind":"runtime","identity":exact},"dependencies":runtime["manifest"].get("primary_dependencies").cloned().unwrap_or(json!([])),"source_status":"observed"});
+        let body = json!({"kind":"runtime","label":runtime["manifest"].get("label").unwrap_or(&runtime["id"]),"scope":"research","role":"main","source_key":runtime["sha256"],"native_ref":{"kind":"runtime","identity":exact},"dependencies":runtime["manifest"].get("primary_dependencies").cloned().unwrap_or(json!([])),"source_status":"observed","file_inventory":runtime["manifest"]["file_inventory"]});
         let key = encode(&identity)?;
         present.push(key.clone());
         db.execute("INSERT INTO catalog_sources VALUES('runtime',?,?) ON CONFLICT(kind,identity) DO UPDATE SET body=excluded.body WHERE body!=excluded.body",params![key,encode(&body)?])?;
@@ -680,8 +811,23 @@ fn adopt_runtimes(db: &Connection) -> Result<()> {
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
     for (id, key) in old {
-        if !present.contains(&key) {
+        if value["complete"] != false && !present.contains(&key) {
             tombstone(db, &id)?;
+        }
+    }
+    if value["complete"] != false {
+        let mut q = db.prepare(
+            "SELECT id,native_key FROM catalog_items WHERE native_kind='dependency' AND deleted=0",
+        )?;
+        let old = q
+            .query_map([], |r| {
+                Ok((r.get::<_, Vec<u8>>(0)?, r.get::<_, String>(1)?))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        for (id, key) in old {
+            if !dependencies_present.contains(&key) {
+                tombstone(db, &id)?;
+            }
         }
     }
     Ok(())
@@ -719,46 +865,6 @@ impl Application {
         )?;
         Ok(
             json!({"schema":"loom-dashboard-summary/v1","counts":counts,"search":self.search_status()?,"capabilities":{"search_items":true,"item_files":true,"logs":true},"observed_at":now()}),
-        )
-    }
-    pub fn item_relations(&self, args: &Value) -> Result<Value> {
-        let detail = self.get_item(args)?;
-        let native = &detail["native_ref"];
-        let mut edges = vec![];
-        // Only declared exact references, never infer lineage from a matching digest/name.
-        if detail["scenario_ref"]["id"].is_string() {
-            edges.push(json!({"relation":"scenario","native_ref":{"kind":"scenario","identity":detail["scenario_ref"]}}));
-        }
-        if let Some(job) = detail["job"].as_str() {
-            edges.push(
-                json!({"relation":"produced_by","native_ref":{"kind":"job","identity":{"id":job}}}),
-            );
-        }
-        if let Some(root) = detail["workflow_root"].as_str() {
-            edges.push(
-                json!({"relation":"workflow","native_ref":{"kind":"job","identity":{"id":root}}}),
-            );
-        }
-        if native["kind"] == "job" {
-            let id = native["identity"]["id"].as_str();
-            for child in rows(
-                &self.db,
-                "SELECT job FROM workflow_nodes WHERE root=? ORDER BY node LIMIT 201",
-                &[&id],
-            )? {
-                edges.push(json!({"relation":"step","native_ref":{"kind":"job","identity":{"id":child["job"]}}}));
-            }
-        }
-        let partial = edges.len() > 200;
-        edges.truncate(200);
-        for edge in &mut edges {
-            if let Ok(resolved) = self.resolve_item(&json!({"native_ref":edge["native_ref"]})) {
-                edge["item_id"] = resolved["item_id"].clone();
-                edge["revision_id"] = resolved["revision_id"].clone();
-            }
-        }
-        Ok(
-            json!({"items":edges,"next_cursor":null,"partial":partial,"warnings":if partial{json!(["relations_truncated"])}else{json!([])}}),
         )
     }
 }

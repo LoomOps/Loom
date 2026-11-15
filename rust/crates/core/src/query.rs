@@ -636,9 +636,6 @@ impl Application {
         self.assign_responsibility(actor, "job", id, owner, &fallback)
     }
     pub fn job_logs(&self, args: Value) -> Result<Value> {
-        if let Some(value) = &self.live_logs {
-            return value.clone();
-        }
         let row = jobs::load(
             &self.db,
             args["id"]
@@ -649,6 +646,10 @@ impl Application {
             .as_str()
             .or(row.aggregate.fence.attempt.as_ref().map(|a| a.as_str()))
             .ok_or_else(|| Error::input("Attempt required"))?;
+        crate::log_index::legacy_guard(self, row.aggregate.id.as_str(), attempt)?;
+        if let Some(value) = &self.live_logs {
+            return value.clone();
+        }
         let (base, _) = crate::storage::store(
             &self.config,
             &self.bulk,

@@ -31,8 +31,11 @@ impl Application {
         Ok(Some(self.decorate_owner("job", id, &owner, record)?))
     }
     pub fn imported_entities(&self) -> Result<Vec<Value>> {
+        self.imported_entities_selected(None)
+    }
+    pub fn imported_entities_selected(&self, selected: Option<&str>) -> Result<Vec<Value>> {
         let mut entities = vec![];
-        for row in rows(&self.db,"SELECT h.* FROM history_records h WHERE h.rowid IN(SELECT max(rowid) FROM history_records WHERE kind='job_view' AND source IN ('queue','loom-ops') GROUP BY id) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.id=h.id) ORDER BY h.id",&[])? {
+        for row in rows(&self.db,"SELECT h.* FROM history_records h WHERE (? OR h.id IN(SELECT value FROM json_each(?))) AND h.rowid IN(SELECT max(rowid) FROM history_records WHERE kind='job_view' AND source IN ('queue','loom-ops') GROUP BY id) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.id=h.id) ORDER BY h.id",&[&selected.is_none(),&selected.unwrap_or("[]")])? {
    let body:Value=serde_json::from_str(row["body"].as_str().unwrap_or("{}"))?;let Some(mut entity)=body.get("entity").filter(|v|v.is_object()).cloned() else{continue};
    entity["kind"]=json!("job");entity["loom_history"]=json!({"source":row["source"],"kind":row["kind"],"id":row["id"],"revision":row["revision"],"snapshot":row["snapshot"]});entity["migration"]=json!({"read_only":true,"source":row["source"],"snapshot":row["snapshot"]});let owner=entity["owner"].as_str().or_else(||entity["properties"]["owner"].as_str()).unwrap_or("").to_string();let id=row["id"].as_str().unwrap_or("");entities.push(self.decorate_owner("job",id,&owner,entity)?);
   }
@@ -42,11 +45,11 @@ impl Application {
         let view = args["view"].as_str().unwrap_or("research");
         let mut out = vec![];
         let mut native = std::collections::BTreeSet::new();
-        for mut row in rows(&self.db,"SELECT e.id,e.revision,e.job,e.kind,e.owner,e.submitter,e.manifest,j.spec FROM entity_revisions e JOIN jobs j ON j.id=e.job ORDER BY e.id,e.revision",&[])?{
+        for mut row in rows(&self.db,"SELECT e.id,e.revision,e.job,e.kind,e.owner,e.submitter,e.manifest,j.spec FROM all_entity_revisions e LEFT JOIN jobs j ON j.id=e.job ORDER BY e.id,e.revision",&[])?{
    let manifest:Value=serde_json::from_str(row["manifest"].as_str().unwrap_or("{}"))?;let spec:Value=serde_json::from_str(row["spec"].as_str().unwrap_or("{}"))?;
    native.insert(row["id"].as_str().unwrap_or("").to_string());
    let overlay:Option<String>=self.db.query_row("SELECT presentation FROM research_overlays WHERE (kind='entity' AND id=?) OR (kind='job' AND id=?) ORDER BY kind LIMIT 1",params![row["id"].as_str(),row["job"].as_str()],|r|r.get(0)).optional()?;
-   let mut presentation=spec.get("presentation").cloned().unwrap_or(json!({"scope":"research","role":"main"}));if let Some(overlay)=overlay{presentation.as_object_mut().unwrap().extend(serde_json::from_str::<Value>(&overlay)?.as_object().unwrap().clone());}
+   let mut presentation=manifest.get("presentation").or_else(||spec.get("presentation")).cloned().unwrap_or(json!({"scope":"research","role":"main"}));if let Some(overlay)=overlay{presentation.as_object_mut().unwrap().extend(serde_json::from_str::<Value>(&overlay)?.as_object().unwrap().clone());}
    row.as_object_mut().unwrap().remove("manifest");row.as_object_mut().unwrap().remove("spec");row["record_type"]=json!("native");row["detail_action"]=json!("results.get");row["label"]=manifest.get("label").cloned().unwrap_or_else(||row["id"].clone());row["presentation"]=presentation;
    if view=="all"||row["presentation"]["scope"]==view{let id=row["id"].as_str().unwrap_or("").to_string();let owner=row["owner"].as_str().unwrap_or("").to_string();out.push(self.decorate_owner("entity",&id,&owner,row)?)}
   }

@@ -215,3 +215,71 @@ fn cancel_intent_before_a_delayed_start_creates_a_durable_no_launch_tombstone() 
     let counts = f.fake.0.lock().unwrap();
     assert_eq!((counts.creates, counts.starts), (0, 0));
 }
+
+#[test]
+fn runtime_file_inventory_is_scoped_budgeted_and_checks_current_grants() {
+    let f = Fixture::new();
+    let dependency = f.root.join("dependencies");
+    std::fs::create_dir(&dependency).unwrap();
+    std::fs::create_dir(dependency.join("python")).unwrap();
+    std::fs::write(dependency.join("python/a.txt"), "first").unwrap();
+    std::fs::write(dependency.join("python/a-b.txt"), "second").unwrap();
+    std::fs::create_dir(dependency.join("python/a")).unwrap();
+    std::fs::write(dependency.join("python/a/deep.txt"), "third").unwrap();
+    let mut config = f.executor.config.clone();
+    config
+        .instances
+        .get_mut("one")
+        .unwrap()
+        .extra
+        .insert("dependencies".into(), json!(dependency));
+    let manifest = json!({"runtime":{"image":format!("sha256:{}","a".repeat(64))},"dependencies":[{"name":"Python","version":"3.12","path":dependency.join("python")}],"validation":{"status":"passed"}});
+    let registered = loom_host::runtime::register(
+        &f.root,
+        &config,
+        "inventory-runtime",
+        manifest,
+        &["one".into()],
+    )
+    .unwrap();
+    let pin = json!({"id":"inventory-runtime","revision":registered["revision"],"sha256":registered["sha256"]});
+    assert!(loom_host::runtime_files::register_inventory(
+        &f.root,
+        &config,
+        "one",
+        &json!({"runtime_ref":pin,"roots":[{"prefix":"."}]})
+    )
+    .is_err());
+    assert!(loom_host::runtime_files::register_inventory(
+        &f.root,
+        &config,
+        "one",
+        &json!({"runtime_ref":pin,"roots":[{"prefix":"python"}],"max_bytes":1})
+    )
+    .is_err());
+    let inventory=loom_host::runtime_files::register_inventory(&f.root,&config,"one",&json!({"runtime_ref":pin,"roots":[{"prefix":"python","dependency":{"name":"Python","version":"3.12"}}],"max_bytes":64})).unwrap();
+    let next = json!({"id":"inventory-runtime","revision":inventory["revision"],"sha256":inventory["sha256"]});
+    let grant = || loom_host::runtime_files::grant(&f.root, &config, "one", &next).unwrap();
+    let page = grant()
+        .call("runtime_file_page", &json!({"limit":2}))
+        .unwrap();
+    assert_eq!(page["items"].as_array().unwrap().len(), 2);
+    assert!(page["items"][0].get("proof").is_none());
+    assert_eq!(page["items"][0]["entry_key"], "python/a-b.txt");
+    let bytes = grant()
+        .call(
+            "runtime_file_read",
+            &json!({"entry_key":"python/a.txt","limit":10}),
+        )
+        .unwrap();
+    assert_eq!(bytes["sha256"], loom_core::store::hash("first"));
+    assert!(loom_host::runtime_files::grant(&f.root, &config, "two", &next).is_err());
+    std::fs::write(dependency.join("python/a.txt"), "mutated").unwrap();
+    assert_eq!(
+        grant()
+            .call("runtime_file_read", &json!({"entry_key":"python/a.txt"}))
+            .unwrap_err()
+            .code,
+        "artifact"
+    );
+}

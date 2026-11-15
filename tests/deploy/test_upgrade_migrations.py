@@ -286,3 +286,13 @@ class ItemManifestPreservationTests(unittest.TestCase):
             chunk.write_text('corrupt');state_snapshot.restore(root,saved);self.assertEqual(chunk.read_text(),'sealed identities')
             config.write_text(json.dumps({'catalog':{'manifest_directory':'/unmapped/manifest'}}))
             with self.assertRaisesRegex(ValueError,'preservation plan'):state_snapshot.external_roots(root,Path(temp))
+
+    def test_rollback_guard_compares_copy_identity_and_mutated_plan_evidence(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)/'instance';(root/'runtime').mkdir(parents=True);(root/'compose.env').write_text('')
+            with sqlite3.connect(root/'runtime/ops.sqlite3') as db:
+                db.execute('CREATE TABLE file_bindings(file BLOB,locator TEXT,evidence TEXT,PRIMARY KEY(file,locator))')
+                db.execute('INSERT INTO file_bindings VALUES(?,?,?)',(b'i'*16,'one','proof-one'))
+            archive=Path(temp)/'backup';archive.mkdir();saved=state_snapshot.capture(root,archive,Path(temp))
+            with sqlite3.connect(root/'runtime/ops.sqlite3') as db:db.execute('INSERT INTO file_bindings VALUES(?,?,?)',(b'i'*16,'two','proof-two'))
+            with self.assertRaisesRegex(ValueError,'Item identities'):state_snapshot.guard_catalog_rollback(root,saved)

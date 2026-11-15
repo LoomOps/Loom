@@ -689,7 +689,7 @@
   },
   "results.search_items": {
     "title": "Search Items",
-    "description": "Find compact registered Items by literal text and structured filters; preserve partial status and opaque snapshot cursors.",
+    "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits.",
     "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
     "example": {},
     "errors": [
@@ -731,7 +731,7 @@
   },
   "results.item_relations": {
     "title": "Read Item relations",
-    "description": "Read declared Scenario, producing Job and workflow relationships. Matching names or hashes never infer lineage.",
+    "description": "Page exact outgoing declarations and indexed reverse software use. Cursors pin source revision, authority head, actor and index generation; unresolved references remain explicit.",
     "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
     "example": {},
     "errors": [
@@ -853,6 +853,260 @@
       "source_unavailable",
       "content_changed",
       "query_too_broad"
+    ]
+  },
+  "results.reconcile_contract": {
+    "title": "Discover reconciliation",
+    "description": "Read accepted source adapters, explicit operations, scopes and limits.",
+    "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+    "example": {},
+    "errors": [
+      "source_conflict",
+      "plan_stale",
+      "validation_required",
+      "content_changed",
+      "retention_gap",
+      "cursor_expired",
+      "index_unavailable"
+    ]
+  },
+  "results.reconcile_inspect": {
+    "title": "Inspect registered reconciliation scope",
+    "description": "Page registered metadata without scanning unregistered payload directories.",
+    "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+    "example": {
+      "kinds": [
+        "dataset"
+      ],
+      "limit": 50
+    },
+    "errors": [
+      "source_conflict",
+      "plan_stale",
+      "validation_required",
+      "content_changed",
+      "retention_gap",
+      "cursor_expired",
+      "index_unavailable"
+    ]
+  },
+  "results.reconcile_plan": {
+    "title": "Plan an exact reconciliation",
+    "description": "Normalize a bounded explicit proposal with a stable key; reject ambiguous or conflicting identities. This does not copy files or create research execution.",
+    "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+    "example": {
+      "key": "preserved-assets-v1",
+      "proposal": {
+        "schema": "loom-reconcile/v1",
+        "operations": [
+          {
+            "operation": "adopt",
+            "native_ref": {
+              "kind": "entity",
+              "identity": {
+                "id": "existing-id",
+                "revision": 1
+              }
+            }
+          }
+        ]
+      }
+    },
+    "errors": [
+      "source_conflict",
+      "plan_stale",
+      "validation_required",
+      "content_changed",
+      "retention_gap",
+      "cursor_expired",
+      "index_unavailable"
+    ]
+  },
+  "results.reconcile_get": {
+    "title": "Read reconciliation receipt",
+    "description": "Read the caller’s durable proposal, validation state and original apply receipt.",
+    "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+    "example": {
+      "plan_id": "plan-id"
+    },
+    "errors": [
+      "source_conflict",
+      "plan_stale",
+      "validation_required",
+      "content_changed",
+      "retention_gap",
+      "cursor_expired",
+      "index_unavailable"
+    ]
+  },
+  "results.reconcile_validate": {
+    "title": "Validate reconciliation sources",
+    "description": "Hash only declared candidates off the execution writer, check grants and original evidence, and record proofs. Validation is structural and byte-integrity only.",
+    "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+    "example": {
+      "plan_id": "plan-id"
+    },
+    "errors": [
+      "source_conflict",
+      "plan_stale",
+      "validation_required",
+      "content_changed",
+      "retention_gap",
+      "cursor_expired",
+      "index_unavailable"
+    ]
+  },
+  "results.reconcile_apply": {
+    "title": "Apply verified reconciliation",
+    "description": "Recheck source stamps, exact identities and grants, then atomically add imports or bindings. Historical originals and Job/Attempt counts are preserved.",
+    "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+    "example": {
+      "plan_id": "plan-id"
+    },
+    "errors": [
+      "source_conflict",
+      "plan_stale",
+      "validation_required",
+      "content_changed",
+      "retention_gap",
+      "cursor_expired",
+      "index_unavailable"
+    ]
+  },
+  "system.rebuild_search": {
+    "title": "Rebuild search online",
+    "description": "Build a separate source-qualified generation while the current index stays readable; switch atomically after catch-up.",
+    "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+    "example": {
+      "key": "rebuild-index-1",
+      "max_batches": 10000
+    },
+    "errors": [
+      "source_conflict",
+      "plan_stale",
+      "validation_required",
+      "content_changed",
+      "retention_gap",
+      "cursor_expired",
+      "index_unavailable"
+    ]
+  },
+  "system.catalog_task": {
+    "title": "Read maintenance progress",
+    "description": "Read caller-scoped durable background maintenance progress, failure or receipt.",
+    "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+    "example": {
+      "id": "task-id"
+    },
+    "errors": [
+      "source_conflict",
+      "plan_stale",
+      "validation_required",
+      "content_changed",
+      "retention_gap",
+      "cursor_expired",
+      "index_unavailable"
+    ]
+  },
+  "jobs.prune_logs": {
+    "title": "Expire selected log generations",
+    "description": "Expire explicit returned and closed stream generations, preserve gap evidence and remove their searchable/raw captured bytes. Does not remove Jobs or containers.",
+    "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+    "example": {
+      "key": "retention-1",
+      "reason": "Explicit retention policy",
+      "streams": [
+        {
+          "stream_id": "2156055679491977121222771780406505881",
+          "source_generation": "019ac000-0000-7000-8000-000000000000"
+        }
+      ]
+    },
+    "errors": [
+      "source_conflict",
+      "plan_stale",
+      "validation_required",
+      "content_changed",
+      "retention_gap",
+      "cursor_expired",
+      "index_unavailable"
+    ]
+  },
+  "system.dashboard_page": {
+    "title": "Page Dashboard records",
+    "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search.",
+    "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+    "example": {
+      "kinds": [
+        "profile"
+      ],
+      "limit": 50
+    },
+    "errors": [
+      "source_conflict",
+      "plan_stale",
+      "validation_required",
+      "content_changed",
+      "retention_gap",
+      "cursor_expired",
+      "index_unavailable"
+    ]
+  },
+  "system.dashboard_activity": {
+    "title": "Dashboard activity",
+    "description": "Read a compact KST activity rollup from actual execution intervals and eligible registration times; no full catalog expansion.",
+    "returns": "Typed JSON with explicit coverage and stable source identity.",
+    "example": {
+      "view": "research"
+    },
+    "errors": [
+      "unknown_item",
+      "source_unavailable",
+      "index_unavailable"
+    ]
+  },
+  "system.dashboard_entity": {
+    "title": "Dashboard entity",
+    "description": "Read one exact source-qualified browser record with lazy file inventories.",
+    "returns": "Typed JSON with explicit coverage and stable source identity.",
+    "example": {
+      "item_id": "2156055679491977121222771780406505881"
+    },
+    "errors": [
+      "unknown_item",
+      "source_unavailable",
+      "index_unavailable"
+    ]
+  },
+  "system.prune_search": {
+    "title": "Prune retired search generations",
+    "description": "Remove at most eight retired private shadow generations older than ten minutes. Preserve active generation and all authority.",
+    "returns": "Durable maintenance progress or an explicit conflict.",
+    "example": {
+      "key": "retired-search-cleanup",
+      "max_generations": 4
+    },
+    "errors": [
+      "task_stale",
+      "task_state",
+      "busy",
+      "index_budget",
+      "metadata_space"
+    ]
+  },
+  "system.retry_catalog_task": {
+    "title": "Retry failed catalog maintenance",
+    "description": "Resume a failed task with retained progress and unchanged configured roots. An exhausted original batch budget requires a new rebuild request.",
+    "returns": "Durable maintenance progress or an explicit conflict.",
+    "example": {
+      "id": "task-id"
+    },
+    "errors": [
+      "task_stale",
+      "task_state",
+      "busy",
+      "index_budget",
+      "metadata_space"
     ]
   }
 }

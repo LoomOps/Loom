@@ -76,3 +76,13 @@ class NativeWorkspaceTests(unittest.TestCase):
     output=os.environ.get('LOOM_TEST_SCREENSHOTS')
     if output:
      path=Path(output);path.mkdir(parents=True,exist_ok=True);self.ui.top();(path/f'native-item-search-{width}-{theme}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));self.ui.frame()
+
+ def test_native_catalog_pages_and_exact_history_are_server_backed(self):
+  for n in range(65):
+   self.call('results','register_scenario',{'key':'page-scenario-'+str(n),'definition':{'label':f'Paged Scenario {n:03}'}})
+  self.wd('/url',{'url':self.base});self.ui.connect();self.ui.nav('Scenarios')
+  self.ui.wait("return !!document.querySelector('[data-catalog-more=scenario]')")
+  self.ui.click('[data-catalog-more=scenario]')
+  self.ui.wait("return [...document.querySelectorAll('#pa-content [data-entity]')].filter(e=>e.textContent.includes('Paged Scenario')).length===65")
+  self.assertTrue(self.ui.js("return catalogData.capabilities.catalog_pages&&catalogData.activity.days instanceof Array"))
+  self.ui.nav('Profiles');self.ui.wait("return document.querySelector('#pa-content').textContent.includes('cpu.smoke')")

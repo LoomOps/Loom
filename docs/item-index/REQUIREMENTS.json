@@ -1,6 +1,6 @@
 {
   "schema": "loom-item-index-requirements/v1",
-  "status": "approved target design; initial implementation is documented separately, not full phase acceptance",
+  "status": "approved design; implemented boundaries in IMPLEMENTATION.md; current source-qualified acceptance required",
   "baseline": "74642cd41de4df3d82934b4eb5b0ca008047a911",
   "requirements": [
     {
@@ -18,7 +18,7 @@
         "ID-03",
         "ID-04"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U02",
@@ -35,7 +35,7 @@
         "ID-01",
         "ID-02"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U03",
@@ -54,7 +54,7 @@
         "TX-02",
         "MIG-01"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U04",
@@ -72,7 +72,7 @@
         "FILE-06",
         "FILE-07"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U05",
@@ -92,7 +92,7 @@
         "FILE-01",
         "FILE-05"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U06",
@@ -113,7 +113,7 @@
         "QUERY-01",
         "FILE-07"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U07",
@@ -132,7 +132,7 @@
         "LOG-05",
         "QUERY-04"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U08",
@@ -151,7 +151,7 @@
         "LOG-06",
         "TX-04"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U09",
@@ -171,7 +171,7 @@
         "QUERY-04",
         "TX-05"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U10",
@@ -192,7 +192,7 @@
         "AUTH-02",
         "AUTH-03"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U11",
@@ -211,7 +211,7 @@
         "SCN-02",
         "ID-03"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U12",
@@ -232,7 +232,7 @@
         "FILE-04",
         "FILE-07"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U13",
@@ -253,7 +253,7 @@
         "TX-01",
         "TX-02"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U14",
@@ -274,7 +274,7 @@
         "TX-05",
         "TX-06"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U15",
@@ -293,7 +293,7 @@
         "MIG-03",
         "ID-04"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U16",
@@ -312,7 +312,7 @@
         "SCN-01",
         "QUERY-03"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U17",
@@ -331,7 +331,7 @@
         "AUTH-02",
         "VERIFY-01"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     },
     {
       "id": "U18",
@@ -352,7 +352,7 @@
         "LOG-02",
         "UI-03"
       ],
-      "status": "planned implementation; no executed new acceptance claim"
+      "status": "implemented boundary tracked in IMPLEMENTATION.md; design case IDs are not executed test evidence"
     }
   ],
   "implementation_ledger": "IMPLEMENTATION.md"

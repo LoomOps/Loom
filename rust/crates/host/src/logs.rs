@@ -30,6 +30,7 @@ struct Collector {
     path: PathBuf,
     generation: String,
     gap: bool,
+    ceiling: u64,
 }
 type Collectors = BTreeMap<PathBuf, Arc<Mutex<Collector>>>;
 const MAX_CAPTURE_BYTES: u64 = 256 * 1024 * 1024;
@@ -65,6 +66,43 @@ pub fn follow(container: &str, path: &Path, returned: bool) -> Result<Source> {
             c.clone()
         } else {
             let pointer = path.with_extension("source.json");
+            let maximum = std::env::var("LOOM_HOST_LOG_MAX_BYTES")
+                .ok()
+                .and_then(|v| v.parse::<u64>().ok())
+                .unwrap_or(2 * 1024 * 1024 * 1024);
+            let mut used = 0u64;
+            if let Some(directory) = path.parent() {
+                for (n, entry) in fs::read_dir(directory)?.take(100001).enumerate() {
+                    require(
+                        n < 100000,
+                        "logs_budget",
+                        "Provider metadata entry budget exhausted",
+                        409,
+                    )?;
+                    let entry = entry?;
+                    let meta = entry.path().symlink_metadata()?;
+                    if meta.is_file() && !meta.file_type().is_symlink() {
+                        used = used.saturating_add(meta.len());
+                    }
+                }
+            }
+            for c in map.values() {
+                if let Ok(c) = c.try_lock() {
+                    used = used.saturating_add(
+                        c.ceiling
+                            .saturating_sub(c.path.metadata().map(|m| m.len()).unwrap_or(0)),
+                    );
+                } else {
+                    used = used.saturating_add(MAX_CAPTURE_BYTES);
+                }
+            }
+            let ceiling = maximum.saturating_sub(used).min(MAX_CAPTURE_BYTES);
+            require(
+                ceiling > 0,
+                "logs_budget",
+                "Global provider capture budget exhausted; explicit retention is required",
+                409,
+            )?;
             let previous = pointer.exists();
             let generation = uuid::Uuid::now_v7().to_string();
             let raw = path.with_extension(format!("{generation}.log"));
@@ -84,8 +122,8 @@ pub fn follow(container: &str, path: &Path, returned: bool) -> Result<Source> {
             unsafe {
                 command.pre_exec(move || {
                     let limit = libc::rlimit {
-                        rlim_cur: MAX_CAPTURE_BYTES,
-                        rlim_max: MAX_CAPTURE_BYTES,
+                        rlim_cur: ceiling,
+                        rlim_max: ceiling,
                     };
                     if libc::setrlimit(libc::RLIMIT_FSIZE, &limit) < 0 {
                         return Err(std::io::Error::last_os_error());
@@ -112,6 +150,7 @@ pub fn follow(container: &str, path: &Path, returned: bool) -> Result<Source> {
                 path: raw,
                 generation,
                 gap: previous,
+                ceiling,
             }));
             map.insert(path.into(), c.clone());
             c
@@ -123,7 +162,7 @@ pub fn follow(container: &str, path: &Path, returned: bool) -> Result<Source> {
     let start = Instant::now();
     let closed = loop {
         if let Some(status) = c.child.try_wait()? {
-            let exhausted = fs::metadata(&c.path).is_ok_and(|m| m.len() >= MAX_CAPTURE_BYTES);
+            let exhausted = fs::metadata(&c.path).is_ok_and(|m| m.len() >= c.ceiling);
             c.gap |= exhausted && !status.success();
             require(
                 status.success() || exhausted,
@@ -171,6 +210,54 @@ pub fn follow(container: &str, path: &Path, returned: bool) -> Result<Source> {
     Ok(source)
 }
 impl<D: Docker> LogRead<D> {
+    pub fn expire(self, args: &Value) -> Result<Value> {
+        require(
+            self.returned,
+            "retention_busy",
+            "Container has not returned",
+            409,
+        )?;
+        let generation = args["source_generation"]
+            .as_str()
+            .ok_or_else(|| Error::input("Exact source generation required"))?;
+        let generation_id = uuid::Uuid::parse_str(generation)
+            .map_err(|_| Error::input("Invalid source generation"))?;
+        let directory = self.root.join("logs");
+        loom_core::index_store::secure_dir(&directory)?;
+        let path = directory.join(format!("{}.log", hash(&self.ticket)));
+        let pointer = path.with_extension("source.json");
+        let mut current: Value = fs::read(&pointer)
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok())
+            .unwrap_or(Value::Null);
+        let raw = path.with_extension(format!("{generation_id}.log"));
+        let header = json!({"generation":generation,"closed":true,"available":false,"expired":true,"gap":true,"retention_reason":"explicit instance retention"});
+        if current["generation"] == generation {
+            require(
+                current["closed"] == true,
+                "retention_busy",
+                "Provider collector has not sealed",
+                409,
+            )?;
+            current = header.clone();
+            storage::atomic(&pointer, &serde_json::to_vec(&current)?, 0o600)?;
+        }
+        storage::atomic(
+            &raw.with_extension("json"),
+            &serde_json::to_vec(&header)?,
+            0o600,
+        )?;
+        if raw.exists() {
+            require(
+                !raw.symlink_metadata()?.file_type().is_symlink(),
+                "retention",
+                "Linked provider bytes refused",
+                409,
+            )?;
+            fs::remove_file(raw)?;
+        }
+        Ok(json!({"expired":true,"source_generation":generation}))
+    }
     pub fn read(self, args: &Value) -> Result<Value> {
         let directory = self.root.join("logs");
         loom_core::index_store::secure_dir(&directory)?;
@@ -179,6 +266,15 @@ impl<D: Docker> LogRead<D> {
             .ok()
             .and_then(|b| serde_json::from_slice(&b).ok())
             .unwrap_or(Value::Null);
+        require(
+            current["expired"] != true
+                || args["source_generation"]
+                    .as_str()
+                    .is_some_and(|g| current["generation"].as_str() != Some(g)),
+            "retention_gap",
+            "Provider generation was explicitly expired",
+            409,
+        )?;
         let source = if let Some(generation) = args["source_generation"]
             .as_str()
             .filter(|g| current["generation"].as_str() != Some(*g))
@@ -190,6 +286,12 @@ impl<D: Docker> LogRead<D> {
                 .ok()
                 .and_then(|b| serde_json::from_slice(&b).ok())
                 .unwrap_or(Value::Null);
+            require(
+                metadata["expired"] != true,
+                "retention_gap",
+                "Provider generation was explicitly expired",
+                409,
+            )?;
             require(
                 metadata["available"] != false,
                 "logs_unavailable",
@@ -260,7 +362,7 @@ fn start_reaper() {
                 let state = if let Ok(mut c) = collector.try_lock() {
                     match c.child.try_wait() {
                         Ok(Some(status)) => {
-                            let exhausted = fs::metadata(&c.path).is_ok_and(|m| m.len() >= MAX_CAPTURE_BYTES);
+                            let exhausted = fs::metadata(&c.path).is_ok_and(|m| m.len() >= c.ceiling);
                             let available = status.success() || exhausted;
                             Some((c.path.clone(), json!({
                                 "generation":c.generation,"gap":c.gap || !status.success(),

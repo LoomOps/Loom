@@ -42,13 +42,44 @@ impl Application {
         )
     }
     pub fn profile_listing(&self) -> Result<Value> {
-        let mut definitions = self.config.profiles.clone();
+        self.profile_listing_selected(None)
+    }
+    pub fn profile_listing_selected(&self, only: Option<&str>) -> Result<Value> {
+        self.profile_listing_qualified(only, None)
+    }
+    pub fn profile_listing_qualified(
+        &self,
+        only: Option<&str>,
+        only_sha: Option<&str>,
+    ) -> Result<Value> {
+        let mut definitions: BTreeMap<String, Value> = self
+            .config
+            .profiles
+            .iter()
+            .filter(|(k, _)| only.is_none_or(|kind| *k == kind))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        let selected = only.unwrap_or("");
+        let parent: Value = if let Some(kind) = only {
+            self.db
+                .query_row(
+                    "SELECT body FROM catalog_sources WHERE kind='profile' AND identity=?",
+                    [encode(&json!({"kind":kind}))?],
+                    |r| r.get::<_, String>(0),
+                )
+                .optional()?
+                .and_then(|s| serde_json::from_str::<Value>(&s).ok())
+                .map(|v| v["component_ref"].clone())
+                .unwrap_or(Value::Null)
+        } else {
+            Value::Null
+        };
         let mut origins = BTreeMap::new();
         let mut components = BTreeMap::new();
         for row in rows(
             &self.db,
-            "SELECT * FROM components ORDER BY owner,id,revision",
-            &[],
+            "SELECT * FROM components WHERE ?='' OR (owner=? AND id=? AND revision=?) ORDER BY owner,id,revision",
+            &[&selected,&parent["owner"].as_str(),&parent["id"].as_str(),&parent["revision"].as_i64()],
         )? {
             let (owner, id, revision) = (
                 row["owner"].as_str().unwrap_or(""),
@@ -76,8 +107,8 @@ impl Application {
         }
         for row in rows(
             &self.db,
-            "SELECT * FROM execution_profiles ORDER BY owner,id,revision",
-            &[],
+            "SELECT * FROM execution_profiles WHERE ?='' OR json_extract(profile,'$.revision')=? ORDER BY owner,id,revision",
+            &[&selected,&selected],
         )? {
             let p: Value = serde_json::from_str(row["profile"].as_str().unwrap_or("{}"))?;
             if let Some(kind) = p["revision"].as_str() {
@@ -90,9 +121,34 @@ impl Application {
             "cpu.smoke".into(),
             json!({"type":"builtin","owner":"built-in","id":"cpu.smoke","revision":null}),
         );
+        if let (Some(kind), Some(sha)) = (only, only_sha) {
+            let exact = software::exact_profile(
+                &self.db,
+                &self.config,
+                &json!({"kind":kind,"sha256":sha}),
+            )?;
+            if let Some(path) = exact["component_path"].as_str() {
+                if let Ok(relative) = std::path::Path::new(path).strip_prefix(&self.components) {
+                    let pieces = relative
+                        .components()
+                        .map(|v| v.as_os_str().to_string_lossy().to_string())
+                        .collect::<Vec<_>>();
+                    if pieces.len() == 4 && pieces[2] == "revisions" {
+                        if let Ok(revision) = pieces[3].parse::<i64>() {
+                            origins.insert(kind.into(),json!({"type":"component","owner":pieces[0],"id":pieces[1],"revision":revision}));
+                            components.insert(path.to_string(),json!({"owner":pieces[0],"id":pieces[1],"revision":revision,"entity":format!("component:{}:{}:r{revision}",pieces[0],pieces[1])}));
+                        }
+                    }
+                }
+            }
+            definitions.insert(kind.into(), exact);
+        }
         let catalog = self.runtime_inventory()?;
         let mut items = vec![];
         for (kind, p) in definitions {
+            if only.is_some_and(|value| value != kind) {
+                continue;
+            }
             let origin = origins
                 .get(&kind)
                 .cloned()
@@ -166,13 +222,15 @@ impl Application {
             if kind == "cpu.smoke" {
                 stages.push(json!({"stage":"runtime","lane":"cpu","environment":{"type":"builtin","id":"Rust producer","dependencies":[],"primary_dependencies":[],"dependency_count":0},"storage":[],"inputs":[]}));
             }
-            let jobs=rows(&self.db,"SELECT j.id,j.state,j.created,json_extract(j.spec,'$.category') category,json_extract(j.spec,'$.execution_mode') execution_mode,json_extract(j.spec,'$.profile.sha256') profile_sha256,COALESCE((SELECT c.id FROM jobs c,json_each(c.spec,'$.consolidates') src WHERE src.value=j.id AND c.state='complete' AND json_extract(c.result,'$.artifact_ready')=1 LIMIT 1),w.root,j.id) logical_job,EXISTS(SELECT 1 FROM attempts a LEFT JOIN rust_attempt_starts s ON s.attempt=a.id WHERE a.job=j.id AND (CASE WHEN s.attempt IS NOT NULL THEN s.accepted ELSE a.started END) IS NOT NULL) executed FROM jobs j LEFT JOIN workflow_nodes w ON w.job=j.id WHERE json_extract(j.spec,'$.kind')=? ORDER BY j.created",&[&kind])?;
-            let runs: BTreeSet<_> = jobs
-                .iter()
-                .filter(|j| j["executed"] == 1)
-                .map(|j| j["logical_job"].as_str())
-                .collect();
-            let logical: BTreeSet<_> = jobs.iter().map(|j| j["logical_job"].as_str()).collect();
+            let job_sql = r#"SELECT j.id,j.state,j.created,json_extract(j.spec,'$.category') category,json_extract(j.spec,'$.execution_mode') execution_mode,json_extract(j.spec,'$.profile.sha256') profile_sha256,COALESCE((SELECT c.id FROM jobs c,json_each(c.spec,'$.consolidates') src WHERE src.value=j.id AND c.state='complete' AND json_extract(c.result,'$.artifact_ready')=1 LIMIT 1),w.root,j.id) logical_job,EXISTS(SELECT 1 FROM attempts a LEFT JOIN rust_attempt_starts s ON s.attempt=a.id WHERE a.job=j.id AND (CASE WHEN s.attempt IS NOT NULL THEN s.accepted ELSE a.started END) IS NOT NULL) executed FROM jobs j LEFT JOIN workflow_nodes w ON w.job=j.id WHERE json_extract(j.spec,'$.kind')=? AND (? IS NULL OR json_extract(j.spec,'$.profile.sha256')=?)"#;
+            let jobs = rows(
+                &self.db,
+                &format!("{job_sql} ORDER BY created DESC LIMIT 200"),
+                &[&kind, &only_sha, &only_sha],
+            )?;
+            let counts=rows(&self.db,&format!("SELECT count(*) recorded_jobs,count(DISTINCT logical_job) logical_jobs,count(DISTINCT CASE WHEN executed=1 THEN logical_job END) executed_jobs,COALESCE(sum(executed),0) recorded_executions FROM ({job_sql})"),&[&kind,&only_sha,&only_sha])?.into_iter().next().unwrap_or(json!({}));
+            let logical_count = counts["logical_jobs"].as_u64().unwrap_or(0);
+            let run_count = counts["executed_jobs"].as_u64().unwrap_or(0);
             let family = if origin["type"] == "standalone" {
                 format!(
                     "profile:{}:{}",
@@ -203,7 +261,7 @@ impl Application {
                 .or_else(|| usage.get("label"))
                 .and_then(Value::as_str)
                 .unwrap_or(&kind);
-            let mut item = json!({"kind":kind,"label":label,"sha256":p["sha256"],"family":family,"origin":origin,"curation":curation,"group":curation["group"].as_str().or_else(||usage["group"].as_str()).unwrap_or(if kind=="cpu.smoke"{"platform-check"}else{"research"}),"description":usage["description"].as_str().unwrap_or(""),"usage":usage,"usage_status":if p.get("usage").is_some(){"declared"}else{"unrecorded"},"component":component,"tools":tools,"stages":stages,"limits":p.get("limits").cloned().unwrap_or(json!({})),"inputs":p.get("inputs").cloned().unwrap_or(json!({})),"outputs":p["outputs"],"steps":p.get("steps").cloned().unwrap_or(json!([])),"jobs":jobs,"used_by_jobs":logical.len(),"usage_stats":{"recorded_jobs":jobs.len(),"logical_jobs":logical.len(),"executed_jobs":runs.len(),"reuses":runs.len().saturating_sub(1),"recorded_executions":jobs.iter().filter(|j|j["executed"]==1).count()},"params_schema":p["params_schema"],"defaults":p.get("defaults").cloned().unwrap_or(json!({})),"observed_usage":{"categories":jobs.iter().filter_map(|j|j["category"].as_str()).collect::<BTreeSet<_>>(),"execution_modes":jobs.iter().filter_map(|j|j["execution_mode"].as_str()).collect::<BTreeSet<_>>()}});
+            let mut item = json!({"kind":kind,"label":label,"sha256":p["sha256"],"family":family,"origin":origin,"curation":curation,"group":curation["group"].as_str().or_else(||usage["group"].as_str()).unwrap_or(if kind=="cpu.smoke"{"platform-check"}else{"research"}),"description":usage["description"].as_str().unwrap_or(""),"usage":usage,"usage_status":if p.get("usage").is_some(){"declared"}else{"unrecorded"},"component":component,"tools":tools,"stages":stages,"limits":p.get("limits").cloned().unwrap_or(json!({})),"inputs":p.get("inputs").cloned().unwrap_or(json!({})),"outputs":p["outputs"],"steps":p.get("steps").cloned().unwrap_or(json!([])),"jobs":jobs,"jobs_complete":counts["recorded_jobs"].as_u64().unwrap_or(0)<=200,"used_by_jobs":logical_count,"usage_stats":{"recorded_jobs":counts["recorded_jobs"],"logical_jobs":logical_count,"executed_jobs":run_count,"reuses":run_count.saturating_sub(1),"recorded_executions":counts["recorded_executions"]},"params_schema":p["params_schema"],"defaults":p.get("defaults").cloned().unwrap_or(json!({})),"observed_usage":{"categories":jobs.iter().filter_map(|j|j["category"].as_str()).collect::<BTreeSet<_>>(),"execution_modes":jobs.iter().filter_map(|j|j["execution_mode"].as_str()).collect::<BTreeSet<_>>()}});
             item.as_object_mut()
                 .unwrap()
                 .extend(owner.as_object().unwrap().clone());
@@ -513,12 +571,19 @@ impl Application {
 }
 impl Application {
     pub fn extension_inventory(&self, profiles: &Value) -> Result<Vec<Value>> {
+        self.extension_inventory_selected(profiles, None)
+    }
+    pub fn extension_inventory_selected(
+        &self,
+        profiles: &Value,
+        selected: Option<&[Value]>,
+    ) -> Result<Vec<Value>> {
         let mut entities = vec![];
         for (kind, table) in [("component", "components"), ("tool", "tools")] {
             for latest in rows(
                 &self.db,
-                &format!("SELECT owner,id,max(revision) revision FROM {table} GROUP BY owner,id"),
-                &[],
+                &format!("SELECT owner,id,max(revision) revision FROM {table} WHERE ? OR json_array(owner,id,revision) IN (SELECT json_array(json_extract(value,'$.native_ref.identity.owner'),json_extract(value,'$.native_ref.identity.id'),json_extract(value,'$.native_ref.identity.revision')) FROM json_each(?)) GROUP BY owner,id"),
+                &[&selected.is_none(),&encode(&json!(selected.unwrap_or_default().iter().filter(|v|v["native_ref"]["kind"]==kind).collect::<Vec<_>>()))?],
             )? {
                 let (owner, id) = (
                     latest["owner"].as_str().unwrap_or(""),
@@ -528,8 +593,8 @@ impl Application {
                 let mut latest_manifest = json!({});
                 for row in rows(
                     &self.db,
-                    &format!("SELECT * FROM {table} WHERE owner=? AND id=? ORDER BY revision DESC"),
-                    &[&owner, &id],
+                    &format!("SELECT * FROM {table} WHERE owner=? AND id=? AND (? OR revision<=?) ORDER BY revision DESC LIMIT 200"),
+                    &[&owner, &id,&selected.is_none(),&latest["revision"].as_i64()],
                 )? {
                     let revision = row["revision"].as_i64().unwrap_or(0);
                     let manifest: Value =

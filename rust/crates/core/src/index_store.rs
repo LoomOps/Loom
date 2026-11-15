@@ -17,6 +17,73 @@ pub fn directory(local: &Path, config: &Config) -> PathBuf {
         .map(PathBuf::from)
         .unwrap_or_else(|| local.join("search"))
 }
+pub fn active_directory(app: &Application) -> Result<PathBuf> {
+    let base = directory(&app.local, &app.config);
+    let pointer = base.join("active.json");
+    if !pointer.exists() {
+        return Ok(base);
+    }
+    let value: Value = serde_json::from_slice(&crate::file_set::bounded(&pointer, 8192)?)?;
+    let relative = value["directory"]
+        .as_str()
+        .ok_or_else(|| Error::input("Search generation pointer missing"))?;
+    require(
+        relative.starts_with("shadows/") && relative.split('/').count() == 2,
+        "index_generation",
+        "Invalid generation pointer",
+        409,
+    )?;
+    crate::storage::relative(&base, relative)
+}
+/// Only a caught-up, source-qualified shadow may become active. Existing readers keep their DB handles.
+pub fn activate(app: &Application, task: &str) -> Result<bool> {
+    require(
+        task.bytes().all(|b| b.is_ascii_digit()),
+        "task",
+        "Invalid rebuild identity",
+        400,
+    )?;
+    let base = directory(&app.local, &app.config);
+    let relative = format!("shadows/{task}");
+    let directory = base.join(&relative);
+    secure_dir(&directory)?;
+    let db = Connection::open_with_flags(
+        directory.join("catalog.sqlite3"),
+        OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )?;
+    let (origin, checkpoint, generation): (Vec<u8>, i64, String) = db.query_row(
+        "SELECT origin,checkpoint,generation FROM meta WHERE id=1",
+        [],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+    )?;
+    let expected: Vec<u8> =
+        app.db
+            .query_row("SELECT origin FROM catalog_meta WHERE id=1", [], |r| {
+                r.get(0)
+            })?;
+    require(
+        origin == expected,
+        "index_origin",
+        "Shadow belongs to another authority",
+        409,
+    )?;
+    let head: i64 = app.db.query_row(
+        "SELECT COALESCE(max(seq),0) FROM catalog_changes",
+        [],
+        |r| r.get(0),
+    )?;
+    if checkpoint != head {
+        return Ok(false);
+    }
+    crate::storage::atomic(
+        &base.join("active.json"),
+        &serde_json::to_vec(
+            &json!({"directory":relative,"generation":generation,"activated_at":now(),"through":checkpoint}),
+        )?,
+        0o600,
+    )?;
+    Ok(true)
+}
 /// A disposable projection must never contain authority or share its tree.
 /// Validate before an offline rebuild renames anything, without touching sources.
 pub fn validate_layout(app: &Application) -> Result<()> {
@@ -54,6 +121,7 @@ pub fn validate_layout(app: &Application) -> Result<()> {
         !overlaps(&index, &manifest)
             && !app.local.starts_with(&index)
             && !overlaps(&index, &app.local.join("log-spool"))
+            && !overlaps(&index, &app.local.join("file-sources"))
             && !overlaps(&index, &app.bulk)
             && !overlaps(&index, &app.components),
         "catalog_layout",
@@ -101,7 +169,7 @@ pub struct IndexWriter {
 impl IndexWriter {
     pub fn open(app: &Application) -> Result<Self> {
         validate_layout(app)?;
-        let directory = directory(&app.local, &app.config);
+        let directory = active_directory(app)?;
         secure_dir(&directory)?;
         let path = directory.join("catalog.sqlite3");
         require(
@@ -124,6 +192,9 @@ impl IndexWriter {
             "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA cache_size=-16384;",
         )?;
         db.execute_batch(SCHEMA)?;
+        db.execute_batch("CREATE TABLE IF NOT EXISTS relation_docs(source BLOB NOT NULL,source_revision BLOB,target_kind TEXT NOT NULL,target_identity TEXT NOT NULL,relation TEXT NOT NULL,attributes TEXT NOT NULL,valid_from INTEGER NOT NULL,valid_to INTEGER);CREATE INDEX IF NOT EXISTS relation_source ON relation_docs(source,valid_from,valid_to);CREATE INDEX IF NOT EXISTS relation_target ON relation_docs(target_kind,target_identity,relation,valid_from,valid_to);")?;
+        db.execute_batch("CREATE INDEX IF NOT EXISTS docs_historical_latest ON docs(json_extract(body,'$.native_ref.kind'),json_extract(body,'$.native_ref.identity.source'),json_extract(body,'$.native_ref.identity.kind'),json_extract(body,'$.native_ref.identity.id'),json_extract(body,'$.source_order'),valid_from);")?;
+        db.execute_batch("CREATE TABLE IF NOT EXISTS authority_anchor(id INTEGER PRIMARY KEY CHECK(id=1),seq INTEGER NOT NULL,digest TEXT NOT NULL);")?;
         db.execute_batch("CREATE TABLE IF NOT EXISTS file_receipts(id BLOB NOT NULL,stamp TEXT NOT NULL,sha256 TEXT NOT NULL,observed REAL NOT NULL,PRIMARY KEY(id,stamp));")?;
         let origin: Vec<u8> =
             app.db
@@ -141,6 +212,7 @@ impl IndexWriter {
             "Index belongs to another authority",
             409,
         )?;
+        verify_anchor(app, &db)?;
         Ok(Self { db, path })
     }
     pub fn upsert(
@@ -207,11 +279,40 @@ impl IndexWriter {
             .collect::<std::result::Result<Vec<_>, _>>()?;
         for (seq, item, revision, operation, body) in &events {
             let value: Value = serde_json::from_str(body)?;
+            let relations = if operation == "upsert" {
+                match crate::graph::index_relations(app, &value) {
+                    Ok(v) => v,
+                    Err(e) if e.status == 404 || e.code == "input" => vec![],
+                    Err(e) => return Err(e),
+                }
+            } else {
+                vec![]
+            };
             let tx = self.db.transaction()?;
             let version: i64 =
                 tx.query_row("SELECT version+1 FROM meta WHERE id=1", [], |r| r.get(0))?;
             if operation == "upsert" {
                 Self::upsert(&tx, version, item, revision.as_deref(), &value)?;
+                tx.execute(
+                    "UPDATE relation_docs SET valid_to=? WHERE source=? AND valid_to IS NULL",
+                    params![version, item],
+                )?;
+                for e in relations {
+                    if e["native_ref"].is_object() {
+                        tx.execute(
+                            "INSERT INTO relation_docs VALUES(?,?,?,?,?,?,?,NULL)",
+                            params![
+                                item,
+                                revision,
+                                e["native_ref"]["kind"].as_str(),
+                                encode(&e["native_ref"]["identity"])?,
+                                e["relation"].as_str(),
+                                encode(&e)?,
+                                version
+                            ],
+                        )?;
+                    }
+                }
             }
             if operation == "inventory" {
                 let chunk: i64 =
@@ -230,6 +331,10 @@ impl IndexWriter {
             }
             if operation == "tombstone" {
                 tx.execute(
+                    "UPDATE relation_docs SET valid_to=? WHERE source=? AND valid_to IS NULL",
+                    params![version, item],
+                )?;
+                tx.execute(
                     "UPDATE docs SET valid_to=? WHERE id=? AND valid_to IS NULL",
                     params![version, item],
                 )?;
@@ -238,6 +343,7 @@ impl IndexWriter {
                 "INSERT OR REPLACE INTO projection_versions VALUES(?,?)",
                 params![version, now()],
             )?;
+            tx.execute("INSERT INTO authority_anchor VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET seq=excluded.seq,digest=excluded.digest",params![seq,anchor_digest(&app.db,*seq)?])?;
             tx.execute(
                 "UPDATE meta SET checkpoint=?,version=? WHERE id=1",
                 params![seq, version],
@@ -247,8 +353,44 @@ impl IndexWriter {
         Ok(events.len())
     }
 }
+fn app_schema(app: &Application) -> Result<i64> {
+    Ok(app.db.query_row("PRAGMA user_version", [], |r| r.get(0))?)
+}
+fn anchor_digest(db: &Connection, seq: i64) -> Result<String> {
+    let value: (Vec<u8>, Option<Vec<u8>>, String, String) = db.query_row(
+        "SELECT item,revision,operation,body FROM catalog_changes WHERE seq=?",
+        [seq],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+    )?;
+    Ok(hash(serde_json::to_vec(&value)?))
+}
+fn verify_anchor(app: &Application, index: &Connection) -> Result<()> {
+    let exists: bool = index.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='authority_anchor')",
+        [],
+        |r| r.get(0),
+    )?;
+    if !exists {
+        return Ok(());
+    }
+    let anchor: Option<(i64, String)> = index
+        .query_row(
+            "SELECT seq,digest FROM authority_anchor WHERE id=1",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?;
+    if let Some((seq, digest)) = anchor {
+        let authority = Connection::open_with_flags(
+            app.local.join("ops.sqlite3"),
+            OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )?;
+        require(anchor_digest(&authority,seq).is_ok_and(|v|v==digest),"index_authority_changed","Search is ahead of or conflicts with restored authority; rebuild the derived generation",409)?;
+    }
+    Ok(())
+}
 pub(crate) fn read(app: &Application) -> Result<Connection> {
-    let path = directory(&app.local, &app.config).join("catalog.sqlite3");
+    let path = active_directory(app)?.join("catalog.sqlite3");
     require(
         path.is_file() && !path.symlink_metadata()?.file_type().is_symlink(),
         "index_unavailable",
@@ -268,6 +410,25 @@ pub(crate) fn read(app: &Application) -> Result<Connection> {
         "index_origin",
         "Search authority mismatch",
         409,
+    )?;
+    verify_anchor(app, &db)?;
+    use std::os::unix::ffi::OsStrExt;
+    let path = app.local.join("ops.sqlite3");
+    let uri = path
+        .as_os_str()
+        .as_bytes()
+        .iter()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || b"/._-".contains(b) {
+                (*b as char).to_string()
+            } else {
+                format!("%{b:02X}")
+            }
+        })
+        .collect::<String>();
+    db.execute(
+        "ATTACH DATABASE ? AS authority",
+        [format!("file:{uri}?mode=ro")],
     )?;
     Ok(db)
 }
@@ -344,7 +505,7 @@ impl Application {
         let dirty: i64 = self
             .db
             .query_row("SELECT count(*) FROM catalog_dirty", [], |r| r.get(0))?;
-        let inventories:i64=self.db.query_row("SELECT count(*) FROM catalog_revisions r JOIN catalog_items i ON i.id=r.item WHERE i.native_kind IN('entity','historical','component','tool') AND NOT EXISTS(SELECT 1 FROM catalog_manifests m WHERE m.revision=r.id)",[],|r|r.get(0))?;
+        let inventories:i64=self.db.query_row("SELECT count(*) FROM catalog_revisions r JOIN catalog_items i ON i.id=r.item WHERE (i.native_kind IN('entity','historical','component','tool') OR (i.native_kind='runtime' AND json_type(r.body,'$.file_inventory')='object')) AND NOT EXISTS(SELECT 1 FROM catalog_manifests m WHERE m.revision=r.id)",[],|r|r.get(0))?;
         match read(self) {
             Ok(db) => {
                 let (generation, through): (String, i64) = db.query_row(
@@ -363,11 +524,26 @@ impl Application {
     }
     pub fn search_items(&self, actor: &Actor, args: &Value) -> Result<Value> {
         let db = read(self)?;
-        let (generation, checkpoint): (String, i64) = db.query_row(
+        let (generation, mut checkpoint): (String, i64) = db.query_row(
             "SELECT generation,checkpoint FROM meta WHERE id=1",
             [],
             |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
+        let minimum = args["at_least"]
+            .as_str()
+            .map(|s| {
+                s.parse::<i64>()
+                    .map_err(|_| Error::input("Invalid consistency watermark"))
+            })
+            .transpose()?;
+        let wait = std::time::Instant::now();
+        let timeout =
+            std::time::Duration::from_millis(args["timeout_ms"].as_u64().unwrap_or(0).min(1000));
+        while minimum.is_some_and(|m| checkpoint < m) && wait.elapsed() < timeout {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            checkpoint =
+                db.query_row("SELECT checkpoint FROM meta WHERE id=1", [], |r| r.get(0))?;
+        }
         let mut query = args.clone();
         query.as_object_mut().unwrap().remove("cursor");
         let query_hash = hash(encode(&query)?);
@@ -379,6 +555,7 @@ impl Application {
         if let Some(c) = &c {
             require(
                 c["generation"] == generation
+                    && c["query_version"] == 2
                     && c["query"] == query_hash
                     && c["access"] == access
                     && c["expires"].as_f64().is_some_and(|t| t > now()),
@@ -433,6 +610,15 @@ impl Application {
         let role = args["role"].as_str().unwrap_or("main");
         let limit = args["limit"].as_u64().unwrap_or(50).clamp(1, 200) as i64;
         let last_time = c.as_ref().and_then(|c| c["last_time"].as_f64());
+        let last_tier = c
+            .as_ref()
+            .and_then(|c| c["last_tier"].as_i64())
+            .unwrap_or(0);
+        let last_revision = c
+            .as_ref()
+            .and_then(|c| c["last_revision"].as_str())
+            .unwrap_or("");
+        let all_history = args["history"] == "all";
         let last_id = c
             .as_ref()
             .and_then(|c| c["last_id"].as_str())
@@ -442,7 +628,36 @@ impl Application {
         let scenario_revision = args["scenario_ref"]["revision"].as_i64();
         let scope="CASE WHEN kind='file' THEN COALESCE((SELECT scope FROM docs owner WHERE owner.id=docs.parent AND owner.valid_from<=?1 AND (owner.valid_to IS NULL OR owner.valid_to>?1) ORDER BY owner.valid_from DESC LIMIT 1),scope) ELSE scope END";
         let role_field="CASE WHEN kind='file' THEN COALESCE((SELECT role FROM docs owner WHERE owner.id=docs.parent AND owner.valid_from<=?1 AND (owner.valid_to IS NULL OR owner.valid_to>?1) ORDER BY owner.valid_from DESC LIMIT 1),role) ELSE role END";
-        let sql=format!("SELECT id,body,recorded,{scope} AS effective_scope,{role_field} AS effective_role FROM docs WHERE valid_from<=?1 AND (valid_to IS NULL OR valid_to>?1) AND (?2='' OR rowid IN (SELECT rowid FROM {fts} WHERE {fts} MATCH ?3)) AND (json_array_length(?4)=0 OR kind IN(SELECT value FROM json_each(?4))) AND (?5='all' OR effective_scope=?5) AND (?6='all' OR effective_role=?6) AND (?5='all' OR COALESCE(json_extract(body,'$.archived'),0)=0) AND (?7 IS NULL OR parent=?7) AND (?8='' OR json_extract(body,'$.scenario_ref.id')=?8) AND (?9 IS NULL OR json_extract(body,'$.scenario_ref.revision')=?9) AND (?13='' OR json_extract(body,'$.owner_revision_id')=?13) AND (kind!='file' OR ?13!='' OR EXISTS(SELECT 1 FROM docs owner WHERE owner.id=docs.parent AND owner.valid_from<=?1 AND (owner.valid_to IS NULL OR owner.valid_to>?1) AND json_extract(owner.body,'$.revision_id')=json_extract(docs.body,'$.owner_revision_id'))) AND (?14='' OR json_extract(body,'$.category')=?14) AND ((?15 IS NULL AND ?16 IS NULL) OR json_type(body,'$.recorded_at') IN('integer','real')) AND (?15 IS NULL OR recorded>=?15) AND (?16 IS NULL OR recorded<=?16) AND (?17='' OR json_extract(body,'$.availability')=?17) AND (?10 IS NULL OR recorded<?10 OR (recorded=?10 AND id>?11)) ORDER BY recorded DESC,id LIMIT ?12");
+        let tier="CASE WHEN ?2='' THEN 0 WHEN json_extract(body,'$.item_id')=?2 OR json_extract(body,'$.native_ref.identity.id')=?2 OR json_extract(body,'$.path')=?2 OR label=?2 THEN 0 WHEN substr(label,1,length(?2))=?2 COLLATE NOCASE OR substr(json_extract(body,'$.path'),1,length(?2))=?2 THEN 1 ELSE 2 END";
+        // Literal optional clauses let SQLite drive a selective FTS rowid lookup.
+        // A parameterized OR(text='', MATCH...) forces a scan of the whole catalog.
+        let text_clause = if text.is_empty() {
+            "1".to_string()
+        } else {
+            format!("rowid IN(SELECT rowid FROM {fts} WHERE {fts} MATCH ?3)")
+        };
+        let kind_clause = if kinds.as_array().is_none_or(Vec::is_empty) {
+            "1"
+        } else {
+            "kind IN(SELECT value FROM json_each(?4))"
+        };
+        let view_clause = if view == "all" {
+            "1".to_string()
+        } else {
+            format!("{scope}=?5")
+        };
+        let role_clause = if role == "all" {
+            "1".to_string()
+        } else {
+            format!("{role_field}=?6")
+        };
+        let entities = if app_schema(self)? >= 7 {
+            "authority.all_entity_revisions"
+        } else {
+            "authority.entity_revisions"
+        };
+        let native_current=format!("(?18=1 OR ?20='historical' OR COALESCE(json_extract(body,'$.native_ref.kind'),'')!='historical' OR NOT ((json_extract(body,'$.native_ref.identity.kind')='job_view' AND (EXISTS(SELECT 1 FROM authority.jobs j WHERE j.id=json_extract(docs.body,'$.native_ref.identity.id')) OR EXISTS(SELECT 1 FROM authority.job_workflows w WHERE w.id=json_extract(docs.body,'$.native_ref.identity.id')))) OR (json_extract(body,'$.native_ref.identity.kind') IN('dataset','model','experiment','run','artifact') AND EXISTS(SELECT 1 FROM {entities} e WHERE e.id=json_extract(docs.body,'$.native_ref.identity.id')))))");
+        let sql=format!("SELECT id,body,recorded,{scope} AS effective_scope,{role_field} AS effective_role,{tier} AS match_tier,COALESCE(hex(revision),'') AS revision_key FROM docs WHERE {native_current} AND valid_from<=?1 AND ((?18=0 AND (valid_to IS NULL OR valid_to>?1)) OR (?18=1 AND NOT EXISTS(SELECT 1 FROM docs newer WHERE newer.id=docs.id AND newer.revision=docs.revision AND newer.valid_from>docs.valid_from AND newer.valid_from<=?1))) AND ({text_clause}) AND ({kind_clause}) AND ({view_clause}) AND ({role_clause}) AND (?5='all' OR COALESCE(json_extract(body,'$.archived'),0)=0) AND (?7 IS NULL OR parent=?7) AND (?8='' OR json_extract(body,'$.scenario_ref.id')=?8) AND (?9 IS NULL OR json_extract(body,'$.scenario_ref.revision')=?9) AND (?13='' OR json_extract(body,'$.owner_revision_id')=?13 OR json_extract(body,'$.revision_id')=?13) AND (kind!='file' OR ?18=1 OR ?13!='' OR EXISTS(SELECT 1 FROM docs owner WHERE owner.id=docs.parent AND owner.valid_from<=?1 AND (owner.valid_to IS NULL OR owner.valid_to>?1) AND json_extract(owner.body,'$.revision_id')=json_extract(docs.body,'$.owner_revision_id'))) AND (?14='' OR json_extract(body,'$.category')=?14) AND ((?15 IS NULL AND ?16 IS NULL) OR json_type(body,'$.recorded_at') IN('integer','real')) AND (?15 IS NULL OR recorded>=?15) AND (?16 IS NULL OR recorded<=?16) AND (?17='' OR json_extract(body,'$.availability')=?17) AND (?18=1 OR COALESCE(json_extract(body,'$.native_ref.kind'),'')!='historical' OR NOT EXISTS(SELECT 1 FROM docs h WHERE json_extract(h.body,'$.native_ref.kind')='historical' AND json_extract(h.body,'$.native_ref.identity.source')=json_extract(docs.body,'$.native_ref.identity.source') AND json_extract(h.body,'$.native_ref.identity.kind')=json_extract(docs.body,'$.native_ref.identity.kind') AND json_extract(h.body,'$.native_ref.identity.id')=json_extract(docs.body,'$.native_ref.identity.id') AND json_extract(h.body,'$.source_order')>json_extract(docs.body,'$.source_order') AND h.valid_from<=?1 AND (h.valid_to IS NULL OR h.valid_to>?1))) AND (?19='' OR json_extract(body,'$.origin_type')=?19) AND (?20='' OR json_extract(body,'$.native_ref.kind')=?20) AND (?23='' OR json_extract(body,'$.dependency_ref')=?23) AND (?24 IS NULL OR id IN (SELECT e.source FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE a.item=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25)) OR id IN(SELECT a.item FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE e.source=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25))) AND (?10 IS NULL OR match_tier>?21 OR (match_tier=?21 AND (recorded<?10 OR (recorded=?10 AND (id>?11 OR (id=?11 AND revision_key>?22)))))) ORDER BY match_tier,recorded DESC,id,revision_key LIMIT ?12");
         let mut q = db.prepare(&sql)?;
         let rows = q
             .query_map(
@@ -463,7 +678,21 @@ impl Application {
                     args["category"].as_str().unwrap_or(""),
                     args["recorded_from"].as_f64(),
                     args["recorded_to"].as_f64(),
-                    args["availability"].as_str().unwrap_or("")
+                    args["availability"].as_str().unwrap_or(""),
+                    all_history,
+                    args["origin_type"].as_str().unwrap_or(""),
+                    args["native_kind"].as_str().unwrap_or(""),
+                    last_tier,
+                    last_revision,
+                    args.get("dependency_ref")
+                        .map(encode)
+                        .transpose()?
+                        .unwrap_or_default(),
+                    args["related_to"]["item_id"]
+                        .as_str()
+                        .map(|v| items::parse(&json!(v)))
+                        .transpose()?,
+                    args["related_to"]["relation"].as_str().unwrap_or("")
                 ],
                 |r| {
                     Ok((
@@ -472,6 +701,8 @@ impl Application {
                         r.get::<_, f64>(2)?,
                         r.get::<_, String>(3)?,
                         r.get::<_, String>(4)?,
+                        r.get::<_, i64>(5)?,
+                        r.get::<_, String>(6)?,
                     ))
                 },
             )?
@@ -482,7 +713,7 @@ impl Application {
         let mut bytes = 1024;
         let mut last = None;
 
-        for (id, body, time, scope, role) in rows {
+        for (id, body, time, scope, role, tier, revision_key) in rows {
             let mut value: Value = serde_json::from_str(&body)?;
             value["scope"] = json!(scope);
             value["role"] = json!(role);
@@ -507,7 +738,19 @@ impl Application {
                 if !metadata_match
                     && self
                         .canonical_file(&value)
-                        .and_then(|entry| crate::inventory::open_copy(self, &entry))
+                        .and_then(|entry| {
+                            let (file, _) = crate::inventory::open_copy(self, &entry)?;
+                            require(
+                                file_receipt(
+                                    self,
+                                    &entry["item_id"],
+                                    &crate::inventory::file_stamp(&file.metadata()?),
+                                )?,
+                                "content_changed",
+                                "Content search requires a current verified file receipt",
+                                409,
+                            )
+                        })
                         .is_err()
                 {
                     continue;
@@ -524,7 +767,7 @@ impl Application {
                 break;
             }
             bytes += body.len();
-            last = Some((time, items::decimal(&id)?));
+            last = Some((time, items::decimal(&id)?, tier, revision_key));
             let mut compact = value;
             for field in ["inventory", "copies", "dependencies", "source_sha256"] {
                 compact.as_object_mut().unwrap().remove(field);
@@ -533,12 +776,12 @@ impl Application {
             values.push(compact);
         }
         let next = if more && !values.is_empty() {
-            last.map(|(time,id)|sign(&json!({"generation":generation,"watermark":watermark,"query":query_hash,"access":access,"expires":c.as_ref().and_then(|c|c["expires"].as_f64()).unwrap_or(now()+300.),"last_time":time,"last_id":id}),&key)).transpose()?
+            last.map(|(time,id,tier,revision)|sign(&json!({"query_version":2,"last_tier":tier,"last_revision":revision,"generation":generation,"watermark":watermark,"query":query_hash,"access":access,"expires":c.as_ref().and_then(|c|c["expires"].as_f64()).unwrap_or(now()+300.),"last_time":time,"last_id":id}),&key)).transpose()?
         } else {
             None
         };
         Ok(
-            json!({"items":values,"next_cursor":next,"partial":self.search_status()?["status"]!="ready"||(file_scope&&!text.is_empty()),"consistency":{"generation":generation,"indexed_through":checkpoint.to_string(),"snapshot":watermark.to_string()},"warnings":if file_scope&&!text.is_empty(){json!(["file_content_coverage_bounded"])}else{json!([])}}),
+            json!({"items":values,"next_cursor":next,"partial":self.search_status()?["status"]!="ready"||minimum.is_some_and(|m|checkpoint<m)||(file_scope&&!text.is_empty()),"consistency":{"generation":generation,"indexed_through":checkpoint.to_string(),"snapshot":watermark.to_string(),"at_least_satisfied":minimum.is_none_or(|m|checkpoint>=m)},"warnings":if file_scope&&!text.is_empty(){json!(["file_content_coverage_bounded"])}else{json!([])}}),
         )
     }
     pub fn indexed_document(&self, id: &Value) -> Result<Value> {

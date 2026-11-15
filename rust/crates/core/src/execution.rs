@@ -514,7 +514,9 @@ impl Application {
                 continue;
             }
             let item = params[name].clone();
-            let locator = if item["job"].is_string() {
+            let locator = if item["artifact"].is_object() {
+                self.artifact_input(&item["artifact"], item["member"].as_str())?
+            } else if item["job"].is_string() {
                 let upstream = item["job"].as_str().unwrap();
                 let entity = item["entity"]
                     .as_str()
@@ -560,9 +562,16 @@ impl Application {
                     .and_then(|r| r["entities"].as_array())
                     .and_then(|a| a.iter().find(|e| e["id"] == entity))
                     .ok_or_else(|| Error::input("Upstream output not found"))?;
-                let mut locator = output["locator"].clone();
-                locator["sha256"] = output["sha256"].clone();
-                locator
+                if let Some(member) = item["member"].as_str() {
+                    self.artifact_input(
+                        &json!({"id":format!("{upstream}.{entity}"),"revision":1}),
+                        Some(member),
+                    )?
+                } else {
+                    let mut locator = output["locator"].clone();
+                    locator["sha256"] = output["sha256"].clone();
+                    locator
+                }
             } else {
                 item
             };

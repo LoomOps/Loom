@@ -122,6 +122,9 @@ def external_roots(root,platform):
     config=Path(root)/'config/api.json'
     cfg=json.loads(config.read_text()) if config.exists() else {}
     roots['log-spool']=Path(root)/'runtime/log-spool'
+    roots['file-sources']=Path(root)/'runtime/file-sources'
+    executor_env=env_values(Path(root)/'executor.env') if (Path(root)/'executor.env').exists() else {}
+    roots['runtime-files']=Path(executor_env.get('LOOM_EXECUTOR_HOST',Path(platform)/'shared/executor'))/'runtime-files'
     roots['catalog-manifests']=catalog_host_path(root,cfg.get('catalog',{}).get('manifest_directory'),'catalog-manifests')
     return roots
 
@@ -240,7 +243,7 @@ def guard_catalog_rollback(root,base):
         current.execute('ATTACH DATABASE ? AS previous',(backup.as_uri()+'?mode=ro',))
         live={r[0] for r in current.execute("SELECT name FROM main.sqlite_master WHERE type='table'")}
         old={r[0] for r in current.execute("SELECT name FROM previous.sqlite_master WHERE type='table'")}
-        for table,key in (('catalog_items','id'),('catalog_revisions','id'),('catalog_manifests','revision')):
+        for table,key in (('catalog_items','id'),('catalog_revisions','id'),('catalog_manifests','revision'),('reconcile_plans','id'),('asset_imports','id'),('file_bindings','file'),('log_retention','stream'),('catalog_tasks','id'),('asset_revisions','id'),('asset_locations','id')):
             if table not in live:continue
-            query=('SELECT 1 FROM main.'+table+' LIMIT 1') if table not in old else ('SELECT 1 FROM main.'+table+' c LEFT JOIN previous.'+table+' p ON p.'+key+'=c.'+key+' WHERE p.'+key+' IS NULL LIMIT 1')
+            query=('SELECT 1 FROM main.'+table+' LIMIT 1') if table not in old else ('SELECT 1 FROM (SELECT * FROM main.'+table+' EXCEPT SELECT * FROM previous.'+table+') LIMIT 1')
             if current.execute(query).fetchone():raise ValueError('New Item identities were committed; preserve them and use forward repair instead of restoring an older DB')

@@ -1,6 +1,6 @@
 //! Immutable source/build revisions and exact composition. Registration never executes source.
 use crate::{auth::Actor, compat, contracts, error::require, storage, store::*, Error, Result};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use std::{collections::BTreeMap, fs, path::Path};
 fn ident(v: &str) -> Result<()> {
@@ -255,14 +255,75 @@ fn seal(mut p: Value) -> Result<Value> {
     p["sha256"] = json!(hash(compat::seal(&p)));
     Ok(p)
 }
+/// Reconstruct an accepted immutable Profile definition; never substitute a newer hash.
+pub fn exact_profile(db: &Connection, config: &Config, reference: &Value) -> Result<Value> {
+    if reference["owner"].is_string() {
+        let text: String = db.query_row(
+            "SELECT profile FROM execution_profiles WHERE owner=? AND id=? AND revision=?",
+            params![
+                reference["owner"].as_str(),
+                reference["id"].as_str(),
+                reference["revision"].as_i64()
+            ],
+            |r| r.get(0),
+        )?;
+        return Ok(serde_json::from_str(&text)?);
+    }
+    if reference["kind"] == "cpu.smoke" {
+        return Ok(
+            json!({"revision":"cpu.smoke","builtin":true,"inputs":{},"outputs":{"observation":"artifact"}}),
+        );
+    }
+    let kind = reference["kind"]
+        .as_str()
+        .ok_or_else(|| Error::input("Profile kind required"))?;
+    let digest = reference["sha256"].as_str();
+    if let Some(p) = config.profiles.get(kind) {
+        if digest.is_none_or(|d| p["sha256"] == d) {
+            return Ok(p.clone());
+        }
+    }
+    let text:Option<String>=db.query_row("SELECT value FROM (SELECT p.value value FROM components c,json_each(c.profiles) p WHERE p.key=?1 UNION ALL SELECT profile FROM execution_profiles WHERE json_extract(profile,'$.revision')=?1 UNION ALL SELECT json_extract(spec,'$.profile') FROM jobs WHERE json_extract(spec,'$.kind')=?1) WHERE ?2 IS NULL OR json_extract(value,'$.sha256')=?2 LIMIT 1",params![kind,digest],|r|r.get(0)).optional()?;
+    text.map(|s| serde_json::from_str::<Value>(&s))
+        .transpose()?
+        .ok_or_else(|| {
+            Error::new(
+                "profile_revision",
+                "Accepted Profile definition unavailable",
+                404,
+            )
+        })
+}
 pub fn profile(db: &Connection, config: &Config, kind: &str) -> Result<Option<Value>> {
     if let Some(p) = config.profiles.get(kind) {
         return Ok(Some(p.clone()));
     }
-    for row in rows(db, "SELECT profile FROM execution_profiles", &[])? {
-        let p: Value = serde_json::from_str(row["profile"].as_str().unwrap_or("{}"))?;
-        if p["revision"] == kind {
-            return Ok(Some(p));
+    if let Some(text)=db.query_row("SELECT profile FROM execution_profiles WHERE json_extract(profile,'$.revision')=? ORDER BY revision DESC LIMIT 1",[kind],|r|r.get::<_,String>(0)).optional()? {return Ok(Some(serde_json::from_str(&text)?))}
+    let cache: Option<String> = if crate::items::installed(db)? {
+        db.query_row(
+            "SELECT body FROM catalog_sources WHERE kind='profile' AND identity=?",
+            [encode(&json!({"kind":kind}))?],
+            |r| r.get(0),
+        )
+        .optional()?
+    } else {
+        None
+    };
+    if let Some(cache) = cache {
+        let value: Value = serde_json::from_str(&cache)?;
+        let parent = &value["component_ref"];
+        if parent.is_object() {
+            let text: String = db.query_row(
+                "SELECT profiles FROM components WHERE owner=? AND id=? AND revision=?",
+                params![
+                    parent["owner"].as_str(),
+                    parent["id"].as_str(),
+                    parent["revision"].as_i64()
+                ],
+                |r| r.get(0),
+            )?;
+            let profiles: Value = serde_json::from_str(&text)?;
+            return Ok(profiles.get(kind).cloned());
         }
     }
     for row in rows(db, "SELECT profiles FROM components", &[])? {

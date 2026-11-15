@@ -28,7 +28,7 @@ IDENTIFIER = r"[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}"
 READ_ROUTES = (
     "/api/guide", r"/api/guide/[a-z][a-z-]{0,40}",
     "/api/status", "/api/runtimes", "/api/ssh", "/api/updates", "/api/docker", "/api/principal", "/api/jobs", "/api/events", "/api/registry",
-    "/api/dashboard/catalog", "/api/dashboard/resources", "/api/dashboard/revision",
+    "/api/dashboard/catalog", "/api/dashboard/bootstrap", "/api/dashboard/resources", "/api/dashboard/revision",
     rf"/api/registry/{IDENTIFIER}",
     rf"/api/jobs/{IDENTIFIER}",
 )
@@ -383,7 +383,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 size=int(self.headers.get('Content-Length','0'))
                 if not 0<size<=16384 or self.headers.get_content_type()!='application/json':raise ValueError()
                 payload=json.loads(self.rfile.read(size))
-                allowed={'results':{'search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file'},'jobs':{'log_streams','read_log','search_logs'},'system':{'search_status','dashboard_summary'}}
+                allowed={'results':{'search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file'},'jobs':{'log_streams','read_log','search_logs'},'system':{'search_status','dashboard_summary','dashboard_page','dashboard_activity','dashboard_entity'}}
                 if not isinstance(payload,dict) or set(payload)!={'group','action','arguments'} or payload['action'] not in allowed.get(payload['group'],set()) or not isinstance(payload['arguments'],dict):raise ValueError()
             except (ValueError,TypeError):return self.error(400,'invalid_search_action')
             return self.relay('POST','/api/actions',json.dumps(payload).encode())

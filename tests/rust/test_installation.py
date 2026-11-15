@@ -43,3 +43,21 @@ class NativeMigrationTests(unittest.TestCase):
   self.assertTrue((self.state/'search/catalog.sqlite3').is_file())
   self.invoke('catalog-rebuild','--config',self.cfg,'--data',self.data,'--components',self.components)
   rebuilt=self.rows();self.assertTrue(all(rebuilt[k]==v for k,v in original.items()))
+
+ def test_reconciliation_schema_preserves_old_authority_and_resumes_completed_boundary(self):
+  self.apply()
+  self.invoke('catalog-install','--config',self.cfg,'--data',self.data,'--components',self.components,'--backup',self.root/'catalog-backup')
+  self.invoke('catalog-backfill','--config',self.cfg,'--data',self.data,'--components',self.components)
+  before=self.rows()
+  args=('--config',self.cfg,'--data',self.data,'--components',self.components,'--backup',self.root/'reconcile-backup')
+  self.invoke('reconcile-install',*args)
+  self.assertEqual(self.invoke('inspect')['schema'],7)
+  after=self.rows()
+  for table,rows in before.items():
+   self.assertTrue(all(row in after[table] for row in rows),table)
+  self.assertFalse(self.invoke('reconcile-install',*args)['applied'])
+  self.invoke('catalog-backfill','--config',self.cfg,'--data',self.data,'--components',self.components)
+  self.assertEqual(self.invoke('inspect')['schema'],7)
+
+  # A completed receipt remains idempotent after legitimate projection progress.
+  self.assertFalse(self.invoke('reconcile-install',*args)['applied'])

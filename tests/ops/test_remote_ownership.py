@@ -77,3 +77,36 @@ class ArchiveRoundTripTests(IsolatedOps):
         with sqlite3.connect(target/'runtime/ops.sqlite3') as c:
             self.assertEqual(c.execute('SELECT count(*) FROM resident_tokens').fetchone()[0],0)
             self.assertEqual(c.execute('SELECT mode FROM node_control').fetchone()[0],'readonly')
+
+class StreamedArchiveTests(IsolatedOps):
+    def test_streamed_inventory_round_trip_pins_bytes_and_preserves_logical_ids(self):
+        import hashlib,json,sys
+        from unittest.mock import patch
+        import ops,portability
+        entries=[]
+        for name,body in [('primary.json',b'{}'),('member.bin',b'streamed-member')]:
+            (self.data/name).write_bytes(body)
+            entries.append({'key':name,'size':len(body),'sha256':hashlib.sha256(body).hexdigest(),'copies':[{'type':'storage','machine_id':'fixture','storage_id':'fixture-data','ref':name}]})
+        base=self.local/'file-sources'/'sealed';base.mkdir(parents=True)
+        chunk=base/'chunk.jsonl';chunk.write_text(''.join(json.dumps(e)+'\n' for e in entries))
+        proof=base/'proof.jsonl';proof.write_text('{}\n')
+        descriptor=base/'descriptor.json';descriptor.write_text(json.dumps({'chunks':[{'name':'chunk.jsonl','sha256':portability.sha(chunk),'proofs':'proof.jsonl'}]}))
+        manifest={'components':[{'ref':'primary.json','size':2,'sha256':entries[0]['sha256']}], 'file_set':{'ref':'sealed/descriptor.json','sha256':portability.sha(descriptor)}}
+        with ops.db() as db:
+            db.execute('INSERT INTO entity_revisions VALUES(?,?,?,?,?,?,?)',('streamed',1,'source-job','artifact','owner','owner',json.dumps(manifest)))
+            db.execute('INSERT INTO entity_locations VALUES(?,?,?,?,?,?,?)',('streamed',1,'primary.json','fixture','fixture-data','primary.json','available'))
+        archive=self.root/'stream-archive'
+        def invoke(command,node,binding):
+            with patch.object(portability,'binding',return_value=binding),patch.object(sys,'argv',['portability',command,str(node),str(archive)]):portability.main()
+        invoke('export',self.root,(self.data,self.config))
+        pin=json.loads((archive/'manifest.json').read_text());self.assertEqual(pin['schema'],2);self.assertEqual(pin['payload_inventory']['entries'],2)
+        invoke('transfer',self.root,(self.data,self.config))
+        target=self.root/'restored';(target/'runtime').mkdir(parents=True);data=target/'data';data.mkdir()
+        invoke('restore',target,(data,self.config))
+        self.assertEqual((data/'member.bin').read_bytes(),b'streamed-member')
+        self.assertEqual((target/'runtime/file-sources/sealed/descriptor.json').read_bytes(),descriptor.read_bytes())
+        with sqlite3.connect(target/'runtime/ops.sqlite3') as db:
+            self.assertEqual(db.execute('SELECT id,revision FROM entity_revisions').fetchall(),[('streamed',1)])
+            self.assertEqual(db.execute('SELECT mode FROM node_control').fetchone()[0],'readonly')
+        index=archive/'payload-index.jsonl';index.write_bytes(index.read_bytes()+b'{}\n')
+        with self.assertRaisesRegex(ValueError,'Payload index differs'):list(portability.payload_files(archive,pin))

@@ -199,6 +199,114 @@ impl Producer {
         self.entities.push(entity);
         Ok(())
     }
+    /// Members must be sorted unique owner-relative paths, including the primary.
+    /// Chunked output is independent of core Item/File IDs and does not load a tree.
+    pub fn register_inventory(
+        &mut self,
+        id: &str,
+        kind: &str,
+        primary: &str,
+        members: impl Iterator<Item = Result<String>>,
+        metadata: Value,
+    ) -> Result<()> {
+        use std::io::Read;
+        self.check_cancelled()?;
+        if !matches!(kind, "dataset" | "model" | "experiment" | "artifact")
+            || id.is_empty()
+            || !id
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"_.-".contains(&b))
+        {
+            return Err("Invalid output identity/kind".into());
+        }
+        let primary_file = inside(&self.request.output_dir, primary)?;
+        let base = primary_file.parent().ok_or("Primary directory missing")?;
+        let primary_name = primary_file
+            .file_name()
+            .and_then(|s| s.to_str())
+            .ok_or("Invalid primary")?;
+        let folder = format!(".loom-inventory-{id}");
+        let mut chunk = vec![];
+        let mut chunks = vec![];
+        let mut count = 0u64;
+        let mut chunk_count = 0u64;
+        let mut previous = String::new();
+        let mut saw_primary = false;
+        let flush =
+            |chunk: &mut Vec<u8>, chunk_count: &mut u64, chunks: &mut Vec<Value>| -> Result<()> {
+                if chunk.is_empty() {
+                    return Ok(());
+                }
+                let reference = format!("{folder}/{:06}.jsonl", chunks.len());
+                atomic(&inside(base, &reference)?, chunk)?;
+                chunks.push(
+                json!({"ref":reference,"sha256":Self::source_hash(chunk),"entries":*chunk_count}),
+            );
+                chunk.clear();
+                *chunk_count = 0;
+                Ok(())
+            };
+        for member in members {
+            self.check_cancelled()?;
+            let member = member?;
+            if member <= previous {
+                return Err("Inventory paths must be sorted and unique".into());
+            }
+            previous = member.clone();
+            let path = inside(base, &member)?;
+            use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+            let mut file = fs::OpenOptions::new()
+                .read(true)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+                .open(&path)?;
+            let before = file.metadata()?;
+            if !before.is_file() {
+                return Err("Inventory member must be a regular file".into());
+            }
+            let mut sha = Sha256::new();
+            let mut buffer = [0u8; 65536];
+            let mut size = 0u64;
+            loop {
+                self.check_cancelled()?;
+                let n = file.read(&mut buffer)?;
+                if n == 0 {
+                    break;
+                }
+                sha.update(&buffer[..n]);
+                size += n as u64;
+            }
+            let after = path.symlink_metadata()?;
+            if before.len() != size
+                || before.dev() != after.dev()
+                || before.ino() != after.ino()
+                || before.mtime() != after.mtime()
+                || before.mtime_nsec() != after.mtime_nsec()
+                || before.ctime() != after.ctime()
+                || before.ctime_nsec() != after.ctime_nsec()
+            {
+                return Err("Inventory member changed while hashing".into());
+            }
+            let bytes = serde_json::to_vec(
+                &json!({"key":member,"path":member,"size":size,"sha256":format!("{:x}",sha.finalize()),"role":if member==primary_name{"primary"}else{"member"}}),
+            )?;
+            if bytes.len() > 65536 {
+                return Err("Inventory entry exceeds bound".into());
+            }
+            if chunk.len() + bytes.len() + 1 > 524288 {
+                flush(&mut chunk, &mut chunk_count, &mut chunks)?;
+            }
+            chunk.extend(bytes);
+            chunk.push(b'\n');
+            count += 1;
+            chunk_count += 1;
+            saw_primary |= member == primary_name;
+        }
+        flush(&mut chunk, &mut chunk_count, &mut chunks)?;
+        if !saw_primary {
+            return Err("Inventory must include its exact primary filename".into());
+        }
+        self.register_entity(json!({"id":id,"kind":kind,"path":primary,"metadata":metadata,"provenance":{"profile":self.request.profile["revision"],"producer_sha256":self.request.profile["sha256"]},"relations":[],"inventory":{"schema":"loom-output-inventory/v1","entries":count,"chunks":chunks}}))
+    }
     pub fn metric(&mut self, metric: Value) -> Result<()> {
         if !metric.is_object() {
             return Err("Metric object required".into());

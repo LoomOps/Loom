@@ -5047,24 +5047,168 @@ root.addEventListener(&#x27;click&#x27;,event=&gt;{
 })();
 
 // Server-backed discovery. IDs stay decimal strings throughout browser navigation.
-const loomSearchPending=new Map(),loomSearchFilePages=new Map();let loomSearchDetailSequence=0;let loomSearchSequence=0,loomSearchState={query:{},items:[],cursor:null,busy:false};
+const loomSearchPending=new Map(),loomSearchFilePages=new Map(),loomSearchRelationPages=new Map();let loomSearchDetailSequence=0;let loomSearchSequence=0,loomSearchState={query:{},items:[],cursor:null,busy:false};
 function loomSearchAction(group,action,args={}){const id=&#x27;search-&#x27;+(++loomSearchSequence);return new Promise((resolve,reject)=&gt;{const timeout=setTimeout(()=&gt;{loomSearchPending.delete(id);reject(Error(&#x27;Request timed out&#x27;));},15000);loomSearchPending.set(id,{resolve,reject,timeout});parent.postMessage({type:&#x27;loom-search-action&#x27;,id,group,action,arguments:args},&#x27;*&#x27;);});}
 window.addEventListener(&#x27;message&#x27;,event=&gt;{if(event.source!==parent||event.data?.type!==&#x27;loom-search-result&#x27;)return;const p=loomSearchPending.get(event.data.id);if(!p)return;clearTimeout(p.timeout);loomSearchPending.delete(event.data.id);event.data.ok?p.resolve(event.data.value):p.reject(Error(event.data.value?.message||event.data.value?.error||&#x27;Search unavailable&#x27;));});
 function loomInstallSearchLauncher(){const launcher=root.querySelector(&#x27;[data-command-open]&#x27;);if(launcher){if(catalogData.capabilities?.item_search)launcher.dataset.itemSearch=&#x27;&#x27;;else delete launcher.dataset.itemSearch;}}
 const loomSearchRender=render;render=function(){loomSearchRender();loomInstallSearchLauncher();};
 const loomSearchCatalogRefresh=catalogRefreshViews;catalogRefreshViews=function(){const result=loomSearchCatalogRefresh();loomInstallSearchLauncher();return result;};
 
-function loomSearchOpen(){++loomSearchDetailSequence;loomSearchFilePages.clear();loomSearchState={query:{},items:[],cursor:null,busy:false};loomHubDialog(&#x27;Search&#x27;,`&lt;div class=&quot;pa-item-search&quot;&gt;&lt;form data-item-search-form&gt;&lt;input name=&quot;text&quot; aria-label=&quot;Search items&quot; maxlength=&quot;1024&quot; autofocus&gt;&lt;select name=&quot;kind&quot; aria-label=&quot;Item kind&quot;&gt;&lt;option value=&quot;&quot;&gt;All kinds&lt;/option&gt;${[&#x27;scenario&#x27;,&#x27;job&#x27;,&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;,&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;,&#x27;file&#x27;].map(k=&gt;`&lt;option value=&quot;${k}&quot;&gt;${esc(k)}&lt;/option&gt;`).join(&#x27;&#x27;)}&lt;/select&gt;&lt;select name=&quot;view&quot; aria-label=&quot;View&quot;&gt;&lt;option value=&quot;research&quot;&gt;Research&lt;/option&gt;&lt;option value=&quot;all&quot;&gt;All&lt;/option&gt;&lt;option value=&quot;operations&quot;&gt;Operations&lt;/option&gt;&lt;/select&gt;&lt;button type=&quot;submit&quot;&gt;Search&lt;/button&gt;&lt;/form&gt;&lt;div data-search-status role=&quot;status&quot;&gt;&lt;/div&gt;&lt;div data-search-results&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; data-search-more hidden&gt;More&lt;/button&gt;&lt;div data-search-detail&gt;&lt;/div&gt;&lt;/div&gt;`);}
-async function loomSearchRun(more=false){const area=document.querySelector(&#x27;.pa-item-search&#x27;);if(!area||loomSearchState.busy)return;const form=area.querySelector(&#x27;form&#x27;),fields=new FormData(form);if(!more)loomSearchState.query={text:fields.get(&#x27;text&#x27;),kinds:fields.get(&#x27;kind&#x27;)?[fields.get(&#x27;kind&#x27;)]:[],view:fields.get(&#x27;view&#x27;),role:fields.get(&#x27;view&#x27;)===&#x27;all&#x27;?&#x27;all&#x27;:&#x27;main&#x27;,limit:50};loomSearchState.busy=true;const state=loomSearchState;const status=area.querySelector(&#x27;[data-search-status]&#x27;);status.textContent=&#x27;…&#x27;;try{const result=await loomSearchAction(&#x27;results&#x27;,&#x27;search_items&#x27;,{...loomSearchState.query,...(more?{cursor:loomSearchState.cursor}:{})});if(state!==loomSearchState)return;loomSearchState.items=more?[...loomSearchState.items,...result.items]:result.items;loomSearchState.cursor=result.next_cursor;area.querySelector(&#x27;[data-search-results]&#x27;).innerHTML=catTable([&#x27;Name&#x27;,&#x27;Kind&#x27;],loomSearchState.items.map(v=&gt;[`&lt;button type=&quot;button&quot; class=&quot;pa-search-result&quot; data-search-item=&quot;${esc(v.item_id)}&quot;&gt;${esc(v.label||v.path||v.item_id)}&lt;/button&gt;`,esc(v.kind)]));area.querySelector(&#x27;[data-search-more]&#x27;).hidden=!result.next_cursor;status.textContent=result.partial?&#x27;Partial results&#x27;:result.items.length?&#x27;&#x27;:&#x27;No results&#x27;;}catch(error){if(state===loomSearchState)status.textContent=error.message;}finally{state.busy=false;}}
-async function loomSearchDetail(id,kind){const sequence=++loomSearchDetailSequence;const area=document.querySelector(&#x27;[data-search-detail]&#x27;);if(!area)return;area.innerHTML=&#x27;…&#x27;;try{const hit=loomSearchState.items.find(v=&gt;v.item_id===id);let isFile=(kind||hit?.kind)===&#x27;file&#x27;;const item=await loomSearchAction(&#x27;results&#x27;,isFile?&#x27;get_file&#x27;:&#x27;get_item&#x27;,isFile?{file_item_id:id}:{item_id:id});if(sequence!==loomSearchDetailSequence)return;if(item.kind===&#x27;file&#x27;)isFile=true;area.innerHTML=`&lt;h3&gt;${esc(item.label||item.path||id)}&lt;/h3&gt;&lt;dl&gt;&lt;dt&gt;ID&lt;/dt&gt;&lt;dd&gt;${esc(item.item_id)}&lt;/dd&gt;&lt;dt&gt;Revision&lt;/dt&gt;&lt;dd&gt;${esc(item.revision_id||&#x27;—&#x27;)}&lt;/dd&gt;&lt;/dl&gt;${item.summary?`&lt;p&gt;${esc(item.summary)}&lt;/p&gt;`:&#x27;&#x27;}&lt;div data-search-related&gt;&lt;/div&gt;`;const related=area.querySelector(&#x27;[data-search-related]&#x27;);if(isFile){const text=/\.(jsonl?|txt|md|rs|py|toml|ya?ml|csv|log)$/i.test(item.path||&#x27;&#x27;);related.innerHTML=`&lt;dl&gt;${item.size!=null?`&lt;dt&gt;Bytes&lt;/dt&gt;&lt;dd&gt;${esc(item.size)}&lt;/dd&gt;`:&#x27;&#x27;}${item.sha256?`&lt;dt&gt;SHA-256&lt;/dt&gt;&lt;dd&gt;${esc(item.sha256)}&lt;/dd&gt;`:&#x27;&#x27;}&lt;/dl&gt;`+(text?`&lt;button data-search-read=&quot;${esc(id)}&quot;&gt;Preview&lt;/button&gt;&lt;pre data-search-preview&gt;&lt;/pre&gt;`:&#x27;&#x27;);return;}const files=await loomSearchAction(&#x27;results&#x27;,&#x27;item_files&#x27;,{item_id:id,revision_id:item.revision_id,limit:50});if(sequence!==loomSearchDetailSequence)return;loomSearchFilePages.set(id,{revision:item.revision_id,items:files.items,cursor:files.next_cursor});related.innerHTML=`&lt;div data-search-file-list&gt;${loomSearchFileTable(id)}&lt;/div&gt;&lt;div data-search-relations&gt;&lt;/div&gt;`;const relations=await loomSearchAction(&#x27;results&#x27;,&#x27;item_relations&#x27;,{item_id:id,revision_id:item.revision_id});if(sequence!==loomSearchDetailSequence)return;const declared=related.querySelector(&#x27;[data-search-relations]&#x27;);declared.innerHTML=relations.items.filter(e=&gt;e.item_id).map(e=&gt;`&lt;button data-search-item=&quot;${esc(e.item_id)}&quot;&gt;${esc(e.relation)} · ${esc(e.native_ref?.identity?.id||e.item_id)}&lt;/button&gt;`).join(&#x27;&#x27;);if(item.kind===&#x27;job&#x27;&amp;&amp;item.native_ref?.kind===&#x27;job&#x27;&amp;&amp;item.native_ref?.identity?.id){const streams=await loomSearchAction(&#x27;jobs&#x27;,&#x27;log_streams&#x27;,{id:item.native_ref.identity.id,limit:50});if(sequence!==loomSearchDetailSequence)return;related.innerHTML+=&#x27;&lt;h4&gt;Logs&lt;/h4&gt;&#x27;+streams.items.map(s=&gt;`&lt;button data-search-log=&quot;${esc(s.item_id)}&quot;&gt;${esc(s.stage)} · ${esc(s.attempt)}&lt;/button&gt;`).join(&#x27;&#x27;)+&#x27;&lt;pre data-search-preview&gt;&lt;/pre&gt;&#x27;;}}catch(error){area.textContent=error.message;}}
+function loomSearchOpen(){++loomSearchDetailSequence;loomSearchFilePages.clear();loomSearchRelationPages.clear();loomSearchState={query:{},items:[],cursor:null,busy:false};loomHubDialog(&#x27;Search&#x27;,`&lt;div class=&quot;pa-item-search&quot;&gt;&lt;form data-item-search-form&gt;&lt;input name=&quot;text&quot; aria-label=&quot;Search items&quot; maxlength=&quot;1024&quot; autofocus&gt;&lt;select name=&quot;kind&quot; aria-label=&quot;Item kind&quot;&gt;&lt;option value=&quot;&quot;&gt;All kinds&lt;/option&gt;${[&#x27;scenario&#x27;,&#x27;job&#x27;,&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;,&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;,&#x27;dependency&#x27;,&#x27;file&#x27;].map(k=&gt;`&lt;option value=&quot;${k}&quot;&gt;${esc(k)}&lt;/option&gt;`).join(&#x27;&#x27;)}&lt;/select&gt;&lt;select name=&quot;view&quot; aria-label=&quot;View&quot;&gt;&lt;option value=&quot;research&quot;&gt;Research&lt;/option&gt;&lt;option value=&quot;all&quot;&gt;All&lt;/option&gt;&lt;option value=&quot;operations&quot;&gt;Operations&lt;/option&gt;&lt;/select&gt;&lt;select name=&quot;history&quot; aria-label=&quot;Revisions&quot;&gt;&lt;option value=&quot;current&quot;&gt;Current&lt;/option&gt;&lt;option value=&quot;all&quot;&gt;All revisions&lt;/option&gt;&lt;/select&gt;&lt;button type=&quot;submit&quot;&gt;Search&lt;/button&gt;&lt;/form&gt;&lt;div data-search-status role=&quot;status&quot;&gt;&lt;/div&gt;&lt;div data-search-results&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; data-search-more hidden&gt;More&lt;/button&gt;&lt;div data-search-detail&gt;&lt;/div&gt;&lt;/div&gt;`);}
+async function loomSearchRun(more=false){const area=document.querySelector(&#x27;.pa-item-search&#x27;);if(!area||loomSearchState.busy)return;const form=area.querySelector(&#x27;form&#x27;),fields=new FormData(form);if(!more)loomSearchState.query={text:fields.get(&#x27;text&#x27;),history:fields.get(&#x27;history&#x27;)||&#x27;current&#x27;,kinds:fields.get(&#x27;kind&#x27;)?[fields.get(&#x27;kind&#x27;)]:[],view:fields.get(&#x27;view&#x27;),role:fields.get(&#x27;view&#x27;)===&#x27;all&#x27;?&#x27;all&#x27;:&#x27;main&#x27;,limit:50};loomSearchState.busy=true;const state=loomSearchState;const status=area.querySelector(&#x27;[data-search-status]&#x27;);status.textContent=&#x27;…&#x27;;try{const result=await loomSearchAction(&#x27;results&#x27;,&#x27;search_items&#x27;,{...loomSearchState.query,...(more?{cursor:loomSearchState.cursor}:{})});if(state!==loomSearchState)return;loomSearchState.items=more?[...loomSearchState.items,...result.items]:result.items;loomSearchState.cursor=result.next_cursor;area.querySelector(&#x27;[data-search-results]&#x27;).innerHTML=catTable([&#x27;Name&#x27;,&#x27;Kind&#x27;],loomSearchState.items.map(v=&gt;[`&lt;button type=&quot;button&quot; class=&quot;pa-search-result&quot; data-search-item=&quot;${esc(v.item_id)}&quot; data-search-revision=&quot;${esc(v.revision_id||&#x27;&#x27;)}&quot;&gt;${esc(v.label||v.path||v.item_id)}&lt;/button&gt;`,esc(v.kind)]));area.querySelector(&#x27;[data-search-more]&#x27;).hidden=!result.next_cursor;status.textContent=result.partial?&#x27;Partial results&#x27;:result.items.length?&#x27;&#x27;:&#x27;No results&#x27;;}catch(error){if(state===loomSearchState)status.textContent=error.message;}finally{state.busy=false;}}
+async function loomSearchDetail(id,kind,revision){const sequence=++loomSearchDetailSequence;const area=document.querySelector(&#x27;[data-search-detail]&#x27;);if(!area)return;area.innerHTML=&#x27;…&#x27;;try{const hit=loomSearchState.items.find(v=&gt;v.item_id===id&amp;&amp;(!revision||v.revision_id===revision));let isFile=(kind||hit?.kind)===&#x27;file&#x27;;const item=await loomSearchAction(&#x27;results&#x27;,isFile?&#x27;get_file&#x27;:&#x27;get_item&#x27;,isFile?{file_item_id:id}:{item_id:id,...(revision?{revision_id:revision}:{})});if(sequence!==loomSearchDetailSequence)return;if(item.kind===&#x27;file&#x27;)isFile=true;area.innerHTML=`&lt;h3&gt;${esc(item.label||item.path||id)}&lt;/h3&gt;&lt;dl&gt;&lt;dt&gt;ID&lt;/dt&gt;&lt;dd&gt;${esc(item.item_id)}&lt;/dd&gt;&lt;dt&gt;Revision&lt;/dt&gt;&lt;dd&gt;${esc(item.revision_id||&#x27;—&#x27;)}&lt;/dd&gt;&lt;/dl&gt;${item.summary?`&lt;p&gt;${esc(item.summary)}&lt;/p&gt;`:&#x27;&#x27;}&lt;div data-search-related&gt;&lt;/div&gt;`;const related=area.querySelector(&#x27;[data-search-related]&#x27;);if(isFile){const text=/\.(jsonl?|txt|md|rs|py|toml|ya?ml|csv|log)$/i.test(item.path||&#x27;&#x27;);related.innerHTML=`&lt;dl&gt;${item.size!=null?`&lt;dt&gt;Bytes&lt;/dt&gt;&lt;dd&gt;${esc(item.size)}&lt;/dd&gt;`:&#x27;&#x27;}${item.sha256?`&lt;dt&gt;SHA-256&lt;/dt&gt;&lt;dd&gt;${esc(item.sha256)}&lt;/dd&gt;`:&#x27;&#x27;}&lt;/dl&gt;`+(text?`&lt;button data-search-read=&quot;${esc(id)}&quot;&gt;Preview&lt;/button&gt;&lt;pre data-search-preview&gt;&lt;/pre&gt;`:&#x27;&#x27;);return;}const files=await loomSearchAction(&#x27;results&#x27;,&#x27;item_files&#x27;,{item_id:id,revision_id:item.revision_id,limit:50});if(sequence!==loomSearchDetailSequence)return;loomSearchFilePages.set(id,{revision:item.revision_id,items:files.items,cursor:files.next_cursor});related.innerHTML=`&lt;div data-search-file-list&gt;${loomSearchFileTable(id)}&lt;/div&gt;&lt;div data-search-relations&gt;&lt;/div&gt;`;const relations=await loomSearchAction(&#x27;results&#x27;,&#x27;item_relations&#x27;,{item_id:id,revision_id:item.revision_id});if(sequence!==loomSearchDetailSequence)return;const declared=related.querySelector(&#x27;[data-search-relations]&#x27;);loomSearchRelationPages.set(id,{revision:item.revision_id,items:relations.items,cursor:relations.next_cursor});declared.innerHTML=loomSearchRelationTable(id);if(item.kind===&#x27;job&#x27;&amp;&amp;item.native_ref?.kind===&#x27;job&#x27;&amp;&amp;item.native_ref?.identity?.id){const streams=await loomSearchAction(&#x27;jobs&#x27;,&#x27;log_streams&#x27;,{id:item.native_ref.identity.id,limit:50});if(sequence!==loomSearchDetailSequence)return;related.innerHTML+=&#x27;&lt;h4&gt;Logs&lt;/h4&gt;&#x27;+streams.items.map(s=&gt;`&lt;button data-search-log=&quot;${esc(s.item_id)}&quot;&gt;${esc(s.stage)} · ${esc(s.attempt)}&lt;/button&gt;`).join(&#x27;&#x27;)+&#x27;&lt;pre data-search-preview&gt;&lt;/pre&gt;&#x27;;}}catch(error){area.textContent=error.message;}}
 root.addEventListener(&#x27;click&#x27;,event=&gt;{if(event.target.closest(&#x27;[data-item-search]&#x27;)){event.preventDefault();event.stopImmediatePropagation();loomSearchOpen();}},true);
 window.addEventListener(&#x27;keydown&#x27;,event=&gt;{if(catalogData.capabilities?.item_search&amp;&amp;(event.metaKey||event.ctrlKey)&amp;&amp;event.key.toLowerCase()===&#x27;k&#x27;){event.preventDefault();event.stopImmediatePropagation();loomSearchOpen();}},true);
-document.addEventListener(&#x27;click&#x27;,async event=&gt;{const b=event.target.closest(&#x27;[data-item-search-form] button,[data-search-more],[data-search-files-more],[data-search-item],[data-search-file],[data-search-read],[data-search-log]&#x27;);if(!b)return;event.preventDefault();if(b.closest(&#x27;[data-item-search-form]&#x27;))return loomSearchRun();if(b.hasAttribute(&#x27;data-search-more&#x27;))return loomSearchRun(true);if(b.dataset.searchFilesMore)return loomSearchMoreFiles(b);if(b.dataset.searchItem)return loomSearchDetail(b.dataset.searchItem);if(b.dataset.searchFile)return loomSearchDetail(b.dataset.searchFile,&#x27;file&#x27;);const preview=document.querySelector(&#x27;[data-search-preview]&#x27;);if(!preview)return;preview.textContent=&#x27;…&#x27;;try{if(b.dataset.searchRead){const v=await loomSearchAction(&#x27;results&#x27;,&#x27;read_file&#x27;,{file_item_id:b.dataset.searchRead,limit:65536});preview.textContent=new TextDecoder().decode(Uint8Array.from(atob(v.data_base64),c=&gt;c.charCodeAt(0)));}else{const v=await loomSearchAction(&#x27;jobs&#x27;,&#x27;read_log&#x27;,{stream_id:b.dataset.searchLog,tail:true,limit:65536});preview.textContent=v.text||&#x27;&#x27;;}}catch(error){preview.textContent=error.message;}});
+document.addEventListener(&#x27;click&#x27;,async event=&gt;{const b=event.target.closest(&#x27;[data-item-search-form] button,[data-search-more],[data-search-files-more],[data-search-relations-more],[data-search-item],[data-search-file],[data-search-read],[data-search-log]&#x27;);if(!b)return;event.preventDefault();if(b.closest(&#x27;[data-item-search-form]&#x27;))return loomSearchRun();if(b.hasAttribute(&#x27;data-search-more&#x27;))return loomSearchRun(true);if(b.dataset.searchFilesMore)return loomSearchMoreFiles(b);if(b.dataset.searchRelationsMore)return loomSearchMoreRelations(b);if(b.dataset.searchItem)return loomSearchDetail(b.dataset.searchItem,undefined,b.dataset.searchRevision);if(b.dataset.searchFile)return loomSearchDetail(b.dataset.searchFile,&#x27;file&#x27;);const preview=document.querySelector(&#x27;[data-search-preview]&#x27;);if(!preview)return;preview.textContent=&#x27;…&#x27;;try{if(b.dataset.searchRead){const v=await loomSearchAction(&#x27;results&#x27;,&#x27;read_file&#x27;,{file_item_id:b.dataset.searchRead,limit:65536});preview.textContent=new TextDecoder().decode(Uint8Array.from(atob(v.data_base64),c=&gt;c.charCodeAt(0)));}else{const v=await loomSearchAction(&#x27;jobs&#x27;,&#x27;read_log&#x27;,{stream_id:b.dataset.searchLog,tail:true,limit:65536});preview.textContent=v.text||&#x27;&#x27;;}}catch(error){preview.textContent=error.message;}});
 
 document.addEventListener(&#x27;keydown&#x27;,event=&gt;{if(event.key===&#x27;Enter&#x27;&amp;&amp;event.target.closest(&#x27;[data-item-search-form]&#x27;)){event.preventDefault();loomSearchRun();}});
 
 function loomSearchFileTable(id){const page=loomSearchFilePages.get(id);return(page.items.length?&#x27;&lt;h4&gt;Files&lt;/h4&gt;&#x27;+catTable([&#x27;File&#x27;,&#x27;Bytes&#x27;],page.items.map(f=&gt;[`&lt;button data-search-file=&quot;${esc(f.item_id)}&quot;&gt;${esc(f.path)}&lt;/button&gt;`,esc(f.size??&#x27;—&#x27;)])):&#x27;&#x27;)+(page.cursor?`&lt;button data-search-files-more=&quot;${esc(id)}&quot;&gt;More files&lt;/button&gt;`:&#x27;&#x27;);}
 async function loomSearchMoreFiles(button){const sequence=loomSearchDetailSequence,id=button.dataset.searchFilesMore,page=loomSearchFilePages.get(id);if(!page?.cursor)return;button.disabled=true;try{const result=await loomSearchAction(&#x27;results&#x27;,&#x27;item_files&#x27;,{item_id:id,revision_id:page.revision,limit:50,cursor:page.cursor});if(sequence!==loomSearchDetailSequence)return;page.items.push(...result.items);page.cursor=result.next_cursor;const target=document.querySelector(&#x27;[data-search-file-list]&#x27;);if(target)target.innerHTML=loomSearchFileTable(id);}catch(error){button.textContent=error.message;button.disabled=false;}}
+
+function loomSearchRelationTable(id){const page=loomSearchRelationPages.get(id);return page.items.map(e=&gt;e.item_id?&#x27;&lt;button data-search-item=&quot;&#x27;+esc(e.item_id)+&#x27;&quot;&gt;&#x27;+esc(e.relation)+&#x27; · &#x27;+esc(e.label||e.native_ref?.identity?.id||e.item_id)+&#x27;&lt;/button&gt;&#x27;:&#x27;&lt;span&gt;&#x27;+esc(e.relation)+&#x27; · &#x27;+esc(e.native_ref?.identity?.id||e.native_ref?.identity?.kind||&#x27;—&#x27;)+&#x27;&lt;/span&gt;&#x27;).join(&#x27;&#x27;)+(page.cursor?&#x27;&lt;button data-search-relations-more=&quot;&#x27;+esc(id)+&#x27;&quot;&gt;More relations&lt;/button&gt;&#x27;:&#x27;&#x27;);}
+async function loomSearchMoreRelations(button){const sequence=loomSearchDetailSequence,id=button.dataset.searchRelationsMore,page=loomSearchRelationPages.get(id);if(!page?.cursor)return;button.disabled=true;try{const result=await loomSearchAction(&#x27;results&#x27;,&#x27;item_relations&#x27;,{item_id:id,revision_id:page.revision,cursor:page.cursor});if(sequence!==loomSearchDetailSequence)return;page.items.push(...result.items);page.cursor=result.next_cursor;const target=document.querySelector(&#x27;[data-search-relations]&#x27;);if(target)target.innerHTML=loomSearchRelationTable(id);}catch(error){button.textContent=error.message;button.disabled=false;}}
+
+let loomPresentationView=&#x27;research&#x27;;
+// Adapt scoped Ops records to the original workspace&#x27;s presentation fields.
+function loomHost(host) {
+  return typeof host === &#x27;string&#x27; ? {name:host, hostname:host} : host;
+}
+
+function loomCatalogProjection(catalog) {
+  const work = new Map(catalog.entities
+    .filter(entity =&gt; entity.loom_history?.source === &#x27;queue&#x27; &amp;&amp; entity.loom_history.kind === &#x27;work&#x27;)
+    .map(entity =&gt; [entity.loom_history.id, entity]));
+  const entities = catalog.entities.flatMap(entity =&gt; {
+    if (entity.loom_history?.source === &#x27;queue&#x27; &amp;&amp; entity.loom_history.kind !== &#x27;job_view&#x27;) return [];
+    if (entity.loom_registry) {
+      const kind = entity.kind === &#x27;experiment&#x27; ? &#x27;run&#x27; : entity.kind;
+      const properties = {...entity.properties};
+      const metrics = (entity.metrics || []).map(metric =&gt; Array.isArray(metric.observations) ? metric : ({
+        ...metric,
+        id:metric.name,
+        kind:&#x27;series&#x27;,
+        label:metric.name,
+        aggregation:metric.denominator,
+        x_label:&#x27;step&#x27;,
+        observations:(metric.series || []).map(point =&gt; ({x:point.step, value:point.value})),
+      }));
+      return [{...entity, kind, label:entity.label || entity.id, properties, metrics,
+        loom_job_id:entity.loom_job?.id}];
+    }
+    if (entity.loom_job &amp;&amp; entity.kind === &#x27;job&#x27;) {
+      return [{...entity, label:entity.label || entity.id,
+        properties:{...entity.properties, state:entity.state, created_at:entity.created}}];
+    }
+    const originalWork = entity.properties?.record_role === &#x27;work&#x27;
+      ? work.get(entity.properties.id) || work.get(entity.id.replace(/^work:/, &#x27;&#x27;)) : null;
+    const displayRecord = originalWork?.properties ? {...entity, ...originalWork} : entity;
+    return [{...displayRecord, revision:entity.revision ?? entity.loom_history?.revision,
+      ...(originalWork ? {loom_history:originalWork.loom_history} : {})}];
+  });
+  const selected=entities.filter(e=&gt;loomPresentationView===&#x27;all&#x27;||(loomPresentationView===&#x27;builtin&#x27;?e.owner_kind===&#x27;built-in&#x27;:loomPresentationView===&#x27;operations&#x27;?e.presentation?.scope===&#x27;operations&#x27;:e.presentation?.visible!==false));
+  return {...catalog,entities:selected,all_entities:entities,presentation_view:loomPresentationView,host:loomHost(catalog.host),
+    sources:(catalog.sources || []).filter(source =&gt; source &amp;&amp; typeof source === &#x27;object&#x27;)};
+}
+
+// Bounded per-view transport. Payload trees, software combinations and logs stay lazy.
+const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityView=null;const loomCatalogOpening=new Set();
+const loomCatalogKinds={models:&#x27;model&#x27;,datasets:&#x27;dataset&#x27;,experiments:&#x27;experiment&#x27;,profiles:&#x27;profile&#x27;,components:&#x27;component&#x27;,tools:&#x27;tool&#x27;,runtimes:&#x27;runtime&#x27;,dependencies:&#x27;dependency&#x27;,scenarios:&#x27;scenario&#x27;,queue:&#x27;job&#x27;};
+function loomCatalogQuery(kind){const view=kind===&#x27;job&#x27;?&#x27;all&#x27;:catalogData.presentation_view||&#x27;research&#x27;;return {kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
+function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
+function loomCatalogMerge(value){
+ const existing=new Map((catalogData.all_entities||catalogData.entities).map(e=&gt;[e.id,e]));
+ loomPresentationView=catalogData.presentation_view||&#x27;research&#x27;;
+ const incoming=loomCatalogProjection(value);
+ for(const e of incoming.all_entities||incoming.entities)existing.set(e.id,e);
+ // Old list pages can be refetched; keep the current record and recent browsing bounded.
+ while(existing.size&gt;4000){const id=existing.keys().next().value;if(id===state.entity){const value=existing.get(id);existing.delete(id);existing.set(id,value);}else existing.delete(id);}
+ const entities=[...existing.values()];
+ const selected=entities.filter(e=&gt;catalogData.presentation_view===&#x27;all&#x27;||(catalogData.presentation_view===&#x27;builtin&#x27;?e.owner_kind===&#x27;built-in&#x27;:catalogData.presentation_view===&#x27;operations&#x27;?e.presentation?.scope===&#x27;operations&#x27;:e.presentation?.visible!==false));
+ catalogData={...catalogData,entities:selected,all_entities:entities};
+}
+async function loomCatalogLoad(kind,more=false,query=loomCatalogQuery(kind)){
+ if(!catalogData.capabilities?.catalog_pages)return;
+ const key=JSON.stringify(query);
+ let page=loomCatalogPages.get(key);
+ if(page?.busy||page?.loaded&amp;&amp;!more||more&amp;&amp;!page?.cursor)return;
+ if(!page){page={query,cursor:null,busy:false,loaded:false,error:null};loomCatalogPages.set(key,page);}
+ page.busy=true;page.error=null;
+ try{
+  const result=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_page&#x27;,{...page.query,...(more?{cursor:page.cursor}:{})});
+  if(loomCatalogPages.get(key)!==page)return;
+  loomCatalogMerge(result);page.cursor=result.next_cursor;page.loaded=true;page.partial=result.partial;if(result.partial&amp;&amp;!more&amp;&amp;(page.retries||0)&lt;4){page.retries=(page.retries||0)+1;setTimeout(()=&gt;{if(loomCatalogPages.get(key)===page){page.loaded=false;loomCatalogLoad(kind,false,page.query);}},500*page.retries);}
+ }catch(error){page.error=error.message;}finally{page.busy=false;if(loomCatalogPages.get(key)===page)catalogRefreshViews();}
+}
+function loomCatalogPager(kind){
+ if(!catalogData.capabilities?.catalog_pages)return &#x27;&#x27;;
+ const query=loomCatalogQuery(kind),key=JSON.stringify(query),page=loomCatalogPages.get(key);
+ if(!page?.loaded&amp;&amp;!page?.busy&amp;&amp;!page?.error)queueMicrotask(()=&gt;loomCatalogLoad(kind,false,query));
+ return &#x27;&lt;div class=&quot;pa-catalog-pagination&quot; role=&quot;status&quot;&gt;&#x27;+(page?.error?esc(page.error)+&#x27; &lt;button data-catalog-more=&quot;&#x27;+esc(kind)+&#x27;&quot;&gt;Retry&lt;/button&gt;&#x27;:page?.busy?&#x27;…&#x27;:page?.cursor?&#x27;&lt;button data-catalog-more=&quot;&#x27;+esc(kind)+&#x27;&quot;&gt;More&lt;/button&gt;&#x27;:page?.partial?&#x27;Indexing…&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+}
+const loomPagedCatalogList=catalogList;
+catalogList=function(kind){return loomPagedCatalogList(kind)+loomCatalogPager(kind);};
+const loomPagedSoftware=loomSoftwareView;
+loomSoftwareView=function(kind){return loomPagedSoftware(kind)+loomCatalogPager(kind);};
+const loomPagedProfiles=loomProfilesView;
+loomProfilesView=function(){return loomPagedProfiles()+loomCatalogPager(&#x27;profile&#x27;);};
+const loomPagedDependencies=loomDependenciesView;
+loomDependenciesView=function(){return loomPagedDependencies()+loomCatalogPager(&#x27;dependency&#x27;);};
+const loomPagedScenarios=loomScenarioView;
+loomScenarioView=function(){return loomPagedScenarios()+loomCatalogPager(&#x27;scenario&#x27;);};
+const loomPagedRender=render;
+render=function(){
+ if(loomCatalogRevision!==catalogData.revision){loomCatalogPages.clear();loomCatalogRevision=catalogData.revision;}
+ loomPagedRender();
+ const kind=loomCatalogKinds[state.page];
+ if(kind&amp;&amp;!state.entity)loomCatalogPager(kind);
+ if(catalogData.capabilities?.catalog_pages&amp;&amp;state.entity&amp;&amp;!catEntity(state.entity)&amp;&amp;!loomCatalogOpening.has(state.entity)){
+  const id=state.entity;loomCatalogOpening.add(id);queueMicrotask(()=&gt;loomCatalogOpen(id).catch(()=&gt;{}).finally(()=&gt;loomCatalogOpening.delete(id)));
+ }
+ const view=catalogData.presentation_view===&#x27;builtin&#x27;?&#x27;all&#x27;:catalogData.presentation_view||&#x27;research&#x27;;
+ if(catalogData.capabilities?.catalog_pages&amp;&amp;loomActivityView!==view){
+  loomActivityView=view;
+  queueMicrotask(async()=&gt;{try{const activity=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_activity&#x27;,{view});if(loomActivityView===view){catalogData.activity=activity;catalogRefreshViews();}}catch{}});
+ }
+ const queue=root.querySelector(&#x27;.pa-queue-caption&#x27;);
+ if(state.page===&#x27;queue&#x27;&amp;&amp;queue&amp;&amp;!root.querySelector(&#x27;[data-catalog-queue-more]&#x27;)){const v=document.createElement(&#x27;div&#x27;);v.dataset.catalogQueueMore=&#x27;&#x27;;v.innerHTML=loomCatalogPager(&#x27;job&#x27;);queue.after(v);}
+};
+document.addEventListener(&#x27;click&#x27;,event=&gt;{const b=event.target.closest(&#x27;[data-catalog-more]&#x27;);if(!b)return;event.preventDefault();const pane=b.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;state=activeTab().view;const kind=b.dataset.catalogMore,page=loomCatalogPages.get(loomCatalogPageKey(kind));if(page?.error){page.loaded=false;page.error=null;}loomCatalogLoad(kind,!!page?.cursor);});
+const loomPagedActivitySummary=activitySummary;
+activitySummary=function(entities,clock=Date.now(),through=clock){
+ if(!catalogData.activity?.days)return loomPagedActivitySummary(entities,clock,through);
+ return new Map(catalogData.activity.days.map(d=&gt;{
+  const jobs=new Map(d.jobs.map(j=&gt;[j.id,{e:catEntity(j.id)||{id:j.id,label:j.id,kind:&#x27;job&#x27;,properties:{record_role:&#x27;loom_job&#x27;}},time:j.time*1000}]));
+  Object.defineProperty(jobs,&#x27;size&#x27;,{value:d.job_count});
+  const assets=new Set();Object.defineProperty(assets,&#x27;size&#x27;,{value:d.asset_count});
+  const unknownTime=new Set();Object.defineProperty(unknownTime,&#x27;size&#x27;,{value:d.unknown_time_count});
+  return [d.day,{jobs,assets,milliseconds:d.milliseconds,unknownTime,live:d.live,stale:d.live&amp;&amp;catalogData.activity.through*1000&lt;clock-60000}];
+ }));
+};
+async function loomCatalogOpen(id){
+ const tabKeyBefore=activeTab().id;
+ if(id.startsWith(&#x27;history:&#x27;)&amp;&amp;/^history:[0-9]+$/.test(id)){
+  const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:id.slice(8)});
+  loomCatalogMerge(value);if(activeTab().id===tabKeyBefore)openView(catView(value.entities[0]?.id||id));catalogRefreshViews();return;
+ }
+ let native=null;
+ if(id.startsWith(&#x27;profile:&#x27;)) {
+  native={kind:&#x27;profile&#x27;,identity:{kind:id.slice(8)}};
+ } else if(/^(component|tool):/.test(id)) {
+  const p=id.split(&#x27;:&#x27;);
+  if(p.length===4)native={kind:p[0],identity:{owner:p[1],id:p[2],revision:Number(p[3].replace(/^r/,&#x27;&#x27;))}};
+ } else if(id.startsWith(&#x27;runtime:&#x27;)) {
+  const p=id.split(&#x27;:&#x27;);
+  if(p.length===3)native={kind:&#x27;runtime&#x27;,identity:{id:p[1],revision:Number(p[2])}};
+ }
+ let hit;
+ if(native){try{hit=await loomSearchAction(&#x27;results&#x27;,&#x27;resolve_item&#x27;,{native_ref:native});}catch{}}
+ if(!hit){const name=native?.identity?.id||native?.identity?.kind||id;const page=await loomSearchAction(&#x27;results&#x27;,&#x27;search_items&#x27;,{text:name,view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:10});hit=page.items.find(e=&gt;(e.native_ref?.identity?.id===name||e.native_ref?.identity?.kind===name)&amp;&amp;(!native?.identity?.revision||e.native_ref.identity.revision===native.identity.revision));}
+ if(!hit)throw Error(&#x27;Record unavailable&#x27;);
+ const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:hit.item_id,...(hit.revision_id?{revision_id:hit.revision_id}:{})});
+ loomCatalogMerge(value);if(activeTab().id===tabKeyBefore)openView(catView(catEntity(id)?id:value.entities[0]?.id||id));catalogRefreshViews();
+}
+root.addEventListener(&#x27;click&#x27;,event=&gt;{const b=event.target.closest(&#x27;[data-entity]&#x27;);if(!catalogData.capabilities?.catalog_pages||!b||catEntity(b.dataset.entity))return;event.preventDefault();event.stopImmediatePropagation();loomCatalogOpen(b.dataset.entity).catch(error=&gt;{b.title=error.message;});},true);
 
 // Flat marks use compositor-friendly CSS; no animation frame loop on Dashboard.
 (()=&gt;{const sync=()=&gt;document.documentElement.toggleAttribute(&#x27;data-loom-motion-hidden&#x27;,document.hidden);document.addEventListener(&#x27;visibilitychange&#x27;,sync);sync();
@@ -6446,7 +6590,7 @@ function loomCatalogProjection(catalog) {
   async function refreshCatalog() {
     if (!signedIn() || catalogRequest) return;
     const signal = lifetime.signal;
-    catalogRequest = read('/api/dashboard/catalog', signal);
+    catalogRequest = read('/api/dashboard/bootstrap', signal).catch(error=>{if(error.status===404)return read('/api/dashboard/catalog',signal);throw error;});
     try {
       const incoming = await catalogRequest;
       if (signal.aborted) return;
@@ -6601,9 +6745,9 @@ function loomCatalogProjection(catalog) {
   }
 
   async function searchAction(message) {
-    const allowed={results:['search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file'],jobs:['log_streams','read_log','search_logs'],system:['search_status','dashboard_summary']};
+    const allowed={results:['search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file'],jobs:['log_streams','read_log','search_logs'],system:['search_status','dashboard_summary','dashboard_page','dashboard_activity','dashboard_entity']};
     if(!signedIn()||!allowed[message.group]?.includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;
-    try{const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({group:message.group,action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(15000)});const value=await response.json();emit('loom-search-result',{id:message.id,ok:response.ok,value});}catch(error){emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});}
+    try{const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({group:message.group,action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(15000)});const value=await response.json();if(response.ok&&message.group==='system'&&['dashboard_page','dashboard_entity'].includes(message.action)){for(const entity of value.entities||[])catalogEntities.set(entity.id,entity);}emit('loom-search-result',{id:message.id,ok:response.ok,value});}catch(error){emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});}
   }
   async function scenarioAction(message) {
     if(!signedIn()||!['scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link'].includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;

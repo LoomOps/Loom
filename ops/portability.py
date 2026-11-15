@@ -73,9 +73,14 @@ def clear_credentials(db):
         if name in tables:db.execute('DELETE FROM '+name)
 
 
+def entity_view(db,kind):
+    name='all_entity_'+kind
+    return name if db.execute("SELECT 1 FROM sqlite_master WHERE name=?",(name,)).fetchone() else 'entity_'+kind
+
+
 def require_single_store(db, config):
     """Schema 1 has a single payload root; reject silent secondary-store loss."""
-    if db.execute("SELECT 1 FROM entity_locations WHERE machine_id=? AND storage_id<>? AND status='available' LIMIT 1",
+    if db.execute("SELECT 1 FROM "+entity_view(db,"locations")+" WHERE machine_id=? AND storage_id<>? AND status='available' LIMIT 1",
                   (config['machine_id'],config['storage_id'])).fetchone():
         raise ValueError('Archive schema 1 supports one storage root; use a reviewed multi-store migration')
     for (spec,) in db.execute("SELECT spec FROM jobs WHERE state NOT IN ('complete','cancelled')"):
@@ -100,6 +105,55 @@ def catalog_metadata(db,state,config):
     return files
 
 
+def source_metadata(db,state):
+    tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    sources={}
+    for table in ('entity_revisions','asset_revisions'):
+        if table not in tables:continue
+        for (text,) in db.execute('SELECT manifest FROM '+table+" WHERE json_type(manifest,'$.file_set')='object'"):
+            pin=json.loads(text)['file_set'];name=pin['ref'];file=relative(state/'file-sources',name)
+            if sha(file)!=pin['sha256']:raise ValueError('Source inventory descriptor changed')
+            body=json.loads(file.read_bytes())
+            for ref in [name]+[str(Path(name).parent/chunk[key]) for chunk in body['chunks'] for key in ('name','proofs') if key in chunk]:
+                path=relative(state/'file-sources',ref)
+                sources[ref]={'ref':ref,'sha256':sha(path),'size':path.stat().st_size}
+    return list(sources.values())
+
+def streamed_payloads(db,state,config):
+    """Only sealed current-contract members; never discover unregistered payloads."""
+    tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    for table in ('entity_revisions','asset_revisions'):
+        if table not in tables:continue
+        for entity,text in db.execute('SELECT id,manifest FROM '+table+" WHERE json_type(manifest,'$.file_set')='object'"):
+            pin=json.loads(text)['file_set'];descriptor=relative(state/'file-sources',pin['ref'])
+            if sha(descriptor)!=pin['sha256']:raise ValueError('File-source descriptor changed')
+            body=json.loads(descriptor.read_bytes())
+            for chunk in body['chunks']:
+                file=relative(descriptor.parent,chunk['name'])
+                if sha(file)!=chunk['sha256']:raise ValueError('File-source chunk changed')
+                with file.open('rb') as stream:
+                    for line in stream:
+                        if len(line)>65536:raise ValueError('File-source entry exceeds bound')
+                        member=json.loads(line)
+                        copies=[c for c in member.get('copies',[]) if c.get('machine_id')==config['machine_id'] and c.get('storage_id')==config['storage_id'] and c.get('type')=='storage']
+                        if not copies:raise ValueError('Streamed export requires an explicit single-store copy; use a reviewed multi-store migration')
+                        yield entity,{'ref':copies[0]['ref'],'size':member['size'],'sha256':member['sha256']}
+
+
+def payload_files(archive,data):
+    yield from data['files']
+    if pin:=data.get('payload_inventory'):
+        file=relative(archive,pin['ref'])
+        if file.stat().st_size!=pin['size'] or sha(file)!=pin['sha256']:raise ValueError('Payload index differs')
+        with file.open('rb') as stream:
+            count=0
+            for line in stream:
+                if len(line)>65536:raise ValueError('Payload index entry exceeds bound')
+                count+=1
+                if count>pin['entries']:raise ValueError('Payload index count differs')
+                yield json.loads(line)
+            if count!=pin['entries']:raise ValueError('Payload index truncated')
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('command',choices=('export','transfer','restore','activate','rollback-source'))
@@ -115,7 +169,7 @@ def main():
     db_path=root/'runtime/ops.sqlite3'
     if args.command=='transfer':
         data=json.loads((archive/'manifest.json').read_text())
-        for file in data['files']:
+        for file in payload_files(archive,data):
             if file['status']!='available':
                 continue
             source=relative(bulk,file['ref'])
@@ -143,18 +197,19 @@ def main():
                 out.execute('PRAGMA journal_mode=DELETE')
                 integrity(out)
                 inventories=catalog_metadata(source,root/'runtime',cfg)
+                source_files=source_metadata(source,root/'runtime')
+                for entry in source_files:copy_verified(relative(root/'runtime/file-sources',entry['ref']),relative(archive/'file-sources',entry['ref']),entry)
                 base=Path(cfg.get('catalog',{}).get('manifest_directory',root/'runtime/catalog-manifests'))
                 for entry in inventories:copy_verified(relative(base,entry['ref']),relative(archive/'catalog-manifests',entry['ref']),entry)
-                rows=source.execute("SELECT DISTINCT ref FROM entity_locations WHERE machine_id=? AND storage_id=?",
+                rows=source.execute("SELECT DISTINCT ref FROM "+entity_view(source,"locations")+" WHERE machine_id=? AND storage_id=?",
                                     (cfg['machine_id'],cfg['storage_id'])).fetchall()
-                included={ref for (ref,) in source.execute('SELECT ref FROM entity_locations WHERE id IN ('+
+                included={ref for (ref,) in source.execute('SELECT ref FROM '+entity_view(source,'locations')+' WHERE id IN ('+
                            ','.join('?' for _ in args.include_entity)+')',args.include_entity)} if args.include_entity else None
                 if args.include_entity and not included:
                     raise ValueError('Selected entities have no local payloads')
                 files=[]
                 for (ref,) in rows:
-                    entity=source.execute("""SELECT e.manifest,l.component FROM entity_locations l JOIN entity_revisions e
-                        ON (e.id,e.revision)=(l.id,l.revision) WHERE l.machine_id=? AND l.storage_id=? AND l.ref=?""",
+                    entity=source.execute("SELECT e.manifest,l.component FROM "+entity_view(source,"locations")+" l JOIN "+entity_view(source,"revisions")+" e ON (e.id,e.revision)=(l.id,l.revision) WHERE l.machine_id=? AND l.storage_id=? AND l.ref=?",
                         (cfg['machine_id'],cfg['storage_id'],ref)).fetchone()
                     expected=next(x for x in json.loads(entity[0])['components'] if x['ref']==entity[1])
                     size,_,status=inspect(relative(bulk,ref),expected['sha256'])
@@ -163,9 +218,21 @@ def main():
                     if (included is not None and ref not in included) or any(Path(ref).is_relative_to(prefix) for prefix in args.exclude_prefix):
                         status='intentionally_not_migrated'
                     files.append({'ref':ref,'size':expected['size'],'sha256':expected['sha256'],'status':status})
-            (archive/'manifest.json').write_text(json.dumps({'schema':1,'source_node':str(root),
+                payload_index=archive/'payload-index.jsonl';count=0
+                with payload_index.open('wb') as stream:
+                    for entity,file in streamed_payloads(source,root/'runtime',cfg):
+                        excluded=(bool(args.include_entity) and entity not in args.include_entity) or any(Path(file['ref']).is_relative_to(prefix) for prefix in args.exclude_prefix)
+                        if excluded:status='intentionally_not_migrated'
+                        else:
+                            size,_,status=inspect(relative(bulk,file['ref']),file['sha256'])
+                            if size!=file['size'] and status=='available':status='corrupt'
+                        stream.write((json.dumps({**file,'status':status},separators=(',',':'))+'\n').encode());count+=1
+                        if count>1000000:raise ValueError('Use a smaller explicit payload export scope')
+                payload_pin={'ref':'payload-index.jsonl','sha256':sha(payload_index),'size':payload_index.stat().st_size,'entries':count} if count else None
+                if not count:payload_index.unlink()
+            (archive/'manifest.json').write_text(json.dumps({'schema':2 if count else 1,'source_node':str(root),
                 'machine_id':cfg['machine_id'],'storage_id':cfg['storage_id'],'db_sha256':sha(archive/'ops.sqlite3'),
-                'files':files,'catalog_manifests':inventories},indent=2))
+                'files':files,'catalog_manifests':inventories,'file_sources':source_files,'payload_inventory':payload_pin},indent=2))
         elif args.command=='restore':
             if db_path.exists():
                 raise ValueError('Restore requires an unused target runtime')
@@ -176,10 +243,13 @@ def main():
                 raise ValueError('Relocation preserves logical machine ID')
             if args.mode=='clone' and cfg['machine_id']==data['machine_id']:
                 raise ValueError('Clone requires a fresh machine ID')
+            if data.get('payload_inventory') and (cfg['machine_id']!=data['machine_id'] or cfg['storage_id']!=data['storage_id']):
+                raise ValueError('Streamed inventories preserve logical machine/store IDs; reconcile verified copies explicitly before a clone')
             base=Path(cfg.get('catalog',{}).get('manifest_directory',root/'runtime/catalog-manifests'))
             for entry in data.get('catalog_manifests',[]):copy_verified(relative(archive/'catalog-manifests',entry['ref']),relative(base,entry['ref']),entry)
+            for entry in data.get('file_sources',[]):copy_verified(relative(archive/'file-sources',entry['ref']),relative(root/'runtime/file-sources',entry['ref']),entry)
             locations=[]
-            for file in data['files']:
+            for file in payload_files(archive,data):
                 ref,status=file['ref'],file['status']
                 if status=='available':
                     src=relative(archive/'payload',ref)
@@ -197,9 +267,12 @@ def main():
                 clear_credentials(target)
                 integrity(target)
                 target.execute("UPDATE node_control SET mode='readonly'")
-                target.executemany("""INSERT INTO entity_locations
+                target.executemany("""INSERT OR IGNORE INTO entity_locations
                   SELECT id,revision,component,?,?,ref,? FROM entity_locations
                   WHERE machine_id=? AND storage_id=? AND ref=?""",locations)
+                if target.execute("SELECT 1 FROM sqlite_master WHERE name='asset_locations'").fetchone():
+                    target.executemany("INSERT OR IGNORE INTO asset_locations SELECT id,revision,component,?,?,ref,? FROM asset_locations WHERE machine_id=? AND storage_id=? AND ref=?",locations)
+                    target.execute("UPDATE asset_locations SET status='external' WHERE storage_id<>? AND status='available'",(cfg['storage_id'],))
                 # Old locations remain provenance; their accessibility is not verified here.
                 target.execute("UPDATE entity_locations SET status='external' WHERE storage_id<>? AND status='available'",(cfg['storage_id'],))
                 target.commit()

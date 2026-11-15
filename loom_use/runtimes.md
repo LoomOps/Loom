@@ -171,3 +171,23 @@ client connection or package registration does not install a toolchain. External
 Python frameworks remain explicit pinned worker dependencies, not imports into
 Loom's state authority. A Runtime inventory records installed packages, not proof
 that every Job imported them.
+
+
+## Explicit file inventories
+
+Runtime metadata is not a recursive dependency-directory index. With administrator
+host access and an existing exact Runtime grant, use the native host tool:
+
+~~~sh
+loom-host runtime-inventory "$EXECUTOR_ROOT" "$INSTANCE" "$REQUEST_JSON"
+~~~
+
+The request declares runtime_ref and one to sixteen disjoint dependency-relative
+roots, each with prefix and optional exact dependency metadata. Do not use a whole
+dependency directory as a root. max_entries, max_bytes and max_seconds bound work.
+The tool uses the configured dependency directory, hashes regular files, skips links
+with explicit incomplete coverage, and registers a new immutable Runtime revision.
+It does not install software or repin Profiles/Jobs. Use protected observations to
+adopt the new metadata and item_files/read_file for registered ranges. Runtime and
+Dependency files remain subject to current host grants. A revision without inventory
+is unrecorded, not proof of an empty tree.

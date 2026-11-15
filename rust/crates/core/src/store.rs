@@ -51,11 +51,22 @@ pub struct Application {
     pub components: PathBuf,
     pub read_only: bool,
     pub(crate) query_snapshot: bool,
+    pub(crate) live_file: Option<Result<Value>>,
     pub(crate) live_logs: Option<Result<Value>>,
+    pub(crate) file_sets: std::collections::BTreeMap<String, Value>,
     pub(crate) file_proofs: std::collections::BTreeMap<PathBuf, crate::storage::VerifiedFile>,
     pub(crate) catalog_cache: std::sync::Arc<std::sync::Mutex<Option<(String, Value)>>>,
 }
+fn compatibility_views(db: &Connection, version: i64) -> Result<()> {
+    if version < 7 {
+        db.execute_batch("CREATE TEMP VIEW IF NOT EXISTS all_entity_revisions AS SELECT * FROM main.entity_revisions; CREATE TEMP VIEW IF NOT EXISTS all_entity_locations AS SELECT * FROM main.entity_locations;")?;
+    }
+    Ok(())
+}
 impl Application {
+    pub fn set_file_sets(&mut self, sets: std::collections::BTreeMap<String, Value>) {
+        self.file_sets = sets;
+    }
     pub fn open(local: &Path, bulk: &Path, components: &Path, config: Config) -> Result<Self> {
         let path = local.join("ops.sqlite3");
         if path.is_file() {
@@ -63,13 +74,13 @@ impl Application {
                 Connection::open_with_flags(&path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
             let version: i64 = db.query_row("PRAGMA user_version", [], |r| r.get(0))?;
             require(
-                !matches!(version, 4 | 5),
+                !matches!(version, 4..=6),
                 "schema_migration_required",
                 "Run the explicit drained catalog migration before starting this native writer",
                 409,
             )?;
         }
-        Self::open_schema(local, bulk, components, config, 6)
+        Self::open_schema(local, bulk, components, config, 7)
     }
     pub fn open_schema(
         local: &Path,
@@ -79,7 +90,7 @@ impl Application {
         target: i64,
     ) -> Result<Self> {
         require(
-            matches!(target, 5 | 6),
+            matches!(target, 5..=7),
             "schema",
             "Unsupported target schema",
             409,
@@ -104,7 +115,7 @@ impl Application {
         )?;
         let version: i64 = db.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         require(
-            matches!(version, 0 | 4 | 5 | 6) && (version <= target || version == 0),
+            matches!(version, 0 | 4..=7) && (version <= target || version == 0),
             "schema",
             "Unsupported Ops schema",
             409,
@@ -127,15 +138,24 @@ impl Application {
                 409,
             )?;
         }
-        if version == 5 && target == 6 {
+        if matches!(version, 5 | 6) && target > version {
             require(!db.query_row("SELECT EXISTS(SELECT 1 FROM rust_effects WHERE state IN('pending','accepted','unknown') AND stage!='publish')",[],|r|r.get::<_,bool>(0))?,"migration_drain","Return all execution owners before the catalog schema boundary",409)?;
         }
-        if version == 6 {
+        if version >= 6 {
             let tables:i64=db.query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN('catalog_meta','catalog_items','catalog_revisions','catalog_aliases','catalog_changes','catalog_dirty','catalog_backfill','catalog_sources','catalog_manifests')",[],|r|r.get(0))?;
             require(tables==9,"catalog_authority_missing","Restore authoritative Item metadata before starting; an index rebuild cannot replace it",409)?;
             let meta:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM catalog_meta WHERE id=1 AND length(origin)=16 AND length(cursor_key)=32)",[],|r|r.get(0))?;
             let broken:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM catalog_revisions r LEFT JOIN catalog_items i ON i.id=r.item WHERE i.id IS NULL) OR EXISTS(SELECT 1 FROM catalog_aliases a LEFT JOIN catalog_items i ON i.id=a.item LEFT JOIN catalog_revisions r ON r.id=a.revision WHERE i.id IS NULL OR r.id IS NULL OR r.item!=a.item) OR EXISTS(SELECT 1 FROM catalog_items i LEFT JOIN catalog_revisions r ON r.id=i.current_revision WHERE i.current_revision IS NOT NULL AND (r.id IS NULL OR r.item!=i.id)) OR EXISTS(SELECT 1 FROM catalog_manifests m LEFT JOIN catalog_revisions r ON r.id=m.revision WHERE r.id IS NULL OR r.item!=m.item) OR EXISTS(SELECT 1 FROM catalog_changes c LEFT JOIN catalog_items i ON i.id=c.item WHERE i.id IS NULL)",[],|r|r.get(0))?;
             require(meta&&!broken,"catalog_authority_missing","Authoritative Item identity metadata is incomplete; preserve evidence and restore it",409)?;
+        }
+        if version == 7 {
+            let count:i64=db.query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN('reconcile_plans','asset_imports','file_bindings','log_retention','catalog_tasks','asset_revisions','asset_locations')",[],|r|r.get(0))?;
+            require(
+                count == 7,
+                "reconciliation_authority_missing",
+                "Restore reconciliation authority; never recreate lost plans or bindings silently",
+                409,
+            )?;
         }
         let tx = db.unchecked_transaction()?;
         tx.execute_batch(include_str!("../../../contracts/legacy-schema.sql"))?;
@@ -150,11 +170,15 @@ impl Application {
         )?;
         tx.execute("INSERT OR IGNORE INTO rust_authority VALUES(1,1,1)", [])?;
         tx.execute("INSERT OR IGNORE INTO rust_job_fences SELECT j.id,COALESCE((SELECT max(revision) FROM job_revisions WHERE job=j.id),0),(SELECT epoch FROM rust_authority WHERE id=1) FROM jobs j",[])?;
-        if target == 6 {
+        if target >= 7 {
+            tx.execute_batch(include_str!("../../../contracts/reconcile-schema.sql"))?;
+        }
+        if target >= 6 {
             crate::items::initialize(&tx)?;
         }
         tx.pragma_update(None, "user_version", target)?;
         tx.commit()?;
+        compatibility_views(&db, target)?;
         Ok(Self {
             db,
             config,
@@ -164,7 +188,9 @@ impl Application {
             read_only: false,
             query_snapshot: false,
             live_logs: None,
+            live_file: None,
             file_proofs: Default::default(),
+            file_sets: Default::default(),
             catalog_cache: Default::default(),
         })
     }
@@ -181,13 +207,15 @@ impl Application {
         require(
             matches!(
                 db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?,
-                5 | 6
+                5..=7
             ),
             "schema",
             "Read-only serving requires a previously migrated Rust database",
             409,
         )?;
         db.busy_timeout(std::time::Duration::from_secs(10))?;
+        let version = db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?;
+        compatibility_views(&db, version)?;
         Ok(Self {
             db,
             config,
@@ -197,7 +225,9 @@ impl Application {
             read_only: true,
             query_snapshot: false,
             live_logs: None,
+            live_file: None,
             file_proofs: Default::default(),
+            file_sets: Default::default(),
             catalog_cache: Default::default(),
         })
     }
@@ -226,16 +256,36 @@ impl Application {
         // Token authorization and operation are evaluated on the same serialized lane.
         crate::auth::validate_current(&self.db, actor)?;
         let mut value = match (group, action) {
+            (
+                "system",
+                "rebuild_search" | "catalog_task" | "prune_search" | "retry_catalog_task",
+            )
+            | ("jobs", "prune_logs") => self.maintenance(actor, action, &args),
+            ("results", a) if a.starts_with("reconcile_") => self.reconciliation(actor, a, &args),
             ("jobs", "log_streams") => self.log_streams(&args),
             ("jobs", "read_log") => self.read_log(&args),
             ("jobs", "search_logs") => self.search_logs(actor, &args),
-            ("results", "item_relations") => self.item_relations(&args),
+            ("results", "item_relations") => self.item_graph(actor, &args),
             ("system", "dashboard_summary") => self.dashboard_summary(),
+            ("system", "dashboard_activity") => {
+                self.dashboard_activity(args["view"].as_str().unwrap_or("research"))
+            }
+            ("system", "dashboard_entity") => self.dashboard_entity(&args),
+            ("system", "dashboard_page") => self.dashboard_page(actor, &args),
             ("results", "search_items") => self.search_items(actor, &args),
             ("results", "item_files") => {
                 let mut query = args.clone();
-                query["parent_item_id"] = args["item_id"].clone();
-                if !args["revision_id"].is_string() {
+                let parent = self.get_item(
+                    &json!({"item_id":args["item_id"],"revision_id":args["revision_id"]}),
+                )?;
+                if parent["native_ref"]["kind"] == "dependency" {
+                    query["dependency_ref"] = parent["native_ref"]["identity"].clone();
+                    query.as_object_mut().unwrap().remove("revision_id");
+                } else {
+                    query["parent_item_id"] = args["item_id"].clone();
+                }
+                if parent["native_ref"]["kind"] != "dependency" && !args["revision_id"].is_string()
+                {
                     query["revision_id"] =
                         self.get_item(&json!({"item_id":args["item_id"]}))?["revision_id"].clone();
                 }
@@ -293,7 +343,7 @@ impl Application {
             self.db
                 .query_row("SELECT mode FROM node_control WHERE id=1", [], |r| r.get(0))?;
         Ok(
-            json!({"service":"Loom Ops","build":{"build_id":env!("LOOM_BUILD_ID"),"image_build_id":env!("LOOM_BUILD_ID"),"source_modified":false,"source_kind":"immutable_rust_binary","git_commit":env!("LOOM_GIT_COMMIT")},"storage_id":self.config.storage_id,"inventory":self.config.extra.get("inventory").cloned().unwrap_or(serde_json::json!({})),"engine":"rust","build_id":env!("LOOM_BUILD_ID"),"image_build_id":env!("LOOM_BUILD_ID"),"git_commit":env!("LOOM_GIT_COMMIT"),"source_modified":false,"source_kind":"immutable_rust_binary","api_revision":"loom-ops/v47","machine_id":self.config.machine_id,"admission":{"mode":mode},"source":env!("LOOM_RUST_SOURCE"),"version":env!("CARGO_PKG_VERSION"),"authoring":{"default_language":"rust","python":"external SDK integration","sdk":"loom-producer/v1"}}),
+            json!({"service":"Loom Ops","build":{"build_id":env!("LOOM_BUILD_ID"),"image_build_id":env!("LOOM_BUILD_ID"),"source_modified":false,"source_kind":"immutable_rust_binary","git_commit":env!("LOOM_GIT_COMMIT")},"storage_id":self.config.storage_id,"inventory":self.config.extra.get("inventory").cloned().unwrap_or(serde_json::json!({})),"engine":"rust","build_id":env!("LOOM_BUILD_ID"),"image_build_id":env!("LOOM_BUILD_ID"),"git_commit":env!("LOOM_GIT_COMMIT"),"source_modified":false,"source_kind":"immutable_rust_binary","api_revision":"loom-ops/v48","machine_id":self.config.machine_id,"admission":{"mode":mode},"source":env!("LOOM_RUST_SOURCE"),"version":env!("CARGO_PKG_VERSION"),"authoring":{"default_language":"rust","python":"external SDK integration","sdk":"loom-producer/v1"}}),
         )
     }
 }

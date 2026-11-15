@@ -1,9 +1,8 @@
 # Delivery sequence
 
-Status: proposed implementation sequence. This planning task completes I0 discovery
-and design only. The subsequent [initial implementation](IMPLEMENTATION.md)
-records actual delivered boundaries and the phases still open. No phase is
-approved for deployment by this document.
+Status: implementation and explicitly authorized operational acceptance. The
+[implementation ledger](IMPLEMENTATION.md) records delivered boundaries; source-bound
+test/image receipts and separate target receipts establish actual acceptance.
 
 | Phase | Depends on | Concrete deliverables | Exit evidence |
 |---|---|---|---|
@@ -16,9 +15,9 @@ approved for deployment by this document.
 | I6 — preservation and independent acceptance | I1–I5 | Cumulative migration/backfill/rebuild/resume, same-source images/kit, doctor and rollback | Preserved rows/files/credentials/grants; source-bound feature audit, native image CPU acceptance and scale results |
 | I7 — separately requested rollout | I6 + explicit deployment request | Target readiness, drained cutover/backfill, client refresh and handoff | Per-target receipts; current identity/permissions, search coverage and real logs verified |
 
-Inventory-backed producer output remains unadvertised until its I4 API/guide/input
-adapters are accepted. I2 fixtures may exercise it privately; an index-only server
-capability must not activate unsupported producer schemas.
+Inventory-backed producer output is advertised with its native publication/input
+adapters and guides. Acceptance covers exact member inputs, source changes, stable
+IDs and bounded publication, separately from scientific producer validation.
 
 I2 and the I3 collector design may proceed independently after their shared identity
 contract. There is one core authority and one writer per index generation; no

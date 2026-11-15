@@ -256,10 +256,52 @@ fn prepare(
         let object = value
             .as_object()
             .ok_or_else(|| Error::input("Declared input must be a locator or upstream entity"))?;
-        if object.len() == 2 && value["job"].is_string() && value["entity"].is_string() {
+        if matches!(object.len(), 2 | 3)
+            && value["job"].is_string()
+            && value["entity"].is_string()
+            && object
+                .keys()
+                .all(|k| ["job", "entity", "member"].contains(&k.as_str()))
+        {
             let job = value["job"].as_str().unwrap();
             if !dependencies.iter().any(|d| d == job) {
                 dependencies.push(job.into());
+            }
+        } else if object
+            .keys()
+            .all(|k| ["artifact", "member"].contains(&k.as_str()))
+            && value["artifact"].is_object()
+        {
+            require(
+                value["artifact"]["id"].is_string()
+                    && value["artifact"]["revision"]
+                        .as_i64()
+                        .is_some_and(|v| v > 0)
+                    && value.get("member").is_none_or(Value::is_string),
+                "input",
+                "Exact artifact revision and optional member required",
+                400,
+            )?;
+            let source: Option<Option<String>> = db
+                .query_row(
+                    "SELECT job FROM all_entity_revisions WHERE id=? AND revision=?",
+                    params![
+                        value["artifact"]["id"].as_str(),
+                        value["artifact"]["revision"].as_i64()
+                    ],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            require(
+                source.is_some(),
+                "input",
+                "Artifact revision not found",
+                404,
+            )?;
+            if let Some(Some(job)) = source {
+                if !dependencies.contains(&job) {
+                    dependencies.push(job);
+                }
             }
         } else {
             require(

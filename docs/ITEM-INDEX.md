@@ -1,98 +1,128 @@
-# Item index operations
+# Common Items, file inventories and reconciliation
 
-The native development candidate uses core schema 6. Common Item IDs, exact aliases
-and revisions are authoritative metadata. File IDs are sealed in chunked manifests.
-`runtime/search/catalog.sqlite3` is a derived FTS projection and can be rebuilt.
-Never restore that DB as a substitute for lost authority manifests.
+The native service stores compact Item/revision/alias authority in the execution
+database. Sealed file manifests and source verification evidence live in private
+state directories; the separate SQLite/FTS index is disposable. Native IDs and
+historical source/kind/id/revision/snapshot selectors stay intact.
 
-## Configuration
+## Installation and preservation
 
-The optional `catalog` object in the installation API config accepts absolute
-`manifest_directory` and `index_directory`. Defaults are beneath the configured
-state directory (`catalog-manifests` and `search`). No dependency/data root is
-hardcoded. Use private directories reachable by the service identity. Keep the
-manifest directory separate from the derived index; preserve it with the core DB.
-The updater's default private snapshot excludes the derived search directory and
-preserves authoritative inventories. For packaged Compose updates, overrides must
-remain beneath the configured state mount (`/loom/ops` inside the container).
-The updater maps that mount to the installation's actual host runtime directory.
-An external manifest mount requires a separate preservation plan; the updater
-refuses to guess its host path. Offline native commands accept host paths directly.
-Portable exports continue stripping credentials.
+Existing installations use the cumulative updater in UPDATES.md. The explicit
+schema chain is 4 -> 5 native authority -> 6 common Items -> 7 reconciliation and
+retention. Drain old writers, process owners, callbacks and Runtime validation
+before cutover. Each boundary records private backups and preservation receipts.
+Startup refuses a legacy writer or an incomplete authority. The numbered previous
+migration scripts remain immutable; the schema 7 step supersedes their readiness
+checks, not their application order.
 
-One background worker adopts compact native metadata in bounded transactions;
-a separate SQLite writer projects changes. File inventories project at most one
-4-MiB chunk per checkpoint transaction. File entries do not add one row each to
-the core Item registry. Search reads use their own read-only connections, not the
-execution writer. An index failure does not stop native exact reads or Job returns.
+Backups preserve catalog manifests, file-sources, log-spool and protected host
+runtime-files alongside the original databases and user software. Search generations
+are rebuilt rather than restored over authority. Rollback rejects new or changed
+Item, binding, import, plan and retention records. Forward repair preserves them.
+Portable archives carry hashed manifests/source evidence and stream additional
+payload members through a sealed JSONL index. Streamed relocation preserves logical
+machine/store IDs. A clone or multi-store mapping needs an explicit reviewed copy
+binding plan; the single-store archive tool refuses silent member loss.
 
-## Additive upgrade
+## Discovery and files
 
-Stop/drain writers using the existing update contract. Keep the old native cutover
-migration unchanged. The cumulative `common-item-index-v1` step then applies the
-schema 5 -> 6 boundary, preserving old tables and credentials. It does not rerun
-Jobs or register another dataset. The schema 6 successor verifies readiness on
-subsequent skipped-version updates without changing the old migration checksum.
+Discover schemas through system.describe and read the items guide. Item, revision,
+File and stream IDs are decimal strings. Search defaults to Research/main and the
+latest historical record for each source identity; history=all retains exact older
+snapshots. Ranking uses exact, prefix and lexical tiers, then stable time/ID order.
+Origin, Scenario, relation, parent, kind and time filters are supported. Cursor
+queries preserve the same arguments and expire after source/access/generation
+changes. at_least waits at most one second and reports unsatisfied consistency
+without making a Job wait for an index.
 
-For an offline explicit migration, use the packaged binary and the installation's
-actual roots/configuration; run filesystem indexing with the service identity:
+Large Rust producers use Producer.register_inventory: sorted owner-relative JSONL
+members, hashed chunks and an exact primary. Publication verifies selected bytes
+off the execution writer and stores a compact source pin. Small legacy outputs
+remain compatible. Exact {job,entity,member?} and
+{artifact:{id,revision},member?} inputs resolve through authority independently of
+FTS, preserve producing-Job dependencies and verify bytes before execution.
 
-```sh
-loom-migrate catalog-install --state "$STATE" --config "$CONFIG" \
-  --data "$DATA" --components "$COMPONENTS" --backup "$BACKUP"
-loom-migrate catalog-backfill --state "$STATE" --config "$CONFIG" \
-  --data "$DATA" --components "$COMPONENTS" --batches 100
-```
+File ranges open granted current copies without following links. Accepted inventory,
+import and binding proofs are rechecked against the open file's current stamp;
+large verified files do not need a whole-file hash for every range. A bounded copy
+candidate search can use a valid alternate copy when another is missing/corrupt.
+Changed bytes are rejected. Legacy files without a current proof require explicit
+verification, or the optional background policy. Ownership is attribution, not an
+additional ACL; storage and protected Runtime grants still apply.
 
-`catalog-install` preserves original table hashes and writes a private rollback
-receipt. `rollback --state "$STATE" --receipt "$RECEIPT"` refuses changes after
-the captured boundary, including allocated common IDs. Use forward repair once
-new records exist. Never restore an older DB merely to make search look healthy.
+## Reconciliation
 
-## Rebuild and verification
+Agents supply meaning and original evidence; the server enforces the current
+contract. Use results.reconcile_contract, reconcile_inspect, reconcile_plan,
+reconcile_validate, reconcile_apply and reconcile_get. Plans have stable keys, at
+most 200 operations and 256 KiB of proposal metadata. Hash only selected candidates;
+apply rechecks proofs, identities, grants and contract context in a bounded commit.
 
-With the writer stopped, `catalog-rebuild` accepts the same roots/config and batch
-budget. It retires the derived generation, replays the authority journal and reads
-retained manifests. IDs and original results remain unchanged. Old cursors expire.
-A batch limit can leave explicit `index_behind` status; resume with backfill.
-This operation does not recursively discover unregistered research directories.
+adopt indexes an existing exact native identity. bind_file and bind_historical add
+verified current copies while preserving original availability and source rows.
+import explicitly creates an external typed asset with original provenance, without
+creating Jobs, Attempts or scientific completion events. A known source.native_ref
+must be adopted/bound rather than imported as a duplicate. Structural/byte validation
+never proves episode counts, tensor semantics, simulation correctness or scientific
+acceptance. Unknown schemas/conflicting source reuse fail; v1 and current v2 asset
+adapters are discoverable. Replay returns the original applied receipt.
 
-Text extraction is limited to registered, verified UTF-8 text formats and 256-KiB
-source files; the search text budget is 8192 characters. Binary/scientific payloads
-remain searchable by path and recorded metadata. Background verification is capped
-at 64 MiB per candidate file; larger files require an explicit offline command:
+This workflow does not perform an unregistered directory sweep, guess a Scenario,
+move all research data, change accounts, install dependencies or resume work.
+Runtime inventories require a host administrator and explicit package roots under
+the configured dependency directory; missing inventory is not an empty tree.
 
-```sh
+## Maintenance and quotas
+
+system.rebuild_search creates a durable shadow-generation task; poll
+system.catalog_task. Catch-up is independent of execution and the active index stays
+readable until an atomic switch. IDs survive rebuild and old cursors expire.
+A failed task retains progress; retry_catalog_task resumes it with unchanged roots.
+An exhausted batch budget needs a new explicit rebuild request. prune_search removes
+retired shadow generations at least ten minutes old and preserves the active one.
+Offline catalog-backfill/catalog-rebuild remain available under the writer lock.
+
+jobs.prune_logs selects exact returned, closed stream generations. Authority records
+a gap before raw provider/spool copies and searchable text are removed. Legacy log
+reads cannot resurrect expired generations. Producer containers and their separate
+Docker log retention policy remain intact; no Job or completion event is created.
+
+Catalog settings are optional under api.json.catalog:
+
+| Setting | Default | Boundary |
+|---|---:|---|
+| index_max_bytes | 4 GiB | Active/shadow/retired private search tree |
+| minimum_free_bytes | 64 MiB | Reserved free space for metadata workers |
+| log_total_max_bytes | 2 GiB | Private Ops raw spool |
+| log_stream_max_bytes | 256 MiB | Per source generation, within host capture ceiling |
+| read_copy_candidates | 8 | Granted copies checked per file range (max 32) |
+| verify_registered_files | false | Explicit opt-in background payload hashing |
+
+The host provider has a 2-GiB default global capture budget; its administrator can
+set LOOM_HOST_LOG_MAX_BYTES. Capture exhaustion preserves a prefix/gap and never
+holds process return. Large payload verification is opt-in; an upgrade does not
+rehash a research store. Exact offline verification uses:
+
+~~~sh
 loom-migrate catalog-verify-file --state "$STATE" --config "$CONFIG" \
   --data "$DATA" --components "$COMPONENTS" --file-id "$FILE_ID"
-```
+~~~
 
-Verification receipts bind the digest to device/inode/size/mtime/ctime. Registered
-ranges recheck the open file's stamp and source grant, never the entire store.
-Changed content is rejected. Reconnection uses the existing verified typed binding
-APIs; the index never approves a scientific mismatch or changes an old manifest.
+UTF-8 extraction is bounded to selected verified text formats, 256-KiB source files
+and 8192 characters. Binary/scientific payloads remain metadata-searchable.
+Ranges are bounded to 256 KiB. Default index/storage quotas are capacity guards,
+not claims that any corpus fits them; configure capacity before a scale migration.
 
-`catalog-prune` retires superseded projection versions only beyond the cursor TTL
-safety margin. Raw log removal is not automatic. Preserve the Job/effect source
-and its generation evidence when administering spool retention; this version does
-not infer erased bytes or producer timestamps from search snippets.
+## Dashboard and acceptance
 
-Registered log bytes are stored in the service state `log-spool`, outside Job
-output mounts. External capture is limited to 256 MiB per physical source generation. The Ops
-spool also defaults to 256 MiB; `catalog.log_stream_max_bytes` overrides the spool
-budget within the provider limit. Exhaustion preserves the
-observed prefix and marks a gap; it never delays process return or deletes bytes.
+The browser bootstraps compact authority metadata, queue occupants and a separate
+KST activity rollup. Catalog pages, exact source details, files, relations and logs
+are loaded as requested. Revision-qualified reads preserve historical snapshots
+and accepted software definitions. The legacy catalog route remains for compatible
+clients; new clients do not need it for bootstrap.
 
-## Current limits
-
-Search is eventually consistent, with default 50/max 200 results and bounded
-file/log byte pages. Common IDs do not replace existing specialized IDs or the Job
-input schema. Default discovery filters do not affect queue occupancy. Exact
-historical aliases include the original snapshot. Ownership is attribution, not
-an additional ACL; current storage/grant checks still apply to byte reads.
-
-The initial implementation indexes registered legacy output inventories and
-source pins. A new inventory-backed producer publication/input format, Runtime
-payload-tree inventories, automatic log retention and full server-paged replacement
-of the legacy Dashboard bootstrap are not activated. Existing producers, inputs,
-research records and scientific runtimes retain their existing contracts.
+Feature checks and source-qualified test audits are development tools, not Job
+execution gates. The opt-in synthetic scale example requires a new fixture root
+and reports raw sizes, overlap, disk, RSS and latency; it never scans operational
+data. Representative operational acceptance must state actual sample sizes and
+separate structural import from GPU/Sim/scientific validation.

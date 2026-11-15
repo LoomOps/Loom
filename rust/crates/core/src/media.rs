@@ -147,7 +147,7 @@ impl Application {
                 .as_i64()
                 .ok_or_else(|| Error::input("Entity revision required"))?;
             let text: String = self.db.query_row(
-                "SELECT manifest FROM entity_revisions WHERE id=? AND revision=?",
+                "SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=?",
                 rusqlite::params![id, revision],
                 |r| r.get(0),
             )?;
@@ -155,7 +155,7 @@ impl Application {
                 serde_json::from_str(&text)?,
                 rows(
                     &self.db,
-                    "SELECT * FROM entity_locations WHERE id=? AND revision=?",
+                    "SELECT * FROM all_entity_locations WHERE id=? AND revision=?",
                     &[&id, &revision],
                 )?,
             )

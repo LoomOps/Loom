@@ -47,13 +47,13 @@ fn source_entries(app: &Application, native: &Value) -> Result<Vec<Value>> {
     match native["kind"].as_str().unwrap_or("") {
         "entity" => {
             let text: String = app.db.query_row(
-                "SELECT manifest FROM entity_revisions WHERE id=? AND revision=?",
+                "SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=?",
                 params![v["id"].as_str(), v["revision"].as_i64()],
                 |r| r.get(0),
             )?;
             let m: Value = serde_json::from_str(&text)?;
             for c in m["components"].as_array().into_iter().flatten() {
-                let locations=rows(&app.db,"SELECT machine_id,storage_id,ref,status FROM entity_locations WHERE id=? AND revision=? AND component=?",&[&v["id"].as_str(),&v["revision"].as_i64(),&c["ref"].as_str()])?;
+                let locations=rows(&app.db,"SELECT machine_id,storage_id,ref,status FROM all_entity_locations WHERE id=? AND revision=? AND component=?",&[&v["id"].as_str(),&v["revision"].as_i64(),&c["ref"].as_str()])?;
                 result.push(json!({"entry_key":c["ref"],"path":c["ref"],"role":if c["ref"]==m["path"]{"primary"}else{"member"},"size":c["size"],"sha256":c["sha256"],"copies":locations.into_iter().map(|mut l|{l["type"]=json!("storage");l}).collect::<Vec<_>>()}));
             }
         }
@@ -105,7 +105,42 @@ pub fn prepare(app: &Application, item: &[u8], revision: &[u8]) -> Result<Prepar
         params![revision, item],
         |r| r.get(0),
     )?;
-    let mut entries = source_entries(app, &serde_json::from_str(&native)?)?;
+    let native: Value = serde_json::from_str(&native)?;
+    if native["kind"] == "runtime" {
+        return Err(Error::new(
+            "runtime_provider_required",
+            "Use the granted host inventory provider",
+            409,
+        ));
+    }
+    if native["kind"] == "entity" {
+        let text: String = app.db.query_row(
+            "SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=?",
+            params![
+                native["identity"]["id"].as_str(),
+                native["identity"]["revision"].as_i64()
+            ],
+            |r| r.get(0),
+        )?;
+        let value: Value = serde_json::from_str(&text)?;
+        if value["file_set"].is_object() {
+            let primary = value["path"]
+                .as_str()
+                .or_else(|| value["components"][0]["ref"].as_str())
+                .unwrap_or("")
+                .to_string();
+            let members =
+                crate::file_set::Members::open(app, &value["file_set"], None)?.map(move |entry| {
+                    let mut entry = entry?;
+                    if entry["entry_key"] == primary {
+                        entry["role"] = json!("primary");
+                    }
+                    Ok(entry)
+                });
+            return prepare_entries(app, item, revision, members);
+        }
+    }
+    let mut entries = source_entries(app, &native)?;
     entries.sort_by(|a, b| a["entry_key"].as_str().cmp(&b["entry_key"].as_str()));
     prepare_entries(app, item, revision, entries.into_iter().map(Ok))
 }
@@ -170,6 +205,15 @@ pub fn prepare_entries(
         }
         let file = format!("chunk-{:08}.jsonl", chunks.len());
         let digest = hash(&buffer);
+        storage::reserve_space(
+            &folder,
+            buffer.len() as u64,
+            app.config
+                .extra
+                .get("catalog")
+                .and_then(|c| c["minimum_free_bytes"].as_u64())
+                .unwrap_or(64 * 1024 * 1024),
+        )?;
         storage::atomic(&folder.join(&file), buffer, 0o600)?;
         chunks.push(json!({"name":file,"sha256":digest,"entries":count}));
         storage::atomic(
@@ -222,6 +266,7 @@ pub fn prepare_entries(
         entry["label"] = entry["path"].clone();
         entry["recorded_at"] = parent["recorded_at"].clone();
         entry["scope"] = parent["scope"].clone();
+        entry["origin_type"] = parent["origin_type"].clone();
         entry["file_role"] = entry["role"].clone();
         entry["role"] = json!("main");
         let mut line = serde_json::to_vec(&entry)?;
@@ -351,7 +396,7 @@ pub fn project(
 }
 impl Application {
     pub fn pending_inventories(&self) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
-        let mut q=self.db.prepare("SELECT r.item,r.id FROM catalog_revisions r JOIN catalog_items i ON r.item=i.id WHERE i.native_kind IN ('entity','historical','component','tool') AND NOT EXISTS(SELECT 1 FROM catalog_manifests m WHERE m.revision=r.id) ORDER BY r.rowid LIMIT 8")?;
+        let mut q=self.db.prepare("SELECT r.item,r.id FROM catalog_revisions r JOIN catalog_items i ON r.item=i.id WHERE (i.native_kind IN ('entity','historical','component','tool') OR (i.native_kind='runtime' AND json_type(r.body,'$.file_inventory')='object')) AND NOT EXISTS(SELECT 1 FROM catalog_manifests m WHERE m.revision=r.id) ORDER BY r.rowid LIMIT 8")?;
         let values = q
             .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -442,7 +487,10 @@ impl Application {
                 let native = &owner["native_ref"];
                 if native["kind"] == "entity" {
                     let v = &native["identity"];
-                    entry["copies"]=json!(rows(&self.db,"SELECT 'storage' AS type,machine_id,storage_id,ref,status FROM entity_locations WHERE id=? AND revision=? AND component=? ORDER BY storage_id,ref LIMIT 200",&[&v["id"].as_str(),&v["revision"].as_i64(),&entry["entry_key"].as_str()])?);
+                    let current=rows(&self.db,"SELECT 'storage' AS type,machine_id,storage_id,ref,status FROM all_entity_locations WHERE id=? AND revision=? AND component=? ORDER BY storage_id,ref LIMIT 200",&[&v["id"].as_str(),&v["revision"].as_i64(),&entry["entry_key"].as_str()])?;
+                    if !current.is_empty() {
+                        entry["copies"] = json!(current);
+                    }
                 } else if native["kind"] == "historical" {
                     let (_, locations) = self.historical_files(&native["identity"])?;
                     entry["copies"] = json!(locations
@@ -455,6 +503,24 @@ impl Application {
                         })
                         .collect::<Vec<_>>());
                 }
+                if let Ok(mut query) = self.db.prepare(
+                    "SELECT locator FROM file_bindings WHERE file=? ORDER BY locator LIMIT 200",
+                ) {
+                    let file_id = items::parse(&entry["item_id"])?;
+                    let extra = query
+                        .query_map([file_id], |r| r.get::<_, String>(0))?
+                        .collect::<std::result::Result<Vec<_>, _>>()?;
+                    for text in extra {
+                        let mut copy: Value = serde_json::from_str(&text)?;
+                        copy["type"] = json!("storage");
+                        if !entry["copies"].is_array() {
+                            entry["copies"] = json!([]);
+                        }
+                        if !entry["copies"].as_array().unwrap().contains(&copy) {
+                            entry["copies"].as_array_mut().unwrap().push(copy);
+                        }
+                    }
+                }
                 return Ok(entry);
             }
         }
@@ -464,17 +530,88 @@ impl Application {
             404,
         ))
     }
-    pub fn read_file(&self, args: &Value) -> Result<Value> {
-        let entry = self.get_file(args)?;
-        let (mut f, _copy) = open_copy(self, &entry)?;
+    fn authoritative_verification(&self, entry: &Value, file: &fs::File) -> Result<bool> {
+        let id = items::parse(&entry["item_id"])?;
+        if let Ok(mut q) = self
+            .db
+            .prepare("SELECT evidence FROM file_bindings WHERE file=? LIMIT 200")
+        {
+            for text in q.query_map([id], |r| r.get::<_, String>(0))? {
+                let evidence: Value = serde_json::from_str(&text?)?;
+                if let Ok(proof) =
+                    serde_json::from_value::<storage::VerifiedFile>(evidence["proof"].clone())
+                {
+                    if entry["sha256"] == proof.sha256
+                        && entry["size"].as_u64() == Some(proof.size)
+                        && proof.revalidate_open(file).is_ok()
+                    {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+        let owner = self.get_item(
+            &json!({"item_id":entry["parent_item_id"],"revision_id":entry["owner_revision_id"]}),
+        )?;
+        if owner["native_ref"]["kind"] != "entity" {
+            return Ok(false);
+        }
+        let native = &owner["native_ref"]["identity"];
+        let text: String = self.db.query_row(
+            "SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=?",
+            params![native["id"].as_str(), native["revision"].as_i64()],
+            |r| r.get(0),
+        )?;
+        let manifest: Value = serde_json::from_str(&text)?;
+        if manifest["file_set"].is_object()
+            && crate::file_set::verified_member(
+                self,
+                &manifest["file_set"],
+                entry["entry_key"].as_str().unwrap_or(""),
+                entry,
+                file,
+            )?
+        {
+            return Ok(true);
+        }
+        if let Some(plan) = manifest["origin"]["plan_id"].as_str() {
+            let imported: bool = self.db.query_row(
+                "SELECT EXISTS(SELECT 1 FROM asset_imports WHERE id=? AND revision=?)",
+                params![native["id"].as_str(), native["revision"].as_i64()],
+                |r| r.get(0),
+            )?;
+            if imported {
+                let text: String = self.db.query_row(
+                    "SELECT validation FROM reconcile_plans WHERE id=? AND state='applied'",
+                    [plan],
+                    |r| r.get(0),
+                )?;
+                let validation: Value = serde_json::from_str(&text)?;
+                for value in validation["proofs"].as_array().into_iter().flatten() {
+                    let proof: storage::VerifiedFile = serde_json::from_value(value.clone())?;
+                    if entry["sha256"] == proof.sha256
+                        && entry["size"].as_u64() == Some(proof.size)
+                        && proof.revalidate_open(file).is_ok()
+                    {
+                        return Ok(true);
+                    }
+                }
+            }
+        }
+        Ok(false)
+    }
+    fn verified_open_copy(&self, entry: &Value, f: &mut fs::File) -> Result<(String, u64)> {
         let metadata = f.metadata()?;
         let stamp = file_stamp(&metadata);
-        let cached = crate::index_store::file_receipt(self, &entry["item_id"], &stamp)?;
+        let mut cached = crate::index_store::file_receipt(self, &entry["item_id"], &stamp)?;
+        if !cached {
+            cached = self.authoritative_verification(entry, f)?;
+        }
         if !cached {
             require(
                 metadata.len() <= 4 * 1024 * 1024,
                 "verification_pending",
-                "File verification is queued; retry after the index worker observes this copy",
+                "Verify this exact File with the authorized verifier or enable configured background verification",
                 409,
             )?;
             use sha2::{Digest, Sha256};
@@ -501,6 +638,63 @@ impl Application {
             "File size changed",
             409,
         )?;
+        Ok((stamp, size))
+    }
+    pub fn read_file(&self, args: &Value) -> Result<Value> {
+        let entry = self.get_file(args)?;
+        if let Some(value) = &self.live_file {
+            let mut value = value.clone()?;
+            require(
+                value["sha256"] == entry["sha256"],
+                "content_changed",
+                "Protected source digest differs from the registered File",
+                409,
+            )?;
+            value["file_item_id"] = args["file_item_id"].clone();
+            return Ok(value);
+        }
+        let mut chosen = None;
+        let mut first_error = None;
+        let maximum = self
+            .config
+            .extra
+            .get("catalog")
+            .and_then(|c| c["read_copy_candidates"].as_u64())
+            .unwrap_or(8)
+            .clamp(1, 32) as usize;
+        for copy in entry["copies"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .take(maximum)
+        {
+            let mut candidate = entry.clone();
+            candidate["copies"] = json!([copy]);
+            let result = open_copy(self, &candidate).and_then(|(mut file, _)| {
+                self.verified_open_copy(&entry, &mut file)
+                    .map(|(stamp, size)| (file, stamp, size))
+            });
+            match result {
+                Ok(value) => {
+                    chosen = Some(value);
+                    break;
+                }
+                Err(error) => {
+                    if first_error.is_none() {
+                        first_error = Some(error)
+                    }
+                }
+            }
+        }
+        let (mut f, stamp, size) = chosen.ok_or_else(|| {
+            first_error.unwrap_or_else(|| {
+                Error::new(
+                    "source_unavailable",
+                    "No granted verified copy is connected",
+                    404,
+                )
+            })
+        })?;
         let offset = args["offset"]
             .as_str()
             .unwrap_or("0")

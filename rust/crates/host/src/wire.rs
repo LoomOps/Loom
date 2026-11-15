@@ -228,12 +228,17 @@ pub fn serve<D: Docker + 'static>(executor: Executor<D>) -> Result<()> {
         let shared = shared.clone();
         let log_readers = log_readers.clone();
         threads.push(std::thread::spawn(move||loop{let Ok(mut stream)=receive.lock().unwrap().recv() else{break};let result=(||->Result<Value>{let uid=peer(&stream)?;let (action,token,body)=request(&mut stream)?;let mut executor=shared.lock().map_err(|_|Error::new("executor","Executor unavailable",503))?;let instance=executor.authenticate(&token,uid)?;
-if matches!(action.as_str(),"logs"|"log_range") {
+if matches!(action.as_str(),"runtime_file_page"|"runtime_file_read") {
+    use std::sync::atomic::Ordering;
+    require(log_readers.try_update(Ordering::AcqRel,Ordering::Acquire,|n|if n<2{Some(n+1)}else{None}).is_ok(),"busy","File/log readers are busy",503)?;
+    let capability=crate::runtime_files::grant(&executor.root,&executor.config,&instance,&body["runtime_ref"]);drop(executor);
+    let result=capability.and_then(|c|c.call(&action,&body));log_readers.fetch_sub(1,Ordering::AcqRel);result
+} else if matches!(action.as_str(),"logs"|"log_range"|"log_expire") {
     use std::sync::atomic::Ordering;
     require(log_readers.try_update(Ordering::AcqRel,Ordering::Acquire,|n|if n<2{Some(n+1)}else{None}).is_ok(),"busy","Log readers are busy",503)?;
     let capability=executor.log_read(&instance,&body);drop(executor);
     let mut args=body;if action=="logs"{args["tail"]=json!(true);args["limit"]=json!(1024*1024);}
-    let result=capability.and_then(|c|c.read(&args));log_readers.fetch_sub(1,Ordering::AcqRel);result
+    let result=capability.and_then(|c|if action=="log_expire"{c.expire(&args)}else{c.read(&args)});log_readers.fetch_sub(1,Ordering::AcqRel);result
 } else {executor.handle(&instance,&action,body)}})();let (status,body)=match result{Ok(v)=>(200,v),Err(e)=>(e.status,json!({"error":e.message,"code":e.code}))};if let Ok(raw)=serde_json::to_vec(&body){let _=write!(stream,"HTTP/1.1 {status} Result\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",raw.len());let _=stream.write_all(&raw);}}));
     }
     for stream in listener.incoming() {

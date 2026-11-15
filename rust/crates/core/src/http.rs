@@ -149,7 +149,10 @@ impl Application {
         }
         if matches!(
             path,
-            "/api/dashboard/catalog" | "/api/dashboard/revision" | "/api/dashboard/resources"
+            "/api/dashboard/catalog"
+                | "/api/dashboard/bootstrap"
+                | "/api/dashboard/revision"
+                | "/api/dashboard/resources"
         ) {
             actor.require("read")?;
             let value = if path.ends_with("revision") {
@@ -157,7 +160,11 @@ impl Application {
             } else if path.ends_with("resources") {
                 self.resources()?
             } else {
-                let mut catalog = self.dashboard_catalog()?;
+                let mut catalog = if path.ends_with("bootstrap") {
+                    self.dashboard_bootstrap()?
+                } else {
+                    self.dashboard_catalog()?
+                };
                 let write = !self.read_only && actor.scopes.iter().any(|s| s == "submit");
                 crate::query::queue_permissions(&mut catalog["queue"], write);
                 catalog["capabilities"]["curate"] =
@@ -612,6 +619,7 @@ pub struct ReadContext {
     read_only: bool,
     cache: std::sync::Arc<std::sync::Mutex<Option<(String, Value)>>>,
     pub files: Vec<std::path::PathBuf>,
+    pub inventories: Vec<(std::path::PathBuf, String, Value)>,
 }
 fn request_action(r: &HttpRequest) -> Option<(&str, &str, Value)> {
     let path = r.path.split('?').next()?;
@@ -687,7 +695,7 @@ pub fn is_read(r: &HttpRequest) -> bool {
             )
 }
 pub fn is_heavy_read(r: &HttpRequest) -> bool {
-    r.path.starts_with("/api/dashboard/catalog")
+    r.path.starts_with("/api/dashboard/")
         || r.path.starts_with("/api/items/")
         || r.path.starts_with("/api/files/")
         || r.path.starts_with("/api/logs/")
@@ -703,7 +711,11 @@ pub fn is_heavy_read(r: &HttpRequest) -> bool {
 }
 pub fn needs_file_proofs(r: &HttpRequest) -> bool {
     request_action(r).is_some_and(|(group, action, args)| {
-        group == "results" && matches!(action, "bind_historical_location" | "reconnect")
+        group == "results"
+            && matches!(
+                action,
+                "bind_historical_location" | "reconnect" | "reconcile_validate" | "reconcile_apply"
+            )
             || group == "components"
                 && matches!(action, "register" | "register_tool")
                 && args["manifest"]["build_receipt"].is_object()
@@ -718,6 +730,7 @@ impl Application {
             }
         }
         let mut files = vec![];
+        let mut inventories = vec![];
         if let Some((group, action, args)) = request_action(r).filter(|_| needs_file_proofs(r)) {
             let contract = crate::contracts::action(group, action)?;
             let actor = auth::authenticate(&self.db, &self.config, &r.headers, &r.peer, r.dev)?;
@@ -739,6 +752,10 @@ impl Application {
                     &self.bulk,
                     &args["locator"],
                 )?);
+            }
+            if group == "results" && matches!(action, "reconcile_validate" | "reconcile_apply") {
+                (files, inventories) =
+                    self.reconciliation_inputs(&actor, args["plan_id"].as_str().unwrap_or(""))?;
             }
             if group == "results" && action == "reconnect" {
                 let (root, _) = crate::storage::store(
@@ -770,16 +787,19 @@ impl Application {
             read_only: self.read_only,
             cache: self.catalog_cache.clone(),
             files,
+            inventories,
         })
     }
     pub fn http_verified(
         &mut self,
         r: HttpRequest,
-        proofs: std::collections::BTreeMap<std::path::PathBuf, crate::storage::VerifiedFile>,
+        proofs: crate::reconcile::PreparedFiles,
     ) -> Result<HttpReply> {
-        self.file_proofs = proofs;
+        self.file_proofs = proofs.files;
+        self.file_sets = proofs.inventories;
         let result = self.http(r);
         self.file_proofs.clear();
+        self.file_sets.clear();
         result
     }
     pub fn verified_file(&self, path: &std::path::Path) -> Result<crate::storage::VerifiedFile> {
@@ -792,8 +812,68 @@ impl Application {
     }
 }
 impl ReadContext {
+    pub fn prepare_files(&self) -> Result<crate::reconcile::PreparedFiles> {
+        let mut prepared = crate::reconcile::PreparedFiles::default();
+        for path in &self.files {
+            prepared
+                .files
+                .insert(path.clone(), crate::storage::VerifiedFile::read(path)?);
+        }
+        if !self.inventories.is_empty() {
+            let app = Application::open_read_only(
+                &self.local,
+                &self.bulk,
+                &self.components,
+                self.config.clone(),
+            )?;
+            for (base, selector, declaration) in &self.inventories {
+                let key = crate::reconcile::inventory_key(base, declaration)?;
+                prepared.inventories.insert(
+                    key,
+                    crate::file_set::seal(&app, base, selector, declaration)?,
+                );
+            }
+        }
+        Ok(prepared)
+    }
     pub fn http(self, r: HttpRequest) -> Result<HttpReply> {
         self.http_with_logs(r, None)
+    }
+    pub fn live_file_request(&self, r: &HttpRequest) -> Result<Option<(Value, Value)>> {
+        let Some(("results", "read_file", args)) = request_action(r) else {
+            return Ok(None);
+        };
+        let Some(executor) = self.config.extra.get("executor") else {
+            return Ok(None);
+        };
+        let app = Application::open_read_only(
+            &self.local,
+            &self.bulk,
+            &self.components,
+            self.config.clone(),
+        )?;
+        let actor = auth::authenticate(&app.db, &app.config, &r.headers, &r.peer, r.dev)?;
+        actor.require("read")?;
+        crate::contracts::validate(
+            &crate::contracts::action("results", "read_file")?.schema,
+            &args,
+        )?;
+        let file = app.get_file(&args)?;
+        if crate::inventory::open_copy(&app, &file).is_ok() {
+            return Ok(None);
+        }
+        let Some(copy) = file["copies"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|c| c["type"] == "runtime")
+        else {
+            return Ok(None);
+        };
+        Ok(Some((
+            executor.clone(),
+            json!({"runtime_ref":copy["runtime_ref"],"entry_key":copy["entry_key"],"inventory_sha256":copy["inventory_sha256"],"offset":args["offset"].as_str().unwrap_or("0"),"limit":args["limit"].as_u64().unwrap_or(65536).min(262144)}),
+        )))
     }
     pub fn live_log_request(&self, r: &HttpRequest) -> Result<Option<(Value, Value)>> {
         let Some(("jobs", action @ ("logs" | "read_log"), args)) = request_action(r) else {
@@ -813,6 +893,15 @@ impl ReadContext {
         crate::contracts::validate(&crate::contracts::action("jobs", action)?.schema, &args)?;
         if action == "read_log" {
             let (_, work) = crate::log_index::source(&app, &args["stream_id"])?;
+            let state = crate::log_index::read_state(&app, &work)?;
+            crate::log_index::retained(
+                &app,
+                &work,
+                args["source_generation"]
+                    .as_str()
+                    .or(state["generation"].as_str())
+                    .unwrap_or(&work.effect),
+            )?;
             if crate::log_index::read_generation(&app, &work, args["source_generation"].as_str())
                 .is_ok_and(|(_, s)| s["closed"] == true)
             {
@@ -849,6 +938,7 @@ impl ReadContext {
             .as_str()
             .or(job.aggregate.fence.attempt.as_ref().map(|a| a.as_str()))
             .ok_or_else(|| Error::input("Attempt required"))?;
+        crate::log_index::legacy_guard(&app, job.aggregate.id.as_str(), attempt)?;
         let evidence: Option<String> = app.db.query_row("SELECT evidence FROM rust_effects WHERE job=? AND attempt=? AND stage='run' AND state IN ('accepted','unknown','returned') ORDER BY created DESC LIMIT 1",params![job.aggregate.id.as_str(),attempt],|row|row.get(0)).optional()?.flatten();
         let Some(evidence) = evidence else {
             return Ok(None);
@@ -863,10 +953,22 @@ impl ReadContext {
         )))
     }
     pub fn http_with_logs(self, r: HttpRequest, logs: Option<Result<Value>>) -> Result<HttpReply> {
+        self.http_with_sources(r, logs, None)
+    }
+    pub fn http_with_file(self, r: HttpRequest, file: Result<Value>) -> Result<HttpReply> {
+        self.http_with_sources(r, None, Some(file))
+    }
+    fn http_with_sources(
+        self,
+        r: HttpRequest,
+        logs: Option<Result<Value>>,
+        file: Option<Result<Value>>,
+    ) -> Result<HttpReply> {
         let mut app =
             Application::open_read_only(&self.local, &self.bulk, &self.components, self.config)?;
         app.query_snapshot = true;
         app.live_logs = logs;
+        app.live_file = file;
         app.read_only = self.read_only;
         app.catalog_cache = self.cache;
         app.db.execute_batch("BEGIN")?;

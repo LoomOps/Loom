@@ -50,6 +50,24 @@ pub fn retained_length(file: &fs::File, state: &Value) -> Result<u64> {
     )?;
     Ok(committed)
 }
+pub fn retained(app: &Application, work: &Work, generation: &str) -> Result<()> {
+    let expired:bool=app.db.query_row("SELECT EXISTS(SELECT 1 FROM log_retention r JOIN catalog_aliases a ON r.stream=a.item WHERE a.kind='log_stream' AND a.identity=? AND r.generation=?)",params![encode(&json!({"effect":work.effect}))?,generation],|r|r.get(0))?;
+    require(
+        !expired,
+        "retention_gap",
+        "This source generation was explicitly expired; retained identity and gap remain available",
+        409,
+    )
+}
+pub fn legacy_guard(app: &Application, job: &str, attempt: &str) -> Result<()> {
+    let expired:bool=app.db.query_row("SELECT EXISTS(SELECT 1 FROM log_retention l JOIN catalog_items i ON i.id=l.stream JOIN catalog_revisions r ON r.id=i.current_revision WHERE json_extract(r.body,'$.job')=? AND json_extract(r.body,'$.attempt')=?)",params![job,attempt],|r|r.get(0))?;
+    require(
+        !expired,
+        "retention_gap",
+        "Attempt logs contain expired intervals; select an exact stream/source generation",
+        409,
+    )
+}
 pub fn read_source(app: &Application, work: &Work) -> Result<(fs::File, Value)> {
     let root = app.local.clone();
     let path = path(&root, work);
@@ -59,6 +77,11 @@ pub fn read_source(app: &Application, work: &Work) -> Result<(fs::File, Value)> 
         .and_then(|p| p.to_str())
         .ok_or_else(|| Error::input("Invalid log reference"))?;
     let state = read_state(app, work)?;
+    retained(
+        app,
+        work,
+        state["generation"].as_str().unwrap_or(&work.effect),
+    )?;
     let file = storage::open_registered(&root, reference)?;
     let current = read_state(app, work)?;
     require(
@@ -70,6 +93,14 @@ pub fn read_source(app: &Application, work: &Work) -> Result<(fs::File, Value)> 
     Ok((file, state))
 }
 impl Application {
+    pub fn log_source_evidence(&self, effect: &str) -> Result<Value> {
+        let text: String = self.db.query_row(
+            "SELECT evidence FROM rust_effects WHERE id=?",
+            [effect],
+            |r| r.get(0),
+        )?;
+        Ok(serde_json::from_str(&text)?)
+    }
     pub fn log_streams(&self, args: &Value) -> Result<Value> {
         let job = args["id"]
             .as_str()
@@ -91,6 +122,11 @@ impl Application {
                 v["gap"] = state["gap"].clone();
             } else {
                 v["availability"] = json!("source_unavailable");
+                let gaps=crate::store::rows(&self.db,"SELECT generation,start,end,reason,created FROM log_retention WHERE stream=? ORDER BY created DESC LIMIT 16",&[&items::parse(&v["item_id"])?])?;
+                if !gaps.is_empty() {
+                    v["availability"] = json!("expired");
+                    v["retained_gaps"] = json!(gaps);
+                }
             }
             streams.push(v);
         }
@@ -110,6 +146,20 @@ impl Application {
     pub fn read_log(&self, args: &Value) -> Result<Value> {
         let (stream, work) = source(self, &args["stream_id"])?;
         let limit = args["limit"].as_u64().unwrap_or(65536).clamp(1, 262144);
+        let generation = args["source_generation"].as_str().or_else(|| {
+            self.live_logs
+                .as_ref()
+                .and_then(|v| v.as_ref().ok())
+                .and_then(|v| v["source_generation"].as_str())
+        });
+        let local = read_state(self, &work)?;
+        retained(
+            self,
+            &work,
+            generation
+                .or(local["generation"].as_str())
+                .unwrap_or(&work.effect),
+        )?;
         if let Some(Ok(value)) = &self.live_logs {
             let mut v = value.clone();
             for key in ["offset", "next_offset", "total_bytes"] {
@@ -160,6 +210,23 @@ impl Application {
 }
 pub fn project(index: &mut crate::index_store::IndexWriter, app: &Application) -> Result<usize> {
     index.db.execute_batch("CREATE TABLE IF NOT EXISTS log_segments(stream BLOB NOT NULL,generation TEXT NOT NULL,start INTEGER NOT NULL,end INTEGER NOT NULL,text TEXT NOT NULL,PRIMARY KEY(stream,generation,start)); CREATE VIRTUAL TABLE IF NOT EXISTS log_terms USING fts5(text,tokenize='trigram'); CREATE TRIGGER IF NOT EXISTS log_insert AFTER INSERT ON log_segments BEGIN INSERT INTO log_terms(rowid,text) VALUES(new.rowid,new.text); END; CREATE TRIGGER IF NOT EXISTS log_delete AFTER DELETE ON log_segments BEGIN DELETE FROM log_terms WHERE rowid=old.rowid; END;")?;
+    index.db.execute_batch("CREATE TABLE IF NOT EXISTS log_retention_projection(id INTEGER PRIMARY KEY CHECK(id=1),through INTEGER NOT NULL);INSERT OR IGNORE INTO log_retention_projection VALUES(1,0);")?;
+    let through: i64 = index.db.query_row(
+        "SELECT through FROM log_retention_projection WHERE id=1",
+        [],
+        |r| r.get(0),
+    )?;
+    if app.db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='log_retention')",
+        [],
+        |r| r.get::<_, bool>(0),
+    )? {
+        for row in rows(&app.db,"SELECT rowid AS seq,hex(stream) AS stream,generation FROM log_retention WHERE rowid>? ORDER BY rowid LIMIT 32",&[&through])?{
+        let tx=index.db.transaction()?;
+        tx.execute("DELETE FROM log_segments WHERE hex(stream)=? AND generation=?",params![row["stream"].as_str(),row["generation"].as_str()])?;
+        tx.execute("UPDATE log_retention_projection SET through=? WHERE id=1",[row["seq"].as_i64()])?;tx.commit()?;
+    }
+    }
     let mut done = 0;
     let after: i64 = index
         .db
@@ -187,7 +254,7 @@ pub fn project(index: &mut crate::index_store::IndexWriter, app: &Application) -
         let generation = state["generation"].as_str().unwrap_or(&work.effect);
         let stream = items::parse(&v["item_id"])?;
         let offset: i64 = index.db.query_row(
-            "SELECT COALESCE(max(end),0) FROM log_segments WHERE stream=? AND generation=?",
+            "SELECT COALESCE((SELECT end FROM log_segments WHERE stream=? AND generation=? ORDER BY start DESC LIMIT 1),0)",
             params![stream, generation],
             |r| r.get(0),
         )?;
@@ -254,15 +321,21 @@ impl Application {
         let mut coverage_partial = false;
         for stream in streams {
             let (_, work) = source(self, &stream["item_id"])?;
-            let (file, state) = read_source(self, &work)
-                .map_err(|_| Error::new("source_unavailable", "Log source is unavailable", 404))?;
+            let (file, state) = match read_source(self, &work) {
+                Ok(v) => v,
+                Err(e) if e.code == "retention_gap" => {
+                    coverage_partial = true;
+                    continue;
+                }
+                Err(e) => return Err(e),
+            };
             if state["closed"] != true || state["gap"] == true {
                 coverage_partial = true;
             }
             let generation = state["generation"].as_str().unwrap_or("");
             let db = crate::index_store::read(self)?;
             let through: i64 = db.query_row(
-                "SELECT COALESCE(max(end),0) FROM log_segments WHERE stream=? AND generation=?",
+                "SELECT COALESCE((SELECT end FROM log_segments WHERE stream=? AND generation=? ORDER BY start DESC LIMIT 1),0)",
                 params![items::parse(&stream["item_id"])?, generation],
                 |r| r.get(0),
             )?;
@@ -310,7 +383,7 @@ impl Application {
             .unwrap_or(0);
         let limit = args["limit"].as_u64().unwrap_or(50).clamp(1, 200) as i64;
         let pattern = format!("\"{}\"", text.replace('"', "\"\""));
-        let mut q=db.prepare("SELECT rowid,stream,generation,start,end,text FROM log_segments WHERE rowid>? AND rowid<=? AND hex(stream) IN(SELECT value FROM json_each(?)) AND rowid IN(SELECT rowid FROM log_terms WHERE log_terms MATCH ?) ORDER BY rowid LIMIT ?")?;
+        let mut q=db.prepare("SELECT l.rowid,l.stream,l.generation,l.start,l.end,l.text FROM log_terms JOIN log_segments l ON l.rowid=log_terms.rowid WHERE log_terms.rowid>? AND log_terms.rowid<=? AND hex(l.stream) IN(SELECT value FROM json_each(?)) AND log_terms MATCH ? ORDER BY log_terms.rowid LIMIT ?")?;
         let batch = q
             .query_map(
                 params![
@@ -403,6 +476,13 @@ pub fn read_generation(
     generation: Option<&str>,
 ) -> Result<(fs::File, Value)> {
     let state = read_state(app, work)?;
+    retained(
+        app,
+        work,
+        generation
+            .or(state["generation"].as_str())
+            .unwrap_or(&work.effect),
+    )?;
     if let Some(g) = generation.filter(|g| state["generation"].as_str() != Some(*g)) {
         let id = uuid::Uuid::parse_str(g).map_err(|_| Error::input("Invalid log generation"))?;
         let archive = path(&app.local, work).with_extension(format!("{id}.log"));

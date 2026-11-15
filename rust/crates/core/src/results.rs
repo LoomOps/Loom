@@ -8,10 +8,11 @@ use serde_json::{json, Value};
 pub fn verify_target(db: &Connection, target: &Target, config: &Config) -> Result<()> {
     let v = &target.identity;
     let exists=match target.kind.as_str() {
+  "scenario"=>db.query_row("SELECT EXISTS(SELECT 1 FROM scenario_revisions WHERE scenario_id=? AND revision=?)",params![v["id"].as_str(),v["revision"].as_i64()],|r|r.get(0))?,
   "job"=>{let id=v["id"].as_str().ok_or_else(||Error::input("Job target ID required"))?;db.query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=? UNION SELECT 1 FROM job_workflows WHERE id=?)",params![id,id],|r|r.get(0))?},
-  "entity"|"protocol_artifact"=>db.query_row("SELECT EXISTS(SELECT 1 FROM entity_revisions WHERE id=? AND revision=?)",params![v["id"].as_str(),v["revision"].as_i64()],|r|r.get(0))?,
+  "entity"|"protocol_artifact"=>db.query_row("SELECT EXISTS(SELECT 1 FROM all_entity_revisions WHERE id=? AND revision=?)",params![v["id"].as_str(),v["revision"].as_i64()],|r|r.get(0))?,
   "historical"=>db.query_row("SELECT EXISTS(SELECT 1 FROM history_records WHERE source=? AND kind=? AND id=? AND revision=? AND snapshot=?)",params![v["source"].as_str(),v["kind"].as_str(),v["id"].as_str(),v["revision"].as_str(),v["snapshot"].as_str()],|r|r.get(0))?,
-  "profile" if v["kind"].is_string()=>{let profile=crate::software::profile(db,config,v["kind"].as_str().unwrap())?;profile.is_some_and(|p|v["sha256"].is_string()&&p["sha256"]==v["sha256"])},
+  "profile" if v["kind"].is_string()=>{v["sha256"].is_string()&&crate::software::exact_profile(db,config,v).is_ok()},
   "component"|"tool"|"profile"=>{let table=match target.kind.as_str(){"component"=>"components","tool"=>"tools",_=>"execution_profiles"};db.query_row(&format!("SELECT EXISTS(SELECT 1 FROM {table} WHERE owner=? AND id=? AND revision=?)"),params![v["owner"].as_str(),v["id"].as_str(),v["revision"].as_i64()],|r|r.get(0))?},
   "runtime"=>db.query_row("SELECT EXISTS(SELECT 1 FROM rust_runtime_observation o,json_each(o.value,'$.runtimes') r WHERE o.observed>? AND json_extract(r.value,'$.id')=? AND json_extract(r.value,'$.revision')=? AND (? IS NULL OR json_extract(r.value,'$.sha256')=?))",params![now()-30.,v["id"].as_str(),v["revision"].as_i64(),v["sha256"].as_str(),v["sha256"].as_str()],|r|r.get(0))?,
   _=>false,
@@ -28,14 +29,32 @@ impl Application {
                     .ok_or_else(|| Error::input("Entity ID required"))?;
                 let rev = args["revision"].as_i64().unwrap_or(1);
                 let text: String = self.db.query_row(
-                    "SELECT manifest FROM entity_revisions WHERE id=? AND revision=?",
+                    "SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=?",
                     params![id, rev],
                     |r| r.get(0),
                 )?;
                 let mut value: Value = serde_json::from_str(&text)?;
-                value["locations"]=json!(rows(&self.db,"SELECT component,machine_id,storage_id,ref,status FROM entity_locations WHERE id=? AND revision=? ORDER BY component,ref",&[&id,&rev])?);
+                if value["file_set"]["entries"]
+                    .as_u64()
+                    .is_some_and(|n| n > 200)
+                {
+                    return Err(Error::new("paging_required",format!("Entity {id} revision {rev} has a large inventory. Use results.resolve_item with its exact entity reference, then results.item_files."),409));
+                }
+                if value["file_set"].is_object() {
+                    value["components"] = json!(crate::file_set::Members::open(
+                        self,
+                        &value["file_set"],
+                        None
+                    )?
+                    .map(|e| e.map(
+                        |e| json!({"ref":e["entry_key"],"size":e["size"],"sha256":e["sha256"]})
+                    ))
+                    .collect::<Result<Vec<_>>>()?);
+                    value["components_complete"] = json!(true);
+                }
+                value["locations"]=json!(rows(&self.db,"SELECT component,machine_id,storage_id,ref,status FROM all_entity_locations WHERE id=? AND revision=? ORDER BY component,ref",&[&id,&rev])?);
                 let owner: String = self.db.query_row(
-                    "SELECT owner FROM entity_revisions WHERE id=? AND revision=?",
+                    "SELECT owner FROM all_entity_revisions WHERE id=? AND revision=?",
                     params![id, rev],
                     |r| r.get(0),
                 )?;
@@ -129,7 +148,7 @@ impl Application {
                     .as_str()
                     .ok_or_else(|| Error::input("Entity ID required"))?;
                 let fallback: String = self.db.query_row(
-                    "SELECT owner FROM entity_revisions WHERE id=? ORDER BY revision DESC LIMIT 1",
+                    "SELECT owner FROM all_entity_revisions WHERE id=? ORDER BY revision DESC LIMIT 1",
                     [id],
                     |r| r.get(0),
                 )?;
@@ -173,68 +192,7 @@ impl Application {
             "Current bytes differ from submitted evidence",
             409,
         )?;
-        let body:String=self.db.query_row("SELECT body FROM history_records WHERE source=? AND kind=? AND id=? AND revision=? AND snapshot=?",params![identity["source"].as_str(),identity["kind"].as_str(),identity["id"].as_str(),identity["revision"].as_str(),identity["snapshot"].as_str()],|r|r.get(0))?;
-        let body: Value = serde_json::from_str(&body)?;
-        require(
-            identity.as_object().is_some_and(|o| {
-                o.keys().all(|k| {
-                    matches!(
-                        k.as_str(),
-                        "source" | "kind" | "id" | "revision" | "snapshot" | "file" | "component"
-                    )
-                })
-            }),
-            "historical_identity",
-            "Unknown historical identity selector",
-            400,
-        )?;
-        let selected = identity
-            .get("file")
-            .or_else(|| identity.get("component"))
-            .map(|v| {
-                v.as_str()
-                    .ok_or_else(|| Error::input("File selector must be a string"))
-            })
-            .transpose()?;
-        fn hashes(
-            v: &Value,
-            selected: Option<&str>,
-            within: bool,
-            out: &mut std::collections::BTreeSet<String>,
-        ) {
-            match v {
-                Value::Object(o) => {
-                    let chosen = within
-                        || selected.is_some_and(|s| {
-                            ["source_ref", "ref", "path", "file", "component"]
-                                .iter()
-                                .any(|k| o.get(*k).and_then(Value::as_str) == Some(s))
-                        });
-                    if chosen || selected.is_none() {
-                        if let Some(sha) = o.get("sha256").and_then(Value::as_str) {
-                            out.insert(sha.into());
-                        }
-                    }
-                    for (key, value) in o {
-                        hashes(
-                            value,
-                            selected,
-                            chosen || selected == Some(key.as_str()),
-                            out,
-                        )
-                    }
-                }
-                Value::Array(a) => {
-                    for value in a {
-                        hashes(value, selected, within, out)
-                    }
-                }
-                _ => {}
-            }
-        }
-        let mut known = std::collections::BTreeSet::new();
-        hashes(&body, selected, false, &mut known);
-        require(known.len()==1&&known.contains(&sha),"historical_hash","Select an exact file with a matching original hash; explicit promotion/review required otherwise",409)?;
+        validate_historical_digest(&self.db, &identity, &sha)?;
         let key = args["key"]
             .as_str()
             .ok_or_else(|| Error::input("Key required"))?;
@@ -281,7 +239,7 @@ impl Application {
             .as_str()
             .ok_or_else(|| Error::input("Location ref required"))?;
         let text: String = self.db.query_row(
-            "SELECT manifest FROM entity_revisions WHERE id=? AND revision=?",
+            "SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=?",
             params![id, revision],
             |r| r.get(0),
         )?;
@@ -467,7 +425,7 @@ impl Application {
                     400,
                 )?;
             }
-            if kind == "model" && name == "model.safetensors" {
+            if !entity["inventory"].is_object() && kind == "model" && name == "model.safetensors" {
                 fn walk(
                     root: &std::path::Path,
                     dir: &std::path::Path,
@@ -560,12 +518,39 @@ impl Application {
                     };
                     let upstream_row = jobs::load(&self.db, &upstream)?;
                     relations.push(json!({"kind":"consumes","input":input,"id":format!("{upstream}.{output}"),"revision":1,"attempt":upstream_row.aggregate.fence.attempt.as_ref().map(|s|s.as_str())}));
+                } else if value["artifact"].is_object() {
+                    relations.push(json!({"kind":"consumes","input":input,"id":value["artifact"]["id"],"revision":value["artifact"]["revision"],"member":value["member"]}));
                 } else if value["ref"].is_string() && value["sha256"].is_string() {
-                    for hit in rows(&self.db,"SELECT DISTINCT e.id,e.revision,e.manifest FROM entity_revisions e JOIN entity_locations l ON e.id=l.id AND e.revision=l.revision WHERE l.storage_id=? AND l.ref=? AND l.status='available'",&[&value["storage_id"].as_str(),&value["ref"].as_str()])? {let manifest:Value=serde_json::from_str(hit["manifest"].as_str().unwrap_or("{}"))?;if manifest["components"].as_array().is_some_and(|a|a.iter().any(|c|c["sha256"]==value["sha256"])){relations.push(json!({"kind":"consumes","input":input,"id":hit["id"],"revision":hit["revision"]}));}}
+                    for hit in rows(&self.db,"SELECT DISTINCT e.id,e.revision,e.manifest FROM all_entity_revisions e JOIN all_entity_locations l ON e.id=l.id AND e.revision=l.revision WHERE l.storage_id=? AND l.ref=? AND l.status='available'",&[&value["storage_id"].as_str(),&value["ref"].as_str()])? {let manifest:Value=serde_json::from_str(hit["manifest"].as_str().unwrap_or("{}"))?;if manifest["components"].as_array().is_some_and(|a|a.iter().any(|c|c["sha256"]==value["sha256"])){relations.push(json!({"kind":"consumes","input":input,"id":hit["id"],"revision":hit["revision"]}));}}
                 }
             }
             let identity = format!("{job}.{entity_id}");
             let mut published = json!({"id":identity,"revision":1,"kind":kind,"origin_machine":self.config.machine_id,"job":job,"attempt":attempt,"provenance":entity.get("provenance").cloned().unwrap_or(json!({})),"components":components,"relations":relations,"metadata_schema":row.spec["profile"]["metadata_schemas"].get(entity_id).or_else(||row.spec["profile"]["metadata_schemas"].get("*")).cloned(),"metrics":manifest["metrics"].as_array().unwrap().iter().filter(|m|m["entity_id"]==entity_id).collect::<Vec<_>>()});
+            if entity["inventory"].is_object() {
+                require(
+                    !entity
+                        .get("components")
+                        .is_some_and(|v| v.as_array().is_none_or(|a| !a.is_empty())),
+                    "inventory",
+                    "Use inventory or inline output members",
+                    400,
+                )?;
+                let key =
+                    crate::reconcile::inventory_key(path.parent().unwrap(), &entity["inventory"])?;
+                let pin = if let Some(pin) = self.file_sets.get(&key) {
+                    pin.clone()
+                } else {
+                    crate::file_set::seal(
+                        self,
+                        path.parent().unwrap(),
+                        row.spec["output_storage"].as_str().unwrap_or("data/0"),
+                        &entity["inventory"],
+                    )?
+                };
+                published["file_set"] = pin;
+                published["path"] = json!(name);
+                published["components_complete"] = json!(false);
+            }
             for key in ["metadata", "label", "description"] {
                 if let Some(v) = entity.get(key) {
                     published[key] = v.clone();
@@ -623,7 +608,11 @@ impl Application {
                 409,
             )?;
         }
-        let published = rows(&tx, "SELECT id FROM entity_revisions WHERE job=?", &[&job])?;
+        let published = rows(
+            &tx,
+            "SELECT id FROM all_entity_revisions WHERE job=?",
+            &[&job],
+        )?;
         require(
             published.is_empty()
                 || published
@@ -642,7 +631,7 @@ impl Application {
         for (identity, kind, record, reference, locations, sha, size) in prepared {
             let old: Option<String> = tx
                 .query_row(
-                    "SELECT manifest FROM entity_revisions WHERE id=? AND revision=1",
+                    "SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=1",
                     [&identity],
                     |r| r.get(0),
                 )
@@ -736,6 +725,7 @@ fn validate_output_semantics(manifest: &Value, profile: Option<&Value>) -> Resul
                                 "metadata",
                                 "label",
                                 "description",
+                                "inventory",
                             ]
                             .contains(&k.as_str())
                         })
@@ -849,5 +839,75 @@ fn validate_output_semantics(manifest: &Value, profile: Option<&Value>) -> Resul
             )?;
         }
     }
+    Ok(())
+}
+
+pub(crate) fn validate_historical_digest(
+    db: &Connection,
+    identity: &Value,
+    sha: &str,
+) -> Result<()> {
+    let body:String=db.query_row("SELECT body FROM history_records WHERE source=? AND kind=? AND id=? AND revision=? AND snapshot=?",params![identity["source"].as_str(),identity["kind"].as_str(),identity["id"].as_str(),identity["revision"].as_str(),identity["snapshot"].as_str()],|r|r.get(0))?;
+    let body: Value = serde_json::from_str(&body)?;
+    require(
+        identity.as_object().is_some_and(|o| {
+            o.keys().all(|k| {
+                matches!(
+                    k.as_str(),
+                    "source" | "kind" | "id" | "revision" | "snapshot" | "file" | "component"
+                )
+            })
+        }),
+        "historical_identity",
+        "Unknown historical identity selector",
+        400,
+    )?;
+    let selected = identity
+        .get("file")
+        .or_else(|| identity.get("component"))
+        .map(|v| {
+            v.as_str()
+                .ok_or_else(|| Error::input("File selector must be a string"))
+        })
+        .transpose()?;
+    fn hashes(
+        v: &Value,
+        selected: Option<&str>,
+        within: bool,
+        out: &mut std::collections::BTreeSet<String>,
+    ) {
+        match v {
+            Value::Object(o) => {
+                let chosen = within
+                    || selected.is_some_and(|s| {
+                        ["source_ref", "ref", "path", "file", "component"]
+                            .iter()
+                            .any(|k| o.get(*k).and_then(Value::as_str) == Some(s))
+                    });
+                if chosen || selected.is_none() {
+                    if let Some(sha) = o.get("sha256").and_then(Value::as_str) {
+                        out.insert(sha.into());
+                    }
+                }
+                for (key, value) in o {
+                    hashes(
+                        value,
+                        selected,
+                        chosen || selected == Some(key.as_str()),
+                        out,
+                    )
+                }
+            }
+            Value::Array(a) => {
+                for value in a {
+                    hashes(value, selected, within, out)
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut known = std::collections::BTreeSet::new();
+    hashes(&body, selected, false, &mut known);
+    require(known.len()==1&&known.contains(sha),"historical_hash","Select an exact file with a matching original hash; explicit promotion/review required otherwise",409)?;
     Ok(())
 }

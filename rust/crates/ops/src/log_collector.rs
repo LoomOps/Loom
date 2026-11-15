@@ -40,6 +40,37 @@ pub fn start(service: Service, config: Config, local: PathBuf, bulk: PathBuf, co
                     let path = log_index::path(&app.local, &work);
                     loom_core::index_store::secure_dir(path.parent().unwrap())?;
                     let offset = state["offset"].as_u64().unwrap_or(0);
+                    let total_budget = config
+                        .extra
+                        .get("catalog")
+                        .and_then(|c| c["log_total_max_bytes"].as_u64())
+                        .unwrap_or(2 * 1024 * 1024 * 1024);
+                    let used = fs::read_dir(path.parent().unwrap())?.try_fold(
+                        0u64,
+                        |sum, e| -> Result<u64> {
+                            let p = e?.path();
+                            Ok(
+                                sum.saturating_add(if p.extension().is_some_and(|s| s == "log") {
+                                    p.symlink_metadata()?.len()
+                                } else {
+                                    0
+                                }),
+                            )
+                        },
+                    )?;
+                    if used >= total_budget {
+                        let mut stopped = state.clone();
+                        stopped["offset"] = json!(offset);
+                        stopped["closed"] = json!(true);
+                        stopped["gap"] = json!(true);
+                        stopped["retention_reason"] = json!("global_capture_budget_exhausted");
+                        storage::atomic(
+                            &log_index::state_path(&app.local, &work),
+                            &serde_json::to_vec(&stopped)?,
+                            0o600,
+                        )?;
+                        continue;
+                    }
                     let budget = config
                         .extra
                         .get("catalog")
@@ -61,7 +92,7 @@ pub fn start(service: Service, config: Config, local: PathBuf, bulk: PathBuf, co
                         Path::new(executor["socket"].as_str().unwrap_or("")),
                         Path::new(executor["credential"].as_str().unwrap_or("")),
                         "log_range",
-                        &json!({"ticket":ticket,"offset":offset,"limit":(budget-offset).min(262144)}),
+                        &json!({"ticket":ticket,"offset":offset,"limit":(budget-offset).min(total_budget-used).min(262144)}),
                     );
                     let Ok(value) = result else { continue };
                     let Some(generation) = value["source_generation"].as_str() else {

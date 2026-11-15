@@ -137,6 +137,97 @@ pub fn actions() -> Vec<Action> {
             schema,
         });
     }
+    for (name, scope, schema) in [
+        ("reconcile_contract", "read", object(json!({}), &[])),
+        (
+            "reconcile_inspect",
+            "read",
+            object(
+                json!({"kinds":{"type":"array","items":{"type":"string"},"maxItems":16},"limit":{"type":"integer","minimum":1,"maximum":200},"cursor":{"type":"string","maxLength":4096}}),
+                &[],
+            ),
+        ),
+        (
+            "reconcile_plan",
+            "submit",
+            object(
+                json!({"key":string,"proposal":{"type":"object"}}),
+                &["key", "proposal"],
+            ),
+        ),
+        (
+            "reconcile_get",
+            "read",
+            object(json!({"plan_id":string}), &["plan_id"]),
+        ),
+        (
+            "reconcile_validate",
+            "submit",
+            object(json!({"plan_id":string}), &["plan_id"]),
+        ),
+        (
+            "reconcile_apply",
+            "submit",
+            object(json!({"plan_id":string}), &["plan_id"]),
+        ),
+    ] {
+        result.push(Action {
+            group: "results".into(),
+            action: name.into(),
+            operation: format!("results.{name}"),
+            scope: scope.into(),
+            schema,
+        });
+    }
+    for (group, name, scope, schema) in [
+        (
+            "system",
+            "prune_search",
+            "submit",
+            object(
+                json!({"key":string,"max_generations":{"type":"integer","minimum":1,"maximum":8}}),
+                &["key"],
+            ),
+        ),
+        (
+            "system",
+            "retry_catalog_task",
+            "submit",
+            object(json!({"id":string}), &["id"]),
+        ),
+        (
+            "system",
+            "rebuild_search",
+            "submit",
+            object(
+                json!({"key":string,"max_batches":{"type":"integer","minimum":1,"maximum":100000}}),
+                &["key"],
+            ),
+        ),
+        (
+            "system",
+            "catalog_task",
+            "read",
+            object(json!({"id":string}), &["id"]),
+        ),
+        (
+            "jobs",
+            "prune_logs",
+            "submit",
+            object(
+                json!({"key":string,"reason":string,"streams":{"type":"array","minItems":1,"maxItems":200,"items":{"type":"object","properties":{"stream_id":{"type":"string"},"source_generation":{"type":"string"}},"required":["stream_id","source_generation"],"additionalProperties":false}}}),
+                &["key", "reason", "streams"],
+            ),
+        ),
+    ] {
+        result.push(Action {
+            group: group.into(),
+            action: name.into(),
+            operation: format!("{group}.{name}"),
+            scope: scope.into(),
+            schema,
+        });
+    }
     let item_id = json!({"type":"string","pattern":"^[1-9][0-9]{0,38}$"});
     for (name, schema) in [
         (
@@ -162,15 +253,36 @@ pub fn actions() -> Vec<Action> {
             schema,
         });
     }
-    let search = object(
+    let mut search = object(
         json!({"text":{"type":"string","maxLength":1024},"kinds":{"type":"array","items":{"type":"string"},"maxItems":16},"view":{"enum":["all","research","operations"]},"role":{"enum":["all","main","support","test"]},"scenario_ref":reference,"parent_item_id":item_id,"category":{"type":"string","maxLength":128},"availability":{"enum":["verified","source_unavailable","recorded"]},"recorded_from":{"type":"number"},"recorded_to":{"type":"number"},"cursor":{"type":"string","maxLength":4096},"limit":{"type":"integer","minimum":1,"maximum":200}}),
         &[],
     );
+    for (k, v) in [
+        ("history", json!({"enum":["current","all"]})),
+        ("origin_type", json!({"type":"string","maxLength":128})),
+        ("native_kind", json!({"type":"string","maxLength":128})),
+        ("dependency_ref", json!({"type":"object"})),
+        (
+            "at_least",
+            json!({"type":"string","pattern":"^[0-9]{1,20}$"}),
+        ),
+        (
+            "timeout_ms",
+            json!({"type":"integer","minimum":0,"maximum":1000}),
+        ),
+        (
+            "related_to",
+            json!({"type":"object","properties":{"item_id":item_id,"relation":{"type":"string","maxLength":128}},"required":["item_id"],"additionalProperties":false}),
+        ),
+    ] {
+        search["properties"][k] = v;
+    }
     let mut files = search.clone();
     files["properties"]["item_id"] = item_id.clone();
     files["properties"]["revision_id"] = item_id.clone();
     files["required"] = json!(["item_id"]);
     for (group, name, schema) in [
+        ("system", "dashboard_page", search.clone()),
         ("results", "search_items", search),
         ("results", "item_files", files),
         (
@@ -206,11 +318,27 @@ pub fn actions() -> Vec<Action> {
             "results",
             "item_relations",
             object(
-                json!({"item_id":item_id,"revision_id":item_id}),
+                json!({"item_id":item_id,"revision_id":item_id,"direction":{"enum":["outgoing","both"]},"include_support":{"type":"boolean"},"limit":{"type":"integer","minimum":1,"maximum":200},"cursor":{"type":"string","maxLength":4096}}),
                 &["item_id"],
             ),
         ),
         ("system", "dashboard_summary", object(json!({}), &[])),
+        (
+            "system",
+            "dashboard_activity",
+            object(
+                json!({"view":{"enum":["research","operations","all"]}}),
+                &[],
+            ),
+        ),
+        (
+            "system",
+            "dashboard_entity",
+            object(
+                json!({"item_id":item_id,"revision_id":item_id}),
+                &["item_id"],
+            ),
+        ),
         ("jobs", "log_streams", object(stream_args, &["id"])),
         ("jobs", "search_logs", object(search_logs, &["text"])),
         (

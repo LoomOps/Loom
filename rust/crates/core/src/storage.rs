@@ -291,7 +291,7 @@ pub fn publish(candidate: &Path, destination: &Path) -> Result<()> {
     fs::File::open(parent)?.sync_all()?;
     Ok(())
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct VerifiedFile {
     pub path: PathBuf,
     pub size: u64,
@@ -333,6 +333,25 @@ impl VerifiedFile {
             sha256,
             stamp: before,
         })
+    }
+    pub fn revalidate_open(&self, file: &fs::File) -> Result<()> {
+        use std::os::unix::fs::MetadataExt;
+        let m = file.metadata()?;
+        let actual = (
+            m.dev(),
+            m.ino(),
+            m.len(),
+            m.mtime(),
+            m.mtime_nsec(),
+            m.ctime(),
+            m.ctime_nsec(),
+        );
+        require(
+            m.is_file() && actual == self.stamp,
+            "content_changed",
+            "Opened file differs from verified evidence",
+            409,
+        )
     }
     pub fn revalidate(&self) -> Result<()> {
         require(
@@ -407,4 +426,24 @@ pub fn open_registered(root: &Path, reference: &str) -> Result<std::fs::File> {
         400,
     )?;
     Ok(fd)
+}
+
+/// Metadata/log workers reserve space without inspecting payload trees.
+pub fn reserve_space(root: &Path, additional: u64, reserve: u64) -> Result<()> {
+    let name = std::ffi::CString::new(root.as_os_str().as_encoded_bytes())
+        .map_err(|_| Error::input("Invalid metadata root"))?;
+    let mut info = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+    require(
+        unsafe { libc::statvfs(name.as_ptr(), info.as_mut_ptr()) } == 0,
+        "metadata_space",
+        "Cannot inspect metadata capacity",
+        503,
+    )?;
+    let info = unsafe { info.assume_init() };
+    require(
+        info.f_bavail.saturating_mul(info.f_frsize) >= additional.saturating_add(reserve),
+        "metadata_space",
+        "Configured metadata disk reserve would be exhausted",
+        409,
+    )
 }

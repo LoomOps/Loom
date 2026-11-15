@@ -726,6 +726,12 @@ impl<D: Docker> Executor<D> {
         let name = format!("loom-{}", hash(&ticket));
         let mut argv = strings(&[
             "create",
+            "--log-driver",
+            "local",
+            "--log-opt",
+            "max-size=256m",
+            "--log-opt",
+            "max-file=2",
             "--name",
             &name,
             "--user",

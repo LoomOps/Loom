@@ -7,7 +7,11 @@ A search hit includes its exact `native_ref` and `revision_id`. Use native schem
 for execution and registration. An Item ID alone is not a Job input or permission.
 
 Search by text, kinds, exact Scenario, presentation `view`/`role`, category and
-recorded time. Default discovery is Research/main. Use `view=all, role=all` for
+recorded time. history=all includes exact recorded revisions; origin_type,
+native_kind and related_to narrow source and declared relations. Exact matches
+rank before prefix then lexical matches, with stable time/ID ordering within a tier.
+at_least is a decimal change sequence; timeout_ms waits at most 1000 ms and
+reports at_least_satisfied=false if still behind. Default discovery is Research/main. Use `view=all, role=all` for
 technical/support records; this never changes the actual execution queue.
 Reuse the identical query with `next_cursor`; restart after `cursor_expired`.
 `partial` and `system.search_status` describe projection lag. Empty partial results
@@ -15,8 +19,10 @@ do not establish that a record or file does not exist. Exact native reads remain
 available while an index is being built.
 
 Use `results.get_item` for compact metadata, `results.item_relations` for explicit
-context and `results.item_files` for bounded file pages. The initial direct-relation
-preview is capped at 200 edges; `relations_truncated` is not complete graph coverage. Supply `revision_id` when
+context and `results.item_files` for bounded file pages. Relations default to 50/max 200 edges per page. Follow next_cursor with
+identical arguments; source changes expire the cursor. direction=outgoing reads
+declarations; direction=both includes indexed reverse software use.
+include_support=true includes non-representative Runtime dependencies. Supply `revision_id` when
 following an exact revision. `results.resolve_item` accepts the full typed legacy
 reference, including historical source/kind/id/revision/snapshot. It allocates no
 identity and does not promote historical records to new research results.
@@ -41,3 +47,52 @@ not create Jobs, consume event ACKs or generate another completion notification.
 Search/index operations never build software, install dependencies, submit work,
 change pins or run a reconciler. Root selection, backfill, rebuild and retention
 are explicit administrator operations documented in `docs/ITEM-INDEX.md`.
+
+
+## Explicit reconciliation
+
+Discover results.reconcile_contract and current schemas before proposing changes.
+reconcile_inspect pages registered metadata; it never scans unregistered directories.
+Agents identify meaning and exact source provenance, then use reconcile_plan with
+a stable key, reconcile_validate, reconcile_apply and reconcile_get.
+A plan holds at most 200 explicit operations and 256 KiB of metadata. Validation hashes
+only selected candidates off the writer. Apply rechecks stamps, configured grants
+and immutable target identity. A changed source or contract requires revalidation/a
+new plan. Repeated successful apply returns the original receipt.
+
+Use adopt for an existing exact native record, bind_file to add a matching copy,
+and bind_historical for a full source/kind/id/revision/snapshot/file selector.
+Use import only when explicitly bringing an external asset into the current
+contract. Declare source.system/id/revision and optional snapshot plus original
+evidence; use schema=loom-asset/v2 and definition.kind/label/primary, optional
+metadata, Scenario and relations. The v1 adapter maps type/name/properties to the
+same current definition. Unknown schemas and conflicting source reuse fail.
+Candidate locators use this installation's granted machine/storage identities and
+relative refs. Optional original sha256/size must match. Stage bytes separately;
+the reconciler never guesses paths, moves whole trees, installs software or creates
+Jobs/Attempts. Import validation proves structure and bytes, not scientific acceptance.
+Historical recorded availability stays immutable beside current copy bindings.
+
+## Streamed outputs and inputs
+
+For large outputs use the Rust SDK Producer.register_inventory with sorted unique
+owner-relative member paths including the exact primary. It emits
+loom-output-inventory/v1 with hashed bounded JSONL chunks; core publication stores
+a compact authority handle, not one registry row per file. Inline legacy members
+remain supported. Use item_files for inventories above the legacy detail limit.
+
+An input may select {job,entity,member?} or
+{artifact:{id,revision},member?}. These are native artifact identities, never Item
+IDs or search-result positions. Loom verifies the exact member independently of FTS,
+retains producing-Job dependencies and records consumes lineage. Accepted Profiles
+must allow the chosen input shape; reuse existing compatible revisions.
+
+## Search and log maintenance
+
+system.rebuild_search returns a durable task; poll system.catalog_task. The active
+index remains available until the shadow catches up and atomically replaces it.
+Old cursors expire; Item/File IDs remain unchanged. Failure leaves the prior index.
+jobs.prune_logs selects exact closed, returned stream generations and a reason.
+It records retained gaps before removing raw provider/spool copies and searchable
+text. Legacy logs cannot bypass expiry; use exact stream ranges to inspect coverage.
+These actions do not acknowledge events, create scientific Jobs or stop containers.

@@ -32,6 +32,20 @@
       "script": "deploy/migrations/item_index.py",
       "timeout_seconds": 900,
       "description": "Add schema 6 common identities and exact aliases without modifying research rows, credentials or source revisions. Backfill and rebuild remain independent of execution."
+    },
+    {
+      "id": "common-reconciliation-v1",
+      "introduced": "0.2.0-alpha.3",
+      "requires": [
+        "common-item-index-v1"
+      ],
+      "supersedes_checks": [
+        "rust-authority-v1",
+        "common-item-index-v1"
+      ],
+      "script": "deploy/migrations/reconciliation.py",
+      "timeout_seconds": 900,
+      "description": "Add native schema 7 plans, verified imports, additive file bindings and retained log gaps; keep existing scientific records, identities and credentials."
     }
   ]
 }

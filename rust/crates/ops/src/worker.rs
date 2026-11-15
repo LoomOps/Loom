@@ -135,11 +135,65 @@ async fn perform_inner(
             .unwrap_or(Value::Null);
         let prepare_folder = work.folder.clone();
         let prepare_manifest = manifest.clone();
-        let proofs =
-            tokio::task::spawn_blocking(move || verify_outputs(&prepare_folder, &prepare_manifest))
-                .await
-                .map_err(|_| Error::new("verification", "Output verification task stopped", 503))?
-                .unwrap_or_default();
+        let state = service.state.clone();
+        let data = bulk.clone();
+        let software = components.clone();
+        let cfg = config.clone();
+        let selector = work.spec["output_storage"]
+            .as_str()
+            .unwrap_or("data/0")
+            .to_string();
+        let proofs = tokio::task::spawn_blocking(move || {
+            let app = loom_core::Application::open_read_only(&state, &data, &software, cfg)?;
+            let files = verify_outputs(&prepare_folder, &prepare_manifest)?;
+            let mut prepared = loom_core::reconcile::PreparedFiles {
+                files,
+                inventories: Default::default(),
+            };
+            for entity in prepare_manifest["entities"]
+                .as_array()
+                .into_iter()
+                .flatten()
+            {
+                if entity["inventory"].is_object() {
+                    let file = storage::relative(
+                        &prepare_folder,
+                        entity["path"]
+                            .as_str()
+                            .ok_or_else(|| Error::input("Output path required"))?,
+                    )?;
+                    let base = file.parent().unwrap();
+                    let pin =
+                        loom_core::file_set::seal(&app, base, &selector, &entity["inventory"])?;
+                    let primary = loom_core::file_set::lookup(
+                        &app,
+                        &pin,
+                        file.file_name()
+                            .and_then(|n| n.to_str())
+                            .ok_or_else(|| Error::input("Primary filename required"))?,
+                    )?;
+                    let proof = prepared
+                        .files
+                        .get(&file)
+                        .ok_or_else(|| Error::conflict("Primary proof missing"))?;
+                    require(
+                        primary["sha256"] == proof.sha256
+                            && primary["size"].as_u64() == Some(proof.size),
+                        "inventory",
+                        "Inventory primary differs",
+                        409,
+                    )?;
+                    prepared.inventories.insert(
+                        loom_core::reconcile::inventory_key(base, &entity["inventory"])?,
+                        pin,
+                    );
+                }
+            }
+            Ok::<_, Error>(prepared)
+        })
+        .await
+        .map_err(|_| Error::new("verification", "Output verification task stopped", 503))?
+        .unwrap_or_default();
         let _ = service.publish(work, manifest, proofs).await?;
         return Ok(());
     }
@@ -625,7 +679,8 @@ fn verify_outputs(
                     .ok_or_else(|| Error::input("Output member required"))?,
             )?);
         }
-        if entity["kind"] == "model"
+        if !entity["inventory"].is_object()
+            && entity["kind"] == "model"
             && file.file_name().and_then(|n| n.to_str()) == Some("model.safetensors")
         {
             fn walk(root: &Path, dir: &Path, out: &mut BTreeSet<PathBuf>) -> Result<()> {
