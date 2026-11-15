@@ -133,6 +133,15 @@ class PreservedRebuildTests(lifecycle.ReleaseLifecycleTests):
         with self.contexts():update.rollback(record)
         with sqlite3.connect(self.db) as c:self.assertEqual(c.execute('SELECT count(*) FROM resident_tokens').fetchone()[0],2)
 
+    def test_snapshot_failure_rollback_restarts_helpers_stopped_before_backup(self):
+        helper=self.p/'shared/services/fixture.py';helper.parent.mkdir(parents=True);helper.write_text('preserved helper')
+        candidate=self.src/'fixture.py';candidate.write_text('candidate')
+        with self.contexts(),patch.object(update,'helper_files',return_value={helper:candidate}),patch.object(state_snapshot,'capture',side_effect=OSError('transient SQLite sidecar')):
+            with self.assertRaises(OSError):update.apply(self.root,self.rel,'fixture',self.p)
+        record=next((self.p/'updates').glob('*/record.json'));saved=json.loads(record.read_text());self.assertTrue(saved['helpers_stop_requested']);self.assertEqual(saved['helpers'],{})
+        with self.contexts(),patch.object(update,'run',wraps=update.run) as calls:update.rollback(record)
+        self.assertIn(('systemctl','start','loom-executor.service','loom-observations.timer'),[c.args for c in calls.call_args_list]);self.assertEqual(helper.read_text(),'preserved helper');self.assertEqual(self.mode(),'active')
+
     def test_failed_start_resumes_same_snapshot_without_new_identity(self):
         self.identity_state()
         with self.contexts(),patch.object(update,'check_health',side_effect=RuntimeError('fixture')),self.assertRaises(RuntimeError):
@@ -267,6 +276,24 @@ class SQLiteEvidenceTests(unittest.TestCase):
 
 
 class ItemManifestPreservationTests(unittest.TestCase):
+    def test_snapshot_omits_sqlite_sidecars_and_keeps_committed_wal_rows(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)/'ops';(root/'runtime').mkdir(parents=True);(root/'compose.env').write_text('')
+            db=root/'runtime/ops.sqlite3';connection=sqlite3.connect(db)
+            try:
+                connection.execute('PRAGMA journal_mode=WAL');connection.execute('CREATE TABLE original(id)');connection.execute("INSERT INTO original VALUES('committed only in WAL')");connection.commit()
+                self.assertTrue(Path(str(db)+'-wal').is_file());userfile=root/'notes-wal';userfile.write_text('user source')
+                archive=Path(temp)/'backup';archive.mkdir()
+                original=state_snapshot.copy_file
+                def copy(source,dest):
+                    self.assertFalse(state_snapshot.sqlite_sidecar(source),'Volatile sidecar must not be copied')
+                    return original(source,dest)
+                with patch.object(state_snapshot,'copy_file',side_effect=copy):saved=state_snapshot.capture(root,archive,Path(temp))
+                self.assertFalse((saved/'instance/runtime/ops.sqlite3-wal').exists())
+                with state_snapshot.database(saved/'instance/runtime/ops.sqlite3',readonly=True) as backup:self.assertEqual(backup.execute('SELECT * FROM original').fetchall(),[('committed only in WAL',)])
+                self.assertEqual((saved/'instance/notes-wal').read_text(),'user source');self.assertIn('notes-wal',json.loads((saved/'state.json').read_text())['files'])
+            finally:connection.close()
+
     def test_private_snapshot_preserves_authority_manifests_and_omits_search_projection(self):
         with tempfile.TemporaryDirectory() as temp:
             platform=Path(temp);root=platform/'instance';(root/'runtime/catalog-manifests/rev').mkdir(parents=True);(root/'runtime/search').mkdir()

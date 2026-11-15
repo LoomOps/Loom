@@ -49,9 +49,21 @@ def restore_file(source,target,root):
     else:copy_file(source,target)
 
 
+def sqlite_sidecar(path):
+    path=Path(path)
+    for suffix in ('-wal','-shm','-journal'):
+        if not path.name.endswith(suffix):continue
+        database=path.with_name(path.name[:-len(suffix)])
+        if database.is_symlink():return False
+        try:
+            with database.open('rb') as stream:return stream.read(16)==b'SQLite format 3\x00'
+        except (FileNotFoundError,IsADirectoryError):return False
+    return False
+
+
 def copy_tree(source,dest,instance=False):
     def ignore(directory,names):
-        return [name for name in names if (instance and Path(directory)==Path(source) and name=='diagnostics') or (instance and Path(directory)==Path(source)/'runtime' and name=='search') or (Path(directory)/name).is_socket()
+        return [name for name in names if sqlite_sidecar(Path(directory)/name) or (instance and Path(directory)==Path(source) and name=='diagnostics') or (instance and Path(directory)==Path(source)/'runtime' and name=='search') or (Path(directory)/name).is_socket()
                 or ((Path(directory)/name).is_dir() and (Path(directory)/name/'compose.env').is_file() and (Path(directory)/name/'runtime/ops.sqlite3').is_file())]
     shutil.copytree(source,dest,symlinks=True,copy_function=copy_file,ignore=ignore)
     if os.geteuid()==0:
@@ -93,7 +105,7 @@ def file_inventory(root,instance=True):
     result={};root=Path(root)
     for p in root.rglob('*'):
         rel=p.relative_to(root)
-        if (instance and rel.parts[0] in ('runtime','diagnostics')) or (instance and p.name=='build.env') or (instance and p.name.endswith(('.lock','-wal','-shm','.pid'))):continue
+        if (instance and rel.parts[0] in ('runtime','diagnostics')) or (instance and p.name=='build.env') or (instance and (p.name.endswith(('.lock','.pid')) or sqlite_sidecar(p))):continue
         if instance and any((parent/'compose.env').is_file() and (parent/'runtime/ops.sqlite3').is_file() for parent in p.parents if parent!=root and parent.is_relative_to(root)):continue
         if instance and p.suffix in ('.sqlite3','.sqlite','.db'):continue
         info=p.lstat()

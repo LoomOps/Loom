@@ -273,7 +273,9 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
    pause_stack(root,project,record,archive/'record.json')
    compose(old_source,root,project,'stop')
    helpers=helper_files(platform,src)
-   if helpers:run('systemctl','stop','loom-executor.service','loom-observations.timer','loom-observations.service')
+   if helpers:
+    record['helpers_stop_requested']=True;write(archive/'record.json',record)
+    run('systemctl','stop','loom-executor.service','loom-observations.timer','loom-observations.service')
    db=root/'runtime/ops.sqlite3';dest=archive/'ops.sqlite3';backup_db(db,dest);record['databases'][str(db)]=str(dest)
    preserved=state_snapshot.capture(root,archive,platform);record['preserved_state']=str(preserved)
    for path in state_snapshot.databases(root):
@@ -384,7 +386,7 @@ def resume(record_path):
    owner=(root/'build.env').stat();write(root/'build.env',(release/'build.env').read_text(),owner.st_uid,owner.st_gid)
    update_boot_units(dest,path.parent,record)
    update_native_executor(platform,path.parent,record)
-   if record['helpers']:run('systemctl','start','loom-executor.service','loom-observations.timer')
+   if record['helpers'] or record.get('helpers_stop_requested'):run('systemctl','start','loom-executor.service','loom-observations.timer')
    restart_ssh(root)
    compose(dest,root,project,'up','-d','--no-build',*(['--force-recreate'] if record.get('mode')=='rebuild' else []))
    check_health(dest,root,project,info['build_id'])
@@ -447,7 +449,7 @@ def _rollback(record_path):
    with sqlite3.connect(backup) as a,sql(db) as b:a.backup(b)
   if record.get('preserved_state'):state_snapshot.restore(root,record['preserved_state'])
   if any(name.endswith('.service') for name in record['files']):run('systemctl','daemon-reload')
-  if record['helpers']:run('systemctl','start','loom-executor.service','loom-observations.timer')
+  if record['helpers'] or record.get('helpers_stop_requested'):run('systemctl','start','loom-executor.service','loom-observations.timer')
   restart_ssh(root)
   previous=Path(record['previous_source']) if record.get('previous_source') else Path(__file__).resolve().parents[1]
   compose(previous,root,project,'up','-d','--no-build');check_health(previous,root,project)

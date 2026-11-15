@@ -1,10 +1,12 @@
 # Native implementation and acceptance
 
-Status: development candidate on `codex/loom-rust`; no operational deployment.
+Status: native implementation on `codex/loom-rust`.
 The frozen design/audit remains in this directory. This document records what is
 implemented, where authority resides, and which acceptance boundaries are separate.
-D1–D7 implementation is present; D8 is not performed. Public release publication,
-installed-client refresh and target-specific acceptance are distinct actions.
+D1–D7 implementation is present. D8 requires separate source-qualified and
+per-installation operational receipts; this implementation ledger is not a
+deployment receipt. Public publication, client refresh and target acceptance
+remain distinct actions.
 
 ## Concrete ownership
 

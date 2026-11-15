@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0-alpha.7
+## 0.2.0-alpha.8
 
 - Add explicit plan/validate/apply reconciliation with immutable source evidence,
   nullable-Job imported assets and verified additive file bindings.
