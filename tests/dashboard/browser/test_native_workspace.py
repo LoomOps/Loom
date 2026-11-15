@@ -84,5 +84,6 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.ui.wait("return !!document.querySelector('[data-catalog-more=scenario]')")
   self.ui.click('[data-catalog-more=scenario]')
   self.ui.wait("return [...document.querySelectorAll('#pa-content [data-entity]')].filter(e=>e.textContent.includes('Paged Scenario')).length===65")
-  self.assertTrue(self.ui.js("return catalogData.capabilities.catalog_pages&&catalogData.activity.days instanceof Array"))
+  with urlopen(self.native+'/api/dashboard/bootstrap',timeout=5) as response:bootstrap=json.load(response)
+  self.assertTrue(bootstrap['capabilities']['catalog_pages']);self.assertIsInstance(bootstrap['activity']['days'],list)
   self.ui.nav('Profiles');self.ui.wait("return document.querySelector('#pa-content').textContent.includes('cpu.smoke')")
