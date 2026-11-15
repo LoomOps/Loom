@@ -33,10 +33,15 @@ function loomQueueControls(id) {
     +(row.can_reorder && choices.length?'<label>기준 Job <select data-queue-reference aria-label="기준 Job">'+choices.map(r=>'<option value="'+esc(r.id)+'">'+esc('#'+r.position+' · '+(r.owner_profile?.display_name || r.owner)+' · '+r.id)+'</option>').join('')+'</select></label>'+button('reorder','앞에 배치','before')+button('reorder','뒤에 배치','after'):'')
     +'</div></details>';
 }
-const loomQueueWorkItems=workItems;
 workItems=function(){
-  const items=loomQueueWorkItems(), known=new Set(items.map(e=>e.id));
-  return items.concat(loomQueueEntries().filter(r=>!known.has(r.id)&&(catalogData.presentation_view==='all'||catalogData.presentation_view==='operations'&&r.presentation?.scope==='operations'||r.presentation?.visible!==false)).map(r=>({id:r.id,label:r.id,kind:'job',loom_queue_shared:true,
+  // Resource occupancy and execution history are independent of catalog view.
+  const items=(catalogData.all_entities||catalogData.entities).filter(e=>e.kind==='job'&&!e.loom_registry
+    && ['work','loom_job'].includes(e.properties?.record_role));
+  const known=new Set(items.map(e=>e.id));
+  // Only authoritative workflow membership collapses execution nodes. A
+  // presentation parent may group a separate follow-up; it must not hide it.
+  const nodes=new Set(items.flatMap(e=>(e.loom_workflow?.executions||[]).map(n=>n.job)));
+  return items.filter(e=>!nodes.has(e.id)&&!e.properties?.consolidated_into).concat(loomQueueEntries().filter(r=>!known.has(r.id)).map(r=>({id:r.id,label:r.id,kind:'job',loom_queue_shared:true,presentation:r.presentation,
     properties:{record_role:'loom_job',state:r.state,owner:r.owner}})));
 };
 function loomQueueCompare(a,b) {

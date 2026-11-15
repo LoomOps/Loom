@@ -35,6 +35,14 @@ Read-only imported nonterminal records have a separate preserved-record panel,
 not a position in the active queue. Missing historical classification displays
 unrecorded rather than an intentional Other category.
 
+The current queue includes Research and Operations regardless of catalog view or
+terminal-history filters. Terminal history defaults to All, with independent
+Research/Operations, status, Job Type and Execution Mode filters. These controls
+never hide current resource occupancy. Workflow nodes remain under their logical
+Job using authoritative workflow membership; presentation grouping alone cannot
+hide an independent follow-up. Catalog and Activity retain their existing
+Research/Operations/Built-in/All modes independently of these queue/history views.
+
 Activity includes native Jobs and registered dataset/model/experiment outputs.
 Consolidated source Jobs/outputs do not count again beside their completed
 canonical Job. Native publication receipts are labeled registration time, not

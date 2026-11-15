@@ -58,12 +58,14 @@ def build(original):
  }
  const keepOpen=keyed&&current.nodeName==='DETAILS';""")
 
-    inner = replace_once(inner, 'const rows=workItems(),current=', 'const rows=loomFilteredWorkItems(),current=')
+    inner = replace_once(inner, 'const ended=rows.filter(e=>queueState(e).info[3]).sort((a,b)=>(queueTimes(b).ended??queueTimes(b).exited??0)',
+                         'const ended=loomFilteredWorkItems().filter(e=>queueState(e).info[3]).sort((a,b)=>(queueTimes(b).ended??queueTimes(b).exited??0)')
     inner = replace_once(inner, "current=rows.filter(e=>!queueState(e).info[3]).sort((a,b)=>(queueTimes(b).created??0)-(queueTimes(a).created??0))", "current=rows.filter(e=>!e.migration?.read_only&&!queueState(e).info[3]).sort(loomQueueCompare)")
     inner = replace_once(inner, '+panel(`종료 이력 · ${historyFilter', '+loomHistoricalWorkPanel(rows)+panel(`종료 이력 · ${historyFilter')
     inner = inner.replace('n:rows.filter(e=>queueState(e).info[0]===key).length', 'n:rows.filter(e=>!e.migration?.read_only&&queueState(e).info[0]===key).length')
     inner = replace_once(inner, '${typeLabel[x.e.kind]}</span>', '${typeLabel[x.e.kind]}${x.e.loom_registry?\' · 등록\':\'\'}</span>')
-    inner = replace_once(inner, 'summary+`<div class="pa-queue-caption">사용자 목표', 'summary+loomJobFilters()+loomQueueFeedback()+`<div class="pa-queue-caption">사용자 목표')
+    inner = replace_once(inner, 'summary+`<div class="pa-queue-caption">사용자 목표', 'summary+loomQueueFeedback()+`<div class="pa-queue-caption">사용자 목표')
+    inner = replace_once(inner, '}`,historyFilters+(shown.length?', '}`,loomJobFilters()+historyFilters+(shown.length?')
     inner = replace_once(inner, '+loomHistoricalWorkPanel(rows)+panel(`종료 이력', '+loomTimingNotice(rows)+loomHistoricalWorkPanel(rows)+panel(`종료 이력')
     inner = replace_once(inner, 'table(shown,false)',
         'table(shown.slice(0,state.queueHistoryLimits?.[historyFilter]||10),false)+loomHistoryMore(shown.length,historyFilter)')

@@ -751,7 +751,8 @@ const done=arguments[arguments.length-1];
         ui.wait("return document.querySelector('[data-job-filter=jobCategory]')?.options.length===7")
         ui.js("const e=document.querySelector('[data-job-filter=jobCategory]');e.value='fine_tuning';e.dispatchEvent(new Event('change',{bubbles:true}))")
         ui.wait("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelectorAll('tbody tr').length===2")
-        self.assertTrue(ui.js("return document.querySelector('.pa-job-classification')?.textContent==='Fine-tuning (Pilot-test)'"))
+        self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelector('.pa-job-classification')?.textContent==='Fine-tuning (Pilot-test)'"))
+        self.assertEqual(ui.js("return document.querySelector('.pa-current-work-queue tbody').children.length"),1)
         ui.js("const e=document.querySelector('[data-job-filter=jobExecutionMode]');e.value='full';e.dispatchEvent(new Event('change',{bubbles:true}))")
         ui.wait("return ![...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelector('tbody tr')")
         ui.route('fixture-live')
@@ -783,8 +784,10 @@ const done=arguments[arguments.length-1];
         self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Canonical generation')")
         self.assertEqual(self.ui.js("return document.querySelector('.pa-queue-name [data-entity=fixture-canonical]').closest('.pa-queue-name').querySelector('small').textContent"),'14 Steps')
         self.assertFalse(self.ui.js("return document.querySelector('#pa-content').textContent.includes('Fixture fixture-live')"))
+        self.assertEqual(self.ui.js("return document.querySelector('.pa-job-complete strong').textContent"),'2')
         self.ui.click('[data-job-filter=jobSourceHistory]')
         self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Fixture fixture-live')")
+        self.assertEqual(self.ui.js("return document.querySelector('.pa-job-complete strong').textContent"),'2')
         self.ui.route('fixture-canonical')
         self.ui.wait("return document.querySelector('#pa-content').textContent.includes('140 preserved conditions')")
         self.assertTrue(self.ui.js("return document.querySelector('#pa-content').textContent.includes('Verify <script>source</script>') && document.querySelector('#pa-content').textContent.includes('original-attempt')"))
@@ -799,6 +802,85 @@ const done=arguments[arguments.length-1];
         self.assertTrue(ui.js("return !document.querySelector('#pa-content').textContent.includes('Loom Jobs')"))
         ui.click('[data-history-collapse]');self.assertEqual(rows(),10)
         self.assertTrue(ui.js("return document.querySelector('[data-resource-panel]').textContent.includes('data/0') && !document.querySelector('[data-resource-panel]').textContent.includes('data/1')"))
+
+    def test_operational_queue_stays_visible_while_terminal_filters_are_independent(self):
+        ui=self.ui;entities=[]
+        for identity,state,scope in [('queue-operations','running','operations'),('queue-research','queued','research'),
+                                     ('history-operations','complete','operations'),('history-research','failed','research')]:
+            e,r=native(identity);e['state']=e['properties']['state']=r['state']=state
+            e['presentation']={'scope':scope,'role':'test' if scope=='operations' else 'main','visible':scope=='research'}
+            if scope=='operations':e['properties'].update(category='other',execution_mode='smoke')
+            entities.append(e);self.api.fixture['jobs'][identity]=r
+        self.api.fixture['catalog']['entities']=entities
+        self.api.fixture['catalog']['queue']={'entries':[
+            {'id':'queue-operations','state':'running','position':None,'held':False,'reason':'executing'},
+            {'id':'queue-research','state':'queued','position':1,'held':False,'reason':'ready'},
+            {'id':'minimal-operations','owner':'another-owner','state':'queued','position':2,'held':False,'reason':'ready',
+             'presentation':{'scope':'operations','role':'test','visible':False}}]}
+        ui.top();self.wd('/refresh',{});ui.connect()
+        history="[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))"
+        current=lambda:ui.js("return [...document.querySelectorAll('.pa-current-work-queue tbody tr')].map(r=>r.textContent)")
+        ui.wait("return document.querySelector('.pa-current-work-queue tbody')?.children.length===3")
+        before=current();self.assertTrue(any('queue-operations' in x for x in before));self.assertTrue(any('minimal-operations' in x for x in before))
+        self.assertEqual(ui.js('return '+history+".querySelectorAll('tbody tr').length"),2)
+        ui.click('[data-job-history-view=operations]')
+        self.assertIn('history-operations',ui.js('return '+history+'.textContent'))
+        self.assertNotIn('history-research',ui.js('return '+history+'.textContent'))
+        ui.click('[data-job-filter=jobCategory]')
+        ui.js("const e=document.querySelector('[data-job-filter=jobCategory]');e.value='fine_tuning';e.dispatchEvent(new Event('change',{bubbles:true}))")
+        self.assertFalse(ui.js('return !!'+history+".querySelector('tbody tr')"));self.assertEqual(current(),before)
+        ui.js("const e=document.querySelector('[data-job-filter=jobCategory]');e.value='';e.dispatchEvent(new Event('change',{bubbles:true}))")
+        ui.click('[data-job-history-view=research]');ui.click('[data-queue-history=failed]')
+        self.assertIn('history-research',ui.js('return '+history+'.textContent'));self.assertEqual(current(),before)
+        ui.js("const e=document.querySelector('[data-research-view]');e.value='builtin';e.dispatchEvent(new Event('change',{bubbles:true}))")
+        ui.wait("return document.querySelector('[data-research-view]').value==='builtin'")
+        self.assertEqual(current(),before);self.assertIn('history-research',ui.js('return '+history+'.textContent'))
+        ui.top();self.wd('/refresh',{});ui.connect()
+        ui.wait("return document.querySelector('[data-job-history-view=research]')?.getAttribute('aria-pressed')==='true'")
+        self.assertEqual(current(),before);self.assertFalse(self.api.actions)
+
+    def test_history_all_includes_operational_pages_without_hiding_current_work(self):
+        ui=self.ui;entities=[]
+        for i in range(13):
+            e,r=native('operational-'+str(i));e['presentation']={'scope':'operations','role':'test','visible':False}
+            entities.append(e);self.api.fixture['jobs'][e['id']]=r
+        self.api.fixture['catalog']['entities']=entities
+        ui.top();self.wd('/refresh',{});ui.connect()
+        rows=lambda:ui.js("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelectorAll('tbody tr').length")
+        ui.wait("return document.querySelector('[data-job-history-view=all]')?.getAttribute('aria-pressed')==='true'")
+        self.assertEqual(rows(),10);ui.click('[data-history-more]');self.assertEqual(rows(),13)
+        ui.click('[data-job-history-view=research]');self.assertEqual(rows(),0)
+        ui.click('[data-job-history-view=operations]');self.assertEqual(rows(),10)
+        ui.click('[data-history-more]');self.assertEqual(rows(),13)
+        self.assertTrue(ui.js("return document.querySelector('[data-job-filter=jobCategory]').closest('.pa-panel').querySelector('h2').textContent.startsWith('종료 이력')"))
+        for theme in ('light','dark'):
+            ui.click('[data-theme='+theme+']')
+            for width in (1440,500):
+                ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+                self.assertTrue(ui.js("const p=document.querySelector('[data-pane]');return p.scrollWidth<=p.clientWidth+2"))
+                ui.js("document.querySelector('[data-job-history-view]').closest('.pa-panel').scrollIntoView({block:'start'})")
+                ui.wait("return document.querySelector('[data-job-history-view]').getBoundingClientRect().top<300")
+                if folder:=os.environ.get('LOOM_TEST_SCREENSHOTS'):
+                    output=Path(folder);output.mkdir(parents=True,exist_ok=True);ui.top();(output/f'queue-history-{theme}-{width}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));ui.frame()
+        self.assertFalse(self.api.actions)
+
+    def test_workflow_nodes_stay_grouped_but_parented_followup_remains_visible(self):
+        entities=[]
+        for identity in ('parent-root','child-node','followup-root','followup-node'):
+            e,r=native(identity);e['state']=e['properties']['state']=r['state']='running'
+            e['presentation']={'scope':'operations','role':'test','visible':False}
+            entities.append(e);self.api.fixture['jobs'][identity]=r
+        entities[0]['loom_workflow']={'workflow':True,'executions':[{'job':'child-node'}]}
+        entities[2]['loom_workflow']={'workflow':True,'executions':[{'job':'followup-node'}]}
+        entities[2]['presentation']['parent_job']='parent-root'
+        self.api.fixture['catalog']['entities']=entities
+        self.api.fixture['catalog']['queue']={'entries':[{'id':n,'state':'running','position':None,'held':False,'reason':'executing'} for n in ('child-node','followup-node')],
+            'logical_entries':[{'id':n,'state':'running','position':None,'held':False,'reason':'executing'} for n in ('parent-root','followup-root')]}
+        self.ui.top();self.wd('/refresh',{});self.ui.connect()
+        self.ui.wait("return document.querySelector('.pa-current-work-queue tbody')?.children.length===2")
+        names=self.ui.js("return [...document.querySelectorAll('.pa-current-work-queue tbody tr')].map(r=>r.querySelector('td').textContent)")
+        self.assertTrue(any('parent-root' in n for n in names));self.assertTrue(any('followup-root' in n for n in names))
+        self.assertFalse(any('child-node' in n or 'followup-node' in n for n in names));self.assertFalse(self.api.actions)
 
     def test_running_recovery_shows_execution_phase_and_historical_pause_is_separate(self):
         f=self.api.fixture;entity,record=native('fixture-running')
