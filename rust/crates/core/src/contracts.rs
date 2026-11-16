@@ -30,6 +30,15 @@ pub fn actions() -> Vec<Action> {
     let definitions = [
         (
             "results",
+            "organize_dataset",
+            "submit",
+            object(
+                json!({"target":target,"task_ref":reference,"path":{"type":"array","maxItems":12,"items":object(json!({"id":{"type":"string","pattern":"^[A-Za-z0-9_.-]{1,64}$"},"label":{"type":"string","minLength":1,"maxLength":80}}),&["id","label"])},"reason":{"type":"string","minLength":1,"maxLength":2000},"dry_run":{"type":"boolean","default":true},"expected_digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},"key":string}),
+                &["target", "task_ref", "path", "reason"],
+            ),
+        ),
+        (
+            "results",
             "link_dataset",
             "submit",
             object(

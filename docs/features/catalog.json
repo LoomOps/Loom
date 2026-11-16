@@ -361,7 +361,8 @@
         "rust/crates/core/src/storage.rs",
         "rust/crates/core/src/file_set.rs",
         "rust/crates/core/src/reconcile.rs",
-        "rust/crates/core/src/dataset_lineage.rs"
+        "rust/crates/core/src/dataset_lineage.rs",
+        "rust/crates/core/src/dataset_organization.rs"
       ],
       "tests": [
         "tests/ops/test_installation_smoke.py",
@@ -678,7 +679,8 @@
         "dashboard/workspace/search.js",
         "dashboard/workspace/catalog-pages.js",
         "dashboard/workspace/outputs.js",
-        "dashboard/workspace/research-metadata.js"
+        "dashboard/workspace/research-metadata.js",
+        "dashboard/workspace/dataset-browser.js"
       ],
       "tests": [
         "tests/dashboard/browser/test_workspace.py",

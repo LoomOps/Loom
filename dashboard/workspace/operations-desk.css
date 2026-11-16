@@ -570,8 +570,11 @@
 #pai-studio .pa-output-metrics{grid-column:1/-1;flex-basis:100%;min-width:0;max-width:100%;margin-top:10px;font-size:12px}
 #pai-studio .pa-output-metrics summary,#pai-studio .pa-output-source summary{cursor:pointer;color:var(--pa-muted);padding:8px 0}
 #pai-studio .pa-footer{align-items:center;flex-direction:row;flex-wrap:wrap;min-height:30px;padding:6px 18px;line-height:1.5;gap:10px}
-#pai-studio .pa-footer span:empty{display:none}
-#pai-studio .pa-node-summary [data-index-state]{margin-top:8px;color:var(--pa-accent)}
+#pai-studio .pa-footer span:empty:not([data-index-state]){display:none}
+#pai-studio .pa-footer [data-index-state]{display:inline-block;width:10px;height:10px;flex:0 0 10px;border:1.5px solid var(--pa-line);border-top-color:var(--pa-muted);border-radius:50%;animation:loom-index-spin 1s linear infinite}
+#pai-studio .pa-footer [data-index-state][hidden]{display:none}
+@keyframes loom-index-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){#pai-studio .pa-footer [data-index-state]{animation:none;border-top-color:var(--pa-accent)}}
 
 /* Output detail sections share one spacing/field layout. Raw metadata stays in
    one disclosure; a one-field section never becomes a large empty card. */
@@ -598,16 +601,34 @@
 #pai-studio .pa-research-inputs dt{font-size:12px;color:var(--pa-muted)}
 #pai-studio .pa-research-inputs dd{margin:0;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
 #pai-studio .pa-research-conditions{min-width:0;overflow:auto;grid-column:1/-1}
-#pai-studio .pa-dataset-group{margin:0 0 24px;min-width:0}
-#pai-studio .pa-dataset-group>summary{padding:12px 0;font-weight:600;overflow-wrap:anywhere}
-#pai-studio .pa-dataset-group>summary small{font-weight:400;color:var(--pa-muted);margin-left:12px;white-space:nowrap}
-#pai-studio .pa-dataset-variant{border-top:1px solid var(--pa-line);min-width:0}
-#pai-studio .pa-dataset-variant.is-derived{border-left:1px solid var(--pa-line);padding-left:16px}
-#pai-studio .pa-dataset-transform{font-size:12px;color:var(--pa-muted);padding-top:12px;overflow-wrap:anywhere}
-#pai-studio .pa-dataset-transform+.pa-scientific-card{padding-top:8px}
+#pai-studio .pa-dataset-family{margin:20px 0 28px;min-width:0}
+#pai-studio .pa-dataset-family>details>summary{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--pa-selected);color:var(--pa-selected-text);border-radius:7px;font-weight:600;cursor:pointer}
+#pai-studio .pa-dataset-family>details>summary:before{content:'▾';font-size:11px}
+#pai-studio .pa-dataset-family>details:not([open])>summary:before{content:'▸'}
+#pai-studio .pa-dataset-family h2{font-size:16px;margin:0;line-height:1.5}
+#pai-studio .pa-dataset-family>details>summary>span{margin-left:auto;font-size:12px;font-weight:500}
+#pai-studio .pa-dataset-subgroup{margin:12px 0 8px;min-width:0}
+#pai-studio .pa-dataset-subgroup>summary{font-size:14px;font-weight:600;padding:10px 12px;color:var(--pa-ink);cursor:pointer}
+#pai-studio .pa-dataset-subgroup .pa-dataset-subgroup{margin-left:12px}
+#pai-studio .pa-dataset-columns,#pai-studio .pa-dataset-row{display:grid;grid-template-columns:minmax(180px,2.5fr) minmax(85px,.85fr) minmax(90px,1fr) minmax(95px,1.2fr);gap:16px;align-items:start;padding:12px}
+#pai-studio .pa-dataset-columns{font-size:11px;color:var(--pa-muted);border-bottom:1px solid var(--pa-line);padding-bottom:8px}
+#pai-studio .pa-dataset-row{border-bottom:1px solid var(--pa-line);min-width:0;font-size:13px}
+#pai-studio .pa-dataset-name{display:flex;align-items:flex-start;gap:6px;padding-left:var(--dataset-indent,0);min-width:0}
+#pai-studio .pa-dataset-name>div{min-width:0}
+#pai-studio .pa-dataset-name [data-entity]{font-size:13px;font-weight:600;color:var(--pa-ink);white-space:normal;overflow-wrap:anywhere;text-align:left}
+#pai-studio .pa-dataset-row small{display:block;font-size:11px;line-height:1.5;color:var(--pa-muted);margin-top:4px;overflow-wrap:anywhere}
+#pai-studio .pa-dataset-row b{font-size:13px;font-weight:500}
+#pai-studio .pa-dataset-row>div{min-width:0;overflow-wrap:anywhere}
+#pai-studio .pa-dataset-quantity,#pai-studio .pa-dataset-split{font-variant-numeric:tabular-nums}
+#pai-studio .pa-dataset-bc{display:inline-block;margin-top:6px;margin-left:6px;padding:1px 6px;border-radius:4px;font-size:11px;background:var(--pa-tint);color:var(--pa-ink)}
+#pai-studio .pa-dataset-bc.is-not-ready{border:1px solid var(--pa-line);font-weight:500}
+#pai-studio .pa-dataset-expander{display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--pa-muted);padding:2px;flex:0 0 18px;width:18px}
+#pai-studio .pa-dataset-expander svg{width:14px;height:14px}
+#pai-studio .pa-dataset-leaf{flex:0 0 18px;width:18px}
+@container pane (max-width:760px){#pai-studio .pa-dataset-columns{display:none}#pai-studio .pa-dataset-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 16px;padding:14px 12px}#pai-studio .pa-dataset-name{grid-column:1/-1}#pai-studio .pa-dataset-row>[data-column]:before{content:attr(data-column);display:block;font-size:11px;color:var(--pa-muted);margin-bottom:3px}#pai-studio .pa-dataset-row>[data-column]:empty{display:none}}
 #pai-studio .pa-dataset-parent{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;margin:8px 0}
 #pai-studio .pa-dataset-parent>small{flex-basis:100%;color:var(--pa-muted);overflow-wrap:anywhere}
 #pai-studio .pa-dataset-parent>.pa-button,#pai-studio .pa-dataset-parent>[data-entity]{max-width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere;text-align:left}
 #pai-studio .pa-output-source{min-width:0;max-width:100%}
 #pai-studio .pa-output-source .pa-table-wrap{max-width:100%;min-width:0;overflow-x:auto}
-@container pane (max-width:420px){#pai-studio .pa-scientific-card{grid-template-columns:minmax(0,1fr)}#pai-studio .pa-scientific-card .pa-result-score{margin-top:12px}#pai-studio .pa-dataset-variant.is-derived{padding-left:12px}}
+@container pane (max-width:420px){#pai-studio .pa-scientific-card{grid-template-columns:minmax(0,1fr)}#pai-studio .pa-scientific-card .pa-result-score{margin-top:12px}}

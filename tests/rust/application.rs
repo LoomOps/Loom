@@ -63,6 +63,170 @@ fn historical_dataset_mirrors_require_identical_original_bodies_not_matching_nam
 }
 
 #[test]
+fn dataset_organization_is_source_bound_keyed_and_distinct_from_lineage() {
+    let mut f = Fixture::new();
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"family","definition":{"label":"Fixture family"}}),
+        )
+        .unwrap();
+    let task_ref = json!({"id":task["id"],"revision":1});
+    for id in ["one", "two"] {
+        let manifest =
+            json!({"id":id,"revision":1,"kind":"dataset","components":[],"relations":[]});
+        f.app
+            .db
+            .execute(
+                "INSERT INTO asset_revisions VALUES(?,1,NULL,'dataset','owner','owner',?)",
+                rusqlite::params![id, manifest.to_string()],
+            )
+            .unwrap();
+    }
+    let target = json!({"kind":"entity","identity":{"id":"one","revision":1}});
+    let mut args = json!({"target":target,"task_ref":task_ref,"path":[{"id":"cohort","label":"Cohort"},{"id":"part","label":"Part"}],"reason":"Verified collection context"});
+    assert_eq!(
+        f.call("results", "organize_dataset", args.clone())
+            .unwrap_err()
+            .code,
+        "organization_task"
+    );
+    for id in ["one", "two"] {
+        f.call("results","link_scenario",json!({"key":format!("link-{id}"),"scenario_ref":task_ref,"target":{"kind":"entity","identity":{"id":id,"revision":1}},"relation":"produced_for","provenance":{"reason":"Fixture"}})).unwrap();
+    }
+    let preview = f.call("results", "organize_dataset", args.clone()).unwrap();
+    assert_eq!(f.count("rust_annotations"), 0);
+    args["dry_run"] = json!(false);
+    args["key"] = json!("organize");
+    args["expected_digest"] = preview["digest"].clone();
+    let applied = f.call("results", "organize_dataset", args.clone()).unwrap();
+    assert_eq!(applied["stored"], true);
+    assert_eq!(
+        f.call("results", "organize_dataset", args.clone()).unwrap(),
+        applied
+    );
+    let result = f
+        .call("results", "get", json!({"id":"one","revision":1}))
+        .unwrap();
+    assert_eq!(
+        result["dataset_organization"]["path"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert!(result["dataset_lineage"]["parents"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    let mut other = args.clone();
+    other["dry_run"] = json!(true);
+    other["target"]["identity"]["id"] = json!("two");
+    other["path"][0]["label"] = json!("Wrong");
+    assert_eq!(
+        f.call("results", "organize_dataset", other)
+            .unwrap_err()
+            .code,
+        "organization_label"
+    );
+    let mut move_args = args.clone();
+    move_args["path"] = json!([]);
+    move_args["dry_run"] = json!(true);
+    let moved_preview = f
+        .call("results", "organize_dataset", move_args.clone())
+        .unwrap();
+    move_args["expected_digest"] = moved_preview["digest"].clone();
+    move_args["key"] = json!("move");
+    move_args["dry_run"] = json!(false);
+    f.call("results", "organize_dataset", move_args).unwrap();
+    args["key"] = json!("stale-preview");
+    assert_eq!(
+        f.call("results", "organize_dataset", args)
+            .unwrap_err()
+            .code,
+        "source_changed"
+    );
+    assert_eq!(f.count("rust_annotations"), 2);
+    f.app.db.execute("UPDATE asset_revisions SET manifest=json_set(manifest,'$.label','changed') WHERE id='one'",[]).unwrap();
+    let changed = f
+        .call("results", "get", json!({"id":"one","revision":1}))
+        .unwrap();
+    assert!(changed.get("dataset_organization").is_none());
+}
+
+#[test]
+fn historical_dataset_organization_preserves_original_and_requires_active_task_link() {
+    let mut f = Fixture::new();
+    let body=json!({"original":{"id":"old-data","kind":"dataset","label":"Original label","properties":{},"relations":[],"artifacts":[]}}).to_string();
+    f.app
+        .db
+        .execute(
+            "INSERT INTO history_records VALUES('catalog','dataset','old-data','r1','fixture',?)",
+            [&body],
+        )
+        .unwrap();
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"legacy-family","definition":{"label":"Family"}}),
+        )
+        .unwrap();
+    let target = json!({"kind":"historical","identity":{"source":"catalog","kind":"dataset","id":"old-data","revision":"r1","snapshot":"fixture"}});
+    let pin = json!({"id":task["id"],"revision":1});
+    f.call("results","link_scenario",json!({"key":"legacy-link","scenario_ref":pin,"target":target,"relation":"produced_for","provenance":{"reason":"Fixture"}})).unwrap();
+    let mut args = json!({"target":target,"task_ref":pin,"path":[{"id":"cohort","label":"Cohort"}],"reason":"Explicit historical grouping"});
+    let preview = f.call("results", "organize_dataset", args.clone()).unwrap();
+    args["expected_digest"] = preview["digest"].clone();
+    args["key"] = json!("legacy-group");
+    args["dry_run"] = json!(false);
+    f.call("results", "organize_dataset", args).unwrap();
+    let catalog = f.app.dashboard_catalog().unwrap();
+    let e = catalog["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["loom_history"]["id"] == "old-data")
+        .unwrap();
+    assert_eq!(e["dataset_organization"]["path"][0]["id"], "cohort");
+    let stored: String = f
+        .app
+        .db
+        .query_row(
+            "SELECT body FROM history_records WHERE id='old-data'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(stored, body);
+    f.app.db.execute("DELETE FROM scenario_links", []).unwrap();
+    let catalog = f.app.dashboard_catalog().unwrap();
+    let e = catalog["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["loom_history"]["id"] == "old-data")
+        .unwrap();
+    assert!(e.get("dataset_organization").is_none());
+}
+
+#[test]
+fn dataset_organization_declarations_reject_ambiguous_or_unbounded_paths() {
+    use crate::dataset_organization::validate_declaration as validate;
+    assert!(validate(&json!({"path":[],"task_ref":{"id":"task","revision":1}})).is_ok());
+    for value in [
+        json!({"path":[{"id":"space id","label":"Invalid"}]}),
+        json!({"path":[{"id":"ok","label":"  "}]}),
+        json!({"path":[],"task_ref":{"id":"task"}}),
+        json!({"path":[],"extra":true}),
+        json!({"path":vec![json!({"id":"group","label":"Group"});13]}),
+    ] {
+        assert!(validate(&value).is_err());
+    }
+}
+
+#[test]
 fn native_dataset_publication_resolves_only_declared_data_parent_inputs() {
     let mut f = Fixture::new();
     let parent =
@@ -71,6 +235,14 @@ fn native_dataset_publication_resolves_only_declared_data_parent_inputs() {
     let job = f.submit("derived-publication");
     let mut spec = jobs::load(&f.app.db, &job).unwrap().spec;
     spec["params"] = json!({"data":{"artifact":{"id":"source-dataset","revision":1}}});
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"native-family","definition":{"label":"Native family"}}),
+        )
+        .unwrap();
+    spec["scenario_ref"] = json!({"id":task["id"],"revision":1});
     f.app
         .db
         .execute(
@@ -81,7 +253,7 @@ fn native_dataset_publication_resolves_only_declared_data_parent_inputs() {
     let folder = f.root.join("data").join("derived");
     fs::create_dir(&folder).unwrap();
     fs::write(folder.join("dataset.json"), b"{}").unwrap();
-    let manifest = json!({"entities":[{"id":"selected","kind":"dataset","path":"dataset.json","provenance":{},"relations":[],"lineage":[{"input":"data","transformation":{"kind":"condition_selection","details":"Selected two conditions","member_count":2}}]}],"metrics":[]});
+    let manifest = json!({"entities":[{"id":"selected","kind":"dataset","path":"dataset.json","provenance":{},"relations":[],"metadata":{"research":{"organization":{"path":[{"id":"cohort","label":"Cohort"}]}}},"lineage":[{"input":"data","transformation":{"kind":"condition_selection","details":"Selected two conditions","member_count":2}}]}],"metrics":[]});
     let mut missing = manifest.clone();
     missing["entities"][0]["lineage"][0]["input"] = json!("not-an-input");
     assert_eq!(
@@ -92,6 +264,16 @@ fn native_dataset_publication_resolves_only_declared_data_parent_inputs() {
         "lineage_input"
     );
     assert_eq!(f.count("entity_revisions"), 0);
+    let mut wrong_task = manifest.clone();
+    wrong_task["entities"][0]["metadata"]["research"]["organization"]["task_ref"] =
+        json!({"id":"other-task","revision":1});
+    assert_eq!(
+        f.app
+            .publish_result(&job, "fixture-attempt", wrong_task, &folder)
+            .unwrap_err()
+            .code,
+        "organization_task"
+    );
     f.app
         .publish_result(&job, "fixture-attempt", manifest, &folder)
         .unwrap();
@@ -103,6 +285,8 @@ fn native_dataset_publication_resolves_only_declared_data_parent_inputs() {
         )
         .unwrap();
     let links = result["dataset_lineage"]["parents"].as_array().unwrap();
+    assert_eq!(result["dataset_organization"]["task_ref"]["id"], task["id"]);
+    assert_eq!(result["dataset_organization"]["path"][0]["id"], "cohort");
     assert_eq!(links.len(), 1);
     assert_eq!(links[0]["parent"]["identity"]["id"], "source-dataset");
     assert_eq!(links[0]["transformation"]["kind"], "condition_selection");

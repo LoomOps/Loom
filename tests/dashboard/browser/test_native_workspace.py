@@ -237,10 +237,11 @@ class NativeWorkspaceTests(unittest.TestCase):
    self.ui.wait("return !!document.querySelector('[data-catalog-more='+arguments[0]+']')",query_kind)
    self.ui.click('[data-catalog-more='+query_kind+']')
    self.ui.wait("return document.querySelectorAll('[data-output-id]').length===65")
+   if kind=='dataset':self.ui.click('[data-dataset-family=unassigned]>summary')
    self.ui.js("document.querySelector('.pa-pane-body').scrollTop=1200")
    time.sleep(.2)
    capture="""const b=document.querySelector('.pa-pane-body'),edge=b.getBoundingClientRect(),e=[...b.querySelectorAll('[data-output-id]')].find(e=>e.getClientRects().length&&e.getBoundingClientRect().bottom>edge.top);return {id:e.dataset.outputId,offset:e.getBoundingClientRect().top-edge.top,top:b.scrollTop,count:b.querySelectorAll('[data-output-id]').length};"""
-   before=self.ui.js(capture);self.assertGreater(before['top'],500)
+   before=self.ui.js(capture);self.assertGreater(before['top'],500,{'kind':kind,'layout':self.ui.js("return [...document.querySelectorAll('.pa-pane-body')].map(p=>({height:p.clientHeight,scroll:p.scrollHeight,families:[...p.querySelectorAll('[data-dataset-family]')].map(f=>({id:f.dataset.datasetFamily,open:f.open})),rows:p.querySelectorAll('[data-output-id]').length}))")})
    for n in range(55):self.call('results','register_scenario',{'key':f'anchor-revision-{kind}-{n}','definition':{'label':f'Recent context {kind} {n}'}})
    self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
    for _ in range(12):

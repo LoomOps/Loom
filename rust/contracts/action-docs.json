@@ -1845,5 +1845,38 @@
       "entrypoint": "rust/crates/core/src/dataset_lineage.rs#link_dataset"
     },
     "example_note": "Illustrative arguments. Replace symbolic identities and hashes with exact registered records before preview or apply."
+  },
+  "results.organize_dataset": {
+    "title": "Organize an existing Dataset",
+    "description": "Preview or apply source-bound browsing context under an already linked exact Task and a stable subgroup path. This does not declare data derivation or rewrite source records.",
+    "returns": "Organization · dry_run, stored, digest, organization",
+    "example": {
+      "target": {
+        "kind": "entity",
+        "identity": {
+          "id": "<dataset-id>",
+          "revision": 1
+        }
+      },
+      "task_ref": {
+        "id": "<linked-task-id>",
+        "revision": 1
+      },
+      "path": [
+        {
+          "id": "cohort",
+          "label": "Cohort"
+        }
+      ],
+      "reason": "Reuse the evidenced collection context"
+    },
+    "errors": [
+      "Exact Dataset or linked Task missing; conflicting subgroup label; source or current assignment changed; maintenance fence."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/dataset_organization.rs#organize_dataset"
+    },
+    "example_note": "Preview first, then apply with expected_digest, a stable key and dry_run=false."
   }
 }

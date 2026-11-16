@@ -487,6 +487,9 @@ impl Application {
             }
         }
         self.attach_task_context(&mut entities)?;
+        for entity in &mut entities {
+            crate::dataset_organization::attach(self, entity)?;
+        }
         let queue = self.queue()?;
         let value = json!({"entities":entities,"research_tasks":self.dashboard_tasks()?,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true,"item_search":true},"host":self.dashboard_host()?,"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});
         if all {

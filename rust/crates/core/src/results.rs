@@ -74,6 +74,9 @@ impl Application {
                 value["locations"]=json!(rows(&self.db,"SELECT component,machine_id,storage_id,ref,status FROM all_entity_locations WHERE id=? AND revision=? ORDER BY component,ref",&[&id,&rev])?);
                 if value["kind"] == "dataset" {
                     value["dataset_lineage"] = json!({"schema":"loom-dataset-lineage/v1","parents":crate::dataset_lineage::declared(self,&Target{kind:"entity".into(),identity:json!({"id":id,"revision":rev})})?});
+                    value["loom_registry"] = json!({"id":id,"revision":rev});
+                    crate::dataset_organization::attach_context(self, &mut value)?;
+                    crate::dataset_organization::attach(self, &mut value)?;
                 }
                 let owner: String = self.db.query_row(
                     "SELECT owner FROM all_entity_revisions WHERE id=? AND revision=?",
@@ -126,6 +129,7 @@ impl Application {
             }
             "refresh_metadata" => self.refresh_research_metadata(actor, args),
             "link_dataset" => self.link_dataset(actor, args),
+            "organize_dataset" => self.organize_dataset(actor, args),
             "annotate" => {
                 let id = args["id"]
                     .as_str()
@@ -607,6 +611,18 @@ impl Application {
                     published[key] = v.clone();
                 }
             }
+            if let Some(organization) = entity.pointer("/metadata/research/organization") {
+                let task = &row.spec["scenario_ref"];
+                require(
+                    task.is_object()
+                        && (!organization["task_ref"].is_object()
+                            || organization["task_ref"] == *task),
+                    "organization_task",
+                    "Dataset organization must use the accepted Job Task pin",
+                    409,
+                )?;
+                published["scenario_ref"] = task.clone();
+            }
             prepared.push((
                 identity,
                 kind.to_string(),
@@ -799,6 +815,15 @@ fn validate_output_semantics(manifest: &Value, profile: Option<&Value>) -> Resul
                 .cloned()
                 .unwrap_or(json!({"type":"object"}));
             crate::contracts::validate(&schema, &metadata)?;
+            if let Some(organization) = metadata.pointer("/research/organization") {
+                require(
+                    entity["kind"] == "dataset",
+                    "organization",
+                    "Dataset organization belongs to Dataset outputs",
+                    400,
+                )?;
+                crate::dataset_organization::validate_declaration(organization)?;
+            }
             for field in ["label", "description"] {
                 if let Some(value) = entity.get(field) {
                     require(

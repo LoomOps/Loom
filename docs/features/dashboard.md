@@ -171,3 +171,11 @@ share this renderer. Detail summaries do not duplicate input tensors in both the
 Model panel and the Inputs panel. Empty list facts do not reserve blank rows.
 A same-generation metadata-only bootstrap retains verified detail/page facts;
 an exact read or a new source generation can replace them explicitly.
+
+
+Dataset browsing uses existing Task families, explicit nested subgroups, and a
+compact multi-generation derivation tree. It preserves specific Dataset names,
+count units, sampling/physics facts and exact cross-links. Collapsed groups and
+branches survive catalog refresh. Other records remain available in the All view.
+Catalog indexing uses an accessible icon-only spinner beside the footer update
+control; it is hidden at idle and respects reduced-motion preferences.

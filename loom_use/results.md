@@ -144,3 +144,28 @@ Imported copies share a browse row only when the original Dataset identity and
 full source content agree, including file hashes and publication state. JSON
 formatting and known generated publication bindings do not create new scientific
 variants. Sources retains every exact source link and original body.
+
+
+### Dataset families and subgroups
+
+A Task is the top-level browsing family. Reuse its exact reference; do not create
+one Task per variant. A Dataset may declare `metadata.research.organization`:
+`{"path":[{"id":"cohort","label":"Cohort"}]}`. With multiple linked Tasks,
+include an exact `task_ref` to select the browsing family. This must be an existing
+Task context; it does not create or link a Task. For new outputs, it must match
+the accepted Job `scenario_ref` pin; finalization rejects a different Task. Paths support up to 12 subgroup
+levels and stable local IDs. Reuse an existing path ID and label for the same group.
+
+For an existing exact Dataset, preview `results.organize_dataset` with `target`,
+`task_ref`, `path` and `reason`. Apply with `dry_run:false`, the returned
+`expected_digest` and a stable `key`. The Task must already be linked. This additive
+annotation retains previous assignments and source hashes. Changed sources require
+a fresh preview. An empty path places the Dataset directly under its Task.
+
+Subgroups describe shared collection context; they are not parent/child claims.
+Use `lineage` or `results.link_dataset` only for evidenced data derivation. The
+Dashboard nests loaded descendants across multiple generations within a subgroup;
+multi-parent cross-links remain in detail. A parent outside the selected subgroup,
+page or filter remains an exact cross-link rather than a duplicated Dataset.
+Never sum overlapping child counts into a family total. Family counts count logical
+Dataset entries after exact mirror grouping, not unique episodes.

@@ -430,14 +430,14 @@ const loomFreshHostRefresh=catHostRefresh;
 catHostRefresh=function(host=catalogData.host){
  if(host&&(!loomLatestHost||(queueMillis(host.observed_at)||0)>=(queueMillis(loomLatestHost.observed_at)||0)))loomLatestHost=host;
  loomFreshHostRefresh(loomLatestHost||host);
- loomSidebarIndex();
+ loomFooterIndex();
 };
-function loomSidebarIndex(){
- const summary=root.querySelector('.pa-node-summary');if(!summary)return;
+function loomFooterIndex(){
+ const footer=root.querySelector('.pa-footer');if(!footer)return;
  const pending=typeof loomCatalogPages!=='undefined'&&[...loomCatalogPages.values()].some(p=>p.partial);
- let status=summary.querySelector('[data-index-state]');
- if(pending&&!status){status=document.createElement('small');status.dataset.indexState='';status.setAttribute('role','status');summary.append(status);}
- if(status){status.textContent=pending?'Indexing…':'';status.hidden=!pending;}
+ let status=footer.querySelector('[data-index-state]');
+ if(pending&&!status){status=document.createElement('span');status.dataset.indexState='';status.setAttribute('role','status');status.setAttribute('aria-label','Indexing');status.title='Indexing';footer.append(status);}
+ if(status){status.textContent='';status.hidden=!pending;const update=footer.querySelector('[data-loom-updates]');if(update&&update.nextElementSibling!==status)update.after(status);}
 }
 const loomSidebarRender=render;
 render=function(){loomSidebarRender();catHostRefresh();};

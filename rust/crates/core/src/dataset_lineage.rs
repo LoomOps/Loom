@@ -40,7 +40,7 @@ pub fn validate_transform(value: &Value) -> Result<()> {
     )
 }
 
-fn exact(app: &Application, target: &Target) -> Result<String> {
+pub(crate) fn exact(app: &Application, target: &Target) -> Result<String> {
     let fields: &[&str] = match target.kind.as_str() {
         "entity" => &["id", "revision"],
         "historical" => &["source", "kind", "id", "revision", "snapshot"],

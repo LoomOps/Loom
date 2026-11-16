@@ -24,6 +24,11 @@ def build(original):
     match = re.search(r'data-srcdoc="([^"]*)"', outer)
     inner = html.unescape(match[1])
     inner = patch_logs(inner)
+    inner = replace_once(inner,
+        "d.open=d.dataset.workGroup?!!v.openWorkGroups?.includes(d.dataset.workGroup):!!v.openDetails?.includes(i);",
+        "d.open=d.hasAttribute('data-dataset-family')?loomDatasetGroupOpen(v,'task:'+d.dataset.datasetFamily):d.hasAttribute('data-dataset-group')?loomDatasetGroupOpen(v,d.dataset.datasetGroup):d.dataset.workGroup?!!v.openWorkGroups?.includes(d.dataset.workGroup):!!v.openDetails?.includes(i);")
+    inner = replace_once(inner, "if(n.dataset.workGroup)return 'group:'+n.dataset.workGroup;",
+        "if(n.hasAttribute('data-dataset-family'))return 'dataset-family:'+n.dataset.datasetFamily;if(n.hasAttribute('data-dataset-group'))return 'dataset-group:'+n.dataset.datasetGroup;if(n.dataset.workGroup)return 'group:'+n.dataset.workGroup;")
     inner = replace_once(inner, "등록된 원본 산출물 기반 · 읽기 전용", "")
     inner = inner.replace("['component','컴포넌트']", "['component','컴포넌트'],['tool','Tool']")
     inner = inner.replace("component:'컴포넌트'}", "component:'컴포넌트',tool:'Tool'}")
@@ -118,7 +123,7 @@ def build(original):
     inner=replace_once(inner,"state.page===id?'page':'false'","(state.page===id||id==='profiles'&&loomIsHubPage(state.page)||id==='datasets'&&loomIsOutputPage(state.page))?'page':'false'")
     inner=replace_once(inner,"(navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')","({scenarios:'Tasks',datasets:'Datasets',experiments:'Experiments',models:'Models',comparison:'Comparison',profiles:'Profiles',components:'Components',tools:'Tools',runtimes:'Runtimes',dependencies:'Dependencies'}[v.page]||navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')")
     marker = "catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');"
-    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "dependencies.js", "scenarios.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js", "search.js", "projection.js", "catalog-pages.js", "outputs.js", "research-metadata.js"))
+    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "dependencies.js", "scenarios.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js", "search.js", "projection.js", "catalog-pages.js", "outputs.js", "research-metadata.js", "dataset-browser.js"))
     inner = replace_once(inner, marker, inner_additions + "\n" + (HERE.parent/"branding/brand.js").read_text() + "\n" + marker)
     inner = inner.replace("</head>", "<style>" + (HERE / "frame.css").read_text() + "</style></head>", 1)
     style = (HERE / "operations-desk.css").read_text() + (HERE.parent/"branding/brand.css").read_text()

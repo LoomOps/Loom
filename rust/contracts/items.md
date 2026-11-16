@@ -27,12 +27,22 @@ following an exact revision. `results.resolve_item` accepts the full typed legac
 reference, including historical source/kind/id/revision/snapshot. It allocates no
 identity and does not promote historical records to new research results.
 
+File access is separate from the Outputs summary. A remote MCP client with the
+existing read grant can discover registered files and read their actual bytes;
+local filesystem or SSH access is not required for this API path. This is bounded
+inspection, not a bulk archive download or analysis service. TAR/ZIP members are
+not individually searchable unless the producer registered them in an inventory.
+Use a compatible Loom Job with accepted file inputs for large-data processing, or
+an existing separately authorized transfer route. No download URL is implied.
+
 Use `results.get_file` before `results.read_file`. File identity, digest and copy
 locations are different concepts. Read registered ranges using decimal `offset`
 and a maximum 262144-byte `limit`; decode `data_base64` as bytes. Copy reads check
 current storage identity, permissions and recorded digest. Changed bytes are an
 error. Verification of files above the automatic background budget requires an
-administrator verification receipt; retrying a range never triggers a whole-store
+administrator verification receipt; an available copy may still return
+`verification_pending` until verified. Each range is at most 256 KiB (base64 on
+the wire), so reconstructing GB archives through MCP is inefficient; retrying a range never triggers a whole-store
 scan. Do not guess absolute paths or repair a scientific mismatch automatically.
 
 Use `jobs.log_streams` with an existing Job ID to discover exact Attempt/stage/

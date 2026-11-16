@@ -79,3 +79,17 @@ stored depth. Recorded BC eligibility and positive coverage retain false/zero.
 Extractor v2 suppresses the ambiguous v1 dynamic-instruction alias and affected
 input claims even when a captured source is offline, preserving unrelated facts.
 Refreshing affected captures is additive and cannot rewrite historical bodies.
+
+
+## Dataset browsing organization
+
+`dataset_organization.rs` owns source-bound current browsing assignments. The
+existing Task is the family; a stable ID/label path supplies at most 12 subgroup
+levels. Organization never adds derivation edges. `results.organize_dataset`
+requires an exact Dataset, an already linked Task, preview digest and idempotent
+apply key. Reassignment retains prior annotation history and rejects conflicting
+labels for the same active path. Original manifests and Task links are unchanged.
+New Dataset outputs may declare `metadata.research.organization`. Native result
+reads and Dashboard DTOs expose effective organization with its authority.
+`dataset-browser.js` renders families, subgroups and an iterative multi-generation
+lineage tree. Parent links across filtered or unloaded groups stay in details.

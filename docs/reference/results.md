@@ -14,6 +14,7 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 - [history](#history)
 - [historical](#historical)
 - [assign_owner](#assign_owner)
+- [organize_dataset](#organize_dataset)
 - [link_dataset](#link_dataset)
 - [refresh_metadata](#refresh_metadata)
 - [scenarios](#scenarios)
@@ -511,6 +512,161 @@ Illustrative arguments. Replace symbolic identities, hashes and values with disc
 Item · id, owner, owner_profile
 
 Unregistered profile or missing artifact.
+
+## organize_dataset
+
+Preview or apply source-bound browsing context under an already linked exact Task and a stable subgroup path. This does not declare data derivation or rewrite source records.
+
+Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/dataset_organization.rs#organize_dataset](../../rust/crates/core/src/dataset_organization.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `dry_run` | no | `"boolean"` | `true` |
+| `expected_digest` | no | `"string"` | `—` |
+| `key` | no | `"string"` | `—` |
+| `path` | yes | `"array"` | `—` |
+| `reason` | yes | `"string"` | `—` |
+| `target` | yes | `"object"` | `—` |
+| `task_ref` | yes | `"object"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "dry_run": {
+      "default": true,
+      "type": "boolean"
+    },
+    "expected_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "key": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "path": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[A-Za-z0-9_.-]{1,64}$",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "type": "object"
+      },
+      "maxItems": 12,
+      "type": "array"
+    },
+    "reason": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "target": {
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "type": "object"
+        },
+        "kind": {
+          "enum": [
+            "job",
+            "entity",
+            "historical",
+            "component",
+            "tool",
+            "profile",
+            "runtime",
+            "protocol_artifact"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "identity"
+      ],
+      "type": "object"
+    },
+    "task_ref": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "target",
+    "task_ref",
+    "path",
+    "reason"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "path": [
+    {
+      "id": "cohort",
+      "label": "Cohort"
+    }
+  ],
+  "reason": "Reuse the evidenced collection context",
+  "target": {
+    "identity": {
+      "id": "<dataset-id>",
+      "revision": 1
+    },
+    "kind": "entity"
+  },
+  "task_ref": {
+    "id": "<linked-task-id>",
+    "revision": 1
+  }
+}
+```
+
+Preview first, then apply with expected_digest, a stable key and dry_run=false.
+
+### Result and failures
+
+Organization · dry_run, stored, digest, organization
+
+Exact Dataset or linked Task missing; conflicting subgroup label; source or current assignment changed; maintenance fence.
 
 ## link_dataset
 

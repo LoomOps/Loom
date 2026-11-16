@@ -77,6 +77,7 @@ class MockOps(BaseHTTPRequestHandler):
             self.server.actions.append(body)
             if self.path in self.server.errors:return self.send_json({'error':'fixture error'},self.server.errors[self.path])
             if body.get('group')=='components' and body.get('action') in self.server.fixture.get('runtime_actions',{}):return self.send_json(self.server.fixture['runtime_actions'][body['action']])
+            if body.get('group')=='system' and body.get('action') in self.server.fixture.get('search_actions',{}):return self.send_json(self.server.fixture['search_actions'][body['action']])
             entries=self.server.fixture['catalog'].get('queue',{}).get('entries',[])
             row=next((r for r in entries if r['id']==body.get('arguments',{}).get('id')),None)
             if row is None or body.get('group')!='jobs':return self.send_json({'error':'fixture deny'},403)

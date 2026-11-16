@@ -195,36 +195,6 @@ function loomDatasetParentHTML(e){
  const parents=e.dataset_lineage?.parents||[];if(!parents.length)return '';
  return loomResearchSection('Data lineage',parents.map(link=>'<div class="pa-dataset-parent"><span>'+esc(loomDatasetTransformLabels[link.transformation?.kind]||'Derived from')+'</span>'+(link.item_id&&link.revision_id?'<button class="pa-button" data-dataset-parent-item="'+esc(link.item_id)+'" data-dataset-parent-revision="'+esc(link.revision_id)+'">'+esc(link.label||loomDatasetParentEntity(link)?.label||link.parent?.identity?.id)+'</button>':loomDatasetParentEntity(link)?catLink(loomDatasetParentEntity(link).id):'<span>'+esc(link.label||link.parent?.identity?.id)+'</span>')+'</div>').join(''));
 }
-const loomResearchCatalogList=catalogList;
-catalogList=function(kind){
- if(kind!=='dataset')return loomResearchCatalogList(kind);
- const allRows=catKind('dataset'),mirrors=new Map(),groups=new Map();
- for(const e of allRows)if(!mirrors.has(e.dataset_mirror_key||e.id))mirrors.set(e.dataset_mirror_key||e.id,e);
- const rows=[...mirrors.values()];
- function anchor(e,seen=new Set()){
-  if(seen.has(e.id))return e;seen.add(e.id);
-  const links=e.dataset_lineage?.parents||[],link=links.length===1?links[0]:links.find(l=>l.primary);
-  const exact=link&&loomDatasetParentEntity(link),parent=exact&&(mirrors.get(exact.dataset_mirror_key||exact.id)||exact);return parent?anchor(parent,seen):e;
- }
- for(const e of rows){const a=anchor(e);if(!groups.has(a.id))groups.set(a.id,{anchor:a,rows:[]});groups.get(a.id).rows.push(e);}
- const content=[...groups.values()].map(group=>{
-  if(group.rows.length===1&&!group.rows[0].dataset_lineage?.parents?.length)return catListRow(group.rows[0]);
-  const ordered=[...group.rows].sort((a,b)=>Number(a.id!==group.anchor.id)-Number(b.id!==group.anchor.id));
-  return '<details class="pa-dataset-group" data-output-id="group:'+esc(group.anchor.id)+'" '+((state.openDatasetGroups||[]).includes(group.anchor.id)?'open':'')+'><summary data-dataset-group-toggle="'+esc(group.anchor.id)+'">'+esc(group.anchor.label)+'<small>'+group.rows.length+' variants</small></summary>'+ordered.map(e=>{
-   const parents=e.dataset_lineage?.parents||[];
-   return '<div class="pa-dataset-variant '+(parents.length?'is-derived':'')+'">'+(parents.length?'<div class="pa-dataset-transform">'+parents.map(p=>esc(loomDatasetTransformLabels[p.transformation?.kind]||'Derived from')+' · '+esc(loomDatasetParentEntity(p)?.label||p.label||p.parent?.identity?.id)).join(' / ')+'</div>':'')+catListRow(e)+'</div>';
-  }).join('')+'</details>';
- }).join('');
- return heading('CATALOG','Datasets','')+catStatus()+content+(!rows.length?'<div class="pa-empty">등록된 기록이 없습니다.</div>':'')+loomCatalogPager('dataset');
-};
-root.addEventListener('click',event=>{
- const summary=event.target.closest('[data-dataset-group-toggle]');if(!summary)return;
- event.preventDefault();event.stopImmediatePropagation();
- const pane=summary.closest('[data-pane]');if(pane)ws.active=pane.dataset.pane;
- const detail=summary.parentElement,view=activeTab().view,opened=new Set(view.openDatasetGroups||[]);
- detail.open=!detail.open;if(detail.open)opened.add(summary.dataset.datasetGroupToggle);else opened.delete(summary.dataset.datasetGroupToggle);
- view.openDatasetGroups=[...opened];persist();
-},true);
 root.addEventListener('toggle',event=>{
  const detail=event.target;if(!detail.matches?.('details[data-output-record]'))return;
  const e=catEntity(detail.dataset.outputRecord),pre=detail.querySelector('pre');if(!e||!pre)return;
