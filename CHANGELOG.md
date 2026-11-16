@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0-alpha.16
+## 0.2.0-alpha.17
 
 - Group Datasets, Experiments and Models in Outputs, with Comparison inside Experiments. Keep existing deep links and exact record identities.
 - Refresh complete loaded catalog pages atomically, retain the visible output anchor and restart superseded cursors without collapsing the list to its bootstrap.

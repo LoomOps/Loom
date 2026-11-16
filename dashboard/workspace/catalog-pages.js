@@ -188,6 +188,7 @@ const loomPagedFiles=files;files=function(){return loomPagedFiles()+loomCatalogP
 
 // Only background patches use this anchor. User navigation keeps normal scroll behavior.
 function loomPreserveViewport(body,patch){
+ if(!body.querySelector('[data-output-id]'))return patch();
  const edge=body.getBoundingClientRect(),top=body.scrollTop,left=body.scrollLeft;
  const anchors=[...body.querySelectorAll('[data-output-id]')].filter(e=>e.getClientRects().length)
   .map(e=>({id:e.dataset.outputId,offset:e.getBoundingClientRect().top-edge.top,bottom:e.getBoundingClientRect().bottom-edge.top}))

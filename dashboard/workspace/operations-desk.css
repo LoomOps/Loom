@@ -544,7 +544,7 @@
 #pai-studio .pa-output-tabs{flex-direction:row;align-items:center;justify-content:flex-start;width:auto}
 #pai-studio .pa-output-tabs button{width:auto;min-width:0}
 
-#pai-studio .pa-pane-body{overflow-anchor:none}
+#pai-studio .pa-pane-body:has(.pa-output-header){overflow-anchor:none}
 #pai-studio .pa-output-task{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;max-width:100%;font-size:12px;color:var(--pa-muted);margin-top:8px}
 #pai-studio .pa-output-task .pa-task-label{display:inline;border:0;padding:0;margin:0;font-size:12px;font-weight:400;background:none;color:var(--pa-muted)}
 
