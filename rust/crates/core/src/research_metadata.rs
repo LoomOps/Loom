@@ -36,25 +36,37 @@ impl Facts {
             if value.as_object().is_some_and(serde_json::Map::is_empty) {
                 continue;
             }
-            let evidence = json!({"source":doc.source,"pointer":path});
-            let entry=self.values.entry(id.into()).or_insert_with(||json!({"id":id,"section":section,"label":label,"value":value,"unit":unit,"status":"recorded","evidence":[]}));
-            if entry["value"] != *value {
-                if entry["alternatives"].is_null() {
-                    entry["alternatives"] = json!([])
-                }
-                let candidates = entry["alternatives"].as_array_mut().unwrap();
-                if !candidates.iter().any(|v| v["value"] == *value) {
-                    candidates.push(json!({"value":value,"evidence":evidence}));
-                }
-                // Primary accepted record metadata wins over linked artifacts, but
-                // disagreements stay explicit; two files never silently overwrite.
-                if entry["evidence"][0]["source"]["kind"] != "record" {
-                    entry["status"] = json!("conflict");
-                }
-            } else if let Some(e) = entry["evidence"].as_array_mut() {
-                e.push(evidence);
-            }
+            self.record(doc, id, section, label, value, path, unit);
             break;
+        }
+    }
+    fn record(
+        &mut self,
+        doc: &Document,
+        id: &str,
+        section: &str,
+        label: &str,
+        value: &Value,
+        path: &str,
+        unit: Option<&str>,
+    ) {
+        let evidence = json!({"source":doc.source,"pointer":path});
+        let entry=self.values.entry(id.into()).or_insert_with(||json!({"id":id,"section":section,"label":label,"value":value,"unit":unit,"status":"recorded","evidence":[]}));
+        if entry["value"] != *value {
+            if entry["alternatives"].is_null() {
+                entry["alternatives"] = json!([])
+            }
+            let candidates = entry["alternatives"].as_array_mut().unwrap();
+            if !candidates.iter().any(|v| v["value"] == *value) {
+                candidates.push(json!({"value":value,"evidence":evidence}));
+            }
+            // Primary accepted record metadata wins over linked artifacts, but
+            // disagreements stay explicit; two files never silently overwrite.
+            if entry["evidence"][0]["source"]["kind"] != "record" {
+                entry["status"] = json!("conflict");
+            }
+        } else if let Some(e) = entry["evidence"].as_array_mut() {
+            e.push(evidence);
         }
     }
     fn inputs(&mut self, doc: &Document) {
@@ -762,8 +774,17 @@ pub fn summarize(entity: &Value, documents: &[(Value, Value)]) -> Value {
                         measured.then_some(value)
                     })
                     .collect();
-                if !outcomes.is_empty() && !facts.values.contains_key("condition_outcomes") {
-                    facts.values.insert("condition_outcomes".into(),json!({"id":"condition_outcomes","section":"evaluation","label":"Condition outcomes","value":outcomes,"unit":null,"status":"recorded","evidence":[{"source":d.source,"pointer":pointer}]}));
+                if !outcomes.is_empty() {
+                    facts.record(
+                        d,
+                        "condition_outcomes",
+                        "evaluation",
+                        "Condition outcomes",
+                        &json!(outcomes),
+                        pointer,
+                        None,
+                    );
+                    break;
                 }
             }
             field!("episodes", "population", "Episodes", &["/episodes"], None);

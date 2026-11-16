@@ -5510,7 +5510,7 @@ function loomResearchSummary(e){
  return {schema:&#x27;loom-research-summary/v1&#x27;,kind:e.kind,facts,inputs,sources:[]};
 }
 function loomResearchFactMap(e){return new Map(loomResearchSummary(e).facts.map(f=&gt;[f.id,f]));}
-function loomResearchNumber(v){return Math.abs(v)&gt;0&amp;&amp;Math.abs(v)&lt;.001?Number(v).toExponential(3):Number(v).toLocaleString(&#x27;en-US&#x27;,{maximumFractionDigits:3});}
+function loomResearchNumber(v){return Math.abs(v)&gt;0&amp;&amp;Math.abs(v)&lt;.001?Number(v).toExponential(3):Number(v).toLocaleString(&#x27;en-US&#x27;,Math.abs(v)&gt;0&amp;&amp;Math.abs(v)&lt;1?{maximumSignificantDigits:4}:{maximumFractionDigits:3});}
 function loomResearchSplit(v){
  const items=Array.isArray(v)?v:Object.entries(v||{}).map(([id,value])=&gt;({id,...(typeof value===&#x27;number&#x27;?{count:value}:Array.isArray(value)?{count:value.length}:value)}));
  const rank={train:0,validation:1,val:1,test:2};
@@ -5534,7 +5534,7 @@ function loomResearchValue(f,{compact=false}={}){
   if(unit===&#x27;m&#x27;&amp;&amp;[&#x27;validation_mean_error&#x27;,&#x27;validation_p95_error&#x27;,&#x27;point_mean_error&#x27;,&#x27;point_p95_error&#x27;,&#x27;hold_center_drift_m&#x27;,&#x27;height_tolerance_m&#x27;].includes(f.id)){v*=1000;unit=&#x27;mm&#x27;;}
   return loomResearchNumber(v)+(unit?&#x27; &#x27;+unit:&#x27;&#x27;);
  }
- if(Array.isArray(v))return v.map(x=&gt;typeof x===&#x27;object&#x27;?JSON.stringify(x):String(x)).join(&#x27; · &#x27;);
+ if(Array.isArray(v))return v.map(x=&gt;typeof x===&#x27;object&#x27;?JSON.stringify(x):String(x)).join(&#x27; · &#x27;)+(unit?&#x27; &#x27;+unit:&#x27;&#x27;);
  if(v&amp;&amp;typeof v===&#x27;object&#x27;)return JSON.stringify(v);
  return String(v??&#x27;—&#x27;)+(unit?&#x27; &#x27;+unit:&#x27;&#x27;);
 }
@@ -5598,6 +5598,7 @@ catFacts=function(e){
 function loomResearchFactsHTML(facts,compact=false){return &#x27;&lt;dl class=&quot;pa-entity-facts pa-scientific-facts &#x27;+(compact?&#x27;is-compact&#x27;:&#x27;&#x27;)+&#x27;&quot;&gt;&#x27;+facts.map(f=&gt;&#x27;&lt;div data-research-fact=&quot;&#x27;+esc(f.id)+&#x27;&quot;&gt;&lt;dt&gt;&#x27;+esc(f.label)+&#x27;&lt;/dt&gt;&lt;dd title=&quot;&#x27;+esc(loomResearchValue(f))+&#x27;&quot;&gt;&#x27;+esc(loomResearchValue(f,{compact}))+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/dl&gt;&#x27;;}
 function loomResearchConditions(e){
  const fact=loomResearchFactMap(e).get(&#x27;condition_outcomes&#x27;);if(!fact||!Array.isArray(fact.value))return &#x27;&#x27;;
+ if(fact.status===&#x27;conflict&#x27;)return &#x27;&lt;p class=&quot;pa-catalog-warning&quot;&gt;Conflicting condition outcomes&lt;/p&gt;&#x27;;
  const rows=fact.value,keys=[&#x27;strict_success&#x27;,&#x27;functional_success&#x27;].filter(key=&gt;rows.some(row=&gt;row[key]!=null));
  const outcome=(n,valid)=&gt;n==null?&#x27;—&#x27;:n+&#x27; / &#x27;+valid+(valid?&#x27; · &#x27;+loomResearchNumber(100*n/valid)+&#x27;%&#x27;:&#x27;&#x27;);
  return &#x27;&lt;div class=&quot;pa-research-conditions&quot;&gt;&#x27;+catTable([&#x27;Condition&#x27;,...keys.map(k=&gt;k===&#x27;strict_success&#x27;?&#x27;Strict success&#x27;:&#x27;Functional success&#x27;),&#x27;Valid / planned&#x27;],rows.map(row=&gt;[esc(row.condition),...keys.map(key=&gt;esc(outcome(row[key],row.valid))),esc(row.valid+&#x27; / &#x27;+(row.planned??&#x27;—&#x27;))]))+&#x27;&lt;/div&gt;&#x27;;

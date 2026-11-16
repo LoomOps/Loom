@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0-alpha.22
+
+- Preserve units on multi-valued clocks and meaningful precision on small scientific measurements. Apply the same source precedence/conflict handling to condition tables as scalar facts.
+
 ## 0.2.0-alpha.21
 
 - Show verified per-condition task outcomes with separate success counts and denominators, including retained RGB/depth comparisons. Reject validation-check counters and impossible success counts as task outcomes.

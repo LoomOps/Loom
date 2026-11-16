@@ -2875,6 +2875,21 @@ fn scientific_condition_outcomes_keep_populations_separate_and_reject_check_coun
         f["evidence"][0]["pointer"],
         "/research/evaluation/conditions"
     );
+    let source = json!({"kind":"file","ref":"comparison.json"});
+    let first = json!({"conditions":[{"condition":"RGB","valid":20,"strict_success":12}]});
+    let second = json!({"conditions":[{"condition":"RGB","valid":20,"strict_success":13}]});
+    let conflict = crate::research_metadata::summarize(
+        &json!({"id":"files-only","kind":"experiment"}),
+        &[(first, source.clone()), (second, source)],
+    );
+    let c = conflict["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["id"] == "condition_outcomes")
+        .unwrap();
+    assert_eq!(c["status"], "conflict");
+    assert_eq!(c["alternatives"].as_array().unwrap().len(), 1);
     assert!(!s["facts"]
         .as_array()
         .unwrap()

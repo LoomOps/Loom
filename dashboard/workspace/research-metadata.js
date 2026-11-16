@@ -17,7 +17,7 @@ function loomResearchSummary(e){
  return {schema:'loom-research-summary/v1',kind:e.kind,facts,inputs,sources:[]};
 }
 function loomResearchFactMap(e){return new Map(loomResearchSummary(e).facts.map(f=>[f.id,f]));}
-function loomResearchNumber(v){return Math.abs(v)>0&&Math.abs(v)<.001?Number(v).toExponential(3):Number(v).toLocaleString('en-US',{maximumFractionDigits:3});}
+function loomResearchNumber(v){return Math.abs(v)>0&&Math.abs(v)<.001?Number(v).toExponential(3):Number(v).toLocaleString('en-US',Math.abs(v)>0&&Math.abs(v)<1?{maximumSignificantDigits:4}:{maximumFractionDigits:3});}
 function loomResearchSplit(v){
  const items=Array.isArray(v)?v:Object.entries(v||{}).map(([id,value])=>({id,...(typeof value==='number'?{count:value}:Array.isArray(value)?{count:value.length}:value)}));
  const rank={train:0,validation:1,val:1,test:2};
@@ -41,7 +41,7 @@ function loomResearchValue(f,{compact=false}={}){
   if(unit==='m'&&['validation_mean_error','validation_p95_error','point_mean_error','point_p95_error','hold_center_drift_m','height_tolerance_m'].includes(f.id)){v*=1000;unit='mm';}
   return loomResearchNumber(v)+(unit?' '+unit:'');
  }
- if(Array.isArray(v))return v.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' · ');
+ if(Array.isArray(v))return v.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' · ')+(unit?' '+unit:'');
  if(v&&typeof v==='object')return JSON.stringify(v);
  return String(v??'—')+(unit?' '+unit:'');
 }
@@ -105,6 +105,7 @@ catFacts=function(e){
 function loomResearchFactsHTML(facts,compact=false){return '<dl class="pa-entity-facts pa-scientific-facts '+(compact?'is-compact':'')+'">'+facts.map(f=>'<div data-research-fact="'+esc(f.id)+'"><dt>'+esc(f.label)+'</dt><dd title="'+esc(loomResearchValue(f))+'">'+esc(loomResearchValue(f,{compact}))+'</dd></div>').join('')+'</dl>';}
 function loomResearchConditions(e){
  const fact=loomResearchFactMap(e).get('condition_outcomes');if(!fact||!Array.isArray(fact.value))return '';
+ if(fact.status==='conflict')return '<p class="pa-catalog-warning">Conflicting condition outcomes</p>';
  const rows=fact.value,keys=['strict_success','functional_success'].filter(key=>rows.some(row=>row[key]!=null));
  const outcome=(n,valid)=>n==null?'—':n+' / '+valid+(valid?' · '+loomResearchNumber(100*n/valid)+'%':'');
  return '<div class="pa-research-conditions">'+catTable(['Condition',...keys.map(k=>k==='strict_success'?'Strict success':'Functional success'),'Valid / planned'],rows.map(row=>[esc(row.condition),...keys.map(key=>esc(outcome(row[key],row.valid))),esc(row.valid+' / '+(row.planned??'—'))]))+'</div>';
