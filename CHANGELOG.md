@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0-alpha.14
+
+- Route browser search, Runtime and Scenario actions through the authenticated Dashboard relay at the installed Tailscale ingress. Keep direct browser calls to the native API rejected.
+- Render sidebar Docker and NVIDIA driver versions from current host observations instead of incomplete installation snapshots.
+- Validate browser request families against the deployment route plan and exercise collected software values in native/browser fixtures.
+
 ## 0.2.0-alpha.13
 
 - Preserve account identity and display fields during updates while allowing the authenticated-read profile clock to advance. Keep exact original snapshots and all other account/token checks.

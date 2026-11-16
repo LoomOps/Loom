@@ -191,7 +191,7 @@ def expected_routes(root):
     routes={'/':web,'/api':api+'/api','/mcp':api+'/mcp','/auth':web+'/auth','/session':web+'/session'}
     # Browser APIs must traverse the session/CSRF/Admin relay. The generic /api
     # route is for direct API clients and cannot authenticate browser cookies.
-    for name in ['dashboard','docker','history','jobs','mcp','ops','principal','registry','status','guide','admin','updates','events']:
+    for name in ['dashboard','docker','history','jobs','mcp','ops','principal','registry','status','guide','admin','updates','events','search','runtimes','scenarios']:
         routes['/api/'+name]=web+'/api/'+name
     return routes
 

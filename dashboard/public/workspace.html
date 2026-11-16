@@ -3474,8 +3474,8 @@ catHostRefresh = function(host = catalogData.host) {
     const next=bottom.cloneNode(false);
     next.innerHTML = &#x27;&lt;div class=&quot;pa-node-summary&quot;&gt;&lt;small&gt;&#x27; + esc(host.os || inventory.os || &#x27;OS 미확인&#x27;)
       + &#x27;&lt;/small&gt;&lt;small&gt;Kernel · &#x27; + esc(host.kernel || inventory.kernel || &#x27;미확인&#x27;)
-      + &#x27;&lt;/small&gt;&#x27; + (inventory.gpu ? &#x27;&lt;small&gt;NVIDIA Driver · &#x27;+esc(inventory.gpu.split(&#x27;,&#x27;).at(-1).trim())+&#x27;&lt;/small&gt;&#x27; : &#x27;&#x27;)
-      + (inventory.docker_engine ? &#x27;&lt;small&gt;Docker · &#x27;+esc(inventory.docker_engine)+&#x27;&lt;/small&gt;&#x27; : &#x27;&#x27;)
+      + &#x27;&lt;/small&gt;&lt;small&gt;NVIDIA Driver · &#x27;+esc(inventory.gpu_driver || &#x27;미확인&#x27;)+&#x27;&lt;/small&gt;&#x27;
+      + &#x27;&lt;small&gt;Docker · &#x27;+esc(inventory.docker_engine || &#x27;미확인&#x27;)+&#x27;&lt;/small&gt;&#x27;
       + (host.status !== &#x27;ok&#x27; ? &#x27;&lt;small&gt;호스트 정보 &#x27;+(host.status === &#x27;stale&#x27; ? &#x27;갱신 지연&#x27; : &#x27;수집 대기&#x27;)+&#x27;&lt;/small&gt;&#x27; : &#x27;&#x27;) + &#x27;&lt;/div&gt;&#x27;;
     patchResourceNode(bottom,next,true);
   }

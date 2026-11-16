@@ -585,9 +585,25 @@ impl Application {
     }
     pub fn dashboard_host(&self) -> Result<Value> {
         let mut host = json!({"machine_id":self.config.machine_id,"name":self.config.machine_id,
-            "hostname":null,"inventory":self.config.extra.get("inventory").cloned().unwrap_or(json!({})),
+            "hostname":null,"inventory":{},
             "status":"unavailable"});
         let observation = self.docker_observation()?;
+        if observation_fresh(&observation, now()) {
+            host["inventory"]["docker_engine"] = observation["engine"]["version"].clone();
+        }
+        if let Ok(bytes) = std::fs::read(self.observation_path("dashboard-gpus.json")) {
+            if let Ok(gpus) = serde_json::from_slice::<Value>(&bytes) {
+                if observation_fresh(&gpus, now()) && gpus["status"] == "ok" {
+                    host["inventory"]["gpu_driver"] = gpus["data"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .find_map(|gpu| gpu["driver_version"].as_str())
+                        .map(|v| json!(v))
+                        .unwrap_or(Value::Null);
+                }
+            }
+        }
         if observation["host"].is_object() {
             for key in [
                 "hostname",

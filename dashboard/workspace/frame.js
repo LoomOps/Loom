@@ -185,8 +185,8 @@ catHostRefresh = function(host = catalogData.host) {
     const next=bottom.cloneNode(false);
     next.innerHTML = '<div class="pa-node-summary"><small>' + esc(host.os || inventory.os || 'OS 미확인')
       + '</small><small>Kernel · ' + esc(host.kernel || inventory.kernel || '미확인')
-      + '</small>' + (inventory.gpu ? '<small>NVIDIA Driver · '+esc(inventory.gpu.split(',').at(-1).trim())+'</small>' : '')
-      + (inventory.docker_engine ? '<small>Docker · '+esc(inventory.docker_engine)+'</small>' : '')
+      + '</small><small>NVIDIA Driver · '+esc(inventory.gpu_driver || '미확인')+'</small>'
+      + '<small>Docker · '+esc(inventory.docker_engine || '미확인')+'</small>'
       + (host.status !== 'ok' ? '<small>호스트 정보 '+(host.status === 'stale' ? '갱신 지연' : '수집 대기')+'</small>' : '') + '</div>';
     patchResourceNode(bottom,next,true);
   }

@@ -605,7 +605,8 @@
       ],
       "tests": [
         "tests/ops/test_docker_status.py",
-        "tests/ops/test_host_metrics.py"
+        "tests/ops/test_host_metrics.py",
+        "tests/deploy/test_gpu_observation.py"
       ],
       "depends_on": [],
       "spec": "docs/features/observations.md",
@@ -985,7 +986,8 @@
         "rust/crates/ops/src/updates.rs",
         "deploy/migrations/item_index.py",
         "deploy/migrations/reconciliation.py",
-        "rust/contracts/reconcile-schema.sql"
+        "rust/contracts/reconcile-schema.sql",
+        "deploy/migrations/browser_relay_routes.py"
       ],
       "tests": [
         "tests/deploy/test_boot_readiness.py",

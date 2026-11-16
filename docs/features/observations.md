@@ -35,3 +35,7 @@ Run the affected suites and `deploy/features.py check`; see [the verification ma
 
 Acceptance outside these fixtures:
 - Actual OS, kernel, driver and Docker socket responses require live verification.
+
+Sidebar software versions come from current Docker engine and GPU driver
+observations. Installation-time inventory is not a live version source; missing
+or stale measurements must not fall back to an old installation value.

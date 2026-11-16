@@ -1,5 +1,5 @@
 """Network setup uses temp instances and fake CLI/API; never changes the host."""
-import copy,importlib.util,json,os,tempfile,unittest
+import copy,importlib.util,json,os,re,tempfile,unittest
 from pathlib import Path
 from unittest.mock import patch
 import sys
@@ -94,10 +94,43 @@ class TailnetTests(unittest.TestCase):
             with patch.object(tailnet,'run',return_value='{}') as run:
                 result=tailnet.serve(root,self.plan,'loom.tail123.ts.net')
                 self.assertIn('/auth',result['routes']);self.assertIn('/session',result['routes'])
-                for path in ['/api/admin','/api/updates','/api/events']:
+                for path in ['/api/admin','/api/updates','/api/events','/api/search','/api/runtimes','/api/scenarios']:
                     self.assertIn(path,result['routes'])
                     self.assertTrue(any(call.args[-1]=='http://127.0.0.1:18893'+path for call in run.call_args_list))
                 self.assertFalse(any('funnel' in c.args for c in run.call_args_list))
+
+    def test_every_browser_api_family_uses_the_session_relay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);self.instance(root)
+            routes=tailnet.expected_routes(root)
+            source=(ROOT/'dashboard/workspace/parent.js').read_text()
+            prefixes=set(re.findall(r"['\"](/api/[^/'\"?]+)",source))
+            self.assertTrue({'/api/search','/api/runtimes','/api/scenarios'}<=prefixes)
+            for prefix in prefixes:
+                with self.subTest(prefix=prefix):
+                    self.assertEqual(routes[prefix],'http://127.0.0.1:18893'+prefix)
+            self.assertEqual(routes['/api'],'http://127.0.0.1:18892/api')
+
+    def test_upgrade_adds_only_missing_browser_routes_and_refuses_conflicts(self):
+        spec=importlib.util.spec_from_file_location('relay_migration',ROOT/'deploy/migrations/browser_relay_routes.py')
+        migration=importlib.util.module_from_spec(spec);spec.loader.exec_module(migration)
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);self.instance(root)
+            (root/'config/access-plan.json').write_text(json.dumps({'origin':'https://fixture.test','dashboard_origin':'https://fixture.test:8443'}))
+            expected=tailnet.expected_routes(root)
+            state={'Web':{'fixture.test:8443':{'Handlers':{p:{'Proxy':expected[p]} for p in ('/','/api')}}}}
+            calls=[]
+            def invoke(*args):
+                if args==('tailscale','serve','status','--json'):return json.dumps(state)
+                calls.append(args);path=next(a.split('=',1)[1] for a in args if a.startswith('--set-path='))
+                state['Web']['fixture.test:8443']['Handlers'][path]={'Proxy':args[-1]};return ''
+            with patch.object(tailnet,'run',side_effect=invoke):
+                self.assertEqual(migration.run(root,'check')['status'],'needed');self.assertEqual(calls,[])
+                self.assertEqual(migration.run(root,'apply')['status'],'done');self.assertEqual(len(calls),3)
+                self.assertEqual(migration.run(root,'apply')['status'],'done');self.assertEqual(len(calls),3)
+                state['Web']['fixture.test:8443']['Handlers']['/api/search']={'Proxy':'http://other'}
+                with self.assertRaisesRegex(ValueError,'conflict'):migration.run(root,'apply')
+                self.assertEqual(len(calls),3)
 
     def test_approval_uses_explicit_device_and_private_credential(self):
         with tempfile.TemporaryDirectory() as t:

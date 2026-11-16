@@ -660,7 +660,11 @@ fn observer_freshness_uses_the_recorded_clock_and_timezone_offset() {
 }
 #[test]
 fn dashboard_host_and_inspector_preserve_observation_freshness_and_sections() {
-    let f = Fixture::new();
+    let mut f = Fixture::new();
+    f.app.config.extra.insert(
+        "inventory".into(),
+        json!({"docker_engine":"old-install-value","gpu":"old-driver"}),
+    );
     let missing = f.app.resources().unwrap();
     assert_eq!(missing["host"]["machine_id"], "fixture");
     assert_eq!(missing["host"]["name"], "fixture");
@@ -671,17 +675,24 @@ fn dashboard_host_and_inspector_preserve_observation_freshness_and_sections() {
     let path = f.app.observation_path("docker-status.json");
     let mut sample = json!({"observed_at":crate::store::now(),"host":{
         "hostname":"actual-host","ip":"192.0.2.3","ip_kind":"LAN","os":"Fixture Linux",
-        "kernel":"fixture-kernel","logical_cpus":8,"private":"never publish"},"containers":[]});
+        "kernel":"fixture-kernel","logical_cpus":8,"private":"never publish"},"engine":{"version":"29.9.3"},"containers":[]});
     fs::write(&path, sample.to_string()).unwrap();
+    fs::write(f.app.observation_path("dashboard-gpus.json"),json!({"observed_at":crate::store::now(),"status":"ok","data":[{"name":"Fixture GPU","driver_version":"580.178.04"}]}).to_string()).unwrap();
     let host = f.app.dashboard_catalog().unwrap()["host"].clone();
     assert_eq!(host["hostname"], "actual-host");
     assert_eq!(host["machine_id"], "fixture");
     assert_eq!(host["status"], "ok");
+    assert_eq!(host["inventory"]["docker_engine"], "29.9.3");
+    assert_eq!(host["inventory"]["gpu_driver"], "580.178.04");
+    assert!(host["inventory"].get("gpu").is_none());
     assert!(host.get("private").is_none());
     assert_eq!(f.app.resources().unwrap()["host"], host);
     sample["observed_at"] = json!(crate::store::now() - 3600.);
     fs::write(&path, sample.to_string()).unwrap();
     assert_eq!(f.app.resources().unwrap()["host"]["status"], "stale");
+    assert!(f.app.resources().unwrap()["host"]["inventory"]
+        .get("docker_engine")
+        .is_none());
     fs::write(&path, b"not JSON").unwrap();
     assert_eq!(f.app.resources().unwrap()["host"]["status"], "unavailable");
 }

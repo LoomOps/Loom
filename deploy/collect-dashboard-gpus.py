@@ -9,9 +9,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 fields = ('index','name','utilization.gpu','memory.used','memory.total',
-          'temperature.gpu','power.draw','power.limit')
+          'temperature.gpu','power.draw','power.limit','driver_version')
 keys = ('index','name','utilization_percent','used_MiB','total_MiB',
-        'temperature_C','power_W','power_limit_W')
+        'temperature_C','power_W','power_limit_W','driver_version')
 sample = {'source':'nvidia-smi', 'observed_at':datetime.now(timezone.utc).isoformat(),
           'status':'unavailable', 'data':None}
 try:
@@ -20,7 +20,7 @@ try:
                             check=True,capture_output=True,text=True,timeout=5)
     data = []
     for row in csv.reader(result.stdout.splitlines(),skipinitialspace=True):
-        data.append({key:value if key=='name' else float(value) if not value.startswith('[') else None
+        data.append({key:(value if key in ('name','driver_version') else float(value)) if not value.startswith('[') else None
                      for key,value in zip(keys,row,strict=True)})
     sample.update(status='ok',data=data)
 except (OSError, subprocess.SubprocessError, ValueError):

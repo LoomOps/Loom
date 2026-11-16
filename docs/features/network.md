@@ -53,3 +53,9 @@ Run the affected suites and `deploy/features.py check`; see [the verification ma
 
 Acceptance outside these fixtures:
 - Passing mocks does not replace actual administrator login, device approval or policy permissions.
+
+Browser search, Runtime and Scenario actions must use the private Dashboard
+session/CSRF relay, including read operations transported as POST. The native
+`/api/actions` and `/mcp` routes retain their direct-browser Origin rejection.
+The browser-relay-routes-v1 migration adds only missing owned private prefixes
+and refuses conflicting targets or a public private-ingress listener.

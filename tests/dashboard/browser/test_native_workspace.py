@@ -90,12 +90,14 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.ui.nav('Profiles');self.ui.wait("return document.querySelector('#pa-content').textContent.includes('cpu.smoke')")
 
  def test_native_machine_and_inspector_use_the_collected_host_sample(self):
-  sample={'observed_at':time.time(),'host':{'hostname':'observed-machine','ip':'192.0.2.4','ip_kind':'LAN','os':'Fixture Linux','kernel':'fixture-kernel'},'containers':[]}
+  sample={'observed_at':time.time(),'host':{'hostname':'observed-machine','ip':'192.0.2.4','ip_kind':'LAN','os':'Fixture Linux','kernel':'fixture-kernel'},'engine':{'version':'29.9.3'},'containers':[]}
   (self.native_root/'state/docker-status.json').write_text(json.dumps(sample))
+  (self.native_root/'state/dashboard-gpus.json').write_text(json.dumps({'status':'ok','observed_at':time.time(),'data':[{'index':0,'name':'Fixture GPU','driver_version':'580.178.04'}]}))
   self.wd('/url',{'url':self.base});self.ui.connect()
   self.ui.wait("return document.querySelector('.pa-workspace').textContent.includes('observed-machine')")
   self.ui.wait("return document.querySelector('[data-resource-panel]').textContent.includes('data/0')")
   self.assertNotIn('undefined',self.ui.js("return document.querySelector('.pa-workspace').textContent"))
+  self.ui.wait("const text=document.querySelector('.pa-sidebar-bottom').textContent;return text.includes('NVIDIA Driver · 580.178.04')&&text.includes('Docker · 29.9.3')")
   with urlopen(self.native+'/api/dashboard/resources',timeout=5) as response:resources=json.load(response)
   self.assertEqual(resources['host']['hostname'],'observed-machine')
   self.assertEqual(resources['sections']['memory']['status'],'ok')
