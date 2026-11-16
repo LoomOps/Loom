@@ -1472,6 +1472,7 @@ Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation:
                   "fine_tuning",
                   "evaluation",
                   "pipeline",
+                  "development",
                   "other"
                 ]
               },
@@ -2229,6 +2230,7 @@ Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation:
           "fine_tuning",
           "evaluation",
           "pipeline",
+          "development",
           "other"
         ]
       },

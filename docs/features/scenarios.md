@@ -47,3 +47,7 @@ the bounded bootstrap. Membership comes from accepted pins or active exact links
 never label matching in a projection. Task filters are server-paginated and retain
 linked historical selectors. Withdrawn links stop matching; originals remain.
 Task metadata cannot hide current queue occupants or grant file access.
+
+Task selection is an Outputs filter; no dedicated sub-tab or create button is
+exposed. Existing exact Task details and API authoring remain supported. Known
+Task metadata remains selectable while bounded bootstrap data catches up.

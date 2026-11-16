@@ -28,8 +28,8 @@ class NativeWorkspaceTests(unittest.TestCase):
  def setUp(self):
   self.ui=Workspace(self.wd);self.wd('/window/rect',{'width':1440,'height':1000});self.wd('/url',{'url':self.base});self.ui.top();self.ui.js('localStorage.clear();sessionStorage.clear()');self.wd('/refresh',{});self.ui.connect()
  def test_native_scenario_create_revision_and_render_without_injected_markup(self):
-  ui=self.ui;ui.nav('Models');self.assertFalse(ui.js("return !!document.querySelector('#pa-nav [data-go=scenarios]')"));ui.click('[data-scenario-create]');ui.js("const f=document.querySelector('[data-scenario-form]');f.elements.label.value='Native <img src=x onerror=alert(1)>';f.elements.description.value='Fixture context';f.elements.protocol.value='{}';f.querySelector('button[type=submit]').click()")
-  ui.wait("return !document.querySelector('[data-hub-dialog][open]')");ui.wait("return document.querySelector('#pa-content').textContent.includes('Native <img')");ui.wait("return !!document.querySelector('[data-scenario-edit]')");self.assertFalse(ui.js("return !!document.querySelector('#pa-content img[src=x]')"));self.assertNotIn('Unassigned',ui.js("return document.querySelector('#pa-content').textContent"))
+  task=self.call('results','register_scenario',{'key':'native-ui-context','definition':{'label':'Native <img src=x onerror=alert(1)>','description':'Fixture context'}})
+  ui=self.ui;ui.nav('Models');self.assertFalse(ui.js("return !!document.querySelector('[data-scenario-create]')"));ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return [...document.querySelector('[data-research-task]').options].some(o=>o.value===arguments[0]+':1')",task['id']);ui.route(task['id']);ui.wait("return !!document.querySelector('[data-scenario-edit]')");self.assertFalse(ui.js("return !!document.querySelector('#pa-content img[src=x]')"));self.assertNotIn('Unassigned',ui.js("return document.querySelector('#pa-content').textContent"))
   ui.click('[data-scenario-edit]');ui.js("const f=document.querySelector('[data-scenario-form]');f.elements.label.value='Native context revised';f.elements.reason.value='Protocol revision fixture';f.querySelector('button[type=submit]').click()");ui.wait("return !document.querySelector('[data-hub-dialog][open]')");ui.wait("return document.querySelector('[data-scenario-revision]')?.options.length===2")
   for width in (1440,500):
    ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
@@ -140,7 +140,7 @@ class NativeWorkspaceTests(unittest.TestCase):
     time.sleep(.5)
     self.assertIn(f'Paged {kind}',self.ui.js("return document.querySelector('#pa-content').textContent"))
 
- def test_task_filter_loads_exact_links_without_a_task_navigation_tab(self):
+ def test_task_filter_loads_exact_links_and_retains_source_snapshots(self):
   task=self.call('results','register_scenario',{'key':'filter-task','definition':{'label':'Shared grasp task'}})
   identity={'source':'catalog','kind':'model','id':'task-model','revision':'r1','snapshot':'exact'}
   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:

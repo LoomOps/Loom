@@ -43,6 +43,13 @@ class RustServiceTests(unittest.TestCase):
    if job['state']==state:return job
    time.sleep(.1)
   self.fail((job,(self.root/'service.log').read_text()))
+ def test_development_category_is_visible_and_uses_normal_resource_execution(self):
+  job=self.wait(self.submit('observer-development',category='development',presentation={'scope':'research','role':'main'}))
+  self.assertEqual(job['category'],'development');self.assertEqual(job['spec']['kind'],'cpu.smoke');self.assertTrue(job['result']['artifact_ready'])
+  listing=self.call('jobs','list',{'category':'development','view':'all'})
+  rows=listing if isinstance(listing,list) else listing.get('jobs',[])
+  self.assertIn(job['id'],[e['id'] for e in rows])
+  contract=self.call('system','contract');self.assertIn('development',json.dumps(contract))
  def test_actual_rust_job_output_and_recipient_ack(self):
   job=self.wait(self.submit('native'));self.assertTrue(job['result']['artifact_ready']);self.assertTrue(job['result']['execution']['process_group_returned']);self.assertEqual(len(job['attempts']),1)
   entity=self.call('results','get',{'id':job['id']+'.observation','revision':1});self.assertEqual(entity['kind'],'artifact');self.assertEqual(entity['locations'][0]['status'],'available')

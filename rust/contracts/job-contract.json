@@ -9,6 +9,7 @@
         "fine_tuning",
         "evaluation",
         "pipeline",
+        "development",
         "other"
       ],
       "default": "other",
@@ -35,7 +36,8 @@
     "fine_tuning": "Fine-tuning",
     "evaluation": "Evaluation",
     "pipeline": "Pipeline",
-    "other": "Other"
+    "other": "Other",
+    "development": "Development"
   },
   "execution_modes": {
     "full": "Full",

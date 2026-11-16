@@ -2,7 +2,7 @@
 
 Public status: queued → preparing → ready → running → finalizing → completed. Failures are failed/finalizing_failed; cancellation is cancelled. scheduling/recovery explain waiting and are not execution stages. `jobs.get.status` uses these public values; `state` retains native values such as `complete` and `processing`.
 
-Job Properties include Job Type(category): sdg, data_preparation, fine_tuning, evaluation, pipeline or other. Execution Mode is full/pilot/smoke, or null when unrecorded. These labels do not choose execution code; the profile selected by kind defines behavior.
+Job Properties include Job Type(category): sdg, data_preparation, fine_tuning, evaluation, pipeline, development or other. Execution Mode is full/pilot/smoke, or null when unrecorded. These labels do not choose execution code; the profile selected by kind defines behavior.
 
 prepare can perform CPU work while waiting for a GPU. Declare profile.prepare depends_on=[] and inputs=[] for preparation that does not need predecessor outputs. Omitting them preserves the Job's original dependency/input constraints. run cannot proceed without required inputs.
 
@@ -54,3 +54,5 @@ A missing/replaced store fails that Job instead of falling back to data/0. Resul
 
 
 Use `workflows` for Steps, execution graphs and consolidation; `results` for publication/reconnect; `recovery` for repair leases. Read the live `system.describe` for each action before building its arguments.
+
+Use `category: development` for a Job whose requested outcome is an executable Tool/Component, observer, runtime integration or its engineering validation. Training observer weights still publishes a Model; executable observer code is a Tool (or a Component when it owns a Job lifecycle hook). Pin their lineage separately. Development Jobs reserve normal resources and remain visible in the queue and history. Do not split prerequisite checks into independent main research outcomes.

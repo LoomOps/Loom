@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0-alpha.19
+
+- Keep Task as an Outputs filter and move its badges above original titles; remove New Task controls. Preserve high-contrast Task badges in Job history.
+- Prioritize research outputs, expose supporting/Observer records through Development filters, and add the additive Development Job category. Separate current supporting queue rows without hiding their resource use.
+- Lead result details with recorded collection, model and evaluation metadata. Move ownership to record provenance and remove generic dataset role banners and redundant footer prose.
+- Emphasize only an unambiguous declared primary outcome; keep distinct diagnostic metrics and populations expandable rather than manufacturing a headline success rate.
+- Move Indexing status to the sidebar and continue host observations on output pages. Keep newer ISO-timestamped host samples when older catalogs arrive.
+
 ## 0.2.0-alpha.18
 
 - Read current curated output names consistently in native results, historical listings, exact Item metadata and Dashboard list/detail views. Preserve accepted manifests, historical source bodies, file pins, Task links and scientific revisions.

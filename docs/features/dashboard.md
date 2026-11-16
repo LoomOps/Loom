@@ -93,7 +93,7 @@ The sidebar exposes Outputs with Datasets, Experiments and Models sub-tabs.
 Comparison is reached inside Experiments and retains its selection when moving
 back to results. Task selection carries across output sections and record links.
 Legacy models/datasets/experiments/comparison view URLs and exact record links
-remain valid; /views/outputs opens Datasets. This is presentation navigation,
+remain valid; /views/outputs opens Datasets and Task entities remain addressable by exact links. This is presentation navigation,
 not a new artifact kind or an automatic merge of scientific records.
 
 The Runtimes sidebar and Runtime tab share server-cog. Tools use hammer; the
@@ -105,3 +105,33 @@ unrelated cached DTOs cannot repopulate a removed/filtered row. Background patch
 key rows by output identity and anchor the visible row at patch time, retaining
 its offset when earlier rows move. Navigation still resets scroll normally.
 Output titles keep their original labels; Task appears as a separate property.
+
+Task is a filter and a compact badge above the original output title; there is no
+Tasks sub-tab or New Task button. Task detail links retain context when moving
+between output sections. Queue/history badges preserve keyboard focus and theme
+contrast. Scientific metadata precedes Owner; full recorded metadata remains
+available below. Dataset role labels remain source metadata, not browse headings.
+
+Output purpose filters separate Research and Development using declared roles,
+engineering classifications and explicit Observer model roles. Main outputs sort
+before supporting records. Observer weights remain Models; executable code uses
+Tools or lifecycle Components. Development Jobs use category `development` and
+normal resource admission; their current queue rows have a separate panel without
+hiding resource occupants. Historical Jobs are not rewritten to invent a category.
+
+A list emphasizes one unambiguous declared primary metric, one exact sole outcome
+highlight, or one sole metric. Multiple primaries/populations have no synthesized
+headline. All measurements and denominators remain expandable and in Comparison.
+Measured physics, annotation, language conditioning, evaluation scope, protocol,
+evaluator, population and thresholds are shown when recorded, never inferred from
+an item name. Missing metadata is not fabricated from a benchmark example.
+
+Index projection status appears in the lower sidebar. Its host software values
+use the newest source observation, so an older catalog bootstrap cannot replace
+a newer resource sample. Source timestamps remain source timestamps.
+
+Presentation references: [robomimic dataset structure](https://robomimic.github.io/docs/datasets/overview.html)
+separates environment arguments, observation/action arrays, trajectories and split
+masks. [LIBERO](https://arxiv.org/abs/2306.03310) evaluates task suites rather than
+an unlabeled aggregate. These inform information hierarchy only; the source
+records supply all displayed scientific facts and their acceptance definitions.

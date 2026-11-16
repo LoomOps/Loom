@@ -422,3 +422,22 @@ root.addEventListener('keydown',event=>{
     event.preventDefault();loomCreateAgentToken(event.target.closest('[data-token-form]'));
   }
 });
+
+// Catalog snapshots can arrive after a newer resource sample. Never regress the
+// sidebar observation to that older bootstrap; timestamps remain source times.
+let loomLatestHost=null;
+const loomFreshHostRefresh=catHostRefresh;
+catHostRefresh=function(host=catalogData.host){
+ if(host&&(!loomLatestHost||(queueMillis(host.observed_at)||0)>=(queueMillis(loomLatestHost.observed_at)||0)))loomLatestHost=host;
+ loomFreshHostRefresh(loomLatestHost||host);
+ loomSidebarIndex();
+};
+function loomSidebarIndex(){
+ const summary=root.querySelector('.pa-node-summary');if(!summary)return;
+ const pending=typeof loomCatalogPages!=='undefined'&&[...loomCatalogPages.values()].some(p=>p.partial);
+ let status=summary.querySelector('[data-index-state]');
+ if(pending&&!status){status=document.createElement('small');status.dataset.indexState='';status.setAttribute('role','status');summary.append(status);}
+ if(status){status.textContent=pending?'Indexing…':'';status.hidden=!pending;}
+}
+const loomSidebarRender=render;
+render=function(){loomSidebarRender();catHostRefresh();};

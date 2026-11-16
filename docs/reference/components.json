@@ -1395,6 +1395,7 @@
                         "fine_tuning",
                         "evaluation",
                         "pipeline",
+                        "development",
                         "other"
                       ]
                     },
@@ -1918,6 +1919,7 @@
                 "fine_tuning",
                 "evaluation",
                 "pipeline",
+                "development",
                 "other"
               ]
             },

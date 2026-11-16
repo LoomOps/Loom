@@ -56,3 +56,20 @@ rewriting accepted source manifests, historical bodies or file pins. An exact
 source revision retains its identity when its display name changes; historical
 source reads still show the recorded name. Keep Job titles and Task membership
 separate from the output name.
+
+## Research metadata and primary outcomes
+
+Record dataset quantity/unit/split, observation modalities, source demonstrations,
+physics/control configuration, annotation origin and instruction conditioning when
+applicable. Distinguish measured observations, privileged simulator labels and
+estimated observer labels. An absent language input is different from unknown.
+
+For evaluations, record offline versus closed-loop scope, Sim versus Real,
+protocol and success predicate/threshold/window, evaluator Tool/Component revision,
+checkpoint, cohort/split and successes with their exact denominator. Keep invalid,
+infrastructure-failed and pending cases separate. Mark a primary outcome only when
+its population and definition are the intended research result. Multiple threshold,
+phase, observer diagnostic or conditional success rates are separate metrics; do
+not select their maximum, average incompatible denominators or call all primary.
+Use the Profile metadata schema; unknown fields remain unrecorded. Research
+acceptance is distinct from Job exit, artifact publication and runtime smoke.

@@ -3,7 +3,14 @@ const loomScenarioRequests=new Map(),loomScenarioGraphs=new Map();let loomScenar
 function loomScenarioAction(action,args){const id='scenario-'+(++loomScenarioSequence);return new Promise((resolve,reject)=>{const timeout=setTimeout(()=>{loomScenarioRequests.delete(id);reject(Error('Request timed out'));},30000);loomScenarioRequests.set(id,{resolve,reject,timeout});parent.postMessage({type:'loom-scenario-action',id,action,arguments:args},'*');});}
 window.addEventListener('message',event=>{if(event.source!==parent||event.data?.type!=='loom-scenario-action-result')return;const pending=loomScenarioRequests.get(event.data.id);if(!pending)return;clearTimeout(pending.timeout);loomScenarioRequests.delete(event.data.id);event.data.ok?pending.resolve(event.data.value):pending.reject(Error(event.data.value?.message||event.data.value?.error||'Request failed'));});
 function loomScenarios(){return (catalogData.all_entities||catalogData.entities).filter(e=>e.kind==='scenario');}
-function loomScenarioView(){const items=loomScenarios().filter(e=>!e.loom_scenario.archived);return heading('RESEARCH','Tasks','')+(catalogData.capabilities?.curate&&catalogData.capabilities?.scenarios?'<button data-scenario-create>New Task</button>':'')+panel('Tasks',items.length?catTable(['Task','Revision','Jobs'],items.map(e=>[catLink(e.id,e.label),esc(e.loom_scenario.revision),esc((catalogData.all_entities||catalogData.entities).filter(j=>j.kind==='job'&&j.scenario_ref?.id===e.id&&!j.properties?.workflow_root).length)])):'<div class="pa-empty">—</div>');}
+function loomScenarioView(){
+ const items=loomScenarios().filter(e=>!e.loom_scenario.archived);
+ return heading('CATALOG','Tasks','')
+  +panel('Tasks',items.length?'<div class="pa-task-list">'+catTable(['Task','Revision'],items.map(e=>[
+   catLink(e.id,e.label)+(e.loom_scenario.definition?.description?'<small class="pa-task-summary">'+esc(e.loom_scenario.definition.description)+'</small>':''),
+   'r'+esc(e.loom_scenario.revision)
+  ]))+'</div>':'<div class="pa-empty">—</div>');
+}
 function loomScenarioSameTarget(a,b){
  if(!a||!b)return false;
  const kind=a.kind==='protocol_artifact'?'entity':a.kind,other=b.kind==='protocol_artifact'?'entity':b.kind;
@@ -20,7 +27,7 @@ function loomScenarioDetail(entity){const s=entity.loom_scenario,revision=state.
 }
 function loomScenarioContext(entity){const references=[...(entity.task_refs||[])];if(entity.scenario_ref)references.push(entity.scenario_ref);for(const scenario of loomScenarios()){for(const link of scenario.loom_scenario.links||[]){if(!link.superseded_by&&loomScenarioSameTarget(link.target,loomScenarioTarget(entity)))references.push({id:scenario.id,revision:link.revision});}}
  const unique=[...references.reduce((m,r)=>{const key=r.id+':'+r.revision;if(!m.has(key)||r.label)m.set(key,r);return m;},new Map()).values()];return unique.length?panel('Tasks',unique.map(r=>catLink(r.id,(r.label||catEntity(r.id)?.label||r.id)+' · r'+r.revision)).join(' · ')):'';}
-const loomScenarioCatalogDetail=catalogDetail;catalogDetail=function(id){const entity=catEntity(id);return loomScenarioCatalogDetail(id)+(entity&&entity.kind!=='scenario'?loomScenarioContext(entity):'');};
+const loomScenarioCatalogDetail=catalogDetail;catalogDetail=function(id){const entity=catEntity(id);return loomScenarioCatalogDetail(id)+(entity&&!['scenario','model','dataset','experiment','run','job'].includes(entity.kind)?loomScenarioContext(entity):'');};
 function loomScenarioEditor(entity){const s=entity?.loom_scenario;loomHubDialog(s?'Edit Task':'New Task',`<form data-scenario-form="${esc(entity?.id||'')}"><label>Name<input name="label" required maxlength="200" value="${esc(s?.definition?.label||'')}"></label><label>Description<textarea name="description" maxlength="8192">${esc(s?.definition?.description||'')}</textarea></label><label>Protocol<textarea name="protocol">${esc(s?.definition?.protocol?JSON.stringify(s.definition.protocol,null,2):'{}')}</textarea></label>${s?'<label>Reason<input name="reason" required maxlength="2000"></label>':''}<p data-scenario-error role="alert"></p><button type="submit">Save</button></form>`);}
 root.addEventListener('click',event=>{const create=event.target.closest('[data-scenario-create]'),edit=event.target.closest('[data-scenario-edit]'),archive=event.target.closest('[data-scenario-archive]');if(create)loomScenarioEditor();if(edit)loomScenarioEditor(catEntity(edit.dataset.scenarioEdit));if(archive){const e=catEntity(archive.dataset.scenarioArchive);loomHubDialog('Archive Task',`<form data-scenario-archive-form="${esc(e.id)}"><label>Reason<input name="reason" required maxlength="2000"></label><p data-scenario-error role="alert"></p><button type="submit">Archive</button></form>`);}});
 root.addEventListener('change',event=>{if(event.target.matches('[data-scenario-revision]')){state.scenarioId=state.entity;state.scenarioRevision=Number(event.target.value);render();persist();}});

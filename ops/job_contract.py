@@ -4,7 +4,7 @@ API_REVISION = 'loom-ops/v46'
 CATEGORIES = {
     'sdg': 'SDG', 'data_preparation': 'Data Preparation',
     'fine_tuning': 'Fine-tuning', 'evaluation': 'Evaluation',
-    'pipeline': 'Pipeline', 'other': 'Other',
+    'pipeline': 'Pipeline', 'development': 'Development', 'other': 'Other',
 }
 MODES = {'full': 'Full', 'pilot': 'Pilot-test', 'smoke': 'Smoke-test'}
 FIELDS = {

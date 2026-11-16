@@ -59,7 +59,8 @@ function loomQueueCompare(a,b) {
 const loomQueueWorkRow=workRow;
 workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
-  row[0]=loomTaskLabels(entity)+row[0];
+  const tasks=loomTaskLabels(entity);
+  if(tasks)row[0]='<div class="pa-queue-tasks">'+tasks+'</div>'+row[0];
   if(current && q){
     if(entity.loom_queue_shared)row[0]='<div class="pa-queue-name">'+esc(q.id)+'<small>'+esc(q.owner)+' · 공유 큐</small></div>';
     row[0]+='<small class="pa-queue-position">'+loomQueuePosition(q)+'</small>'+loomQueueControls(q.id);
@@ -103,3 +104,23 @@ window.addEventListener('message',event=>{
  loomQueueNotice=error===403?'이 Job을 변경할 권한이 없습니다.':error?'변경을 확인하지 못했습니다. 큐를 새로고침해 주세요.':data?.changed?'큐 변경 완료':data?.reason==='not_waiting'?'이미 실행되었거나 대기 상태가 아닙니다.':'이미 요청한 상태입니다.';
  loomEntityReads.clear();scheduleCatalogRender();
 });
+
+function loomDevelopmentJob(e){
+ if(e.properties?.category==='development'||e.properties?.purpose==='engineering'||e.presentation?.role==='support')return true;
+ return (catalogData.all_entities||catalogData.entities).some(output=>output.kind==='model'&&(output.loom_job?.id===e.id||output.presentation?.parent_job===e.id)&&modelFilterMeta(output).role==='Observer');
+}
+const loomDevelopmentWorkRow=workRow;
+workRow=function(e,current){const row=loomDevelopmentWorkRow(e,current);if(loomDevelopmentJob(e))row[0]='<small class="pa-job-development">Development / Supporting</small>'+row[0];return row;};
+const loomDevelopmentQueue=queue;
+queue=function(){
+ const t=document.createElement('template');t.innerHTML=loomDevelopmentQueue();
+ const p=[...t.content.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('현재 큐'));
+ const table=p?.querySelector('table');if(!table)return t.innerHTML;
+ const support=[...table.querySelectorAll('tbody>tr')].filter(tr=>tr.querySelector('.pa-job-development'));
+ if(!support.length)return t.innerHTML;
+ const clone=table.cloneNode(true);clone.querySelector('tbody').replaceChildren(...support);
+ const section=document.createElement('div');section.innerHTML=panel('Development / Supporting · '+support.length,'<div class="pa-table-wrap"></div>');section.querySelector('.pa-table-wrap').append(clone);p.after(...section.children);
+ const remaining=table.querySelectorAll('tbody>tr').length;p.querySelector('h2').textContent='현재 큐 · '+remaining;
+ if(!remaining)table.parentElement.innerHTML='<div class="pa-empty">—</div>';
+ return t.innerHTML;
+};

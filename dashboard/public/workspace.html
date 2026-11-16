@@ -1843,7 +1843,7 @@ html&gt;body{padding:0}&lt;/style&gt;
       &lt;header class=&quot;pa-top&quot;&gt;&lt;span id=&quot;pa-breadcrumb&quot;&gt;작업실 / 홈&lt;/span&gt;&lt;button class=&quot;pa-search-launch&quot; data-command-open aria-label=&quot;통합 검색 열기&quot;&gt;&lt;i data-lucide=&quot;search&quot;&gt;&lt;/i&gt; 검색 &lt;kbd&gt;⌘ K&lt;/kbd&gt;&lt;/button&gt;&lt;div class=&quot;pa-theme-switch&quot; role=&quot;group&quot; aria-label=&quot;테마&quot;&gt;&lt;button data-theme=&quot;light&quot; aria-label=&quot;라이트 모드&quot; title=&quot;라이트 모드&quot;&gt;&lt;i data-lucide=&quot;sun&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;button data-theme=&quot;dark&quot; aria-label=&quot;다크 모드&quot; title=&quot;다크 모드&quot;&gt;&lt;i data-lucide=&quot;moon&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;button data-theme=&quot;system&quot; aria-label=&quot;시스템 설정 상속&quot; title=&quot;시스템 설정 상속&quot;&gt;&lt;i data-lucide=&quot;monitor&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/div&gt;&lt;/header&gt;
       &lt;div class=&quot;pa-search&quot;&gt;&lt;i data-lucide=&quot;search&quot;&gt;&lt;/i&gt;&lt;input id=&quot;pa-search&quot; aria-label=&quot;모델, 데이터셋, 문제 검색&quot; placeholder=&quot;모델, 데이터셋, 문제를 찾아보세요&quot; autocomplete=&quot;off&quot;&gt;&lt;span&gt;통합 검색&lt;/span&gt;&lt;/div&gt;
       &lt;main id=&quot;pa-content&quot; aria-live=&quot;polite&quot;&gt;&lt;/main&gt;
-      &lt;footer class=&quot;pa-footer&quot;&gt;&lt;span&gt;Loom · Ops&lt;/span&gt;&lt;span&gt;등록된 원본 산출물 기반 · 읽기 전용&lt;/span&gt;&lt;/footer&gt;
+      &lt;footer class=&quot;pa-footer&quot;&gt;&lt;span&gt;Loom · Ops&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;/footer&gt;
     &lt;/div&gt;
   &lt;/div&gt;
 &lt;/div&gt;
@@ -2081,7 +2081,7 @@ files=()=&gt;&#x27;&#x27;;
 const viewDefaults={page:&#x27;queue&#x27;,model:null,tab:&#x27;overview&#x27;,folder:&#x27;models&#x27;,episode:1,issue:false,queueFilter:&#x27;all&#x27;};
 const viewCopy=v=&gt;JSON.parse(JSON.stringify({...viewDefaults,...v}));
 const tabKey=v=&gt;v.entity?&#x27;entity:&#x27;+v.entity:v.model?&#x27;model:&#x27;+v.model:v.page;
-const viewTitle=v=&gt;v.entity?(catEntity(v.entity)?.label||&#x27;기록&#x27;):v.model?(models.find(m=&gt;m.id===v.model)?.name||&#x27;모델&#x27;):({datasets:&#x27;Datasets&#x27;,experiments:&#x27;Experiments&#x27;,models:&#x27;Models&#x27;,comparison:&#x27;Comparison&#x27;,profiles:&#x27;Profiles&#x27;,components:&#x27;Components&#x27;,tools:&#x27;Tools&#x27;,runtimes:&#x27;Runtimes&#x27;,dependencies:&#x27;Dependencies&#x27;}[v.page]||navs.find(n=&gt;n[0]===v.page)?.[1]||&#x27;Dashboard&#x27;);
+const viewTitle=v=&gt;v.entity?(catEntity(v.entity)?.label||&#x27;기록&#x27;):v.model?(models.find(m=&gt;m.id===v.model)?.name||&#x27;모델&#x27;):({scenarios:&#x27;Tasks&#x27;,datasets:&#x27;Datasets&#x27;,experiments:&#x27;Experiments&#x27;,models:&#x27;Models&#x27;,comparison:&#x27;Comparison&#x27;,profiles:&#x27;Profiles&#x27;,components:&#x27;Components&#x27;,tools:&#x27;Tools&#x27;,runtimes:&#x27;Runtimes&#x27;,dependencies:&#x27;Dependencies&#x27;}[v.page]||navs.find(n=&gt;n[0]===v.page)?.[1]||&#x27;Dashboard&#x27;);
 let ws=state.workspaceV3;
 if(!ws||!Array.isArray(ws.panes)||!ws.panes.length){const v=viewCopy({page:state.page||&#x27;queue&#x27;,model:state.model||null});ws={panes:[{id:&#x27;pane-a&#x27;,tabs:[{id:tabKey(v),view:v}],active:tabKey(v)}],active:&#x27;pane-a&#x27;,orientation:&#x27;side&#x27;,ratio:50,linked:false};}
 ws.theme=state.themePreference||ws.theme;
@@ -2180,7 +2180,7 @@ let catalogConnection=&#x27;카탈로그 연결 중&#x27;;
 const kindLabels={model:&#x27;모델&#x27;,dataset:&#x27;데이터셋&#x27;,experiment:&#x27;실험&#x27;,run:&#x27;평가·실행&#x27;,job:&#x27;작업&#x27;,issue:&#x27;트러블슈팅&#x27;,component:&#x27;컴포넌트&#x27;,tool:&#x27;Tool&#x27;};
 const catEntity=id=&gt;(catalogData.all_entities||catalogData.entities).find(e=&gt;e.id===id)||(typeof workStepRecord===&#x27;function&#x27;?workStepRecord(id):null)||loomHistoricalExtensionEntity(id);
 function catIsDiscarded(e){return !!e&amp;&amp;[&#x27;run&#x27;,&#x27;experiment&#x27;].includes(e.kind)&amp;&amp;e.disposition?.state===&#x27;discarded&#x27;;}
-const catKind=(k,includeDiscarded=false)=&gt;loomTaskItems(catalogData.entities.filter(e=&gt;e.kind===k&amp;&amp;(includeDiscarded||!catIsDiscarded(e))),k);
+let catKind=(k,includeDiscarded=false)=&gt;loomTaskItems(catalogData.entities.filter(e=&gt;e.kind===k&amp;&amp;(includeDiscarded||!catIsDiscarded(e))),k);
 // One result projection for lists, detail and Comparison; no model/phase/metric IDs.
 function catResultMetrics(e){
  const comp=e.comparison?.all;
@@ -2360,7 +2360,7 @@ function resourceContents(){
  return `&lt;div class=&quot;pa-resource-heading&quot;&gt;&lt;div&gt;&lt;b&gt;Inspector&lt;/b&gt;${catHostLabel(resourceData?.host||catalogData.host)}&lt;/div&gt;&lt;small&gt;${resourceError?&#x27;연결 끊김 · 마지막 계측 유지&#x27;:resourceData?&#x27;2초 갱신&#x27;:&#x27;연결 중&#x27;} · ${resourceData?resTime(resourceData.observed_at):&#x27;—&#x27;}&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;pa-resource-grid&quot;&gt;${cpu+ram+gpu+storage}&lt;/div&gt;&lt;div class=&quot;pa-resource-reservations&quot;&gt;&lt;b&gt;이 환경의 실행 슬롯&lt;/b&gt; ${reservations}${l?` · 대기 ${l.queued_jobs}건 · 조회 권한 내 작업`:&#x27;&#x27;}${l?.unregistered_reservations?` · 미등록 예약 ${l.unregistered_reservations}건`:&#x27;&#x27;} ${resStatus(s.leases)}&lt;/div&gt;`;
 }
 function resourcePanel(){return `&lt;section class=&quot;pa-resources&quot; aria-label=&quot;Inspector&quot; data-resource-panel&gt;${resourceContents()}&lt;/section&gt;`;}
-function resourceInterest(){const interested=!!root.querySelector(&#x27;[data-resource-panel],.pa-finder&#x27;);if(interested!==resourceInterested){resourceInterested=interested;parent.postMessage({type:&#x27;pai-resource-interest&#x27;,active:interested},&#x27;*&#x27;);}}
+function resourceInterest(){const interested=!!root.querySelector(&#x27;[data-resource-panel],.pa-finder,.pa-sidebar-bottom&#x27;);if(interested!==resourceInterested){resourceInterested=interested;parent.postMessage({type:&#x27;pai-resource-interest&#x27;,active:interested},&#x27;*&#x27;);}}
 const renderBeforeResources=render;render=function(){renderBeforeResources();resourceInterest();};
 // Reconcile only the small telemetry subtree. Preserve unchanged reservation links,
 // node identities and scroll anchors instead of deleting the entire Inspector.
@@ -3713,6 +3713,25 @@ root.addEventListener(&#x27;keydown&#x27;,event=&gt;{
   }
 });
 
+// Catalog snapshots can arrive after a newer resource sample. Never regress the
+// sidebar observation to that older bootstrap; timestamps remain source times.
+let loomLatestHost=null;
+const loomFreshHostRefresh=catHostRefresh;
+catHostRefresh=function(host=catalogData.host){
+ if(host&amp;&amp;(!loomLatestHost||(queueMillis(host.observed_at)||0)&gt;=(queueMillis(loomLatestHost.observed_at)||0)))loomLatestHost=host;
+ loomFreshHostRefresh(loomLatestHost||host);
+ loomSidebarIndex();
+};
+function loomSidebarIndex(){
+ const summary=root.querySelector(&#x27;.pa-node-summary&#x27;);if(!summary)return;
+ const pending=typeof loomCatalogPages!==&#x27;undefined&#x27;&amp;&amp;[...loomCatalogPages.values()].some(p=&gt;p.partial);
+ let status=summary.querySelector(&#x27;[data-index-state]&#x27;);
+ if(pending&amp;&amp;!status){status=document.createElement(&#x27;small&#x27;);status.dataset.indexState=&#x27;&#x27;;status.setAttribute(&#x27;role&#x27;,&#x27;status&#x27;);summary.append(status);}
+ if(status){status.textContent=pending?&#x27;Indexing…&#x27;:&#x27;&#x27;;status.hidden=!pending;}
+}
+const loomSidebarRender=render;
+render=function(){loomSidebarRender();catHostRefresh();};
+
 // Read-only software inventory. Registration is not a runtime health verdict.
 const loomProfileUsage=p=&gt;catalogData.presentation_view===&#x27;research&#x27;&amp;&amp;p.research_usage_stats?p.research_usage_stats:p.usage_stats;
 const loomExtensionTypes={
@@ -4086,7 +4105,14 @@ const loomScenarioRequests=new Map(),loomScenarioGraphs=new Map();let loomScenar
 function loomScenarioAction(action,args){const id=&#x27;scenario-&#x27;+(++loomScenarioSequence);return new Promise((resolve,reject)=&gt;{const timeout=setTimeout(()=&gt;{loomScenarioRequests.delete(id);reject(Error(&#x27;Request timed out&#x27;));},30000);loomScenarioRequests.set(id,{resolve,reject,timeout});parent.postMessage({type:&#x27;loom-scenario-action&#x27;,id,action,arguments:args},&#x27;*&#x27;);});}
 window.addEventListener(&#x27;message&#x27;,event=&gt;{if(event.source!==parent||event.data?.type!==&#x27;loom-scenario-action-result&#x27;)return;const pending=loomScenarioRequests.get(event.data.id);if(!pending)return;clearTimeout(pending.timeout);loomScenarioRequests.delete(event.data.id);event.data.ok?pending.resolve(event.data.value):pending.reject(Error(event.data.value?.message||event.data.value?.error||&#x27;Request failed&#x27;));});
 function loomScenarios(){return (catalogData.all_entities||catalogData.entities).filter(e=&gt;e.kind===&#x27;scenario&#x27;);}
-function loomScenarioView(){const items=loomScenarios().filter(e=&gt;!e.loom_scenario.archived);return heading(&#x27;RESEARCH&#x27;,&#x27;Tasks&#x27;,&#x27;&#x27;)+(catalogData.capabilities?.curate&amp;&amp;catalogData.capabilities?.scenarios?&#x27;&lt;button data-scenario-create&gt;New Task&lt;/button&gt;&#x27;:&#x27;&#x27;)+panel(&#x27;Tasks&#x27;,items.length?catTable([&#x27;Task&#x27;,&#x27;Revision&#x27;,&#x27;Jobs&#x27;],items.map(e=&gt;[catLink(e.id,e.label),esc(e.loom_scenario.revision),esc((catalogData.all_entities||catalogData.entities).filter(j=&gt;j.kind===&#x27;job&#x27;&amp;&amp;j.scenario_ref?.id===e.id&amp;&amp;!j.properties?.workflow_root).length)])):&#x27;&lt;div class=&quot;pa-empty&quot;&gt;—&lt;/div&gt;&#x27;);}
+function loomScenarioView(){
+ const items=loomScenarios().filter(e=&gt;!e.loom_scenario.archived);
+ return heading(&#x27;CATALOG&#x27;,&#x27;Tasks&#x27;,&#x27;&#x27;)
+  +panel(&#x27;Tasks&#x27;,items.length?&#x27;&lt;div class=&quot;pa-task-list&quot;&gt;&#x27;+catTable([&#x27;Task&#x27;,&#x27;Revision&#x27;],items.map(e=&gt;[
+   catLink(e.id,e.label)+(e.loom_scenario.definition?.description?&#x27;&lt;small class=&quot;pa-task-summary&quot;&gt;&#x27;+esc(e.loom_scenario.definition.description)+&#x27;&lt;/small&gt;&#x27;:&#x27;&#x27;),
+   &#x27;r&#x27;+esc(e.loom_scenario.revision)
+  ]))+&#x27;&lt;/div&gt;&#x27;:&#x27;&lt;div class=&quot;pa-empty&quot;&gt;—&lt;/div&gt;&#x27;);
+}
 function loomScenarioSameTarget(a,b){
  if(!a||!b)return false;
  const kind=a.kind===&#x27;protocol_artifact&#x27;?&#x27;entity&#x27;:a.kind,other=b.kind===&#x27;protocol_artifact&#x27;?&#x27;entity&#x27;:b.kind;
@@ -4103,7 +4129,7 @@ function loomScenarioDetail(entity){const s=entity.loom_scenario,revision=state.
 }
 function loomScenarioContext(entity){const references=[...(entity.task_refs||[])];if(entity.scenario_ref)references.push(entity.scenario_ref);for(const scenario of loomScenarios()){for(const link of scenario.loom_scenario.links||[]){if(!link.superseded_by&amp;&amp;loomScenarioSameTarget(link.target,loomScenarioTarget(entity)))references.push({id:scenario.id,revision:link.revision});}}
  const unique=[...references.reduce((m,r)=&gt;{const key=r.id+&#x27;:&#x27;+r.revision;if(!m.has(key)||r.label)m.set(key,r);return m;},new Map()).values()];return unique.length?panel(&#x27;Tasks&#x27;,unique.map(r=&gt;catLink(r.id,(r.label||catEntity(r.id)?.label||r.id)+&#x27; · r&#x27;+r.revision)).join(&#x27; · &#x27;)):&#x27;&#x27;;}
-const loomScenarioCatalogDetail=catalogDetail;catalogDetail=function(id){const entity=catEntity(id);return loomScenarioCatalogDetail(id)+(entity&amp;&amp;entity.kind!==&#x27;scenario&#x27;?loomScenarioContext(entity):&#x27;&#x27;);};
+const loomScenarioCatalogDetail=catalogDetail;catalogDetail=function(id){const entity=catEntity(id);return loomScenarioCatalogDetail(id)+(entity&amp;&amp;![&#x27;scenario&#x27;,&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;,&#x27;run&#x27;,&#x27;job&#x27;].includes(entity.kind)?loomScenarioContext(entity):&#x27;&#x27;);};
 function loomScenarioEditor(entity){const s=entity?.loom_scenario;loomHubDialog(s?&#x27;Edit Task&#x27;:&#x27;New Task&#x27;,`&lt;form data-scenario-form=&quot;${esc(entity?.id||&#x27;&#x27;)}&quot;&gt;&lt;label&gt;Name&lt;input name=&quot;label&quot; required maxlength=&quot;200&quot; value=&quot;${esc(s?.definition?.label||&#x27;&#x27;)}&quot;&gt;&lt;/label&gt;&lt;label&gt;Description&lt;textarea name=&quot;description&quot; maxlength=&quot;8192&quot;&gt;${esc(s?.definition?.description||&#x27;&#x27;)}&lt;/textarea&gt;&lt;/label&gt;&lt;label&gt;Protocol&lt;textarea name=&quot;protocol&quot;&gt;${esc(s?.definition?.protocol?JSON.stringify(s.definition.protocol,null,2):&#x27;{}&#x27;)}&lt;/textarea&gt;&lt;/label&gt;${s?&#x27;&lt;label&gt;Reason&lt;input name=&quot;reason&quot; required maxlength=&quot;2000&quot;&gt;&lt;/label&gt;&#x27;:&#x27;&#x27;}&lt;p data-scenario-error role=&quot;alert&quot;&gt;&lt;/p&gt;&lt;button type=&quot;submit&quot;&gt;Save&lt;/button&gt;&lt;/form&gt;`);}
 root.addEventListener(&#x27;click&#x27;,event=&gt;{const create=event.target.closest(&#x27;[data-scenario-create]&#x27;),edit=event.target.closest(&#x27;[data-scenario-edit]&#x27;),archive=event.target.closest(&#x27;[data-scenario-archive]&#x27;);if(create)loomScenarioEditor();if(edit)loomScenarioEditor(catEntity(edit.dataset.scenarioEdit));if(archive){const e=catEntity(archive.dataset.scenarioArchive);loomHubDialog(&#x27;Archive Task&#x27;,`&lt;form data-scenario-archive-form=&quot;${esc(e.id)}&quot;&gt;&lt;label&gt;Reason&lt;input name=&quot;reason&quot; required maxlength=&quot;2000&quot;&gt;&lt;/label&gt;&lt;p data-scenario-error role=&quot;alert&quot;&gt;&lt;/p&gt;&lt;button type=&quot;submit&quot;&gt;Archive&lt;/button&gt;&lt;/form&gt;`);}});
 root.addEventListener(&#x27;change&#x27;,event=&gt;{if(event.target.matches(&#x27;[data-scenario-revision]&#x27;)){state.scenarioId=state.entity;state.scenarioRevision=Number(event.target.value);render();persist();}});
@@ -4371,7 +4397,6 @@ function loomDatasetProperties(entity) {
   const splitOrder={train:0,validation:1,val:1,test:2};
   const splits = Array.isArray(d.splits) ? [...d.splits].sort((a,b)=&gt;(splitOrder[a.id]??3)-(splitOrder[b.id]??3)) : [];
   return {
-    &#x27;Role&#x27;: ({training_observations:&#x27;Training observations&#x27;,diagnostic_observations:&#x27;Diagnostic observations&#x27;,evaluation_conditions:&#x27;Evaluation conditions&#x27;}[role] || role || &#x27;미기록&#x27;),
     &#x27;Count&#x27;: quantity(Object.hasOwn(d,&#x27;count&#x27;) ? d.count : metadata.episodes ?? metadata.count, d.count_missing_reason),
     &#x27;Unit&#x27;: d.count_unit || (metadata.episodes != null ? &#x27;episodes&#x27; : &#x27;미기록&#x27;),
     &#x27;Observation frames&#x27;: quantity(Object.hasOwn(d,&#x27;frames&#x27;) ? d.frames : metadata.frames, d.frames_missing_reason),
@@ -4387,7 +4412,6 @@ catFacts=function(entity) {
   if(entity.kind!==&#x27;dataset&#x27;)return loomPriorCatalogFacts(entity);
   const facts=loomDatasetProperties(entity), d=entity.dataset_overview||{};
   const rows=[
-    {role:&#x27;dataset_role&#x27;,label:&#x27;성격&#x27;,value:({training_observations:&#x27;학습 관측&#x27;,diagnostic_observations:&#x27;진단 관측&#x27;,evaluation_conditions:&#x27;평가 조건&#x27;}[d.role]||facts.Role)},
     {role:&#x27;count&#x27;,label:({clips:&#x27;클립&#x27;,episodes:&#x27;에피소드&#x27;,cases:&#x27;평가 조건&#x27;}[facts.Unit]||&#x27;수량&#x27;),value:facts.Count},
     {role:&#x27;frames&#x27;,label:&#x27;관측 프레임&#x27;,value:facts[&#x27;Observation frames&#x27;]},
     {role:&#x27;dataset_inputs&#x27;,label:&#x27;입력&#x27;,value:facts.Inputs},
@@ -4441,10 +4465,6 @@ function loomDetailHeading(html, id) {
         + (entity?.properties?.output_storage ? &#x27;&lt;div&gt;&lt;dt&gt;Output Storage&lt;/dt&gt;&lt;dd&gt;&#x27;+esc(entity.properties.output_storage)+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27; : &#x27;&#x27;)
         + &#x27;&lt;div&gt;&lt;dt&gt;Job Type&lt;/dt&gt;&lt;dd&gt;&#x27; + esc(loomJobClass(entity).category) + &#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;
         + &#x27;&lt;div&gt;&lt;dt title=&quot;Full: main run; Pilot: reduced trial; Smoke: startup check&quot;&gt;Execution Mode&lt;/dt&gt;&lt;dd&gt;&#x27; + esc(loomJobClass(entity).mode) + &#x27;&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&#x27;);
-      title.after(...properties.children);
-    } else if (entity &amp;&amp; !entity.loom_extension &amp;&amp; !entity.loom_runtime &amp;&amp; !entity.loom_dependency &amp;&amp; !entity.loom_execution_profile) {
-      const properties = document.createElement(&#x27;div&#x27;);
-      properties.innerHTML = panel(&#x27;Properties&#x27;, &#x27;&lt;dl class=&quot;pa-job-properties&quot;&gt;&#x27;+ownerRow+&#x27;&lt;/dl&gt;&#x27;);
       title.after(...properties.children);
     }
     if (entity?.kind === &#x27;dataset&#x27;) {
@@ -4600,7 +4620,8 @@ function loomQueueCompare(a,b) {
 const loomQueueWorkRow=workRow;
 workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
-  row[0]=loomTaskLabels(entity)+row[0];
+  const tasks=loomTaskLabels(entity);
+  if(tasks)row[0]=&#x27;&lt;div class=&quot;pa-queue-tasks&quot;&gt;&#x27;+tasks+&#x27;&lt;/div&gt;&#x27;+row[0];
   if(current &amp;&amp; q){
     if(entity.loom_queue_shared)row[0]=&#x27;&lt;div class=&quot;pa-queue-name&quot;&gt;&#x27;+esc(q.id)+&#x27;&lt;small&gt;&#x27;+esc(q.owner)+&#x27; · 공유 큐&lt;/small&gt;&lt;/div&gt;&#x27;;
     row[0]+=&#x27;&lt;small class=&quot;pa-queue-position&quot;&gt;&#x27;+loomQueuePosition(q)+&#x27;&lt;/small&gt;&#x27;+loomQueueControls(q.id);
@@ -4644,6 +4665,26 @@ window.addEventListener(&#x27;message&#x27;,event=&gt;{
  loomQueueNotice=error===403?&#x27;이 Job을 변경할 권한이 없습니다.&#x27;:error?&#x27;변경을 확인하지 못했습니다. 큐를 새로고침해 주세요.&#x27;:data?.changed?&#x27;큐 변경 완료&#x27;:data?.reason===&#x27;not_waiting&#x27;?&#x27;이미 실행되었거나 대기 상태가 아닙니다.&#x27;:&#x27;이미 요청한 상태입니다.&#x27;;
  loomEntityReads.clear();scheduleCatalogRender();
 });
+
+function loomDevelopmentJob(e){
+ if(e.properties?.category===&#x27;development&#x27;||e.properties?.purpose===&#x27;engineering&#x27;||e.presentation?.role===&#x27;support&#x27;)return true;
+ return (catalogData.all_entities||catalogData.entities).some(output=&gt;output.kind===&#x27;model&#x27;&amp;&amp;(output.loom_job?.id===e.id||output.presentation?.parent_job===e.id)&amp;&amp;modelFilterMeta(output).role===&#x27;Observer&#x27;);
+}
+const loomDevelopmentWorkRow=workRow;
+workRow=function(e,current){const row=loomDevelopmentWorkRow(e,current);if(loomDevelopmentJob(e))row[0]=&#x27;&lt;small class=&quot;pa-job-development&quot;&gt;Development / Supporting&lt;/small&gt;&#x27;+row[0];return row;};
+const loomDevelopmentQueue=queue;
+queue=function(){
+ const t=document.createElement(&#x27;template&#x27;);t.innerHTML=loomDevelopmentQueue();
+ const p=[...t.content.querySelectorAll(&#x27;.pa-panel&#x27;)].find(p=&gt;p.querySelector(&#x27;h2&#x27;)?.textContent.startsWith(&#x27;현재 큐&#x27;));
+ const table=p?.querySelector(&#x27;table&#x27;);if(!table)return t.innerHTML;
+ const support=[...table.querySelectorAll(&#x27;tbody&gt;tr&#x27;)].filter(tr=&gt;tr.querySelector(&#x27;.pa-job-development&#x27;));
+ if(!support.length)return t.innerHTML;
+ const clone=table.cloneNode(true);clone.querySelector(&#x27;tbody&#x27;).replaceChildren(...support);
+ const section=document.createElement(&#x27;div&#x27;);section.innerHTML=panel(&#x27;Development / Supporting · &#x27;+support.length,&#x27;&lt;div class=&quot;pa-table-wrap&quot;&gt;&lt;/div&gt;&#x27;);section.querySelector(&#x27;.pa-table-wrap&#x27;).append(clone);p.after(...section.children);
+ const remaining=table.querySelectorAll(&#x27;tbody&gt;tr&#x27;).length;p.querySelector(&#x27;h2&#x27;).textContent=&#x27;현재 큐 · &#x27;+remaining;
+ if(!remaining)table.parentElement.innerHTML=&#x27;&lt;div class=&quot;pa-empty&quot;&gt;—&lt;/div&gt;&#x27;;
+ return t.innerHTML;
+};
 
 // Display modes share server-computed presentation; direct evidence stays readable.
 const loomResearchRender=render;
@@ -5135,7 +5176,7 @@ function loomCatalogProjection(catalog) {
 // Bounded per-view transport. Payload trees, software combinations and logs stay lazy.
 const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityView=null;const loomCatalogOpening=new Set();
 const loomCatalogKinds={models:&#x27;model&#x27;,datasets:&#x27;dataset&#x27;,experiments:&#x27;experiment&#x27;,issues:&#x27;issue&#x27;,profiles:&#x27;profile&#x27;,components:&#x27;component&#x27;,tools:&#x27;tool&#x27;,runtimes:&#x27;runtime&#x27;,dependencies:&#x27;dependency&#x27;,scenarios:&#x27;scenario&#x27;,queue:&#x27;job&#x27;,files:&#x27;explorer&#x27;};
-function loomCatalogQuery(kind){if(kind===&#x27;explorer&#x27;)return {kinds:[&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};const view=kind===&#x27;job&#x27;?(state.jobHistoryView||catalogData.presentation_view||&#x27;research&#x27;):catalogData.presentation_view||&#x27;research&#x27;;return {kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:kind===&#x27;job&#x27;?&#x27;all&#x27;:kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...([&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)&amp;&amp;state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
+function loomCatalogQuery(kind){if(kind===&#x27;explorer&#x27;)return {kinds:[&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};const view=kind===&#x27;job&#x27;?(state.jobHistoryView||catalogData.presentation_view||&#x27;research&#x27;):catalogData.presentation_view||&#x27;research&#x27;;return {kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:kind===&#x27;job&#x27;?&#x27;all&#x27;:[&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)?((state.outputPurpose||(view===&#x27;research&#x27;?&#x27;research&#x27;:&#x27;all&#x27;))===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;):kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...([&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)&amp;&amp;state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 // A bootstrap is a bounded seed, never a replacement for pages from its revision.
 function loomCatalogRefresh(value){
@@ -5214,7 +5255,7 @@ function loomCatalogPager(kind){
  if(!catalogData.capabilities?.catalog_pages)return &#x27;&#x27;;
  const query=loomCatalogQuery(kind),key=JSON.stringify(query),page=loomCatalogPages.get(key);
  if(!page?.loaded&amp;&amp;!page?.busy&amp;&amp;!page?.error)queueMicrotask(()=&gt;loomCatalogLoad(kind,false,query));
- return &#x27;&lt;div class=&quot;pa-catalog-pagination&quot; role=&quot;status&quot;&gt;&#x27;+(page?.error?esc(page.error)+&#x27; &lt;button data-catalog-more=&quot;&#x27;+esc(kind)+&#x27;&quot;&gt;Retry&lt;/button&gt;&#x27;:page?.busy?&#x27;…&#x27;:page?.cursor?&#x27;&lt;button data-catalog-more=&quot;&#x27;+esc(kind)+&#x27;&quot;&gt;More&lt;/button&gt;&#x27;:page?.partial?&#x27;Indexing…&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+ return &#x27;&lt;div class=&quot;pa-catalog-pagination&quot; role=&quot;status&quot;&gt;&#x27;+(page?.error?esc(page.error)+&#x27; &lt;button data-catalog-more=&quot;&#x27;+esc(kind)+&#x27;&quot;&gt;Retry&lt;/button&gt;&#x27;:page?.busy?&#x27;…&#x27;:page?.cursor?&#x27;&lt;button data-catalog-more=&quot;&#x27;+esc(kind)+&#x27;&quot;&gt;More&lt;/button&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
 }
 const loomPagedCatalogList=catalogList;
 catalogList=function(kind){return loomPagedCatalogList(kind)+loomCatalogPager(kind);};
@@ -5297,14 +5338,25 @@ function loomTaskItems(items,kind){
  return items.filter(e=&gt;!state.researchTask||(e.task_refs||[]).some(t=&gt;t.id===state.researchTask.id))
  .sort((a,b)=&gt;(a.task_refs?.[0]?.label||&#x27;\uffff&#x27;).localeCompare(b.task_refs?.[0]?.label||&#x27;\uffff&#x27;));
 }
+function loomTaskOptions(){
+ const tasks=new Map((catalogData.research_tasks||[]).map(t=&gt;[t.id,t]));
+ // A bounded bootstrap may precede the Task page. Keep known accepted Task
+ // metadata available when moving from its detail to a sibling output list.
+ for(const entity of loomScenarios()){
+  const task=entity.loom_scenario,known=tasks.get(entity.id);
+  if(task.archived){tasks.delete(entity.id);continue;}
+  if(!known||task.revision&gt;known.revision)tasks.set(entity.id,{id:entity.id,revision:task.revision,label:entity.label});
+ }
+ return [...tasks.values()].sort((a,b)=&gt;a.label.localeCompare(b.label));
+}
 function loomTaskToolbar(){
- const tasks=catalogData.research_tasks||[],selected=state.researchTask;
- return &#x27;&lt;div class=&quot;pa-task-filter&quot;&gt;&lt;label&gt;Task &lt;select data-research-task&gt;&lt;option value=&quot;&quot;&gt;All tasks&lt;/option&gt;&#x27;+tasks.map(t=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(t.id+&#x27;:&#x27;+t.revision)+&#x27;&quot;&#x27;+(selected?.id===t.id&amp;&amp;selected?.revision===t.revision?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+esc(t.label)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;+(catalogData.capabilities?.curate&amp;&amp;catalogData.capabilities?.scenarios?&#x27;&lt;button data-scenario-create&gt;New Task&lt;/button&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+ const tasks=loomTaskOptions(),selected=state.researchTask;
+ return &#x27;&lt;div class=&quot;pa-task-filter&quot;&gt;&lt;label&gt;Task &lt;select data-research-task&gt;&lt;option value=&quot;&quot;&gt;All tasks&lt;/option&gt;&#x27;+tasks.map(t=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(t.id+&#x27;:&#x27;+t.revision)+&#x27;&quot;&#x27;+(selected?.id===t.id&amp;&amp;selected?.revision===t.revision?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+esc(t.label)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;+&#x27;&lt;/div&gt;&#x27;;
 }
 function loomTaskLabels(entity){return (entity.task_refs||[]).map(t=&gt;&#x27;&lt;a class=&quot;pa-task-label&quot; href=&quot;#/entities/&#x27;+encodeURIComponent(t.id)+&#x27;&quot; data-entity=&quot;&#x27;+esc(t.id)+&#x27;&quot;&gt;&#x27;+esc(t.label)+&#x27;&lt;/a&gt;&#x27;).join(&#x27; · &#x27;);}
 function loomTaskProperty(entity){const links=loomTaskLabels(entity);return links?&#x27;&lt;div class=&quot;pa-output-task&quot;&gt;&lt;span&gt;Task&lt;/span&gt;&lt;span&gt;&#x27;+links+&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;:&#x27;&#x27;;}
 function loomOutputRow(markup,entity){
- return markup.replace(&#x27;&lt;article &#x27;,&#x27;&lt;article data-output-id=&quot;&#x27;+esc(entity.id)+&#x27;&quot; &#x27;).replace(&#x27;&lt;/article&gt;&#x27;,loomTaskProperty(entity)+&#x27;&lt;/article&gt;&#x27;);
+ return markup.replace(&#x27;&lt;article &#x27;,&#x27;&lt;article data-output-id=&quot;&#x27;+esc(entity.id)+&#x27;&quot; &#x27;).replace(/(&lt;article[^&gt;]*&gt;)/,&#x27;$1&#x27;+loomTaskProperty(entity));
 }
 const loomTaskCatalogRow=catListRow;
 catListRow=function(entity){return loomOutputRow(loomTaskCatalogRow(entity),entity);};
@@ -5316,7 +5368,7 @@ const loomTaskDatasetList=datasets;
 datasets=function(){return loomTaskToolbar()+loomTaskDatasetList();};
 const loomTaskExperimentList=experiments;
 experiments=function(){return loomTaskToolbar()+loomTaskExperimentList();};
-root.addEventListener(&#x27;change&#x27;,event=&gt;{const field=event.target.closest(&#x27;[data-research-task]&#x27;);if(!field)return;const pane=ws.panes.find(p=&gt;p.id===field.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);if(!pane)return;const value=field.value;activeTab(pane).view.researchTask=(catalogData.research_tasks||[]).find(t=&gt;t.id+&#x27;:&#x27;+t.revision===value);render();persist();});
+root.addEventListener(&#x27;change&#x27;,event=&gt;{const field=event.target.closest(&#x27;[data-research-task]&#x27;);if(!field)return;const pane=ws.panes.find(p=&gt;p.id===field.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);if(!pane)return;const value=field.value;activeTab(pane).view.researchTask=loomTaskOptions().find(t=&gt;t.id+&#x27;:&#x27;+t.revision===value);render();persist();});
 
 const loomPagedFiles=files;files=function(){return loomPagedFiles()+loomCatalogPager(&quot;explorer&quot;);};
 
@@ -5356,8 +5408,8 @@ function loomOutputNavigate(page){
  if(!loomIsOutputPage(page))return;
  const pane=activePane(),tab=activeTab();
  const view=viewCopy({...tab.view,page,entity:null,model:null,query:&#x27;&#x27;,routeOwner:null,routeAttempt:null,routeArtifact:null});
- if(tab.view.entity||tab.view.model){openView(view);return;}
  const key=tabKey(view),existing=pane.tabs.find(t=&gt;t!==tab&amp;&amp;t.id===key);
+ if(tab.view.entity||tab.view.model){if(existing)existing.view=view;openView(view);return;}
  // Switching output sections reuses this document rather than spawning tabs.
  if(existing){existing.view=view;pane.active=existing.id;}
  else{tab.id=key;tab.view=view;pane.active=key;}
@@ -5366,6 +5418,8 @@ function loomOutputNavigate(page){
 const loomOutputOpenView=openView;
 openView=function(view,...args){
  const current=activeTab()?.view;
+ const task=view.page===&#x27;scenarios&#x27;&amp;&amp;view.entity?catEntity(view.entity):null;
+ if(task?.loom_scenario)view={...view,researchTask:{id:task.id,revision:task.loom_scenario.revision,label:task.label}};
  if(current&amp;&amp;loomIsOutputPage(current.page)&amp;&amp;loomIsOutputPage(view.page)&amp;&amp;view.researchTask===undefined&amp;&amp;current.researchTask)view={...view,researchTask:current.researchTask};
  return loomOutputOpenView(view,...args);
 };
@@ -5398,6 +5452,107 @@ root.addEventListener(&#x27;click&#x27;,event=&gt;{
  event.preventDefault();const pane=button.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;
  loomOutputNavigate(button.dataset.outputPage);
 });
+
+// Browse summaries use declared semantics, never names or a guessed best score.
+function loomOutputDevelopment(e){
+ const p=e.properties||{};
+ return e.presentation?.role===&#x27;support&#x27;||e.presentation?.role===&#x27;test&#x27;||p.purpose===&#x27;engineering&#x27;||p.evaluation_class===&#x27;engineering&#x27;||e.dataset_overview?.role===&#x27;diagnostic_observations&#x27;
+  ||(e.kind===&#x27;model&#x27;&amp;&amp;modelFilterMeta(e).role===&#x27;Observer&#x27;);
+}
+function loomOutputPurpose(){return state.outputPurpose||((catalogData.presentation_view||&#x27;research&#x27;)===&#x27;research&#x27;?&#x27;research&#x27;:&#x27;all&#x27;);}
+const loomOutputKinds=catKind;
+catKind=function(kind,discarded=false){
+ if(![&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;,&#x27;run&#x27;].includes(kind))return loomOutputKinds(kind,discarded);
+ const view=catalogData.presentation_view||&#x27;research&#x27;;
+ const rows=loomTaskItems((catalogData.all_entities||catalogData.entities).filter(e=&gt;e.kind===kind&amp;&amp;(discarded||!catIsDiscarded(e))&amp;&amp;(view===&#x27;all&#x27;||(view===&#x27;operations&#x27;?e.presentation?.scope===&#x27;operations&#x27;:view===&#x27;builtin&#x27;?e.owner_kind===&#x27;built-in&#x27;:e.presentation?.scope!==&#x27;operations&#x27;))),kind);
+ const purpose=loomOutputPurpose();
+ return rows.filter(e=&gt;purpose===&#x27;all&#x27;||(purpose===&#x27;development&#x27;)===loomOutputDevelopment(e))
+  .sort((a,b)=&gt;Number(loomOutputDevelopment(a))-Number(loomOutputDevelopment(b))||loomOutputRank(a)-loomOutputRank(b));
+};
+const loomOutputToolbar=loomTaskToolbar;
+loomTaskToolbar=function(){return loomOutputToolbar()+&#x27;&lt;div class=&quot;pa-filter&quot; aria-label=&quot;Output purpose&quot;&gt;&#x27;
+ +[[&#x27;all&#x27;,&#x27;All&#x27;],[&#x27;research&#x27;,&#x27;Research&#x27;],[&#x27;development&#x27;,&#x27;Development&#x27;]].map(([value,label])=&gt;&#x27;&lt;button class=&quot;pa-pill &#x27;+(loomOutputPurpose()===value?&#x27;active&#x27;:&#x27;&#x27;)+&#x27;&quot; aria-pressed=&quot;&#x27;+(loomOutputPurpose()===value)+&#x27;&quot; data-output-purpose=&quot;&#x27;+value+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;};
+root.addEventListener(&#x27;click&#x27;,event=&gt;{const b=event.target.closest(&#x27;[data-output-purpose]&#x27;);if(!b)return;const pane=b.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;activeTab().view.outputPurpose=b.dataset.outputPurpose;render();persist();});
+
+function loomOutputMetadata(e){
+ const p={...(e.properties||{}),...(e.metadata||{})},protocol=e.protocol||p.protocol||{},d=e.dataset_overview||{};
+ const value=(...keys)=&gt;keys.map(k=&gt;p[k]??protocol[k]).find(v=&gt;v!==undefined&amp;&amp;v!==null&amp;&amp;v!==&#x27;&#x27;);
+ const rows={};const add=(label,v)=&gt;{if(v!==undefined&amp;&amp;v!==null&amp;&amp;v!==&#x27;&#x27;&amp;&amp;(!Array.isArray(v)||v.length))rows[label]=v;};
+ const inputs=e.inputs||p.inputs||d.inputs||[];
+ add(&#x27;Environment&#x27;,value(&#x27;environment&#x27;,&#x27;evaluation_environment&#x27;,&#x27;environment_type&#x27;,&#x27;simulator&#x27;,&#x27;platform&#x27;));
+ if(p.real_robot===true)add(&#x27;Environment&#x27;,&#x27;Real&#x27;);else if(p.simulation===true)add(&#x27;Environment&#x27;,&#x27;Sim&#x27;);
+ add(&#x27;Protocol&#x27;,typeof e.protocol===&#x27;string&#x27;?e.protocol:protocol.label||protocol.id||value(&#x27;protocol_ref&#x27;,&#x27;goal_protocol_ref&#x27;));
+ if([&#x27;run&#x27;,&#x27;experiment&#x27;].includes(e.kind)){
+  add(&#x27;Evaluation&#x27;,value(&#x27;evaluation_scope&#x27;,&#x27;evaluation_type&#x27;,&#x27;evaluation_mode&#x27;,&#x27;performed_scope&#x27;,&#x27;scope&#x27;));
+  if(p.offline_only===true)add(&#x27;Evaluation&#x27;,&#x27;Offline&#x27;);
+  add(&#x27;Success criteria&#x27;,value(&#x27;success_criteria&#x27;,&#x27;success_condition&#x27;,&#x27;success_definition&#x27;,&#x27;success_predicate&#x27;));
+  for(const [key,label,unit] of [[&#x27;distance_tolerance_mm&#x27;,&#x27;Position tolerance&#x27;,&#x27;mm&#x27;],[&#x27;angle_tolerance_deg&#x27;,&#x27;Angle tolerance&#x27;,&#x27;°&#x27;],[&#x27;continuous_s&#x27;,&#x27;Continuous hold&#x27;,&#x27;s&#x27;],[&#x27;active_hold_s&#x27;,&#x27;Hold window&#x27;,&#x27;s&#x27;]])if(protocol[key]!=null)add(label,protocol[key]+&#x27; &#x27;+unit);
+  add(&#x27;Evaluator&#x27;,value(&#x27;evaluator&#x27;,&#x27;evaluation_tool&#x27;,&#x27;observer_identity&#x27;,&#x27;common_observer&#x27;,&#x27;observer&#x27;));
+  add(&#x27;Split&#x27;,value(&#x27;split&#x27;));add(&#x27;Cohort&#x27;,value(&#x27;cohort&#x27;,&#x27;population&#x27;));
+  add(&#x27;Planned cases&#x27;,value(&#x27;planned_cases&#x27;,&#x27;planned&#x27;));add(&#x27;Valid cases&#x27;,value(&#x27;valid_cases&#x27;,&#x27;valid&#x27;));add(&#x27;Infrastructure failures&#x27;,value(&#x27;infra&#x27;));add(&#x27;Pending&#x27;,value(&#x27;pending&#x27;));
+ }else if(e.kind===&#x27;dataset&#x27;){
+  add(&#x27;Physics&#x27;,value(&#x27;physics&#x27;,&#x27;physics_config&#x27;,&#x27;physics_parameters&#x27;,&#x27;physics_settings&#x27;));
+  add(&#x27;Physics rate&#x27;,value(&#x27;physics_hz&#x27;));add(&#x27;Control rate&#x27;,value(&#x27;control_hz&#x27;,&#x27;frequency_hz&#x27;));
+  add(&#x27;Annotation&#x27;,value(&#x27;annotation&#x27;,&#x27;annotations&#x27;,&#x27;annotation_method&#x27;,&#x27;labeling&#x27;,&#x27;teacher_source_revision&#x27;));
+  add(&#x27;Source demos&#x27;,value(&#x27;source_human_parent_count&#x27;,&#x27;source_parent_count&#x27;));add(&#x27;Generation&#x27;,value(&#x27;generation_method&#x27;,&#x27;method&#x27;));
+ }else if(e.kind===&#x27;model&#x27;){
+  const m=modelFilterMeta(e);if(m.role!==&#x27;미분류&#x27;)add(&#x27;Model type&#x27;,m.role);if(m.family!==&#x27;미기록&#x27;)add(&#x27;Architecture&#x27;,m.family);
+  add(&#x27;Training&#x27;,value(&#x27;method&#x27;,&#x27;training_method&#x27;));add(&#x27;Selected step&#x27;,value(&#x27;selected_step&#x27;));add(&#x27;Updates&#x27;,value(&#x27;optimizer_updates&#x27;));
+ }
+ const instruction=Array.isArray(inputs)?inputs.find(x=&gt;x.kind===&#x27;instruction&#x27;):null;
+ if(instruction)add(&#x27;Instruction&#x27;,instruction.status===&#x27;absent&#x27;?&#x27;None&#x27;:instruction.status===&#x27;present&#x27;?(instruction.mode||instruction.value||&#x27;Present&#x27;):null);
+ return rows;
+}
+function loomOutputFacts(e){return Object.entries(loomOutputMetadata(e)).filter(([,value])=&gt;[&#x27;string&#x27;,&#x27;number&#x27;,&#x27;boolean&#x27;].includes(typeof value)).map(([label,value])=&gt;({role:&#x27;research_metadata&#x27;,label,value}));}
+const loomOutputFactsBefore=catFacts;
+catFacts=function(e){const facts=loomOutputFactsBefore(e);const seen=new Set(facts.map(f=&gt;f.label));return [...facts,...loomOutputFacts(e).filter(f=&gt;!seen.has(f.label)).slice(0,4)];};
+function loomRepresentativeOutcome(e){
+ const rows=catResultMetrics(e),primary=rows.filter(r=&gt;r.role===&#x27;primary_outcome&#x27;);
+ if(primary.length===1)return primary;
+ // Multiple declared primaries describe different populations, not one score.
+ if(primary.length&gt;1)return [];
+ const highlights=e.outcome_highlights||[];
+ if(highlights.length===1){const matches=rows.filter(r=&gt;r.id===highlights[0].id&amp;&amp;r.definition===highlights[0].definition);if(matches.length===1)return matches;}
+ return rows.length===1?rows:[];
+}
+resultOutcomeRows=loomRepresentativeOutcome;
+const loomFocusedResultCard=resultCard;
+resultCard=function(e){
+ const metrics=catResultMetrics(e),primary=loomRepresentativeOutcome(e),facts=loomOutputFacts(e).slice(0,4);
+ let html=loomFocusedResultCard(e);
+ const metadata=facts.length?&#x27;&lt;dl class=&quot;pa-output-context&quot;&gt;&#x27;+facts.map(f=&gt;&#x27;&lt;div&gt;&lt;dt&gt;&#x27;+esc(f.label)+&#x27;&lt;/dt&gt;&lt;dd&gt;&#x27;+esc(f.value)+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/dl&gt;&#x27;:&#x27;&#x27;;
+ const detail=metrics.length&gt;primary.length?&#x27;&lt;details class=&quot;pa-output-metrics&quot;&gt;&lt;summary&gt;Metrics · &#x27;+metrics.length+&#x27;&lt;/summary&gt;&#x27;+catTable([&#x27;Metric&#x27;,&#x27;Value&#x27;,&#x27;Population&#x27;],metrics.map(m=&gt;[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||m.aggregation||&#x27;—&#x27;)]))+&#x27;&lt;/details&gt;&#x27;:&#x27;&#x27;;
+ return html.replace(&#x27;&lt;/article&gt;&#x27;,metadata+detail+&#x27;&lt;/article&gt;&#x27;);
+};
+const loomFocusedOutputDetail=catalogDetail;
+catalogDetail=function(id){
+ const e=catEntity(id);let html=loomFocusedOutputDetail(id);
+ if(!e||![&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;,&#x27;run&#x27;,&#x27;job&#x27;].includes(e.kind))return html;
+ const t=document.createElement(&#x27;template&#x27;);t.innerHTML=html;const title=t.content.querySelector(&#x27;.pa-heading&#x27;);if(!title)return html;
+ if(e.kind!==&#x27;job&#x27;){
+  const metadata=loomOutputMetadata(e),box=document.createElement(&#x27;div&#x27;);
+  if(Object.keys(metadata).length){box.innerHTML=panel(e.kind===&#x27;dataset&#x27;?&#x27;Collection&#x27;:e.kind===&#x27;model&#x27;?&#x27;Model&#x27;:&#x27;Evaluation&#x27;,catProperties(metadata));title.after(...box.children);}
+  // Scientific properties lead; full producer metadata remains available below.
+  for(const panelNode of t.content.querySelectorAll(&#x27;.pa-panel&#x27;)){
+   if(panelNode.querySelector(&#x27;:scope &gt; .pa-panel-head &gt; h2&#x27;)?.textContent!==&#x27;속성&#x27;)continue;
+   const details=document.createElement(&#x27;details&#x27;);details.className=&#x27;pa-output-source&#x27;;details.innerHTML=&#x27;&lt;summary&gt;Source metadata&lt;/summary&gt;&#x27;+panelNode.innerHTML;panelNode.replaceWith(details);
+  }
+ }
+ if([&#x27;run&#x27;,&#x27;experiment&#x27;].includes(e.kind)){
+  for(const grid of t.content.querySelectorAll(&#x27;.pa-metric-grid,.pa-outcome-highlights&#x27;))grid.remove();
+  const primary=loomRepresentativeOutcome(e);
+  if(primary.length)title.insertAdjacentHTML(&#x27;afterend&#x27;,panel(&#x27;Outcome&#x27;,catTable([&#x27;Metric&#x27;,&#x27;Value&#x27;,&#x27;Population&#x27;],primary.map(m=&gt;[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||&#x27;—&#x27;)]))));
+ }
+ const record=document.createElement(&#x27;details&#x27;);record.className=&#x27;pa-output-source&#x27;;record.innerHTML=&#x27;&lt;summary&gt;Record&lt;/summary&gt;&#x27;+catProperties({Owner:e.owner_profile?.display_name||e.owner||&#x27;—&#x27;,ID:e.id});t.content.append(record);
+ const task=loomTaskProperty(e);if(task)title.insertAdjacentHTML(&#x27;beforebegin&#x27;,task);
+ return t.innerHTML;
+};
+
+function loomOutputRank(e){
+ if(e.kind===&#x27;dataset&#x27;)return ({training_observations:0,diagnostic_observations:2,evaluation_conditions:3}[e.dataset_overview?.role]??1);
+ if(e.kind===&#x27;model&#x27;)return ({VLA:0,Policy:1,Observer:3}[modelFilterMeta(e).role]??2);
+ return e.properties?.importance===&#x27;major&#x27;?0:1;
+}
 
 // Flat marks use compositor-friendly CSS; no animation frame loop on Dashboard.
 (()=&gt;{const sync=()=&gt;document.documentElement.toggleAttribute(&#x27;data-loom-motion-hidden&#x27;,document.hidden);document.addEventListener(&#x27;visibilitychange&#x27;,sync);sync();
@@ -6208,16 +6363,16 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 #pai-studio .pa-dependency-installation code{overflow-wrap:anywhere}
 @media(max-width:650px){#pai-studio .pa-dependency-installation{grid-template-columns:1fr;gap:6px}#pai-studio .pa-dependency-categories button{flex:1 1 180px}}
 
-.pa-task-filter{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}.pa-task-filter label{display:flex;align-items:center;gap:8px}.pa-task-filter select{max-width:min(65vw,360px)}.pa-task-label{display:block;width:fit-content;max-width:100%;font-size:12px;color:var(--muted);margin:0 0 6px;padding:2px 6px;border:1px solid var(--border);border-radius:5px;white-space:normal;text-align:left}
+.pa-task-filter{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}.pa-task-filter label{display:flex;align-items:center;gap:8px}.pa-task-filter select{max-width:min(65vw,360px)}#pai-studio .pa-task-label{display:inline-flex;align-items:center;width:fit-content;max-width:100%;font-size:12px;font-weight:600;line-height:1.5;color:var(--pa-selected-text);background:var(--pa-selected);padding:3px 8px;border:1px solid var(--pa-blue);border-radius:6px;white-space:normal;overflow-wrap:anywhere;text-align:left;text-decoration:none}
 #pai-studio .pa-input-properties{max-width:100%;min-width:0}
 #pai-studio .pa-input-property{max-width:100%;min-width:0;align-items:baseline}
 #pai-studio .pa-input-property b{min-width:0;white-space:normal;overflow-wrap:anywhere}
 
 .pa-output-header{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--pa-line);margin:0 0 16px}
-.pa-output-tabs{display:flex;align-items:center;gap:2px;flex:1;overflow-x:auto;min-width:0;max-width:100%}
+.pa-output-tabs{display:flex;align-items:center;gap:2px;flex:1 1 300px;overflow-x:auto;min-width:0;max-width:100%}
 #pai-studio .pa-output-tabs button{flex:0 0 auto;padding:10px 12px;border:0;border-radius:0;background:transparent;color:var(--pa-muted);white-space:nowrap;font-size:13px}
 #pai-studio .pa-output-tabs button[aria-current=&quot;page&quot;]{color:var(--pa-accent);box-shadow:inset 0 -2px var(--pa-accent)}
-.pa-output-actions{display:flex;justify-content:flex-end}
+.pa-output-actions{display:flex;justify-content:flex-end;margin-left:auto}
 .pa-output-actions button{display:inline-flex;align-items:center;gap:6px}
 @media(max-width:600px){#pai-studio .pa-output-tabs button{padding:10px 8px;font-size:12px}.pa-output-actions button{font-size:12px;padding:6px}}
 #pai-studio .pa-output-tabs{flex-direction:row;align-items:center;justify-content:flex-start;width:auto}
@@ -6225,9 +6380,32 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 
 #pai-studio .pa-pane-body:has(.pa-output-header){overflow-anchor:none}
 #pai-studio .pa-output-task{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;max-width:100%;font-size:12px;color:var(--pa-muted);margin-top:8px}
-#pai-studio .pa-output-task .pa-task-label{display:inline;border:0;padding:0;margin:0;font-size:12px;font-weight:400;background:none;color:var(--pa-muted)}
+#pai-studio .pa-output-task .pa-task-label{display:inline;border:0;padding:0;margin:0;font-size:12px;font-weight:400;background:none;color:var(--pa-blue)}
 
 #pai-studio .pa-catalog-pagination{min-height:40px;display:flex;align-items:center;gap:8px}
+
+#pai-studio .pa-queue-tasks{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px}
+#pai-studio .pa-task-label:hover{text-decoration:underline}
+#pai-studio .pa-task-label:focus-visible{outline:2px solid var(--pa-blue);outline-offset:2px}
+#pai-studio .pa-task-summary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;margin-top:4px;max-width:100%;font-size:12px;line-height:1.5;color:var(--pa-muted)}
+#pai-studio .pa-task-list td:first-child{width:100%;white-space:normal}
+#pai-studio .pa-task-list td:last-child{white-space:nowrap}
+
+#pai-studio .pa-output-task{align-items:center;flex-wrap:wrap;margin:0 0 10px;gap:6px}
+#pai-studio .pa-output-task&gt;span:first-child{font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+#pai-studio .pa-output-task&gt;span:last-child{display:flex;gap:6px;flex-wrap:wrap}
+#pai-studio .pa-output-task .pa-task-label{display:inline-flex;border:1px solid var(--pa-line);padding:2px 7px;border-radius:5px;font-weight:500;color:var(--pa-selected-text);background:var(--pa-selected)}
+#pai-studio .pa-catalog-item&gt;.pa-output-task{grid-column:1/-1;flex-basis:100%}
+#pai-studio .pa-catalog-item:has(&gt;.pa-output-task){flex-wrap:wrap}
+#pai-studio .pa-output-context{display:flex;flex-wrap:wrap;gap:10px 22px;grid-column:1/-1;flex-basis:100%;margin:10px 0 0;font-size:12px}
+#pai-studio .pa-output-context div{min-width:0;max-width:100%}
+#pai-studio .pa-output-context dt{color:var(--pa-muted);font-size:11px}
+#pai-studio .pa-output-context dd{margin:3px 0 0;overflow-wrap:anywhere;max-width:52ch}
+#pai-studio .pa-output-metrics{grid-column:1/-1;flex-basis:100%;min-width:0;max-width:100%;margin-top:10px;font-size:12px}
+#pai-studio .pa-output-metrics summary,#pai-studio .pa-output-source summary{cursor:pointer;color:var(--pa-muted);padding:8px 0}
+#pai-studio .pa-footer{align-items:center;min-height:30px;padding:6px 18px;line-height:1.5;gap:10px}
+#pai-studio .pa-footer span:empty{display:none}
+#pai-studio .pa-node-summary [data-index-state]{margin-top:8px;color:var(--pa-accent)}
 /* Brand animation is decorative, never a live Job/status indicator. */
 :root{--loom-brand-accent:light-dark(#436fc7,#9bb9f1)}
 .loom-logo{overflow:visible;--loom-logo-blue:var(--loom-brand-accent)}

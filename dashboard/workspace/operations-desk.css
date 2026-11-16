@@ -529,16 +529,16 @@
 #pai-studio .pa-dependency-installation code{overflow-wrap:anywhere}
 @media(max-width:650px){#pai-studio .pa-dependency-installation{grid-template-columns:1fr;gap:6px}#pai-studio .pa-dependency-categories button{flex:1 1 180px}}
 
-.pa-task-filter{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}.pa-task-filter label{display:flex;align-items:center;gap:8px}.pa-task-filter select{max-width:min(65vw,360px)}.pa-task-label{display:block;width:fit-content;max-width:100%;font-size:12px;color:var(--muted);margin:0 0 6px;padding:2px 6px;border:1px solid var(--border);border-radius:5px;white-space:normal;text-align:left}
+.pa-task-filter{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}.pa-task-filter label{display:flex;align-items:center;gap:8px}.pa-task-filter select{max-width:min(65vw,360px)}#pai-studio .pa-task-label{display:inline-flex;align-items:center;width:fit-content;max-width:100%;font-size:12px;font-weight:600;line-height:1.5;color:var(--pa-selected-text);background:var(--pa-selected);padding:3px 8px;border:1px solid var(--pa-blue);border-radius:6px;white-space:normal;overflow-wrap:anywhere;text-align:left;text-decoration:none}
 #pai-studio .pa-input-properties{max-width:100%;min-width:0}
 #pai-studio .pa-input-property{max-width:100%;min-width:0;align-items:baseline}
 #pai-studio .pa-input-property b{min-width:0;white-space:normal;overflow-wrap:anywhere}
 
 .pa-output-header{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--pa-line);margin:0 0 16px}
-.pa-output-tabs{display:flex;align-items:center;gap:2px;flex:1;overflow-x:auto;min-width:0;max-width:100%}
+.pa-output-tabs{display:flex;align-items:center;gap:2px;flex:1 1 300px;overflow-x:auto;min-width:0;max-width:100%}
 #pai-studio .pa-output-tabs button{flex:0 0 auto;padding:10px 12px;border:0;border-radius:0;background:transparent;color:var(--pa-muted);white-space:nowrap;font-size:13px}
 #pai-studio .pa-output-tabs button[aria-current="page"]{color:var(--pa-accent);box-shadow:inset 0 -2px var(--pa-accent)}
-.pa-output-actions{display:flex;justify-content:flex-end}
+.pa-output-actions{display:flex;justify-content:flex-end;margin-left:auto}
 .pa-output-actions button{display:inline-flex;align-items:center;gap:6px}
 @media(max-width:600px){#pai-studio .pa-output-tabs button{padding:10px 8px;font-size:12px}.pa-output-actions button{font-size:12px;padding:6px}}
 #pai-studio .pa-output-tabs{flex-direction:row;align-items:center;justify-content:flex-start;width:auto}
@@ -546,6 +546,29 @@
 
 #pai-studio .pa-pane-body:has(.pa-output-header){overflow-anchor:none}
 #pai-studio .pa-output-task{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;max-width:100%;font-size:12px;color:var(--pa-muted);margin-top:8px}
-#pai-studio .pa-output-task .pa-task-label{display:inline;border:0;padding:0;margin:0;font-size:12px;font-weight:400;background:none;color:var(--pa-muted)}
+#pai-studio .pa-output-task .pa-task-label{display:inline;border:0;padding:0;margin:0;font-size:12px;font-weight:400;background:none;color:var(--pa-blue)}
 
 #pai-studio .pa-catalog-pagination{min-height:40px;display:flex;align-items:center;gap:8px}
+
+#pai-studio .pa-queue-tasks{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px}
+#pai-studio .pa-task-label:hover{text-decoration:underline}
+#pai-studio .pa-task-label:focus-visible{outline:2px solid var(--pa-blue);outline-offset:2px}
+#pai-studio .pa-task-summary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;margin-top:4px;max-width:100%;font-size:12px;line-height:1.5;color:var(--pa-muted)}
+#pai-studio .pa-task-list td:first-child{width:100%;white-space:normal}
+#pai-studio .pa-task-list td:last-child{white-space:nowrap}
+
+#pai-studio .pa-output-task{align-items:center;flex-wrap:wrap;margin:0 0 10px;gap:6px}
+#pai-studio .pa-output-task>span:first-child{font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+#pai-studio .pa-output-task>span:last-child{display:flex;gap:6px;flex-wrap:wrap}
+#pai-studio .pa-output-task .pa-task-label{display:inline-flex;border:1px solid var(--pa-line);padding:2px 7px;border-radius:5px;font-weight:500;color:var(--pa-selected-text);background:var(--pa-selected)}
+#pai-studio .pa-catalog-item>.pa-output-task{grid-column:1/-1;flex-basis:100%}
+#pai-studio .pa-catalog-item:has(>.pa-output-task){flex-wrap:wrap}
+#pai-studio .pa-output-context{display:flex;flex-wrap:wrap;gap:10px 22px;grid-column:1/-1;flex-basis:100%;margin:10px 0 0;font-size:12px}
+#pai-studio .pa-output-context div{min-width:0;max-width:100%}
+#pai-studio .pa-output-context dt{color:var(--pa-muted);font-size:11px}
+#pai-studio .pa-output-context dd{margin:3px 0 0;overflow-wrap:anywhere;max-width:52ch}
+#pai-studio .pa-output-metrics{grid-column:1/-1;flex-basis:100%;min-width:0;max-width:100%;margin-top:10px;font-size:12px}
+#pai-studio .pa-output-metrics summary,#pai-studio .pa-output-source summary{cursor:pointer;color:var(--pa-muted);padding:8px 0}
+#pai-studio .pa-footer{align-items:center;min-height:30px;padding:6px 18px;line-height:1.5;gap:10px}
+#pai-studio .pa-footer span:empty{display:none}
+#pai-studio .pa-node-summary [data-index-state]{margin-top:8px;color:var(--pa-accent)}

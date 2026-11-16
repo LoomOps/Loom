@@ -420,8 +420,8 @@ const done=arguments[arguments.length-1];
         ui=self.ui;ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
         ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('dataset-list-fixed')")
         ui.nav('Datasets')
-        ui.wait("return document.querySelectorAll('.pa-dataset-item').length===4")
-        text=ui.js("return [...document.querySelectorAll('.pa-dataset-item')].map(e=>e.innerText)")
+        ui.wait("return document.querySelectorAll('.pa-dataset-item').length===3");ui.click('[data-output-purpose=all]');ui.wait("return document.querySelectorAll('.pa-dataset-item').length===4")
+        text=ui.js("return ['rich','legacy','annotated','conditions'].map(id=>document.querySelector('[data-output-id=dataset-'+id+']').innerText)")
         self.assertIn('RGB · State · Action',text[0]);self.assertIn('82,714',text[0])
         self.assertIn('train 100 / validation 20 / test 20',text[0])
         self.assertIn('RGB · RGB-D',text[1]);self.assertIn('RGB-D',text[2]);self.assertIn('해당 없음',text[3])
@@ -714,8 +714,8 @@ const done=arguments[arguments.length-1];
 
     def test_model_owner_property(self):
         self.ui.route('fixture-model')
-        self.ui.wait("return [...document.querySelectorAll('.pa-job-properties')].some(p=>p.textContent.includes('Fixture Owner'))")
-        self.assertTrue(self.ui.js("return [...document.querySelectorAll('.pa-job-properties dt')].some(p=>p.textContent==='Owner')"))
+        self.ui.wait("return [...document.querySelectorAll('details.pa-output-source')].some(p=>p.textContent.includes('Fixture Owner'))")
+        self.assertTrue(self.ui.js("return [...document.querySelectorAll('details.pa-output-source dt')].some(p=>p.textContent==='Owner')"))
 
     def test_account_switch_rejects_old_admin_and_enters_as_shared_member(self):
         import test_sso,test_sharing
@@ -748,7 +748,7 @@ const done=arguments[arguments.length-1];
 
     def test_job_classification_detail_and_filters(self):
         ui=self.ui
-        ui.wait("return document.querySelector('[data-job-filter=jobCategory]')?.options.length===7")
+        ui.wait("return document.querySelector('[data-job-filter=jobCategory]')?.options.length===8")
         ui.js("const e=document.querySelector('[data-job-filter=jobCategory]');e.value='fine_tuning';e.dispatchEvent(new Event('change',{bubbles:true}))")
         ui.wait("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelectorAll('tbody tr').length===2")
         self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelector('.pa-job-classification')?.textContent==='Fine-tuning (Pilot-test)'"))
@@ -798,7 +798,7 @@ const done=arguments[arguments.length-1];
     def test_queue_merges_live_and_imported_history_and_expands(self):
         ui=self.ui
         def rows():return ui.js("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelectorAll('tbody tr').length")
-        self.assertEqual(rows(),10);ui.click('[data-history-more]');self.assertEqual(rows(),12)
+        ui.wait("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelectorAll('tbody tr').length===10");self.assertEqual(rows(),10);ui.click('[data-history-more]');self.assertEqual(rows(),12)
         self.assertTrue(ui.js("return !document.querySelector('#pa-content').textContent.includes('Loom Jobs')"))
         ui.click('[data-history-collapse]');self.assertEqual(rows(),10)
         self.assertTrue(ui.js("return document.querySelector('[data-resource-panel]').textContent.includes('data/0') && !document.querySelector('[data-resource-panel]').textContent.includes('data/1')"))
@@ -1477,6 +1477,51 @@ const done=arguments[arguments.length-1];
         self.ui.wait("return document.querySelector('#pa-content [data-entity=\\\"history:111\\\"]')")
         self.assertFalse(self.ui.js("return !!document.querySelector('#pa-content [data-entity=\\\"history:222\\\"]')"))
 
+    def test_output_metadata_and_unambiguous_headlines_preserve_raw_values(self):
+        ui=self.ui
+        run={'id':'primary-fixture','kind':'run','label':'Primary fixture','properties':{'evaluation_scope':'closed-loop','common_observer':'measured-observer-r2','valid':20,'infra':2},'protocol':{'id':'hold-v2','distance_tolerance_mm':5,'continuous_s':5},'comparison':{'all':[{'id':'strict','role':'primary_outcome','label':'Strict','kind':'ratio','numerator':0,'denominator':20,'value':0},{'id':'functional','label':'Functional','kind':'ratio','numerator':9,'denominator':20,'value':.45}]},'metrics':[],'relations':[],'artifacts':[]}
+        self.api.fixture['catalog']['entities'].append(run);self.api.fixture['catalog']['revision']='primary-ui-v1'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('primary-ui-v1')")
+        ui.nav('Experiments');ui.wait("return !!document.querySelector('[data-output-id=primary-fixture]')")
+        self.assertEqual(ui.js("return document.querySelectorAll('[data-output-id=primary-fixture] .pa-result-score-item').length"),1)
+        self.assertIn('0',ui.js("return document.querySelector('[data-output-id=primary-fixture] .pa-result-score').textContent"))
+        self.assertTrue(ui.js("return document.querySelector('[data-output-id=primary-fixture] .pa-output-metrics').textContent.includes('Functional')"))
+        ui.route(run['id']);ui.wait("return document.querySelector('#pa-content').textContent.includes('measured-observer-r2')")
+        self.assertIn('Position tolerance5 mm',ui.js("return document.querySelector('#pa-content').textContent"))
+        self.assertIn('Infrastructure failures2',ui.js("return document.querySelector('#pa-content').textContent"))
+        self.assertFalse(ui.js("return !!document.querySelector('[data-scenario-create]')"))
+        self.assertNotIn('등록된 원본 산출물 기반',ui.js("return document.querySelector('.pa-footer').textContent"))
+        run['comparison']['all'][1]['role']='primary_outcome';self.api.fixture['catalog']['revision']='primary-ui-v2'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('primary-ui-v2')");ui.nav('Experiments')
+        self.assertEqual(ui.js("return document.querySelectorAll('[data-output-id=primary-fixture] .pa-result-score-item').length"),0)
+        self.assertEqual(run['comparison']['all'][0]['numerator'],0)
+
+    def test_sidebar_keeps_newer_host_observation(self):
+        import copy
+        ui=self.ui
+        fresh={'hostname':'fresh','status':'ok','observed_at':'2026-11-16T10:00:00Z','inventory':{'gpu_driver':'new-driver','docker_engine':'new-docker'}}
+        old={'hostname':'old','status':'ok','observed_at':'2026-11-16T09:00:00Z','inventory':{'gpu_driver':'old-driver'}}
+        ui.top();ui.js("document.querySelector('iframe').contentWindow.postMessage({type:'pai-resource-data',resources:{host:arguments[0],sections:{}}},'*')",fresh);ui.frame()
+        ui.wait("return document.querySelector('.pa-sidebar-bottom').textContent.includes('new-driver')")
+        ui.top();ui.js("document.querySelector('iframe').contentWindow.postMessage({type:'pai-resource-data',resources:{host:arguments[0],sections:{}}},'*')",old);ui.frame()
+        self.assertIn('new-driver',ui.js("return document.querySelector('.pa-sidebar-bottom').textContent"))
+        self.assertNotIn('old-driver',ui.js("return document.querySelector('.pa-sidebar-bottom').textContent"))
+
+    def test_development_jobs_keep_resource_visibility_and_observer_weights_stay_models(self):
+        import copy
+        ui=self.ui
+        job=copy.deepcopy(next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-live'))
+        job.update(id='fixture-development',label='Observer engineering',loom_job={'id':'fixture-development'},state='running');job['properties'].update(category='development',state='running',process_exited_at=None);job['attempts']=[]
+        model={'id':'observer-weight-fixture','kind':'model','label':'Geometry weights','properties':{'model_role':'observer'},'metrics':[],'relations':[],'artifacts':[]}
+        self.api.fixture['catalog']['entities'] += [job,model];self.api.fixture['catalog']['revision']='development-ui'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('development-ui')")
+        ui.wait("return [...document.querySelectorAll('.pa-panel')].some(p=>p.querySelector('h2')?.textContent==='Development / Supporting · 1'&&!!p.querySelector('[data-entity=fixture-development]'))")
+        self.assertTrue(ui.js("return !!document.querySelector('.pa-current-work-queue [data-entity=\"work:fixture-10\"]')"))
+        ui.nav('Models');self.assertFalse(ui.js("return !!document.querySelector('[data-output-id=observer-weight-fixture]')"))
+        ui.click('[data-output-purpose=development]');ui.wait("return !!document.querySelector('[data-output-id=observer-weight-fixture]')")
+        ui.click('[data-output-id=observer-weight-fixture] [data-entity=observer-weight-fixture]');ui.wait("return document.querySelector('h1').textContent==='Geometry weights'")
+        self.assertIn('Model typeObserver',ui.js("return document.querySelector('#pa-content').textContent"))
+
     def test_outputs_subtabs_keep_task_context_and_nested_comparison_selection(self):
         ui=self.ui
         task={'id':'output-task','revision':1,'label':'Assembly'}
@@ -1494,7 +1539,7 @@ const done=arguments[arguments.length-1];
         self.assertFalse(ui.js("return [...document.querySelectorAll('#pa-nav button')].some(e=>['Datasets','Models','Experiments','Comparison'].includes(e.textContent.trim()))"))
         self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-output-tabs button')].map(e=>e.textContent)"),['Datasets','Experiments','Models'])
         self.assertTrue(ui.js("return new Set([...document.querySelectorAll('.pa-output-tabs button')].map(e=>Math.round(e.getBoundingClientRect().top))).size===1"))
-        self.assertTrue(ui.js("const row=document.querySelector('[data-output-id=output-dataset]');return row.querySelector('.pa-output-task').textContent==='TaskAssembly'&&row.textContent.indexOf('Output Dataset')<row.textContent.indexOf('TaskAssembly')"))
+        self.assertTrue(ui.js("const row=document.querySelector('[data-output-id=output-dataset]');return row.querySelector('.pa-output-task').textContent==='TaskAssembly'&&row.textContent.indexOf('TaskAssembly')<row.textContent.indexOf('Output Dataset')"))
         before=ui.js("return document.querySelectorAll('.pa-document-tabs [role=tab]').length")
         ui.js("const e=document.querySelector('[data-research-task]');e.value='output-task:1';e.dispatchEvent(new Event('change',{bubbles:true}))")
         for name in ['Models','Experiments','Datasets','Experiments']:
@@ -1531,3 +1576,37 @@ const done=arguments[arguments.length-1];
         ui.nav('Tools')
         self.assertTrue(ui.js("return !!document.querySelector('[data-hub-page=tools] svg[data-lucide=hammer]')"))
         self.assertTrue(ui.js("return !!document.querySelector('#pa-nav [data-go=issues] svg[data-lucide=wrench]')"))
+
+    def test_queue_task_badges_are_readable_in_both_themes(self):
+        job,record=native('task-contrast-job')
+        job['task_refs']=[{'id':'task-contrast','revision':1,'label':'Grasp & Alignment'}]
+        self.api.fixture['catalog']['entities']=[job]
+        self.api.fixture['jobs']={job['id']:record}
+        self.ui.top();self.wd('/refresh',{});self.ui.connect();self.ui.nav('Dashboard')
+        self.ui.wait("return !!document.querySelector('.pa-queue-tasks .pa-task-label')")
+        contrast="""
+const a=document.querySelector('.pa-queue-tasks .pa-task-label'),s=getComputedStyle(a),ctx=document.createElement('canvas').getContext('2d');
+const rgb=color=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data].slice(0,3).map(c=>{c/=255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4})};
+const lum=c=>{const v=rgb(c);return v[0]*.2126+v[1]*.7152+v[2]*.0722};
+const ratio=(a,b)=>(Math.max(lum(a),lum(b))+.05)/(Math.min(lum(a),lum(b))+.05);
+return {text:ratio(s.color,s.backgroundColor),border:ratio(s.borderTopColor,s.backgroundColor),label:a.textContent,href:a.getAttribute('href')};
+"""
+        measurements=[]
+        for width in (1440,500):
+            self.ui.top();self.wd('/window/rect',{'width':width,'height':1000});self.ui.frame()
+            for theme in ('light','dark'):
+                self.ui.click('[data-theme='+theme+']')
+                result=self.ui.js(contrast)
+                measurements.append({'width':width,'theme':theme,**result})
+                self.assertGreaterEqual(result['text'],4.5,(width,theme,result))
+                self.assertGreaterEqual(result['border'],3,(width,theme,result))
+                self.assertEqual(result['label'],'Grasp & Alignment');self.assertEqual(result['href'],'#/entities/task-contrast')
+                self.assertTrue(self.ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
+                self.ui.js("const a=document.querySelector('.pa-queue-tasks .pa-task-label');a.scrollIntoView({block:'center'});a.focus()")
+                self.wd('/actions',{'actions':[{'type':'key','id':'task-focus-key','actions':[{'type':'keyDown','value':'\ue014'},{'type':'keyUp','value':'\ue014'}]}]})
+                self.assertTrue(self.ui.js("const s=getComputedStyle(document.querySelector('.pa-queue-tasks .pa-task-label'));return s.outlineStyle==='solid'&&parseFloat(s.outlineWidth)>=2"))
+                if folder:=os.environ.get('LOOM_TEST_SCREENSHOTS'):
+                    output=Path(folder);output.mkdir(parents=True,exist_ok=True);self.ui.top();(output/f'task-badges-{theme}-{width}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));self.ui.frame()
+        if folder:=os.environ.get('LOOM_TEST_SCREENSHOTS'):
+            (Path(folder)/'task-badge-contrast.json').write_text(__import__('json').dumps(measurements,indent=2))
+        self.assertFalse(self.api.actions)

@@ -33,7 +33,7 @@ Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crate
 
 | Field | Required | Type / values | Default |
 |---|---|---|---|
-| `category` | no | `["sdg", "data_preparation", "fine_tuning", "evaluation", "pipeline", "other"]` | `"other"` |
+| `category` | no | `["sdg", "data_preparation", "fine_tuning", "evaluation", "pipeline", "development", "other"]` | `"other"` |
 | `execution_mode` | no | `["full", "pilot", "smoke"]` | `—` |
 | `include_consolidated` | no | `"boolean"` | `false` |
 | `limit` | no | `"integer"` | `250` |
@@ -55,6 +55,7 @@ Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crate
         "fine_tuning",
         "evaluation",
         "pipeline",
+        "development",
         "other"
       ],
       "type": "string"
@@ -172,7 +173,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 
 | Field | Required | Type / values | Default |
 |---|---|---|---|
-| `category` | no | `["sdg", "data_preparation", "fine_tuning", "evaluation", "pipeline", "other"]` | `"other"` |
+| `category` | no | `["sdg", "data_preparation", "fine_tuning", "evaluation", "pipeline", "development", "other"]` | `"other"` |
 | `consolidates` | no | `"array"` | `—` |
 | `depends_on` | no | `"array"` | `—` |
 | `execution` | no | `"object"` | `—` |
@@ -202,6 +203,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
         "fine_tuning",
         "evaluation",
         "pipeline",
+        "development",
         "other"
       ],
       "type": "string"
@@ -413,7 +415,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 
 | Field | Required | Type / values | Default |
 |---|---|---|---|
-| `category` | no | `["sdg", "data_preparation", "fine_tuning", "evaluation", "pipeline", "other"]` | `—` |
+| `category` | no | `["sdg", "data_preparation", "fine_tuning", "evaluation", "pipeline", "development", "other"]` | `—` |
 | `key` | yes | `"string"` | `—` |
 | `label` | yes | `"string"` | `—` |
 | `nodes` | yes | `"array"` | `—` |
@@ -436,6 +438,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
         "fine_tuning",
         "evaluation",
         "pipeline",
+        "development",
         "other"
       ]
     },

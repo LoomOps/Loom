@@ -235,7 +235,6 @@ function loomDatasetProperties(entity) {
   const splitOrder={train:0,validation:1,val:1,test:2};
   const splits = Array.isArray(d.splits) ? [...d.splits].sort((a,b)=>(splitOrder[a.id]??3)-(splitOrder[b.id]??3)) : [];
   return {
-    'Role': ({training_observations:'Training observations',diagnostic_observations:'Diagnostic observations',evaluation_conditions:'Evaluation conditions'}[role] || role || '미기록'),
     'Count': quantity(Object.hasOwn(d,'count') ? d.count : metadata.episodes ?? metadata.count, d.count_missing_reason),
     'Unit': d.count_unit || (metadata.episodes != null ? 'episodes' : '미기록'),
     'Observation frames': quantity(Object.hasOwn(d,'frames') ? d.frames : metadata.frames, d.frames_missing_reason),
@@ -251,7 +250,6 @@ catFacts=function(entity) {
   if(entity.kind!=='dataset')return loomPriorCatalogFacts(entity);
   const facts=loomDatasetProperties(entity), d=entity.dataset_overview||{};
   const rows=[
-    {role:'dataset_role',label:'성격',value:({training_observations:'학습 관측',diagnostic_observations:'진단 관측',evaluation_conditions:'평가 조건'}[d.role]||facts.Role)},
     {role:'count',label:({clips:'클립',episodes:'에피소드',cases:'평가 조건'}[facts.Unit]||'수량'),value:facts.Count},
     {role:'frames',label:'관측 프레임',value:facts['Observation frames']},
     {role:'dataset_inputs',label:'입력',value:facts.Inputs},
@@ -305,10 +303,6 @@ function loomDetailHeading(html, id) {
         + (entity?.properties?.output_storage ? '<div><dt>Output Storage</dt><dd>'+esc(entity.properties.output_storage)+'</dd></div>' : '')
         + '<div><dt>Job Type</dt><dd>' + esc(loomJobClass(entity).category) + '</dd></div>'
         + '<div><dt title="Full: main run; Pilot: reduced trial; Smoke: startup check">Execution Mode</dt><dd>' + esc(loomJobClass(entity).mode) + '</dd></div></dl>');
-      title.after(...properties.children);
-    } else if (entity && !entity.loom_extension && !entity.loom_runtime && !entity.loom_dependency && !entity.loom_execution_profile) {
-      const properties = document.createElement('div');
-      properties.innerHTML = panel('Properties', '<dl class="pa-job-properties">'+ownerRow+'</dl>');
       title.after(...properties.children);
     }
     if (entity?.kind === 'dataset') {

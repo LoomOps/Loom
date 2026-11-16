@@ -24,6 +24,7 @@ def build(original):
     match = re.search(r'data-srcdoc="([^"]*)"', outer)
     inner = html.unescape(match[1])
     inner = patch_logs(inner)
+    inner = replace_once(inner, "등록된 원본 산출물 기반 · 읽기 전용", "")
     inner = inner.replace("['component','컴포넌트']", "['component','컴포넌트'],['tool','Tool']")
     inner = inner.replace("component:'컴포넌트'}", "component:'컴포넌트',tool:'Tool'}")
     inner = inner.replace("if(e.kind==='component')return catComponent(e);", "if(e.kind==='scenario')return loomScenarioDetail(e);if(e.loom_execution_profile)return loomExecutionProfileDetail(e);if(e.loom_dependency)return loomDependencyDetail(e);if(e.loom_runtime)return loomRuntimeDetail(e);if(e.loom_extension)return loomExtensionDetail(e);if(e.kind==='component')return catComponent(e);")
@@ -108,14 +109,14 @@ def build(original):
     inner=replace_once(inner,"  patchResourceNode(body,next,true);","  loomPreserveViewport(body,()=>patchResourceNode(body,next,true));")
     inner=replace_once(inner," if(n.dataset.modelFilter)return"," if(n.dataset.outputId)return 'output:'+n.dataset.outputId;\n if(n.dataset.modelFilter)return")
 
-    inner=replace_once(inner,"const interested=!!root.querySelector('[data-resource-panel]');","const interested=!!root.querySelector('[data-resource-panel],.pa-finder');")
-    inner=replace_once(inner,"const catKind=(k,includeDiscarded=false)=>catalogData.entities.filter(e=>e.kind===k&&(includeDiscarded||!catIsDiscarded(e)));","const catKind=(k,includeDiscarded=false)=>loomTaskItems(catalogData.entities.filter(e=>e.kind===k&&(includeDiscarded||!catIsDiscarded(e))),k);")
+    inner=replace_once(inner,"const interested=!!root.querySelector('[data-resource-panel]');","const interested=!!root.querySelector('[data-resource-panel],.pa-finder,.pa-sidebar-bottom');")
+    inner=replace_once(inner,"const catKind=(k,includeDiscarded=false)=>catalogData.entities.filter(e=>e.kind===k&&(includeDiscarded||!catIsDiscarded(e)));","let catKind=(k,includeDiscarded=false)=>loomTaskItems(catalogData.entities.filter(e=>e.kind===k&&(includeDiscarded||!catIsDiscarded(e))),k);")
     inner=replace_once(inner,"return {page:e?.kind==='model'?", "return {page:e?.kind==='scenario'?'scenarios':e?.kind==='dependency'?'dependencies':e?.kind==='execution_profile'?'profiles':e?.kind==='component'?'components':e?.kind==='runtime'?'runtimes':e?.kind==='tool'?'tools':e?.kind==='model'?")
     inner=replace_once(inner,"const catEntity=id=>catalogData.entities.find(e=>e.id===id)||(typeof workStepRecord==='function'?workStepRecord(id):null);",
         "const catEntity=id=>(catalogData.all_entities||catalogData.entities).find(e=>e.id===id)||(typeof workStepRecord==='function'?workStepRecord(id):null)||loomHistoricalExtensionEntity(id);")
     inner=replace_once(inner,"state.page===id?'active':''","(state.page===id||id==='profiles'&&loomIsHubPage(state.page)||id==='datasets'&&loomIsOutputPage(state.page))?'active':''")
     inner=replace_once(inner,"state.page===id?'page':'false'","(state.page===id||id==='profiles'&&loomIsHubPage(state.page)||id==='datasets'&&loomIsOutputPage(state.page))?'page':'false'")
-    inner=replace_once(inner,"(navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')","({datasets:'Datasets',experiments:'Experiments',models:'Models',comparison:'Comparison',profiles:'Profiles',components:'Components',tools:'Tools',runtimes:'Runtimes',dependencies:'Dependencies'}[v.page]||navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')")
+    inner=replace_once(inner,"(navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')","({scenarios:'Tasks',datasets:'Datasets',experiments:'Experiments',models:'Models',comparison:'Comparison',profiles:'Profiles',components:'Components',tools:'Tools',runtimes:'Runtimes',dependencies:'Dependencies'}[v.page]||navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')")
     marker = "catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');"
     inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "dependencies.js", "scenarios.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js", "search.js", "projection.js", "catalog-pages.js", "outputs.js"))
     inner = replace_once(inner, marker, inner_additions + "\n" + (HERE.parent/"branding/brand.js").read_text() + "\n" + marker)
