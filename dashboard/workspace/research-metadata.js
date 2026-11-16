@@ -69,7 +69,7 @@ function loomResearchCardFacts(e){
  const map=loomResearchFactMap(e),isDataset=e.kind==='dataset',isModel=e.kind==='model';
  const order=isDataset?['count','frames','train_snapshots','validation_snapshots','inputs','split','physics','dynamics','annotation','annotation_source','instruction_mode','source_demos']:
   isModel?['model_role','architecture','inputs','outputs','validation_mean_error','validation_p95_error','test_action_mse','test_action_mae','test_action_rmse','selected_step','train_frames','validation_frames','train_snapshots','validation_snapshots','training_method','initialization','instruction_mode']:
-  ['outcome','terminal_reason','evaluation_mode','evaluator','valid','split','validation_mean_error','validation_p95_error','point_mean_error','point_p95_error','selected_step','optimizer_updates','selection_validation_loss','test_action_rmse','distance_tolerance_mm','hold_center_drift_m','height_tolerance_m','angle_tolerance_deg','rotation_tolerance_deg','continuous_s','hold_seconds','physics_hz','control_hz','infra'];
+  ['outcome','terminal_reason','evaluation_mode','evaluator','valid','episodes','frames','split','validation_mean_error','validation_p95_error','point_mean_error','point_p95_error','selected_step','optimizer_updates','selection_validation_loss','test_action_rmse','distance_tolerance_mm','hold_center_drift_m','height_tolerance_m','angle_tolerance_deg','rotation_tolerance_deg','continuous_s','hold_seconds','physics_hz','control_hz','infra'];
  const input=loomResearchInputSummary(e);if(input)map.set('inputs',{id:'inputs',label:'Inputs',value:input,status:'recorded'});
  const instruction=loomResearchInstruction(e);if(instruction)map.set('instruction_mode',{id:'instruction_mode',label:'Instruction',value:instruction,status:'recorded'});
  if(isDataset){
@@ -103,12 +103,18 @@ catFacts=function(e){
  return loomPriorCatalogFacts(e);
 };
 function loomResearchFactsHTML(facts,compact=false){return '<dl class="pa-entity-facts pa-scientific-facts '+(compact?'is-compact':'')+'">'+facts.map(f=>'<div data-research-fact="'+esc(f.id)+'"><dt>'+esc(f.label)+'</dt><dd title="'+esc(loomResearchValue(f))+'">'+esc(loomResearchValue(f,{compact}))+'</dd></div>').join('')+'</dl>';}
+function loomResearchConditions(e){
+ const fact=loomResearchFactMap(e).get('condition_outcomes');if(!fact||!Array.isArray(fact.value))return '';
+ const rows=fact.value,keys=['strict_success','functional_success'].filter(key=>rows.some(row=>row[key]!=null));
+ const outcome=(n,valid)=>n==null?'—':n+' / '+valid+(valid?' · '+loomResearchNumber(100*n/valid)+'%':'');
+ return '<div class="pa-research-conditions">'+catTable(['Condition',...keys.map(k=>k==='strict_success'?'Strict success':'Functional success'),'Valid / planned'],rows.map(row=>[esc(row.condition),...keys.map(key=>esc(outcome(row[key],row.valid))),esc(row.valid+' / '+(row.planned??'—'))]))+'</div>';
+}
 function loomResearchCard(e,result=false){
  const outcomes=result?loomRepresentativeOutcome(e):[],facts=loomResearchCardFacts(e),metrics=result?catResultMetrics(e):[];
  return '<article class="pa-catalog-item pa-scientific-card '+(e.kind==='dataset'?'pa-dataset-item':result?'pa-result-card':'')+'" data-output-id="'+esc(e.id)+'">'
   +loomTaskProperty(e)+'<div class="pa-row-main">'+catLink(e.id)+(result?resultDispositionPanel(e,true):'')+'</div>'
   +(outcomes.length?'<div class="pa-result-score">'+outcomes.map(m=>'<div class="pa-result-score-item"><small>'+esc(m.label)+'</small><strong>'+resultOutcomeValue(m)+'</strong></div>').join('')+'</div>':'')
-  +loomResearchFactsHTML(facts,true)
+  +loomResearchFactsHTML(facts,true)+loomResearchConditions(e)
   +(metrics.length>outcomes.length?'<details class="pa-output-metrics"><summary>Metrics · '+metrics.length+'</summary>'+catTable(['Metric','Value','Population'],metrics.map(m=>[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||m.aggregation||'—')]))+'</details>':'')+'</article>';
 }
 const loomResearchOldRow=catListRow;
@@ -125,7 +131,8 @@ function loomResearchOverview(e){
    if(inputs.length)body+=panel('Inputs',catTable(['Signal','Shape / value','Unit','Dtype','Preprocessing'],inputs.map(x=>[esc(x.label||loomResearchInputName(x)),esc(x.shape?.join('×')||(Array.isArray(x.value)?x.value.join(' · '):x.value)||'—'),esc(x.unit||'—'),esc(x.dtype||'—'),esc(x.preprocessing||'—')])));
    continue;
   }
-  const facts=s.facts.filter(f=>f.section===id&&f.id!=='observation_schema'&&f.id!=='count_unit');
+  const facts=s.facts.filter(f=>f.section===id&&!['observation_schema','count_unit','condition_outcomes'].includes(f.id));
+  if(id==='evaluation'&&map.has('condition_outcomes'))body+=panel('Condition outcomes',loomResearchConditions(e));
   if(id==='model'&&inputs.length)facts.push({id:'inputs',label:'Inputs',value:loomResearchInputSummary(e),status:'recorded'});
   if(!facts.length)continue;
   body+=panel(loomResearchSections[id],loomResearchFactsHTML(facts));

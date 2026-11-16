@@ -592,3 +592,5 @@
 #pai-studio .pa-scientific-card .pa-scientific-facts>div{display:block}
 #pai-studio .pa-research-overview{align-items:start}
 @container pane (max-width:760px){#pai-studio .pa-scientific-card .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.pa-research-conditions{min-width:0;overflow:auto}

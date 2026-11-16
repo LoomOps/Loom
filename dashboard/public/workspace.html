@@ -5562,7 +5562,7 @@ function loomResearchCardFacts(e){
  const map=loomResearchFactMap(e),isDataset=e.kind===&#x27;dataset&#x27;,isModel=e.kind===&#x27;model&#x27;;
  const order=isDataset?[&#x27;count&#x27;,&#x27;frames&#x27;,&#x27;train_snapshots&#x27;,&#x27;validation_snapshots&#x27;,&#x27;inputs&#x27;,&#x27;split&#x27;,&#x27;physics&#x27;,&#x27;dynamics&#x27;,&#x27;annotation&#x27;,&#x27;annotation_source&#x27;,&#x27;instruction_mode&#x27;,&#x27;source_demos&#x27;]:
   isModel?[&#x27;model_role&#x27;,&#x27;architecture&#x27;,&#x27;inputs&#x27;,&#x27;outputs&#x27;,&#x27;validation_mean_error&#x27;,&#x27;validation_p95_error&#x27;,&#x27;test_action_mse&#x27;,&#x27;test_action_mae&#x27;,&#x27;test_action_rmse&#x27;,&#x27;selected_step&#x27;,&#x27;train_frames&#x27;,&#x27;validation_frames&#x27;,&#x27;train_snapshots&#x27;,&#x27;validation_snapshots&#x27;,&#x27;training_method&#x27;,&#x27;initialization&#x27;,&#x27;instruction_mode&#x27;]:
-  [&#x27;outcome&#x27;,&#x27;terminal_reason&#x27;,&#x27;evaluation_mode&#x27;,&#x27;evaluator&#x27;,&#x27;valid&#x27;,&#x27;split&#x27;,&#x27;validation_mean_error&#x27;,&#x27;validation_p95_error&#x27;,&#x27;point_mean_error&#x27;,&#x27;point_p95_error&#x27;,&#x27;selected_step&#x27;,&#x27;optimizer_updates&#x27;,&#x27;selection_validation_loss&#x27;,&#x27;test_action_rmse&#x27;,&#x27;distance_tolerance_mm&#x27;,&#x27;hold_center_drift_m&#x27;,&#x27;height_tolerance_m&#x27;,&#x27;angle_tolerance_deg&#x27;,&#x27;rotation_tolerance_deg&#x27;,&#x27;continuous_s&#x27;,&#x27;hold_seconds&#x27;,&#x27;physics_hz&#x27;,&#x27;control_hz&#x27;,&#x27;infra&#x27;];
+  [&#x27;outcome&#x27;,&#x27;terminal_reason&#x27;,&#x27;evaluation_mode&#x27;,&#x27;evaluator&#x27;,&#x27;valid&#x27;,&#x27;episodes&#x27;,&#x27;frames&#x27;,&#x27;split&#x27;,&#x27;validation_mean_error&#x27;,&#x27;validation_p95_error&#x27;,&#x27;point_mean_error&#x27;,&#x27;point_p95_error&#x27;,&#x27;selected_step&#x27;,&#x27;optimizer_updates&#x27;,&#x27;selection_validation_loss&#x27;,&#x27;test_action_rmse&#x27;,&#x27;distance_tolerance_mm&#x27;,&#x27;hold_center_drift_m&#x27;,&#x27;height_tolerance_m&#x27;,&#x27;angle_tolerance_deg&#x27;,&#x27;rotation_tolerance_deg&#x27;,&#x27;continuous_s&#x27;,&#x27;hold_seconds&#x27;,&#x27;physics_hz&#x27;,&#x27;control_hz&#x27;,&#x27;infra&#x27;];
  const input=loomResearchInputSummary(e);if(input)map.set(&#x27;inputs&#x27;,{id:&#x27;inputs&#x27;,label:&#x27;Inputs&#x27;,value:input,status:&#x27;recorded&#x27;});
  const instruction=loomResearchInstruction(e);if(instruction)map.set(&#x27;instruction_mode&#x27;,{id:&#x27;instruction_mode&#x27;,label:&#x27;Instruction&#x27;,value:instruction,status:&#x27;recorded&#x27;});
  if(isDataset){
@@ -5596,12 +5596,18 @@ catFacts=function(e){
  return loomPriorCatalogFacts(e);
 };
 function loomResearchFactsHTML(facts,compact=false){return &#x27;&lt;dl class=&quot;pa-entity-facts pa-scientific-facts &#x27;+(compact?&#x27;is-compact&#x27;:&#x27;&#x27;)+&#x27;&quot;&gt;&#x27;+facts.map(f=&gt;&#x27;&lt;div data-research-fact=&quot;&#x27;+esc(f.id)+&#x27;&quot;&gt;&lt;dt&gt;&#x27;+esc(f.label)+&#x27;&lt;/dt&gt;&lt;dd title=&quot;&#x27;+esc(loomResearchValue(f))+&#x27;&quot;&gt;&#x27;+esc(loomResearchValue(f,{compact}))+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/dl&gt;&#x27;;}
+function loomResearchConditions(e){
+ const fact=loomResearchFactMap(e).get(&#x27;condition_outcomes&#x27;);if(!fact||!Array.isArray(fact.value))return &#x27;&#x27;;
+ const rows=fact.value,keys=[&#x27;strict_success&#x27;,&#x27;functional_success&#x27;].filter(key=&gt;rows.some(row=&gt;row[key]!=null));
+ const outcome=(n,valid)=&gt;n==null?&#x27;—&#x27;:n+&#x27; / &#x27;+valid+(valid?&#x27; · &#x27;+loomResearchNumber(100*n/valid)+&#x27;%&#x27;:&#x27;&#x27;);
+ return &#x27;&lt;div class=&quot;pa-research-conditions&quot;&gt;&#x27;+catTable([&#x27;Condition&#x27;,...keys.map(k=&gt;k===&#x27;strict_success&#x27;?&#x27;Strict success&#x27;:&#x27;Functional success&#x27;),&#x27;Valid / planned&#x27;],rows.map(row=&gt;[esc(row.condition),...keys.map(key=&gt;esc(outcome(row[key],row.valid))),esc(row.valid+&#x27; / &#x27;+(row.planned??&#x27;—&#x27;))]))+&#x27;&lt;/div&gt;&#x27;;
+}
 function loomResearchCard(e,result=false){
  const outcomes=result?loomRepresentativeOutcome(e):[],facts=loomResearchCardFacts(e),metrics=result?catResultMetrics(e):[];
  return &#x27;&lt;article class=&quot;pa-catalog-item pa-scientific-card &#x27;+(e.kind===&#x27;dataset&#x27;?&#x27;pa-dataset-item&#x27;:result?&#x27;pa-result-card&#x27;:&#x27;&#x27;)+&#x27;&quot; data-output-id=&quot;&#x27;+esc(e.id)+&#x27;&quot;&gt;&#x27;
   +loomTaskProperty(e)+&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;+catLink(e.id)+(result?resultDispositionPanel(e,true):&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;
   +(outcomes.length?&#x27;&lt;div class=&quot;pa-result-score&quot;&gt;&#x27;+outcomes.map(m=&gt;&#x27;&lt;div class=&quot;pa-result-score-item&quot;&gt;&lt;small&gt;&#x27;+esc(m.label)+&#x27;&lt;/small&gt;&lt;strong&gt;&#x27;+resultOutcomeValue(m)+&#x27;&lt;/strong&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;:&#x27;&#x27;)
-  +loomResearchFactsHTML(facts,true)
+  +loomResearchFactsHTML(facts,true)+loomResearchConditions(e)
   +(metrics.length&gt;outcomes.length?&#x27;&lt;details class=&quot;pa-output-metrics&quot;&gt;&lt;summary&gt;Metrics · &#x27;+metrics.length+&#x27;&lt;/summary&gt;&#x27;+catTable([&#x27;Metric&#x27;,&#x27;Value&#x27;,&#x27;Population&#x27;],metrics.map(m=&gt;[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||m.aggregation||&#x27;—&#x27;)]))+&#x27;&lt;/details&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/article&gt;&#x27;;
 }
 const loomResearchOldRow=catListRow;
@@ -5618,7 +5624,8 @@ function loomResearchOverview(e){
    if(inputs.length)body+=panel(&#x27;Inputs&#x27;,catTable([&#x27;Signal&#x27;,&#x27;Shape / value&#x27;,&#x27;Unit&#x27;,&#x27;Dtype&#x27;,&#x27;Preprocessing&#x27;],inputs.map(x=&gt;[esc(x.label||loomResearchInputName(x)),esc(x.shape?.join(&#x27;×&#x27;)||(Array.isArray(x.value)?x.value.join(&#x27; · &#x27;):x.value)||&#x27;—&#x27;),esc(x.unit||&#x27;—&#x27;),esc(x.dtype||&#x27;—&#x27;),esc(x.preprocessing||&#x27;—&#x27;)])));
    continue;
   }
-  const facts=s.facts.filter(f=&gt;f.section===id&amp;&amp;f.id!==&#x27;observation_schema&#x27;&amp;&amp;f.id!==&#x27;count_unit&#x27;);
+  const facts=s.facts.filter(f=&gt;f.section===id&amp;&amp;![&#x27;observation_schema&#x27;,&#x27;count_unit&#x27;,&#x27;condition_outcomes&#x27;].includes(f.id));
+  if(id===&#x27;evaluation&#x27;&amp;&amp;map.has(&#x27;condition_outcomes&#x27;))body+=panel(&#x27;Condition outcomes&#x27;,loomResearchConditions(e));
   if(id===&#x27;model&#x27;&amp;&amp;inputs.length)facts.push({id:&#x27;inputs&#x27;,label:&#x27;Inputs&#x27;,value:loomResearchInputSummary(e),status:&#x27;recorded&#x27;});
   if(!facts.length)continue;
   body+=panel(loomResearchSections[id],loomResearchFactsHTML(facts));
@@ -6520,6 +6527,8 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 #pai-studio .pa-scientific-card .pa-scientific-facts&gt;div{display:block}
 #pai-studio .pa-research-overview{align-items:start}
 @container pane (max-width:760px){#pai-studio .pa-scientific-card .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.pa-research-conditions{min-width:0;overflow:auto}
 /* Brand animation is decorative, never a live Job/status indicator. */
 :root{--loom-brand-accent:light-dark(#436fc7,#9bb9f1)}
 .loom-logo{overflow:visible;--loom-logo-blue:var(--loom-brand-accent)}

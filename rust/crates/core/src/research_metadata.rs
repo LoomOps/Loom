@@ -737,6 +737,37 @@ pub fn summarize(entity: &Value, documents: &[(Value, Value)]) -> Value {
             );
         }
         if matches!(kind, "experiment" | "run") {
+            // Explicit per-condition task outcomes are a comparison, not one
+            // pooled headline. Do not mistake passed/failed checks for trials.
+            for pointer in ["/research/evaluation/conditions", "/conditions"] {
+                let Some(conditions) = d.value.pointer(pointer).and_then(Value::as_array) else {
+                    continue;
+                };
+                let outcomes: Vec<Value> = conditions
+                    .iter()
+                    .filter_map(|row| {
+                        let name = row["condition"].as_str()?;
+                        let valid = row["valid"].as_u64()?;
+                        let mut value = json!({"condition":name,"valid":valid});
+                        let mut measured = false;
+                        for key in ["strict_success", "functional_success"] {
+                            if let Some(count) = row[key].as_u64().filter(|n| *n <= valid) {
+                                value[key] = json!(count);
+                                measured = true;
+                            }
+                        }
+                        if let Some(planned) = row["planned"].as_u64().filter(|n| *n >= valid) {
+                            value["planned"] = json!(planned);
+                        }
+                        measured.then_some(value)
+                    })
+                    .collect();
+                if !outcomes.is_empty() && !facts.values.contains_key("condition_outcomes") {
+                    facts.values.insert("condition_outcomes".into(),json!({"id":"condition_outcomes","section":"evaluation","label":"Condition outcomes","value":outcomes,"unit":null,"status":"recorded","evidence":[{"source":d.source,"pointer":pointer}]}));
+                }
+            }
+            field!("episodes", "population", "Episodes", &["/episodes"], None);
+            field!("frames", "population", "Frames", &["/frames"], None);
             field!(
                 "outcome",
                 "evaluation",

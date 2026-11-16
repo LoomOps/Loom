@@ -151,3 +151,8 @@ The information hierarchy also follows [MimicGen](https://mimicgen.github.io/)
 quantities) and [OpenVLA evaluation details](https://arxiv.org/html/2406.09246v3#A2)
 (robot/task/cohort, evaluation rubric and per-condition results). These are
 presentation references, not measurements assigned to Loom records.
+
+Explicit condition comparisons show Strict/Functional success counts over each
+condition's valid population, plus planned counts. They are not pooled into a
+headline rate. Check counters and counts greater than their population are not
+task outcome measurements.

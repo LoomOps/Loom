@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0-alpha.21
+
+- Show verified per-condition task outcomes with separate success counts and denominators, including retained RGB/depth comparisons. Reject validation-check counters and impossible success counts as task outcomes.
+
 ## 0.2.0-alpha.20
 
 - Build a canonical scientific summary from exact accepted metadata and bounded, registered JSON artifacts verified by size, location and SHA-256. Retain source pointers and conflicting recorded values; preserve original records and scientific acceptance.

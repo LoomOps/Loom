@@ -2856,3 +2856,28 @@ fn scientific_summary_keeps_training_losses_snapshot_units_and_explicit_failure_
     assert_eq!(fact("test_action_rmse")["unit"], "rad");
     assert!(!facts.iter().any(|f| f["id"] == "success"));
 }
+
+#[test]
+fn scientific_condition_outcomes_keep_populations_separate_and_reject_check_counters() {
+    let e = json!({"id":"comparison-fixture","kind":"experiment","metadata":{"research":{"evaluation":{"conditions":[{"condition":"RGB","valid":20,"planned":24,"strict_success":12,"functional_success":14},{"condition":"Depth","valid":10,"planned":10,"strict_success":8},{"condition":"Checks","valid":4,"passed":4,"failed":0},{"condition":"Impossible","valid":2,"strict_success":3}]}}}});
+    let s = crate::research_metadata::summarize(&e, &[]);
+    let f = s["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["id"] == "condition_outcomes")
+        .unwrap();
+    assert_eq!(f["value"].as_array().unwrap().len(), 2);
+    assert_eq!(f["value"][0]["strict_success"], 12);
+    assert_eq!(f["value"][0]["valid"], 20);
+    assert_eq!(f["value"][1]["valid"], 10);
+    assert_eq!(
+        f["evidence"][0]["pointer"],
+        "/research/evaluation/conditions"
+    );
+    assert!(!s["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|f| f["id"] == "success"));
+}

@@ -1549,6 +1549,23 @@ const done=arguments[arguments.length-1];
             for theme in ('light','dark'):
                 ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
 
+    def test_scientific_condition_comparison_keeps_separate_denominators(self):
+        ui=self.ui
+        row={'id':'condition-comparison-fixture','kind':'experiment','label':'Condition comparison','properties':{},'metrics':[],'relations':[],'artifacts':[],'research_summary':{'schema':'loom-research-summary/v1','kind':'experiment','inputs':[],'sources':[],'facts':[{'id':'condition_outcomes','label':'Condition outcomes','section':'evaluation','status':'recorded','evidence':[],'value':[{'condition':'RGB','strict_success':12,'functional_success':14,'valid':20,'planned':24},{'condition':'Depth','strict_success':8,'valid':10,'planned':10},{'condition':'Empty','strict_success':0,'valid':0,'planned':4}]}]}}
+        self.api.fixture['catalog']['entities'].append(row);self.api.fixture['catalog']['revision']='condition-comparison'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('condition-comparison')")
+        ui.nav('Experiments');ui.wait("return !!document.querySelector('[data-output-id=condition-comparison-fixture] .pa-research-conditions')")
+        text=ui.js("return document.querySelector('[data-output-id=condition-comparison-fixture]').innerText")
+        for value in ['12 / 20 · 60%','14 / 20 · 70%','8 / 10 · 80%','0 / 0','20 / 24']:self.assertIn(value,text)
+        self.assertNotIn('NaN',text);self.assertNotIn('Infinity',text)
+        self.assertFalse(ui.js("return !!document.querySelector('[data-output-id=condition-comparison-fixture] .pa-result-score')"))
+        ui.route(row['id']);ui.wait("return !!document.querySelector('.pa-research-overview .pa-research-conditions')")
+        self.assertIn('12 / 20 · 60%',ui.js("return document.querySelector('.pa-research-overview').innerText"))
+        for width in (1440,500):
+            ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+            for theme in ('light','dark'):
+                ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
+
     def test_outputs_subtabs_keep_task_context_and_nested_comparison_selection(self):
         ui=self.ui
         task={'id':'output-task','revision':1,'label':'Assembly'}
