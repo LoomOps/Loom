@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0-alpha.20
+
+- Build a canonical scientific summary from exact accepted metadata and bounded, registered JSON artifacts verified by size, location and SHA-256. Retain source pointers and conflicting recorded values; preserve original records and scientific acceptance.
+- Admit sibling publication context only for a unique Model/Dataset in the same Job/Attempt with explicit matching product hashes. Do not follow arbitrary JSON paths or open model/HDF5 archives.
+- Replace generic used/unused input labels and flat highlights with shared scientific cards and detail sections: Dataset collection/physics/annotation, Model input/prediction/training/validation, and Experiment evaluator/population/success conditions.
+- Show Observer point errors in millimeters and actual input shapes, preserve zero/false values and distinguish inapplicable observations from missing metadata. Keep offline action error separate from physical task success.
+
 ## 0.2.0-alpha.19
 
 - Keep Task as an Outputs filter and move its badges above original titles; remove New Task controls. Preserve high-contrast Task badges in Job history.

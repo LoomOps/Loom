@@ -530,7 +530,9 @@
         "rust/crates/core/src/graph.rs",
         "rust/crates/core/src/maintenance.rs",
         "rust/crates/ops/src/catalog_maintenance.rs",
-        "rust/crates/core/src/activity.rs"
+        "rust/crates/core/src/activity.rs",
+        "rust/crates/core/src/research_metadata.rs",
+        "rust/contracts/research-summary.schema.json"
       ],
       "tests": [
         "tests/ops/test_dashboard_resources.py",
@@ -560,7 +562,8 @@
         "rust/crates/core/src/maintenance.rs",
         "rust/crates/core/src/store.rs",
         "ops/dashboard_read.py",
-        "ops/history_store.py"
+        "ops/history_store.py",
+        "rust/contracts/research-summary.schema.json"
       ],
       "invariants": [
         "Distinguish historical originals from current display overlays. Never assume missing files are valid artifacts.",
@@ -673,7 +676,8 @@
         "dashboard/workspace/text-preview.js",
         "dashboard/workspace/search.js",
         "dashboard/workspace/catalog-pages.js",
-        "dashboard/workspace/outputs.js"
+        "dashboard/workspace/outputs.js",
+        "dashboard/workspace/research-metadata.js"
       ],
       "tests": [
         "tests/dashboard/browser/test_workspace.py",

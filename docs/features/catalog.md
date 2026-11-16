@@ -67,3 +67,37 @@ source Attempt still matches and the accepted consolidation is complete with
 ready artifacts. Research history can include support work without expanding
 those source executions into separate main Jobs. A later source Attempt remains
 visible and does not inherit the old consolidation's completion.
+
+## Scientific metadata projection
+
+`dashboard_page` and `dashboard_entity` expose `research_summary` for Datasets,
+Models and Experiments. The canonical fact vocabulary and extraction paths live
+in `research_metadata.rs`; the DTO is described by
+[research-summary.schema.json](../../rust/contracts/research-summary.schema.json).
+The same DTO is available through the existing HTTP and MCP system actions.
+
+Accepted metadata leads. Missing fields can be recovered from registered JSON
+artifacts of the exact source revision, with source identity, SHA-256 and JSON
+pointer on every fact. A sibling report is eligible only for a unique Dataset or
+Model of the same Job/Attempt and when its artifact map explicitly matches every
+component hash of that product. Filename similarity and cached UI records are not
+bindings. Recorded metadata has priority; disagreements between files are exposed
+as conflicts rather than merged or averaged. Evidence pointers for record facts
+refer to the effective metadata/properties object, including preserved top-level typed fields, its typed inputs,
+protocol and dataset overview.
+
+Reads use the existing no-symlink registered-location and byte-hash verifier.
+At most 12 JSON files, 2 MiB each and 4 MiB aggregate are read per selected record.
+No archive extraction, arbitrary path found in JSON, model loading, code execution,
+recursive filesystem scan or database rewrite occurs. File access failures do not
+remove the original record or turn an unverified source into a scientific fact.
+This runs on the selected read page, outside the mutation lane.
+
+Physics, controller/sensor clocks, annotation source and instructions stay separate.
+Model inputs carry their actual kind/shape/unit, not a generic used/unused label.
+Observer geometry error, policy action error, collection yield and closed-loop task
+success have distinct meanings and populations. Raw producer data and metrics are
+preserved; the summary does not change scientific acceptance.
+Whole-catalog compatibility/curation reads normalize accepted metadata only. They
+do not scan registered files inside the mutation lane; use a bounded page or exact
+Item detail to recover linked JSON context.

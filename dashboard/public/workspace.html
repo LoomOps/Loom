@@ -5474,38 +5474,6 @@ loomTaskToolbar=function(){return loomOutputToolbar()+&#x27;&lt;div class=&quot;
  +[[&#x27;all&#x27;,&#x27;All&#x27;],[&#x27;research&#x27;,&#x27;Research&#x27;],[&#x27;development&#x27;,&#x27;Development&#x27;]].map(([value,label])=&gt;&#x27;&lt;button class=&quot;pa-pill &#x27;+(loomOutputPurpose()===value?&#x27;active&#x27;:&#x27;&#x27;)+&#x27;&quot; aria-pressed=&quot;&#x27;+(loomOutputPurpose()===value)+&#x27;&quot; data-output-purpose=&quot;&#x27;+value+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;};
 root.addEventListener(&#x27;click&#x27;,event=&gt;{const b=event.target.closest(&#x27;[data-output-purpose]&#x27;);if(!b)return;const pane=b.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;activeTab().view.outputPurpose=b.dataset.outputPurpose;render();persist();});
 
-function loomOutputMetadata(e){
- const p={...(e.properties||{}),...(e.metadata||{})},protocol=e.protocol||p.protocol||{},d=e.dataset_overview||{};
- const value=(...keys)=&gt;keys.map(k=&gt;p[k]??protocol[k]).find(v=&gt;v!==undefined&amp;&amp;v!==null&amp;&amp;v!==&#x27;&#x27;);
- const rows={};const add=(label,v)=&gt;{if(v!==undefined&amp;&amp;v!==null&amp;&amp;v!==&#x27;&#x27;&amp;&amp;(!Array.isArray(v)||v.length))rows[label]=v;};
- const inputs=e.inputs||p.inputs||d.inputs||[];
- add(&#x27;Environment&#x27;,value(&#x27;environment&#x27;,&#x27;evaluation_environment&#x27;,&#x27;environment_type&#x27;,&#x27;simulator&#x27;,&#x27;platform&#x27;));
- if(p.real_robot===true)add(&#x27;Environment&#x27;,&#x27;Real&#x27;);else if(p.simulation===true)add(&#x27;Environment&#x27;,&#x27;Sim&#x27;);
- add(&#x27;Protocol&#x27;,typeof e.protocol===&#x27;string&#x27;?e.protocol:protocol.label||protocol.id||value(&#x27;protocol_ref&#x27;,&#x27;goal_protocol_ref&#x27;));
- if([&#x27;run&#x27;,&#x27;experiment&#x27;].includes(e.kind)){
-  add(&#x27;Evaluation&#x27;,value(&#x27;evaluation_scope&#x27;,&#x27;evaluation_type&#x27;,&#x27;evaluation_mode&#x27;,&#x27;performed_scope&#x27;,&#x27;scope&#x27;));
-  if(p.offline_only===true)add(&#x27;Evaluation&#x27;,&#x27;Offline&#x27;);
-  add(&#x27;Success criteria&#x27;,value(&#x27;success_criteria&#x27;,&#x27;success_condition&#x27;,&#x27;success_definition&#x27;,&#x27;success_predicate&#x27;));
-  for(const [key,label,unit] of [[&#x27;distance_tolerance_mm&#x27;,&#x27;Position tolerance&#x27;,&#x27;mm&#x27;],[&#x27;angle_tolerance_deg&#x27;,&#x27;Angle tolerance&#x27;,&#x27;°&#x27;],[&#x27;continuous_s&#x27;,&#x27;Continuous hold&#x27;,&#x27;s&#x27;],[&#x27;active_hold_s&#x27;,&#x27;Hold window&#x27;,&#x27;s&#x27;]])if(protocol[key]!=null)add(label,protocol[key]+&#x27; &#x27;+unit);
-  add(&#x27;Evaluator&#x27;,value(&#x27;evaluator&#x27;,&#x27;evaluation_tool&#x27;,&#x27;observer_identity&#x27;,&#x27;common_observer&#x27;,&#x27;observer&#x27;));
-  add(&#x27;Split&#x27;,value(&#x27;split&#x27;));add(&#x27;Cohort&#x27;,value(&#x27;cohort&#x27;,&#x27;population&#x27;));
-  add(&#x27;Planned cases&#x27;,value(&#x27;planned_cases&#x27;,&#x27;planned&#x27;));add(&#x27;Valid cases&#x27;,value(&#x27;valid_cases&#x27;,&#x27;valid&#x27;));add(&#x27;Infrastructure failures&#x27;,value(&#x27;infra&#x27;));add(&#x27;Pending&#x27;,value(&#x27;pending&#x27;));
- }else if(e.kind===&#x27;dataset&#x27;){
-  add(&#x27;Physics&#x27;,value(&#x27;physics&#x27;,&#x27;physics_config&#x27;,&#x27;physics_parameters&#x27;,&#x27;physics_settings&#x27;));
-  add(&#x27;Physics rate&#x27;,value(&#x27;physics_hz&#x27;));add(&#x27;Control rate&#x27;,value(&#x27;control_hz&#x27;,&#x27;frequency_hz&#x27;));
-  add(&#x27;Annotation&#x27;,value(&#x27;annotation&#x27;,&#x27;annotations&#x27;,&#x27;annotation_method&#x27;,&#x27;labeling&#x27;,&#x27;teacher_source_revision&#x27;));
-  add(&#x27;Source demos&#x27;,value(&#x27;source_human_parent_count&#x27;,&#x27;source_parent_count&#x27;));add(&#x27;Generation&#x27;,value(&#x27;generation_method&#x27;,&#x27;method&#x27;));
- }else if(e.kind===&#x27;model&#x27;){
-  const m=modelFilterMeta(e);if(m.role!==&#x27;미분류&#x27;)add(&#x27;Model type&#x27;,m.role);if(m.family!==&#x27;미기록&#x27;)add(&#x27;Architecture&#x27;,m.family);
-  add(&#x27;Training&#x27;,value(&#x27;method&#x27;,&#x27;training_method&#x27;));add(&#x27;Selected step&#x27;,value(&#x27;selected_step&#x27;));add(&#x27;Updates&#x27;,value(&#x27;optimizer_updates&#x27;));
- }
- const instruction=Array.isArray(inputs)?inputs.find(x=&gt;x.kind===&#x27;instruction&#x27;):null;
- if(instruction)add(&#x27;Instruction&#x27;,instruction.status===&#x27;absent&#x27;?&#x27;None&#x27;:instruction.status===&#x27;present&#x27;?(instruction.mode||instruction.value||&#x27;Present&#x27;):null);
- return rows;
-}
-function loomOutputFacts(e){return Object.entries(loomOutputMetadata(e)).filter(([,value])=&gt;[&#x27;string&#x27;,&#x27;number&#x27;,&#x27;boolean&#x27;].includes(typeof value)).map(([label,value])=&gt;({role:&#x27;research_metadata&#x27;,label,value}));}
-const loomOutputFactsBefore=catFacts;
-catFacts=function(e){const facts=loomOutputFactsBefore(e);const seen=new Set(facts.map(f=&gt;f.label));return [...facts,...loomOutputFacts(e).filter(f=&gt;!seen.has(f.label)).slice(0,4)];};
 function loomRepresentativeOutcome(e){
  const rows=catResultMetrics(e),primary=rows.filter(r=&gt;r.role===&#x27;primary_outcome&#x27;);
  if(primary.length===1)return primary;
@@ -5516,43 +5484,169 @@ function loomRepresentativeOutcome(e){
  return rows.length===1?rows:[];
 }
 resultOutcomeRows=loomRepresentativeOutcome;
-const loomFocusedResultCard=resultCard;
-resultCard=function(e){
- const metrics=catResultMetrics(e),primary=loomRepresentativeOutcome(e),facts=loomOutputFacts(e).slice(0,4);
- let html=loomFocusedResultCard(e);
- const metadata=facts.length?&#x27;&lt;dl class=&quot;pa-output-context&quot;&gt;&#x27;+facts.map(f=&gt;&#x27;&lt;div&gt;&lt;dt&gt;&#x27;+esc(f.label)+&#x27;&lt;/dt&gt;&lt;dd&gt;&#x27;+esc(f.value)+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/dl&gt;&#x27;:&#x27;&#x27;;
- const detail=metrics.length&gt;primary.length?&#x27;&lt;details class=&quot;pa-output-metrics&quot;&gt;&lt;summary&gt;Metrics · &#x27;+metrics.length+&#x27;&lt;/summary&gt;&#x27;+catTable([&#x27;Metric&#x27;,&#x27;Value&#x27;,&#x27;Population&#x27;],metrics.map(m=&gt;[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||m.aggregation||&#x27;—&#x27;)]))+&#x27;&lt;/details&gt;&#x27;:&#x27;&#x27;;
- return html.replace(&#x27;&lt;/article&gt;&#x27;,metadata+detail+&#x27;&lt;/article&gt;&#x27;);
-};
-const loomFocusedOutputDetail=catalogDetail;
-catalogDetail=function(id){
- const e=catEntity(id);let html=loomFocusedOutputDetail(id);
- if(!e||![&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;,&#x27;run&#x27;,&#x27;job&#x27;].includes(e.kind))return html;
- const t=document.createElement(&#x27;template&#x27;);t.innerHTML=html;const title=t.content.querySelector(&#x27;.pa-heading&#x27;);if(!title)return html;
- if(e.kind!==&#x27;job&#x27;){
-  const metadata=loomOutputMetadata(e),box=document.createElement(&#x27;div&#x27;);
-  if(Object.keys(metadata).length){box.innerHTML=panel(e.kind===&#x27;dataset&#x27;?&#x27;Collection&#x27;:e.kind===&#x27;model&#x27;?&#x27;Model&#x27;:&#x27;Evaluation&#x27;,catProperties(metadata));title.after(...box.children);}
-  // Scientific properties lead; full producer metadata remains available below.
-  for(const panelNode of t.content.querySelectorAll(&#x27;.pa-panel&#x27;)){
-   if(panelNode.querySelector(&#x27;:scope &gt; .pa-panel-head &gt; h2&#x27;)?.textContent!==&#x27;속성&#x27;)continue;
-   const details=document.createElement(&#x27;details&#x27;);details.className=&#x27;pa-output-source&#x27;;details.innerHTML=&#x27;&lt;summary&gt;Source metadata&lt;/summary&gt;&#x27;+panelNode.innerHTML;panelNode.replaceWith(details);
-  }
- }
- if([&#x27;run&#x27;,&#x27;experiment&#x27;].includes(e.kind)){
-  for(const grid of t.content.querySelectorAll(&#x27;.pa-metric-grid,.pa-outcome-highlights&#x27;))grid.remove();
-  const primary=loomRepresentativeOutcome(e);
-  if(primary.length)title.insertAdjacentHTML(&#x27;afterend&#x27;,panel(&#x27;Outcome&#x27;,catTable([&#x27;Metric&#x27;,&#x27;Value&#x27;,&#x27;Population&#x27;],primary.map(m=&gt;[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||&#x27;—&#x27;)]))));
- }
- const record=document.createElement(&#x27;details&#x27;);record.className=&#x27;pa-output-source&#x27;;record.innerHTML=&#x27;&lt;summary&gt;Record&lt;/summary&gt;&#x27;+catProperties({Owner:e.owner_profile?.display_name||e.owner||&#x27;—&#x27;,ID:e.id});t.content.append(record);
- const task=loomTaskProperty(e);if(task)title.insertAdjacentHTML(&#x27;beforebegin&#x27;,task);
- return t.innerHTML;
-};
 
 function loomOutputRank(e){
  if(e.kind===&#x27;dataset&#x27;)return ({training_observations:0,diagnostic_observations:2,evaluation_conditions:3}[e.dataset_overview?.role]??1);
  if(e.kind===&#x27;model&#x27;)return ({VLA:0,Policy:1,Observer:3}[modelFilterMeta(e).role]??2);
  return e.properties?.importance===&#x27;major&#x27;?0:1;
 }
+
+// One scientific summary for cards and details. Registered-source extraction and
+// provenance live in Rust; this module formats their values, never host files.
+const loomResearchSections={context:&#x27;Context&#x27;,collection:&#x27;Collection&#x27;,observations:&#x27;Observations&#x27;,physics:&#x27;Physics &amp; control&#x27;,annotations:&#x27;Annotations&#x27;,instructions:&#x27;Instructions&#x27;,model:&#x27;Model&#x27;,training:&#x27;Training&#x27;,validation:&#x27;Validation&#x27;,evaluation:&#x27;Evaluation&#x27;,population:&#x27;Population&#x27;,scoring:&#x27;Success criteria&#x27;};
+const loomResearchMissing=new Set([&#x27;미기록&#x27;,&#x27;미측정&#x27;,&#x27;Not recorded&#x27;,&#x27;Unknown&#x27;]);
+function loomResearchSummary(e){
+ if(e.research_summary?.schema===&#x27;loom-research-summary/v1&#x27;)return e.research_summary;
+ // Compatibility with older servers/fixtures, restricted to recorded fields.
+ const p={...(e.properties||{}),...(e.metadata||{})},d=e.dataset_overview||{},facts=[];
+ const add=(id,label,value,section=&#x27;context&#x27;,unit=null)=&gt;{if(value!==undefined&amp;&amp;value!==null&amp;&amp;value!==&#x27;&#x27;)facts.push({id,label,value,section,unit,status:&#x27;recorded&#x27;,evidence:[]});};
+ for(const [id,key,label,section,unit] of [
+  [&#x27;architecture&#x27;,&#x27;architecture&#x27;,&#x27;Architecture&#x27;,&#x27;model&#x27;],[&#x27;model_role&#x27;,&#x27;model_role&#x27;,&#x27;Model type&#x27;,&#x27;model&#x27;],[&#x27;initialization&#x27;,&#x27;initialization&#x27;,&#x27;Initialization&#x27;,&#x27;training&#x27;],[&#x27;training_method&#x27;,&#x27;method&#x27;,&#x27;Training&#x27;,&#x27;training&#x27;],[&#x27;selected_step&#x27;,&#x27;selected_step&#x27;,&#x27;Selected step&#x27;,&#x27;training&#x27;,&#x27;updates&#x27;],[&#x27;optimizer_updates&#x27;,&#x27;optimizer_updates&#x27;,&#x27;Training steps&#x27;,&#x27;training&#x27;,&#x27;updates&#x27;],[&#x27;outputs&#x27;,&#x27;output_semantics&#x27;,&#x27;Prediction&#x27;,&#x27;model&#x27;],
+  [&#x27;physics_hz&#x27;,&#x27;physics_hz&#x27;,&#x27;Physics&#x27;,&#x27;physics&#x27;,&#x27;Hz&#x27;],[&#x27;control_hz&#x27;,&#x27;control_hz&#x27;,&#x27;Control&#x27;,&#x27;physics&#x27;,&#x27;Hz&#x27;],[&#x27;annotation&#x27;,&#x27;annotation_method&#x27;,&#x27;Annotation&#x27;,&#x27;annotations&#x27;],[&#x27;source_demos&#x27;,&#x27;source_human_parent_count&#x27;,&#x27;Source demonstrations&#x27;,&#x27;collection&#x27;],[&#x27;evaluation_mode&#x27;,&#x27;evaluation_scope&#x27;,&#x27;Evaluation&#x27;,&#x27;evaluation&#x27;],[&#x27;evaluator&#x27;,&#x27;common_observer&#x27;,&#x27;Evaluator&#x27;,&#x27;evaluation&#x27;],[&#x27;split&#x27;,&#x27;split&#x27;,&#x27;Split&#x27;,&#x27;population&#x27;],[&#x27;valid&#x27;,&#x27;valid&#x27;,&#x27;Valid&#x27;,&#x27;population&#x27;,&#x27;cases&#x27;],[&#x27;infra&#x27;,&#x27;infra&#x27;,&#x27;Infrastructure failures&#x27;,&#x27;population&#x27;,&#x27;cases&#x27;],[&#x27;validation_mean_error&#x27;,&#x27;validation_mean_point_error_m&#x27;,&#x27;Validation point error&#x27;,&#x27;validation&#x27;,&#x27;m&#x27;],[&#x27;validation_p95_error&#x27;,&#x27;validation_point_p95_m&#x27;,&#x27;Validation P95 error&#x27;,&#x27;validation&#x27;,&#x27;m&#x27;]])add(id,label,p[key],section,unit);
+ if(e.kind===&#x27;dataset&#x27;){add(&#x27;count&#x27;,&#x27;Count&#x27;,Object.hasOwn(d,&#x27;count&#x27;)?d.count:p.episodes??p.count,&#x27;collection&#x27;);add(&#x27;count_unit&#x27;,&#x27;Unit&#x27;,d.count_unit||p.count_unit||(p.episodes!=null?&#x27;episodes&#x27;:null),&#x27;collection&#x27;);add(&#x27;frames&#x27;,&#x27;Frames&#x27;,Object.hasOwn(d,&#x27;frames&#x27;)?d.frames:p.frames,&#x27;collection&#x27;);add(&#x27;split&#x27;,&#x27;Split&#x27;,d.splits?.length?d.splits:p.split_clips||p.split,&#x27;collection&#x27;);}
+ const protocol=e.protocol||p.protocol||{};
+ for(const [id,label,unit] of [[&#x27;distance_tolerance_mm&#x27;,&#x27;Position tolerance&#x27;,&#x27;mm&#x27;],[&#x27;angle_tolerance_deg&#x27;,&#x27;Angle tolerance&#x27;,&#x27;°&#x27;],[&#x27;continuous_s&#x27;,&#x27;Continuous hold&#x27;,&#x27;s&#x27;],[&#x27;active_hold_s&#x27;,&#x27;Hold window&#x27;,&#x27;s&#x27;]])add(id,label,protocol[id],&#x27;scoring&#x27;,unit);
+ const inputs=e.inputs?.length?e.inputs:p.inputs?.length?p.inputs:d.inputs||[];
+ return {schema:&#x27;loom-research-summary/v1&#x27;,kind:e.kind,facts,inputs,sources:[]};
+}
+function loomResearchFactMap(e){return new Map(loomResearchSummary(e).facts.map(f=&gt;[f.id,f]));}
+function loomResearchNumber(v){return Math.abs(v)&gt;0&amp;&amp;Math.abs(v)&lt;.001?Number(v).toExponential(3):Number(v).toLocaleString(&#x27;en-US&#x27;,{maximumFractionDigits:3});}
+function loomResearchSplit(v){
+ const items=Array.isArray(v)?v:Object.entries(v||{}).map(([id,value])=&gt;({id,...(typeof value===&#x27;number&#x27;?{count:value}:Array.isArray(value)?{count:value.length}:value)}));
+ const rank={train:0,validation:1,val:1,test:2};
+ return [...items].sort((a,b)=&gt;(rank[a.id]??3)-(rank[b.id]??3)).map(x=&gt;{
+  const n=x.count??x.adopted;return x.id+&#x27; &#x27;+(n==null?&#x27;—&#x27;:loomResearchNumber(n));
+ }).join(&#x27; / &#x27;);
+}
+function loomResearchValue(f,{compact=false}={}){
+ if(f.status===&#x27;conflict&#x27;)return &#x27;Conflicting records&#x27;;
+ let v=f.value,unit=f.unit||&#x27;&#x27;;
+ if(f.id===&#x27;split&#x27;&amp;&amp;typeof v===&#x27;object&#x27;)return loomResearchSplit(v);
+ if(f.id===&#x27;architecture&#x27;&amp;&amp;typeof v===&#x27;string&#x27;)return v.split(&#x27;:&#x27;)[0];
+ if(f.id===&#x27;outputs&#x27;){
+  if(Array.isArray(v))return v.join(&#x27; · &#x27;);
+  if(v&amp;&amp;typeof v===&#x27;object&#x27;)return Object.entries(v).map(([name,x])=&gt;name+(x.shape?&#x27; [&#x27;+x.shape.join(&#x27;×&#x27;)+&#x27;]&#x27;:&#x27;&#x27;)).join(&#x27; · &#x27;);
+ }
+ if(f.id===&#x27;model_role&#x27;&amp;&amp;typeof v===&#x27;string&#x27;)return ({observer:&#x27;Observer&#x27;,vla:&#x27;VLA&#x27;,policy:&#x27;Policy&#x27;,world_model:&#x27;World model&#x27;})[v]||v;
+ if(f.id===&#x27;training_method&#x27;&amp;&amp;typeof v===&#x27;string&#x27;)return v.split(&#x27;;&#x27;)[0];
+ if(typeof v===&#x27;boolean&#x27;)return v?&#x27;Yes&#x27;:&#x27;No&#x27;;
+ if(typeof v===&#x27;number&#x27;){
+  if(unit===&#x27;m&#x27;&amp;&amp;[&#x27;validation_mean_error&#x27;,&#x27;validation_p95_error&#x27;,&#x27;point_mean_error&#x27;,&#x27;point_p95_error&#x27;,&#x27;hold_center_drift_m&#x27;,&#x27;height_tolerance_m&#x27;].includes(f.id)){v*=1000;unit=&#x27;mm&#x27;;}
+  return loomResearchNumber(v)+(unit?&#x27; &#x27;+unit:&#x27;&#x27;);
+ }
+ if(Array.isArray(v))return v.map(x=&gt;typeof x===&#x27;object&#x27;?JSON.stringify(x):String(x)).join(&#x27; · &#x27;);
+ if(v&amp;&amp;typeof v===&#x27;object&#x27;)return JSON.stringify(v);
+ return String(v??&#x27;—&#x27;)+(unit?&#x27; &#x27;+unit:&#x27;&#x27;);
+}
+function loomResearchInputs(e){return loomResearchSummary(e).inputs||[];}
+function loomResearchInputName(input){
+ const kinds={rgb:&#x27;RGB&#x27;,depth:&#x27;Depth&#x27;,rgbd:&#x27;RGB-D&#x27;,state:&#x27;State&#x27;,action:&#x27;Action&#x27;,depth_validity:&#x27;Depth mask&#x27;,camera_intrinsics:&#x27;Intrinsics&#x27;,camera_transform:&#x27;Camera pose&#x27;,instruction:&#x27;Instruction&#x27;,joint_state:&#x27;Joint state&#x27;,object_ground_truth:&#x27;Object GT&#x27;,vision:&#x27;Vision&#x27;};
+ if(input.kind===&#x27;vision&#x27;){
+  const v=Array.isArray(input.value)?input.value.join(&#x27; · &#x27;):input.value;
+  const modes=String(v||&#x27;&#x27;).match(/RGB-D|RGB|Depth/gi);if(modes?.length)return [...new Set(modes)].join(&#x27; · &#x27;);
+ }
+ return kinds[input.kind]||input.label||input.kind;
+}
+function loomResearchInputSummary(e){
+ const items=loomResearchInputs(e).filter(x=&gt;x.status===&#x27;present&#x27;&amp;&amp;![&#x27;instruction&#x27;,&#x27;camera_intrinsics&#x27;,&#x27;camera_transform&#x27;,&#x27;depth_validity&#x27;].includes(x.kind));
+ if(!items.length)return null;
+ const names=[...new Set(items.map(x=&gt;loomResearchInputName(x)+(x.shape?.length?&#x27; [&#x27;+x.shape.join(&#x27;×&#x27;)+&#x27;]&#x27;:x.kind===&#x27;state&#x27;&amp;&amp;typeof x.value===&#x27;string&#x27;&amp;&amp;/^[0-9]+D$/i.test(x.value)?&#x27; &#x27;+x.value:&#x27;&#x27;)))];return names.join(&#x27; · &#x27;);
+}
+function loomResearchInstruction(e){
+ const direct=loomResearchFactMap(e).get(&#x27;instruction_mode&#x27;);if(direct)return loomResearchValue(direct);
+ const i=loomResearchInputs(e).find(x=&gt;x.kind===&#x27;instruction&#x27;);if(!i)return null;
+ if(i.status===&#x27;absent&#x27;)return &#x27;None&#x27;;if(i.status!==&#x27;present&#x27;)return null;
+ let v=i.mode||i.value;if([&#x27;사용&#x27;,&#x27;used&#x27;,&#x27;Present&#x27;,&#x27;present&#x27;,&#x27;Yes&#x27;].includes(v))v=null;return v?({fixed:&#x27;Fixed&#x27;,phase_conditioned:&#x27;Phase-conditioned&#x27;,overall:&#x27;Task-level&#x27;}[v]||String(v)):&#x27;Language-conditioned&#x27;;
+}
+function loomResearchCardFacts(e){
+ const map=loomResearchFactMap(e),isDataset=e.kind===&#x27;dataset&#x27;,isModel=e.kind===&#x27;model&#x27;;
+ const order=isDataset?[&#x27;count&#x27;,&#x27;frames&#x27;,&#x27;train_snapshots&#x27;,&#x27;validation_snapshots&#x27;,&#x27;inputs&#x27;,&#x27;split&#x27;,&#x27;physics&#x27;,&#x27;dynamics&#x27;,&#x27;annotation&#x27;,&#x27;annotation_source&#x27;,&#x27;instruction_mode&#x27;,&#x27;source_demos&#x27;]:
+  isModel?[&#x27;model_role&#x27;,&#x27;architecture&#x27;,&#x27;inputs&#x27;,&#x27;outputs&#x27;,&#x27;validation_mean_error&#x27;,&#x27;validation_p95_error&#x27;,&#x27;test_action_mse&#x27;,&#x27;test_action_mae&#x27;,&#x27;test_action_rmse&#x27;,&#x27;selected_step&#x27;,&#x27;train_frames&#x27;,&#x27;validation_frames&#x27;,&#x27;train_snapshots&#x27;,&#x27;validation_snapshots&#x27;,&#x27;training_method&#x27;,&#x27;initialization&#x27;,&#x27;instruction_mode&#x27;]:
+  [&#x27;outcome&#x27;,&#x27;terminal_reason&#x27;,&#x27;evaluation_mode&#x27;,&#x27;evaluator&#x27;,&#x27;valid&#x27;,&#x27;split&#x27;,&#x27;validation_mean_error&#x27;,&#x27;validation_p95_error&#x27;,&#x27;point_mean_error&#x27;,&#x27;point_p95_error&#x27;,&#x27;selected_step&#x27;,&#x27;optimizer_updates&#x27;,&#x27;selection_validation_loss&#x27;,&#x27;test_action_rmse&#x27;,&#x27;distance_tolerance_mm&#x27;,&#x27;hold_center_drift_m&#x27;,&#x27;height_tolerance_m&#x27;,&#x27;angle_tolerance_deg&#x27;,&#x27;rotation_tolerance_deg&#x27;,&#x27;continuous_s&#x27;,&#x27;hold_seconds&#x27;,&#x27;physics_hz&#x27;,&#x27;control_hz&#x27;,&#x27;infra&#x27;];
+ const input=loomResearchInputSummary(e);if(input)map.set(&#x27;inputs&#x27;,{id:&#x27;inputs&#x27;,label:&#x27;Inputs&#x27;,value:input,status:&#x27;recorded&#x27;});
+ const instruction=loomResearchInstruction(e);if(instruction)map.set(&#x27;instruction_mode&#x27;,{id:&#x27;instruction_mode&#x27;,label:&#x27;Instruction&#x27;,value:instruction,status:&#x27;recorded&#x27;});
+ if(isDataset){
+  const physics=[&#x27;physics_hz&#x27;,&#x27;control_hz&#x27;,&#x27;rgb_hz&#x27;,&#x27;state_hz&#x27;].map(id=&gt;map.get(id)).filter(Boolean);
+  if(physics.length)map.set(&#x27;physics&#x27;,{id:&#x27;physics&#x27;,label:&#x27;Physics / sampling&#x27;,value:physics.map(f=&gt;f.label+&#x27; &#x27;+loomResearchValue(f)).join(&#x27; · &#x27;),status:&#x27;recorded&#x27;});
+  const dynamics=[&#x27;payload_mass&#x27;,&#x27;collision&#x27;,&#x27;robot_gravity_disabled&#x27;].map(id=&gt;map.get(id)).filter(Boolean);
+  if(dynamics.length)map.set(&#x27;dynamics&#x27;,{id:&#x27;dynamics&#x27;,label:&#x27;Dynamics&#x27;,value:dynamics.map(f=&gt;f.id===&#x27;robot_gravity_disabled&#x27;?&#x27;Robot gravity &#x27;+(f.value?&#x27;off&#x27;:&#x27;on&#x27;):f.label+&#x27; &#x27;+loomResearchValue(f)).join(&#x27; · &#x27;),status:&#x27;recorded&#x27;});
+ }
+ const count=map.get(&#x27;count&#x27;),unit=map.get(&#x27;count_unit&#x27;)?.value;
+ if(count)map.set(&#x27;count&#x27;,{...count,label:({episodes:&#x27;Episodes&#x27;,clips:&#x27;Clips&#x27;,cases:&#x27;Cases&#x27;,snapshots:&#x27;Snapshots&#x27;})[unit]||&#x27;Count&#x27;});
+ return order.map(id=&gt;map.get(id)).filter(f=&gt;f&amp;&amp;f.status!==&#x27;conflict&#x27;).slice(0,isDataset?10:isModel?9:10);
+}
+const loomResearchOldModelMeta=modelFilterMeta;
+modelFilterMeta=function(e){
+ const result=loomResearchOldModelMeta(e),facts=loomResearchFactMap(e),role=facts.get(&#x27;model_role&#x27;),architecture=facts.get(&#x27;architecture&#x27;);
+ if(role?.status===&#x27;recorded&#x27;)result.role=loomResearchValue(role);
+ if(architecture?.status===&#x27;recorded&#x27;)result.family=loomResearchValue(architecture,{compact:true});
+ const inputs=loomResearchInputs(e).filter(i=&gt;i.status===&#x27;present&#x27;);
+ const rgb=inputs.some(i=&gt;i.kind===&#x27;rgb&#x27;||i.kind===&#x27;rgbd&#x27;||i.kind===&#x27;vision&#x27;&amp;&amp;/RGB/i.test(String(i.value||&#x27;&#x27;)));
+ const depth=inputs.some(i=&gt;i.kind===&#x27;depth&#x27;||i.kind===&#x27;rgbd&#x27;||i.kind===&#x27;vision&#x27;&amp;&amp;/RGB-D/i.test(String(i.value||&#x27;&#x27;)));
+ if(rgb||depth)result.vision=rgb&amp;&amp;depth?&#x27;RGB-D&#x27;:rgb?&#x27;RGB&#x27;:&#x27;Depth&#x27;;
+ const instruction=loomResearchInstruction(e);if(instruction)result.instruction=instruction;
+ return result;
+};
+catInputProperties=function(e){
+ const inputs=loomResearchInputs(e).filter(x=&gt;x.status===&#x27;present&#x27;);
+ return &#x27;&lt;div class=&quot;pa-input-properties&quot;&gt;&#x27;+inputs.map(x=&gt;&#x27;&lt;span class=&quot;pa-input-property&quot;&gt;&lt;small&gt;&#x27;+esc(loomResearchInputName(x))+&#x27;&lt;/small&gt;&lt;b&gt;&#x27;+esc(x.shape?.length?x.shape.join(&#x27;×&#x27;):Array.isArray(x.value)?x.value.join(&#x27; · &#x27;):x.value||x.unit||&#x27;&#x27;)+&#x27;&lt;/b&gt;&lt;/span&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+};
+catFacts=function(e){
+ if([&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;,&#x27;run&#x27;].includes(e.kind))return loomResearchCardFacts(e).map(f=&gt;({role:f.id,label:f.label,value:loomResearchValue(f,{compact:true})}));
+ return loomPriorCatalogFacts(e);
+};
+function loomResearchFactsHTML(facts,compact=false){return &#x27;&lt;dl class=&quot;pa-entity-facts pa-scientific-facts &#x27;+(compact?&#x27;is-compact&#x27;:&#x27;&#x27;)+&#x27;&quot;&gt;&#x27;+facts.map(f=&gt;&#x27;&lt;div data-research-fact=&quot;&#x27;+esc(f.id)+&#x27;&quot;&gt;&lt;dt&gt;&#x27;+esc(f.label)+&#x27;&lt;/dt&gt;&lt;dd title=&quot;&#x27;+esc(loomResearchValue(f))+&#x27;&quot;&gt;&#x27;+esc(loomResearchValue(f,{compact}))+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/dl&gt;&#x27;;}
+function loomResearchCard(e,result=false){
+ const outcomes=result?loomRepresentativeOutcome(e):[],facts=loomResearchCardFacts(e),metrics=result?catResultMetrics(e):[];
+ return &#x27;&lt;article class=&quot;pa-catalog-item pa-scientific-card &#x27;+(e.kind===&#x27;dataset&#x27;?&#x27;pa-dataset-item&#x27;:result?&#x27;pa-result-card&#x27;:&#x27;&#x27;)+&#x27;&quot; data-output-id=&quot;&#x27;+esc(e.id)+&#x27;&quot;&gt;&#x27;
+  +loomTaskProperty(e)+&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;+catLink(e.id)+(result?resultDispositionPanel(e,true):&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;
+  +(outcomes.length?&#x27;&lt;div class=&quot;pa-result-score&quot;&gt;&#x27;+outcomes.map(m=&gt;&#x27;&lt;div class=&quot;pa-result-score-item&quot;&gt;&lt;small&gt;&#x27;+esc(m.label)+&#x27;&lt;/small&gt;&lt;strong&gt;&#x27;+resultOutcomeValue(m)+&#x27;&lt;/strong&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;:&#x27;&#x27;)
+  +loomResearchFactsHTML(facts,true)
+  +(metrics.length&gt;outcomes.length?&#x27;&lt;details class=&quot;pa-output-metrics&quot;&gt;&lt;summary&gt;Metrics · &#x27;+metrics.length+&#x27;&lt;/summary&gt;&#x27;+catTable([&#x27;Metric&#x27;,&#x27;Value&#x27;,&#x27;Population&#x27;],metrics.map(m=&gt;[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||m.aggregation||&#x27;—&#x27;)]))+&#x27;&lt;/details&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/article&gt;&#x27;;
+}
+const loomResearchOldRow=catListRow;
+catListRow=function(e){return [&#x27;model&#x27;,&#x27;dataset&#x27;].includes(e.kind)?loomResearchCard(e):loomResearchOldRow(e);};
+resultCard=function(e){return loomResearchCard(e,true);};
+function loomResearchOverview(e){
+ const s=loomResearchSummary(e),map=loomResearchFactMap(e),inputs=s.inputs.filter(x=&gt;x.status===&#x27;present&#x27;);
+ const order=e.kind===&#x27;model&#x27;?[&#x27;model&#x27;,&#x27;validation&#x27;,&#x27;training&#x27;,&#x27;inputs&#x27;,&#x27;observations&#x27;,&#x27;physics&#x27;,&#x27;instructions&#x27;,&#x27;context&#x27;]:
+  e.kind===&#x27;dataset&#x27;?[&#x27;collection&#x27;,&#x27;physics&#x27;,&#x27;observations&#x27;,&#x27;annotations&#x27;,&#x27;instructions&#x27;,&#x27;context&#x27;]:
+  [&#x27;evaluation&#x27;,&#x27;validation&#x27;,&#x27;training&#x27;,&#x27;scoring&#x27;,&#x27;population&#x27;,&#x27;physics&#x27;,&#x27;context&#x27;,&#x27;annotations&#x27;,&#x27;observations&#x27;,&#x27;instructions&#x27;];
+ let body=&#x27;&lt;section class=&quot;pa-research-overview&quot; aria-label=&quot;Research properties&quot;&gt;&#x27;;
+ for(const id of order){
+  if(id===&#x27;inputs&#x27;){
+   if(inputs.length)body+=panel(&#x27;Inputs&#x27;,catTable([&#x27;Signal&#x27;,&#x27;Shape / value&#x27;,&#x27;Unit&#x27;,&#x27;Dtype&#x27;,&#x27;Preprocessing&#x27;],inputs.map(x=&gt;[esc(x.label||loomResearchInputName(x)),esc(x.shape?.join(&#x27;×&#x27;)||(Array.isArray(x.value)?x.value.join(&#x27; · &#x27;):x.value)||&#x27;—&#x27;),esc(x.unit||&#x27;—&#x27;),esc(x.dtype||&#x27;—&#x27;),esc(x.preprocessing||&#x27;—&#x27;)])));
+   continue;
+  }
+  const facts=s.facts.filter(f=&gt;f.section===id&amp;&amp;f.id!==&#x27;observation_schema&#x27;&amp;&amp;f.id!==&#x27;count_unit&#x27;);
+  if(id===&#x27;model&#x27;&amp;&amp;inputs.length)facts.push({id:&#x27;inputs&#x27;,label:&#x27;Inputs&#x27;,value:loomResearchInputSummary(e),status:&#x27;recorded&#x27;});
+  if(!facts.length)continue;
+  body+=panel(loomResearchSections[id],loomResearchFactsHTML(facts));
+ }
+ const instruction=loomResearchInstruction(e);if(instruction&amp;&amp;!map.has(&#x27;instruction_mode&#x27;))body+=panel(&#x27;Instructions&#x27;,catProperties({Mode:instruction}));
+ const sourceRows=s.facts.flatMap(f=&gt;(f.evidence||[]).map(ev=&gt;[esc(f.label),esc(ev.source?.ref||&#x27;Record metadata&#x27;),esc(ev.pointer)]));
+ body+=&#x27;&lt;details class=&quot;pa-output-source&quot;&gt;&lt;summary&gt;Sources&lt;/summary&gt;&#x27;+catTable([&#x27;Fact&#x27;,&#x27;Source&#x27;,&#x27;JSON pointer&#x27;],sourceRows)
+  +(s.sources?.some(x=&gt;x.status!==&#x27;verified&#x27;)?&#x27;&lt;p class=&quot;pa-catalog-warning&quot;&gt;Some registered metadata files could not be verified.&lt;/p&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/details&gt;&lt;/section&gt;&#x27;;
+ return body;
+}
+const loomResearchOldDetail=catalogDetail;
+catalogDetail=function(id){
+ const e=catEntity(id);let html=loomResearchOldDetail(id);if(!e||![&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;run&#x27;,&#x27;experiment&#x27;].includes(e.kind))return html;
+ const t=document.createElement(&#x27;template&#x27;);t.innerHTML=html;const title=t.content.querySelector(&#x27;.pa-heading&#x27;);if(!title)return html;
+ // The canonical overview replaces generic flat highlights and arbitrary scalar
+ // tiles. Full metrics, lineage and original producer metadata remain below.
+ for(const node of t.content.querySelectorAll(&#x27;.pa-entity-facts,.pa-model-meta,.pa-metric-grid,.pa-outcome-highlights&#x27;))node.remove();
+ for(const node of t.content.querySelectorAll(&#x27;.pa-panel&#x27;)){
+  const name=node.querySelector(&#x27;:scope &gt; .pa-panel-head &gt; h2&#x27;)?.textContent;
+  if([&#x27;속성&#x27;,&#x27;Dataset Properties&#x27;].includes(name)){const details=document.createElement(&#x27;details&#x27;);details.className=&#x27;pa-output-source&#x27;;details.innerHTML=&#x27;&lt;summary&gt;Source metadata&lt;/summary&gt;&#x27;+node.innerHTML;node.replaceWith(details);}
+ }
+ title.insertAdjacentHTML(&#x27;afterend&#x27;,loomResearchOverview(e));
+ title.insertAdjacentHTML(&#x27;beforebegin&#x27;,loomTaskProperty(e));
+ const primary=[&#x27;run&#x27;,&#x27;experiment&#x27;].includes(e.kind)?loomRepresentativeOutcome(e):[];
+ if(primary.length)title.insertAdjacentHTML(&#x27;afterend&#x27;,panel(&#x27;Outcome&#x27;,catTable([&#x27;Metric&#x27;,&#x27;Value&#x27;,&#x27;Population&#x27;],primary.map(m=&gt;[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||&#x27;—&#x27;)]))));
+ const record=document.createElement(&#x27;details&#x27;);record.className=&#x27;pa-output-source&#x27;;record.innerHTML=&#x27;&lt;summary&gt;Record&lt;/summary&gt;&#x27;+catProperties({Owner:e.owner_profile?.display_name||e.owner||&#x27;—&#x27;,ID:e.id});t.content.append(record);
+ return t.innerHTML;
+};
 
 // Flat marks use compositor-friendly CSS; no animation frame loop on Dashboard.
 (()=&gt;{const sync=()=&gt;document.documentElement.toggleAttribute(&#x27;data-loom-motion-hidden&#x27;,document.hidden);document.addEventListener(&#x27;visibilitychange&#x27;,sync);sync();
@@ -6406,6 +6500,26 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 #pai-studio .pa-footer{align-items:center;flex-direction:row;flex-wrap:wrap;min-height:30px;padding:6px 18px;line-height:1.5;gap:10px}
 #pai-studio .pa-footer span:empty{display:none}
 #pai-studio .pa-node-summary [data-index-state]{margin-top:8px;color:var(--pa-accent)}
+
+/* Scientific fields are shared across output families; long producer prose and
+   raw paths stay in source details, not in the first visible card rows. */
+#pai-studio .pa-scientific-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 22px;margin:12px 0 0;grid-column:1/-1;flex-basis:100%}
+#pai-studio .pa-scientific-facts&gt;div{min-width:0;display:block;max-width:100%}
+#pai-studio .pa-scientific-facts dt{font-size:11px;color:var(--pa-muted);margin-bottom:4px;white-space:nowrap}
+#pai-studio .pa-scientific-facts dd{margin:0;font-size:13px;line-height:1.5;overflow-wrap:anywhere;color:var(--pa-ink)}
+#pai-studio .pa-scientific-facts.is-compact dd{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#pai-studio .pa-scientific-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 20px;align-items:start;padding:20px 0}
+#pai-studio .pa-scientific-card .pa-output-task{margin-bottom:12px}
+#pai-studio .pa-research-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
+#pai-studio .pa-research-overview .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr));margin:0}
+#pai-studio .pa-research-overview&gt;.pa-output-source{grid-column:1/-1}
+#pai-studio .pa-scientific-card .pa-row-main&gt;a{font-weight:600;font-size:14px}
+@container pane (max-width:760px){#pai-studio .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr))}#pai-studio .pa-research-overview{grid-template-columns:minmax(0,1fr)}}
+@container pane (max-width:420px){#pai-studio .pa-scientific-card{grid-template-columns:minmax(0,1fr)}#pai-studio .pa-scientific-card .pa-result-score{margin-top:12px}}
+#pai-studio .pa-scientific-card .pa-scientific-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 22px}
+#pai-studio .pa-scientific-card .pa-scientific-facts&gt;div{display:block}
+#pai-studio .pa-research-overview{align-items:start}
+@container pane (max-width:760px){#pai-studio .pa-scientific-card .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 /* Brand animation is decorative, never a live Job/status indicator. */
 :root{--loom-brand-accent:light-dark(#436fc7,#9bb9f1)}
 .loom-logo{overflow:visible;--loom-logo-blue:var(--loom-brand-accent)}

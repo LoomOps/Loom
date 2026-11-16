@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "loom-research-summary/v1",
+  "type": "object",
+  "required": ["schema", "kind", "facts", "inputs"],
+  "properties": {
+    "schema": {"const": "loom-research-summary/v1"},
+    "kind": {"enum": ["dataset", "model", "experiment", "run"]},
+    "facts": {"type": "array", "items": {"type": "object", "required": ["id", "section", "label", "value", "status", "evidence"], "properties": {
+      "id": {"type": "string"}, "section": {"type": "string"}, "label": {"type": "string"},
+      "value": {}, "unit": {"type": ["string", "null"]}, "status": {"enum": ["recorded", "conflict"]},
+      "evidence": {"type": "array", "items": {"type": "object", "required": ["source", "pointer"], "properties": {"source": {"type": "object"}, "pointer": {"type": "string"}}}},
+      "alternatives": {"type": "array"}
+    }}},
+    "inputs": {"type": "array", "items": {"type": "object", "required": ["kind", "status"], "properties": {"kind": {"type": "string"}, "status": {"type": "string"}, "shape": {"type": "array"}, "evidence": {"type": "object"}}}},
+    "sources": {"type": "array", "items": {"type": "object", "required": ["kind", "ref", "status"], "properties": {"kind": {"const": "file"}, "ref": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "status": {"enum": ["verified", "unavailable"]}, "media_id": {"type": "string"}, "binding": {"type": "object"}}}}
+  }
+}

@@ -2665,3 +2665,194 @@ fn output_name_curation_preserves_sources_and_agrees_across_current_read_models(
         assert_eq!(f.count("history_records"), 1);
     }
 }
+
+#[test]
+fn scientific_summary_recovers_verified_physics_and_observer_accuracy_without_used_placeholders() {
+    let e = json!({"id":"fixture-observer","kind":"model","properties":{"model_role":"observer","inputs":[{"kind":"rgb","status":"present","shape":[2,48,64,3]},{"kind":"depth","status":"present","shape":[2,48,64]},{"kind":"instruction","status":"absent"}],"validation_mean_point_error_m":0.004}});
+    let source =
+        json!({"kind":"file","ref":"readiness.json","sha256":"a".repeat(64),"status":"verified"});
+    let doc = json!({"train_frames":80,"validation_frames":20,"ensemble_validation":{"mean_point_error_m":0.004,"point_p95_m":0.009,"selection_data":"validation only","test_frames_read":0},"physics_hz":240,"native_pins":{"robot_gravity_disabled":false,"fixed_mass_properties":{"mass":0.125}}});
+    let original = e.clone();
+    let summary = crate::research_metadata::summarize(&e, &[(doc, source)]);
+    let facts = summary["facts"].as_array().unwrap();
+    let fact = |id: &str| facts.iter().find(|v| v["id"] == id).unwrap();
+    assert_eq!(fact("validation_mean_error")["value"], 0.004);
+    assert_eq!(fact("validation_mean_error")["unit"], "m");
+    assert_eq!(fact("physics_hz")["value"], 240);
+    assert_eq!(fact("robot_gravity_disabled")["value"], false);
+    assert_eq!(fact("payload_mass")["value"], 0.125);
+    assert_eq!(summary["inputs"][0]["shape"], json!([2, 48, 64, 3]));
+    assert_eq!(summary["inputs"][2]["status"], "absent");
+    assert_eq!(fact("test_frames_read")["value"], 0);
+    assert_eq!(e, original);
+    assert!(fact("physics_hz")["evidence"][0]["source"]["sha256"].is_string());
+}
+
+#[test]
+fn scientific_summary_does_not_confuse_validation_checks_with_policy_success_or_hide_conflicts() {
+    let e = json!({"id":"fixture-evaluation","kind":"experiment","properties":{}});
+    let source = json!({"kind":"file","ref":"summary.json"});
+    let summary = crate::research_metadata::summarize(
+        &e,
+        &[
+            (
+                json!({"counts":{"passed":4,"failed":1},"physics_hz":120}),
+                source.clone(),
+            ),
+            (json!({"physics_hz":240}), source),
+        ],
+    );
+    let facts = summary["facts"].as_array().unwrap();
+    assert!(!facts
+        .iter()
+        .any(|v| ["valid", "planned", "success"].contains(&v["id"].as_str().unwrap_or(""))));
+    assert_eq!(
+        facts.iter().find(|v| v["id"] == "physics_hz").unwrap()["status"],
+        "conflict"
+    );
+    assert!(!facts.iter().any(|v| v["id"] == "environment"));
+}
+
+#[test]
+fn scientific_json_enrichment_checks_hashes_and_preserves_original_database_rows() {
+    let f = Fixture::new();
+    let data = f.root.join("data");
+    let raw=br#"{"physics_hz":240,"sampling_clocks_hz":{"command":80,"RGB":20},"totals":{"adopted":4},"hdf5":{"rgb":"obs/rgb","action":"actions"}}"#;
+    fs::write(data.join("scientific.json"), raw).unwrap();
+    let manifest = json!({"id":"scientific","revision":1,"kind":"dataset","components":[{"ref":"scientific.json","size":raw.len(),"sha256":hash(raw)}],"relations":[]});
+    f.app
+        .db
+        .execute(
+            "INSERT INTO asset_revisions VALUES('scientific',1,NULL,'dataset','owner','owner',?)",
+            [manifest.to_string()],
+        )
+        .unwrap();
+    f.app.db.execute("INSERT INTO asset_locations VALUES('scientific',1,'scientific.json','fixture','fixture-data','scientific.json','available')",[]).unwrap();
+    let selected =
+        [json!({"native_ref":{"kind":"entity","identity":{"id":"scientific","revision":1}}})];
+    let page = f.app.dashboard_catalog_selected(Some(&selected)).unwrap();
+    let entity = page["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == "scientific")
+        .unwrap();
+    let summary = &entity["research_summary"];
+    assert_eq!(summary["sources"][0]["status"], "verified");
+    assert!(summary["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|v| v["id"] == "physics_hz" && v["value"] == 240));
+    assert_eq!(summary["inputs"][0]["kind"], "rgb");
+    let original: String = f
+        .app
+        .db
+        .query_row(
+            "SELECT manifest FROM asset_revisions WHERE id='scientific'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&original).unwrap(), manifest);
+    // A selected page always revalidates bytes, independently of the whole-catalog cache.
+    fs::write(data.join("scientific.json"), vec![b' '; raw.len()]).unwrap();
+    let selected =
+        [json!({"native_ref":{"kind":"entity","identity":{"id":"scientific","revision":1}}})];
+    let page = f.app.dashboard_catalog_selected(Some(&selected)).unwrap();
+    let entity = page["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == "scientific")
+        .unwrap();
+    assert_eq!(
+        entity["research_summary"]["sources"][0]["status"],
+        "unavailable"
+    );
+    assert!(!entity["research_summary"]["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|v| v["id"] == "physics_hz"));
+}
+
+#[test]
+fn scientific_sibling_context_requires_exact_publication_product_hash_and_unique_kind() {
+    let mut f = Fixture::new();
+    let job = f.submit("scientific-context");
+    let data = f.root.join("data");
+    let weights = b"synthetic model";
+    fs::write(data.join("weights.bin"), weights).unwrap();
+    let report = json!({"model":{"train_snapshots":40,"validation_snapshots":10,"initialization":"scratch"},"validation":{"error_distributions":{"point_m":{"mean":0.003}}},"artifacts":{"weights.bin":{"sha256":hash(weights)}}});
+    let raw = report.to_string();
+    fs::write(data.join("report.json"), &raw).unwrap();
+    let model = json!({"id":"scientific-model","revision":1,"kind":"model","attempt":"scientific-attempt","components":[{"ref":"weights.bin","sha256":hash(weights),"size":weights.len()}],"relations":[]});
+    let evidence = json!({"id":"scientific-report","revision":1,"kind":"experiment","attempt":"scientific-attempt","components":[{"ref":"report.json","sha256":hash(raw.as_bytes()),"size":raw.len()}],"relations":[]});
+    for (id, kind, m, component) in [
+        ("scientific-model", "model", &model, "weights.bin"),
+        ("scientific-report", "experiment", &evidence, "report.json"),
+    ] {
+        f.app
+            .db
+            .execute(
+                "INSERT INTO asset_revisions VALUES(?,1,?,?, 'owner','owner',?)",
+                rusqlite::params![id, job, kind, m.to_string()],
+            )
+            .unwrap();
+        f.app
+            .db
+            .execute(
+                "INSERT INTO asset_locations VALUES(?,1,?,'fixture','fixture-data',?,'available')",
+                rusqlite::params![id, component, component],
+            )
+            .unwrap();
+    }
+    let selected =
+        [json!({"native_ref":{"kind":"entity","identity":{"id":"scientific-model","revision":1}}})];
+    let page = f.app.dashboard_catalog_selected(Some(&selected)).unwrap();
+    let summary = &page["entities"][0]["research_summary"];
+    assert!(summary["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|v| v["id"] == "validation_mean_error" && v["value"] == 0.003));
+    assert_eq!(
+        summary["sources"][0]["binding"]["kind"],
+        "publication_artifact_sha256"
+    );
+    let other = json!({"id":"other-model","revision":1,"kind":"model","attempt":"scientific-attempt","components":[],"relations":[]});
+    f.app
+        .db
+        .execute(
+            "INSERT INTO asset_revisions VALUES('other-model',1,?,'model','owner','owner',?)",
+            rusqlite::params![job, other.to_string()],
+        )
+        .unwrap();
+    let page = f.app.dashboard_catalog_selected(Some(&selected)).unwrap();
+    assert!(page["entities"][0]["research_summary"]["facts"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn scientific_summary_keeps_training_losses_snapshot_units_and_explicit_failure_context() {
+    let report = json!({"id":"training-report", "kind":"experiment", "properties":{}, "control_policy":{"physics_hz":[120,240],"overwrite_hz":60}, "metadata":{"research":{"physics":{"control_hz":30}}}});
+    let document = json!({"selection":{"selected_step":2400,"training_updates":4000,"validation_loss":0.0000003,"criterion":"lowest held-out loss"},"model":{"train_snapshots":700},"outcome":"policy_failure","terminal":{"reason":"missing_estimate"},"clock":{"clock_hz":{"physics":120,"observer":30}},"result":{"action_metrics":{"all_phases":{"rmse_radians":0.002}}}});
+    let s = crate::research_metadata::summarize(
+        &report,
+        &[(document, json!({"kind":"file","ref":"report.json"}))],
+    );
+    let facts = s["facts"].as_array().unwrap();
+    let fact = |id: &str| facts.iter().find(|f| f["id"] == id).unwrap();
+    assert_eq!(fact("selected_step")["value"], 2400);
+    assert_eq!(fact("selection_validation_loss")["value"], 0.0000003);
+    assert_eq!(fact("train_snapshots")["value"], 700);
+    assert!(!facts.iter().any(|f| f["id"] == "train_frames"));
+    assert_eq!(fact("terminal_reason")["value"], "missing_estimate");
+    assert_eq!(fact("control_hz")["value"], 30);
+    assert_eq!(fact("physics_hz")["value"], json!([120, 240]));
+    assert_eq!(fact("test_action_rmse")["unit"], "rad");
+    assert!(!facts.iter().any(|f| f["id"] == "success"));
+}

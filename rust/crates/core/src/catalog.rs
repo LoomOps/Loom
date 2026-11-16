@@ -463,6 +463,22 @@ impl Application {
                 }
             }
         }
+        // Whole-catalog compatibility/curation reads stay metadata-only. File
+        // enrichment belongs to bounded pages on the independent query lane.
+        for entity in &mut entities {
+            if all {
+                if matches!(
+                    entity["kind"].as_str(),
+                    Some("model" | "dataset" | "experiment" | "run")
+                ) {
+                    let mut summary = crate::research_metadata::summarize(entity, &[]);
+                    summary["sources"] = json!([]);
+                    entity["research_summary"] = summary;
+                }
+            } else {
+                crate::research_metadata::enrich(self, entity);
+            }
+        }
         self.attach_task_context(&mut entities)?;
         let queue = self.queue()?;
         let value = json!({"entities":entities,"research_tasks":self.dashboard_tasks()?,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true,"item_search":true},"host":self.dashboard_host()?,"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});

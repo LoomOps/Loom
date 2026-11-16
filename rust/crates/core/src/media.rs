@@ -119,6 +119,11 @@ impl Application {
             .unwrap_or("")
             .strip_prefix("/api/dashboard/media/")
             .ok_or_else(|| Error::input("Media route required"))?;
+        self.registered_media(key, None)
+    }
+    // Internal read projections reuse the same registered identity, location,
+    // storage and hash checks. The caller already holds catalog read authority.
+    pub(crate) fn registered_media(&self, key: &str, bound: Option<u64>) -> Result<MediaRead> {
         require(
             key.len() <= 8192,
             "media",
@@ -177,7 +182,9 @@ impl Application {
         let reference = parts[3]
             .as_str()
             .ok_or_else(|| Error::input("File reference required"))?;
-        let (_, limit) = mime(reference).ok_or_else(|| Error::input("File type has no preview"))?;
+        let (_, preview_limit) =
+            mime(reference).ok_or_else(|| Error::input("File type has no preview"))?;
+        let limit = bound.unwrap_or(preview_limit);
         let size = component["size"]
             .as_u64()
             .ok_or_else(|| Error::input("Registered file size required"))?;

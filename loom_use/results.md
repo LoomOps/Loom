@@ -73,3 +73,20 @@ phase, observer diagnostic or conditional success rates are separate metrics; do
 not select their maximum, average incompatible denominators or call all primary.
 Use the Profile metadata schema; unknown fields remain unrecorded. Research
 acceptance is distinct from Job exit, artifact publication and runtime smoke.
+
+For a scientific summary, resolve the exact Item then call
+`system.dashboard_entity(item_id, revision_id)`. Read `research_summary.facts` and
+their evidence instead of guessing from a label. It can recover existing verified
+JSON manifests/readiness/protocol reports that were not flattened into metadata.
+
+New Profiles should declare a `metadata.research` object in their output metadata
+schema. Use explicit `environment`, `robot`, `physics` (physics_hz, control_hz,
+rgb_hz, state_hz, collision, payload_mass_kg, robot_gravity_disabled), `annotation`
+(method/source), `instruction` (mode/source), `collection` (count/unit/split,
+source_demos/method), `model` (role/architecture/outputs/initialization/base_model,
+training_method/selected_step/optimizer_updates/selection) and `evaluation`
+(mode/evaluator/cohort/split/success_criteria/planned/valid/infra/pending) fields as
+applicable. Do not fill irrelevant or unmeasured fields. Units are explicit.
+Keep a compact JSON context/report as a registered output and reference its exact
+artifact hashes; a path string alone is not a verified source. Record observed
+physics/sensor settings rather than treating a requested recipe as readback.

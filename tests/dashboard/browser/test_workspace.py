@@ -387,10 +387,10 @@ const done=arguments[arguments.length-1];
         ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('dataset-properties')")
         ui.top();self.wd('/url',{'url':self.base+'/#/entities/fixture-dataset'});ui.frame()
         ui.wait("return !!document.querySelector('details[data-dataset-source]')")
-        facts=ui.js("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent==='Dataset Properties').querySelector('.pa-props').textContent")
+        facts=ui.js("return document.querySelector('.pa-research-overview').textContent")
         self.assertIn('Count0',facts)
-        self.assertIn('Observation frames해당 없음',facts)
-        self.assertIn('Inputs해당 없음',facts)
+        self.assertNotIn('Frames999',facts)
+        self.assertFalse(ui.js("return !!document.querySelector('.pa-research-overview [data-research-fact=frames]')"))
         self.assertFalse(ui.js("return document.querySelector('details[data-dataset-source] pre').textContent.includes('episode-private')"))
         ui.click('details[data-dataset-source] summary')
         ui.wait("return document.querySelector('details[data-dataset-source] pre').textContent.includes('episode-private')")
@@ -424,7 +424,7 @@ const done=arguments[arguments.length-1];
         text=ui.js("return ['rich','legacy','annotated','conditions'].map(id=>document.querySelector('[data-output-id=dataset-'+id+']').innerText)")
         self.assertIn('RGB · State · Action',text[0]);self.assertIn('82,714',text[0])
         self.assertIn('train 100 / validation 20 / test 20',text[0])
-        self.assertIn('RGB · RGB-D',text[1]);self.assertIn('RGB-D',text[2]);self.assertIn('해당 없음',text[3])
+        self.assertIn('RGB · RGB-D',text[1]);self.assertIn('RGB-D',text[2]);self.assertIn('Cases',text[3]);self.assertIn('0',text[3])
         for row in text:
             for raw in ['internal-batch-diagnostics','FF60','30Hz','camera provenance']:
                 self.assertNotIn(raw,row)
@@ -1521,6 +1521,33 @@ const done=arguments[arguments.length-1];
         ui.click('[data-output-purpose=development]');ui.wait("return !!document.querySelector('[data-output-id=observer-weight-fixture]')")
         ui.click('[data-output-id=observer-weight-fixture] [data-entity=observer-weight-fixture]');ui.wait("return document.querySelector('h1').textContent==='Geometry weights'")
         self.assertIn('Model typeObserver',ui.js("return document.querySelector('#pa-content').textContent"))
+
+    def test_scientific_cards_and_detail_share_units_shapes_and_recovered_physics(self):
+        ui=self.ui
+        model=next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-model')
+        model['properties']={}
+        def fact(id,label,value,section,unit=None):return {'id':id,'label':label,'value':value,'section':section,'unit':unit,'status':'recorded','evidence':[]}
+        model['research_summary']={'schema':'loom-research-summary/v1','kind':'model','inputs':[{'kind':'rgb','status':'present','shape':[2,48,64,3]},{'kind':'depth','status':'present','shape':[2,48,64],'unit':'m'},{'kind':'instruction','status':'absent'}],'sources':[],'facts':[fact('model_role','Model type','observer','model'),fact('outputs','Prediction',['tip','center'],'model'),fact('validation_mean_error','Validation point error',.004,'validation','m'),fact('validation_p95_error','Validation P95 error',.009,'validation','m'),fact('test_frames_read','Test frames read',0,'training')]}
+        dataset={'id':'scientific-dataset','kind':'dataset','label':'Scientific data','properties':{},'metrics':[],'relations':[],'artifacts':[],'research_summary':{'schema':'loom-research-summary/v1','kind':'dataset','inputs':[{'kind':'rgb','status':'present'}],'sources':[],'facts':[fact('count','Count',4,'collection'),fact('physics_hz','Physics',240,'physics','Hz'),fact('control_hz','Control',80,'physics','Hz'),fact('payload_mass','Payload mass',.125,'physics','kg'),fact('robot_gravity_disabled','Robot gravity disabled',False,'physics')]}}
+        self.api.fixture['catalog']['entities'].append(dataset);self.api.fixture['catalog']['revision']='scientific-summary-ui'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('scientific-summary-ui')")
+        ui.nav('Datasets');ui.wait("return !!document.querySelector('[data-output-id=scientific-dataset]')")
+        text=ui.js("return document.querySelector('[data-output-id=scientific-dataset]').textContent")
+        for value in ['240 Hz','80 Hz','0.125 kg','gravity on']:self.assertIn(value,text)
+        ui.nav('Models');ui.click('[data-output-purpose=development]');ui.wait("return !!document.querySelector('[data-output-id=fixture-model]')")
+        text=ui.js("return document.querySelector('[data-output-id=fixture-model]').textContent")
+        for value in ['4 mm','9 mm','2×48×64×3','2×48×64']:self.assertIn(value,text)
+        self.assertNotIn('사용',text)
+        ui.route(model['id']);ui.wait("return !!document.querySelector('.pa-research-overview')")
+        text=ui.js("return document.querySelector('.pa-research-overview').textContent")
+        self.assertIn('4 mm',text);self.assertIn('Test frames read0',text);self.assertIn('None',text)
+        self.assertNotIn('사용',text)
+        titles=ui.js("return [...document.querySelectorAll('.pa-research-overview>.pa-panel')].slice(0,2).map(e=>e.querySelector('h2').textContent)")
+        self.assertEqual(titles,['Model','Validation'])
+        for width in (1440,500):
+            ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+            for theme in ('light','dark'):
+                ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
 
     def test_outputs_subtabs_keep_task_context_and_nested_comparison_selection(self):
         ui=self.ui

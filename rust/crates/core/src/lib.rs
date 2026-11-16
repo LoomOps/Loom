@@ -25,6 +25,7 @@ pub mod onboarding;
 pub mod progress;
 pub mod query;
 pub mod reconcile;
+pub mod research_metadata;
 pub mod results;
 pub mod runtime;
 pub mod scenario;

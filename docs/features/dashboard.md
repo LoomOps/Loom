@@ -135,3 +135,19 @@ separates environment arguments, observation/action arrays, trajectories and spl
 masks. [LIBERO](https://arxiv.org/abs/2306.03310) evaluates task suites rather than
 an unlabeled aggregate. These inform information hierarchy only; the source
 records supply all displayed scientific facts and their acceptance definitions.
+
+Scientific cards and detail sections use the same `research_summary` facts, with
+recorded zero/false values preserved. Datasets show population, split, modalities,
+physics/control clocks and annotation/instruction context. Models show actual
+inputs/predictions, initialization/selection and role-appropriate validation error;
+Observers do not inherit VLA language/action assumptions. Experiments show the
+population, evaluator and success thresholds alongside their declared primary
+outcome. Raw metadata, artifact evidence and full metrics remain accessible below.
+The UI does not infer physics from a name or convert a sensor diagnostic into task
+success. `research-metadata.js` is presentation; extraction belongs to the Rust core.
+
+The information hierarchy also follows [MimicGen](https://mimicgen.github.io/)
+(source demonstrations, reset distributions and policy performance as distinct
+quantities) and [OpenVLA evaluation details](https://arxiv.org/html/2406.09246v3#A2)
+(robot/task/cohort, evaluation rubric and per-condition results). These are
+presentation references, not measurements assigned to Loom records.

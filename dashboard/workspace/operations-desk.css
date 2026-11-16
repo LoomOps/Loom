@@ -572,3 +572,23 @@
 #pai-studio .pa-footer{align-items:center;flex-direction:row;flex-wrap:wrap;min-height:30px;padding:6px 18px;line-height:1.5;gap:10px}
 #pai-studio .pa-footer span:empty{display:none}
 #pai-studio .pa-node-summary [data-index-state]{margin-top:8px;color:var(--pa-accent)}
+
+/* Scientific fields are shared across output families; long producer prose and
+   raw paths stay in source details, not in the first visible card rows. */
+#pai-studio .pa-scientific-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 22px;margin:12px 0 0;grid-column:1/-1;flex-basis:100%}
+#pai-studio .pa-scientific-facts>div{min-width:0;display:block;max-width:100%}
+#pai-studio .pa-scientific-facts dt{font-size:11px;color:var(--pa-muted);margin-bottom:4px;white-space:nowrap}
+#pai-studio .pa-scientific-facts dd{margin:0;font-size:13px;line-height:1.5;overflow-wrap:anywhere;color:var(--pa-ink)}
+#pai-studio .pa-scientific-facts.is-compact dd{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#pai-studio .pa-scientific-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 20px;align-items:start;padding:20px 0}
+#pai-studio .pa-scientific-card .pa-output-task{margin-bottom:12px}
+#pai-studio .pa-research-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
+#pai-studio .pa-research-overview .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr));margin:0}
+#pai-studio .pa-research-overview>.pa-output-source{grid-column:1/-1}
+#pai-studio .pa-scientific-card .pa-row-main>a{font-weight:600;font-size:14px}
+@container pane (max-width:760px){#pai-studio .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr))}#pai-studio .pa-research-overview{grid-template-columns:minmax(0,1fr)}}
+@container pane (max-width:420px){#pai-studio .pa-scientific-card{grid-template-columns:minmax(0,1fr)}#pai-studio .pa-scientific-card .pa-result-score{margin-top:12px}}
+#pai-studio .pa-scientific-card .pa-scientific-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 22px}
+#pai-studio .pa-scientific-card .pa-scientific-facts>div{display:block}
+#pai-studio .pa-research-overview{align-items:start}
+@container pane (max-width:760px){#pai-studio .pa-scientific-card .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
