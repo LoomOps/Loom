@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0-alpha.11
+
+- Restore collected machine identity and the Inspector resource envelope in the native Dashboard API, preserving observation freshness.
+- Connect Models and Experiments to catalog pagination, and load Troubleshooting records outside the bootstrap.
+- Add real native API and Firefox regressions for host observations and multi-page research catalogs.
+
 ## 0.2.0-alpha.10
 
 - Separate human documentation, task guides, implementation specifications and historical design records. Link every native action to its owning feature and handler.

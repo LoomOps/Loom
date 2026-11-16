@@ -55,6 +55,12 @@ The current native service is implemented in `rust/`. Python files in this block
 
 Rebuild the generated workspace after UI source edits. Verify both HTTP behavior and real Firefox for authentication, session or relay changes. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.
 
+The native resource response preserves the workspace's `host`, `observed_at` and
+`sections` envelope. Host labels come from the recorded host observation, with
+the installation machine ID retained separately and stale/missing samples marked.
+Verify Models, Datasets, Experiments and Troubleshooting beyond the bootstrap and
+first page; Models and Experiments have independent list renderers.
+
 Related blocks: [identity](identity.md) · [api](api.md) · [catalog](catalog.md) · [observations](observations.md) · [onboarding](onboarding.md) · [diagnostics](diagnostics.md).
 
 ## Verification

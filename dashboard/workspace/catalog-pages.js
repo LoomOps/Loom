@@ -1,6 +1,6 @@
 // Bounded per-view transport. Payload trees, software combinations and logs stay lazy.
 const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityView=null;const loomCatalogOpening=new Set();
-const loomCatalogKinds={models:'model',datasets:'dataset',experiments:'experiment',profiles:'profile',components:'component',tools:'tool',runtimes:'runtime',dependencies:'dependency',scenarios:'scenario',queue:'job'};
+const loomCatalogKinds={models:'model',datasets:'dataset',experiments:'experiment',issues:'issue',profiles:'profile',components:'component',tools:'tool',runtimes:'runtime',dependencies:'dependency',scenarios:'scenario',queue:'job'};
 function loomCatalogQuery(kind){const view=kind==='job'?'all':catalogData.presentation_view||'research';return {kinds:[kind],view:view==='builtin'?'all':view,role:kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 function loomCatalogMerge(value){
@@ -35,6 +35,11 @@ function loomCatalogPager(kind){
 }
 const loomPagedCatalogList=catalogList;
 catalogList=function(kind){return loomPagedCatalogList(kind)+loomCatalogPager(kind);};
+// Models and Experiments use their own filter layouts rather than catalogList.
+const loomPagedModels=modelList;
+modelList=function(){return loomPagedModels()+loomCatalogPager('model');};
+const loomPagedExperiments=experiments;
+experiments=function(){return loomPagedExperiments()+loomCatalogPager('experiment');};
 const loomPagedSoftware=loomSoftwareView;
 loomSoftwareView=function(kind){return loomPagedSoftware(kind)+loomCatalogPager(kind);};
 const loomPagedProfiles=loomProfilesView;

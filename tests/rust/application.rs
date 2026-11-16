@@ -659,6 +659,33 @@ fn observer_freshness_uses_the_recorded_clock_and_timezone_offset() {
     ));
 }
 #[test]
+fn dashboard_host_and_inspector_preserve_observation_freshness_and_sections() {
+    let f = Fixture::new();
+    let missing = f.app.resources().unwrap();
+    assert_eq!(missing["host"]["machine_id"], "fixture");
+    assert_eq!(missing["host"]["name"], "fixture");
+    assert_eq!(missing["host"]["status"], "unavailable");
+    assert_eq!(missing["sections"]["memory"]["status"], "ok");
+    assert!(missing["sections"]["leases"]["data"]["registered"].is_array());
+    assert_eq!(missing["sections"]["leases"]["data"]["queued_jobs"], 0);
+    let path = f.app.observation_path("docker-status.json");
+    let mut sample = json!({"observed_at":crate::store::now(),"host":{
+        "hostname":"actual-host","ip":"192.0.2.3","ip_kind":"LAN","os":"Fixture Linux",
+        "kernel":"fixture-kernel","logical_cpus":8,"private":"never publish"},"containers":[]});
+    fs::write(&path, sample.to_string()).unwrap();
+    let host = f.app.dashboard_catalog().unwrap()["host"].clone();
+    assert_eq!(host["hostname"], "actual-host");
+    assert_eq!(host["machine_id"], "fixture");
+    assert_eq!(host["status"], "ok");
+    assert!(host.get("private").is_none());
+    assert_eq!(f.app.resources().unwrap()["host"], host);
+    sample["observed_at"] = json!(crate::store::now() - 3600.);
+    fs::write(&path, sample.to_string()).unwrap();
+    assert_eq!(f.app.resources().unwrap()["host"]["status"], "stale");
+    fs::write(&path, b"not JSON").unwrap();
+    assert_eq!(f.app.resources().unwrap()["host"]["status"], "unavailable");
+}
+#[test]
 fn workflow_queue_moves_its_remaining_nodes_as_one_outcome() {
     let mut f = Fixture::new();
     let first = f.submit("ahead");

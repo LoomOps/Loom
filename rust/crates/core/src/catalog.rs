@@ -433,7 +433,7 @@ impl Application {
             }
         }
         let queue = self.queue()?;
-        let value = json!({"entities":entities,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true,"item_search":true},"host":{"machine_id":self.config.machine_id},"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});
+        let value = json!({"entities":entities,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true,"item_search":true},"host":self.dashboard_host()?,"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});
         if all {
             *self
                 .catalog_cache
@@ -583,6 +583,37 @@ impl Application {
         value["visibility"] = json!({"show_dev_builds":show});
         Ok(value)
     }
+    pub fn dashboard_host(&self) -> Result<Value> {
+        let mut host = json!({"machine_id":self.config.machine_id,"name":self.config.machine_id,
+            "hostname":null,"inventory":self.config.extra.get("inventory").cloned().unwrap_or(json!({})),
+            "status":"unavailable"});
+        let observation = self.docker_observation()?;
+        if observation["host"].is_object() {
+            for key in [
+                "hostname",
+                "ip",
+                "ip_kind",
+                "lan_ips",
+                "os",
+                "kernel",
+                "logical_cpus",
+            ] {
+                if let Some(value) = observation["host"].get(key) {
+                    host[key] = value.clone();
+                }
+            }
+            if let Some(name) = host["hostname"].as_str().filter(|s| !s.is_empty()) {
+                host["name"] = json!(name);
+            }
+            host["observed_at"] = observation["observed_at"].clone();
+            host["status"] = json!(if observation_fresh(&observation, now()) {
+                "ok"
+            } else {
+                "stale"
+            });
+        }
+        Ok(host)
+    }
     pub fn resources(&self) -> Result<Value> {
         let memory = std::fs::read_to_string("/proc/meminfo").ok();
         let cpu = std::fs::read_to_string("/proc/loadavg").ok().and_then(|s| {
@@ -661,6 +692,22 @@ impl Application {
             disks.push(json!({"path":selector,"status":"unavailable"}));
         }
         result["storage"] = json!({"status":if disks.iter().any(|v|v["status"]=="ok"){"ok"}else{"unavailable"},"source":"linux:statvfs","data":disks});
+        // The workspace consumes the established sections envelope. Retain the
+        // native flat fields for callers released before the Dashboard adapter.
+        let mut sections = result.clone();
+        sections.as_object_mut().unwrap().remove("observed_at");
+        let queue = &result["leases"]["data"];
+        let entries = queue["entries"].as_array().cloned().unwrap_or_default();
+        let registered: Vec<_> = entries.iter().filter(|entry| matches!(entry["state"].as_str(),
+            Some("running" | "preparing" | "processing"))).map(|entry| json!({
+                "job_id":entry["id"],"label":entry.get("label").unwrap_or(&entry["id"]),
+                "resource":format!("{} 실행 슬롯",entry["lane"].as_str().unwrap_or("cpu").to_uppercase()),"units":1
+            })).collect();
+        sections["leases"]["data"] = json!({"registered":registered,
+            "queued_jobs":entries.iter().filter(|entry| matches!(entry["state"].as_str(),Some("queued" | "ready" | "blocked"))).count(),
+            "scope":"visible_node_jobs","mechanism":"worker_lanes"});
+        result["sections"] = sections;
+        result["host"] = self.dashboard_host()?;
         Ok(result)
     }
 }

@@ -5113,7 +5113,7 @@ function loomCatalogProjection(catalog) {
 
 // Bounded per-view transport. Payload trees, software combinations and logs stay lazy.
 const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityView=null;const loomCatalogOpening=new Set();
-const loomCatalogKinds={models:&#x27;model&#x27;,datasets:&#x27;dataset&#x27;,experiments:&#x27;experiment&#x27;,profiles:&#x27;profile&#x27;,components:&#x27;component&#x27;,tools:&#x27;tool&#x27;,runtimes:&#x27;runtime&#x27;,dependencies:&#x27;dependency&#x27;,scenarios:&#x27;scenario&#x27;,queue:&#x27;job&#x27;};
+const loomCatalogKinds={models:&#x27;model&#x27;,datasets:&#x27;dataset&#x27;,experiments:&#x27;experiment&#x27;,issues:&#x27;issue&#x27;,profiles:&#x27;profile&#x27;,components:&#x27;component&#x27;,tools:&#x27;tool&#x27;,runtimes:&#x27;runtime&#x27;,dependencies:&#x27;dependency&#x27;,scenarios:&#x27;scenario&#x27;,queue:&#x27;job&#x27;};
 function loomCatalogQuery(kind){const view=kind===&#x27;job&#x27;?&#x27;all&#x27;:catalogData.presentation_view||&#x27;research&#x27;;return {kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 function loomCatalogMerge(value){
@@ -5148,6 +5148,11 @@ function loomCatalogPager(kind){
 }
 const loomPagedCatalogList=catalogList;
 catalogList=function(kind){return loomPagedCatalogList(kind)+loomCatalogPager(kind);};
+// Models and Experiments use their own filter layouts rather than catalogList.
+const loomPagedModels=modelList;
+modelList=function(){return loomPagedModels()+loomCatalogPager(&#x27;model&#x27;);};
+const loomPagedExperiments=experiments;
+experiments=function(){return loomPagedExperiments()+loomCatalogPager(&#x27;experiment&#x27;);};
 const loomPagedSoftware=loomSoftwareView;
 loomSoftwareView=function(kind){return loomPagedSoftware(kind)+loomCatalogPager(kind);};
 const loomPagedProfiles=loomProfilesView;
