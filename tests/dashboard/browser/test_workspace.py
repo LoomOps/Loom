@@ -433,7 +433,7 @@ const done=arguments[arguments.length-1];
             for theme in ('light','dark'):
                 ui.click('button[data-theme='+theme+']')
                 self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-dataset-row')].every(e=>e.scrollWidth<=e.clientWidth+1)"))
-                self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-dataset-row dt')].every(e=>getComputedStyle(e).wordBreak!=='break-all')"))
+                self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-dataset-row [data-column]')].every(e=>getComputedStyle(e).wordBreak!=='break-all')"))
         ui.route('dataset-rich')
         ui.wait("return !!document.querySelector('details[data-output-record]')")
         ui.click('[data-output-sources]>summary');ui.click('details[data-output-record] summary')
@@ -837,6 +837,7 @@ const done=arguments[arguments.length-1];
         self.assertEqual(current(),before);self.assertIn('history-research',ui.js('return '+history+'.textContent'))
         ui.top();self.wd('/refresh',{});ui.connect()
         ui.wait("return document.querySelector('[data-job-history-view=research]')?.getAttribute('aria-pressed')==='true'")
+        ui.wait("return document.querySelector('.pa-current-work-queue tbody')?.children.length===3")
         self.assertEqual(current(),before);self.assertFalse(self.api.actions)
 
     def test_history_all_includes_operational_pages_without_hiding_current_work(self):
@@ -1689,7 +1690,7 @@ const done=arguments[arguments.length-1];
         self.assertFalse(ui.js("return [...document.querySelectorAll('#pa-nav button')].some(e=>['Datasets','Models','Experiments','Comparison'].includes(e.textContent.trim()))"))
         self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-output-tabs button')].map(e=>e.textContent)"),['Datasets','Experiments','Models'])
         self.assertTrue(ui.js("return new Set([...document.querySelectorAll('.pa-output-tabs button')].map(e=>Math.round(e.getBoundingClientRect().top))).size===1"))
-        self.assertTrue(ui.js("const row=document.querySelector('[data-output-id=output-dataset]');return row.querySelector('.pa-output-task').textContent==='TaskAssembly'&&row.textContent.indexOf('TaskAssembly')<row.textContent.indexOf('Output Dataset')"))
+        self.assertTrue(ui.js("const row=document.querySelector('[data-output-id=output-dataset]'),family=row.closest('[data-dataset-family]');return family.open&&family.querySelector(':scope>summary h2').textContent==='Assembly'&&family.querySelector(':scope>summary').getBoundingClientRect().bottom<=row.getBoundingClientRect().top&&!row.querySelector('.pa-output-task')"))
         before=ui.js("return document.querySelectorAll('.pa-document-tabs [role=tab]').length")
         ui.js("const e=document.querySelector('[data-research-task]');e.value='output-task:1';e.dispatchEvent(new Event('change',{bubbles:true}))")
         for name in ['Models','Experiments','Datasets','Experiments']:
