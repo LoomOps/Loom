@@ -61,6 +61,7 @@ pub struct Service {
     pub send: mpsc::Sender<Message>,
     readers: Arc<tokio::sync::Semaphore>,
     heavy_readers: Arc<tokio::sync::Semaphore>,
+    pending_reads: Arc<tokio::sync::Semaphore>,
     pub stopping: Arc<std::sync::atomic::AtomicBool>,
 }
 impl Service {
@@ -153,6 +154,7 @@ impl Service {
             stopping,
             readers: Arc::new(tokio::sync::Semaphore::new(4)),
             heavy_readers: Arc::new(tokio::sync::Semaphore::new(2)),
+            pending_reads: Arc::new(tokio::sync::Semaphore::new(32)),
         };
         if !read_only {
             log_collector::start(
@@ -184,23 +186,41 @@ impl Service {
         r.await
             .map_err(|_| Error::new("unavailable", "Application stopped", 503))?
     }
+    async fn read_permits(
+        &self,
+        heavy: bool,
+    ) -> Result<(
+        tokio::sync::OwnedSemaphorePermit,
+        Option<tokio::sync::OwnedSemaphorePermit>,
+        tokio::sync::OwnedSemaphorePermit,
+    )> {
+        // Bound both active readers and waiters. Waiting heavy work must not hold
+        // a general slot needed by status, telemetry or other lightweight reads.
+        let request = self
+            .pending_reads
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| Error::new("busy", "Read request queue is full", 503))?;
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(3);
+        let acquire = |semaphore: Arc<tokio::sync::Semaphore>| async move {
+            tokio::time::timeout_at(deadline, semaphore.acquire_owned())
+                .await
+                .map_err(|_| Error::new("busy", "Read request wait expired", 503))?
+                .map_err(|_| Error::new("unavailable", "Read workers stopped", 503))
+        };
+        let heavy = if heavy {
+            Some(acquire(self.heavy_readers.clone()).await?)
+        } else {
+            None
+        };
+        let permit = acquire(self.readers.clone()).await?;
+        Ok((request, heavy, permit))
+    }
     pub async fn http(&self, r: HttpRequest) -> Result<HttpReply> {
         if loom_core::http::is_read(&r) || loom_core::http::needs_file_proofs(&r) {
-            let heavy = if loom_core::http::is_heavy_read(&r) {
-                Some(
-                    self.heavy_readers
-                        .clone()
-                        .try_acquire_owned()
-                        .map_err(|_| Error::new("busy", "Search/file/log readers are busy", 503))?,
-                )
-            } else {
-                None
-            };
-            let permit = self
-                .readers
-                .clone()
-                .try_acquire_owned()
-                .map_err(|_| Error::new("busy", "Read/verification workers are busy", 503))?;
+            let (request, heavy, permit) = self
+                .read_permits(loom_core::http::is_heavy_read(&r))
+                .await?;
             let (send, receive) = oneshot::channel();
             self.send
                 .try_send(Message::Context(r.clone(), send))
@@ -226,6 +246,7 @@ impl Service {
                 return tokio::task::spawn_blocking(move || {
                     let _permit = permit;
                     let _heavy = heavy;
+                    let _request = request;
                     if let Some((executor, args)) = context.live_file_request(&r)? {
                         let value = loom_host::wire::call(
                             std::path::Path::new(
@@ -278,6 +299,7 @@ impl Service {
             let proofs = tokio::task::spawn_blocking(move || {
                 let _permit = permit;
                 let _heavy = heavy;
+                let _request = request;
                 context.prepare_files()
             })
             .await
@@ -297,11 +319,7 @@ impl Service {
         }
 
         if r.path.starts_with("/api/dashboard/media/") {
-            let permit = self
-                .readers
-                .clone()
-                .try_acquire_owned()
-                .map_err(|_| Error::new("busy", "File readers are busy", 503))?;
+            let (request, heavy, permit) = self.read_permits(true).await?;
             let (s, receive) = oneshot::channel();
             self.send
                 .try_send(Message::Media(r, s))
@@ -311,6 +329,8 @@ impl Service {
                 .map_err(|_| Error::new("unavailable", "Application stopped", 503))??;
             return tokio::task::spawn_blocking(move || {
                 let _permit = permit;
+                let _heavy = heavy;
+                let _request = request;
                 loom_core::media::read(descriptor)
             })
             .await
@@ -406,3 +426,7 @@ impl Service {
             .map_err(|_| Error::new("unavailable", "Application stopped", 503))?
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/rust/read_admission.rs"]
+mod read_admission_tests;

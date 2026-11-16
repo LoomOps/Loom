@@ -61,3 +61,8 @@ Run the affected suites and `deploy/features.py check`; see [the verification ma
 
 Acceptance outside these fixtures:
 - Verify actual MCP client compatibility and network disconnections separately.
+
+Native read admission permits four active readers and two heavy catalog/file/log
+readers. At most 32 read requests may execute or wait, with one three-second
+slot-acquisition deadline. Queued heavy reads do not hold general slots needed
+by status or Inspector telemetry. Cancelled waiters release their admission.

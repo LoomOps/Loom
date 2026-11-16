@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0-alpha.12
+
+- Queue bounded read bursts instead of immediately rejecting navigation with 503; keep the existing four-reader and two-heavy-reader limits.
+- Classify Dashboard catalog actions as heavy reads and keep machine telemetry and status outside that pool. Waiters have a count limit and a shared three-second deadline.
+
 ## 0.2.0-alpha.11
 
 - Restore collected machine identity and the Inspector resource envelope in the native Dashboard API, preserving observation freshness.

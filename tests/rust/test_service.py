@@ -143,6 +143,20 @@ r=t.rpc({'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'system',
    pending=pool.submit(self.get,'/api/dashboard/catalog');time.sleep(.1);started=time.monotonic();self.call('jobs','cancel',{'id':id});elapsed=time.monotonic()-started;self.assertLess(elapsed,2.0);catalog=pending.result(timeout=20);self.assertGreaterEqual(len(catalog['entities']),5001)
   self.wait(id,'cancelled')
 
+ def test_dashboard_navigation_burst_keeps_catalog_and_inspector_available(self):
+  import concurrent.futures,threading
+  for n in range(60):self.call('results','register_scenario',{'key':f'burst-{n}','definition':{'label':f'Navigation context {n}'}})
+  barrier=threading.Barrier(12)
+  def request(n):
+   barrier.wait(timeout=5)
+   if n%4==0:return self.get('/api/status')
+   if n%4==1:return self.get('/api/dashboard/resources')
+   return self.call('system','dashboard_page',{'kinds':['scenario'],'view':'all','role':'all','limit':50})
+  with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:responses=list(pool.map(request,range(12)))
+  self.assertEqual(len(responses),12)
+  self.assertTrue(all('sections' in responses[n] for n in range(1,12,4)))
+  self.assertTrue(all('entities' in responses[n] for n in range(12) if n%4>1))
+
  def test_mcp_invalid_requests_and_action_arguments_keep_protocol_errors(self):
   for body in ({'jsonrpc':'2.0','id':True,'method':'ping'},{'jsonrpc':'1.0','id':1,'method':'ping'},{'jsonrpc':'2.0','id':1}):
    self.assertEqual(self.post('/mcp',body)['error']['code'],-32600)

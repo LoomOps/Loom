@@ -695,7 +695,11 @@ pub fn is_read(r: &HttpRequest) -> bool {
             )
 }
 pub fn is_heavy_read(r: &HttpRequest) -> bool {
-    r.path.starts_with("/api/dashboard/")
+    (r.path.starts_with("/api/dashboard/")
+        && !matches!(
+            r.path.as_str(),
+            "/api/dashboard/resources" | "/api/dashboard/revision"
+        ))
         || r.path.starts_with("/api/items/")
         || r.path.starts_with("/api/files/")
         || r.path.starts_with("/api/logs/")
@@ -706,6 +710,13 @@ pub fn is_heavy_read(r: &HttpRequest) -> bool {
                     "results",
                     "search_items" | "item_files" | "read_file" | "get_file"
                 ) | ("jobs", "logs" | "read_log" | "search_logs")
+                    | (
+                        "system",
+                        "dashboard_page"
+                            | "dashboard_entity"
+                            | "dashboard_activity"
+                            | "dashboard_summary"
+                    )
             )
         })
 }
