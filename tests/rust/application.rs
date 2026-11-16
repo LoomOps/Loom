@@ -5,6 +5,43 @@ use serde_json::{json, Value};
 use std::fs;
 
 #[test]
+fn imported_dataset_mirrors_preserve_content_hashes_and_publication_state() {
+    let f = Fixture::new();
+    let mut keys = vec![];
+    for (source, count, state, sha) in [
+        ("published", 4, "final", "a"),
+        ("catalog", 4, "final", "a"),
+        ("different-count", 5, "final", "a"),
+        ("different-bytes", 4, "final", "b"),
+        ("different-state", 4, "legacy_import", "a"),
+    ] {
+        let mut original = json!({"id":"same","kind":"dataset","properties":{"episodes":count},"artifacts":[{"path":"manifest.json"}]});
+        let mut body = json!({"original":original,"locations":[{"source_ref":"manifest.json","sha256":sha.repeat(64),"size":20}]});
+        if source == "published" {
+            body["publication_state"] = json!(state);
+        } else {
+            original["artifacts"][0]["id"] = json!("artifact-0123456789abcdef0123");
+            original["publication"] = json!({"state":state,"delivery_status":"indexed","publication_id":"import-id","entity_revision":2,"contract_revision":"fixture"});
+            body["original"] = original;
+        }
+        f.app
+            .db
+            .execute(
+                "INSERT INTO history_records VALUES(?,'dataset','same','r1','fixture',?)",
+                rusqlite::params![source, serde_json::to_string_pretty(&body).unwrap()],
+            )
+            .unwrap();
+        let mut e = json!({"kind":"dataset","loom_history":{"source":source,"kind":"dataset","id":"same","revision":"r1","snapshot":"fixture"}});
+        crate::dataset_lineage::attach(&f.app, &mut e).unwrap();
+        keys.push(e["dataset_mirror_key"].clone());
+    }
+    assert_eq!(keys[0], keys[1]);
+    for key in &keys[2..] {
+        assert_ne!(*key, keys[0]);
+    }
+}
+
+#[test]
 fn historical_dataset_mirrors_require_identical_original_bodies_not_matching_names() {
     let f = Fixture::new();
     let mut keys = vec![];

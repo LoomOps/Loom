@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0-alpha.27
+
+- Recognize equivalent imported Dataset records across publication/catalog envelopes. Preserve scientific metadata, file hashes, publication state and exact source links; ignore only JSON formatting and known generated index bindings.
+
 ## 0.2.0-alpha.26
 
 - Fit long exact Dataset-parent links in narrow panes. Use unframed output sections rather than inherited card skins, and keep provenance tables within Sources.

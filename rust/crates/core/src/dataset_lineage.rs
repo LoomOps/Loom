@@ -133,6 +133,59 @@ pub(crate) fn declared(app: &Application, target: &Target) -> Result<Vec<Value>>
         Ok(vec![])
     }
 }
+fn mirror_record(mut body: Value) -> Value {
+    // These two legacy envelopes index the same original definition. Retain
+    // publication state, but normalize its placement and generated bindings.
+    let state = body
+        .get("publication_state")
+        .cloned()
+        .or_else(|| body["original"]["publication"].get("state").cloned());
+    let binding = &body["original"]["publication"];
+    let known_binding = binding.is_null()
+        || binding.as_object().is_some_and(|o| {
+            o.keys().all(|k| {
+                [
+                    "state",
+                    "contract_revision",
+                    "delivery_status",
+                    "entity_revision",
+                    "publication_id",
+                ]
+                .contains(&k.as_str())
+            })
+        });
+    if matches!(
+        state.as_ref().and_then(Value::as_str),
+        Some("legacy_import" | "final")
+    ) && body["original"].is_object()
+        && known_binding
+    {
+        body["publication_state"] = state.unwrap();
+        let locations = body["locations"].as_array().cloned().unwrap_or_default();
+        body["original"]
+            .as_object_mut()
+            .unwrap()
+            .remove("publication");
+        if let Some(artifacts) = body["original"]["artifacts"].as_array_mut() {
+            for artifact in artifacts {
+                let generated = artifact["id"]
+                    .as_str()
+                    .and_then(|s| s.strip_prefix("artifact-"))
+                    .is_some_and(|s| s.len() == 20 && s.bytes().all(|b| b.is_ascii_hexdigit()));
+                let bound = locations.iter().any(|l| {
+                    l["source_ref"] == artifact["path"]
+                        && l["sha256"].as_str().is_some_and(|s| {
+                            s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())
+                        })
+                });
+                if generated && bound {
+                    artifact.as_object_mut().unwrap().remove("id");
+                }
+            }
+        }
+    }
+    body
+}
 pub fn attach(app: &Application, entity: &mut Value) -> Result<()> {
     if entity["kind"] != "dataset" {
         return Ok(());
@@ -141,10 +194,12 @@ pub fn attach(app: &Application, entity: &mut Value) -> Result<()> {
         return Ok(());
     };
     if target.kind == "historical" {
-        let (sha, _) = research_metadata::source_identity(app, &target)?;
-        // Only byte-identical original records with the same original identity
-        // may share a browse row. Labels and matching counts are insufficient.
-        entity["dataset_mirror_key"] = json!(hash(encode(&json!([target.identity["id"], sha]))?));
+        let i = &target.identity;
+        let body:String=app.db.query_row("SELECT body FROM history_records WHERE source=? AND kind=? AND id=? AND revision=? AND snapshot=?",params![i["source"].as_str(),i["kind"].as_str(),i["id"].as_str(),i["revision"].as_str(),i["snapshot"].as_str()],|r|r.get(0))?;
+        entity["dataset_mirror_key"] = json!(hash(encode(&json!([
+            i["id"],
+            mirror_record(serde_json::from_str(&body)?)
+        ]))?));
     }
     let mut links = declared(app, &target)?;
     for link in &mut links {

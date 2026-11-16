@@ -141,4 +141,6 @@ counts; it never sums overlapping episodes or treats every consumed input as a
 data parent. Multi-parent variants retain every parent cross-link; optionally
 declare one `primary:true` parent for browsing. Shared context is not derivation.
 Imported copies share a browse row only when the original Dataset identity and
-entire original record body are identical. Sources retains their exact links.
+full source content agree, including file hashes and publication state. JSON
+formatting and known generated publication bindings do not create new scientific
+variants. Sources retains every exact source link and original body.

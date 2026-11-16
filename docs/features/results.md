@@ -67,7 +67,10 @@ scientific truth of a submitted transform. Native producers declare per-output
 `lineage` against frozen Dataset inputs; generic `consumes` remains separate.
 Result reads, Item graph and bounded Dashboard projection expose these edges.
 Historical mirrors share a browse key only for the same original Dataset ID and
-byte-identical source body, including its original metadata and component hashes.
+equivalent full JSON source content, including scientific metadata and component
+hashes. Normalize JSON formatting and the known publication/catalog binding
+envelopes; preserve publication state. Ignore generated Artifact IDs only when
+their paths have hash-bound locations. Unknown envelope fields remain significant.
 This does not merge Item identities, source revisions, locations or DB rows.
 
 Scientific extraction distinguishes stored Dataset fields, observer inputs and
