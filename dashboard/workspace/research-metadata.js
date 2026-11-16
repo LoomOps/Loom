@@ -17,6 +17,7 @@ function loomResearchSummary(e){
  return {schema:'loom-research-summary/v1',kind:e.kind,facts,inputs,sources:[]};
 }
 function loomResearchFactMap(e){return new Map(loomResearchSummary(e).facts.map(f=>[f.id,f]));}
+function loomResearchVisibleFact(f){return !(['annotation_source','instruction_source'].includes(f.id)&&/^(sha256:)?[a-f0-9]{64}$/i.test(String(f.value)));}
 function loomResearchNumber(v){return Math.abs(v)>0&&Math.abs(v)<.001?Number(v).toExponential(3):Number(v).toLocaleString('en-US',Math.abs(v)>0&&Math.abs(v)<1?{maximumSignificantDigits:4}:{maximumFractionDigits:3});}
 function loomResearchSplit(v){
  const items=Array.isArray(v)?v:Object.entries(v||{}).map(([id,value])=>({id,...(typeof value==='number'?{count:value}:Array.isArray(value)?{count:value.length}:value)}));
@@ -82,7 +83,7 @@ function loomResearchCardFacts(e){
  }
  const count=map.get('count'),unit=map.get('count_unit')?.value;
  if(count)map.set('count',{...count,label:({episodes:'Episodes',clips:'Clips',cases:'Cases',snapshots:'Snapshots'})[unit]||'Count'});
- return order.map(id=>map.get(id)).filter(f=>f&&f.status!=='conflict').slice(0,isDataset?10:isModel?9:10);
+ return order.map(id=>map.get(id)).filter(f=>f&&f.status!=='conflict'&&loomResearchVisibleFact(f)).slice(0,isDataset?10:isModel?9:10);
 }
 const loomResearchOldModelMeta=modelFilterMeta;
 modelFilterMeta=function(e){
@@ -130,6 +131,7 @@ function loomResearchInputsHTML(inputs){
   return '<article><h3>'+esc(loomResearchInputName(x))+'</h3>'+(fields.length?'<dl>'+fields.map(([label,value])=>'<div>'+(label?'<dt>'+esc(label)+'</dt>':'')+'<dd>'+esc(value)+'</dd></div>').join('')+'</dl>':'')+'</article>';
  }).join('')+'</div>';
 }
+function loomResearchSection(title,body){return '<section class="pa-output-section"><h2>'+esc(title)+'</h2>'+body+'</section>';}
 function loomResearchOverview(e){
  const s=loomResearchSummary(e),map=loomResearchFactMap(e),inputs=s.inputs.filter(x=>x.status==='present');
  const order=e.kind==='model'?['model','validation','inputs','training','observations','physics','instructions','context']:
@@ -138,15 +140,17 @@ function loomResearchOverview(e){
  let body='<section class="pa-research-overview" aria-label="Research properties">';
  for(const id of order){
   if(id==='inputs'){
-   if(inputs.length)body+='<div class="pa-research-input-panel">'+panel(e.kind==='dataset'?'Observations':'Inputs',loomResearchInputsHTML(inputs))+'</div>';
+   if(inputs.length)body+='<div class="pa-research-input-panel">'+loomResearchSection(e.kind==='dataset'?'Observations':'Inputs',loomResearchInputsHTML(inputs))+'</div>';
    continue;
   }
-  const facts=s.facts.filter(f=>f.section===id&&!['observation_schema','count_unit','condition_outcomes'].includes(f.id)).map(f=>f.id==='count'?{...f,label:({episodes:'Episodes',clips:'Clips',cases:'Cases',snapshots:'Snapshots'})[map.get('count_unit')?.value]||'Count'}:f);
-  if(id==='evaluation'&&map.has('condition_outcomes'))body+=panel('Condition outcomes',loomResearchConditions(e));
+  const priority=['count','frames','split','train_snapshots','validation_snapshots','source_demos','collection_method','test_frames_read','bc_ready','positive_coverage','model_role','architecture','outputs'];
+  const rank=f=>priority.includes(f.id)?priority.indexOf(f.id):priority.length;
+  const facts=s.facts.filter(f=>f.section===id&&!['observation_schema','count_unit','condition_outcomes'].includes(f.id)&&loomResearchVisibleFact(f)).sort((a,b)=>rank(a)-rank(b)).map(f=>f.id==='count'?{...f,label:({episodes:'Episodes',clips:'Clips',cases:'Cases',snapshots:'Snapshots'})[map.get('count_unit')?.value]||'Count'}:f.id==='bc_ready'?{...f,label:'BC'}:f);
+  if(id==='evaluation'&&map.has('condition_outcomes'))body+=loomResearchSection('Condition outcomes',loomResearchConditions(e));
   if(!facts.length)continue;
-  body+=panel(loomResearchSections[id],loomResearchFactsHTML(facts)).replace('<section ', '<section data-research-section="'+esc(id)+'" ');
+  body+=loomResearchSection(loomResearchSections[id],loomResearchFactsHTML(facts)).replace('<section ', '<section data-research-section="'+esc(id)+'" ');
  }
- const instruction=loomResearchInstruction(e);if(e.kind!=='dataset'&&instruction&&!map.has('instruction_mode'))body+=panel('Language conditioning',catProperties({Mode:instruction}));
+ const instruction=loomResearchInstruction(e);if(e.kind!=='dataset'&&instruction&&!map.has('instruction_mode'))body+=loomResearchSection('Language conditioning',catProperties({Mode:instruction}));
  if(e.kind==='dataset')body+=loomDatasetParentHTML(e);
  const sourceRows=s.facts.flatMap(f=>(f.evidence||[]).map(ev=>[esc(f.label),esc(ev.source?.ref||'Record metadata'),esc(ev.pointer)]));
  body+='<details class="pa-output-source" data-output-sources><summary>Sources</summary>'+catTable(['Fact','Source','JSON pointer'],sourceRows)
@@ -168,13 +172,17 @@ catalogDetail=function(id){
   const name=node.querySelector(':scope > .pa-panel-head > h2')?.textContent;
   if(['속성','Dataset Properties'].includes(name)){node.remove();}
   if(['출처','이관 위치','Loom 실행 기록'].includes(name)){sources.push(node.outerHTML);node.remove();}
+  if(name==='연결'&&e.kind==='dataset'){sources.push(node.outerHTML);node.remove();}
  }
+ // A bounded page is not an inventory of every registered input. Exact source
+ // references remain in the raw record; absence here is not "unregistered".
+ for(const node of t.content.querySelectorAll('.pa-catalog-warning'))if(node.textContent.trim().startsWith('미등록 관계:'))node.remove();
  title.insertAdjacentHTML('afterend',loomResearchOverview(e));
  t.content.querySelector('[data-output-sources]')?.insertAdjacentHTML('beforeend',sources.join(''));
  for(const node of t.content.querySelectorAll('.pa-analysis-grid'))if(!node.textContent.trim())node.remove();
  title.insertAdjacentHTML('beforebegin',loomTaskProperty(e));
  const primary=['run','experiment'].includes(e.kind)?loomRepresentativeOutcome(e):[];
- if(primary.length)title.insertAdjacentHTML('afterend',panel('Outcome',catTable(['Metric','Value','Population'],primary.map(m=>[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||'—')]))));
+ if(primary.length)title.insertAdjacentHTML('afterend',loomResearchSection('Outcome',catTable(['Metric','Value','Population'],primary.map(m=>[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||'—')]))));
  return t.innerHTML;
 };
 
@@ -185,7 +193,7 @@ function loomDatasetParentEntity(link){
 }
 function loomDatasetParentHTML(e){
  const parents=e.dataset_lineage?.parents||[];if(!parents.length)return '';
- return panel('Data lineage',parents.map(link=>'<div class="pa-dataset-parent"><span>'+esc(loomDatasetTransformLabels[link.transformation?.kind]||'Derived from')+'</span>'+(link.item_id&&link.revision_id?'<button class="pa-button" data-dataset-parent-item="'+esc(link.item_id)+'" data-dataset-parent-revision="'+esc(link.revision_id)+'">'+esc(link.label||loomDatasetParentEntity(link)?.label||link.parent?.identity?.id)+'</button>':loomDatasetParentEntity(link)?catLink(loomDatasetParentEntity(link).id):'<span>'+esc(link.label||link.parent?.identity?.id)+'</span>')+'<small>'+esc(link.transformation?.details||'')+'</small></div>').join(''));
+ return loomResearchSection('Data lineage',parents.map(link=>'<div class="pa-dataset-parent"><span>'+esc(loomDatasetTransformLabels[link.transformation?.kind]||'Derived from')+'</span>'+(link.item_id&&link.revision_id?'<button class="pa-button" data-dataset-parent-item="'+esc(link.item_id)+'" data-dataset-parent-revision="'+esc(link.revision_id)+'">'+esc(link.label||loomDatasetParentEntity(link)?.label||link.parent?.identity?.id)+'</button>':loomDatasetParentEntity(link)?catLink(loomDatasetParentEntity(link).id):'<span>'+esc(link.label||link.parent?.identity?.id)+'</span>')+'</div>').join(''));
 }
 const loomResearchCatalogList=catalogList;
 catalogList=function(kind){
@@ -224,7 +232,7 @@ root.addEventListener('toggle',event=>{
  if(detail.open){opened.add(e.id);pre.textContent=loomResearchRaw(e);}else opened.delete(e.id);
  view.openOutputRecords=[...opened];persist();
 },true);
-function loomResearchRaw(e){return JSON.stringify({id:e.id,owner:e.owner_profile?.display_name||e.owner,properties:e.properties,metadata:e.metadata,dataset_overview:e.dataset_overview,protocol:e.protocol,summary:e.summary,description:e.description,revision:e.revision,dataset_lineage:e.dataset_lineage},null,2);}
+function loomResearchRaw(e){return JSON.stringify({id:e.id,owner:e.owner_profile?.display_name||e.owner,properties:e.properties,metadata:e.metadata,dataset_overview:e.dataset_overview,protocol:e.protocol,summary:e.summary,description:e.description,revision:e.revision,relations:e.relations,dataset_lineage:e.dataset_lineage},null,2);}
 root.addEventListener('click',async event=>{
  const button=event.target.closest('[data-dataset-parent-item]');if(!button)return;
  event.preventDefault();event.stopImmediatePropagation();const pane=button.closest('[data-pane]');if(pane)ws.active=pane.dataset.pane;

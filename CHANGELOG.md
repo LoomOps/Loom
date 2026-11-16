@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0-alpha.26
+
+- Fit long exact Dataset-parent links in narrow panes. Use unframed output sections rather than inherited card skins, and keep provenance tables within Sources.
+- Keep opaque source hashes and full transform evidence in Sources, prioritize quantity/split facts, and stop interpreting unloaded paged references as unregistered records.
+
 ## 0.2.0-alpha.25
 
 - Register exact Dataset derivations from accepted inputs or source-bound additive evidence; reject missing revisions, bad component hashes and cycles. Preserve original records and expose lineage in results, Item graph and Dashboard.

@@ -1526,9 +1526,11 @@ const done=arguments[arguments.length-1];
         ui=self.ui
         def fact(id,label,value,section='collection'):return {'id':id,'label':label,'value':value,'section':section,'status':'recorded','evidence':[]}
         def data(id,label,count,unit):return {'id':id,'kind':'dataset','label':label,'loom_registry':{'id':id,'revision':1},'properties':{},'metrics':[],'relations':[],'artifacts':[],'description':'Legacy overview remains only in raw evidence','research_summary':{'schema':'loom-research-summary/v1','kind':'dataset','facts':[fact('count','Count',count),fact('count_unit','Unit',unit)],'inputs':[],'sources':[]}}
-        parent=data('derive-parent','Recorded trajectories',4,'episodes');child=data('derive-child','Selected conditions',2,'cases')
+        parent=data('derive-parent','Recorded trajectories · Calibrated RGB · Full-length source demonstrations · consolidated-v1',4,'episodes');child=data('derive-child','Selected conditions',2,'cases')
         parent['research_summary']['facts'] += [fact('bc_ready','BC eligibility',False,'quality'),fact('positive_coverage','Positive BC coverage',{'train':0},'quality')]
-        child['dataset_lineage']={'schema':'loom-dataset-lineage/v1','parents':[{'parent':{'kind':'entity','identity':{'id':'derive-parent','revision':1}},'transformation':{'kind':'condition_selection','details':'Two held-out condition UIDs'}}]}
+        child['properties']['observer_identity']='a'*64
+        child['research_summary']['facts'].append(fact('annotation_source','Annotation source','a'*64,'annotations'))
+        child['dataset_lineage']={'schema':'loom-dataset-lineage/v1','parents':[{'parent':{'kind':'entity','identity':{'id':'derive-parent','revision':1}},'item_id':'18446744073709551618','revision_id':'18446744073709551619','label':parent['label'],'transformation':{'kind':'condition_selection','details':'Two held-out condition UIDs'}}]}
         self.api.fixture['catalog']['entities'] += [parent,child];self.api.fixture['catalog']['revision']='derive-ui'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('derive-ui')")
         ui.nav('Datasets');ui.wait("return !!document.querySelector('.pa-dataset-group')")
@@ -1543,6 +1545,8 @@ const done=arguments[arguments.length-1];
         visible=ui.js("return document.querySelector('#pa-content').innerText")
         self.assertNotIn('Legacy overview remains',visible);self.assertNotIn('Source metadata',visible);self.assertNotIn('개요',visible)
         self.assertIn('Cases',visible);self.assertIn('Conditions selected from',visible)
+        self.assertNotIn('a'*64,visible)
+        self.assertFalse(ui.js("return !!document.querySelector('.pa-research-overview>.pa-panel,.pa-output-section>.loom-surface-skin')"))
         for width in (1440,500,390):
             ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
             for theme in ('light','dark'):
@@ -1568,7 +1572,7 @@ const done=arguments[arguments.length-1];
         text=ui.js("return document.querySelector('.pa-research-overview').textContent")
         self.assertIn('4 mm',text);self.assertIn('Test frames read0',text);self.assertIn('None',text)
         self.assertNotIn('사용',text)
-        titles=ui.js("return [...document.querySelectorAll('.pa-research-overview>.pa-panel')].slice(0,2).map(e=>e.querySelector('h2').textContent)")
+        titles=ui.js("return [...document.querySelectorAll('.pa-research-overview>.pa-output-section')].slice(0,2).map(e=>e.querySelector('h2').textContent)")
         self.assertEqual(titles,['Model','Validation'])
         for width in (1440,500):
             ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
