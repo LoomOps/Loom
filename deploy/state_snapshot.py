@@ -188,9 +188,12 @@ def verify(root,base):
                 columns=baseline['columns'];expected_rows=Counter(baseline['rows'])
                 # Native observations and projection heads advance on startup.
                 # Preserve identities/immutable revisions, not cached clocks or work queues.
+                # Authenticated profile reads refresh only updated; all profile
+                # identity and display columns remain part of the comparison.
                 if rel=='runtime/ops.sqlite3':
                     if table=='catalog_dirty':continue
                     mutable={'rust_runtime_observation':{'value','observed'},'rust_projection_version':{'version'},
+                             'user_profiles':{'updated'} if {'id','provider','login','display_name','updated'}<=set(columns) else set(),
                              'catalog_items':{'current_revision'},'catalog_aliases':{'revision'},'catalog_sources':{'body'},
                              'catalog_backfill':{'position','complete'},'catalog_tasks':{'state','progress','receipt','error','updated'}}.get(table,set())
                     if mutable:

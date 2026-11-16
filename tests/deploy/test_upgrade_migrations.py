@@ -227,6 +227,24 @@ class PreservedRebuildTests(lifecycle.ReleaseLifecycleTests):
 
 
 class AdmissionPreservationTests(unittest.TestCase):
+    def test_profile_access_clock_can_advance_but_identity_and_display_fields_stay_exact(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            platform=Path(tmp);root=platform/'instance';(root/'runtime').mkdir(parents=True)
+            (root/'compose.env').write_text('');(platform/'backup').mkdir()
+            database=root/'runtime/ops.sqlite3'
+            with sqlite3.connect(database) as c:
+                c.executescript("CREATE TABLE user_profiles(id TEXT,provider TEXT,login TEXT,display_name TEXT,updated REAL); INSERT INTO user_profiles VALUES('person','sso','person@example.test','Person',1)")
+            saved=state_snapshot.capture(root,platform/'backup',platform)
+            with sqlite3.connect(database) as c:c.execute('UPDATE user_profiles SET updated=200')
+            self.assertTrue(state_snapshot.verify(root,saved)['preserved'])
+            for column in ('id','provider','login','display_name'):
+                with self.subTest(column=column):
+                    with sqlite3.connect(database) as c:
+                        before=c.execute('SELECT '+column+' FROM user_profiles').fetchone()[0]
+                        c.execute('UPDATE user_profiles SET '+column+'=?',('changed',))
+                    with self.assertRaisesRegex(ValueError,'user_profiles'):state_snapshot.verify(root,saved)
+                    with sqlite3.connect(database) as c:c.execute('UPDATE user_profiles SET '+column+'=?',(before,))
+
     def test_reconcile_clocks_can_progress_but_grants_and_tokens_remain_exact(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)/'instance';(root/'admission').mkdir(parents=True);platform=Path(tmp)

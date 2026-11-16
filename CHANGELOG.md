@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0-alpha.13
+
+- Preserve account identity and display fields during updates while allowing the authenticated-read profile clock to advance. Keep exact original snapshots and all other account/token checks.
+- Include the native Dashboard machine, Inspector, catalog pagination and bounded-read fixes from alpha.11–12.
+
 ## 0.2.0-alpha.12
 
 - Queue bounded read bursts instead of immediately rejecting navigation with 503; keep the existing four-reader and two-heavy-reader limits.
