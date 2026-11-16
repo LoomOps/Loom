@@ -4619,12 +4619,12 @@ const loomQueueWorkRow=workRow;
 workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
   const tasks=loomTaskLabels(entity);
-  if(tasks)row[0]=&#x27;&lt;div class=&quot;pa-queue-tasks&quot;&gt;&#x27;+tasks+&#x27;&lt;/div&gt;&#x27;+row[0];
   if(current &amp;&amp; q){
     if(entity.loom_queue_shared)row[0]=&#x27;&lt;div class=&quot;pa-queue-name&quot;&gt;&#x27;+esc(q.id)+&#x27;&lt;small&gt;&#x27;+esc(q.owner)+&#x27; · 공유 큐&lt;/small&gt;&lt;/div&gt;&#x27;;
     row[0]+=&#x27;&lt;small class=&quot;pa-queue-position&quot;&gt;&#x27;+loomQueuePosition(q)+&#x27;&lt;/small&gt;&#x27;+loomQueueControls(q.id);
   }
   const owner=entity.owner_profile?.display_name || entity.properties?.owner_name || q?.owner_profile?.display_name || entity.owner || entity.properties?.owner;
+  if(tasks)row[0]+=&#x27;&lt;div class=&quot;pa-queue-tasks&quot;&gt;&lt;span&gt;Task ·&lt;/span&gt;&lt;span&gt;&#x27;+tasks+&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;;
   if(owner)row[0]+=&#x27;&lt;small class=&quot;pa-queue-owner&quot;&gt;Owner · &#x27;+esc(owner)+&#x27;&lt;/small&gt;&#x27;;
   return row;
 };
@@ -6594,7 +6594,10 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 
 #pai-studio .pa-catalog-pagination{min-height:40px;display:flex;align-items:center;gap:8px}
 
-#pai-studio .pa-queue-tasks{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px}
+#pai-studio .pa-queue-tasks{display:flex;align-items:baseline;gap:6px;margin-top:8px;font-size:12px;line-height:1.5;color:var(--pa-muted)}
+#pai-studio .pa-queue-tasks&gt;span:first-child{flex-shrink:0}
+#pai-studio .pa-queue-tasks&gt;span:last-child{min-width:0;overflow-wrap:anywhere}
+#pai-studio .pa-queue-tasks .pa-task-label{display:inline;padding:0;border:0;border-radius:0;font-size:inherit;font-weight:400;color:inherit;background:none}
 #pai-studio .pa-task-label:hover{text-decoration:underline}
 #pai-studio .pa-task-label:focus-visible{outline:2px solid var(--pa-blue);outline-offset:2px}
 #pai-studio .pa-task-summary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;margin-top:4px;max-width:100%;font-size:12px;line-height:1.5;color:var(--pa-muted)}

@@ -60,12 +60,12 @@ const loomQueueWorkRow=workRow;
 workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
   const tasks=loomTaskLabels(entity);
-  if(tasks)row[0]='<div class="pa-queue-tasks">'+tasks+'</div>'+row[0];
   if(current && q){
     if(entity.loom_queue_shared)row[0]='<div class="pa-queue-name">'+esc(q.id)+'<small>'+esc(q.owner)+' · 공유 큐</small></div>';
     row[0]+='<small class="pa-queue-position">'+loomQueuePosition(q)+'</small>'+loomQueueControls(q.id);
   }
   const owner=entity.owner_profile?.display_name || entity.properties?.owner_name || q?.owner_profile?.display_name || entity.owner || entity.properties?.owner;
+  if(tasks)row[0]+='<div class="pa-queue-tasks"><span>Task ·</span><span>'+tasks+'</span></div>';
   if(owner)row[0]+='<small class="pa-queue-owner">Owner · '+esc(owner)+'</small>';
   return row;
 };

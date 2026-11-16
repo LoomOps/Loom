@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0-alpha.31
+
+- Move Dashboard queue/history Task links below Job details and directly above Owner. Use subdued text without badge backgrounds or borders in both themes while retaining keyboard focus and readable contrast.
+
 ## 0.2.0-alpha.30
 
 - Preserve exact recovery requests, output-store identity and dependency graphs; resolve nested consolidation by frozen Attempt across Steps, Activity and Profile usage.

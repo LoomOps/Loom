@@ -112,8 +112,9 @@ Output titles keep their original labels; Task appears as a separate property.
 
 Task is a filter and a compact badge above the original output title; there is no
 Tasks sub-tab or New Task button. Task detail links retain context when moving
-between output sections. Queue/history badges preserve keyboard focus and theme
-contrast. Scientific metadata precedes Owner; full recorded metadata remains
+between output sections. Queue/history rows place subdued Task links directly
+above Owner, after the Job title and execution metadata. Links preserve keyboard
+focus and theme contrast. Scientific metadata precedes Owner; full recorded metadata remains
 available below. Dataset role labels remain source metadata, not browse headings.
 
 Output purpose filters separate Research and Development using declared roles,

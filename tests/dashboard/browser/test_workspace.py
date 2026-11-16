@@ -1736,16 +1736,18 @@ const done=arguments[arguments.length-1];
     def test_queue_task_badges_are_readable_in_both_themes(self):
         job,record=native('task-contrast-job')
         job['task_refs']=[{'id':'task-contrast','revision':1,'label':'Grasp & Alignment'}]
+        job['owner_profile']={'display_name':'Fixture Owner'}
         self.api.fixture['catalog']['entities']=[job]
         self.api.fixture['jobs']={job['id']:record}
         self.ui.top();self.wd('/refresh',{});self.ui.connect();self.ui.nav('Dashboard')
         self.ui.wait("return !!document.querySelector('.pa-queue-tasks .pa-task-label')")
         contrast="""
 const a=document.querySelector('.pa-queue-tasks .pa-task-label'),s=getComputedStyle(a),ctx=document.createElement('canvas').getContext('2d');
+let surface=a;while(getComputedStyle(surface).backgroundColor==='rgba(0, 0, 0, 0)'&&surface.parentElement)surface=surface.parentElement;
 const rgb=color=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data].slice(0,3).map(c=>{c/=255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4})};
 const lum=c=>{const v=rgb(c);return v[0]*.2126+v[1]*.7152+v[2]*.0722};
 const ratio=(a,b)=>(Math.max(lum(a),lum(b))+.05)/(Math.min(lum(a),lum(b))+.05);
-return {text:ratio(s.color,s.backgroundColor),border:ratio(s.borderTopColor,s.backgroundColor),label:a.textContent,href:a.getAttribute('href')};
+return {text:ratio(s.color,getComputedStyle(surface).backgroundColor),background:s.backgroundColor,border:s.borderTopWidth,weight:s.fontWeight,label:a.textContent,href:a.getAttribute('href')};
 """
         measurements=[]
         for width in (1440,500):
@@ -1755,8 +1757,17 @@ return {text:ratio(s.color,s.backgroundColor),border:ratio(s.borderTopColor,s.ba
                 result=self.ui.js(contrast)
                 measurements.append({'width':width,'theme':theme,**result})
                 self.assertGreaterEqual(result['text'],4.5,(width,theme,result))
-                self.assertGreaterEqual(result['border'],3,(width,theme,result))
+                self.assertEqual(result['background'],'rgba(0, 0, 0, 0)')
+                self.assertEqual(result['border'],'0px');self.assertEqual(result['weight'],'400')
                 self.assertEqual(result['label'],'Grasp & Alignment');self.assertEqual(result['href'],'#/entities/task-contrast')
+                self.assertTrue(self.ui.js("""
+const task=document.querySelector('.pa-queue-tasks'),owner=task.nextElementSibling,
+ title=task.parentElement.querySelector('[data-entity="task-contrast-job"]');
+return task.textContent==='Task ·Grasp & Alignment'&&owner?.textContent==='Owner · Fixture Owner'
+ &&title.getBoundingClientRect().bottom<task.getBoundingClientRect().top
+ &&task.getBoundingClientRect().bottom<=owner.getBoundingClientRect().top
+ &&parseFloat(getComputedStyle(task).marginTop)>=8;
+"""))
                 self.assertTrue(self.ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
                 self.ui.js("const a=document.querySelector('.pa-queue-tasks .pa-task-label');a.scrollIntoView({block:'center'});a.focus()")
                 self.wd('/actions',{'actions':[{'type':'key','id':'task-focus-key','actions':[{'type':'keyDown','value':'\ue014'},{'type':'keyUp','value':'\ue014'}]}]})

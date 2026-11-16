@@ -524,7 +524,10 @@
 
 #pai-studio .pa-catalog-pagination{min-height:40px;display:flex;align-items:center;gap:8px}
 
-#pai-studio .pa-queue-tasks{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px}
+#pai-studio .pa-queue-tasks{display:flex;align-items:baseline;gap:6px;margin-top:8px;font-size:12px;line-height:1.5;color:var(--pa-muted)}
+#pai-studio .pa-queue-tasks>span:first-child{flex-shrink:0}
+#pai-studio .pa-queue-tasks>span:last-child{min-width:0;overflow-wrap:anywhere}
+#pai-studio .pa-queue-tasks .pa-task-label{display:inline;padding:0;border:0;border-radius:0;font-size:inherit;font-weight:400;color:inherit;background:none}
 #pai-studio .pa-task-label:hover{text-decoration:underline}
 #pai-studio .pa-task-label:focus-visible{outline:2px solid var(--pa-blue);outline-offset:2px}
 #pai-studio .pa-task-summary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;margin-top:4px;max-width:100%;font-size:12px;line-height:1.5;color:var(--pa-muted)}
