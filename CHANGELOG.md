@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0-alpha.16
+
+- Group Datasets, Experiments and Models in Outputs, with Comparison inside Experiments. Keep existing deep links and exact record identities.
+- Refresh complete loaded catalog pages atomically, retain the visible output anchor and restart superseded cursors without collapsing the list to its bootstrap.
+- Keep original output titles and show Task membership as a separate property. Add output naming guidance and an additive Rust SDK label helper for new producers.
+- Use matching server-cog icons for Runtimes and hammer icons for Tools.
+
 ## 0.2.0-alpha.15
 
 - Group research records with versioned Task filters and exact context links while retaining compatible Scenario API names. Remove standalone Scenario navigation.

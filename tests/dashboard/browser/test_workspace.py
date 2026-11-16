@@ -283,7 +283,7 @@ const done=arguments[arguments.length-1];
 
     def test_software_inventory_filters_and_distinct_navigation_icon(self):
         tool_id,component_id=self.software_fixture();ui=self.ui
-        self.assertTrue(ui.js("return !!document.querySelector('[data-hub-page=tools] svg[data-lucide=pocket-knife]') && !!document.querySelector('[data-go=issues] svg[data-lucide=wrench]')"))
+        self.assertTrue(ui.js("return !!document.querySelector('[data-hub-page=tools] svg[data-lucide=hammer]') && !!document.querySelector('[data-go=issues] svg[data-lucide=wrench]')"))
         ui.nav('Tools')
         self.assertEqual(ui.js("return document.querySelectorAll('[data-extension-card]').length"),2)
         ui.js("const f=document.querySelector('[data-extension-owner]');f.value='owner';f.dispatchEvent(new Event('change',{bubbles:true}))")
@@ -695,7 +695,7 @@ const done=arguments[arguments.length-1];
 
     def test_reload_preserves_open_tabs_and_active_document(self):
         ui=self.ui
-        for page in ('models','datasets','docker','datasets'):ui.click('#pa-nav [data-go="'+page+'"]')
+        for label in ('Models','Datasets','Docker','Datasets'):ui.nav(label)
         read="return [...document.querySelectorAll('.pa-document-pane')].map(p=>({id:p.dataset.pane,active:p.classList.contains('is-active'),tabs:[...p.querySelectorAll('[role=tab]')].map(t=>({id:t.dataset.doc,selected:t.getAttribute('aria-selected')}))}))"
         expected=ui.js(read)
         ui.top()
@@ -704,9 +704,9 @@ const done=arguments[arguments.length-1];
         ui.wait("return !document.querySelector('iframe').hidden");ui.frame()
         ui.wait("return document.querySelector('.is-active [data-doc= datasets]')?.getAttribute('aria-selected')==='true'")
         self.assertEqual(ui.js(read),expected)
-        ui.click('[data-close-doc="models"]')
+        ui.click('[data-close-doc="docker"]')
         expected=ui.js(read)
-        ui.top();ui.wait("return history.state?.paiTabsV25?.workspace?.panes?.every(p=>p.tabs.every(t=>t.id!=='models'))")
+        ui.top();ui.wait("return history.state?.paiTabsV25?.workspace?.panes?.every(p=>p.tabs.every(t=>t.id!=='docker'))")
         self.wd('/refresh',{})
         ui.wait("return !document.querySelector('iframe').hidden");ui.frame()
         ui.wait("return document.querySelector('.is-active [data-doc= datasets]')?.getAttribute('aria-selected')==='true'")
@@ -1476,3 +1476,58 @@ const done=arguments[arguments.length-1];
         self.ui.nav('Dashboard')
         self.ui.wait("return document.querySelector('#pa-content [data-entity=\\\"history:111\\\"]')")
         self.assertFalse(self.ui.js("return !!document.querySelector('#pa-content [data-entity=\\\"history:222\\\"]')"))
+
+    def test_outputs_subtabs_keep_task_context_and_nested_comparison_selection(self):
+        ui=self.ui
+        task={'id':'output-task','revision':1,'label':'Assembly'}
+        self.api.fixture['catalog']['research_tasks']=[task]
+        model=next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-model')
+        model['task_refs']=[task]
+        dataset={'id':'output-dataset','kind':'dataset','label':'Output Dataset','properties':{'episodes':10},'metrics':[],'relations':[],'artifacts':[],'task_refs':[task]}
+        run={'id':'output-run','kind':'run','label':'Output Evaluation','properties':{},'metrics':[{'id':'score','label':'Score','kind':'scalar','unit':'m','observations':[{'value':.5}]}],'relations':[{'kind':'evaluated_model','id':'fixture-model'}],'artifacts':[],'task_refs':[task]}
+        self.api.fixture['catalog']['entities'] += [dataset,run]
+        self.api.fixture['catalog']['revision']='outputs-context'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('outputs-context')")
+        ui.nav('Outputs')
+        self.assertEqual(ui.js("return [...document.querySelectorAll('#pa-nav button')].filter(e=>e.textContent.trim()==='Outputs').length"),1)
+        self.assertFalse(ui.js("return [...document.querySelectorAll('#pa-nav button')].some(e=>['Datasets','Models','Experiments','Comparison'].includes(e.textContent.trim()))"))
+        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-output-tabs button')].map(e=>e.textContent)"),['Datasets','Experiments','Models'])
+        self.assertTrue(ui.js("return new Set([...document.querySelectorAll('.pa-output-tabs button')].map(e=>Math.round(e.getBoundingClientRect().top))).size===1"))
+        self.assertTrue(ui.js("const row=document.querySelector('[data-output-id=output-dataset]');return row.querySelector('.pa-output-task').textContent==='TaskAssembly'&&row.textContent.indexOf('Output Dataset')<row.textContent.indexOf('TaskAssembly')"))
+        before=ui.js("return document.querySelectorAll('.pa-document-tabs [role=tab]').length")
+        ui.js("const e=document.querySelector('[data-research-task]');e.value='output-task:1';e.dispatchEvent(new Event('change',{bubbles:true}))")
+        for name in ['Models','Experiments','Datasets','Experiments']:
+            ui.nav(name)
+            self.assertEqual(ui.js("return document.querySelector('[data-research-task]').value"),'output-task:1')
+            self.assertEqual(ui.js("return document.querySelectorAll('.pa-document-tabs [role=tab]').length"),before)
+        ui.click('[data-output-page=comparison]');ui.wait("return !!document.querySelector('[data-compare-add]:not(:disabled)')")
+        self.assertTrue(ui.js("return document.querySelector('[data-output-page=experiments]').getAttribute('aria-current')==='page'"))
+        self.assertIn('Outputs / Experiments / Comparison',ui.js("return document.querySelector('#pa-breadcrumb').textContent"))
+        ui.click('[data-compare-add]')
+        ui.wait("return !!document.querySelector('[data-compare-remove=output-run]')")
+        ui.click('.pa-output-actions [data-output-page=experiments]')
+        ui.click('[data-output-page=comparison]')
+        ui.wait("return !!document.querySelector('[data-compare-remove=output-run]')")
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return !!document.querySelector('[data-compare-remove=output-run]')")
+        for width in [1440,500]:
+            ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+            for theme in ['light','dark']:
+                ui.click('[data-theme='+theme+']')
+                self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
+                self.assertTrue(ui.js("return new Set([...document.querySelectorAll('.pa-output-tabs button')].map(e=>Math.round(e.getBoundingClientRect().top))).size===1"))
+
+    def test_legacy_output_routes_and_confirmed_icons(self):
+        ui=self.ui
+        for route,selected in [('outputs','datasets'),('datasets','datasets'),('models','models'),('experiments','experiments'),('comparison','experiments')]:
+            ui.top();ui.js("location.hash=arguments[0]",'#/views/'+route);ui.frame()
+            ui.wait("return document.querySelector('[data-output-page='+arguments[0]+']')?.getAttribute('aria-current')==='page'",selected)
+            self.assertTrue(ui.js("return document.querySelector('#pa-nav [data-go=datasets]').getAttribute('aria-current')==='page'"))
+            self.assertIn('Outputs',ui.js("return document.querySelector('#pa-breadcrumb').textContent"))
+        ui.nav('Runtimes')
+        ui.wait("return !!document.querySelector('#pa-nav [data-go=profiles] svg[data-lucide=server-cog]')")
+        self.assertTrue(ui.js("return !!document.querySelector('[data-hub-page=runtimes] svg[data-lucide=server-cog]')"))
+        ui.nav('Tools')
+        self.assertTrue(ui.js("return !!document.querySelector('[data-hub-page=tools] svg[data-lucide=hammer]')"))
+        self.assertTrue(ui.js("return !!document.querySelector('#pa-nav [data-go=issues] svg[data-lucide=wrench]')"))

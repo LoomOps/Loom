@@ -238,8 +238,8 @@ html[data-loom-motion-hidden] .loom-logo path{animation-play-state:paused}
 #pai-studio .cmp-controls{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:18px}#pai-studio .cmp-controls label{display:grid;gap:7px;font-size:12px;font-weight:650;flex:1;min-width:190px}#pai-studio .cmp-controls select{width:100%;min-height:36px}#pai-studio .cmp-mode{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:16px}#pai-studio .cmp-mode small{font-size:12px}#pai-studio .cmp-contract{font-size:12px;margin:10px 0 16px;color:var(--pa-muted)}#pai-studio .cmp-contract p{margin:8px 0}#pai-studio .cmp-table-wrap{padding:0;overflow:auto}#pai-studio .cmp-table{table-layout:fixed;min-width:740px}#pai-studio .cmp-table th:first-child{width:190px}#pai-studio .cmp-table thead th{min-width:250px;vertical-align:top;padding:18px;white-space:normal;background:var(--pa-side)}#pai-studio .cmp-table tbody th{padding:16px 18px;white-space:normal;font-size:13px;color:var(--pa-ink);font-weight:700}#pai-studio .cmp-table td{padding:14px 18px;vertical-align:middle}#pai-studio .cmp-table small{display:block;font-size:11px;font-weight:450;color:var(--pa-muted);margin-top:5px}#pai-studio .cmp-table details{font-size:10px;font-weight:450;color:var(--pa-muted);margin-top:5px;overflow-wrap:anywhere}#pai-studio .cmp-column-title{display:flex;justify-content:space-between;align-items:start;gap:8px;font-weight:750;font-size:14px}#pai-studio .cmp-column-title&gt;button{font-size:18px;padding:0 4px}#pai-studio .cmp-head-meta{font-size:11px;line-height:1.8;font-weight:450;margin:10px 0;color:var(--pa-muted)}#pai-studio .cmp-col-foot{display:flex;align-items:center;flex-wrap:wrap;gap:8px}#pai-studio .cmp-status{font-size:10px;color:var(--pa-accent)}#pai-studio .cmp-status.reference{color:var(--pa-warn)}#pai-studio .cmp-cell{text-align:left;font-weight:720;font-size:15px;font-variant-numeric:tabular-nums}#pai-studio .cmp-cell:hover{text-decoration:underline;text-underline-offset:4px}#pai-studio .cmp-ratio{font-size:12px;color:var(--pa-muted);font-weight:500}#pai-studio .cmp-emphasis{background:var(--pa-tint)}#pai-studio .cmp-transitions{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:16px}#pai-studio .cmp-transition{flex:1;min-width:280px}#pai-studio .cmp-transition&gt;small{display:block;margin:5px 0 12px}#pai-studio .cmp-transition&gt;div{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}#pai-studio .cmp-transition button{padding:12px 8px;background:var(--pa-side);border-radius:8px;text-align:left}#pai-studio .cmp-transition button:hover{background:var(--pa-tint)}#pai-studio .cmp-transition button span{font-size:11px}#pai-studio .cmp-transition strong{display:block;font-size:24px;margin-top:8px}#pai-studio .cmp-evidence-title{display:flex;justify-content:space-between;gap:10px;margin-bottom:15px}#pai-studio button:disabled{opacity:.45;cursor:default}
 
 #pai-studio .cmp-table thead th{padding:14px 18px}#pai-studio .cmp-head-meta{margin:7px 0;line-height:1.6}#pai-studio .cmp-head-meta details{font-size:11px}#pai-studio .cmp-col-foot{margin-top:10px}#pai-studio .cmp-controls{margin-bottom:12px}#pai-studio .cmp-contract{margin-bottom:12px}#pai-studio .cmp-table{min-width:700px}#pai-studio .cmp-table tbody th{padding:12px 18px}#pai-studio .cmp-table td{padding:12px 18px}
-&lt;/style&gt;&lt;script&gt;const loomRuntimeIcon = &#x27;layers-3&#x27;;
-const loomToolIcon = &#x27;pocket-knife&#x27;;
+&lt;/style&gt;&lt;script&gt;const loomRuntimeIcon = &#x27;server-cog&#x27;;
+const loomToolIcon = &#x27;hammer&#x27;;
 
 // Lucide&#x27;s document scan must not replace already-rendered SVGs on data refresh.
 function loomCreateIcons(options) {
@@ -2059,7 +2059,7 @@ html,body{margin:0!important;padding:0!important;height:100%;overflow:hidden}
 (()=&gt;{
 const root=document.getElementById(&#x27;pai-studio&#x27;);
 const content=root.querySelector(&#x27;#pa-content&#x27;);
-const navs=[[&#x27;queue&#x27;,&#x27;Dashboard&#x27;,&#x27;layout-dashboard&#x27;],[&#x27;files&#x27;,&#x27;Explorer&#x27;,&#x27;folder-open&#x27;],[&#x27;models&#x27;,&#x27;Models&#x27;,&#x27;box&#x27;],[&#x27;datasets&#x27;,&#x27;Datasets&#x27;,&#x27;database&#x27;],[&#x27;experiments&#x27;,&#x27;Experiments&#x27;,&#x27;flask-conical&#x27;],[&#x27;comparison&#x27;,&#x27;Comparison&#x27;,&#x27;git-compare-arrows&#x27;],[&#x27;issues&#x27;,&#x27;Troubleshooting&#x27;,&#x27;wrench&#x27;],[&#x27;profiles&#x27;,&#x27;Runtimes&#x27;,loomRuntimeIcon],[&#x27;docker&#x27;,&#x27;Docker&#x27;,&#x27;boxes&#x27;],[&#x27;mcp&#x27;,&#x27;Loom Use&#x27;,&#x27;plug&#x27;],[&#x27;access&#x27;,&#x27;Tailscale&#x27;,&#x27;tailscale&#x27;]];
+const navs=[[&#x27;queue&#x27;,&#x27;Dashboard&#x27;,&#x27;layout-dashboard&#x27;],[&#x27;files&#x27;,&#x27;Explorer&#x27;,&#x27;folder-open&#x27;],[&#x27;datasets&#x27;,&#x27;Outputs&#x27;,&#x27;archive&#x27;],[&#x27;issues&#x27;,&#x27;Troubleshooting&#x27;,&#x27;wrench&#x27;],[&#x27;profiles&#x27;,&#x27;Runtimes&#x27;,loomRuntimeIcon],[&#x27;docker&#x27;,&#x27;Docker&#x27;,&#x27;boxes&#x27;],[&#x27;mcp&#x27;,&#x27;Loom Use&#x27;,&#x27;plug&#x27;],[&#x27;access&#x27;,&#x27;Tailscale&#x27;,&#x27;tailscale&#x27;]];
 const models=[];
 let state={page:&#x27;queue&#x27;,model:null,tab:&#x27;overview&#x27;,folder:&#x27;models&#x27;,episode:1,issue:false,queueFilter:&#x27;all&#x27;};
 const icon=n=&gt;n=== &quot;tailscale&quot;?loomTailscaleIcon():`&lt;i data-lucide=&quot;${n}&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;`;
@@ -2081,7 +2081,7 @@ files=()=&gt;&#x27;&#x27;;
 const viewDefaults={page:&#x27;queue&#x27;,model:null,tab:&#x27;overview&#x27;,folder:&#x27;models&#x27;,episode:1,issue:false,queueFilter:&#x27;all&#x27;};
 const viewCopy=v=&gt;JSON.parse(JSON.stringify({...viewDefaults,...v}));
 const tabKey=v=&gt;v.entity?&#x27;entity:&#x27;+v.entity:v.model?&#x27;model:&#x27;+v.model:v.page;
-const viewTitle=v=&gt;v.entity?(catEntity(v.entity)?.label||&#x27;기록&#x27;):v.model?(models.find(m=&gt;m.id===v.model)?.name||&#x27;모델&#x27;):({profiles:&#x27;Profiles&#x27;,components:&#x27;Components&#x27;,tools:&#x27;Tools&#x27;,runtimes:&#x27;Runtimes&#x27;,dependencies:&#x27;Dependencies&#x27;}[v.page]||navs.find(n=&gt;n[0]===v.page)?.[1]||&#x27;Dashboard&#x27;);
+const viewTitle=v=&gt;v.entity?(catEntity(v.entity)?.label||&#x27;기록&#x27;):v.model?(models.find(m=&gt;m.id===v.model)?.name||&#x27;모델&#x27;):({datasets:&#x27;Datasets&#x27;,experiments:&#x27;Experiments&#x27;,models:&#x27;Models&#x27;,comparison:&#x27;Comparison&#x27;,profiles:&#x27;Profiles&#x27;,components:&#x27;Components&#x27;,tools:&#x27;Tools&#x27;,runtimes:&#x27;Runtimes&#x27;,dependencies:&#x27;Dependencies&#x27;}[v.page]||navs.find(n=&gt;n[0]===v.page)?.[1]||&#x27;Dashboard&#x27;);
 let ws=state.workspaceV3;
 if(!ws||!Array.isArray(ws.panes)||!ws.panes.length){const v=viewCopy({page:state.page||&#x27;queue&#x27;,model:state.model||null});ws={panes:[{id:&#x27;pane-a&#x27;,tabs:[{id:tabKey(v),view:v}],active:tabKey(v)}],active:&#x27;pane-a&#x27;,orientation:&#x27;side&#x27;,ratio:50,linked:false};}
 ws.theme=state.themePreference||ws.theme;
@@ -2099,7 +2099,7 @@ function descriptor(b){if(b.dataset.entity)return viewCopy(catView(b.dataset.ent
 function showMenu(b,x,y){const paneId=b.closest(&#x27;[data-pane]&#x27;)?.dataset.pane||ws.active;ws.active=paneId;menu={view:descriptor(b),paneId,tabId:b.dataset.doc||null,anchor:b};if(!menu.view)return;root.querySelector(&#x27;.pa-context-menu&#x27;)?.remove();const el=document.createElement(&#x27;div&#x27;);el.className=&#x27;pa-context-menu&#x27;;el.setAttribute(&#x27;role&#x27;,&#x27;menu&#x27;);el.setAttribute(&#x27;aria-label&#x27;,&#x27;열기 옵션&#x27;);el.innerHTML=`&lt;div class=&quot;pa-context-title&quot;&gt;${esc(viewTitle(menu.view))}&lt;/div&gt;&lt;button role=&quot;menuitem&quot; data-menu-action=&quot;tab&quot;&gt;${icon(&#x27;plus&#x27;)} 새 탭에서 열기&lt;/button&gt;&lt;button role=&quot;menuitem&quot; data-menu-action=&quot;right&quot;&gt;${icon(&#x27;columns-2&#x27;)} 오른쪽에서 열기&lt;/button&gt;&lt;button role=&quot;menuitem&quot; data-menu-action=&quot;below&quot;&gt;${icon(&#x27;rows-2&#x27;)} 아래쪽에서 열기&lt;/button&gt;${menu.tabId&amp;&amp;ws.panes.length===2?`&lt;button role=&quot;menuitem&quot; data-menu-action=&quot;move&quot;&gt;${icon(&#x27;arrow-right-left&#x27;)} 다른 패널로 이동&lt;/button&gt;`:&#x27;&#x27;}${menu.tabId?&#x27;&lt;button role=&quot;menuitem&quot; data-menu-action=&quot;close&quot;&gt;닫기&lt;/button&gt;&#x27;:&#x27;&#x27;}`;root.append(el);placeOverlay(el,x,y+6);if(globalThis.lucide)loomCreateIcons({attrs:{width:16,height:16}});el.querySelector(&#x27;button&#x27;)?.focus();}
 let searchView;
 function comparisonBar(){if(ws.panes.length&lt;2)return &#x27;&#x27;;const a=activeTab(ws.panes[0]).view,b=activeTab(ws.panes[1]).view;const bothModels=!!a.model&amp;&amp;!!b.model;const bothEval=a.page===&#x27;experiments&#x27;&amp;&amp;b.page===&#x27;experiments&#x27;;const available=bothModels||bothEval;if(!available)ws.linked=false;return `&lt;div class=&quot;pa-comparison-bar&quot;&gt;&lt;span&gt;${icon(&#x27;git-compare-arrows&#x27;)} ${bothModels?&#x27;모델 비교&#x27;:bothEval?&#x27;에피소드 비교&#x27;:&#x27;병렬 탐색&#x27;}&lt;/span&gt;&lt;span class=&quot;pa-compare-condition&quot;&gt;${bothModels?&#x27;동일 데이터·MSE 단위 · 입력/동결/selected step 차이&#x27;:bothEval?&#x27;동일 example-evaluation · 에피소드·구간 선택 연결&#x27;:&#x27;각 패널 독립 탐색&#x27;}&lt;/span&gt;${available?`&lt;button class=&quot;pa-pill ${ws.linked?&#x27;active&#x27;:&#x27;&#x27;}&quot; data-workspace=&quot;link&quot; aria-pressed=&quot;${ws.linked}&quot;&gt;${ws.linked?&#x27;연결 켜짐&#x27;:&#x27;선택 연결&#x27;}&lt;/button&gt;`:&#x27;&#x27;}&lt;/div&gt;`;}
-render=function(){applyTheme();hideHelp();menu=null;root.querySelector(&#x27;.pa-context-menu&#x27;)?.remove();snapshot();root.querySelector(&#x27;#pa-nav&#x27;).innerHTML=navs.map(([id,label,ico])=&gt;`&lt;button class=&quot;pa-nav-item ${(state.page===id||id===&#x27;profiles&#x27;&amp;&amp;loomIsHubPage(state.page))?&#x27;active&#x27;:&#x27;&#x27;}&quot; data-go=&quot;${id}&quot; aria-current=&quot;${(state.page===id||id===&#x27;profiles&#x27;&amp;&amp;loomIsHubPage(state.page))?&#x27;page&#x27;:&#x27;false&#x27;}&quot;&gt;${icon(ico)}${label}&lt;/button&gt;`).join(&#x27;&#x27;);root.querySelector(&#x27;#pa-breadcrumb&#x27;).textContent=&#x27;작업실 / &#x27;+viewTitle(state);const toolbar=`&lt;div class=&quot;pa-workspace-toolbar&quot;&gt;&lt;span&gt;워크스페이스 &lt;small&gt;${ws.panes.reduce((s,p)=&gt;s+p.tabs.length,0)} tabs&lt;/small&gt;&lt;/span&gt;&lt;div&gt;&lt;button class=&quot;pa-button&quot; data-workspace=&quot;side&quot; aria-label=&quot;좌우 분할&quot;&gt;${icon(&#x27;columns-2&#x27;)} 좌우&lt;/button&gt;&lt;button class=&quot;pa-button&quot; data-workspace=&quot;stack&quot; aria-label=&quot;상하 분할&quot;&gt;${icon(&#x27;rows-2&#x27;)} 상하&lt;/button&gt;${ws.panes.length===2?`&lt;button class=&quot;pa-button&quot; data-workspace=&quot;swap&quot; aria-label=&quot;패널 교환&quot;&gt;${icon(&#x27;arrow-right-left&#x27;)}&lt;/button&gt;&lt;button class=&quot;pa-button&quot; data-workspace=&quot;merge&quot;&gt;합치기&lt;/button&gt;`:&#x27;&#x27;}&lt;/div&gt;&lt;/div&gt;`;const compare=comparisonBar();let panes=&#x27;&#x27;;const pages={home,models:()=&gt;state.model?modelDetail():modelList(),datasets,experiments,comparison,queue,issues,files,scenarios:loomScenarioView,profiles:loomProfilesView,components:loomComponentsView,runtimes:loomRuntimesView,dependencies:loomDependenciesView,tools:loomToolsView,docker:loomDockerView,mcp:loomMcpView,access:loomAccessView};for(let idx=0;idx&lt;ws.panes.length;idx++){const p=ws.panes[idx],t=activeTab(p);state=t.view;let body=state.query?searchView(state.query):state.entity?catalogDetail(state.entity):(pages[state.page]||home)();t.view=state;body=body.replace(/id=&quot;pa-episode-select&quot;/g,&#x27;data-episode-select=&quot;true&quot;&#x27;).replace(/id=&quot;pa-media-phase&quot;/g,&#x27;data-media-phase=&quot;true&quot;&#x27;);panes+=`&lt;section class=&quot;pa-document-pane ${p.id===ws.active?&#x27;is-active&#x27;:&#x27;&#x27;}&quot; data-pane=&quot;${p.id}&quot; aria-label=&quot;${idx===0?&#x27;첫 번째&#x27;:&#x27;두 번째&#x27;} 패널&quot;&gt;&lt;div class=&quot;pa-document-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;${idx+1}번 패널 탭&quot;&gt;${p.tabs.map(tab=&gt;`&lt;div class=&quot;pa-document-tab ${p.active===tab.id?&#x27;active&#x27;:&#x27;&#x27;}&quot; draggable=&quot;true&quot; data-drag-doc=&quot;${esc(tab.id)}&quot;&gt;&lt;button role=&quot;tab&quot; data-doc=&quot;${esc(tab.id)}&quot; aria-selected=&quot;${p.active===tab.id}&quot;&gt;${esc(viewTitle(tab.view))}&lt;/button&gt;&lt;button class=&quot;pa-tab-more&quot; data-doc-options=&quot;${esc(tab.id)}&quot; aria-label=&quot;${esc(viewTitle(tab.view))} 탭 옵션&quot;&gt;⋯&lt;/button&gt;&lt;button class=&quot;pa-tab-close&quot; data-close-doc=&quot;${esc(tab.id)}&quot; aria-label=&quot;${esc(viewTitle(tab.view))} 탭 닫기&quot; title=&quot;내부 탭 닫기 · ⌘/Ctrl+W · 대체 Alt+W&quot;&gt;×&lt;/button&gt;&lt;/div&gt;`).join(&#x27;&#x27;)}&lt;button class=&quot;pa-new-doc&quot; data-new-doc=&quot;true&quot; aria-label=&quot;새 탭&quot;&gt;+&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;pa-pane-body&quot; role=&quot;tabpanel&quot;&gt;${body}&lt;/div&gt;&lt;/section&gt;`;if(idx===0&amp;&amp;ws.panes.length===2)panes+=`&lt;div class=&quot;pa-pane-divider&quot; role=&quot;separator&quot; tabindex=&quot;0&quot; aria-label=&quot;패널 비율&quot; aria-orientation=&quot;${ws.orientation===&#x27;side&#x27;?&#x27;vertical&#x27;:&#x27;horizontal&#x27;}&quot; aria-valuemin=&quot;25&quot; aria-valuemax=&quot;75&quot; aria-valuenow=&quot;${ws.ratio}&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;/div&gt;`;}
+render=function(){applyTheme();hideHelp();menu=null;root.querySelector(&#x27;.pa-context-menu&#x27;)?.remove();snapshot();root.querySelector(&#x27;#pa-nav&#x27;).innerHTML=navs.map(([id,label,ico])=&gt;`&lt;button class=&quot;pa-nav-item ${(state.page===id||id===&#x27;profiles&#x27;&amp;&amp;loomIsHubPage(state.page)||id===&#x27;datasets&#x27;&amp;&amp;loomIsOutputPage(state.page))?&#x27;active&#x27;:&#x27;&#x27;}&quot; data-go=&quot;${id}&quot; aria-current=&quot;${(state.page===id||id===&#x27;profiles&#x27;&amp;&amp;loomIsHubPage(state.page)||id===&#x27;datasets&#x27;&amp;&amp;loomIsOutputPage(state.page))?&#x27;page&#x27;:&#x27;false&#x27;}&quot;&gt;${icon(ico)}${label}&lt;/button&gt;`).join(&#x27;&#x27;);root.querySelector(&#x27;#pa-breadcrumb&#x27;).textContent=loomOutputBreadcrumb(state);const toolbar=`&lt;div class=&quot;pa-workspace-toolbar&quot;&gt;&lt;span&gt;워크스페이스 &lt;small&gt;${ws.panes.reduce((s,p)=&gt;s+p.tabs.length,0)} tabs&lt;/small&gt;&lt;/span&gt;&lt;div&gt;&lt;button class=&quot;pa-button&quot; data-workspace=&quot;side&quot; aria-label=&quot;좌우 분할&quot;&gt;${icon(&#x27;columns-2&#x27;)} 좌우&lt;/button&gt;&lt;button class=&quot;pa-button&quot; data-workspace=&quot;stack&quot; aria-label=&quot;상하 분할&quot;&gt;${icon(&#x27;rows-2&#x27;)} 상하&lt;/button&gt;${ws.panes.length===2?`&lt;button class=&quot;pa-button&quot; data-workspace=&quot;swap&quot; aria-label=&quot;패널 교환&quot;&gt;${icon(&#x27;arrow-right-left&#x27;)}&lt;/button&gt;&lt;button class=&quot;pa-button&quot; data-workspace=&quot;merge&quot;&gt;합치기&lt;/button&gt;`:&#x27;&#x27;}&lt;/div&gt;&lt;/div&gt;`;const compare=comparisonBar();let panes=&#x27;&#x27;;const pages={home,models:()=&gt;state.model?modelDetail():modelList(),datasets,experiments,comparison,queue,issues,files,scenarios:loomScenarioView,profiles:loomProfilesView,components:loomComponentsView,runtimes:loomRuntimesView,dependencies:loomDependenciesView,tools:loomToolsView,docker:loomDockerView,mcp:loomMcpView,access:loomAccessView};for(let idx=0;idx&lt;ws.panes.length;idx++){const p=ws.panes[idx],t=activeTab(p);state=t.view;let body=state.query?searchView(state.query):state.entity?catalogDetail(state.entity):(pages[state.page]||home)();t.view=state;body=body.replace(/id=&quot;pa-episode-select&quot;/g,&#x27;data-episode-select=&quot;true&quot;&#x27;).replace(/id=&quot;pa-media-phase&quot;/g,&#x27;data-media-phase=&quot;true&quot;&#x27;);panes+=`&lt;section class=&quot;pa-document-pane ${p.id===ws.active?&#x27;is-active&#x27;:&#x27;&#x27;}&quot; data-pane=&quot;${p.id}&quot; aria-label=&quot;${idx===0?&#x27;첫 번째&#x27;:&#x27;두 번째&#x27;} 패널&quot;&gt;&lt;div class=&quot;pa-document-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;${idx+1}번 패널 탭&quot;&gt;${p.tabs.map(tab=&gt;`&lt;div class=&quot;pa-document-tab ${p.active===tab.id?&#x27;active&#x27;:&#x27;&#x27;}&quot; draggable=&quot;true&quot; data-drag-doc=&quot;${esc(tab.id)}&quot;&gt;&lt;button role=&quot;tab&quot; data-doc=&quot;${esc(tab.id)}&quot; aria-selected=&quot;${p.active===tab.id}&quot;&gt;${esc(viewTitle(tab.view))}&lt;/button&gt;&lt;button class=&quot;pa-tab-more&quot; data-doc-options=&quot;${esc(tab.id)}&quot; aria-label=&quot;${esc(viewTitle(tab.view))} 탭 옵션&quot;&gt;⋯&lt;/button&gt;&lt;button class=&quot;pa-tab-close&quot; data-close-doc=&quot;${esc(tab.id)}&quot; aria-label=&quot;${esc(viewTitle(tab.view))} 탭 닫기&quot; title=&quot;내부 탭 닫기 · ⌘/Ctrl+W · 대체 Alt+W&quot;&gt;×&lt;/button&gt;&lt;/div&gt;`).join(&#x27;&#x27;)}&lt;button class=&quot;pa-new-doc&quot; data-new-doc=&quot;true&quot; aria-label=&quot;새 탭&quot;&gt;+&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;pa-pane-body&quot; role=&quot;tabpanel&quot;&gt;${body}&lt;/div&gt;&lt;/section&gt;`;if(idx===0&amp;&amp;ws.panes.length===2)panes+=`&lt;div class=&quot;pa-pane-divider&quot; role=&quot;separator&quot; tabindex=&quot;0&quot; aria-label=&quot;패널 비율&quot; aria-orientation=&quot;${ws.orientation===&#x27;side&#x27;?&#x27;vertical&#x27;:&#x27;horizontal&#x27;}&quot; aria-valuemin=&quot;25&quot; aria-valuemax=&quot;75&quot; aria-valuenow=&quot;${ws.ratio}&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;/div&gt;`;}
 snapshot();content.innerHTML=toolbar+compare+`&lt;div class=&quot;pa-mobile-pane-switch&quot;&gt;${ws.panes.map((p,i)=&gt;`&lt;button class=&quot;pa-pill ${p.id===ws.active?&#x27;active&#x27;:&#x27;&#x27;}&quot; data-focus-pane=&quot;${p.id}&quot;&gt;${i+1} · ${esc(viewTitle(activeTab(p).view))}&lt;/button&gt;`).join(&#x27;&#x27;)}&lt;/div&gt;&lt;div class=&quot;pa-analysis-workspace ${ws.panes.length===2?&#x27;is-split&#x27;:&#x27;&#x27;} ${ws.orientation===&#x27;stack&#x27;?&#x27;is-stacked&#x27;:&#x27;&#x27;}&quot; style=&quot;--pane-ratio:${ws.ratio}fr;--pane-rest:${100-ws.ratio}fr&quot;&gt;${panes}&lt;/div&gt;`;
 for(const b of content.querySelectorAll(&#x27;.pa-pane-body button[data-entity],.pa-pane-body button[data-model],.pa-pane-body button[data-go=&quot;datasets&quot;],.pa-pane-body button[data-go=&quot;experiments&quot;]&#x27;)){if(b.classList.contains(&#x27;pa-pipeline-stage&#x27;)||b.closest(&#x27;.pa-resource-reservations&#x27;))continue;const more=document.createElement(&#x27;button&#x27;);more.className=&#x27;pa-entity-more&#x27;;more.setAttribute(&#x27;aria-label&#x27;,b.textContent.trim()+&#x27; 열기 옵션&#x27;);more.textContent=&#x27;⋯&#x27;;more.dataset.entityOptions=&#x27;true&#x27;;more._target=b;b.insertAdjacentElement(&#x27;afterend&#x27;,more);}
 for(const p of ws.panes){const v=activeTab(p).view,body=content.querySelector(`[data-pane=&quot;${p.id}&quot;] .pa-pane-body`);if(v.mediaPhase){body.querySelectorAll(&#x27;[data-phase]&#x27;).forEach(b=&gt;b.classList.toggle(&#x27;active&#x27;,b.dataset.phase===v.mediaPhase));const label=body.querySelector(&#x27;[data-media-phase]&#x27;);if(label)label.textContent=v.mediaPhase+&#x27; 구간 · 실제 영상과 수치가 연결될 위치입니다.&#x27;;}body.querySelectorAll(&#x27;details&#x27;).forEach((d,i)=&gt;{d.open=d.dataset.workGroup?!!v.openWorkGroups?.includes(d.dataset.workGroup):!!v.openDetails?.includes(i);});body.scrollTop=v.scrollTop||0;const strip=body.querySelector(&#x27;.pa-columns-strip&#x27;);if(strip){strip.scrollLeft=v.finderFollowSelection?strip.scrollWidth:(v.finderScroll||0);v.finderFollowSelection=false;}}
@@ -2127,7 +2127,7 @@ root.addEventListener(&#x27;dragstart&#x27;,e=&gt;{const tab=e.target.closest(&#
 root.addEventListener(&#x27;dragover&#x27;,e=&gt;{if(dragTab&amp;&amp;e.target.closest(&#x27;[data-pane]&#x27;)){e.preventDefault();e.dataTransfer.dropEffect=&#x27;move&#x27;;}});
 root.addEventListener(&#x27;drop&#x27;,e=&gt;{const target=e.target.closest(&#x27;[data-pane]&#x27;);if(!dragTab||!target)return;e.preventDefault();const from=ws.panes.find(p=&gt;p.id===dragTab.pane);if(from&amp;&amp;target.dataset.pane!==from.id)moveTab(from,dragTab.id);dragTab=null;});
 root.addEventListener(&#x27;dragend&#x27;,()=&gt;dragTab=null);
-root.addEventListener(&#x27;pointerdown&#x27;,e=&gt;{const divider=e.target.closest(&#x27;.pa-pane-divider&#x27;);if(!divider){const pe=e.target.closest(&#x27;[data-pane]&#x27;);if(pe&amp;&amp;ws.active!==pe.dataset.pane){ws.active=pe.dataset.pane;snapshot();content.querySelectorAll(&#x27;[data-pane]&#x27;).forEach(x=&gt;x.classList.toggle(&#x27;is-active&#x27;,x.dataset.pane===ws.active));root.querySelectorAll(&#x27;#pa-nav [data-go]&#x27;).forEach(x=&gt;x.classList.toggle(&#x27;active&#x27;,x.dataset.go===state.page));root.querySelector(&#x27;#pa-breadcrumb&#x27;).textContent=&#x27;작업실 / &#x27;+viewTitle(state);persist();}return;}e.preventDefault();const grid=content.querySelector(&#x27;.pa-analysis-workspace&#x27;),rect=grid.getBoundingClientRect();divider.setPointerCapture(e.pointerId);const move=ev=&gt;{const r=ws.orientation===&#x27;side&#x27;?(ev.clientX-rect.left)/rect.width:(ev.clientY-rect.top)/rect.height;ws.ratio=Math.max(25,Math.min(75,Math.round(r*100)));grid.style.setProperty(&#x27;--pane-ratio&#x27;,ws.ratio+&#x27;fr&#x27;);grid.style.setProperty(&#x27;--pane-rest&#x27;,(100-ws.ratio)+&#x27;fr&#x27;);divider.setAttribute(&#x27;aria-valuenow&#x27;,ws.ratio);};const end=()=&gt;{divider.removeEventListener(&#x27;pointermove&#x27;,move);divider.removeEventListener(&#x27;pointerup&#x27;,end);divider.removeEventListener(&#x27;pointercancel&#x27;,end);persist();};divider.addEventListener(&#x27;pointermove&#x27;,move);divider.addEventListener(&#x27;pointerup&#x27;,end);divider.addEventListener(&#x27;pointercancel&#x27;,end);});
+root.addEventListener(&#x27;pointerdown&#x27;,e=&gt;{const divider=e.target.closest(&#x27;.pa-pane-divider&#x27;);if(!divider){const pe=e.target.closest(&#x27;[data-pane]&#x27;);if(pe&amp;&amp;ws.active!==pe.dataset.pane){ws.active=pe.dataset.pane;snapshot();content.querySelectorAll(&#x27;[data-pane]&#x27;).forEach(x=&gt;x.classList.toggle(&#x27;is-active&#x27;,x.dataset.pane===ws.active));root.querySelectorAll(&#x27;#pa-nav [data-go]&#x27;).forEach(x=&gt;x.classList.toggle(&#x27;active&#x27;,x.dataset.go===state.page));root.querySelector(&#x27;#pa-breadcrumb&#x27;).textContent=loomOutputBreadcrumb(state);persist();}return;}e.preventDefault();const grid=content.querySelector(&#x27;.pa-analysis-workspace&#x27;),rect=grid.getBoundingClientRect();divider.setPointerCapture(e.pointerId);const move=ev=&gt;{const r=ws.orientation===&#x27;side&#x27;?(ev.clientX-rect.left)/rect.width:(ev.clientY-rect.top)/rect.height;ws.ratio=Math.max(25,Math.min(75,Math.round(r*100)));grid.style.setProperty(&#x27;--pane-ratio&#x27;,ws.ratio+&#x27;fr&#x27;);grid.style.setProperty(&#x27;--pane-rest&#x27;,(100-ws.ratio)+&#x27;fr&#x27;);divider.setAttribute(&#x27;aria-valuenow&#x27;,ws.ratio);};const end=()=&gt;{divider.removeEventListener(&#x27;pointermove&#x27;,move);divider.removeEventListener(&#x27;pointerup&#x27;,end);divider.removeEventListener(&#x27;pointercancel&#x27;,end);persist();};divider.addEventListener(&#x27;pointermove&#x27;,move);divider.addEventListener(&#x27;pointerup&#x27;,end);divider.addEventListener(&#x27;pointercancel&#x27;,end);});
 root.addEventListener(&#x27;pointermove&#x27;,e=&gt;{if(!ws.linked)return;const chartEl=e.target.closest(&#x27;.pa-chart&#x27;);if(!chartEl)return;const r=chartEl.getBoundingClientRect(),ratio=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));for(const c of content.querySelectorAll(&#x27;.pa-chart&#x27;)){let line=c.querySelector(&#x27;.pa-linked-cursor&#x27;);if(!line){line=document.createElementNS(&#x27;http://www.w3.org/2000/svg&#x27;,&#x27;line&#x27;);line.setAttribute(&#x27;class&#x27;,&#x27;pa-linked-cursor&#x27;);line.setAttribute(&#x27;y1&#x27;,&#x27;20&#x27;);line.setAttribute(&#x27;y2&#x27;,&#x27;150&#x27;);line.setAttribute(&#x27;stroke&#x27;,&#x27;var(--pa-muted)&#x27;);line.setAttribute(&#x27;stroke-dasharray&#x27;,&#x27;3 3&#x27;);c.append(line);}line.setAttribute(&#x27;x1&#x27;,ratio*500);line.setAttribute(&#x27;x2&#x27;,ratio*500);}});
 root.addEventListener(&#x27;scroll&#x27;,e=&gt;{if(e.target.classList?.contains(&#x27;pa-columns-strip&#x27;)){const p=ws.panes.find(x=&gt;x.id===e.target.closest(&#x27;[data-pane]&#x27;).dataset.pane);if(p)activeTab(p).view.finderScroll=e.target.scrollLeft;return;}if(!e.target.classList?.contains(&#x27;pa-pane-body&#x27;))return;const p=ws.panes.find(x=&gt;x.id===e.target.closest(&#x27;[data-pane]&#x27;).dataset.pane);if(p)activeTab(p).view.scrollTop=e.target.scrollTop;},true);
 root.addEventListener(&#x27;toggle&#x27;,e=&gt;{if(e.target.tagName!==&#x27;DETAILS&#x27;)return;const body=e.target.closest(&#x27;.pa-pane-body&#x27;),p=ws.panes.find(x=&gt;x.id===body?.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);if(p)activeTab(p).view.openDetails=[...body.querySelectorAll(&#x27;details&#x27;)].flatMap((d,i)=&gt;d.open?[i]:[]);},true);
@@ -2325,13 +2325,13 @@ function refreshCatalogPanes(){
    if(b.classList.contains(&#x27;pa-pipeline-stage&#x27;)||b.closest(&#x27;.pa-resource-reservations&#x27;))continue;
    const more=document.createElement(&#x27;button&#x27;);more.className=&#x27;pa-entity-more&#x27;;more.setAttribute(&#x27;aria-label&#x27;,b.textContent.trim()+&#x27; 열기 옵션&#x27;);more.textContent=&#x27;⋯&#x27;;more.dataset.entityOptions=&#x27;true&#x27;;b.insertAdjacentElement(&#x27;afterend&#x27;,more);
   }
-  patchResourceNode(body,next,true);
+  loomPreserveViewport(body,()=&gt;patchResourceNode(body,next,true));
   for(const b of body.querySelectorAll(&#x27;.pa-entity-more&#x27;))b._target=b.previousElementSibling;
   state.openDetails=[...body.querySelectorAll(&#x27;details&#x27;)].flatMap((d,i)=&gt;d.open?[i]:[]);
  }
  // A renamed/new entity updates its tab label without recreating the tab or pane.
  for(const p of ws.panes)for(const tab of p.tabs){const button=content.querySelector(`[data-pane=&quot;${p.id}&quot;] [data-doc=&quot;${CSS.escape(tab.id)}&quot;]`);if(button){const text=viewTitle(tab.view);if(button.textContent!==text)button.textContent=text;const wrapper=button.closest(&#x27;.pa-document-tab&#x27;);wrapper?.querySelector(&#x27;.pa-tab-more&#x27;)?.setAttribute(&#x27;aria-label&#x27;,text+&#x27; 탭 옵션&#x27;);wrapper?.querySelector(&#x27;.pa-tab-close&#x27;)?.setAttribute(&#x27;aria-label&#x27;,text+&#x27; 탭 닫기&#x27;);}}
- state=activeTab().view;const breadcrumb=root.querySelector(&#x27;#pa-breadcrumb&#x27;);if(breadcrumb)breadcrumb.textContent=&#x27;작업실 / &#x27;+viewTitle(state);catSyncControl();resourceInterest();scheduleActivityLayout();
+ state=activeTab().view;const breadcrumb=root.querySelector(&#x27;#pa-breadcrumb&#x27;);if(breadcrumb)breadcrumb.textContent=loomOutputBreadcrumb(state);catSyncControl();resourceInterest();scheduleActivityLayout();
  if(globalThis.lucide)loomCreateIcons({attrs:{width:16,height:16}});
 }
 function catalogRefreshViews(){
@@ -2368,6 +2368,7 @@ function displayNodeKey(n){
  if(n.nodeType!==Node.ELEMENT_NODE)return null;
  if(n.hasAttribute(&#x27;data-container-row&#x27;))return &#x27;container:&#x27;+n.dataset.containerRow;
  if(n.hasAttribute(&#x27;data-container-extra&#x27;))return &#x27;container-detail:&#x27;+n.dataset.containerExtra;
+ if(n.dataset.outputId)return &#x27;output:&#x27;+n.dataset.outputId;
  if(n.dataset.modelFilter)return &#x27;model-filter:&#x27;+n.dataset.modelFilter;
  if(n.hasAttribute(&#x27;data-model-role&#x27;))return &#x27;model-role:&#x27;+n.dataset.modelRole;
  if(n.dataset.modelEntry)return &#x27;model-entry:&#x27;+n.dataset.modelEntry;
@@ -2952,7 +2953,7 @@ root.addEventListener(&#x27;click&#x27;,e=&gt;{
 },true);
 
 // Pure bounded route codec, shared by parent and opaque document. No filesystem URLs.
-const paiRouteViews={dashboard:&#x27;queue&#x27;,explorer:&#x27;files&#x27;,models:&#x27;models&#x27;,datasets:&#x27;datasets&#x27;,experiments:&#x27;experiments&#x27;,comparison:&#x27;comparison&#x27;,issues:&#x27;issues&#x27;,agent:&#x27;queue&#x27;,profiles:&#x27;profiles&#x27;,components:&#x27;components&#x27;,runtimes:&#x27;runtimes&#x27;,dependencies:&#x27;dependencies&#x27;,tools:&#x27;tools&#x27;,docker:&#x27;docker&#x27;,mcp:&#x27;mcp&#x27;,tailnet:&#x27;access&#x27;,tailscale:&#x27;access&#x27;};
+const paiRouteViews={dashboard:&#x27;queue&#x27;,explorer:&#x27;files&#x27;,outputs:&#x27;datasets&#x27;,models:&#x27;models&#x27;,datasets:&#x27;datasets&#x27;,experiments:&#x27;experiments&#x27;,comparison:&#x27;comparison&#x27;,issues:&#x27;issues&#x27;,agent:&#x27;queue&#x27;,profiles:&#x27;profiles&#x27;,components:&#x27;components&#x27;,runtimes:&#x27;runtimes&#x27;,dependencies:&#x27;dependencies&#x27;,tools:&#x27;tools&#x27;,docker:&#x27;docker&#x27;,mcp:&#x27;mcp&#x27;,tailnet:&#x27;access&#x27;,tailscale:&#x27;access&#x27;};
 function paiParseRoute(hash){
  if(typeof hash!==&#x27;string&#x27;||hash.length&gt;1800)return null;
  const [path,query=&#x27;&#x27;]=hash.replace(/^#/,&#x27;&#x27;).split(&#x27;?&#x27;);const bits=path.split(&#x27;/&#x27;);
@@ -5141,7 +5142,10 @@ function loomCatalogRefresh(value){
  const changed=loomCatalogRevision!==value.revision;
  const previous=catalogData.all_entities||catalogData.entities||[];
  const open=new Set(ws.panes.map(p=&gt;activeTab(p).view.entity).filter(Boolean));
- if(changed){loomCatalogPages.clear();loomScenarioGraphs.clear();loomCatalogRevision=value.revision;loomActivityView=null;
+ if(changed){
+  // A revision invalidates cursors, not the last complete visible list.
+  for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],desired:Math.min(4000,page.ids?.length||page.query.limit||50),loaded:false,busy:false,cursor:null,error:null});
+  loomScenarioGraphs.clear();loomCatalogRevision=value.revision;loomActivityView=null;
   for(const id of open)queueMicrotask(async()=&gt;{
    if(!catalogData.capabilities?.catalog_pages||loomCatalogOpening.has(id))return;
    loomCatalogOpening.add(id);
@@ -5155,7 +5159,8 @@ function loomCatalogRefresh(value){
    }finally{loomCatalogOpening.delete(id);}
   });
  }
- const old=changed?previous.filter(e=&gt;open.has(e.id)):previous;
+ const retained=new Set([...open,...[...loomCatalogPages.values()].flatMap(page=&gt;page.ids||[])]);
+ const old=changed?previous.filter(e=&gt;retained.has(e.id)||catalogData.capabilities?.catalog_pages&amp;&amp;[&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;run&#x27;,&#x27;experiment&#x27;].includes(e.kind)):previous;
  const records=new Map(old.map(e=&gt;[e.id,e]));
  for(const e of value.all_entities||value.entities){const old=records.get(e.id);records.set(e.id,old?.kind===&#x27;scenario&#x27;&amp;&amp;old.loom_scenario.revision&gt;e.loom_scenario?.revision?old:e);}
  loomPresentationView=value.presentation_view||catalogData.presentation_view||&#x27;research&#x27;;
@@ -5177,13 +5182,33 @@ async function loomCatalogLoad(kind,more=false,query=loomCatalogQuery(kind)){
  const key=JSON.stringify(query);
  let page=loomCatalogPages.get(key);
  if(page?.busy||page?.loaded&amp;&amp;!more||more&amp;&amp;!page?.cursor)return;
- if(!page){page={query,cursor:null,busy:false,loaded:false,error:null};loomCatalogPages.set(key,page);}
+ if(!page){page={query,cursor:null,busy:false,loaded:false,error:null,ids:[]};loomCatalogPages.set(key,page);}
  page.busy=true;page.error=null;
  try{
-  const result=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_page&#x27;,{...page.query,...(more?{cursor:page.cursor}:{})});
-  if(loomCatalogPages.get(key)!==page)return;
-  loomCatalogMerge(result);page.cursor=result.next_cursor;page.loaded=true;page.partial=result.partial;if(result.partial&amp;&amp;!more&amp;&amp;(page.retries||0)&lt;4){page.retries=(page.retries||0)+1;setTimeout(()=&gt;{if(loomCatalogPages.get(key)===page){page.loaded=false;loomCatalogLoad(kind,false,page.query);}},500*page.retries);}
- }catch(error){page.error=error.message;}finally{page.busy=false;if(loomCatalogPages.get(key)===page)catalogRefreshViews();}
+  let cursor=more?page.cursor:null,result,entities=[];
+  const desired=more?query.limit:page.desired||query.limit;
+  do{
+   result=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_page&#x27;,{...page.query,...(cursor?{cursor}:{})});
+   if(loomCatalogPages.get(key)!==page)return;
+   entities.push(...result.entities);cursor=result.next_cursor;
+  }while(!more&amp;&amp;cursor&amp;&amp;entities.length&lt;desired&amp;&amp;!result.partial&amp;&amp;entities.length&lt;4000);
+  // Commit a whole replacement, including previously loaded pages, in one paint.
+  const ids=[...new Set(entities.map(e=&gt;e.id))];
+  page.ids=more?[...new Set([...page.ids,...ids])]:result.partial&amp;&amp;page.ids.length&gt;ids.length?page.ids:ids;
+  loomCatalogMerge({...result,entities});
+  page.cursor=cursor;page.loaded=true;page.partial=result.partial;
+  if(result.partial&amp;&amp;!more&amp;&amp;(page.retries||0)&lt;4){
+   page.retries=(page.retries||0)+1;
+   setTimeout(()=&gt;{if(loomCatalogPages.get(key)===page){page.loaded=false;loomCatalogLoad(kind,false,page.query);}},500*page.retries);
+  }
+ }catch(error){
+  page.error=error.message;
+  // A projection can advance between cursor pages. Retain the last complete
+  // list and restart from the first page; never splice incompatible snapshots.
+  if((page.failures||0)&lt;3){page.failures=(page.failures||0)+1;setTimeout(()=&gt;{
+   if(loomCatalogPages.get(key)!==page)return;page.loaded=false;page.error=null;loomCatalogLoad(kind,false,page.query);
+  },250*2**(page.failures-1));}
+ }finally{page.busy=false;if(loomCatalogPages.get(key)===page)catalogRefreshViews();}
 }
 function loomCatalogPager(kind){
  if(!catalogData.capabilities?.catalog_pages)return &#x27;&#x27;;
@@ -5208,7 +5233,7 @@ const loomPagedScenarios=loomScenarioView;
 loomScenarioView=function(){return loomPagedScenarios()+loomCatalogPager(&#x27;scenario&#x27;);};
 const loomPagedRender=render;
 render=function(){
- if(loomCatalogRevision!==catalogData.revision){loomCatalogPages.clear();loomCatalogRevision=catalogData.revision;loomActivityView=null;}
+ if(loomCatalogRevision!==catalogData.revision){for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],desired:Math.min(4000,page.ids?.length||50),loaded:false,busy:false,cursor:null});loomCatalogRevision=catalogData.revision;loomActivityView=null;}
  loomPagedRender();
  const kind=loomCatalogKinds[state.page];
  if(kind&amp;&amp;!state.entity)loomCatalogPager(kind);
@@ -5266,6 +5291,9 @@ root.addEventListener(&#x27;click&#x27;,event=&gt;{const b=event.target.closest(
 
 function loomTaskItems(items,kind){
  if(![&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;,&#x27;run&#x27;].includes(kind))return items;
+ const listKind=kind===&#x27;run&#x27;?&#x27;experiment&#x27;:kind,current=loomCatalogKinds[state.page];
+ const page=!state.entity&amp;&amp;current===listKind?loomCatalogPages.get(loomCatalogPageKey(listKind)):null;
+ if(page?.loaded||page?.ids?.length){const rank=new Map(page.ids.map((id,i)=&gt;[id,i]));items=items.filter(e=&gt;rank.has(e.id)).sort((a,b)=&gt;rank.get(a.id)-rank.get(b.id));}
  return items.filter(e=&gt;!state.researchTask||(e.task_refs||[]).some(t=&gt;t.id===state.researchTask.id))
  .sort((a,b)=&gt;(a.task_refs?.[0]?.label||&#x27;\uffff&#x27;).localeCompare(b.task_refs?.[0]?.label||&#x27;\uffff&#x27;));
 }
@@ -5273,11 +5301,15 @@ function loomTaskToolbar(){
  const tasks=catalogData.research_tasks||[],selected=state.researchTask;
  return &#x27;&lt;div class=&quot;pa-task-filter&quot;&gt;&lt;label&gt;Task &lt;select data-research-task&gt;&lt;option value=&quot;&quot;&gt;All tasks&lt;/option&gt;&#x27;+tasks.map(t=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(t.id+&#x27;:&#x27;+t.revision)+&#x27;&quot;&#x27;+(selected?.id===t.id&amp;&amp;selected?.revision===t.revision?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+esc(t.label)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;+(catalogData.capabilities?.curate&amp;&amp;catalogData.capabilities?.scenarios?&#x27;&lt;button data-scenario-create&gt;New Task&lt;/button&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
 }
-function loomTaskLabels(entity){return (entity.task_refs||[]).map(t=&gt;&#x27;&lt;button class=&quot;pa-task-label&quot; data-entity=&quot;&#x27;+esc(t.id)+&#x27;&quot;&gt;&#x27;+esc(t.label)+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;);}
+function loomTaskLabels(entity){return (entity.task_refs||[]).map(t=&gt;&#x27;&lt;a class=&quot;pa-task-label&quot; href=&quot;#/entities/&#x27;+encodeURIComponent(t.id)+&#x27;&quot; data-entity=&quot;&#x27;+esc(t.id)+&#x27;&quot;&gt;&#x27;+esc(t.label)+&#x27;&lt;/a&gt;&#x27;).join(&#x27; · &#x27;);}
+function loomTaskProperty(entity){const links=loomTaskLabels(entity);return links?&#x27;&lt;div class=&quot;pa-output-task&quot;&gt;&lt;span&gt;Task&lt;/span&gt;&lt;span&gt;&#x27;+links+&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;:&#x27;&#x27;;}
+function loomOutputRow(markup,entity){
+ return markup.replace(&#x27;&lt;article &#x27;,&#x27;&lt;article data-output-id=&quot;&#x27;+esc(entity.id)+&#x27;&quot; &#x27;).replace(&#x27;&lt;/article&gt;&#x27;,loomTaskProperty(entity)+&#x27;&lt;/article&gt;&#x27;);
+}
 const loomTaskCatalogRow=catListRow;
-catListRow=function(entity){return loomTaskCatalogRow(entity).replace(&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;,&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;+loomTaskLabels(entity));};
+catListRow=function(entity){return loomOutputRow(loomTaskCatalogRow(entity),entity);};
 const loomTaskResultCard=resultCard;
-resultCard=function(entity){return loomTaskResultCard(entity).replace(&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;,&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;+loomTaskLabels(entity));};
+resultCard=function(entity){return loomOutputRow(loomTaskResultCard(entity),entity);};
 const loomTaskModelList=modelList;
 modelList=function(){return loomTaskToolbar()+loomTaskModelList();};
 const loomTaskDatasetList=datasets;
@@ -5287,6 +5319,84 @@ experiments=function(){return loomTaskToolbar()+loomTaskExperimentList();};
 root.addEventListener(&#x27;change&#x27;,event=&gt;{const field=event.target.closest(&#x27;[data-research-task]&#x27;);if(!field)return;const pane=ws.panes.find(p=&gt;p.id===field.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);if(!pane)return;const value=field.value;activeTab(pane).view.researchTask=(catalogData.research_tasks||[]).find(t=&gt;t.id+&#x27;:&#x27;+t.revision===value);render();persist();});
 
 const loomPagedFiles=files;files=function(){return loomPagedFiles()+loomCatalogPager(&quot;explorer&quot;);};
+
+// Only background patches use this anchor. User navigation keeps normal scroll behavior.
+function loomPreserveViewport(body,patch){
+ const edge=body.getBoundingClientRect(),top=body.scrollTop,left=body.scrollLeft;
+ const anchors=[...body.querySelectorAll(&#x27;[data-output-id]&#x27;)].filter(e=&gt;e.getClientRects().length)
+  .map(e=&gt;({id:e.dataset.outputId,offset:e.getBoundingClientRect().top-edge.top,bottom:e.getBoundingClientRect().bottom-edge.top}))
+  .filter(e=&gt;e.bottom&gt;0&amp;&amp;e.offset&lt;edge.height).slice(0,20);
+ patch();
+ const anchor=anchors.map(a=&gt;({a,node:[...body.querySelectorAll(&#x27;[data-output-id]&#x27;)].find(e=&gt;e.dataset.outputId===a.id)})).find(x=&gt;x.node?.getClientRects().length);
+ body.scrollTop=anchor?body.scrollTop+anchor.node.getBoundingClientRect().top-body.getBoundingClientRect().top-anchor.a.offset:top;
+ body.scrollLeft=left;
+}
+
+// One output workspace; typed records and legacy deep links keep their identity.
+const loomOutputPages={datasets:&#x27;Datasets&#x27;,experiments:&#x27;Experiments&#x27;,models:&#x27;Models&#x27;};
+function loomIsOutputPage(page){return Object.hasOwn(loomOutputPages,page)||page===&#x27;comparison&#x27;||page===&#x27;scenarios&#x27;;}
+function loomOutputTabs(){
+ const selected=state.page===&#x27;comparison&#x27;?&#x27;experiments&#x27;:state.page;
+ return &#x27;&lt;nav class=&quot;pa-output-tabs&quot; aria-label=&quot;Outputs&quot;&gt;&#x27;+Object.entries(loomOutputPages).map(([page,label])=&gt;&#x27;&lt;button data-output-page=&quot;&#x27;+page+&#x27;&quot; aria-current=&quot;&#x27;+(selected===page?&#x27;page&#x27;:&#x27;false&#x27;)+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/nav&gt;&#x27;;
+}
+function loomOutputBreadcrumb(view){
+ if(!loomIsOutputPage(view.page))return &#x27;작업실 / &#x27;+viewTitle(view);
+ const label=view.entity||view.model?viewTitle(view):null;
+ const section=view.page===&#x27;comparison&#x27;?&#x27;Experiments / Comparison&#x27;:loomOutputPages[view.page]||&#x27;Task&#x27;;
+ return &#x27;작업실 / Outputs / &#x27;+section+(label?&#x27; / &#x27;+label:&#x27;&#x27;);
+}
+function loomOutputChrome(){
+ return &#x27;&lt;div class=&quot;pa-output-header&quot;&gt;&#x27;+loomOutputTabs()+([&#x27;experiments&#x27;,&#x27;comparison&#x27;].includes(state.page)&amp;&amp;!state.entity
+  ?&#x27;&lt;div class=&quot;pa-output-actions&quot;&gt;&#x27;+(state.page===&#x27;comparison&#x27;
+   ?&#x27;&lt;button class=&quot;pa-button&quot; data-output-page=&quot;experiments&quot;&gt;Results&lt;/button&gt;&#x27;
+   :&#x27;&lt;button class=&quot;pa-button&quot; data-output-page=&quot;comparison&quot;&gt;&#x27;+icon(&#x27;git-compare-arrows&#x27;)+&#x27;Comparison&lt;/button&gt;&#x27;)+&#x27;&lt;/div&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+}
+function loomOutputNavigate(page){
+ if(!loomIsOutputPage(page))return;
+ const pane=activePane(),tab=activeTab();
+ const view=viewCopy({...tab.view,page,entity:null,model:null,query:&#x27;&#x27;,routeOwner:null,routeAttempt:null,routeArtifact:null});
+ if(tab.view.entity||tab.view.model){openView(view);return;}
+ const key=tabKey(view),existing=pane.tabs.find(t=&gt;t!==tab&amp;&amp;t.id===key);
+ // Switching output sections reuses this document rather than spawning tabs.
+ if(existing){existing.view=view;pane.active=existing.id;}
+ else{tab.id=key;tab.view=view;pane.active=key;}
+ menu=null;render();persist();
+}
+const loomOutputOpenView=openView;
+openView=function(view,...args){
+ const current=activeTab()?.view;
+ if(current&amp;&amp;loomIsOutputPage(current.page)&amp;&amp;loomIsOutputPage(view.page)&amp;&amp;view.researchTask===undefined&amp;&amp;current.researchTask)view={...view,researchTask:current.researchTask};
+ return loomOutputOpenView(view,...args);
+};
+const loomOutputDatasets=datasets;
+datasets=function(){return loomOutputChrome()+loomOutputDatasets();};
+const loomOutputModels=modelList;
+modelList=function(){return loomOutputChrome()+loomOutputModels();};
+const loomOutputExperiments=experiments;
+experiments=function(){return loomOutputChrome()+loomOutputExperiments();};
+const loomOutputDetail=catalogDetail;
+catalogDetail=function(id){return (loomIsOutputPage(state.page)?loomOutputChrome():&#x27;&#x27;)+loomOutputDetail(id);};
+const loomOutputComparison=comparison;
+comparison=function(){
+ // Comparison can be entered directly, before either list has been loaded.
+ const pages=[&#x27;model&#x27;,&#x27;experiment&#x27;].map(kind=&gt;loomCatalogPager(kind).replace(&#x27;&gt;More&lt;/button&gt;&#x27;,&#x27;&gt;More &#x27;+(kind===&#x27;model&#x27;?&#x27;models&#x27;:&#x27;experiments&#x27;)+&#x27;&lt;/button&gt;&#x27;)).join(&#x27;&#x27;);
+ const pending=(state.compareRuns||[]).filter(id=&gt;!catEntity(id)),selected=[...(state.compareRuns||[])],base=state.compareBase;
+ for(const id of pending)if(!loomCatalogOpening.has(id)){
+  loomCatalogOpening.add(id);
+  queueMicrotask(()=&gt;loomCatalogOpen(id,false).catch(error=&gt;{
+   if(error.code===&#x27;unknown_item&#x27;){for(const pane of ws.panes)for(const tab of pane.tabs)if(tab.view.compareRuns)tab.view.compareRuns=tab.view.compareRuns.filter(value=&gt;value!==id);}
+  }).finally(()=&gt;loomCatalogOpening.delete(id)));
+ }
+ const body=loomOutputComparison();
+ // A bounded bootstrap is not evidence that a selected result was deleted.
+ if(pending.length){state.compareRuns=selected;state.compareBase=base;}
+ return loomOutputChrome()+loomTaskToolbar()+body+pages;
+};
+root.addEventListener(&#x27;click&#x27;,event=&gt;{
+ const button=event.target.closest(&#x27;[data-output-page]&#x27;);if(!button)return;
+ event.preventDefault();const pane=button.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;
+ loomOutputNavigate(button.dataset.outputPage);
+});
 
 // Flat marks use compositor-friendly CSS; no animation frame loop on Dashboard.
 (()=&gt;{const sync=()=&gt;document.documentElement.toggleAttribute(&#x27;data-loom-motion-hidden&#x27;,document.hidden);document.addEventListener(&#x27;visibilitychange&#x27;,sync);sync();
@@ -6101,6 +6211,22 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 #pai-studio .pa-input-properties{max-width:100%;min-width:0}
 #pai-studio .pa-input-property{max-width:100%;min-width:0;align-items:baseline}
 #pai-studio .pa-input-property b{min-width:0;white-space:normal;overflow-wrap:anywhere}
+
+.pa-output-header{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--pa-line);margin:0 0 16px}
+.pa-output-tabs{display:flex;align-items:center;gap:2px;flex:1;overflow-x:auto;min-width:0;max-width:100%}
+#pai-studio .pa-output-tabs button{flex:0 0 auto;padding:10px 12px;border:0;border-radius:0;background:transparent;color:var(--pa-muted);white-space:nowrap;font-size:13px}
+#pai-studio .pa-output-tabs button[aria-current=&quot;page&quot;]{color:var(--pa-accent);box-shadow:inset 0 -2px var(--pa-accent)}
+.pa-output-actions{display:flex;justify-content:flex-end}
+.pa-output-actions button{display:inline-flex;align-items:center;gap:6px}
+@media(max-width:600px){#pai-studio .pa-output-tabs button{padding:10px 8px;font-size:12px}.pa-output-actions button{font-size:12px;padding:6px}}
+#pai-studio .pa-output-tabs{flex-direction:row;align-items:center;justify-content:flex-start;width:auto}
+#pai-studio .pa-output-tabs button{width:auto;min-width:0}
+
+#pai-studio .pa-pane-body{overflow-anchor:none}
+#pai-studio .pa-output-task{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;max-width:100%;font-size:12px;color:var(--pa-muted);margin-top:8px}
+#pai-studio .pa-output-task .pa-task-label{display:inline;border:0;padding:0;margin:0;font-size:12px;font-weight:400;background:none;color:var(--pa-muted)}
+
+#pai-studio .pa-catalog-pagination{min-height:40px;display:flex;align-items:center;gap:8px}
 /* Brand animation is decorative, never a live Job/status indicator. */
 :root{--loom-brand-accent:light-dark(#436fc7,#9bb9f1)}
 .loom-logo{overflow:visible;--loom-logo-blue:var(--loom-brand-accent)}
@@ -6485,7 +6611,7 @@ function paiShowShare(url){
 }
 
 // Pure bounded route codec, shared by parent and opaque document. No filesystem URLs.
-const paiRouteViews={dashboard:'queue',explorer:'files',models:'models',datasets:'datasets',experiments:'experiments',comparison:'comparison',issues:'issues',agent:'agent'};
+const paiRouteViews={dashboard:'queue',explorer:'files',outputs:'datasets',models:'models',datasets:'datasets',experiments:'experiments',comparison:'comparison',issues:'issues',agent:'agent'};
 function paiParseRoute(hash){
  if(typeof hash!=='string'||hash.length>1800)return null;
  const [path,query='']=hash.replace(/^#/,'').split('?');const bits=path.split('/');

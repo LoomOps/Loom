@@ -35,3 +35,5 @@ Search is a projection and can lag. An empty partial search does not prove absen
 Research/Operations and main/support/test describe presentation. The current queue shows actual resource consumers regardless of these labels. Filters can reduce catalog noise without erasing execution history.
 
 See [task guides](../loom_use/entry.md), [API reference](reference/README.md) and [implementation ownership](IMPLEMENTATION.md).
+
+Output names identify the individual dataset, model or experiment. Task membership is a separate context property and never replaces the output label. For new producer names, see the [output naming convention](../loom_use/results.md#output-names); preserve existing labels during curation unless a rename is requested.

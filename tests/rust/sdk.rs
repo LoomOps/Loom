@@ -55,3 +55,37 @@ fn streamed_producer_inventory_hashes_real_bytes_and_requires_sorted_primary() {
     assert_eq!(entry["role"], "primary");
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn pending_output_label_preserves_identity_and_bytes_and_rejects_invalid_names() {
+    let root = std::env::temp_dir().join(format!("loom-sdk-label-{}", uuid::Uuid::new_v4()));
+    fs::create_dir(&root).unwrap();
+    let request: Request = serde_json::from_value(
+        json!({"output_dir":root,"profile":{"revision":"fixture.r1","sha256":"a".repeat(64)}}),
+    )
+    .unwrap();
+    let mut producer = Producer::new(request).unwrap();
+    producer
+        .write_artifact("checkpoint", "weights.bin", b"unchanged")
+        .unwrap();
+    let before = producer.entities[0].clone();
+    producer
+        .set_entity_label("checkpoint", " X-VLA · RGB-D · Grasp policy · step 20000 ")
+        .unwrap();
+    assert_eq!(
+        producer.entities[0]["label"],
+        "X-VLA · RGB-D · Grasp policy · step 20000"
+    );
+    for key in ["id", "kind", "path", "provenance"] {
+        assert_eq!(producer.entities[0][key], before[key]);
+    }
+    assert_eq!(fs::read(root.join("weights.bin")).unwrap(), b"unchanged");
+    for label in ["", " \n ", "multiline\nlabel"] {
+        assert!(producer.set_entity_label("checkpoint", label).is_err());
+    }
+    assert!(producer
+        .set_entity_label("checkpoint", &"x".repeat(201))
+        .is_err());
+    assert!(producer.set_entity_label("unknown", "Valid label").is_err());
+    fs::remove_dir_all(root).unwrap();
+}

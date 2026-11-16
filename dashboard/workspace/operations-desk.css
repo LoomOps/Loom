@@ -533,3 +533,19 @@
 #pai-studio .pa-input-properties{max-width:100%;min-width:0}
 #pai-studio .pa-input-property{max-width:100%;min-width:0;align-items:baseline}
 #pai-studio .pa-input-property b{min-width:0;white-space:normal;overflow-wrap:anywhere}
+
+.pa-output-header{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--pa-line);margin:0 0 16px}
+.pa-output-tabs{display:flex;align-items:center;gap:2px;flex:1;overflow-x:auto;min-width:0;max-width:100%}
+#pai-studio .pa-output-tabs button{flex:0 0 auto;padding:10px 12px;border:0;border-radius:0;background:transparent;color:var(--pa-muted);white-space:nowrap;font-size:13px}
+#pai-studio .pa-output-tabs button[aria-current="page"]{color:var(--pa-accent);box-shadow:inset 0 -2px var(--pa-accent)}
+.pa-output-actions{display:flex;justify-content:flex-end}
+.pa-output-actions button{display:inline-flex;align-items:center;gap:6px}
+@media(max-width:600px){#pai-studio .pa-output-tabs button{padding:10px 8px;font-size:12px}.pa-output-actions button{font-size:12px;padding:6px}}
+#pai-studio .pa-output-tabs{flex-direction:row;align-items:center;justify-content:flex-start;width:auto}
+#pai-studio .pa-output-tabs button{width:auto;min-width:0}
+
+#pai-studio .pa-pane-body{overflow-anchor:none}
+#pai-studio .pa-output-task{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;max-width:100%;font-size:12px;color:var(--pa-muted);margin-top:8px}
+#pai-studio .pa-output-task .pa-task-label{display:inline;border:0;padding:0;margin:0;font-size:12px;font-weight:400;background:none;color:var(--pa-muted)}
+
+#pai-studio .pa-catalog-pagination{min-height:40px;display:flex;align-items:center;gap:8px}

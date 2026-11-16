@@ -2,6 +2,7 @@
 import base64,json,os,socket,sqlite3,subprocess,tempfile,time,unittest
 from pathlib import Path
 from urllib.parse import urlsplit
+from urllib.error import HTTPError
 from urllib.request import Request,urlopen
 import test_workspace as reference
 from verify_workspace import Workspace
@@ -192,3 +193,77 @@ class NativeWorkspaceTests(unittest.TestCase):
    time.sleep(.7)
    self.assertIn('Detail refresh retained',self.ui.js("return document.querySelector('#pa-content').textContent"))
    self.assertTrue(self.ui.js("return !!document.querySelector('[data-share-route=\"'+arguments[0]+'\"]')",ident))
+
+
+ def test_direct_comparison_pages_candidates_and_retains_selection_on_reload(self):
+  def insert(kind,ident,body):
+   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+    db.execute('INSERT INTO history_records(source,kind,id,revision,snapshot,body) VALUES(?,?,?,?,?,?)',('catalog',kind,ident,'r1','cold-comparison',json.dumps({'original':body,'locations':[],'record':{'created':1700000000}})))
+  insert('model','cold-model',{'id':'cold-model','kind':'model','label':'Cold comparison model','properties':{},'metrics':[],'relations':[],'artifacts':[]})
+  for _ in range(100):
+   model=self.call('system','dashboard_page',{'kinds':['model'],'text':'Cold comparison model'})['entities']
+   if model:break
+   time.sleep(.05)
+  insert('run','cold-run',{'id':'cold-run','kind':'run','label':'Cold comparison result','properties':{},'metrics':[{'id':'score','label':'Score','kind':'scalar','unit':'m','observations':[{'value':.5}]}],'relations':[{'kind':'evaluated_model','id':model[0]['id']}],'artifacts':[]})
+  for _ in range(100):
+   rows=self.call('system','dashboard_page',{'kinds':['experiment'],'text':'Cold comparison result'})['entities']
+   if rows:break
+   time.sleep(.05)
+  for n in range(55):self.call('results','register_scenario',{'key':'cold-context-'+str(n),'definition':{'label':'Recent comparison context '+str(n)}})
+  self.wd('/url',{'url':self.base+'/#/views/comparison'});self.ui.connect()
+  self.ui.wait("return [...document.querySelector('[data-compare-model]').options].some(e=>e.textContent==='Cold comparison model')")
+  self.ui.js("const e=document.querySelector('[data-compare-model]');e.value=arguments[0];e.dispatchEvent(new Event('change',{bubbles:true}))",model[0]['id'])
+  self.ui.wait("return [...document.querySelector('[data-compare-run]').options].some(e=>e.textContent.includes('Cold comparison result'))")
+  self.ui.js("document.querySelector('[data-compare-run]').value=arguments[0]",rows[0]['id'])
+  self.ui.click('[data-compare-add]')
+  self.ui.wait("return !!document.querySelector('[data-compare-remove]')")
+  self.ui.top();self.wd('/refresh',{});self.ui.connect()
+  self.ui.wait("return !!document.querySelector('[data-compare-remove]')")
+  self.assertEqual(self.ui.js("return document.querySelector('[data-compare-remove]').dataset.compareRemove"),rows[0]['id'])
+
+ def test_aaa_revision_refresh_keeps_loaded_depth_and_visible_output_anchor(self):
+  for kind,nav in [('model','Models'),('dataset','Datasets'),('run','Experiments')]:
+   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+    for n in range(65):
+     ident=f'anchor-{kind}-{n:03}'
+     body={'original':{'id':ident,'kind':kind,'label':f'Anchor {kind} {n:03}','summary':'Measured output description '*12,'properties':{},'metrics':[],'relations':[],'artifacts':[]},'locations':[],'record':{'created':1700000000+n}}
+     db.execute('INSERT INTO history_records VALUES(?,?,?,?,?,?)',('catalog',kind,ident,'r1','anchor',json.dumps(body)))
+   query_kind='experiment' if kind=='run' else kind
+   for _ in range(150):
+    page=self.call('system','dashboard_page',{'kinds':[query_kind],'text':'Anchor '+kind,'limit':100})
+    if len(page['entities'])==65 and not page.get('partial'):break
+    time.sleep(.05)
+   self.wd('/url',{'url':self.base});self.ui.connect();self.ui.nav(nav)
+   self.ui.wait("return !!document.querySelector('[data-catalog-more='+arguments[0]+']')",query_kind)
+   self.ui.click('[data-catalog-more='+query_kind+']')
+   self.ui.wait("return document.querySelectorAll('[data-output-id]').length===65")
+   self.ui.js("document.querySelector('.pa-pane-body').scrollTop=1200")
+   time.sleep(.2)
+   capture="""const b=document.querySelector('.pa-pane-body'),edge=b.getBoundingClientRect(),e=[...b.querySelectorAll('[data-output-id]')].find(e=>e.getClientRects().length&&e.getBoundingClientRect().bottom>edge.top);return {id:e.dataset.outputId,offset:e.getBoundingClientRect().top-edge.top,top:b.scrollTop,count:b.querySelectorAll('[data-output-id]').length};"""
+   before=self.ui.js(capture);self.assertGreater(before['top'],500)
+   for n in range(55):self.call('results','register_scenario',{'key':f'anchor-revision-{kind}-{n}','definition':{'label':f'Recent context {kind} {n}'}})
+   self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+   for _ in range(12):
+    sample=self.ui.js(capture)
+    self.assertEqual(sample['id'],before['id']);self.assertLess(abs(sample['offset']-before['offset']),2);self.assertEqual(sample['count'],65)
+    time.sleep(.1)
+   # Delete an item above the viewport in this disposable authority.
+   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+    db.execute('DELETE FROM history_records WHERE source=? AND kind=? AND id=?',('catalog',kind,f'anchor-{kind}-064'))
+   self.call('results','register_scenario',{'key':'anchor-deletion-'+kind,'definition':{'label':'Deletion refresh '+kind}})
+   self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+   try:self.ui.wait("return document.querySelectorAll('[data-output-id]').length===64")
+   except AssertionError:
+    self.fail(str({'kind':kind,'page':self.call('system','dashboard_page',{'kinds':[query_kind],'limit':100}),'ui':self.ui.js("return {count:document.querySelectorAll('[data-output-id]').length,pager:document.querySelector('.pa-catalog-pagination')?.textContent}")}))
+   after=self.ui.js(capture);self.assertEqual(after['id'],before['id']);self.assertLess(abs(after['offset']-before['offset']),2)
+   # This class shares a native fixture: leave no extra output pages for later tests.
+   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+    db.execute('DELETE FROM history_records WHERE source=? AND kind=? AND snapshot=?',('catalog',kind,'anchor'))
+   for _ in range(100):
+    try:page=self.call('results','search_items',{'kinds':[query_kind],'text':'Anchor '+kind,'view':'all','role':'all'})
+    except HTTPError as error:
+     if error.code!=409:raise
+     time.sleep(.05);continue
+    if not page['items'] and not page.get('partial'):break
+    time.sleep(.05)
+   self.assertFalse(page['items'])

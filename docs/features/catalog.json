@@ -672,7 +672,8 @@
         "dashboard/workspace/template.html",
         "dashboard/workspace/text-preview.js",
         "dashboard/workspace/search.js",
-        "dashboard/workspace/catalog-pages.js"
+        "dashboard/workspace/catalog-pages.js",
+        "dashboard/workspace/outputs.js"
       ],
       "tests": [
         "tests/dashboard/browser/test_workspace.py",

@@ -26,6 +26,7 @@ fn main() -> loom_sdk::Result<()> {
     let mut producer = Producer::new(request)?;
     producer.progress("run", "running")?;
     producer.write_artifact("receipt", "receipt.txt", b"Example completed\n")?;
+    producer.set_entity_label("receipt", "Producer · Technical receipt")?;
     producer.finish()?;
     Ok(())
 }
@@ -40,3 +41,9 @@ Source identity and executable identity are separate. A `loom-producer-build/v1`
 A runner command beginning `@producer` requires this verified receipt and an explicit container Runtime. Loom binds the verified executable as `/inputs/loom-producer`. The registration path never invokes Cargo or imports the submitted source.
 
 Use `components.register` / `register_tool` and, when needed, `register_profile` with exact Component/Tool/Runtime references. Inspect the resulting revision and Profile. Submit the requested work through `jobs.submit` or one workflow, keeping batching internal. Package validation and registration do not establish GPU/SDK/scientific acceptance; perform the relevant bounded test only within the requested execution scope.
+
+New producer labels follow the Output names section of the results guide:
+subject · variant · purpose · revision/selected step, omitting unknown parts.
+Use `set_entity_label` after `register_entity`/`register_inventory`/`write_artifact` and
+before finish. This edits only the pending manifest's label; it never renames a
+registered result or its files. Keep Task links and scientific metadata separate.

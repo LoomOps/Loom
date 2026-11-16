@@ -30,6 +30,16 @@ class Workspace:
                      return true;""", selector)
 
     def nav(self, name):
+        if name in ('Outputs','Datasets','Experiments','Models','Comparison'):
+            if not self.js("return !!document.querySelector('.pa-document-pane.is-active [data-output-page]')"):
+                self.click('#pa-nav [data-go=datasets]')
+            page={'Outputs':'datasets','Datasets':'datasets','Experiments':'experiments','Models':'models','Comparison':'comparison'}[name]
+            if page=='comparison':
+                self.click('.pa-document-pane.is-active [data-output-page=experiments]')
+            self.click('.pa-document-pane.is-active [data-output-page="'+page+'"]')
+            current='experiments' if page=='comparison' else page
+            self.wait("return document.querySelector('.pa-document-pane.is-active [data-output-page='+arguments[0]+']')?.getAttribute('aria-current')==='page'",current)
+            return
         if name in ('Profiles','Components','Tools','Runtimes','Dependencies'):
             page={'Profiles':'profiles','Components':'components','Tools':'tools','Runtimes':'runtimes','Dependencies':'dependencies'}[name]
             if not self.js("return !!document.querySelector('[data-hub-page]')"):

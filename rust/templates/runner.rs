@@ -5,6 +5,7 @@ fn main()->loom_sdk::Result<()> {
  producer.progress("run","running")?;
  // Implement the requested algorithm here; do not fabricate scientific output.
  producer.write_artifact("receipt","receipt.txt",b"Rust producer completed\n")?;
+ producer.set_entity_label("receipt","Producer · Technical receipt")?;
  producer.finish()?;
  Ok(())
 }

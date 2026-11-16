@@ -187,6 +187,20 @@ impl Producer {
         self.entities.push(json!({"id":id,"kind":"artifact","path":name,"provenance":{"profile":self.request.profile["revision"],"producer_sha256":self.request.profile["sha256"]},"relations":[]}));
         Ok(())
     }
+    /// Label a pending output without changing its ID, file or accepted provenance.
+    pub fn set_entity_label(&mut self, id: &str, label: &str) -> Result<()> {
+        let label = label.trim();
+        if label.is_empty() || label.chars().count() > 200 || label.chars().any(char::is_control) {
+            return Err("Output label must be 1–200 printable characters".into());
+        }
+        let entity = self
+            .entities
+            .iter_mut()
+            .find(|e| e["id"] == id)
+            .ok_or("Pending output not found")?;
+        entity["label"] = json!(label);
+        Ok(())
+    }
     pub fn register_entity(&mut self, entity: Value) -> Result<()> {
         let path = entity["path"].as_str().ok_or("Entity path required")?;
         let p = inside(&self.request.output_dir, path)?;

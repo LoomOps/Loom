@@ -101,22 +101,30 @@ def build(original):
     if "['tools','Tools','wrench']" not in inner:
         inner=replace_once(inner,"['docker','Docker','boxes']","['tools','Tools','wrench'],['docker','Docker','boxes']")
     inner=replace_once(inner,"['tools','Tools','wrench']","['profiles','Runtimes',loomRuntimeIcon]")
+    inner=replace_once(inner,"['models','Models','box'],['datasets','Datasets','database'],['experiments','Experiments','flask-conical'],['comparison','Comparison','git-compare-arrows']","['datasets','Outputs','archive']")
+    inner=replace_once(inner,"dashboard:'queue',explorer:'files',models:'models',datasets:'datasets'","dashboard:'queue',explorer:'files',outputs:'datasets',models:'models',datasets:'datasets'")
+    inner=inner.replace("'작업실 / '+viewTitle(state)","loomOutputBreadcrumb(state)")
     inner=replace_once(inner,"catalogData=catTitleSnapshot(e.data.catalog);","catalogData=loomCatalogRefresh(e.data.catalog);")
+    inner=replace_once(inner,"  patchResourceNode(body,next,true);","  loomPreserveViewport(body,()=>patchResourceNode(body,next,true));")
+    inner=replace_once(inner," if(n.dataset.modelFilter)return"," if(n.dataset.outputId)return 'output:'+n.dataset.outputId;\n if(n.dataset.modelFilter)return")
+
     inner=replace_once(inner,"const interested=!!root.querySelector('[data-resource-panel]');","const interested=!!root.querySelector('[data-resource-panel],.pa-finder');")
     inner=replace_once(inner,"const catKind=(k,includeDiscarded=false)=>catalogData.entities.filter(e=>e.kind===k&&(includeDiscarded||!catIsDiscarded(e)));","const catKind=(k,includeDiscarded=false)=>loomTaskItems(catalogData.entities.filter(e=>e.kind===k&&(includeDiscarded||!catIsDiscarded(e))),k);")
     inner=replace_once(inner,"return {page:e?.kind==='model'?", "return {page:e?.kind==='scenario'?'scenarios':e?.kind==='dependency'?'dependencies':e?.kind==='execution_profile'?'profiles':e?.kind==='component'?'components':e?.kind==='runtime'?'runtimes':e?.kind==='tool'?'tools':e?.kind==='model'?")
     inner=replace_once(inner,"const catEntity=id=>catalogData.entities.find(e=>e.id===id)||(typeof workStepRecord==='function'?workStepRecord(id):null);",
         "const catEntity=id=>(catalogData.all_entities||catalogData.entities).find(e=>e.id===id)||(typeof workStepRecord==='function'?workStepRecord(id):null)||loomHistoricalExtensionEntity(id);")
-    inner=replace_once(inner,"state.page===id?'active':''","(state.page===id||id==='profiles'&&loomIsHubPage(state.page))?'active':''")
-    inner=replace_once(inner,"state.page===id?'page':'false'","(state.page===id||id==='profiles'&&loomIsHubPage(state.page))?'page':'false'")
-    inner=replace_once(inner,"(navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')","({profiles:'Profiles',components:'Components',tools:'Tools',runtimes:'Runtimes',dependencies:'Dependencies'}[v.page]||navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')")
+    inner=replace_once(inner,"state.page===id?'active':''","(state.page===id||id==='profiles'&&loomIsHubPage(state.page)||id==='datasets'&&loomIsOutputPage(state.page))?'active':''")
+    inner=replace_once(inner,"state.page===id?'page':'false'","(state.page===id||id==='profiles'&&loomIsHubPage(state.page)||id==='datasets'&&loomIsOutputPage(state.page))?'page':'false'")
+    inner=replace_once(inner,"(navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')","({datasets:'Datasets',experiments:'Experiments',models:'Models',comparison:'Comparison',profiles:'Profiles',components:'Components',tools:'Tools',runtimes:'Runtimes',dependencies:'Dependencies'}[v.page]||navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')")
     marker = "catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');"
-    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "dependencies.js", "scenarios.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js", "search.js", "projection.js", "catalog-pages.js"))
+    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "dependencies.js", "scenarios.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js", "search.js", "projection.js", "catalog-pages.js", "outputs.js"))
     inner = replace_once(inner, marker, inner_additions + "\n" + (HERE.parent/"branding/brand.js").read_text() + "\n" + marker)
     inner = inner.replace("</head>", "<style>" + (HERE / "frame.css").read_text() + "</style></head>", 1)
     style = (HERE / "operations-desk.css").read_text() + (HERE.parent/"branding/brand.css").read_text()
     inner = replace_once(inner, "</body>", '<style id="pa-operations-desk">' + style + "</style></body>")
     outer = outer[:match.start(1)] + html.escape(inner, quote=True) + outer[match.end(1):]
+    outer = replace_once(outer, "dashboard:'queue',explorer:'files',models:'models',datasets:'datasets'",
+                         "dashboard:'queue',explorer:'files',outputs:'datasets',models:'models',datasets:'datasets'")
     begin = outer.index("// Parent owns transport. Sandboxed opaque iframe gets data, never credentials.")
     end = outer.index("})();", begin) + len("})();")
     outer = outer[:begin] + (HERE.parent / "theme/theme.js").read_text() + "\n" + (HERE / "projection.js").read_text() + "\n" + (HERE / "parent.js").read_text() + outer[end:]

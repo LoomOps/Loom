@@ -34,6 +34,7 @@ The current native service is implemented in `rust/`. Python files in this block
 - [dashboard/workspace/extensions.js](../../dashboard/workspace/extensions.js) — integration, packaging or documentation.
 - [dashboard/workspace/frame.css](../../dashboard/workspace/frame.css) — integration, packaging or documentation.
 - [dashboard/workspace/frame.js](../../dashboard/workspace/frame.js) — integration, packaging or documentation.
+- [dashboard/workspace/outputs.js](../../dashboard/workspace/outputs.js) — Outputs navigation and nested Comparison.
 - [dashboard/workspace/icons.js](../../dashboard/workspace/icons.js) — integration, packaging or documentation.
 - [dashboard/workspace/job-activity.js](../../dashboard/workspace/job-activity.js) — integration, packaging or documentation.
 - [dashboard/workspace/lazy_logs.py](../../dashboard/workspace/lazy_logs.py) — integration, packaging or documentation.
@@ -85,3 +86,22 @@ Explorer requests actual storage observations even with the Inspector closed and
 loads registered file records independently of the research pane. Its bounded
 pages are not a recursive filesystem inventory or an assertion that unregistered
 files do not exist.
+
+## Outputs navigation
+
+The sidebar exposes Outputs with Datasets, Experiments and Models sub-tabs.
+Comparison is reached inside Experiments and retains its selection when moving
+back to results. Task selection carries across output sections and record links.
+Legacy models/datasets/experiments/comparison view URLs and exact record links
+remain valid; /views/outputs opens Datasets. This is presentation navigation,
+not a new artifact kind or an automatic merge of scientific records.
+
+The Runtimes sidebar and Runtime tab share server-cog. Tools use hammer; the
+Troubleshooting wrench remains distinct.
+
+Catalog revision refresh retains the last complete per-query list while replacing
+all previously loaded pages atomically. Query membership owns list visibility;
+unrelated cached DTOs cannot repopulate a removed/filtered row. Background patches
+key rows by output identity and anchor the visible row at patch time, retaining
+its offset when earlier rows move. Navigation still resets scroll normally.
+Output titles keep their original labels; Task appears as a separate property.
