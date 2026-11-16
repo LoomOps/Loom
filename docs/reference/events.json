@@ -1,0 +1,79 @@
+{
+  "actions": [
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "list",
+      "description": "Read up to 100 unacknowledged recipient events in seq order. Use kind=all to include completion.",
+      "errors": [
+        "Unsupported kind or invalid cursor."
+      ],
+      "example": {
+        "after": 0,
+        "kind": "all"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "events",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/query.rs#event_action",
+        "feature": "recovery"
+      },
+      "returns": "Event[] · seq, job, code, kind, ack, delivery_state",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "after": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "kind": {
+            "default": "errors",
+            "enum": [
+              "errors",
+              "lifecycle",
+              "all"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "scope": "events",
+      "title": "Completion and error events"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "ack",
+      "description": "Record receipt of an event. This does not claim recovery or mark work complete.",
+      "errors": [
+        "Event belongs to another recipient or seq does not exist."
+      ],
+      "example": {
+        "seq": 123
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "events",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/query.rs#event_action",
+        "feature": "recovery"
+      },
+      "returns": "Acknowledgment receipt",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "seq": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seq"
+        ],
+        "type": "object"
+      },
+      "scope": "events",
+      "title": "Acknowledge event"
+    }
+  ],
+  "description": "Recipient lifecycle events",
+  "name": "events"
+}

@@ -1,6 +1,6 @@
 # Installation, overrides, updates and rollback
 
-## Native candidate cutover
+## Native authority migration
 
 The Rust release applies the additive schema 5 -> 6 -> 7 chain and delivers `loom-ops`, `loom-host`, `loom-sdk`
 and `loom-migrate` from the same immutable Ops image. The cumulative migration
@@ -30,7 +30,7 @@ Compose order is base → executor/observations/data → dev → generated netwo
 
 ## New installation from a Git checkout
 
-Pin the repository/tag, then run `sudo python3 deploy/source_install.py 0.1.0-alpha.N --destination /absolute/new-staging`. It builds images from a source snapshot and bundles matching installers/guides without Docker image tar export. Follow installer/INSTALL.md and its numbered steps: inspect/recommend → full identity/Gateway plan → host/images → apply → per-stage doctor → packaged smoke → full doctor → Gateway-first handoff. Boolean Tailscale/token-only installation is unsupported. Builds may download base images.
+Pin the repository/tag, then run `sudo python3 deploy/source_install.py <published-version> --destination /absolute/new-staging`. It builds images from a source snapshot and bundles matching installers/guides without Docker image tar export. Follow installer/INSTALL.md and its numbered steps: inspect/recommend → full identity/Gateway plan → host/images → apply → per-stage doctor → packaged smoke → full doctor → Gateway-first handoff. Boolean Tailscale/token-only installation is unsupported. Builds may download base images.
 
 For offline delivery, `install-kit.py` includes matching image tar files. An external guide bundle must have the release's build_id. Both paths are for new installations and refuse to overwrite existing data directories.
 
@@ -197,7 +197,7 @@ repair application data.
 
 ## Native common Item schema
 
-The Item-index candidate adds a separate schema 5 -> 6 migration after the unchanged
+The native Item index adds a separate schema 5 -> 6 migration after the unchanged
 native cutover step. Existing schema 4/5 writers require the explicit drained
 upgrade and a private verified backup; starting a newer binary does not implicitly
 assign replacement IDs. Missing core Item identity metadata blocks startup rather

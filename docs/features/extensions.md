@@ -1,205 +1,63 @@
-# extensions — Components, Tools, Profiles and execution environment contracts
+# extensions — Components, Tools, Profiles and immutable Runtime environment contracts
 
-Native candidate authority: `rust/crates/core/src/software.rs#software_action`, `rust/crates/core/src/software.rs#software_action`, `rust/crates/core/src/runtime.rs#runtime_inventory`, `rust/crates/host/src/runtime.rs#detail`, `rust/crates/core/src/composition.rs#profile_listing`.
-Retained Python paths below are compatibility references or administrator/web
-integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
-current process boundaries and acceptance limits.
-
-Dashboard's software lists include historical records and
-the latest native registration for each namespace/ID. Native revision summaries
-retain source hashes and exact profile Tool references; usage distinguishes pins
-to older Tools from current registrations. Independent profile references are
-included. This is discovery, not validation that an image/dependency is healthy.
-Older Component registrations that kept source pins only in sealed Profiles are
-displayed using matching Profile evidence, without rewriting the legacy manifest.
-
-## Responsibilities and boundaries
+## Boundary
 
 Registering a new component must not require new MCP tools or platform redeployment. Preserve profile revision pins on submitted Jobs.
+Runtime metadata is separate from Job state; instance grants and exact revisions are verified, and dependency discovery does not authorize host installation.
 
-## Inputs, outputs and authoritative sources
+The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
-- [ops/runtime_contract.py](../../ops/runtime_contract.py)
-- [ops/profiles.py](../../ops/profiles.py)
+## Interfaces
 
-The linked code/schemas define fields, enums and state transitions. This document does not duplicate them.
+| Boundary | Owning entry point | Input | Result / failure | Consumers |
+|---|---|---|---|---|
+| Dynamic profile | `rust/crates/core/src/software.rs#software_action` | Actor + profile operation/schema + revision/config | Stored validated profile revision or reference; submitted Job keeps its pin | api, execution |
+| Dynamic component | `rust/crates/core/src/software.rs#software_action` | Actor + component operation/metadata | Immutable component revision and namespace; no new MCP server required | api, execution |
+| Granted Runtime inventory | `rust/crates/core/src/runtime.rs#runtime_inventory` | Instance executor configuration plus read-only Profile/Job catalog | Granted exact Runtime revisions, validation evidence and actual consumers, or explicit unavailable status | api, dashboard, execution |
+| Exact Runtime resolution | `rust/crates/host/src/runtime.rs#detail` | Executor state, instance and exact id/revision with optional sealed digest | Integrity-checked immutable manifest within instance grant; denies missing/changed revisions | execution, installation |
+| Profile combinations | `rust/crates/core/src/composition.rs#profile_listing` | Read-only registry and installed config, actor and recorded Jobs | Exact software and stage environment combinations with declared/observed usage and current attribution; no execution or Job gate | api, dashboard, onboarding |
 
-## Call contracts
+Public actions and input schemas are in the generated [API reference](../reference/README.md). This block owns: `components.assign_owner`, `components.list`, `components.get`, `components.write`, `components.register`, `components.register_profile`, `components.get_profile`, `components.profiles`, `components.curate`, `components.inspect_profile`, `components.compare_profiles`, `components.annotate`, `components.runtimes`, `components.dependencies`, `components.get_dependency`, `components.get_runtime`, `components.list_tools`, `components.get_tool`, `components.register_tool`.
 
-| Boundary | Input | Result or failure | Consumers |
-|---|---|---|---|
-| `ops/profile_store.py#operate` | Actor + profile operation/schema + revision/config | Stored validated profile revision or reference; submitted Job keeps its pin | api, execution |
-| `ops/component_store.py#operate` | Actor + component operation/metadata | Immutable component revision and namespace; no new MCP server required | api, execution |
+## Sources and contracts
 
-## Related features and change impact
+- [executor/runtime_store.py](../../executor/runtime_store.py) — active administrator Runtime catalog adapter, used by deploy/runtime.py and runtime_inventory.py; native host/Core consume the same catalog.
+- [ops/component_store.py](../../ops/component_store.py) — retained Python compatibility reference.
+- [ops/dependency_catalog.py](../../ops/dependency_catalog.py) — retained Python compatibility reference.
+- [ops/profile_inventory.py](../../ops/profile_inventory.py) — retained Python compatibility reference.
+- [ops/profile_store.py](../../ops/profile_store.py) — retained Python compatibility reference.
+- [ops/profiles.py](../../ops/profiles.py) — retained Python compatibility reference.
+- [ops/runtime_catalog.py](../../ops/runtime_catalog.py) — retained Python compatibility reference.
+- [ops/runtime_hub.py](../../ops/runtime_hub.py) — retained Python compatibility reference.
+- [ops/software_metadata.py](../../ops/software_metadata.py) — retained Python compatibility reference.
+- [ops/tool_store.py](../../ops/tool_store.py) — retained Python compatibility reference.
+- [rust/crates/core/src/composition.rs](../../rust/crates/core/src/composition.rs) — native implementation / contract.
+- [rust/crates/core/src/runtime.rs](../../rust/crates/core/src/runtime.rs) — native implementation / contract.
+- [rust/crates/core/src/software.rs](../../rust/crates/core/src/software.rs) — native implementation / contract.
+- [rust/crates/host/src/runtime.rs](../../rust/crates/host/src/runtime.rs) — native implementation / contract.
+- [rust/crates/host/src/runtime_files.rs](../../rust/crates/host/src/runtime_files.rs) — native implementation / contract.
+- [loom_use/runtimes.md](../../loom_use/runtimes.md) — integration, packaging or documentation.
+- [ops/execution.py](../../ops/execution.py) — retained Python compatibility reference.
+- [ops/runtime_contract.py](../../ops/runtime_contract.py) — retained Python compatibility reference.
 
-[identity](identity.md)
+## Change review
 
-When Profiles, Components or Tools change, check input schemas, prepare/run/completion hooks, executor runtime policy, registration/read MCP actions and guides.
+When Profiles, Components, Tools or Runtimes change, review stage pins, dependency requirements, executor grants/policy, API/MCP discovery, Dashboard, configured installation directories and preservation.
 
-## Tests and failure boundaries
+Related blocks: [identity](identity.md).
+
+## Verification
 
 - [tests/ops/test_components_platform.py](../../tests/ops/test_components_platform.py)
+- [tests/ops/test_dependency_catalog.py](../../tests/ops/test_dependency_catalog.py)
 - [tests/ops/test_independent_profiles.py](../../tests/ops/test_independent_profiles.py)
+- [tests/ops/test_profile_inventory.py](../../tests/ops/test_profile_inventory.py)
+- [tests/ops/test_research_tools.py](../../tests/ops/test_research_tools.py)
+- [tests/ops/test_runtime_catalog.py](../../tests/ops/test_runtime_catalog.py)
+- [tests/ops/test_runtime_hub.py](../../tests/ops/test_runtime_hub.py)
+- [tests/rust/application.rs](../../tests/rust/application.rs)
 
-Test sources define the concrete scenarios. `deploy/test.sh` records individual results as JSON/JUnit.
+Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
-## Live validation
-
-The execution-environment owner verifies actual external image dependencies, caches and GPU compatibility.
-
-Owner presentation is additive: namespace remains immutable, owner_profile and
-owner_name resolve current responsibility from item_owners and user_profiles.
-Explicit common namespace built-in displays Built-in; user-owned components remain
-user-owned when shared. Component list without owner filters lists all namespaces.
-Tests cover another caller's shared discovery, Built-in, existing responsibility
-and unchanged revision pins. No ownership-based visibility restriction is added.
-
-Component source paths must be canonical relative file paths, without file/directory collisions or the reserved root `component.json` manifest. Editable symlink destinations are checked before publishing. Immutable source snapshots are published atomically; an identical snapshot left by a rolled-back database transaction can be reused on retry, while conflicting content remains untouched.
-
-## Research software boundary
-
-`ops/tool_store.py` registers immutable research Tools separately from Job lifecycle
-Components. Exact pins are sealed into Profiles/Jobs, verified by runtime_client,
-and mounted read-only by the executor. The six MCP groups are unchanged. Legacy
-Component snapshots are copied only by explicit exact-revision selection; old
-registrations and provenance remain intact. Dashboard groups Profiles, Components, Tools and Runtimes in one Runtimes workspace, retaining exact references. The `components` MCP group is unchanged.
-
-Extension registration/source writes obey maintenance and readonly admission
-fences in the same SQLite transaction as their state change. Discovery and exact
-revision reads stay available. The fence cannot be bypassed by selecting the
-components Tool actions or standalone Profile actions.
-
-Execution kind identities are unique across Component-backed Profiles, independent
-Profiles and installed configuration. Registration rejects dotted-name collisions
-before publishing a snapshot; new software cannot shadow an accepted Job pin.
-
-## Managed Runtimes
-
-`ops/runtime_catalog.py` binds exact administrator Runtime revisions into Profile
-stages and projects Profile/Job consumers. `executor/runtime_store.py` owns a
-separate host `runtimes.sqlite3`; Ops never writes it or gains Docker/build access.
-The executor validates instance grants and content hashes at each new launch.
-Legacy runtime_id/image contracts retain their behavior and are labeled explicitly.
-Component/Tool requires declarations check exact dependency inventory versions;
-they do not resolve packages or certify research semantics.
-
-`deploy/runtime.py` stages reviewed recipes and verified dependency downloads in
-the configured installation dependency directory, builds an immutable image and
-requires measured versions/checks before registration. A non-root/read-only smoke
-is bounded and must return its container. An exclusive installation lock excludes
-GPU dispatch and unconfirmed validation return persists a fence until reconciliation.
-Builds/smokes are administrator actions, never implicit MCP entry or Job prepare.
-
-The Runtimes workspace includes a Runtimes view with representative dependencies and exact validation scope,
-and Profile/Job relationships. The six MCP groups remain unchanged; components
-runtimes/get_runtime and the authenticated HTTP projection share one read contract.
-Tests: tests/ops/test_runtime_catalog.py, tests/ops/test_executor_boundary.py and
-tests/deploy/test_runtime_install.py. Real Isaac/GPU acceptance remains separate.
-
-## Execution Profile combinations
-
-The Runtimes workspace opens on Profiles, also linked from each Runtime's
-consumers. It includes component-backed, standalone and installation-configured
-exact Profile kinds, plus the built-in CPU check. A combination records Component
-revision, exact Tool pins, stage-specific Runtime pins/dependencies, input/output
-contracts and actual Job usage. Mounted Tools are available to container stages;
-the inventory does not infer which function the runner invokes or its call order.
-Legacy/direct-image package inventories remain unrecorded rather than empty.
-
-Profile discovery bounds each repeated environment dependency preview to 16
-name/version/kind/scope entries, with dependency_count and dependencies_complete.
-Both runtime_bindings and combination stages use this projection; immutable
-stored pins remain full. Full inventories are read from components.get_runtime
-using the exact revision, also linked in Dashboard. This keeps large package
-inventories from multiplying across Profiles beyond the installed client's 2 MiB
-transport bound. Regression coverage models 60 Profiles with 996 dependencies.
-
-Optional Profile `usage` declares a label/description, multiple Job categories and
-multiple execution modes. These values reuse the Job classification vocabulary.
-They do not add admission gates or change submitted Job metadata. Old revisions
-remain unchanged: declared purpose, observed Job classification and matching
-frozen Profile hashes are displayed separately. Profile discovery is readable
-with read scope; read scope still cannot register or attribute software.
-
-`components.assign_owner` changes current attribution for a Component, Tool or
-standalone Profile using its original namespace/ID. `built-in` denotes Loom-supplied
-software, never shared access: all workspace software remains shared. Namespace,
-source bytes, revisions, frozen Jobs and original provenance remain unchanged.
-The operation uses the normal submit scope, maintenance fence and ownership audit;
-Built-in is an attribution marker, not a newly registered user or a signature.
-The UI uses resolved responsibility rather than a legacy namespace as its owner
-label and preserves the original namespace separately.
-
-Profiles are the default view of the Runtimes sidebar entry, alongside Components, Tools and Runtimes. The default detail shows shared Component/Tool pins above stage-specific environments and dependency versions. Conditional hooks are labeled by their trigger. Job history, input/output settings and identity are collapsed; no Profile self-node or duplicate dependency table is shown. The built-in CPU check is projected from code even in an otherwise empty development catalog, with its real worker stage and no fabricated Component or registered Runtime. Development acceptance checks the running instance source mounts as well as fixture-backed browser tests.
-
-Revision-scoped software annotations supply evidence-backed categories and concise
-labels without changing sealed source/Job contracts. The Profile table separates
-Components and Tools, and details keep aliases, categories and stage environments
-visible without boilerplate definitions. Missing declared purpose can display
-observed Job categories with an explicit tooltip/style distinction. Reuse counts
-are distinct executed logical Jobs; consolidated sources and same-Job Attempts do
-not increase reuse.
-
-Administrator Runtime inventory probes measure immutable images and declared
-mounted package/source metadata without a build, GPU launch or research execution.
-Current observations bind the exact administrator policy, image ID and metadata
-hashes; legacy runtime_id and direct-image execution fields stay unchanged. A
-changed tag/policy/metadata cannot be silently presented as the current observation.
-New Runtime bindings verify observed metadata again. Inventory-only validation
-never certifies framework imports, graphics or scientific compatibility. Package
-names with conflicting context versions cannot satisfy an ambiguous requirement.
-
-Consolidated execution records remain associated with their canonical logical Job,
-even when that Job uses another Profile kind. They increase recorded-execution
-counts, not the number of independent Jobs/reuses. Profile details retain source
-record links alongside the canonical Job link; consolidation must not make an
-actually used Profile appear unused.
-
-## Runtimes workspace and reusable execution workflows
-
-The single sidebar entry is Runtimes. Its inner views are Profiles, Components,
-Tools and Runtimes. Profile families derive from verified Component/profile-key or
-standalone identities, retain exact revision links, and keep research and platform
-checks separate. Preferred/archive metadata is display-only; it does not update
-existing Jobs, change grants or select a different execution pin.
-
-ops/runtime_hub.py stores display curation separately from immutable definitions.
-Read-only inspect_profile validates supplied parameters and reports per-stage,
-scoped dependency requirements; compare_profiles returns changed paths without env
-values. Prepare Job creates a checked MCP draft, never an automatic submission.
-The authenticated Dashboard action relay permits only inspect_profile,
-compare_profiles and curate, retaining same-origin/CSRF and server scope checks.
-Tool roles describe declared stage bindings, while source remains responsible for
-invocation. Software pinned availability and exact Runtime executions are distinct
-from current configuration associations and unmeasured Tool invocations.
-
-Representative dependencies use owner-selected name/scope references to existing
-inventory records. The full inventory remains immutable diagnostic evidence,
-including deprecated entries, with no bulk package count on primary screens.
-Managed-directory provenance comes from canonical paths on the host using the
-configured root; image/host/external origins are separate and old unrecorded
-origins remain unclassified. No directory cleanup, package installation, GPU
-execution or operational migration follows from display curation or inspection.
-
-## Dependency catalog
-
-`ops/dependency_catalog.py` derives a read-only, instance-grant-scoped catalog from
-Runtime manifests. Software units are selected by representative selectors,
-recognized interpreter/framework names or optional dependency `catalog`/`category`
-metadata. Explicit exclusion and deprecated entries remain excluded. The five
-categories group major units; transitive package inventory is not promoted by
-default. No host filesystem discovery, installation write or Job admission rule is
-added. No paths are inferred from the platform's default dependency directory.
-
-`components.dependencies` lists current Runtime observations. `get_dependency`
-includes granted historical revisions. Identity groups normalized dependency names;
-versions and recorded image/directory origins remain distinct. If declarations
-conflict, classification follows the documented category order rather than iteration
-order; manifests remain available on each exact Runtime. A shared version is never
-proof of one physical installation or of actual scientific use. Missing origins
-remain unrecorded. Existing manifests require no rewrite; new recipe display fields
-are validated before build/registration and preserved in immutable evidence.
-
-Tests cover large inventories, explicit classification/exclusion, version/scope
-ambiguity, history, grants, read-only discovery and custom installation roots.
+Acceptance outside these fixtures:
+- The execution-environment owner verifies actual external image dependencies, caches and GPU compatibility.

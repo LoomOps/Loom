@@ -15,4 +15,4 @@ sudo python3 /absolute/kit/setup.py check /absolute/install-plan.json
 sudo python3 /absolute/kit/setup.py doctor /absolute/install-plan.json --stage images
 ```
 
-Exit: kit/plan checks and image doctor pass. Reread INSTALL.md and the step index before step 4.
+Exit: kit/plan checks and image doctor pass. Continue after verifying the stated exit evidence.

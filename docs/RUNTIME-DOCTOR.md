@@ -18,9 +18,10 @@ secret mounts and arbitrary Docker flags are not implicit grants. Allowing egres
 does not install dependencies or replace pinned versions/caches.
 
 Graphics workloads need an explicit administrator selection such as
-`["compute", "utility", "graphics"]`. The accepted list is defined by
-`executor/runtime_policy.py` and its `OPTIONS_SCHEMA`; `all`, empty/duplicate lists
-and unknown names fail. Jobs cannot supply these fields as execution overrides.
+`["compute", "utility", "graphics"]`. Administrator input validation uses `executor/runtime_policy.py` and its
+`OPTIONS_SCHEMA`; native Docker launch enforcement is in
+`rust/crates/host/src/executor.rs`. The administrator schema rejects `all`,
+empty/duplicate lists and unknown names. Jobs cannot supply these fields as execution overrides.
 Job environment values cannot override the broker's driver-capability selection.
 Non-root UID/GID, read-only rootfs, capability dropping, mount grants and GPU
 ownership checks still apply with bridge or graphics selected.

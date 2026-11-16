@@ -24,7 +24,7 @@ The final user message must contain:
    current agent machine and current OS user. Ask only for a different target if the
    user requests one. The verified private endpoint is already known.
 
-Reread INSTALL.md and this checklist before the final handoff.
+Base the final handoff on the complete doctor and smoke evidence.
 
 ## Optional independent client handoff
 

@@ -127,6 +127,11 @@
       ],
       "spec": "docs/features/api.md",
       "contracts": [
+        "rust/crates/core/src/contracts.rs",
+        "rust/contracts/job-contract.json",
+        "rust/contracts/action-docs.json",
+        "rust/crates/core/src/http.rs",
+        "rust/crates/core/src/query.rs",
         "ops/job_contract.py",
         "ops/mcp_docs.py",
         "ops/mcp_groups.py"
@@ -143,7 +148,7 @@
           "name": "Operation dispatch",
           "entrypoint": "rust/crates/core/src/store.rs#execute",
           "accepts": "Validated group/action arguments and authenticated actor",
-          "returns": "Domain response; ValueError/PermissionError at public boundary",
+          "returns": "Domain response or typed Error with code, message and HTTP status",
           "consumers": [
             "dashboard",
             "onboarding"
@@ -183,6 +188,8 @@
       ],
       "spec": "docs/features/queue.md",
       "contracts": [
+        "rust/crates/core/src/jobs.rs",
+        "rust/crates/core/src/query.rs",
         "ops/job_contract.py",
         "ops/queue_control.py"
       ],
@@ -307,13 +314,15 @@
       ],
       "spec": "docs/features/recovery.md",
       "contracts": [
+        "rust/crates/core/src/jobs.rs",
+        "rust/crates/core/src/query.rs",
         "ops/access.py",
         "ops/recovery.py"
       ],
       "invariants": [
         "The caller owns error repair. Preserve reservation deadlines, attempt limits and dependent-Job skipping. Event acknowledgments are recipient-specific."
       ],
-      "change_rule": "When state transitions change, check queue dispatch, notification events, claim leases, concurrency and expiry tests. Authoritative transitions live in ops/ops.py worker/finish and ops/recovery.py.",
+      "change_rule": "When transitions change, review native jobs.rs/recover, execution.rs/next_work, domain events, recipient events and query projections. Test lease concurrency, expiry, resource return and shared recovery limits.",
       "live_validation": [
         "Actual external-agent reactivation and duplicate callback effects belong to client acceptance testing."
       ],
@@ -367,6 +376,8 @@
       ],
       "spec": "docs/features/results.md",
       "contracts": [
+        "rust/crates/core/src/reconcile.rs",
+        "rust/crates/core/src/results.rs",
         "ops/mcp_groups.py",
         "ops/registry.py"
       ],
@@ -426,6 +437,8 @@
       ],
       "spec": "docs/features/extensions.md",
       "contracts": [
+        "rust/crates/core/src/composition.rs",
+        "rust/crates/core/src/software.rs",
         "loom_use/runtimes.md",
         "ops/execution.py",
         "ops/profiles.py",
@@ -536,6 +549,15 @@
       ],
       "spec": "docs/features/catalog.md",
       "contracts": [
+        "rust/crates/core/src/activity.rs",
+        "rust/crates/core/src/catalog.rs",
+        "rust/crates/core/src/graph.rs",
+        "rust/crates/core/src/index_store.rs",
+        "rust/crates/core/src/inventory.rs",
+        "rust/crates/core/src/items.rs",
+        "rust/crates/core/src/log_index.rs",
+        "rust/crates/core/src/maintenance.rs",
+        "rust/crates/core/src/store.rs",
         "ops/dashboard_read.py",
         "ops/history_store.py"
       ],
@@ -707,7 +729,8 @@
         "ops/onboarding.py",
         "rust/contracts/action-docs.json",
         "rust/crates/core/src/onboarding.rs",
-        "tests/ops/client_source.py"
+        "tests/ops/client_source.py",
+        "loom_use/catalog.json"
       ],
       "tests": [
         "tests/deploy/test_client_release.py",
@@ -715,7 +738,9 @@
         "tests/ops/test_onboarding.py",
         "tests/rust/application.rs",
         "tests/rust/test_service.py",
-        "tests/rust/test_item_image.py"
+        "tests/rust/test_item_image.py",
+        "tests/rust/documentation.rs",
+        "tests/rust/test_documentation.py"
       ],
       "depends_on": [
         "identity",
@@ -723,13 +748,17 @@
       ],
       "spec": "docs/features/onboarding.md",
       "contracts": [
+        "rust/crates/core/src/onboarding.rs",
+        "loom_use/catalog.json",
+        "rust/contracts/action-docs.json",
+        "rust/crates/core/src/query.rs",
         "loom_use/entry.md",
         "ops/onboarding.py"
       ],
       "invariants": [
         "The running server is authoritative for guides. Updates do not change personal instructions or active Job pins."
       ],
-      "change_rule": "When usage contracts change, update Loom Use documents, bundle inventory, revisions and the stdio client. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.",
+      "change_rule": "When guidance changes, update the guide catalog, packaged instruction/reference hashes and relevant native action descriptions. Review the independent Loom-Use Skill and exact published client pin separately; run native discovery/workflow and pinned/candidate client acceptance. Guide refresh does not install a client or change Job pins.",
       "live_validation": [
         "Verify actual client reconnection and guide refresh separately."
       ],
@@ -737,7 +766,7 @@
         {
           "name": "Guide package",
           "entrypoint": "rust/crates/core/src/onboarding.rs#bundle",
-          "accepts": "Actor, client-known revision, current schemas/contracts",
+          "accepts": "Authenticated actor, compile-time guide catalog, current action registry and documentation",
           "returns": "Version-bound guide package and update identity; no automatic credential issuance",
           "consumers": [
             "api",
@@ -1088,13 +1117,15 @@
         "tests/rust/fixtures/json-namespaces.json",
         "tests/rust/run.py",
         "tests/suite.py",
-        "rust/crates/core/examples/catalog_scale.rs"
+        "rust/crates/core/examples/catalog_scale.rs",
+        "deploy/documentation.py"
       ],
       "tests": [
         "tests/deploy/test_distribution.py",
         "tests/deploy/test_features.py",
         "tests/rust/application.rs",
-        "tests/rust/test_item_image.py"
+        "tests/rust/test_item_image.py",
+        "tests/deploy/test_documentation.py"
       ],
       "depends_on": [],
       "spec": "docs/features/testing.md",
@@ -1252,6 +1283,7 @@
       ],
       "spec": "docs/features/scenarios.md",
       "contracts": [
+        "rust/crates/core/src/scenario.rs",
         "rust/crates/core/src/contracts.rs"
       ],
       "invariants": [
@@ -1302,6 +1334,7 @@
       ],
       "spec": "docs/features/authoring.md",
       "contracts": [
+        "rust/crates/core/src/software.rs",
         "rust/crates/core/src/contracts.rs"
       ],
       "invariants": [

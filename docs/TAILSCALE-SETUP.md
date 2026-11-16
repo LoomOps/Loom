@@ -53,4 +53,4 @@ tags. Installation assigns the selected Tailnet's Loom tags only after verificat
 
 Generate the installation plan only after enrollment is verified. Store management
 credentials through `deploy/access_setup.py credential`, not chat or shell history.
-Continue with the numbered installation steps and reread the index after each.
+Continue with the selected installation step and verify its exit criteria.

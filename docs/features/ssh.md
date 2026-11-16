@@ -1,37 +1,39 @@
-# ssh — Personal host access
+# ssh — Optional personal host SSH accounts and connection discovery
 
-Loom Admin manages optional personal host accounts; the loom service account stays
-noninteractive. dashboard/ssh_access.py owns durable enable/disable intent and exact
-Tailnet rule changes through the existing ownership journal. deploy/ssh_host.py is a
-root Unix service with fixed operations and a kernel peer-UID check. Only the private
-Dashboard receives its socket; Ops receives readonly per-principal metadata. The
-public Gateway receives neither. See [SSH](../SSH.md).
+## Boundary
 
-The host registry binds owner, account name, UID, home and GECOS marker. Existing
-accounts are never silently adopted. Personal accounts use the loomu_ namespace,
-locked passwords and no sudo/docker membership. Enable stages account creation,
-policy validation/write and shell enablement; failure is explicit and retryable.
-Disable locks the shell/expiry and terminates that UID before policy removal. Homes
-remain. Shared-access revocation calls the same cleanup before completing. Jobs use
-the executor identity, not the personal SSH UID, and are not cancelled by SSH revoke.
+Admin-only mutations; never adopt existing accounts or grant sudo/Docker. Disable blocks the personal UID before remote cleanup. Same-host clients require no SSH.
 
-No host account/SSH setup is required for same-machine clients. system.ssh returns
-only the authenticated principal's connection and nonsecret machine addresses. The
-optional Loom SSH Skill verifies locality, then reuses authorized SSH or requests
-Admin enablement. It never uses MCP tokens as SSH passwords or bypasses host keys.
+The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
-Installation uses host_ssh in the plan (new plans true, old absent plans unchanged).
-ssh_setup doctor checks actual service/socket and Tailscale SSH, not an install flag.
-Dev-build does not receive a privileged host socket; tests isolate that boundary.
-Updates retain host registry/homes and refresh protected helper code. Uninstall
-locks managed accounts and removes only journal-owned policy; homes are retained.
+## Interfaces
 
-Regression tests use real temporary SQLite/files, mocked account commands/provider
-API, permission rejection, partial-failure retry, UID replacement and per-principal
-metadata. External device login, live key trust and existing-session termination
-require separate live evidence. Feature checks are development-only, not Job gates.
+| Boundary | Owning entry point | Input | Result / failure | Consumers |
+|---|---|---|---|---|
+| Host account authority | `deploy/ssh_host.py#Accounts` | Restricted owner/action/username over protected Unix socket | Managed personal account state or failure; no arbitrary command execution | dashboard, installation |
+| SSH connection | `ops/ssh_info.py#connection` | Authenticated principal | Only that principal connection metadata | api, onboarding |
 
-The systemd runtime directory is preserved across helper restarts to keep the
-Dashboard bind mount attached to the live socket. The Compose startup unit requires
-and follows this helper, including after reboot. Updates reconcile this unit before
-restart. Initial SSH configuration runs only after final executor storage binding.
+## Sources and contracts
+
+- [dashboard/ssh_access.py](../../dashboard/ssh_access.py) — integration, packaging or documentation.
+- [deploy/ssh_host.py](../../deploy/ssh_host.py) — integration, packaging or documentation.
+- [deploy/ssh_setup.py](../../deploy/ssh_setup.py) — integration, packaging or documentation.
+- [ops/ssh_info.py](../../ops/ssh_info.py) — retained Python compatibility reference.
+- [docs/SSH.md](../../docs/SSH.md) — integration, packaging or documentation.
+
+## Change review
+
+Review host helper, private Admin CSRF routes, Sharing revocation, readonly MCP, installation/update/uninstall and Loom Use together.
+
+Related blocks: [identity](identity.md) · [network](network.md) · [installation](installation.md).
+
+## Verification
+
+- [tests/dashboard/test_ssh_access.py](../../tests/dashboard/test_ssh_access.py)
+- [tests/deploy/test_ssh_host.py](../../tests/deploy/test_ssh_host.py)
+- [tests/ops/test_ssh_info.py](../../tests/ops/test_ssh_info.py)
+
+Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
+
+Acceptance outside these fixtures:
+- Verify external personal Tailscale login and revoke separately; mocks do not prove provider enforcement.

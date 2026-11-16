@@ -17,4 +17,4 @@ In a kit the helper is `platform/deploy/access_setup.py`. A missing/expired cred
 
 The installer only mounts a selected existing ext4/xfs filesystem. Never format, repartition, recursively chown an existing storage tree, or install unselected research environments. Use `mount: null` and omit that filesystem from `mounts` when it is already mounted. Explicitly selected storage receives service-user RW and default ACLs without changing existing owners.
 
-Exit: host doctor passes. Reread INSTALL.md and the step index before step 3.
+Exit: host doctor passes. Continue after verifying the stated exit evidence.

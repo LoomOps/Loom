@@ -1,38 +1,48 @@
-# identity — Network identity, local sessions and ownership
+# identity — User authentication, SSO sessions and current ownership
 
-Native candidate authority: `rust/crates/core/src/auth.rs#authenticate`, `rust/crates/core/src/composition.rs#assign_responsibility`, `rust/crates/core/src/http.rs#admin_tokens`.
-Retained Python paths below are compatibility references or administrator/web
-integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
-current process boundaries and acceptance limits.
+## Boundary
 
-Authoritative implementations are `dashboard/sso.py`, `dashboard/server.py`, `ops/access.py` and `ops/ownership.py`. Follow [Tailscale authentication](../TAILSCALE-SSO.md) for installation and transition.
+Ownership does not restrict access. Browser sessions and MCP authentication are independent; invalidated browser sessions cannot be reused.
 
-Local sessions require the current trusted ingress user and either a native binding or a ready Sharing record. Every request compares the cookie with the current network account and approval status. Admin uses a separate exact issuer/subject mapping. Owner denotes responsibility, not an ownership restriction on ordinary Job reads or controls.
+The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
-Dashboard→Ops uses short-lived HMAC assertions. The issuer is a persistent identity namespace and does not contact an external login service. Preserve existing identity mappings during transitions. Sessions retain fixed expiry, opaque cookies and CSRF protection. Public Gateway receipts are not login identities.
+## Interfaces
 
-When authentication contracts change, review API principals, ownership overlays, Sharing administration, Gateway probes, new installations and user guides together. catalog.json defines owned files, consumers and tests.
+| Boundary | Owning entry point | Input | Result / failure | Consumers |
+|---|---|---|---|---|
+| Browser authentication | `dashboard/sso.py#SSO` | Trusted Tailscale ingress + native user binding or ready machine share | Verified session or rejected login; no provider token in browser | dashboard, network |
+| Caller identity | `rust/crates/core/src/auth.rs#authenticate` | Signed, expiring Dashboard identity | Shared actor with server-selected scopes; invalid/expired assertions rejected | api |
+| Current responsibility | `rust/crates/core/src/composition.rs#assign_responsibility` | Item identity + registered profile + actor | Owner overlay and audit row; original item preserved | results, catalog |
+| Resident agent tokens | `rust/crates/core/src/http.rs#admin_tokens` | Signed Dashboard Admin claim, registered user and allowed scopes | One-time permanent token; only digest and revocation metadata persisted | dashboard, api, onboarding, installation |
 
-Tests use actual SQLite, sessions and HTTP while mocking only the trusted Serve boundary. They cover account switching, forged proxy headers, revocation, expiry, restarts, native network login and retired paths. Actual external VPN clients and TLS require separate validation.
+## Sources and contracts
 
-## Resident agent tokens
+- [dashboard/requirements.txt](../../dashboard/requirements.txt) — integration, packaging or documentation.
+- [dashboard/sso.py](../../dashboard/sso.py) — integration, packaging or documentation.
+- [deploy/generate_identity_codec.py](../../deploy/generate_identity_codec.py) — integration, packaging or documentation.
+- [ops/access.py](../../ops/access.py) — retained Python compatibility reference.
+- [ops/ownership.py](../../ops/ownership.py) — retained administrator attribution adapter used by assign-owner.py.
+- [ops/service_tokens.py](../../ops/service_tokens.py) — retained Python compatibility reference.
+- [rust/crates/core/src/auth.rs](../../rust/crates/core/src/auth.rs) — native implementation / contract.
+- [rust/crates/core/src/casefold.rs](../../rust/crates/core/src/casefold.rs) — native implementation / contract.
+- [loom_use/operator.md](../../loom_use/operator.md) — integration, packaging or documentation.
 
-Dashboard Admins issue and revoke individual agent tokens in Tailscale → Agent Tokens. Select a current Admin or approved shared member and Operator or Read only permissions. Tokens have no expiry and are shown once; only SHA-256 digests are stored. They retain the selected user's attribution and event inbox, and grant no Admin capability. Revocation takes effect on the next request, including existing MCP connections; already running Jobs continue.
+## Change review
 
-Admin-only HTTP routes: `GET /api/admin/tokens` lists token metadata, eligible `owners`, and historical `owner_profiles`; `POST /api/admin/tokens` accepts `{label, owner, scopes}`; `POST /api/admin/tokens/revoke` accepts `{id}`. Browser writes require the Admin session and CSRF/Origin checks. Ops accepts only the signed Dashboard Admin claim for these routes. Neither ordinary MCP callers nor the installation owner credential can issue tokens. Six operational MCP groups remain unchanged.
+When authentication or profile contracts change, review Ops actors, the Dashboard relay, new installations, ownership display and user guides together. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.
 
-Token acquisition is an optional client step after server installation. The installer never auto-issues or renews tokens. Follow the independent Loom Use INSTALL.md from the actual client account; keep credentials outside Git. A tagged machine's network identity is not its individual Linux user's identity.
+Related blocks: None..
 
-Local operator issuance of short-lived credentials has been removed. Existing
-short-lived rows remain readable only until their original expiry/revocation;
-updates never extend them or convert them to permanent tokens. Historical rows
-are preserved, while new resident credentials use the Dashboard Admin contract.
+## Verification
 
-Token issuance eligibility is supplied only in the short-lived signed Dashboard
-assertion: current machine Sharing members plus exact configured Admin identities.
-Both the selector and the issue endpoint enforce it. A stale browser submission
-cannot issue a token for a removed member. Historical user profiles and token
-owner labels are retained. Failure to read current Sharing membership blocks new
-issuance/listing rather than falling back to all registered profiles; revocation
-remains available independently. Existing permanent tokens retain their explicit
-Admin-revocation policy; removing a Sharing request does not silently erase tokens.
+- [tests/dashboard/test_sso.py](../../tests/dashboard/test_sso.py)
+- [tests/ops/test_access_contract.py](../../tests/ops/test_access_contract.py)
+- [tests/ops/test_dashboard_identity.py](../../tests/ops/test_dashboard_identity.py)
+- [tests/ops/test_service_tokens.py](../../tests/ops/test_service_tokens.py)
+- [tests/ops/test_shared_ownership.py](../../tests/ops/test_shared_ownership.py)
+- [tests/rust/application.rs](../../tests/rust/application.rs)
+
+Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
+
+Acceptance outside these fixtures:
+- Verify actual Tailscale clients, Sharing revocation and TLS separately.

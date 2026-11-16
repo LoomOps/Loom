@@ -1,100 +1,63 @@
 # catalog — Catalog, preserved records and file access
 
-Native candidate authority: `rust/crates/core/src/catalog.rs#dashboard_catalog`, `rust/crates/core/src/media.rs#read`.
-Retained Python paths below are compatibility references or administrator/web
-integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
-current process boundaries and acceptance limits.
-
-## Responsibilities and boundaries
+## Boundary
 
 Distinguish historical originals from current display overlays. Never assume missing files are valid artifacts.
+Common IDs are decimal strings. Native identities and historical snapshots remain exact; derived search never owns Job transitions. File identity survives index deletion in authoritative sealed manifests.
 
-## Inputs, outputs and authoritative sources
+The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
-- [ops/dashboard_read.py](../../ops/dashboard_read.py)
-- [ops/history_store.py](../../ops/history_store.py)
+## Interfaces
 
-The linked code/schemas define fields, enums and state transitions. This document does not duplicate them.
+| Boundary | Owning entry point | Input | Result / failure | Consumers |
+|---|---|---|---|---|
+| Dashboard projection | `rust/crates/core/src/catalog.rs#dashboard_catalog` | DB, actor, instance config, storage roots | Current catalog including Owner overlay and availability facts | dashboard, api |
+| Artifact read | `rust/crates/core/src/media.rs#read` | Registered media index/key + allowed storage | Bounded allowed file stream or refusal; no arbitrary host path read | dashboard, api |
 
-## Call contracts
+Public actions and input schemas are in the generated [API reference](../reference/README.md). This block owns: `results.search_items`, `results.get_item`, `results.resolve_item`, `results.item_relations`, `results.item_files`, `results.get_file`, `results.read_file`, `jobs.log_streams`, `jobs.read_log`, `jobs.search_logs`, `system.dashboard_summary`, `system.search_status`, `system.rebuild_search`, `system.catalog_task`, `jobs.prune_logs`, `system.dashboard_page`, `system.dashboard_activity`, `system.dashboard_entity`, `system.prune_search`, `system.retry_catalog_task`.
 
-| Boundary | Input | Result or failure | Consumers |
-|---|---|---|---|
-| `ops/dashboard_read.py#projection` | DB, actor, instance config, storage roots | Current catalog including Owner overlay and availability facts | dashboard, api |
-| `ops/dashboard_read.py#open_media` | Registered media index/key + allowed storage | Bounded allowed file stream or refusal; no arbitrary host path read | dashboard, api |
+## Sources and contracts
 
-## Related features and change impact
+- [ops/dashboard_read.py](../../ops/dashboard_read.py) — retained Python compatibility reference.
+- [ops/history_store.py](../../ops/history_store.py) — retained Python compatibility reference.
+- [ops/job_history.py](../../ops/job_history.py) — retained Python compatibility reference.
+- [ops/research.py](../../ops/research.py) — retained Python compatibility reference.
+- [rust/crates/core/src/catalog.rs](../../rust/crates/core/src/catalog.rs) — native implementation / contract.
+- [rust/crates/core/src/media.rs](../../rust/crates/core/src/media.rs) — native implementation / contract.
+- [rust/crates/core/src/query.rs](../../rust/crates/core/src/query.rs) — native implementation / contract.
+- [rust/crates/core/src/items.rs](../../rust/crates/core/src/items.rs) — native implementation / contract.
+- [rust/crates/core/src/index_store.rs](../../rust/crates/core/src/index_store.rs) — native implementation / contract.
+- [rust/crates/core/src/inventory.rs](../../rust/crates/core/src/inventory.rs) — native implementation / contract.
+- [rust/crates/core/src/log_index.rs](../../rust/crates/core/src/log_index.rs) — native implementation / contract.
+- [rust/crates/domain/src/item.rs](../../rust/crates/domain/src/item.rs) — native implementation / contract.
+- [rust/crates/ops/src/indexer.rs](../../rust/crates/ops/src/indexer.rs) — native implementation / contract.
+- [rust/contracts/item-schema.sql](../../rust/contracts/item-schema.sql) — native implementation / contract.
+- [rust/contracts/items.md](../../rust/contracts/items.md) — native implementation / contract.
+- [rust/crates/core/src/graph.rs](../../rust/crates/core/src/graph.rs) — native implementation / contract.
+- [rust/crates/core/src/maintenance.rs](../../rust/crates/core/src/maintenance.rs) — native implementation / contract.
+- [rust/crates/ops/src/catalog_maintenance.rs](../../rust/crates/ops/src/catalog_maintenance.rs) — native implementation / contract.
+- [rust/crates/core/src/activity.rs](../../rust/crates/core/src/activity.rs) — native implementation / contract.
+- [rust/crates/core/src/store.rs](../../rust/crates/core/src/store.rs) — native implementation / contract.
 
-[identity](identity.md) · [results](results.md) · [queue](queue.md)
+## Change review
 
-When projections change, check revision refresh, detail queries, file MIME/size/path boundaries and the UI.
+When projections change, check revision refresh, detail queries, file MIME/size/path boundaries and the UI. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.
 
-## Tests and failure boundaries
+Related blocks: [identity](identity.md) · [results](results.md) · [queue](queue.md).
 
-- [tests/ops/test_job_history.py](../../tests/ops/test_job_history.py)
-- [tests/ops/test_job_history.py](../../tests/ops/test_job_history.py)
+## Verification
+
 - [tests/ops/test_dashboard_resources.py](../../tests/ops/test_dashboard_resources.py)
 - [tests/ops/test_file_preview.py](../../tests/ops/test_file_preview.py)
+- [tests/ops/test_history_availability.py](../../tests/ops/test_history_availability.py)
+- [tests/ops/test_job_history.py](../../tests/ops/test_job_history.py)
+- [tests/ops/test_job_lifecycle.py](../../tests/ops/test_job_lifecycle.py)
+- [tests/rust/application.rs](../../tests/rust/application.rs)
+- [tests/rust/test_service.py](../../tests/rust/test_service.py)
+- [tests/rust/test_item_image.py](../../tests/rust/test_item_image.py)
+- [tests/rust/test_reconciliation.py](../../tests/rust/test_reconciliation.py)
 
-Test sources define the concrete scenarios. `deploy/test.sh` records individual results as JSON/JUnit.
+Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
-## Live validation
-
-Verify migrated data reference integrity separately from fixtures.
-
-## Registered output storage
-
-`ops/storage.py` owns named stores and persistent `.loom-storage.json` identities. `jobs.submit.output_storage` defaults to data/0 and freezes a non-default identity; all Attempt stages and result retries use that root. Result locators carry the selected ID and store-relative path. Registered secondary outputs are available in Dashboard files/media, results API and read-only downstream input mounts. Unknown, redirected, missing or replaced stores must never fall back to the primary. Existing Jobs without this field retain primary behavior; no DB rewrite or data move is required. Profile `storage` mounts remain separate optional shared RW access.
-
-`results.historical` keeps body/locations/payload_status immutable. The additive
-`current_availability` observation checks only declared storage identities and
-registered target refs. A source_ref without an attached copy is `not_connected`,
-not evidence that the original was deleted. Small files (up to 1 MiB) are hash
-checked; larger files are present_unverified. No host-path inference, automatic
-mount, Bat migration, GPU load or claim of inference readiness occurs.
-
-`results.list` includes artifact discovery from the same active catalog snapshot
-as Dashboard. Historical entries expose their exact `history_ref` and
-`detail_action=results.historical`; native entries retain their existing shape.
-Native IDs take precedence, duplicate historical revisions select the latest
-inserted record in that snapshot, and non-artifact documents are excluded.
-Imported rows and execution queues are never rewritten by this read model.
-
-Dataset detail pages use a common property summary from `dataset_overview`, with
-explicit missing/not-applicable values. Nested producer diagnostics and episode
-inventories remain in lazily expanded Source metadata, preserving original evidence.
-
-Dataset list rows and detail highlights use the same normalized facts. Present
-input kinds as compact modality labels; producer timing/shape/control prose stays
-in detailed source metadata. List rows omit unbounded producer summaries and show
-splits when recorded. Labels stay intact as facts wrap at narrow viewport widths.
-Browser regression must cover the list route as well as an individual detail page.
-
-Verified canonical Jobs may group explicitly consolidated completed executions in
-the default Job view. Original source rows/Attempts remain directly readable and
-are included by the source-history filter. No historical payload is rewritten.
-
-
-## Research outcomes and internal executions
-
-`ops/workflows.py` atomically creates a logical Job and immutable scheduler nodes.
-Dependencies, input alias resolution, resource ownership, retries and result checks
-remain on real node Jobs. Aggregate reads never create Attempts or copy results.
-A root failure identifies its execution; independent nodes may continue. Worker
-refresh emits root transition events; normal per-node event evidence remains.
-`ops/research.py` applies additive reviewed scope/role/parent overlays across Job,
-registry and Dashboard reads. Hidden records remain directly addressable. The
-Dashboard Research/Operations/All modes and internal execution details consume
-this shared metadata. Built-in is origin, not ownership or scientific importance.
-Curation must preserve original rows, reject cycles and replay exact batch keys.
-Real queue resource consumers are never removed by a research presentation filter.
-
-
-## Common Item index
-
-The native candidate adds the Item/file/log discovery adapters documented in
-[Items](../../rust/contracts/items.md) and the administrator
-[operations contract](../ITEM-INDEX.md). Domain identity stays authoritative;
-the separate FTS projection owns no execution or recovery decisions.
-Review source permissions, exact historical refs, projection lag and byte-range
-limits independently from ordinary Job completion.
+Acceptance outside these fixtures:
+- Verify migrated data reference integrity separately from fixtures.

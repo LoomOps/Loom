@@ -1,142 +1,60 @@
 # execution — Job lifecycle, script execution and container ownership
 
-Native candidate authority: `rust/crates/core/src/execution.rs#request_for`, `rust/crates/core/src/execution.rs#next_work`.
-Retained Python paths below are compatibility references or administrator/web
-integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
-current process boundaries and acceptance limits.
-
-## Responsibilities and boundaries
+## Boundary
 
 Loom executes Jobs. Release resources based on executor-ticket, container and process return evidence. Never pass platform secrets or Docker sockets into Jobs.
 
-## Inputs, outputs and authoritative sources
+The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
-- [ops/execution.py](../../ops/execution.py)
-- [ops/runtime_contract.py](../../ops/runtime_contract.py)
-- [executor/runtime_policy.py](../../executor/runtime_policy.py)
+## Interfaces
 
-The linked code/schemas define fields, enums and state transitions. This document does not duplicate them.
+| Boundary | Owning entry point | Input | Result / failure | Consumers |
+|---|---|---|---|---|
+| Runtime request | `rust/crates/core/src/execution.rs#request_for` | Pinned profile, Job params, stage, input locators | Resolved execution request file; invalid paths/inputs rejected before runtime | api |
+| Worker lifecycle | `rust/crates/core/src/execution.rs#next_work` | Durable queue/config/resource receipts | Preparation/run/return/result transitions; no release without resource evidence | queue, recovery, results |
 
-## Call contracts
+## Sources and contracts
 
-| Boundary | Input | Result or failure | Consumers |
-|---|---|---|---|
-| `ops/execution.py#request_file` | Pinned profile, Job params, stage, input locators | Resolved execution request file; invalid paths/inputs rejected before runtime | api |
-| `ops/ops.py#worker` | Durable queue/config/resource receipts | Preparation/run/return/result transitions; no release without resource evidence | queue, recovery, results |
+- [executor/runtime_policy.py](../../executor/runtime_policy.py) — active administrator policy validation, used by executor-attach.py and Runtime tools; native host enforces launch policy.
+- [executor/server.py](../../executor/server.py) — retained Python compatibility reference.
+- [ops/execution.py](../../ops/execution.py) — retained Python compatibility reference.
+- [ops/hooks.py](../../ops/hooks.py) — retained Python compatibility reference.
+- [ops/job_work.py](../../ops/job_work.py) — retained Python compatibility reference.
+- [ops/runtime_client.py](../../ops/runtime_client.py) — retained Python compatibility reference.
+- [ops/runtime_contract.py](../../ops/runtime_contract.py) — retained Python compatibility reference.
+- [ops/workflows.py](../../ops/workflows.py) — retained Python compatibility reference.
+- [rust/crates/core/src/execution.rs](../../rust/crates/core/src/execution.rs) — native implementation / contract.
+- [rust/crates/core/src/progress.rs](../../rust/crates/core/src/progress.rs) — native implementation / contract.
+- [rust/crates/domain/Cargo.toml](../../rust/crates/domain/Cargo.toml) — native implementation / contract.
+- [rust/crates/domain/src/lib.rs](../../rust/crates/domain/src/lib.rs) — native implementation / contract.
+- [rust/crates/host/Cargo.toml](../../rust/crates/host/Cargo.toml) — native implementation / contract.
+- [rust/crates/host/src/executor.rs](../../rust/crates/host/src/executor.rs) — native implementation / contract.
+- [rust/crates/host/src/lib.rs](../../rust/crates/host/src/lib.rs) — native implementation / contract.
+- [rust/crates/host/src/main.rs](../../rust/crates/host/src/main.rs) — native implementation / contract.
+- [rust/crates/host/src/wire.rs](../../rust/crates/host/src/wire.rs) — native implementation / contract.
+- [rust/crates/host/src/logs.rs](../../rust/crates/host/src/logs.rs) — native implementation / contract.
+- [rust/crates/ops/src/log_collector.rs](../../rust/crates/ops/src/log_collector.rs) — native implementation / contract.
 
-## Related features and change impact
+## Change review
 
-[extensions](extensions.md)
+When execution contracts change, verify the worker, executor, restart/idempotency behavior, cancellation, result collection and Compose mounts. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.
 
-When execution contracts change, verify the worker, executor, restart/idempotency behavior, cancellation, result collection and Compose mounts.
+Related blocks: [extensions](extensions.md).
 
-## Tests and failure boundaries
+## Verification
 
 - [tests/ops/test_executor_boundary.py](../../tests/ops/test_executor_boundary.py)
+- [tests/ops/test_job_lifecycle.py](../../tests/ops/test_job_lifecycle.py)
+- [tests/ops/test_job_work.py](../../tests/ops/test_job_work.py)
+- [tests/ops/test_research_workflows.py](../../tests/ops/test_research_workflows.py)
+- [tests/rust/application.rs](../../tests/rust/application.rs)
+- [tests/rust/domain.rs](../../tests/rust/domain.rs)
+- [tests/rust/host.rs](../../tests/rust/host.rs)
+- [tests/rust/test_executor.py](../../tests/rust/test_executor.py)
+- [tests/rust/test_service.py](../../tests/rust/test_service.py)
+- [tests/rust/test_item_image.py](../../tests/rust/test_item_image.py)
 
-Test sources define the concrete scenarios. `deploy/test.sh` records individual results as JSON/JUnit.
+Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
-## Live validation
-
-Actual Docker/GPU runtimes and power loss after container creation are outside mock coverage.
-
-Unconfirmed executor start/cancel/return raises an ownership error rather than an
-ordinary launch failure. The worker stops claiming until restart reconciliation
-returns current execution, pending finalizer and callback tickets. No timeout or
-lost response alone proves release. Finish/return receipts are fenced by current
-Job/Attempt; stage receipts close before finalizing or ready is advertised.
-
-## Registered RW storage
-
-Optional runner.storage is a unique list of data/N IDs. Profile registration checks the installation grant; executor startup rechecks IDs, the configured host roots and symlink changes. Paths are never supplied by the caller. Explicit mounts are RW at /loom/data/N and appear in request.storage. Omission preserves existing Job isolation, /work result publication and read-only pinned input mounts. system.status.data_stores reports this capability; both HTTP and MCP use the same profile schema. New installation grants all selected stores, but image updates preserve existing grants and data locations.
-
-## Registered output storage
-
-`ops/storage.py` owns named stores and persistent `.loom-storage.json` identities. `jobs.submit.output_storage` defaults to data/0 and freezes a non-default identity; all Attempt stages and result retries use that root. Result locators carry the selected ID and store-relative path. Registered secondary outputs are available in Dashboard files/media, results API and read-only downstream input mounts. Unknown, redirected, missing or replaced stores must never fall back to the primary. Existing Jobs without this field retain primary behavior; no DB rewrite or data move is required. Profile `storage` mounts remain separate optional shared RW access.
-
-## Administrator GPU/network policy and runtime acceptance
-
-Driver capabilities and network are selected only in protected executor runtime
-configuration. Defaults stay compute/utility and none; explicit graphics and
-bridge egress do not relax UID, rootfs, mounts or capability isolation. Image
-Profiles use the instance declared_runtime policy; compatibility runtime IDs use
-their named policy. See [runtime doctor](../RUNTIME-DOCTOR.md) for the opt-in
-bounded probe and the distinction between registration and actual acceptance.
-
-## Logical Job and internal steps
-
-One user-requested generation, training or evaluation outcome is one Job by
-default. Batches, shards, cases and scheduling slices are internal implementation
-units, not reasons to submit separate Jobs. Use prepare/run/finalize and a pinned
-runner that loops, parallelizes or vectorizes within its allocated resources.
-Acceleration must preserve the scientific contract; validate equivalence before
-changing vectorization, clocks or resource assumptions. Independent requested
-outcomes, or explicitly approved distributed execution, can use separate Jobs.
-Do not silently turn output/time budgets into a chain of scheduler Jobs. Set a
-verified whole-Job budget or report the limitation before submission.
-
-A Profile may declare `steps: [{"id":"generate","label":"Generate cases"}]`.
-The request's `steps` descriptor identifies the plan and `steps.json` report file.
-The producer atomically replaces that file in request.output_dir with
-`{"schema":"loom-job-steps/v1","profile_sha256":"<request.profile.sha256>",
-"steps":[{"id":"generate","state":"running","detail":"12 / 140"}]}`.
-Allowed states are pending/running/completed/reused/failed/skipped. IDs/labels
-come from the pinned plan; the file is bounded to 256 KiB and 256 steps. Step
-progress is producer-reported display evidence, never a resource-return,
-execution-success or artifact-validation gate. A failed or unreadable report
-must not change Job execution state.
-
-## Consolidate earlier fragmented execution
-
-Existing Job/Attempt history and output provenance are immutable evidence. Do
-not delete rows or relabel past executions as if one process produced them.
-With explicit user authorization, submit one continuation Job using
-`consolidates: ["<completed-source-job>", ...]`, pinned inputs and a stable key.
-Sources must be completed with verified outputs and have the same Owner. They
-become dependencies; the runner verifies/reuses exact bytes and generates only
-missing work. Reused steps name their frozen source_job/source_attempt. No
-scientific condition may run twice merely to simplify the presentation.
-
-Only after the canonical Job completes with verified artifacts does the default
-Job list show it in place of its constituent Jobs. `jobs.list` with
-`include_consolidated:true`, direct `jobs.get` and the Dashboard's source-history
-filter retain access to every original. Job details expose consolidation sources
-and internal progress. A pending or failed canonical Job does not hide sources;
-repair it with the same key/Job instead of making competing continuations.
-Dataset manifests can reference earlier registered archives; consolidation does
-not imply copying every file or a new scientific generation.
-
-Consolidated Job reads expose `work_timeline`, derived from the frozen source
-Attempt receipts and the continuation's own Attempts. Dashboard Job start/end
-cover that entire elapsed period; execution intervals retain the individual
-receipts so gaps are not counted as active runtime. Reused steps include
-server-derived `source_execution` start/end and Job/Attempt identity. The
-continuation's `attempts` and timestamps remain unchanged: they describe the
-verification/index run, not the original generation. Missing receipts are
-reported and never replaced with invented timestamps. This is a read projection;
-no source, runtime timestamp, profile or result manifest is rewritten.
-
-
-## Research outcomes and internal executions
-
-`ops/workflows.py` atomically creates a logical Job and immutable scheduler nodes.
-Dependencies, input alias resolution, resource ownership, retries and result checks
-remain on real node Jobs. Aggregate reads never create Attempts or copy results.
-A root failure identifies its execution; independent nodes may continue. Worker
-refresh emits root transition events; normal per-node event evidence remains.
-`ops/research.py` applies additive reviewed scope/role/parent overlays across Job,
-registry and Dashboard reads. Hidden records remain directly addressable. The
-Dashboard Research/Operations/All modes and internal execution details consume
-this shared metadata. Built-in is origin, not ownership or scientific importance.
-Curation must preserve original rows, reject cycles and replay exact batch keys.
-Real queue resource consumers are never removed by a research presentation filter.
-
-
-## Common Item index
-
-The native candidate adds the Item/file/log discovery adapters documented in
-[Items](../../rust/contracts/items.md) and the administrator
-[operations contract](../ITEM-INDEX.md). Domain identity stays authoritative;
-the separate FTS projection owns no execution or recovery decisions.
-Review source permissions, exact historical refs, projection lag and byte-range
-limits independently from ordinary Job completion.
+Acceptance outside these fixtures:
+- Actual Docker/GPU runtimes and power loss after container creation are outside mock coverage.

@@ -1,11 +1,6 @@
 # Loom Rust redesign — complete development plan
 
-Status: implemented development candidate on `codex/loom-rust`. D1–D7 source,
-SDK, native services, additive migration and package paths are present. Operational
-cutover (D8), real provider acceptance and GPU/scientific validation remain separate.
-See [implementation and verification](IMPLEMENTATION.md) for actual module ownership,
-commands, compatibility decisions and limits. The frozen audit below remains the
-planning baseline; it is not evidence that a running installation was updated.
+Status: historical design and migration record. The native implementation is present in this repository; release/deployment evidence is separate from this original plan. For current use read [the documentation index](../README.md), [implementation boundaries](../IMPLEMENTATION.md) and the generated API reference. Original proposed phases, baseline commit IDs and review counts below retain their historical meaning.
 
 ## Reference inputs and audit boundary
 

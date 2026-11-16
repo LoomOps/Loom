@@ -1,14 +1,6 @@
 # Common Items, file inventory and log search — implementation plan
 
-Status: **approved target design with an initial native implementation**. See
-[IMPLEMENTATION](IMPLEMENTATION.md) for implemented boundaries, evidence and gaps.
-The original design/discovery baseline below is retained; it is not acceptance of
-all planned phases or authorization for operational deployment.
-
-Baseline: Loom `74642cd41de4df3d82934b4eb5b0ca008047a911`; independent client
-`c66e46d9c56cf75d1cdf29dffab4e92ab19346bf`. Source evidence and findings are in
-[REVIEW](REVIEW.md) and [SOURCE-REVIEW.json](SOURCE-REVIEW.json). Existing feature
-verification is a cross-check, not the investigation method or proof of this design.
+Status: historical design and migration record. The native implementation is present in this repository; release/deployment evidence is separate from this original plan. For current use read [the documentation index](../README.md), [implementation boundaries](../IMPLEMENTATION.md) and the generated API reference. Original proposed phases, baseline commit IDs and review counts below retain their historical meaning.
 
 ## Decisions
 

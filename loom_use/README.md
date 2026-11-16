@@ -4,10 +4,7 @@ This directory owns the operational guides shipped by the running Loom server.
 The independent client, Skill and installation tools are maintained in
 [LoomOps/Loom-Use](https://github.com/LoomOps/Loom-Use).
 
-Start with `system.status`, `system.guide`, then `system.describe` for current action
-schemas. There is one MCP endpoint with six groups: jobs, recovery, events,
-components, results and system. See entry.md, quickstart.md, jobs.md, components.md,
-recovery.md, updates.md and operator.md.
+Use [the task index](entry.md) or `system.guide` to choose one topic. `catalog.json` is the single compile-time guide catalog: IDs, titles, audience/task type, source paths and summaries. `system.describe({group,action})` supplies exact inputs and implementation ownership; group-only returns that group's reference.
 
 `client-release.json` pins the exact independently tested client artifact and checksum.
 The guide manifest exposes it as `client_release`. Server CI uses this release for

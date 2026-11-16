@@ -1,16 +1,22 @@
-# Documentation
+# Loom documentation
 
-- Connection, MCP and Job usage tools: **[Loom Use](../loom_use/README.md)**
-- Installation and deployment: [deploy/README.md](../deploy/README.md)
-- Agent installation procedure: [INSTALL.md](../INSTALL.md)
-- Platform architecture: [PLATFORM.md](../deploy/PLATFORM.md)
-- Development tests: [TESTING.md](../deploy/TESTING.md)
-- [Public baseline and preserved-state boundary](CLEANUP.md)
-- [Feature boundaries, change impact and test mapping](features/README.md)
-- [Tailscale and Dashboard SSO](TAILSCALE-SSO.md)
-- [Installation, overrides, updates and rollback](UPDATES.md)
+Loom schedules reproducible Jobs, records their outputs, and connects research records to versioned task context. This tree describes the native Rust service and its retained web and administrator integrations. It does not describe the state of a particular installation.
 
-Historical research contracts and validation policies are archived outside the product repository. Read current Job input and metadata contracts from the running server's `system.contract` and `system.describe`.
+| Need | Start here |
+|---|---|
+| Understand the objects and their relationships | [Concepts](CONCEPTS.md) |
+| Submit and inspect a first Job | [First Job](../loom_use/quickstart.md) |
+| Perform a specific operation | [Task guide index](../loom_use/entry.md) |
+| Look up an API action, schema, scope or example | [API reference](reference/README.md) |
+| Find the implementation to change | [Implementation boundaries](IMPLEMENTATION.md), then [feature catalog](features/README.md) |
+| Install a server | [Installer entry](../INSTALL.md) |
+| Upgrade, restore or remove an installation | [Updates](UPDATES.md), [upgrade](UPGRADE.md), [uninstall](UNINSTALL.md) |
+| Connect an agent or maintain its local client | [Loom-Use](https://github.com/LoomOps/Loom-Use), using the running server's exact client release descriptor |
+| Review tests and their limits | [Testing](../deploy/TESTING.md), [verification blocks](features/VERIFICATION.md) |
+| Write or review documentation | [Documentation contract](DOCUMENTATION.md), [complete inventory](documentation-catalog.json) |
 
-- [Rust native redesign and implementation status](rust-port/README.md) (development candidate; no operational deployment).
-- [Common Item IDs, file inventory and log search](item-index/README.md) (detailed plan; no implementation or deployment).
+For a connected installation, `system.guide` supplies that binary's task guides and `system.describe` supplies its action schemas. The source reference here describes this checkout; neither it nor a newer client proves that a feature is deployed.
+
+## Design and migration records
+
+[Rust redesign](rust-port/README.md) and [Item index design](item-index/README.md) retain the plans, decisions and implementation ledgers used to build the native service. The implementation is present in `rust/`. Planning language in a historical document is not a current installation or agent instruction. Use the current reference and feature catalog for changes; use the design records to understand the rationale.

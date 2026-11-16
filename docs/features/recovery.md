@@ -1,46 +1,40 @@
 # recovery — Recovery reservations, recipient events and retries
 
-Native candidate authority: `rust/crates/core/src/jobs.rs#recover`, `rust/crates/core/src/execution.rs#next_work`.
-Retained Python paths below are compatibility references or administrator/web
-integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
-current process boundaries and acceptance limits.
-
-## Responsibilities and boundaries
+## Boundary
 
 The caller owns error repair. Preserve reservation deadlines, attempt limits and dependent-Job skipping. Event acknowledgments are recipient-specific.
 
-## Inputs, outputs and authoritative sources
+The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
-- [ops/recovery.py](../../ops/recovery.py)
-- [ops/access.py](../../ops/access.py)
+## Interfaces
 
-The linked code/schemas define fields, enums and state transitions. This document does not duplicate them.
+| Boundary | Owning entry point | Input | Result / failure | Consumers |
+|---|---|---|---|---|
+| Recovery action | `rust/crates/core/src/jobs.rs#recover` | Job + actor + claim/progress/resume/defer arguments | Incident/lease/attempt transition or conflict; caller edits do not auto-run a new unapproved scope | api, queue |
+| Deadline | `rust/crates/core/src/execution.rs#next_work` | DB + clock | Expired reservation no longer blocks unrelated Jobs; dependent Jobs remain ineligible | queue |
 
-## Call contracts
+Public actions and input schemas are in the generated [API reference](../reference/README.md). This block owns: `recovery.claim`, `recovery.progress`, `recovery.resume`, `recovery.defer`, `recovery.reactivate`, `events.list`, `events.ack`.
 
-| Boundary | Input | Result or failure | Consumers |
-|---|---|---|---|
-| `ops/recovery.py#action` | Job + actor + claim/progress/resume/defer arguments | Incident/lease/attempt transition or conflict; caller edits do not auto-run a new unapproved scope | api, queue |
-| `ops/recovery.py#expire` | DB + clock | Expired reservation no longer blocks unrelated Jobs; dependent Jobs remain ineligible | queue |
+## Sources and contracts
 
-## Related features and change impact
+- [ops/recovery.py](../../ops/recovery.py) — retained Python compatibility reference.
+- [rust/crates/core/src/jobs.rs](../../rust/crates/core/src/jobs.rs) — native implementation / contract.
+- [rust/crates/core/src/query.rs](../../rust/crates/core/src/query.rs) — native implementation / contract.
+- [ops/access.py](../../ops/access.py) — retained Python compatibility reference.
 
-[identity](identity.md) · [execution](execution.md)
+## Change review
 
-When state transitions change, check queue dispatch, notification events, claim leases, concurrency and expiry tests. Authoritative transitions live in ops/ops.py worker/finish and ops/recovery.py.
+When transitions change, review native jobs.rs/recover, execution.rs/next_work, domain events, recipient events and query projections. Test lease concurrency, expiry, resource return and shared recovery limits.
 
-## Tests and failure boundaries
+Related blocks: [identity](identity.md) · [execution](execution.md).
 
+## Verification
+
+- [tests/ops/test_job_lifecycle.py](../../tests/ops/test_job_lifecycle.py)
 - [tests/ops/test_worker_recovery.py](../../tests/ops/test_worker_recovery.py)
+- [tests/rust/application.rs](../../tests/rust/application.rs)
 
-Test sources define the concrete scenarios. `deploy/test.sh` records individual results as JSON/JUnit.
+Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
-## Live validation
-
-Actual external-agent reactivation and duplicate callback effects belong to client acceptance testing.
-
-Original-key replay compares submission revision zero and frozen defaults, not a
-later repaired spec. Prior failure outcomes are stored per Attempt; a new execution
-clears the current result. Legacy active rows expose preserved previous_result
-without attributing it to the active Attempt. Result-only recovery retains the
-same Attempt and does not rerun execution admission or reload mutable inputs.
+Acceptance outside these fixtures:
+- Actual external-agent reactivation and duplicate callback effects belong to client acceptance testing.

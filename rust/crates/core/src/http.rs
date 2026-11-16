@@ -325,7 +325,7 @@ impl Application {
                     "2025-06-18"
                 };
                 Ok(
-                    json!({"protocolVersion":version,"capabilities":{"tools":{}},"serverInfo":{"name":"loom-ops","title":"Loom Use","version":env!("CARGO_PKG_VERSION")},"instructions":"Call system.status and system.guide. Discover schemas before acting. Keep accepted Job pins. New producer orchestration defaults to Rust."}),
+                    json!({"protocolVersion":version,"capabilities":{"tools":{}},"serverInfo":{"name":"loom-ops","title":"Loom Use","version":env!("CARGO_PKG_VERSION")},"instructions":onboarding::MCP_INSTRUCTIONS}),
                 )
             }
             "ping" => Ok(json!({})),

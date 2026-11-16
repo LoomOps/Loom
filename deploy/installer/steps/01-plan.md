@@ -24,4 +24,4 @@ The plan generator reads this machine's Tailscale identity and never overwrites 
 python3 deploy/installer/setup.py doctor /absolute/install-plan.json --stage plan
 ```
 
-Exit: the chosen settings are explicit and plan doctor passes. Reread INSTALL.md and the step index before step 2.
+Exit: the chosen settings are explicit and plan doctor passes. Continue after verifying the stated exit evidence.

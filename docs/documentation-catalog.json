@@ -1,0 +1,953 @@
+{
+  "schema": "loom-documentation/v1",
+  "documents": [
+    {
+      "path": "AGENTS.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "repository/client entry instructions"
+    },
+    {
+      "path": "CHANGELOG.md",
+      "audience": "reader",
+      "status": "historical",
+      "authority": "recorded releases"
+    },
+    {
+      "path": "INSTALL.md",
+      "audience": "administrator-agent",
+      "status": "current",
+      "authority": "matching installer and actual step evidence"
+    },
+    {
+      "path": "README.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "audience": "legal",
+      "status": "preserved",
+      "authority": "license notices"
+    },
+    {
+      "path": "components/README.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "dashboard/README.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "dashboard/THIRD_PARTY_NOTICES.md",
+      "audience": "legal",
+      "status": "preserved",
+      "authority": "license notices"
+    },
+    {
+      "path": "deploy/PLATFORM.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "active native service and retained integration entry points"
+    },
+    {
+      "path": "deploy/README.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "active native service and retained integration entry points"
+    },
+    {
+      "path": "deploy/TESTING.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "active native service and retained integration entry points"
+    },
+    {
+      "path": "deploy/installer/INSTALL.md",
+      "audience": "administrator-agent",
+      "status": "current",
+      "authority": "matching installer and actual step evidence"
+    },
+    {
+      "path": "deploy/installer/steps/01-plan.md",
+      "audience": "administrator-agent",
+      "status": "current",
+      "authority": "matching installer and actual step evidence"
+    },
+    {
+      "path": "deploy/installer/steps/02-host.md",
+      "audience": "administrator-agent",
+      "status": "current",
+      "authority": "matching installer and actual step evidence"
+    },
+    {
+      "path": "deploy/installer/steps/03-images.md",
+      "audience": "administrator-agent",
+      "status": "current",
+      "authority": "matching installer and actual step evidence"
+    },
+    {
+      "path": "deploy/installer/steps/04-configuration.md",
+      "audience": "administrator-agent",
+      "status": "current",
+      "authority": "matching installer and actual step evidence"
+    },
+    {
+      "path": "deploy/installer/steps/05-services.md",
+      "audience": "administrator-agent",
+      "status": "current",
+      "authority": "matching installer and actual step evidence"
+    },
+    {
+      "path": "deploy/installer/steps/06-network.md",
+      "audience": "administrator-agent",
+      "status": "current",
+      "authority": "matching installer and actual step evidence"
+    },
+    {
+      "path": "deploy/installer/steps/07-handoff.md",
+      "audience": "administrator-agent",
+      "status": "current",
+      "authority": "matching installer and actual step evidence"
+    },
+    {
+      "path": "docs/ACCESS-ENROLLMENT.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/CLEANUP.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/CONCEPTS.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/DOCUMENTATION.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/IMPLEMENTATION.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/ITEM-INDEX.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/MANAGED-RESOURCES.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/README.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/RUNTIME-DOCTOR.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/SSH.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/TAILSCALE-SETUP.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/TAILSCALE-SSO.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/UNINSTALL.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/UPDATES.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/UPGRADE.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/features/README.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/VERIFICATION-HISTORY.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/features/VERIFICATION.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/api.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/authoring.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/catalog.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/dashboard.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/diagnostics.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/execution.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/extensions.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/identity.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/installation.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/network.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/observations.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/onboarding.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/portability.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/queue.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/recovery.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/results.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/scenarios.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/ssh.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/features/testing.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
+      "path": "docs/item-index/API.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/ARCHITECTURE.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/FILES.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/IDENTITY.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/IMPLEMENTATION.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/LOGS.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/MIGRATION.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/README.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/RECONCILE.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/REVIEW.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/ROADMAP.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/VERIFICATION.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/api.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/authoring.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/catalog.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/dashboard.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/diagnostics.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/execution.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/extensions.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/identity.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/installation.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/network.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/observations.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/onboarding.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/portability.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/queue.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/recovery.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/results.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/scenarios.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/ssh.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/item-index/blocks/testing.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/reference/README.md",
+      "audience": "caller",
+      "status": "generated",
+      "authority": "compiled native registry"
+    },
+    {
+      "path": "docs/reference/components.md",
+      "audience": "caller",
+      "status": "generated",
+      "authority": "compiled native registry"
+    },
+    {
+      "path": "docs/reference/events.md",
+      "audience": "caller",
+      "status": "generated",
+      "authority": "compiled native registry"
+    },
+    {
+      "path": "docs/reference/http.md",
+      "audience": "caller",
+      "status": "generated",
+      "authority": "compiled native registry"
+    },
+    {
+      "path": "docs/reference/jobs.md",
+      "audience": "caller",
+      "status": "generated",
+      "authority": "compiled native registry"
+    },
+    {
+      "path": "docs/reference/recovery.md",
+      "audience": "caller",
+      "status": "generated",
+      "authority": "compiled native registry"
+    },
+    {
+      "path": "docs/reference/results.md",
+      "audience": "caller",
+      "status": "generated",
+      "authority": "compiled native registry"
+    },
+    {
+      "path": "docs/reference/system.md",
+      "audience": "caller",
+      "status": "generated",
+      "authority": "compiled native registry"
+    },
+    {
+      "path": "docs/rust-port/API-CHANGES.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/ARCHITECTURE.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/AUTHORING.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/COMPATIBILITY.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/DOMAIN.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/IMPLEMENTATION.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/MIGRATION.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/README.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/REVIEW.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/ROADMAP.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/api.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/authoring.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/catalog.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/dashboard.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/diagnostics.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/execution.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/extensions.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/identity.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/installation.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/network.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/observations.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/onboarding.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/portability.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/queue.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/recovery.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/research-operations.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/results.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/scenario.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/ssh.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "docs/rust-port/blocks/testing.md",
+      "audience": "maintainer",
+      "status": "historical",
+      "authority": "recorded design/audit revision"
+    },
+    {
+      "path": "loom_use/README.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/THIRD_PARTY_NOTICES.md",
+      "audience": "legal",
+      "status": "preserved",
+      "authority": "license notices"
+    },
+    {
+      "path": "loom_use/components.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/entry.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/inventory.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/jobs.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/operator.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/quickstart.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/reconciliation.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/recovery.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/results.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/runtimes.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/skills/loom-use/SKILL.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "repository/client entry instructions"
+    },
+    {
+      "path": "loom_use/updates.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/workflows.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "ops/API.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "active native service and retained integration entry points"
+    },
+    {
+      "path": "ops/README.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "active native service and retained integration entry points"
+    },
+    {
+      "path": "ops/REMOTE-FENCING.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "active native service and retained integration entry points"
+    },
+    {
+      "path": "rust/contracts/authoring.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "rust/contracts/items.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "rust/contracts/scenarios.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "tests/README.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "active native service and retained integration entry points"
+    },
+    {
+      "path": "deploy/install-kit.py",
+      "audience": "administrator-agent",
+      "status": "current",
+      "authority": "generated installation AGENTS instruction"
+    },
+    {
+      "path": "loom_use/catalog.json",
+      "audience": "agent",
+      "status": "current",
+      "authority": "guide routing metadata"
+    },
+    {
+      "path": "loom_use/client-release.json",
+      "audience": "client",
+      "status": "current",
+      "authority": "exact published client descriptor"
+    },
+    {
+      "path": "ops/mcp_docs.py",
+      "audience": "compatibility",
+      "status": "compatibility",
+      "authority": "retained Python reference descriptions"
+    },
+    {
+      "path": "ops/onboarding.py",
+      "audience": "compatibility",
+      "status": "compatibility",
+      "authority": "retained Python guide distribution"
+    },
+    {
+      "path": "ops/ops.py",
+      "audience": "compatibility",
+      "status": "compatibility",
+      "authority": "retained MCP initialization instructions"
+    },
+    {
+      "path": "rust/contracts/action-docs.json",
+      "audience": "caller",
+      "status": "current",
+      "authority": "native action descriptions, examples and ownership"
+    },
+    {
+      "path": "rust/contracts/job-contract.json",
+      "audience": "caller",
+      "status": "current",
+      "authority": "Job contract descriptions"
+    },
+    {
+      "path": "rust/contracts/legacy-actions.json",
+      "audience": "caller",
+      "status": "current",
+      "authority": "retained input shapes composed by the native registry"
+    },
+    {
+      "path": "rust/crates/core/src/http.rs",
+      "audience": "agent",
+      "status": "current",
+      "authority": "MCP initialization instructions"
+    },
+    {
+      "path": "rust/crates/core/src/onboarding.rs",
+      "audience": "agent",
+      "status": "current",
+      "authority": "compiled guide/reference distribution"
+    }
+  ]
+}

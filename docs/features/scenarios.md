@@ -1,22 +1,39 @@
-# Scenarios
+# scenarios — Versioned research context and explicit immutable record links
 
-Native candidate authority: `rust/crates/core/src/scenario.rs#create_scenario`.
-Retained Python paths below are compatibility references or administrator/web
-integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
-current process boundaries and acceptance limits.
+## Boundary
 
-Scenario is versioned research context, independent of Job execution identity,
-software ownership and permission grants. Its immutable definition can describe a
-task, protocol and references. Jobs explicitly pin a revision; updates do not move
-old pins. Explicit links reuse an existing dataset/model/experiment/software item
-without copying it or recording new scientific work.
+Accepted revisions and execution provenance remain immutable. Source registration never runs user code.
 
-Contracts: `rust/crates/core/src/contracts.rs`, `scenario.rs`, and
-`rust/contracts/redesign-schema.sql`. The `results` MCP group exposes the live
-schemas. Link targets must name exact native or historical identities. Withdrawal
-and supersession preserve original evidence. An archived Scenario remains readable
-but cannot receive newly accepted Job pins. Existing records may stay unassigned.
+The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
-Dashboard: Scenarios list, immutable revision selection, Jobs and linked records.
-The authenticated relay allowlists Scenario actions; the iframe holds no credential.
-Use native SQLite/API fixtures and Firefox; screenshots alone do not prove Job pins.
+## Interfaces
+
+| Boundary | Owning entry point | Input | Result / failure | Consumers |
+|---|---|---|---|---|
+| Versioned research context and explicit immutable record links | `rust/crates/core/src/scenario.rs#create_scenario` | Authenticated typed action and exact revision identities | Transactional receipt or explicit conflict | api, catalog, dashboard, onboarding |
+
+Public actions and input schemas are in the generated [API reference](../reference/README.md). This block owns: `results.scenarios`, `results.get_scenario`, `results.scenario_graph`, `results.register_scenario`, `results.update_scenario`, `results.archive_scenario`, `results.link_scenario`, `results.supersede_scenario_link`.
+
+## Sources and contracts
+
+- [dashboard/workspace/scenarios.js](../../dashboard/workspace/scenarios.js) — integration, packaging or documentation.
+- [rust/contracts/scenarios.md](../../rust/contracts/scenarios.md) — native implementation / contract.
+- [rust/crates/core/src/scenario.rs](../../rust/crates/core/src/scenario.rs) — native implementation / contract.
+- [rust/crates/core/src/contracts.rs](../../rust/crates/core/src/contracts.rs) — native implementation / contract.
+
+## Change review
+
+Review live schemas, exact bindings, Dashboard, distributed guidance, migration and native acceptance together.
+
+Related blocks: [identity](identity.md) · [api](api.md).
+
+## Verification
+
+- [tests/dashboard/browser/test_native_workspace.py](../../tests/dashboard/browser/test_native_workspace.py)
+- [tests/rust/application.rs](../../tests/rust/application.rs)
+- [tests/rust/test_service.py](../../tests/rust/test_service.py)
+
+Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
+
+Acceptance outside these fixtures:
+- Run isolated Rust/HTTP/producer/browser fixtures; operational acceptance requires separately authorized deployment.

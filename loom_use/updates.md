@@ -5,9 +5,9 @@ Each deployment image includes its matching guides. system.guide serves document
 Identifiers:
 - build_id: the connected image build.
 - api_revision: the human-readable API contract version.
-- contract_revision: a content hash of contract/reference code.
-- guide_revision: a content hash of guides and client instructions.
-- revision: a combined update marker for these identifiers.
+- contract_revision: a content hash of action schemas and the public Job contract.
+- guide_revision: a content hash of shipped guides, reference prose/examples, client instructions and client release descriptor.
+- revision: a combined marker of the contract and guide revisions.
 
 Successful and tool-error MCP tools/call responses end with `Loom <build> | contract <12 characters> | guide <12 characters>`. The first content block retains the original result JSON/error. Parsers must read content[0].text without concatenating the version block into JSON. Short hashes identify changes; full values are available through _meta/status.
 

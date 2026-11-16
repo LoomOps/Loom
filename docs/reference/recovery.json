@@ -1,0 +1,218 @@
+{
+  "actions": [
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "claim",
+      "description": "Claim a failed Job awaiting a response. Pass the returned lease to progress/resume.",
+      "errors": [
+        "Waiting deadline expired or another agent already claimed recovery."
+      ],
+      "example": {
+        "id": "<job-id>"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "recovery",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/jobs.rs#recover",
+        "feature": "recovery"
+      },
+      "returns": "Recovery · state, rounds, agent, deadline, hard_deadline, lease",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lease": {
+            "type": "string"
+          },
+          "patch": {
+            "type": "object"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Claim recovery"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "progress",
+      "description": "Report progress with a valid lease to refresh the idle deadline, without extending the round's hard deadline.",
+      "errors": [
+        "Lease mismatch, claimant mismatch or expired recovery deadline."
+      ],
+      "example": {
+        "id": "<job-id>",
+        "lease": "<recovery-lease>"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "recovery",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/jobs.rs#recover",
+        "feature": "recovery"
+      },
+      "returns": "Recovery · state, rounds, agent, deadline, hard_deadline",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lease": {
+            "type": "string"
+          },
+          "patch": {
+            "type": "object"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "lease"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Report recovery progress"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "resume",
+      "description": "Schedule recovery at the reserved queue position using a valid lease. Inspect the live patch schema; finalization-only repair preserves the successful execution Attempt.",
+      "errors": [
+        "Lease mismatch, three recovery rounds exhausted or invalid patched inputs.",
+        "For finalization-only failure, retry postprocessing without a patch."
+      ],
+      "example": {
+        "id": "<job-id>",
+        "lease": "<recovery-lease>",
+        "patch": {},
+        "reason": "Rerun after repairing the cause"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "recovery",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/jobs.rs#recover",
+        "feature": "recovery"
+      },
+      "returns": "Recovery · state=pending, rounds, agent",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lease": {
+            "type": "string"
+          },
+          "patch": {
+            "type": "object"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "lease"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Rerun after repair"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "defer",
+      "description": "Release the current queue reservation. Dependent Jobs wait while independent Jobs proceed.",
+      "errors": [
+        "No valid reservation. Another user's reservation can be explicitly released; the acting user is recorded."
+      ],
+      "example": {
+        "id": "<job-id>"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "recovery",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/jobs.rs#recover",
+        "feature": "recovery"
+      },
+      "returns": "Recovery · state=deferred",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lease": {
+            "type": "string"
+          },
+          "patch": {
+            "type": "object"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Defer recovery"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "reactivate",
+      "description": "Return a deferred Job to a new queue position without resetting recovery rounds.",
+      "errors": [
+        "Job is not deferred."
+      ],
+      "example": {
+        "id": "<job-id>"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "recovery",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/jobs.rs#recover",
+        "feature": "recovery"
+      },
+      "returns": "Recovery · state=waiting, deadline",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "lease": {
+            "type": "string"
+          },
+          "patch": {
+            "type": "object"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Reactivate deferred Job"
+    }
+  ],
+  "description": "Bounded incident repair",
+  "name": "recovery"
+}

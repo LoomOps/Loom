@@ -1,177 +1,126 @@
 # installation — Compose, host layout, services and immutable builds/releases
 
-## Responsibilities and boundaries
+## Boundary
 
 The loom service account, installation UUID and user profiles are independent. Separate dev and alpha databases, ports and data; restart only after execution resources return.
+New installation has one service contract: native Tailscale identity, Admin binding, Sharing Gateway, Ops, Dashboard, executor and explicit storage. Token-only fallback is not installation success.
+Doctor observes actual state independently of progress receipts. Only explicit smoke submits a Job; diagnostics never repair or grant access. Handoff leads with the verified Gateway URL.
 
-Start new installations with the [root INSTALL.md](../../INSTALL.md). Source builds and offline image bundles use the same installation plan.
+The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
-## Inputs, outputs and authoritative sources
+## Interfaces
 
-- [deploy/installer/install-plan.example.json](../../deploy/installer/install-plan.example.json)
-- [ops/compose.loom.yaml](../../ops/compose.loom.yaml)
+| Boundary | Owning entry point | Input | Result / failure | Consumers |
+|---|---|---|---|---|
+| Fresh layout | `deploy/install.py#install` | New instance/data paths, ports/images and service identity | Owned layout, independent installation UUID and initial config; refuses existing instance overwrite | network, execution, dashboard |
+| Installation workflow | `deploy/installer/setup.py#apply` | Verified immutable kit + complete installation plan | Installed services or explicit enrollment wait/failure; no false success from partial progress | network |
+| Idle update / rollback | `deploy/update.py#apply` | Verified built release + installed instance; idle Jobs and returned executor tickets | Updated images/helpers; overrides and extensions preserved; failure keeps recovery record | network, execution, dashboard, onboarding |
+| Installation diagnostics | `deploy/installer/doctor.py#doctor` | Complete plan and installed instance; optional stage | Read-only per-check pass/fail, next step and explicit live-validation limits | network, identity, execution, observations, onboarding |
+| Packaged acceptance Job | `deploy/installer/smoke.py#run` | Authorized installation and its matching kit | Bounded, repeatable CPU prepare/run/result test; never changes queue ordering | execution, results |
 
-The linked code/schemas define fields, enums and state transitions. This document does not duplicate them.
+## Sources and contracts
 
-## Call contracts
+- [Cargo.lock](../../Cargo.lock) — integration, packaging or documentation.
+- [Cargo.toml](../../Cargo.toml) — integration, packaging or documentation.
+- [INSTALL.md](../../INSTALL.md) — integration, packaging or documentation.
+- [deploy/boot_readiness.py](../../deploy/boot_readiness.py) — integration, packaging or documentation.
+- [deploy/build.py](../../deploy/build.py) — integration, packaging or documentation.
+- [deploy/build.sh](../../deploy/build.sh) — integration, packaging or documentation.
+- [deploy/compose.sh](../../deploy/compose.sh) — integration, packaging or documentation.
+- [deploy/executor-attach.py](../../deploy/executor-attach.py) — integration, packaging or documentation.
+- [deploy/guide_bundle.py](../../deploy/guide_bundle.py) — integration, packaging or documentation.
+- [deploy/host_identity.py](../../deploy/host_identity.py) — integration, packaging or documentation.
+- [deploy/host_services.py](../../deploy/host_services.py) — integration, packaging or documentation.
+- [deploy/install-kit.py](../../deploy/install-kit.py) — integration, packaging or documentation.
+- [deploy/install.py](../../deploy/install.py) — integration, packaging or documentation.
+- [deploy/installer/INSTALL.md](../../deploy/installer/INSTALL.md) — integration, packaging or documentation.
+- [deploy/installer/doctor.py](../../deploy/installer/doctor.py) — integration, packaging or documentation.
+- [deploy/installer/install-plan.example.json](../../deploy/installer/install-plan.example.json) — integration, packaging or documentation.
+- [deploy/installer/setup.py](../../deploy/installer/setup.py) — integration, packaging or documentation.
+- [deploy/installer/smoke.py](../../deploy/installer/smoke.py) — integration, packaging or documentation.
+- [deploy/installer/tailnet-plan.example.json](../../deploy/installer/tailnet-plan.example.json) — integration, packaging or documentation.
+- [deploy/loom-authority.service](../../deploy/loom-authority.service) — integration, packaging or documentation.
+- [deploy/migrations.py](../../deploy/migrations.py) — integration, packaging or documentation.
+- [deploy/migrations/catalog.json](../../deploy/migrations/catalog.json) — integration, packaging or documentation.
+- [deploy/migrations/research_tools.py](../../deploy/migrations/research_tools.py) — integration, packaging or documentation.
+- [deploy/migrations/rust_authority.py](../../deploy/migrations/rust_authority.py) — integration, packaging or documentation.
+- [deploy/native_artifacts.py](../../deploy/native_artifacts.py) — integration, packaging or documentation.
+- [deploy/policy_cleanup.py](../../deploy/policy_cleanup.py) — integration, packaging or documentation.
+- [deploy/queue_control_cli.py](../../deploy/queue_control_cli.py) — integration, packaging or documentation.
+- [deploy/release.py](../../deploy/release.py) — integration, packaging or documentation.
+- [deploy/release_check_setup.py](../../deploy/release_check_setup.py) — integration, packaging or documentation.
+- [deploy/runtime.py](../../deploy/runtime.py) — integration, packaging or documentation.
+- [deploy/runtime.sh](../../deploy/runtime.sh) — integration, packaging or documentation.
+- [deploy/runtime_doctor.py](../../deploy/runtime_doctor.py) — integration, packaging or documentation.
+- [deploy/runtime_inventory.py](../../deploy/runtime_inventory.py) — integration, packaging or documentation.
+- [deploy/rust_build.py](../../deploy/rust_build.py) — integration, packaging or documentation.
+- [deploy/snapshot.py](../../deploy/snapshot.py) — integration, packaging or documentation.
+- [deploy/source_install.py](../../deploy/source_install.py) — integration, packaging or documentation.
+- [deploy/state_snapshot.py](../../deploy/state_snapshot.py) — integration, packaging or documentation.
+- [deploy/storage_parity.py](../../deploy/storage_parity.py) — integration, packaging or documentation.
+- [deploy/test.sh](../../deploy/test.sh) — integration, packaging or documentation.
+- [deploy/uninstall.py](../../deploy/uninstall.py) — integration, packaging or documentation.
+- [deploy/update.py](../../deploy/update.py) — integration, packaging or documentation.
+- [docs/UPDATES.md](../../docs/UPDATES.md) — integration, packaging or documentation.
+- [executor/loom-executor.service](../../executor/loom-executor.service) — integration, packaging or documentation.
+- [ops/.dockerignore](../../ops/.dockerignore) — integration, packaging or documentation.
+- [ops/Dockerfile.loom](../../ops/Dockerfile.loom) — integration, packaging or documentation.
+- [ops/Dockerfile.rust](../../ops/Dockerfile.rust) — integration, packaging or documentation.
+- [ops/compose.data.yaml](../../ops/compose.data.yaml) — integration, packaging or documentation.
+- [ops/compose.dev.yaml](../../ops/compose.dev.yaml) — integration, packaging or documentation.
+- [ops/compose.executor.yaml](../../ops/compose.executor.yaml) — integration, packaging or documentation.
+- [ops/compose.loom.fence.yaml](../../ops/compose.loom.fence.yaml) — integration, packaging or documentation.
+- [ops/compose.loom.yaml](../../ops/compose.loom.yaml) — integration, packaging or documentation.
+- [ops/compose.observations.yaml](../../ops/compose.observations.yaml) — integration, packaging or documentation.
+- [ops/compose.rust.yaml](../../ops/compose.rust.yaml) — integration, packaging or documentation.
+- [ops/host_layout.py](../../ops/host_layout.py) — active installer configuration/layout helper.
+- [ops/release_updates.py](../../ops/release_updates.py) — retained release-check adapter; native service checking is rust/crates/ops/src/updates.rs.
+- [rust-toolchain.toml](../../rust-toolchain.toml) — integration, packaging or documentation.
+- [rust/crates/ops/src/updates.rs](../../rust/crates/ops/src/updates.rs) — native implementation / contract.
+- [deploy/migrations/item_index.py](../../deploy/migrations/item_index.py) — integration, packaging or documentation.
+- [deploy/migrations/reconciliation.py](../../deploy/migrations/reconciliation.py) — integration, packaging or documentation.
+- [rust/contracts/reconcile-schema.sql](../../rust/contracts/reconcile-schema.sql) — native implementation / contract.
+- [deploy/installer/steps/01-plan.md](../../deploy/installer/steps/01-plan.md) — integration, packaging or documentation.
+- [deploy/installer/steps/02-host.md](../../deploy/installer/steps/02-host.md) — integration, packaging or documentation.
+- [deploy/installer/steps/03-images.md](../../deploy/installer/steps/03-images.md) — integration, packaging or documentation.
+- [deploy/installer/steps/04-configuration.md](../../deploy/installer/steps/04-configuration.md) — integration, packaging or documentation.
+- [deploy/installer/steps/05-services.md](../../deploy/installer/steps/05-services.md) — integration, packaging or documentation.
+- [deploy/installer/steps/06-network.md](../../deploy/installer/steps/06-network.md) — integration, packaging or documentation.
+- [deploy/installer/steps/07-handoff.md](../../deploy/installer/steps/07-handoff.md) — integration, packaging or documentation.
+- [docs/UNINSTALL.md](../../docs/UNINSTALL.md) — integration, packaging or documentation.
+- [docs/UPGRADE.md](../../docs/UPGRADE.md) — integration, packaging or documentation.
 
-| Boundary | Input | Result or failure | Consumers |
-|---|---|---|---|
-| `deploy/install.py#install` | New instance, unclaimed new/existing data directory, ports/images and service identity | Owned layout, independent installation UUID and initial config; refuses existing instance overwrite | network, execution, dashboard |
-| `deploy/installer/setup.py#apply` | Verified immutable kit + complete installation plan | Installed services or explicit enrollment wait/failure; no false success from partial progress | network |
-
-| `deploy/update.py#apply` | Verified release + idle installed instance | Image/helper update with saved rollback state; preserves host overrides and extensions | network, execution, dashboard, onboarding |
-
-## Related features and change impact
-
-[network](network.md) · [execution](execution.md) · [observations](observations.md) · [onboarding](onboarding.md) · [dashboard](dashboard.md)
+## Change review
 
 When adding files or dependencies, check Dockerfiles, snapshots, installer HOST_FILES, Compose mounts and new-installation/upgrade guides.
 
-## Tests and failure boundaries
+Related blocks: [network](network.md) · [execution](execution.md) · [observations](observations.md) · [onboarding](onboarding.md) · [dashboard](dashboard.md) · [diagnostics](diagnostics.md).
 
-- [tests/deploy/test_packaging.py](../../tests/deploy/test_packaging.py)
-- [tests/deploy/test_installation.py](../../tests/deploy/test_installation.py)
+## Verification
+
+- [tests/deploy/test_boot_readiness.py](../../tests/deploy/test_boot_readiness.py)
 - [tests/deploy/test_host_identity.py](../../tests/deploy/test_host_identity.py)
+- [tests/deploy/test_install_doctor.py](../../tests/deploy/test_install_doctor.py)
 - [tests/deploy/test_install_kit.py](../../tests/deploy/test_install_kit.py)
+- [tests/deploy/test_installation.py](../../tests/deploy/test_installation.py)
+- [tests/deploy/test_native_artifacts.py](../../tests/deploy/test_native_artifacts.py)
+- [tests/deploy/test_packaging.py](../../tests/deploy/test_packaging.py)
+- [tests/deploy/test_public_source.py](../../tests/deploy/test_public_source.py)
+- [tests/deploy/test_release_check_setup.py](../../tests/deploy/test_release_check_setup.py)
 - [tests/deploy/test_release_lifecycle.py](../../tests/deploy/test_release_lifecycle.py)
+- [tests/deploy/test_runtime_doctor.py](../../tests/deploy/test_runtime_doctor.py)
+- [tests/deploy/test_runtime_install.py](../../tests/deploy/test_runtime_install.py)
+- [tests/deploy/test_storage_parity.py](../../tests/deploy/test_storage_parity.py)
+- [tests/deploy/test_uninstall.py](../../tests/deploy/test_uninstall.py)
+- [tests/deploy/test_upgrade_migrations.py](../../tests/deploy/test_upgrade_migrations.py)
+- [tests/ops/test_release_updates.py](../../tests/ops/test_release_updates.py)
+- [tests/rust/test_installation.py](../../tests/rust/test_installation.py)
+- [tests/rust/updates.rs](../../tests/rust/updates.rs)
+- [tests/rust/application.rs](../../tests/rust/application.rs)
+- [tests/rust/test_service.py](../../tests/rust/test_service.py)
+- [tests/rust/test_item_image.py](../../tests/rust/test_item_image.py)
 
-Test sources define the concrete scenarios. `deploy/test.sh` records individual results as JSON/JUnit.
+Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
-## Live validation
-
-Temporary-filesystem tests do not replace real clean-host installation, reboot and rollback verification.
-
-Gateway mount validation permits the optional instance diagnostics directory at
-`/var/lib/loom-diagnostics` only with its exact host path and RW grant. Unexpected
-mounts, wrong diagnostic sources and read-only diagnostic mounts remain failures;
-the Gateway never receives management credentials or SSO relay keys.
-
-Fresh configuration records the verified kit build ID in build.env alongside
-the selected image identities. A later upgrade can therefore locate the exact
-installed source; conflicting existing build identities are never overwritten.
-
-## Release lifecycle
-
-Source installation, final user overrides and idle update/rollback are defined in [UPDATES.md](../UPDATES.md). `test_release_lifecycle.py` covers real filesystem/SQLite preservation, busy rejection, failed startup recovery and refusal to discard new records. Docker/systemd are mocked there; fresh-host boot and actual release rollback remain explicit live checks.
-
-## Release discovery boundary
-
-`ops/release_updates.py` owns cached GitHub Release discovery independently of the Job
-queue and SQLite. `deploy/release_check_setup.py` owns optional repository/channel/
-interval/read-token setup. API and six-group MCP expose the same read/check contract;
-Dashboard presents its cache. Sources, auth errors, rate limits, restart cache, channels,
-ETags, pagination and nonblocking/coalesced checks are covered in
-`tests/ops/test_release_updates.py`, `tests/ops/test_api_contract.py`,
-`tests/deploy/test_release_check_setup.py` and Dashboard HTTP/browser tests.
-No component installation, automatic updater or queue supervision is implied.
-
-## Complete-service installation contract
-
-The short root INSTALL.md routes to seven step documents under deploy/installer/steps.
-After each step the agent rereads the index, runs the corresponding doctor stage,
-and reports any unmet criterion. Recommendations come from host inspection, not
-example values. Full native Tailscale identity, explicit Admin binding and a
-separate Sharing Gateway are mandatory; a boolean tailscale plan is rejected.
-
-`setup.py plan` generates linked configuration from this machine and the confirmed
-human Admin. The default host data/0 directory is /loom/data. All explicitly selected
-stores are RW; additional disks/mountpoints are optional and confirmed in the plan. `compose-storage.yaml` is generated instance configuration; machine-owned
-final overrides remain last and doctor inspects actual container mounts/images.
-
-`doctor`/`verify` are read-only; `smoke` is the explicit bounded CPU Job entry point.
-`handoff` reruns all checks and leads with the Gateway URL only after success.
-External-client approval, real reboot and GPU computation are not implied by
-local health checks. `resume-network` only republishes a matching installed plan
-after configuration/services pass; it cannot reinstall the database/executor.
-Other partial-stage failures must be diagnosed without deleting existing state.
-Initial connection selection and account-switch scenarios are specified in
-[TAILSCALE-SETUP.md](../TAILSCALE-SETUP.md). Machine enrollment, Loom Admin identity
-and management API authorization are separate checks. Host layout is created before
-recording policy writes so the ownership journal cannot pre-create the instance
-and cause a false fresh-install conflict. Doctor checks the journal on new plans;
-the source and offline kits include its module and cleanup tools. See
-[MANAGED-RESOURCES.md](../MANAGED-RESOURCES.md) for uninstall and orphan cleanup.
-Source packaging prepares the execution image explicitly and can resume only a
-verified, completed immutable build. Offline kits include the same doctor,
-smoke and all step documents.
-
-Ingress acceptance also compares the live Docker bridge gateway, running Dashboard
-trusted-proxy environment and Ops trusted proxies. A healthy HTTP listener or
-`/session` reporting `sso: true` cannot prove identity forwarding. The Compose
-network pins its gateway explicitly; tests cover IPAM selecting the dynamic pool
-boundary instead of the expected first host address. Ask installers specifically
-for the Admin account's **Tailscale login email**, not a generic administrator email.
-
-## Registered output storage
-
-`ops/storage.py` owns named stores and persistent `.loom-storage.json` identities. `jobs.submit.output_storage` defaults to data/0 and freezes a non-default identity; all Attempt stages and result retries use that root. Result locators carry the selected ID and store-relative path. Registered secondary outputs are available in Dashboard files/media, results API and read-only downstream input mounts. Unknown, redirected, missing or replaced stores must never fall back to the primary. Existing Jobs without this field retain primary behavior; no DB rewrite or data move is required. Profile `storage` mounts remain separate optional shared RW access.
-
-New plans default to public Gateway 443 and private Dashboard/MCP 8443. Optional
-development publication uses a separate private port (typically 18443). Existing
-explicit ports are preserved. Guide handoff always uses the plan's private origin.
-
-Installation regressions include final multi-store configuration before host SSH,
-bounded health readiness, unrun smoke versus failure, and early sudo guidance.
-Do not treat mocked host commands as a clean-machine install; record live socket
-restart and real executor acceptance separately.
-
-## Cumulative upgrade and preservation
-
-Update readiness and installation doctor also run the read-only effective storage
-parity check. It checks older installs without a plan against actual mounts,
-API/worker/executor stores, persistent identities, Explorer/SSH mappings, boot
-dependencies and service-user access. It does not rewrite mappings or move data.
-
-`deploy/migrations.py` plans dependencies and verifies release checksums and durable
-completion receipts. `deploy/state_snapshot.py` preserves private configuration,
-all instance databases and extension stores. update.py supports explicit rebuild,
-resume and guarded rollback. A preservation failure keeps admission fenced.
-See [UPGRADE.md](../UPGRADE.md). External real-account authentication, clean-host
-reboots and arbitrary schema transformations still require live acceptance.
-
-Fresh plans may include runtime_options (network and driver_capabilities) matching
-executor/runtime_policy.py OPTIONS_SCHEMA. Existing plans remain valid. The
-installation doctor verifies explicit options against the actual matching executor
-grant. deploy/runtime_doctor.py is a separate opt-in diagnostic, never a required
-research or Job gate; see [runtime doctor](../RUNTIME-DOCTOR.md).
-
-## Boot-time listener readiness
-
-Compose up/start/restart waits up to 120 seconds for the exact non-loopback,
-non-wildcard published host addresses in the fully merged Compose configuration,
-including machine-owned overrides. This checks assigned local IPv4/IPv6 addresses;
-network-online.target or a started tailscaled process alone is not readiness.
-Configuration/probe failures do not launch Compose or print expanded private
-configuration. Stop, down and read-only commands never wait for these addresses.
-
-Managed stack/authority units retry failures after 15 seconds without exhausting
-a short boot rate limit. New stack units allow 300 seconds for address readiness
-and Compose health startup; explicit longer/unlimited operator timeouts survive.
-Update and resume adopt the same unit policy while preserving listeners, mounts,
-instance environment and machine drop-ins. Original unit backups are retained
-across retries and restored by rollback. Optional authority state and TLS material
-are not initialized or replaced. Installer kits include the readiness helper and
-require iproute2's ip command. Real reboot acceptance remains separate from mocks.
-
-Update/resume/rollback stop the matching managed stack unit before replacing
-containers, so a pending systemd restart cannot run a second Compose transaction.
-The effective instance/project environment must match; unrelated units are not
-claimed. Original activation is restored after readiness/preservation, retained
-across resume, and suppressed while failed updates remain fenced.
-
-Runtime provisioning uses plan.dependencies, passed to the matching executor
-instance and API configuration. Missing/mismatching/redirected directories fail;
-there is no hardcoded fallback. Installer kits and updates ship runtime_store.py
-with the host executor. Research images, dependency trees and the separate Runtime
-catalog are persistent host state; platform upgrades never rebuild them.
-
-
-## Common Item index
-
-The native candidate adds the Item/file/log discovery adapters documented in
-[Items](../../rust/contracts/items.md) and the administrator
-[operations contract](../ITEM-INDEX.md). Domain identity stays authoritative;
-the separate FTS projection owns no execution or recovery decisions.
-Review source permissions, exact historical refs, projection lag and byte-range
-limits independently from ordinary Job completion.
+Acceptance outside these fixtures:
+- Temporary-filesystem tests do not replace real clean-host installation, reboot and rollback verification.

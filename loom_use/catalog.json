@@ -1,0 +1,110 @@
+{
+  "schema": "loom-guides/v1",
+  "documents": [
+    {
+      "id": "entry",
+      "title": "Task guide index",
+      "source": "loom_use/entry.md",
+      "type": "routing",
+      "summary": "Choose the guide for the current task."
+    },
+    {
+      "id": "quickstart",
+      "title": "First Job",
+      "source": "loom_use/quickstart.md",
+      "type": "tutorial",
+      "summary": "Submit and inspect a bounded Job using a reusable Profile."
+    },
+    {
+      "id": "jobs",
+      "title": "Jobs and queue",
+      "source": "loom_use/jobs.md",
+      "type": "how-to",
+      "summary": "Submission, queue controls, Attempts and output storage."
+    },
+    {
+      "id": "workflows",
+      "title": "Steps and workflows",
+      "source": "loom_use/workflows.md",
+      "type": "how-to",
+      "summary": "One requested outcome with internal work, multiple Profiles or preserved runs."
+    },
+    {
+      "id": "components",
+      "title": "Components, Tools and Profiles",
+      "source": "loom_use/components.md",
+      "type": "how-to",
+      "summary": "Reuse, register and inspect exact software combinations."
+    },
+    {
+      "id": "authoring",
+      "title": "Rust producer authoring",
+      "source": "rust/contracts/authoring.md",
+      "type": "how-to",
+      "summary": "Scaffold source, validate packages and bind verified builds."
+    },
+    {
+      "id": "runtimes",
+      "title": "Runtimes and dependencies",
+      "source": "loom_use/runtimes.md",
+      "type": "how-to",
+      "summary": "Choose a Runtime or perform requested host installation."
+    },
+    {
+      "id": "results",
+      "title": "Results and copy bindings",
+      "source": "loom_use/results.md",
+      "type": "how-to",
+      "summary": "Publish, consume, annotate or reconnect outputs."
+    },
+    {
+      "id": "items",
+      "title": "Items, files and logs",
+      "source": "rust/contracts/items.md",
+      "type": "reference",
+      "summary": "Search metadata and read registered file/log ranges."
+    },
+    {
+      "id": "reconciliation",
+      "title": "Reconcile selected assets",
+      "source": "loom_use/reconciliation.md",
+      "type": "how-to",
+      "summary": "Plan, validate and apply bounded adoption/import/copy bindings."
+    },
+    {
+      "id": "recovery",
+      "title": "Events and recovery",
+      "source": "loom_use/recovery.md",
+      "type": "how-to",
+      "summary": "Read recipient events, claim a lease and repair a failed Job."
+    },
+    {
+      "id": "scenarios",
+      "title": "Scenarios",
+      "source": "rust/contracts/scenarios.md",
+      "type": "how-to",
+      "summary": "Create versioned task context and exact evidence-backed links."
+    },
+    {
+      "id": "operator",
+      "title": "Administrator operations",
+      "source": "loom_use/operator.md",
+      "type": "how-to",
+      "summary": "Server administration, authentication and access boundaries."
+    },
+    {
+      "id": "updates",
+      "title": "Updates and revisions",
+      "source": "loom_use/updates.md",
+      "type": "reference",
+      "summary": "Interpret revisions and distinguish client, guide and server updates."
+    },
+    {
+      "id": "inventory",
+      "title": "Bundle inventory",
+      "source": "loom_use/inventory.md",
+      "type": "reference",
+      "summary": "Identify the authority and update path for packaged resources."
+    }
+  ]
+}

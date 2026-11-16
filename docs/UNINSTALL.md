@@ -1,8 +1,8 @@
 # Uninstall Loom and clean up machine access
 
-This is an administrator CLI workflow, not a Dashboard action. Implementing or
-installing this command does not authorize running it. Ask the operator to review
-the plan before uninstalling their selected instance. Do not run it as an upgrade
+This is an administrator CLI workflow, not a Dashboard action. For requested
+removal, generate and review the plan for the selected instance before applying
+it. Implementing or installing this command does not itself request removal. Do not run it as an upgrade
 step or before switching a user's client connection.
 
 Use the source matching the installed release (source/offline kits include it

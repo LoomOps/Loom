@@ -1,72 +1,49 @@
 //! Live instructions and exact manifest hashes are served from the selected binary.
 use crate::{auth::Actor, contracts, error::require, store::hash, Error, Result};
 use serde_json::{json, Value};
-const DOCUMENTS: &[(&str, &str, &str)] = &[
+include!(concat!(env!("OUT_DIR"), "/guides.rs"));
+pub const MCP_INSTRUCTIONS: &str = "Call system.status to confirm the target and system.guide for task routes. Load the relevant guide and system.describe action schema. Keep accepted Job IDs and pins.";
+const PACKAGED: &[(&str, &str)] = &[
+    ("mcp-instructions.txt", MCP_INSTRUCTIONS),
+    ("LICENSE", include_str!("../../../../loom_use/LICENSE")),
     (
-        "items",
-        "Items, files and logs",
-        include_str!("../../../contracts/items.md"),
+        "THIRD_PARTY_NOTICES.md",
+        include_str!("../../../../loom_use/THIRD_PARTY_NOTICES.md"),
+    ),
+    ("README.md", include_str!("../../../../loom_use/README.md")),
+    (
+        "client-release.json",
+        include_str!("../../../../loom_use/client-release.json"),
     ),
     (
-        "entry",
-        "Loom Use",
-        include_str!("../../../../loom_use/entry.md"),
-    ),
-    (
-        "quickstart",
-        "First use",
-        include_str!("../../../../loom_use/quickstart.md"),
-    ),
-    (
-        "operator",
-        "Administrator operations",
-        include_str!("../../../../loom_use/operator.md"),
-    ),
-    (
-        "inventory",
-        "Package inventory",
-        include_str!("../../../../loom_use/inventory.md"),
-    ),
-    ("jobs", "Jobs", include_str!("../../../../loom_use/jobs.md")),
-    (
-        "components",
-        "Components and Tools",
-        include_str!("../../../../loom_use/components.md"),
-    ),
-    (
-        "runtimes",
-        "Runtimes",
-        include_str!("../../../../loom_use/runtimes.md"),
-    ),
-    (
-        "recovery",
-        "Recovery",
-        include_str!("../../../../loom_use/recovery.md"),
-    ),
-    (
-        "updates",
-        "Updates",
-        include_str!("../../../../loom_use/updates.md"),
-    ),
-    (
-        "scenarios",
-        "Scenarios",
-        include_str!("../../../contracts/scenarios.md"),
-    ),
-    (
-        "authoring",
-        "Rust authoring",
-        include_str!("../../../contracts/authoring.md"),
+        "skills/loom-use/SKILL.md",
+        include_str!("../../../../loom_use/skills/loom-use/SKILL.md"),
     ),
 ];
+const CATALOG: &str = include_str!("../../../../loom_use/catalog.json");
+const ACTION_DOCS: &str = include_str!("../../../contracts/action-docs.json");
+const JOB_CONTRACT: &str = include_str!("../../../contracts/job-contract.json");
+
+fn guide_revision(
+    documents: &[(&str, &str, &str)],
+    packaged: &[(&str, &str)],
+    catalog: &str,
+    action_docs: &str,
+    job_contract: &str,
+) -> String {
+    // Include the complete delivered guidance, not only the Markdown guide bodies.
+    hash(
+        serde_json::to_vec(&(documents, packaged, catalog, action_docs, job_contract))
+            .expect("guide identity"),
+    )
+}
+fn contract_revision(actions: &Value, job_contract: &str) -> String {
+    let job: Value = serde_json::from_str(job_contract).expect("Job contract");
+    hash(serde_json::to_vec(&(actions, job)).expect("contract identity"))
+}
 pub fn identity() -> Value {
-    let guide = hash(
-        DOCUMENTS
-            .iter()
-            .map(|(id, _, text)| format!("{id}\0{text}"))
-            .collect::<String>(),
-    );
-    let contract = hash(serde_json::to_vec(&contracts::actions()).expect("action registry"));
+    let guide = guide_revision(DOCUMENTS, PACKAGED, CATALOG, ACTION_DOCS, JOB_CONTRACT);
+    let contract = contract_revision(&json!(contracts::actions()), JOB_CONTRACT);
     json!({"build_id":env!("LOOM_BUILD_ID"),"api_revision":"loom-ops/v48","contract_revision":contract,"guide_revision":guide,"revision":hash(format!("{contract}{guide}")),"client_release":serde_json::from_str::<Value>(include_str!("../../../../loom_use/client-release.json")).expect("client release"),"engine":"rust","source_sha256":env!("LOOM_RUST_SOURCE")})
 }
 pub fn manifest() -> Value {
@@ -98,7 +75,7 @@ pub fn read(args: &Value) -> Result<Value> {
         return Ok(json!({"manifest":manifest,"id":id,"title":title,"content":text}));
     }
     Ok(
-        json!({"manifest":manifest,"documents":DOCUMENTS.iter().map(|(id,title,_)|json!({"id":id,"title":title,"path":format!("{id}.md")})).collect::<Vec<_>>()}),
+        json!({"manifest":manifest,"documents":serde_json::from_str::<Value>(CATALOG)?["documents"].as_array().unwrap().iter().map(|d|json!({"id":d["id"],"title":d["title"],"path":format!("{}.md",d["id"].as_str().unwrap()),"type":d["type"],"summary":d["summary"]})).collect::<Vec<_>>()}),
     )
 }
 pub fn tools(actor: &Actor) -> Value {
@@ -123,22 +100,7 @@ pub fn bundle(actor: &Actor) -> Result<Vec<u8>> {
             .map_err(|_| Error::new("bundle", "Cannot encode guides", 503))?;
         zip.write_all(text.as_bytes())?;
     }
-    for (name, content) in [
-        ("LICENSE", include_str!("../../../../loom_use/LICENSE")),
-        (
-            "THIRD_PARTY_NOTICES.md",
-            include_str!("../../../../loom_use/THIRD_PARTY_NOTICES.md"),
-        ),
-        ("README.md", include_str!("../../../../loom_use/README.md")),
-        (
-            "client-release.json",
-            include_str!("../../../../loom_use/client-release.json"),
-        ),
-        (
-            "skills/loom-use/SKILL.md",
-            include_str!("../../../../loom_use/skills/loom-use/SKILL.md"),
-        ),
-    ] {
+    for &(name, content) in PACKAGED {
         zip.start_file(name, options)
             .map_err(|_| Error::new("bundle", "Cannot encode packaged guide", 503))?;
         zip.write_all(content.as_bytes())?;
@@ -173,7 +135,16 @@ pub fn describe(actor: &Actor, group: &str, name: &str) -> Result<Value> {
     actor.require(&action.scope)?;
     let documents: Value =
         serde_json::from_str(include_str!("../../../contracts/action-docs.json"))?;
-    let mut description=documents.get(format!("{group}.{name}")).cloned().unwrap_or_else(||json!({"title":name.replace('_'," "),"description":match name{"scaffold"=>"Return a Rust SDK package draft. No build or installation.","validate_package"=>"Validate source paths and declared Python integrations without executing code.","bind_historical_location"=>"Verify a current copy and add a binding without replacing historical evidence.",_=>"Read or change versioned Scenario context using exact identities and explicit receipts."},"returns":"Result or an explicit conflict","example":{},"errors":["Unknown identity, stale revision, key conflict or unavailable installation grant."]}));
+    let mut description = documents
+        .get(format!("{group}.{name}"))
+        .cloned()
+        .ok_or_else(|| {
+            Error::new(
+                "reference",
+                "Action reference is missing from this build",
+                503,
+            )
+        })?;
     let obj = description.as_object_mut().unwrap();
     obj.insert("group".into(), json!(group));
     obj.insert("action".into(), json!(name));
@@ -212,3 +183,7 @@ pub fn reference(actor: &Actor) -> Result<Value> {
         json!({"revision":"loom-ops/v48","guidance":{"group":"system","action":"guide"},"groups":groups,"transport":{"mcp":"POST /mcp","http":"POST /api/actions","result":"JSON is in result.content[0].text. Version identity is in _meta.loom; do not concatenate text blocks."},"workflow":[{"step":"Inspect profiles","group":"components","action":"profiles","note":"Reuse exact compatible Profiles before authoring."},{"step":"Submit","group":"jobs","action":"submit","note":"One requested outcome; internal Steps or pinned DAG nodes."},{"step":"Inspect","group":"jobs","action":"get","note":"Read current state, independent scheduling facts and actual execution evidence."},{"step":"Consume events","group":"events","action":"list","note":"Use kind=all; ACK only acknowledges receipt."},{"step":"Repair","group":"recovery","action":"claim","note":"Use the current lease and shared three-round budget."}]}),
     )
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/rust/documentation.rs"]
+mod tests;

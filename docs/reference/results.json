@@ -1,0 +1,1669 @@
+{
+  "actions": [
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "list",
+      "description": "Discover native artifacts and imported models/datasets/experiments from the active catalog. For record_type=historical, pass history_ref to results.historical; other entries use results.get. Discovery does not establish file availability.",
+      "errors": [],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/results.rs#result_action",
+        "feature": "results"
+      },
+      "returns": "Artifact list · native registry entries or historical entries with history_ref and detail_action",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "view": {
+            "default": "research",
+            "enum": [
+              "research",
+              "all",
+              "operations"
+            ]
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "List artifacts"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "get",
+      "description": "Read an artifact record by ID and revision.",
+      "errors": [
+        "Artifact access denied or missing revision."
+      ],
+      "example": {
+        "id": "<entity-id>",
+        "revision": 1
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/results.rs#result_action",
+        "feature": "results"
+      },
+      "returns": "Registry entity view",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "revision"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Artifact details"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "reindex",
+      "description": "Retry publication for a returned execution without restarting GPU execution. Published output identities, hashes, metadata and lineage must remain identical; use reconnect to add a verified location.",
+      "errors": [
+        "Not the current Attempt or publication cannot be retried in this state."
+      ],
+      "example": {
+        "attempt": "<attempt-id>",
+        "id": "<job-id>"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/results.rs#result_action",
+        "feature": "results"
+      },
+      "returns": "Receipt · id, attempt, state=processing",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "attempt"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Reindex results"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "reconnect",
+      "description": "Register a verified replacement location for an existing immutable artifact component. Does not rerun execution or change artifact contents.",
+      "errors": [
+        "Requires submit scope; unknown store/component, unsafe path or mismatched size/hash is rejected."
+      ],
+      "example": {
+        "component": "model.bin",
+        "id": "<entity-id>",
+        "ref": "restored/model.bin",
+        "revision": 1,
+        "storage": "data/1"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/results.rs#result_action",
+        "feature": "results"
+      },
+      "returns": "Location receipt · id, revision, component, ref, status=available",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "component": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "storage": {
+            "default": "data/0",
+            "description": "Registered output store from system.status.data_stores. Defaults to data/0; frozen per Job.",
+            "pattern": "^data/[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "component",
+          "ref"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Reconnect artifact location"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "annotate",
+      "description": "Append an immutable evidence-backed note to an existing Job; the id is a Job ID, not an artifact ID. Existing results are preserved.",
+      "errors": [
+        "Requires submit scope."
+      ],
+      "example": {
+        "annotation_id": "note-001",
+        "evidence": {},
+        "id": "<job-id>",
+        "reason": "Review note"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/results.rs#result_action",
+        "feature": "results"
+      },
+      "returns": "Annotation receipt",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "annotation_id": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "object"
+          },
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "annotation_id",
+          "reason",
+          "evidence"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Add annotation"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "history",
+      "description": "Read all preserved records with pagination.",
+      "errors": [
+        "Requires read scope."
+      ],
+      "example": {
+        "kind": "",
+        "limit": 50,
+        "offset": 0
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/results.rs#result_action",
+        "feature": "results"
+      },
+      "returns": "History page",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "offset",
+          "limit"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Preserved history"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "historical",
+      "description": "Read immutable history plus current registered-copy availability. Recorded missing does not prove the original was deleted.",
+      "errors": [
+        "The specified record does not exist."
+      ],
+      "example": {
+        "id": "<history-id>",
+        "kind": "job",
+        "revision": "1",
+        "source": "loom-ops"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/results.rs#result_action",
+        "feature": "results"
+      },
+      "returns": "Historical record · body, source identity and current_availability (not_connected, missing, verified, present_unverified, mismatch or unavailable)",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "snapshot": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "kind",
+          "id",
+          "revision"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Historical record"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "assign_owner",
+      "description": "Set the current responsible user for a model, dataset or artifact.",
+      "errors": [
+        "Unregistered profile or missing artifact."
+      ],
+      "example": {
+        "id": "<entity-id>",
+        "owner": "<profile-id>"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/results.rs#result_action",
+        "feature": "results"
+      },
+      "returns": "Item · id, owner, owner_profile",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "owner"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Assign result owner"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "scenarios",
+      "description": "List versioned research task/protocol contexts. Archived Scenarios are omitted unless requested.",
+      "errors": [],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/scenario.rs#scenario_query",
+        "feature": "scenarios"
+      },
+      "returns": "Scenario summaries with current revision",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "include_archived": {
+            "type": "boolean"
+          },
+          "limit": {
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "List Scenarios"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "get_scenario",
+      "description": "Read an exact Scenario revision, or the current revision when omitted. Archive state does not erase accepted context.",
+      "errors": [
+        "Unknown Scenario or revision."
+      ],
+      "example": {
+        "id": "<scenario-id>",
+        "revision": 1
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/scenario.rs#scenario_query",
+        "feature": "scenarios"
+      },
+      "returns": "Scenario definition, revision and digest",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read a Scenario"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "scenario_graph",
+      "description": "Page explicit links for a Scenario revision; links describe context and do not schedule execution.",
+      "errors": [
+        "Unknown Scenario revision."
+      ],
+      "example": {
+        "id": "<scenario-id>",
+        "limit": 50,
+        "offset": 0,
+        "revision": 1
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/scenario.rs#scenario_query",
+        "feature": "scenarios"
+      },
+      "returns": "Scenario and bounded links",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "limit": {
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read Scenario links"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "register_scenario",
+      "description": "Create a versioned task/protocol definition with a nonempty label. Replay the same key and definition after uncertainty.",
+      "errors": [
+        "Invalid definition, changed request key or inactive installation."
+      ],
+      "example": {
+        "definition": {
+          "description": "Task and evaluation protocol context.",
+          "label": "Example assembly task"
+        },
+        "key": "scenario-example-v1"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/scenario.rs#create_scenario",
+        "feature": "scenarios"
+      },
+      "returns": "id, revision=1 and sha256",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "type": "object"
+          },
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "definition"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Create a Scenario"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "update_scenario",
+      "description": "Append a definition revision using expected_revision and a reason. Existing Job/context pins retain their accepted revision.",
+      "errors": [
+        "Stale expected_revision, archived Scenario or key conflict."
+      ],
+      "example": {
+        "definition": {
+          "description": "Revised protocol.",
+          "label": "Example assembly task"
+        },
+        "expected_revision": 1,
+        "id": "<scenario-id>",
+        "key": "scenario-example-v2",
+        "reason": "Protocol clarification"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/scenario.rs#update_scenario",
+        "feature": "scenarios"
+      },
+      "returns": "id, new revision and sha256",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "type": "object"
+          },
+          "expected_revision": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "id",
+          "expected_revision",
+          "definition",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Revise a Scenario"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "archive_scenario",
+      "description": "Remove a Scenario from default discovery using an expected current revision. Exact accepted references remain valid.",
+      "errors": [
+        "Stale revision or key conflict."
+      ],
+      "example": {
+        "expected_revision": 2,
+        "id": "<scenario-id>",
+        "key": "archive-example",
+        "reason": "No longer a current protocol"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/scenario.rs#archive_scenario",
+        "feature": "scenarios"
+      },
+      "returns": "id and archived=true",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_revision": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "id",
+          "expected_revision",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Archive a Scenario"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "link_scenario",
+      "description": "Add an explicit typed relationship to an exact existing target with provenance. Does not infer context, duplicate output or grant access.",
+      "errors": [
+        "Unknown target/context or conflicting key."
+      ],
+      "example": {
+        "key": "link-example",
+        "provenance": {
+          "reason": "Explicit requested task"
+        },
+        "relation": "produced_for",
+        "scenario_ref": {
+          "id": "<scenario-id>",
+          "revision": 1
+        },
+        "target": {
+          "identity": {
+            "id": "<job-id>"
+          },
+          "kind": "job"
+        }
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/scenario.rs#link_scenario",
+        "feature": "scenarios"
+      },
+      "returns": "Immutable link receipt",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "provenance": {
+            "type": "object"
+          },
+          "relation": {
+            "enum": [
+              "produced_for",
+              "used_by",
+              "demonstrates",
+              "evaluates",
+              "implements",
+              "contextual_reference"
+            ]
+          },
+          "scenario_ref": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              "revision": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "target": {
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object"
+              },
+              "kind": {
+                "enum": [
+                  "job",
+                  "entity",
+                  "historical",
+                  "component",
+                  "tool",
+                  "profile",
+                  "runtime",
+                  "protocol_artifact"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "identity"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "scenario_ref",
+          "target",
+          "relation",
+          "provenance"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Link Scenario context"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "supersede_scenario_link",
+      "description": "Append a supersession receipt for a link, optionally naming an existing replacement. Original link evidence remains.",
+      "errors": [
+        "Unknown link/replacement or key conflict."
+      ],
+      "example": {
+        "id": "<link-id>",
+        "key": "supersede-example",
+        "reason": "Corrected explicit context",
+        "replacement": null
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/scenario.rs#supersede_scenario_link",
+        "feature": "scenarios"
+      },
+      "returns": "Link supersession receipt",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "replacement": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "key",
+          "id",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Supersede a context link"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "bind_historical_location",
+      "description": "Verify size, SHA-256 and granted store-relative locator, then add current availability to an exact historical file selector. Original history stays unchanged.",
+      "errors": [
+        "Unknown historical selector, conflicting original hash, changed bytes or unavailable grant."
+      ],
+      "example": {
+        "identity": {
+          "file": "<file-selector>",
+          "id": "<historical-id>",
+          "kind": "dataset",
+          "revision": "1",
+          "snapshot": "<snapshot>",
+          "source": "<source>"
+        },
+        "key": "historical-copy-example",
+        "locator": {
+          "machine_id": "<machine-id>",
+          "ref": "inputs/example.bin",
+          "storage_id": "<storage-id>"
+        },
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "size": 0
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/results.rs#result_action",
+        "feature": "results"
+      },
+      "returns": "Verified additive binding receipt",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "identity": {
+            "type": "object"
+          },
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "locator": {
+            "type": "object"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "size": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "identity",
+          "locator",
+          "sha256",
+          "size"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Bind a historical copy"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "reconcile_contract",
+      "description": "Read accepted source adapters, explicit operations, scopes and limits.",
+      "errors": [
+        "source_conflict",
+        "plan_stale",
+        "validation_required",
+        "content_changed",
+        "retention_gap",
+        "cursor_expired",
+        "index_unavailable"
+      ],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation",
+        "feature": "results"
+      },
+      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Discover reconciliation"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "reconcile_inspect",
+      "description": "Page registered metadata without scanning unregistered payload directories.",
+      "errors": [
+        "source_conflict",
+        "plan_stale",
+        "validation_required",
+        "content_changed",
+        "retention_gap",
+        "cursor_expired",
+        "index_unavailable"
+      ],
+      "example": {
+        "kinds": [
+          "dataset"
+        ],
+        "limit": 50
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation",
+        "feature": "results"
+      },
+      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Inspect registered reconciliation scope"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "reconcile_plan",
+      "description": "Normalize a bounded explicit proposal with a stable key; reject ambiguous or conflicting identities. This does not copy files or create research execution.",
+      "errors": [
+        "source_conflict",
+        "plan_stale",
+        "validation_required",
+        "content_changed",
+        "retention_gap",
+        "cursor_expired",
+        "index_unavailable"
+      ],
+      "example": {
+        "key": "preserved-assets-v1",
+        "proposal": {
+          "operations": [
+            {
+              "native_ref": {
+                "identity": {
+                  "id": "existing-id",
+                  "revision": 1
+                },
+                "kind": "entity"
+              },
+              "operation": "adopt"
+            }
+          ],
+          "schema": "loom-reconcile/v1"
+        }
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation",
+        "feature": "results"
+      },
+      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "proposal": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "proposal"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Plan an exact reconciliation"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "reconcile_get",
+      "description": "Read the caller’s durable proposal, validation state and original apply receipt.",
+      "errors": [
+        "source_conflict",
+        "plan_stale",
+        "validation_required",
+        "content_changed",
+        "retention_gap",
+        "cursor_expired",
+        "index_unavailable"
+      ],
+      "example": {
+        "plan_id": "plan-id"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation",
+        "feature": "results"
+      },
+      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "plan_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read reconciliation receipt"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "reconcile_validate",
+      "description": "Hash only declared candidates off the execution writer, check grants and original evidence, and record proofs. Validation is structural and byte-integrity only.",
+      "errors": [
+        "source_conflict",
+        "plan_stale",
+        "validation_required",
+        "content_changed",
+        "retention_gap",
+        "cursor_expired",
+        "index_unavailable"
+      ],
+      "example": {
+        "plan_id": "plan-id"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation",
+        "feature": "results"
+      },
+      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "plan_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_id"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Validate reconciliation sources"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "reconcile_apply",
+      "description": "Recheck source stamps, exact identities and grants, then atomically add imports or bindings. Historical originals and Job/Attempt counts are preserved.",
+      "errors": [
+        "source_conflict",
+        "plan_stale",
+        "validation_required",
+        "content_changed",
+        "retention_gap",
+        "cursor_expired",
+        "index_unavailable"
+      ],
+      "example": {
+        "plan_id": "plan-id"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation",
+        "feature": "results"
+      },
+      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "plan_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan_id"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Apply verified reconciliation"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "get_item",
+      "description": "Read a compact typed descriptor using a decimal-string Item ID and optional exact revision.",
+      "errors": [
+        "unknown_item",
+        "index_unavailable",
+        "cursor_expired",
+        "source_unavailable",
+        "content_changed",
+        "query_too_broad"
+      ],
+      "example": {
+        "item_id": "12345678901234567890"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/items.rs#get_item",
+        "feature": "catalog"
+      },
+      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "item_id": {
+            "pattern": "^[1-9][0-9]{0,38}$",
+            "type": "string"
+          },
+          "revision_id": {
+            "pattern": "^[1-9][0-9]{0,38}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read Item"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "resolve_item",
+      "description": "Resolve an already adopted full native identity without allocation, promotion or latest-snapshot substitution.",
+      "errors": [
+        "unknown_item",
+        "index_unavailable",
+        "cursor_expired",
+        "source_unavailable",
+        "content_changed",
+        "query_too_broad"
+      ],
+      "example": {
+        "native_ref": {
+          "identity": {
+            "id": "<job-id>"
+          },
+          "kind": "job"
+        }
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/items.rs#resolve_item",
+        "feature": "catalog"
+      },
+      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "native_ref": {
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object"
+              },
+              "kind": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "identity"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "native_ref"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Resolve native reference"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "search_items",
+      "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits.",
+      "errors": [
+        "unknown_item",
+        "index_unavailable",
+        "cursor_expired",
+        "source_unavailable",
+        "content_changed",
+        "query_too_broad"
+      ],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/index_store.rs#search_items",
+        "feature": "catalog"
+      },
+      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "at_least": {
+            "pattern": "^[0-9]{1,20}$",
+            "type": "string"
+          },
+          "availability": {
+            "enum": [
+              "verified",
+              "source_unavailable",
+              "recorded"
+            ]
+          },
+          "category": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "cursor": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "dependency_ref": {
+            "type": "object"
+          },
+          "history": {
+            "enum": [
+              "current",
+              "all"
+            ]
+          },
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "native_kind": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "origin_type": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "parent_item_id": {
+            "pattern": "^[1-9][0-9]{0,38}$",
+            "type": "string"
+          },
+          "recorded_from": {
+            "type": "number"
+          },
+          "recorded_to": {
+            "type": "number"
+          },
+          "related_to": {
+            "additionalProperties": false,
+            "properties": {
+              "item_id": {
+                "pattern": "^[1-9][0-9]{0,38}$",
+                "type": "string"
+              },
+              "relation": {
+                "maxLength": 128,
+                "type": "string"
+              }
+            },
+            "required": [
+              "item_id"
+            ],
+            "type": "object"
+          },
+          "role": {
+            "enum": [
+              "all",
+              "main",
+              "support",
+              "test"
+            ]
+          },
+          "scenario_ref": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              "revision": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "text": {
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "timeout_ms": {
+            "maximum": 1000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "view": {
+            "enum": [
+              "all",
+              "research",
+              "operations"
+            ]
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Search Items"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "item_files",
+      "description": "Page the sealed registered file inventory for an exact Item revision; File IDs survive derived index rebuilds.",
+      "errors": [
+        "unknown_item",
+        "index_unavailable",
+        "cursor_expired",
+        "source_unavailable",
+        "content_changed",
+        "query_too_broad"
+      ],
+      "example": {
+        "item_id": "12345678901234567890",
+        "limit": 50
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/store.rs#execute",
+        "feature": "catalog"
+      },
+      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "at_least": {
+            "pattern": "^[0-9]{1,20}$",
+            "type": "string"
+          },
+          "availability": {
+            "enum": [
+              "verified",
+              "source_unavailable",
+              "recorded"
+            ]
+          },
+          "category": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "cursor": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "dependency_ref": {
+            "type": "object"
+          },
+          "history": {
+            "enum": [
+              "current",
+              "all"
+            ]
+          },
+          "item_id": {
+            "pattern": "^[1-9][0-9]{0,38}$",
+            "type": "string"
+          },
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "native_kind": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "origin_type": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "parent_item_id": {
+            "pattern": "^[1-9][0-9]{0,38}$",
+            "type": "string"
+          },
+          "recorded_from": {
+            "type": "number"
+          },
+          "recorded_to": {
+            "type": "number"
+          },
+          "related_to": {
+            "additionalProperties": false,
+            "properties": {
+              "item_id": {
+                "pattern": "^[1-9][0-9]{0,38}$",
+                "type": "string"
+              },
+              "relation": {
+                "maxLength": 128,
+                "type": "string"
+              }
+            },
+            "required": [
+              "item_id"
+            ],
+            "type": "object"
+          },
+          "revision_id": {
+            "pattern": "^[1-9][0-9]{0,38}$",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "all",
+              "main",
+              "support",
+              "test"
+            ]
+          },
+          "scenario_ref": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              "revision": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "text": {
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "timeout_ms": {
+            "maximum": 1000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "view": {
+            "enum": [
+              "all",
+              "research",
+              "operations"
+            ]
+          }
+        },
+        "required": [
+          "item_id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "List Item files"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "get_file",
+      "description": "Read recorded digest, exact owner revision and currently registered candidate copies.",
+      "errors": [
+        "unknown_item",
+        "index_unavailable",
+        "cursor_expired",
+        "source_unavailable",
+        "content_changed",
+        "query_too_broad"
+      ],
+      "example": {
+        "file_item_id": "12345678901234567890"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/inventory.rs#get_file",
+        "feature": "catalog"
+      },
+      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "file_item_id": {
+            "pattern": "^[1-9][0-9]{0,38}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_item_id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read File descriptor"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "read_file",
+      "description": "Read at most 262144 verified bytes; offsets are decimal strings and returned data_base64 preserves raw bytes.",
+      "errors": [
+        "unknown_item",
+        "index_unavailable",
+        "cursor_expired",
+        "source_unavailable",
+        "content_changed",
+        "query_too_broad"
+      ],
+      "example": {
+        "file_item_id": "12345678901234567890",
+        "limit": 4096,
+        "offset": "0"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/inventory.rs#read_file",
+        "feature": "catalog"
+      },
+      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "file_item_id": {
+            "pattern": "^[1-9][0-9]{0,38}$",
+            "type": "string"
+          },
+          "limit": {
+            "maximum": 262144,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "pattern": "^[0-9]{1,20}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_item_id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read registered bytes"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "item_relations",
+      "description": "Page exact outgoing declarations and indexed reverse software use. Cursors pin source revision, authority head, actor and index generation; unresolved references remain explicit.",
+      "errors": [
+        "unknown_item",
+        "index_unavailable",
+        "cursor_expired",
+        "source_unavailable",
+        "content_changed",
+        "query_too_broad"
+      ],
+      "example": {
+        "item_id": "12345678901234567890",
+        "limit": 50
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/graph.rs#item_graph",
+        "feature": "catalog"
+      },
+      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "cursor": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "outgoing",
+              "both"
+            ]
+          },
+          "include_support": {
+            "type": "boolean"
+          },
+          "item_id": {
+            "pattern": "^[1-9][0-9]{0,38}$",
+            "type": "string"
+          },
+          "limit": {
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "revision_id": {
+            "pattern": "^[1-9][0-9]{0,38}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read Item relations"
+    }
+  ],
+  "description": "Results and versioned Scenario context",
+  "name": "results"
+}

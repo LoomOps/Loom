@@ -1,35 +1,37 @@
 # observations — Host, GPU and Docker observations
 
-## Responsibilities and boundaries
+## Boundary
 
 Observations are read-only and do not affect queue dispatch. Preserve missing/stale/partial distinctions.
 
-## Inputs, outputs and authoritative sources
+The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
-- [ops/docker_status.py](../../ops/docker_status.py)
-- [ops/host_metrics.py](../../ops/host_metrics.py)
+## Interfaces
 
-The linked code/schemas define fields, enums and state transitions. This document does not duplicate them.
+| Boundary | Owning entry point | Input | Result / failure | Consumers |
+|---|---|---|---|---|
+| Docker observation | `ops/docker_status.py#collect` | Configured Docker command/projects/read scope | Read-only container/image snapshot; unavailable facts remain unavailable | dashboard, installation |
 
-## Call contracts
+## Sources and contracts
 
-| Boundary | Input | Result or failure | Consumers |
-|---|---|---|---|
-| `ops/docker_status.py#collect` | Configured Docker command/projects/read scope | Read-only container/image snapshot; unavailable facts remain unavailable | dashboard, installation |
+- [deploy/collect-dashboard-gpus.py](../../deploy/collect-dashboard-gpus.py) — integration, packaging or documentation.
+- [deploy/collect-observations.py](../../deploy/collect-observations.py) — integration, packaging or documentation.
+- [ops/docker_status.py](../../ops/docker_status.py) — active administrator observation collector dependency.
+- [ops/host_metrics.py](../../ops/host_metrics.py) — active administrator host-metric collector dependency.
+- [rust/crates/host/src/observe.rs](../../rust/crates/host/src/observe.rs) — native implementation / contract.
 
-## Related features and change impact
+## Change review
 
-Independent boundary. Find consumers through reverse references in catalog.json.
+When collector fields change, check host mounts, collection services, API projections and UI rendering. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.
 
-When collector fields change, check host mounts, collection services, API projections and UI rendering.
+Related blocks: None..
 
-## Tests and failure boundaries
+## Verification
 
 - [tests/ops/test_docker_status.py](../../tests/ops/test_docker_status.py)
 - [tests/ops/test_host_metrics.py](../../tests/ops/test_host_metrics.py)
 
-Test sources define the concrete scenarios. `deploy/test.sh` records individual results as JSON/JUnit.
+Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
-## Live validation
-
-Actual OS, kernel, driver and Docker socket responses require live verification.
+Acceptance outside these fixtures:
+- Actual OS, kernel, driver and Docker socket responses require live verification.

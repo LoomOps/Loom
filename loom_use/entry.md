@@ -1,21 +1,25 @@
-# Loom server entry — hand this to your agent
+# Task guide index
 
-Use the **Loom URL and authentication method** supplied by the administrator. A server configured for Tailscale user authentication allows tokenless access when the connecting device supplies a verified user identity. Server-resident Codex and tagged devices instead need an agent token issued in Dashboard Admin → Agent Tokens. Follow the independent [Loom Use installer](https://github.com/LoomOps/Loom-Use/blob/main/INSTALL.md) to store it privately and register MCP; never include it in shared documents, prompts or repositories. `<private Dashboard URL>/mcp` uses Streamable HTTP. For tokenless access, the client must use an approved user-owned Tailscale device and the private HTTPS endpoint; do not send an old Authorization token, since an explicit invalid token is rejected rather than falling back to network identity. Tagged devices and requests without a user identity need an explicitly issued service credential. Normal usage requires neither SSH nor server sudo access. Use a separately granted SSH account only for remote development or file administration.
+Call `system.status` to confirm the target, principal and admission state. `system.guide` returns this binary's document index; request one guide by `id`. `system.describe` with a group returns its action index; with group and action it returns the exact input schema, scope and example.
 
-1. Call the `system` tool's `status` action to verify the machine, deployed version and permissions.
-2. Call `system.guide` with empty arguments to read the current guide index. Start with `entry` and `quickstart`; use `jobs` and `components` for implementation and `recovery` for errors. Example: `{"name":"system","arguments":{"action":"guide","arguments":{"id":"quickstart"}}}`.
-3. Read `system.describe({group,action})` for the exact action input. One MCP endpoint exposes six groups: jobs/recovery/events/components/results/system.
-4. On a new session or reconnect, compare `system.status.onboarding` with the previous value. Recheck when the short version footer, `_meta.loom` or HTTP `X-Loom-Revision` changes. If only guidance changed, refresh the affected documents; if contracts changed, refresh tool discovery and the relevant action schemas. Do not resubmit existing Jobs or automatically change execution revisions.
+| Task | Guide ID |
+|---|---|
+| Submit a first Job | `quickstart` |
+| Submission, queue, Attempts and output storage | `jobs` |
+| Internal Steps, workflows and consolidation | `workflows` |
+| Reuse/create Components, Tools and Profiles | `components` |
+| Rust SDK, package and build receipts | `authoring` |
+| Runtime selection and dependency installation | `runtimes` |
+| Result publication, lineage and reconnect | `results` |
+| Search Items, registered files and log streams | `items` |
+| Bounded asset reconciliation | `reconciliation` |
+| Events and error recovery | `recovery` |
+| Task/protocol context | `scenarios` |
+| Server administration / version updates | `operator` / `updates` |
+| What the bundle contains | `inventory` |
 
-Work within the user's authorized scope. Normal execution does not require another agent, manager or resident supervisor. Use the Loom API as the authority for execution, queue and result state; do not edit its database directly. Caller-side operations determine which agent owns recovery and receives events.
+Use the IDs returned by this server's index; older engines may expose fewer topics.
 
-For direct host access: `/loom` is service-owned operational state; the installation-configured dependency directory contains shared external source and patched dependency recipes. User workspaces may live in the user's home or another chosen location. Administrators operate Compose and the executor. Host filesystem access and Job mount permissions are separate.
+MCP exposes jobs, recovery, events, components, results and system at `/mcp`. HTTP uses the same operations at `POST /api/actions`. A client connects using the URL and authentication method supplied for that installation; setup belongs to the independent [Loom-Use installer](https://github.com/LoomOps/Loom-Use/blob/main/INSTALL.md).
 
-If an older server lacks `system.guide`, compare this bundle's `manifest.json` with the actual `system.status` version, then use the available `system.describe` and bundled documentation. Do not assume new features have been deployed. This guide is not an installer that overrides personal settings.
-
-Before creating a Component or Profile, list existing Profiles and inspect suitable
-exact kinds. Reuse a compatible kind for a new Job with params/inputs; create a new
-revision only for a real source/interface/stage/environment change. Read the
-components guide for reuse, categories and exact software/environment combinations.
-
-For server-backed discovery, use the advertised `items` guide. Common Item/File/stream IDs are decimal strings and do not replace native Job IDs or exact input contracts.
+The response's onboarding identity distinguishes contract and guide changes. Refresh affected schemas/guides when it changes; keep accepted Job IDs, original request keys and execution pins. New documentation does not prove that another installation has the same features. No resident agent hierarchy is required.

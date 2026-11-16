@@ -917,14 +917,14 @@
         },
         "manifest": {
           "type": "object",
-          "description": "profiles: name \u2192 execution v2 profile."
+          "description": "profiles: name → execution v2 profile."
         },
         "files": {
           "type": "object",
           "additionalProperties": {
             "type": "string"
           },
-          "description": "Relative path \u2192 UTF-8 source; omit to use saved editable sources."
+          "description": "Relative path → UTF-8 source; omit to use saved editable sources."
         }
       },
       "required": [
@@ -3006,7 +3006,7 @@
       },
       "required": [],
       "additionalProperties": false,
-      "description": "Omit both fields for the full documentation index; provide group for its compact action index, or group and action for one schema."
+      "description": "Omit both fields for the full scope-filtered reference; provide group for that group reference, or group and action for one exact action schema and example."
     }
   },
   {

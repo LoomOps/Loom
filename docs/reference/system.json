@@ -1,0 +1,695 @@
+{
+  "actions": [
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "ssh",
+      "description": "Read the current caller SSH grant and machine addresses. Same-host clients use local files; Admin enablement is separate.",
+      "errors": [
+        "Not enabled, unavailable or SSH management not configured."
+      ],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/query.rs#system_action",
+        "feature": "api"
+      },
+      "returns": "Connection · state, host, port, username, authentication, home, addresses",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Personal SSH connection"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "users",
+      "description": "List registered user profiles available for ownership assignment.",
+      "errors": [],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/query.rs#system_action",
+        "feature": "api"
+      },
+      "returns": "User[] · id, provider, login, display_name",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "User profiles"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "status",
+      "description": "Read build, contract revision, admission, registered runtimes and GPU execution availability.",
+      "errors": [],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/query.rs#system_action",
+        "feature": "api"
+      },
+      "returns": "Status · build, api_revision, admission, inventory, runtime_ids, gpu_execution_enabled",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Service status"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "updates",
+      "description": "Compare cached GitHub Releases with the current build. Reads do not wait on network requests or the Job database.",
+      "errors": [],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/query.rs#system_action",
+        "feature": "api"
+      },
+      "returns": "ReleaseCheck · status, installed, latest, update_available, checked_at, last_success_at, next_check_at, error, stale",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Release check status"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "check_updates",
+      "description": "Request a background check respecting the 60-second cooldown and GitHub rate limits. Does not install releases or stop Jobs.",
+      "errors": [
+        "Failures appear in updates.error while preserving the last successful result."
+      ],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/query.rs#system_action",
+        "feature": "api"
+      },
+      "returns": "Receipt · accepted, reason, updates",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Check for releases"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "docker",
+      "description": "Read permitted Docker containers and observation status.",
+      "errors": [
+        "Missing or stale observations are reported through status and errors."
+      ],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/query.rs#system_action",
+        "feature": "api"
+      },
+      "returns": "Docker status · status, engine, containers, errors",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Container status"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "contract",
+      "description": "Read Job properties, public states, recovery policy and submission schema.",
+      "errors": [],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/query.rs#system_action",
+        "feature": "onboarding"
+      },
+      "returns": "Contract · revision, submit_schema, status_values, recovery_policy",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Job contract"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "describe",
+      "description": "Omit group/action for the full reference; supply group for that group reference, or group and action for one exact action schema and example.",
+      "errors": [
+        "Unknown action or action outside current scopes."
+      ],
+      "example": {
+        "action": "submit",
+        "group": "jobs"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/query.rs#system_action",
+        "feature": "onboarding"
+      },
+      "returns": "Documentation index or Action reference · schema, scope, returns, errors, examples",
+      "schema": {
+        "additionalProperties": false,
+        "description": "Omit both fields for the full scope-filtered reference; provide group for that group reference, or group and action for one exact action schema and example.",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "group": {
+            "enum": [
+              "jobs",
+              "recovery",
+              "events",
+              "components",
+              "results",
+              "system"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Action reference"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "guide",
+      "description": "Read server version and guide index, or a document by id. Matching known_revision returns not_modified.",
+      "errors": [
+        "Unknown document ID or invalid arguments."
+      ],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/query.rs#system_action",
+        "feature": "onboarding"
+      },
+      "returns": "Guide · manifest, documents or content",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "known_revision": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Loom guides"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "prune_search",
+      "description": "Remove at most eight retired private shadow generations older than ten minutes. Preserve active generation and all authority.",
+      "errors": [
+        "task_stale",
+        "task_state",
+        "busy",
+        "index_budget",
+        "metadata_space"
+      ],
+      "example": {
+        "key": "retired-search-cleanup",
+        "max_generations": 4
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance",
+        "feature": "catalog"
+      },
+      "returns": "Durable maintenance progress or an explicit conflict.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "max_generations": {
+            "maximum": 8,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Prune retired search generations"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "retry_catalog_task",
+      "description": "Resume a failed task with retained progress and unchanged configured roots. An exhausted original batch budget requires a new rebuild request.",
+      "errors": [
+        "task_stale",
+        "task_state",
+        "busy",
+        "index_budget",
+        "metadata_space"
+      ],
+      "example": {
+        "id": "task-id"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance",
+        "feature": "catalog"
+      },
+      "returns": "Durable maintenance progress or an explicit conflict.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Retry failed catalog maintenance"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "rebuild_search",
+      "description": "Build a separate source-qualified generation while the current index stays readable; switch atomically after catch-up.",
+      "errors": [
+        "source_conflict",
+        "plan_stale",
+        "validation_required",
+        "content_changed",
+        "retention_gap",
+        "cursor_expired",
+        "index_unavailable"
+      ],
+      "example": {
+        "key": "rebuild-index-1",
+        "max_batches": 10000
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance",
+        "feature": "catalog"
+      },
+      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "max_batches": {
+            "maximum": 100000,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Rebuild search online"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "catalog_task",
+      "description": "Read caller-scoped durable background maintenance progress, failure or receipt.",
+      "errors": [
+        "source_conflict",
+        "plan_stale",
+        "validation_required",
+        "content_changed",
+        "retention_gap",
+        "cursor_expired",
+        "index_unavailable"
+      ],
+      "example": {
+        "id": "task-id"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance",
+        "feature": "catalog"
+      },
+      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read maintenance progress"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "dashboard_page",
+      "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search.",
+      "errors": [
+        "source_conflict",
+        "plan_stale",
+        "validation_required",
+        "content_changed",
+        "retention_gap",
+        "cursor_expired",
+        "index_unavailable"
+      ],
+      "example": {
+        "kinds": [
+          "profile"
+        ],
+        "limit": 50
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/catalog.rs#dashboard_page",
+        "feature": "catalog"
+      },
+      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "at_least": {
+            "pattern": "^[0-9]{1,20}$",
+            "type": "string"
+          },
+          "availability": {
+            "enum": [
+              "verified",
+              "source_unavailable",
+              "recorded"
+            ]
+          },
+          "category": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "cursor": {
+            "maxLength": 4096,
+            "type": "string"
+          },
+          "dependency_ref": {
+            "type": "object"
+          },
+          "history": {
+            "enum": [
+              "current",
+              "all"
+            ]
+          },
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "limit": {
+            "maximum": 200,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "native_kind": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "origin_type": {
+            "maxLength": 128,
+            "type": "string"
+          },
+          "parent_item_id": {
+            "pattern": "^[1-9][0-9]{0,38}$",
+            "type": "string"
+          },
+          "recorded_from": {
+            "type": "number"
+          },
+          "recorded_to": {
+            "type": "number"
+          },
+          "related_to": {
+            "additionalProperties": false,
+            "properties": {
+              "item_id": {
+                "pattern": "^[1-9][0-9]{0,38}$",
+                "type": "string"
+              },
+              "relation": {
+                "maxLength": 128,
+                "type": "string"
+              }
+            },
+            "required": [
+              "item_id"
+            ],
+            "type": "object"
+          },
+          "role": {
+            "enum": [
+              "all",
+              "main",
+              "support",
+              "test"
+            ]
+          },
+          "scenario_ref": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              "revision": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "text": {
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "timeout_ms": {
+            "maximum": 1000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "view": {
+            "enum": [
+              "all",
+              "research",
+              "operations"
+            ]
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Page Dashboard records"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "search_status",
+      "description": "Read safe generation/checkpoint and partial coverage status without filesystem paths or private diagnostic content.",
+      "errors": [
+        "unknown_item",
+        "index_unavailable",
+        "cursor_expired",
+        "source_unavailable",
+        "content_changed",
+        "query_too_broad"
+      ],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/index_store.rs#search_status",
+        "feature": "catalog"
+      },
+      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read search status"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "dashboard_summary",
+      "description": "Read compact Item counts and index capabilities; does not expand file or log inventories.",
+      "errors": [
+        "unknown_item",
+        "index_unavailable",
+        "cursor_expired",
+        "source_unavailable",
+        "content_changed",
+        "query_too_broad"
+      ],
+      "example": {},
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/items.rs#dashboard_summary",
+        "feature": "catalog"
+      },
+      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read Dashboard summary"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "dashboard_activity",
+      "description": "Read a compact KST activity rollup from actual execution intervals and eligible registration times; no full catalog expansion.",
+      "errors": [
+        "unknown_item",
+        "source_unavailable",
+        "index_unavailable"
+      ],
+      "example": {
+        "view": "research"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/activity.rs#dashboard_activity",
+        "feature": "catalog"
+      },
+      "returns": "Typed JSON with explicit coverage and stable source identity.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "view": {
+            "enum": [
+              "research",
+              "operations",
+              "all"
+            ]
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Dashboard activity"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "dashboard_entity",
+      "description": "Read one exact source-qualified browser record with lazy file inventories.",
+      "errors": [
+        "unknown_item",
+        "source_unavailable",
+        "index_unavailable"
+      ],
+      "example": {
+        "item_id": "2156055679491977121222771780406505881"
+      },
+      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
+      "group": "system",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/catalog.rs#dashboard_entity",
+        "feature": "catalog"
+      },
+      "returns": "Typed JSON with explicit coverage and stable source identity.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "item_id": {
+            "pattern": "^[1-9][0-9]{0,38}$",
+            "type": "string"
+          },
+          "revision_id": {
+            "pattern": "^[1-9][0-9]{0,38}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Dashboard entity"
+    }
+  ],
+  "description": "Installation status, contracts and guides",
+  "name": "system"
+}

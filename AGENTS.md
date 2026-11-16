@@ -14,3 +14,5 @@
 - Keep test suites and fixtures under `tests/`; use `python3 tests/run.py` (`--browser` for Firefox). Test evidence is not release source.
 
 - Write distributable instructions, README files, developer specifications and MCP/API reference descriptions in English. Preserve intentional UI localization and multilingual test fixtures.
+
+- Follow `docs/DOCUMENTATION.md` for documentation and agent instructions. Keep task guides short, distinguish current authority from historical design, and regenerate/check the native reference with `deploy/documentation.py` after contract or guidance changes.

@@ -1,43 +1,46 @@
 # portability — Preserved data, Job migration and remote ownership
 
-## Responsibilities and boundaries
+## Boundary
 
 Distinguish original preservation from current presentation and retain installation identifiers. Cloned installations running concurrently require distinct identities.
 
-## Inputs, outputs and authoritative sources
+The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
-- [ops/portability.py](../../ops/portability.py)
-- [ops/remote_fence.py](../../ops/remote_fence.py)
+## Interfaces
 
-The linked code/schemas define fields, enums and state transitions. This document does not duplicate them.
+| Boundary | Owning entry point | Input | Result / failure | Consumers |
+|---|---|---|---|---|
+| Copy integrity | `ops/portability.py#copy_verified` | Source/destination + expected file identity | Verified copy or explicit failure; does not reinterpret historical recipes | installation |
+| Remote fence | `ops/remote_fence.py#apply` | DB, actor, action and ownership request | Ownership transition/receipt or refusal; controls real execution ownership | execution |
 
-## Call contracts
+## Sources and contracts
 
-| Boundary | Input | Result or failure | Consumers |
-|---|---|---|---|
-| `ops/portability.py#copy_verified` | Source/destination + expected file identity | Verified copy or explicit failure; does not reinterpret historical recipes | installation |
-| `ops/remote_fence.py#apply` | DB, actor, action and ownership request | Ownership transition/receipt or refusal; controls real execution ownership | execution |
+- [deploy/assign-owner.py](../../deploy/assign-owner.py) — integration, packaging or documentation.
+- [ops/portability.py](../../ops/portability.py) — retained archive/copy utility; native authority migration is loom-migrate.
+- [ops/remote-handoff.py](../../ops/remote-handoff.py) — retained Python compatibility reference.
+- [ops/remote_fence.py](../../ops/remote_fence.py) — retained remote authority service/protocol; native worker client is rust/crates/ops/src/ownership.rs.
+- [rust/contracts/legacy-schema.sql](../../rust/contracts/legacy-schema.sql) — native implementation / contract.
+- [rust/contracts/redesign-schema.sql](../../rust/contracts/redesign-schema.sql) — native implementation / contract.
+- [rust/crates/migrate/Cargo.toml](../../rust/crates/migrate/Cargo.toml) — native implementation / contract.
+- [rust/crates/migrate/src/main.rs](../../rust/crates/migrate/src/main.rs) — native implementation / contract.
+- [rust/crates/ops/src/ownership.rs](../../rust/crates/ops/src/ownership.rs) — native implementation / contract.
 
-## Related features and change impact
-
-[identity](identity.md) · [catalog](catalog.md) · [results](results.md) · [execution](execution.md)
+## Change review
 
 When migration changes, check locator/storage IDs, original hashes, ownership overlays, selective exclusions and rerun idempotency.
 
-## Tests and failure boundaries
+Related blocks: [identity](identity.md) · [catalog](catalog.md) · [results](results.md) · [execution](execution.md).
 
+## Verification
+
+- [tests/deploy/test_boot_readiness.py](../../tests/deploy/test_boot_readiness.py)
 - [tests/ops/test_remote_ownership.py](../../tests/ops/test_remote_ownership.py)
-- [tests/ops/test_job_history.py](../../tests/ops/test_job_history.py)
+- [tests/rust/application.rs](../../tests/rust/application.rs)
+- [tests/rust/test_service.py](../../tests/rust/test_service.py)
+- [tests/rust/test_installation.py](../../tests/rust/test_installation.py)
+- [tests/rust/test_item_image.py](../../tests/rust/test_item_image.py)
 
-Test sources define the concrete scenarios. `deploy/test.sh` records individual results as JSON/JUnit.
+Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
-## Live validation
-
-Verify actual cross-machine TLS/handoff and access to restored data.
-
-The schema-1 offline archive has one payload root. Export rejects available
-secondary-store payloads or pending secondary-output Jobs before fencing instead
-of silently omitting them. Multi-store relocation requires a separately reviewed
-transfer plan. Export and restore both strip short-lived and resident token rows,
-including archives created by older versions; user profiles and provenance remain.
-Migration never serves as a credential transfer mechanism.
+Acceptance outside these fixtures:
+- Verify actual cross-machine TLS/handoff and access to restored data.

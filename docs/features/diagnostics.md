@@ -1,46 +1,36 @@
-# Local diagnostics
+# diagnostics — Private bounded local error collection; no remote telemetry
 
-Loom writes `loom-diagnostic/v1` JSONL into `<instance>/diagnostics` (normally
-`/loom/ops/diagnostics`; dev builds use their own instance directory). Ops,
-Dashboard and Gateway share that private bind mount at `/var/lib/loom-diagnostics`.
-The directory is owned by the instance service UID/GID, mode 0700; files are 0600.
-The installer creates it and the Compose entry script prepares it for upgrades.
-The base Dashboard runs with that same instance identity. No host-wide chmod is used.
+## Boundary
 
-Each record includes an incident UUID, UTC epoch timestamp, component, operation,
-allowlisted error code, build identity when available, exception class/errno and
-up to 12 code frames (basename/function/line only). It does not serialize exception
-messages, source lines, locals, tokens, headers, emails, bodies, URLs or task data.
-Do not pass user input as component, operation, code or build.
+Collection failures never block authentication, Jobs or responses. No secret/request/exception-message capture and no automatic upload.
 
-The sink uses a nonblocking process lock and a thread lock, suppresses identical
-categories for 30 seconds per process, and rotates at 64 MiB with fifteen backups
-(about 1 GiB total). It is best-effort incident evidence, not an exhaustive audit
-log. Disk-full, permission, symlink and contention failures return without blocking
-Jobs or changing their outcome. Existing durable Job/events and enrollment journals
-remain authoritative. HTTP/MCP unexpected errors, invalid MCP calls, Sharing
-reconciliation, public enrollment errors and uncaught process/thread/handler failures
-are collected. Python process kills, browser-side exceptions and GPU driver crashes
-are not claimed as captured by this collector.
+The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
-Loom Use keeps the same envelope under `$CODEX_HOME/loom-use/diagnostics` on the
-client machine, including CLI failures and pending runtime refresh. It does not
-need access to the server filesystem. Operators can collect these files explicitly;
-there is no automatic upload or network sender. A future development-server sender
-can consume this versioned envelope separately, with explicit configuration and a
-persistent delivery cursor, without entering the Job execution path.
+## Interfaces
 
-Tests cover safe fields, retention, contention, concurrent writes, symlink refusal
-and fail-open disk errors. Validate actual container permissions separately after a
-Compose upgrade. Do not use diagnostics presence as a Job admission gate.
+| Boundary | Owning entry point | Input | Result / failure | Consumers |
+|---|---|---|---|---|
+| Local incident | `dashboard/diagnostics.py#record` | Fixed component/operation/code and optional exception object | Incident ID or None on suppressed/unwritable output; bounded JSONL | api, network, dashboard, installation |
+| Native local incident | `rust/crates/core/src/diagnostics.rs#incident` | Safe operation ID and typed error code/status | Private incident ID or absent diagnostic; no operation-state change | api |
 
-Set `LOOM_DIAGNOSTICS_SEGMENT_MIB` and `LOOM_DIAGNOSTICS_BACKUPS` to adjust retention.
-For Compose, put them in the instance `override.env` and recreate the services.
-Invalid values fall back to defaults. No disk space is preallocated.
+## Sources and contracts
 
-MCP tool errors expose `structuredContent: {error: "tool_error", incident_id}`
-in addition to the existing text and version metadata. The legacy top-level
-`incident_id` remains for raw clients. Loom Use forwards the response unchanged.
-External consumers should validate the UUID before relaying it across their own
-API/MCP boundaries. No error body is needed for correlation. An absent ID is valid
-when diagnostics are unavailable or suppressed; it never changes execution policy.
+- [dashboard/diagnostics.py](../../dashboard/diagnostics.py) — integration, packaging or documentation.
+- [ops/compose.diagnostics.yaml](../../ops/compose.diagnostics.yaml) — integration, packaging or documentation.
+- [rust/crates/core/src/diagnostics.rs](../../rust/crates/core/src/diagnostics.rs) — native implementation / contract.
+
+## Change review
+
+Review every caller, image packaging, private volume ownership and independent Loom Use collector schema before changing collection fields.
+
+Related blocks: None..
+
+## Verification
+
+- [tests/dashboard/test_diagnostics.py](../../tests/dashboard/test_diagnostics.py)
+- [tests/rust/application.rs](../../tests/rust/application.rs)
+
+Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
+
+Acceptance outside these fixtures:
+- Tests cover filesystem faults and retention. External collection/upload is not implemented; client and server directories remain on their respective machines.

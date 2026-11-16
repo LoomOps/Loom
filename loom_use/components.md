@@ -35,7 +35,7 @@ The runner receives a request JSON path as its final argument. The request inclu
 
 ## Outputs
 
-Write files and result.json into output_dir. The minimum result contains entities/metrics; entities include id, kind, path, provenance and relations. Record request.profile.revision and request.profile.sha256 as provenance.profile and provenance.producer_sha256 respectively. Declare domain semantics such as measurements, units, denominators and data splits in the profile's outputs/metadata_schemas. Generic Job state transitions do not generate domain metadata automatically.
+Write files and result.json into output_dir. Use the `results` guide and `system.contract` for entity/metric output shapes; declare IDs, kinds, paths, provenance and relations where the contract requires them. Record request.profile.revision and request.profile.sha256 as provenance.profile and provenance.producer_sha256 respectively. Declare domain semantics such as measurements, units, denominators and data splits in the profile's outputs/metadata_schemas. Generic Job state transitions do not generate domain metadata automatically.
 
 ## Installation and reuse
 
@@ -56,17 +56,9 @@ External dependency checkouts and image recipes use the dependency directory sel
 
 For example: `"runtime": {"executor":"container","runtime_id":"python","command":["python3","/component/run.py"],"storage":["data/1"]}`. Standalone profiles expose the same field through HTTP and MCP. Omit storage for only `/work` plus declared read-only artifact inputs. Explicit RW access can modify shared files; coordinate changes to existing datasets. Publish result.json and registered outputs through `request.output_dir` on the Job’s selected `output_storage`; ordinary shared files in additional stores remain visible in Explorer. Storage mounts do not relocate historical artifacts or change their hashes/locators.
 
-## Owner
+## Attribution
 
-Registration defaults to the authenticated user. Use `owner: "built-in"` explicitly
-for common components; their display label is **Built-in**. Shared visibility alone
-does not make a user component Built-in. `components.list` returns every namespace
-unless filtered with owner. Results include owner_profile (id/login/display_name),
-owner_name and owner_kind; profile discovery carries the same responsibility.
-The existing owner input/output remains the stable namespace used by get/write and
-profile references. Existing responsibility records take precedence for display;
-paths, source pins and submitted Jobs are unchanged. Unknown historical identities
-remain visible by their recorded ID, not guessed or relabeled Built-in.
+Owner namespace selects a registered source identity. Current responsibility can be changed with `components.assign_owner` without altering namespace, sealed revisions or Job pins. Built-in denotes Loom-supplied origin; it is not a synonym for shared research software. Unknown historical identities remain explicit.
 
 ## Research Tools
 
@@ -98,7 +90,8 @@ Runtime is an independent execution environment, not a child revision generated 
 ## Reuse before registration
 
 Before writing or registering software, call `components.profiles`, then inspect
-candidate exact kinds with `components.get_profile`. Compare input/parameter and
+candidate exact kinds with `components.inspect_profile`. Use `get_profile` with
+owner/id/revision for an independently registered Profile. Compare input/parameter and
 output schemas, source/Tool pins, stage runtimes and limits with the requested
 outcome. Submit another Job using a matching existing kind; put case IDs, seeds,
 input locators and run settings in params/inputs. Do not clone a Component/Profile

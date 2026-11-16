@@ -1,6 +1,6 @@
 # Loom installation steps
 
-Read the current step, run its script, then **reread this index and the repository INSTALL.md** before continuing. Inside a kit, this index is INSTALL.md; the original repository instructions are also under platform/INSTALL.md (source kit) or source/INSTALL.md (offline kit).
+Read the current step and use its script output and exit criteria to decide whether to continue. Inside a kit, this index is INSTALL.md; the original repository instructions are also under platform/INSTALL.md (source kit) or source/INSTALL.md (offline kit).
 
 | Step | Document | Completion evidence |
 |---|---|---|

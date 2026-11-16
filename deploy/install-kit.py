@@ -38,7 +38,7 @@ def build(release,output,guide):
  for name in ['setup.py','doctor.py','smoke.py','INSTALL.md','install-plan.example.json','tailnet-plan.example.json','access-plan.example.json']:
   shutil.copy2(release/'source/deploy/installer'/name,output/name)
  shutil.copytree(release/'source/deploy/installer/steps',output/'steps')
- (output/'AGENTS.md').write_text('Read INSTALL.md before installing. Follow every numbered step and rerun the read-only doctor. Reread INSTALL.md after each step. Full native identity and Gateway are mandatory; lead handoff with the Gateway URL. This is a new-machine installer, not an upgrade or data migration tool.\n')
+ (output/'AGENTS.md').write_text('Read INSTALL.md before installing. Use each numbered step and its actual doctor/exit evidence. Full native identity and Gateway are mandatory; lead handoff with the Gateway URL. This is a new-machine installer, not an upgrade or data migration tool.\n')
  # A caller-supplied guide must describe this exact release, not the live tree.
  import zipfile
  with zipfile.ZipFile(guide) as z:

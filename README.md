@@ -2,9 +2,7 @@
 
 Loom lets multiple users and clients queue CPU/GPU Jobs and manage execution state, logs and artifacts. Callers declare preparation, execution, completion and error-handling actions; Loom executes and records them. Error diagnosis, fixes, event consumption and agent operations remain the caller's responsibility.
 
-This development branch implements the Rust redesign. Read the
-[implementation status and boundaries](docs/rust-port/IMPLEMENTATION.md). Operational
-installation updates require a separately selected immutable release.
+The native Rust core retains the existing web and administrator integrations. Start with [the documentation index](docs/README.md), [concepts](docs/CONCEPTS.md), or [API reference](docs/reference/README.md). Maintainers use [implementation boundaries](docs/IMPLEMENTATION.md) and the feature catalog. Operational updates use a separately selected immutable release.
 
 ## Installation
 
@@ -69,9 +67,3 @@ Loom is licensed under [GNU GPL version 3 only](LICENSE) (`GPL-3.0-only`).
 See [third-party notices](THIRD_PARTY_NOTICES.md) for dependencies and trademarks.
 
 For service removal and machine access cleanup, see [Uninstall](docs/UNINSTALL.md).
-
-Dashboard groups Profiles, Components, Tools and Runtimes under the **Runtimes** workspace and
-shows their exact combinations. Components implement Job lifecycle integration; Tools
-implement reusable research algorithms, including hybrid runners. Profiles bind
-execution contracts and immutable revisions. The navigation does not rename the
-six MCP groups or the `components` actions.

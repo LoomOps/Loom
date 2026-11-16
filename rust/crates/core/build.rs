@@ -2,6 +2,49 @@ use sha2::{Digest, Sha256};
 use std::{fs, path::PathBuf};
 fn main() {
     let root = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../..");
+    // One catalog selects the compile-time guides and their retrieval metadata.
+    let catalog: serde_json::Value = serde_json::from_slice(
+        &fs::read(root.join("loom_use/catalog.json")).expect("guide catalog"),
+    )
+    .expect("valid guide catalog");
+    let mut documents = String::from("const DOCUMENTS: &[(&str, &str, &str)] = &[\n");
+    let mut names = std::collections::BTreeSet::new();
+    for document in catalog["documents"].as_array().expect("guide documents") {
+        let id = document["id"].as_str().expect("guide id");
+        assert!(
+            !id.is_empty()
+                && id.bytes().all(|c| c.is_ascii_lowercase() || c == b'-')
+                && names.insert(id),
+            "unique safe guide id"
+        );
+        let source = document["source"].as_str().expect("guide source");
+        assert!(
+            std::path::Path::new(source)
+                .components()
+                .all(|c| matches!(c, std::path::Component::Normal(_))),
+            "relative guide source"
+        );
+        let path = root
+            .join(source)
+            .canonicalize()
+            .expect("guide source exists");
+        assert!(
+            path.starts_with(root.canonicalize().unwrap()),
+            "guide inside repository"
+        );
+        documents.push_str(&format!(
+            "({}, {}, include_str!({})),\n",
+            serde_json::to_string(id).unwrap(),
+            document["title"],
+            serde_json::to_string(path.to_str().unwrap()).unwrap()
+        ));
+    }
+    documents.push_str("];\n");
+    fs::write(
+        PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("guides.rs"),
+        documents,
+    )
+    .expect("compile guide catalog");
     let mut paths = vec![root.join("Cargo.toml"), root.join("Cargo.lock")];
     fn collect(p: &std::path::Path, out: &mut Vec<PathBuf>) {
         for item in fs::read_dir(p).unwrap() {

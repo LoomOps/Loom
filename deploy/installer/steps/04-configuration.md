@@ -11,4 +11,4 @@ sudo python3 /absolute/kit/setup.py doctor /absolute/install-plan.json --stage c
 
 On failure inspect install-progress.json and doctor. Completed local changes are not rolled back by deleting data. Do not repeat fresh apply into existing paths. `resume-network` is available only for a matching plan after configuration and services pass. Failures before that point require repair of the specific failed stage, not a fresh installation over the database.
 
-Exit: configuration doctor passes. Reread INSTALL.md and the step index before step 5.
+Exit: configuration doctor passes. Continue after verifying the stated exit evidence.

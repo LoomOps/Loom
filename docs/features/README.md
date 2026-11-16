@@ -39,7 +39,7 @@ flowchart LR
   Onboarding[Versioned guides / schemas] --> Client
 ```
 
-On the Rust development branch, native execution states and hook transitions are owned by `rust/crates/domain` and the transactional application in `rust/crates/core`. Retained Python files remain compatibility references. Do not duplicate their state tables here.
+In the native service, execution states and hook transitions are owned by `rust/crates/domain` and the transactional application in `rust/crates/core`. Retained Python files remain compatibility references. Do not duplicate their state tables here.
 
 ## Feature blocks
 
@@ -53,6 +53,8 @@ On the Rust development branch, native execution states and hook transitions are
 | [results](results.md) | Artifacts, indexing, lineage | Dependent Jobs, catalog |
 | [extensions](extensions.md) | Components, Tools, Profiles, Runtimes | Execution, results |
 | [catalog](catalog.md) | Queries, original preservation, files | Dashboard, API |
+| [scenarios](scenarios.md) | Versioned task context and exact links | Jobs, catalog, Dashboard |
+| [authoring](authoring.md) | Rust SDK and source/build identities | Components, Tools, Jobs, guides |
 | [diagnostics](diagnostics.md) | Private local error collection | API, Dashboard, installation |
 | [observations](observations.md) | Resource and Docker observations | Dashboard |
 | [dashboard](dashboard.md) | Browser and relay | External users |
@@ -65,15 +67,13 @@ On the Rust development branch, native execution states and hook transitions are
 
 `rust/crates/ops` composes the native service and independent log/index workers; `rust/crates/core` owns transactional mutations and read adapters. `ops/ops.py` remains a compatibility reference. Logical feature blocks do not correspond one-to-one to containers.
 
-| [scenarios](scenarios.md) | Versioned research context and exact links | Jobs, catalog, Dashboard |
-| [authoring](authoring.md) | Rust producer SDK and source/build identities | Components, Tools, Jobs, guides |
 
 ## Adding features
 
 Add a unique ID, purpose, sources, tests, contracts, depends_on, spec, invariants, change_rule and live_validation to `catalog.json`. Extend an existing entry for existing features. `catalog.schema.json` defines fields; the schema version is `loom-features/v1`.
 
 - Link to executable code/JSON Schema rather than duplicating state or field enums.
-- For API fields, review `ops/job_contract.py`, `ops/mcp_groups.py` and documentation examples together.
+- For API fields, review `rust/crates/core/src/contracts.rs`, `rust/contracts/legacy-actions.json`, `rust/contracts/job-contract.json`, `rust/contracts/action-docs.json` and generated examples together. Retained Python schemas are compatibility references.
 - For new files/libraries, check Dockerfiles, snapshots and installer HOST_FILES.
 - Edit workspace source and rebuild generated HTML; never edit the output directly.
 - Put usage contracts in `loom_use`, development design in `docs`, installation procedures in `deploy`.

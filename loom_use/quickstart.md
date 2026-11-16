@@ -1,33 +1,50 @@
-# First-use workflow
+# First Job
 
-## Connect and discover
+This walkthrough uses an existing Profile. It does not install software or change the server. Choose a small workload only when execution is part of the user's request.
 
-The administrator configures tailnet access and Loom user bindings. Omit tokens only when this client supplies a verified Tailscale user identity. Server-resident Codex and tagged devices use an Admin-issued agent token; see the independent [Loom Use installer](https://github.com/LoomOps/Loom-Use/blob/main/INSTALL.md). Read `system.status` to confirm the destination and admission state, then select an available profile from `components.profiles`. Owner identifies responsibility; users share Job/result visibility and controls. Do not share personal tokens. HTTP callers can inspect their ID/scopes through `GET /api/principal`; MCP callers use `system.status.principal`. Automatically registered Tailscale users use their ID as the default owner/notify and share existing data and profiles.
+## 1. Select the target and recipe
 
-Inspect the profile's kind, params_schema, inputs, outputs and revision. If none fits, register your own source and profile using the components guide. Replace documentation placeholders with actual profile, owner and notify values before execution.
+Call `system.status`, then `components.profiles`. Confirm the target, principal/scopes and admission state. Select a compatible exact `kind` from discovery and inspect its params/input/output contract. `components.inspect_profile` can check a proposed parameter object without reserving resources or submitting a Job.
 
-## Submit
+The built-in `cpu.smoke` Profile, when advertised, provides a bounded platform test with `params: {"seconds":0,"fail":false}`. It is not a scientific experiment. Other Profiles have different parameters; use their actual contract.
 
-Read the current submission schema through `system.describe` with group=jobs, action=submit.
+## 2. Submit
+
+Fetch `system.describe` with `{"group":"jobs","action":"submit"}`. An MCP `tools/call` request wraps an action like this:
 
 ```json
-{"name":"jobs","arguments":{"action":"submit","arguments":{"key":"my-unique-run-001","kind":"<registered-profile-id>","owner":"<your-owner-id>","notify":"<your-agent-id>","params":{},"category":"fine_tuning","execution_mode":"smoke"}}}
+{
+  "jsonrpc":"2.0", "id":1, "method":"tools/call",
+  "params":{
+    "name":"jobs",
+    "arguments":{
+      "action":"submit",
+      "arguments":{
+        "key":"first-platform-check-001",
+        "kind":"cpu.smoke",
+        "owner":"<principal-id>",
+        "notify":"<recipient-id>",
+        "params":{"seconds":0,"fail":false},
+        "execution_mode":"smoke",
+        "presentation":{"scope":"operations","role":"test"}
+      }
+    }
+  }
+}
 ```
 
-Save the returned Job ID. If the network response was lost, repeat the same key and input. Use a new key if execution semantics change. Declare budget, data, model and evaluation semantics explicitly in profile/params according to the user's goal.
+Replace the principal/recipient IDs with permitted identities and confirm the Profile exists. For research, use the requested Profile, parameters, category and presentation instead of copying platform-test labels. The response JSON is in `result.content[0].text`; check `result.isError` before reading it. Retain the returned `id` and original request.
 
-Use `jobs.get` for stages and Attempts; continue `jobs.logs` using next_offset instead of repeatedly downloading the full log. Read completion/error events with `events.list(kind=all)`. Jobs keep running on the server when the agent disconnects.
+If the response is lost, replay the same key and original arguments. A changed request under the same key conflicts. A different key would create another execution.
 
-After completion, inspect artifacts, locations and provenance through `results.list/get`. Execution completion, result publication and event acknowledgment are distinct facts. First use is not authorization to run a large training experiment as a test.
+## 3. Observe and inspect outputs
 
-`results.list` also discovers imported models, datasets and experiment records.
-Entries marked `record_type: historical` carry `history_ref`: pass that object to
-`results.historical`, not `results.get`. They preserve original metadata and a
-separate current-availability observation; discovery does not imply usable weights
-or a ready dataset. Native registry entries continue to use `results.get`.
+Call `jobs.get({id})`. `status` is the public phase; `state` retains the native value (`complete` corresponds to `completed`). Scheduling and recovery are separate objects. Continue legacy `jobs.logs` using `next_offset`, or use `jobs.log_streams/read_log` for exact source generations.
 
-## HTTP alternative
+After publication, inspect the Job's result and use `results.get` with an exact returned artifact identity/revision. Read `events.list({kind:"all"})`; ACK records delivery only. A client disconnect does not stop a server Job. If execution or indexing fails, follow `recovery` or `results` rather than creating another Job blindly.
 
-Call the same operations through `POST /api/actions` with `{group,action,arguments}`. Do not forge identity headers when using Tailscale Serve authentication. Token-based callers send `Authorization: Bearer <personal-token>`. Inspect MCP result.isError, or HTTP status and error body, for failures.
+## HTTP equivalent
 
-Use browser login when Dashboard provides SSO. MCP authenticates separately through the server's Tailscale integration or an issued service credential. Do not copy Dashboard cookies into MCP configuration.
+Send `POST /api/actions` with `{"group":"jobs","action":"submit","arguments":...}`. The operation returns JSON directly; inspect HTTP status/error body. Use the installation's configured Tailscale identity or scoped Bearer credential. Browser cookies and forged identity headers are not client authentication.
+
+Next: `jobs` for queue/storage, `components` for reusable recipes, `workflows` for multiple stages, and `items` for files/logs.

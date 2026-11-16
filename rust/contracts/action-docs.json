@@ -6,14 +6,24 @@
     "example": {},
     "errors": [
       "Not enabled, unavailable or SSH management not configured."
-    ]
+    ],
+    "implementation": {
+      "feature": "api",
+      "entrypoint": "rust/crates/core/src/query.rs#system_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.users": {
     "title": "User profiles",
     "description": "List registered user profiles available for ownership assignment.",
     "returns": "User[] · id, provider, login, display_name",
     "example": {},
-    "errors": []
+    "errors": [],
+    "implementation": {
+      "feature": "api",
+      "entrypoint": "rust/crates/core/src/query.rs#system_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.assign_owner": {
     "title": "Attribute shared software",
@@ -27,7 +37,12 @@
     },
     "errors": [
       "Unregistered user, missing extension, read-only scope or maintenance fence."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/composition.rs#curate_software"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.assign_owner": {
     "title": "Assign Job owner",
@@ -39,7 +54,12 @@
     },
     "errors": [
       "Unregistered profile or missing Job."
-    ]
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/query.rs#assign_job_owner"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.assign_owner": {
     "title": "Assign result owner",
@@ -51,14 +71,24 @@
     },
     "errors": [
       "Unregistered profile or missing artifact."
-    ]
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/results.rs#result_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.queue": {
     "title": "Shared execution order",
     "description": "Read every user's waiting order and available controls.",
     "returns": "Queue · revision, entries with position, held, reason, capabilities",
     "example": {},
-    "errors": []
+    "errors": [],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/query.rs#queue"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.reorder": {
     "title": "Reorder waiting Job",
@@ -70,7 +100,12 @@
     },
     "errors": [
       "Permission denied, invalid position or reference no longer waiting. If execution was claimed first, changed=false."
-    ]
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/jobs.rs#job_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.hold": {
     "title": "Hold waiting Job",
@@ -81,7 +116,12 @@
     },
     "errors": [
       "Permission denied. If the main run already started, changed=false."
-    ]
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/jobs.rs#job_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.resume": {
     "title": "Resume waiting Job",
@@ -92,7 +132,12 @@
     },
     "errors": [
       "Permission denied. Releasing a failed Job's hold does not rerun its failed execution."
-    ]
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/jobs.rs#job_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.guide": {
     "title": "Loom guides",
@@ -101,7 +146,12 @@
     "example": {},
     "errors": [
       "Unknown document ID or invalid arguments."
-    ]
+    ],
+    "implementation": {
+      "feature": "onboarding",
+      "entrypoint": "rust/crates/core/src/query.rs#system_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.list": {
     "title": "List Jobs",
@@ -111,7 +161,12 @@
       "limit": 25,
       "offset": 0
     },
-    "errors": []
+    "errors": [],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/query.rs#job_list"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.get": {
     "title": "Job details",
@@ -122,7 +177,12 @@
     },
     "errors": [
       "The ID does not exist."
-    ]
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/query.rs#job_detail"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.submit": {
     "title": "Submit Job",
@@ -140,7 +200,12 @@
     "errors": [
       "Unregistered profile, parameter schema mismatch, denied input access or stopped admission.",
       "Reusing a key with different execution content causes a conflict."
-    ]
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/jobs.rs#submit"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.cancel": {
     "title": "Cancel Job",
@@ -151,7 +216,12 @@
     },
     "errors": [
       "Missing cancel scope."
-    ]
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/jobs.rs#job_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.logs": {
     "title": "Execution logs",
@@ -165,7 +235,12 @@
     },
     "errors": [
       "Attempt belongs to another Job, negative offset or limit outside 1–65536."
-    ]
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/query.rs#job_logs"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "recovery.claim": {
     "title": "Claim recovery",
@@ -176,7 +251,12 @@
     },
     "errors": [
       "Waiting deadline expired or another agent already claimed recovery."
-    ]
+    ],
+    "implementation": {
+      "feature": "recovery",
+      "entrypoint": "rust/crates/core/src/jobs.rs#recover"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "recovery.progress": {
     "title": "Report recovery progress",
@@ -188,11 +268,16 @@
     },
     "errors": [
       "Lease mismatch, claimant mismatch or expired recovery deadline."
-    ]
+    ],
+    "implementation": {
+      "feature": "recovery",
+      "entrypoint": "rust/crates/core/src/jobs.rs#recover"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "recovery.resume": {
     "title": "Rerun after repair",
-    "description": "Schedule recovery at the reserved queue position. patch permits only params/kind/execution.",
+    "description": "Schedule recovery at the reserved queue position using a valid lease. Inspect the live patch schema; finalization-only repair preserves the successful execution Attempt.",
     "returns": "Recovery · state=pending, rounds, agent",
     "example": {
       "id": "<job-id>",
@@ -203,7 +288,12 @@
     "errors": [
       "Lease mismatch, three recovery rounds exhausted or invalid patched inputs.",
       "For finalization-only failure, retry postprocessing without a patch."
-    ]
+    ],
+    "implementation": {
+      "feature": "recovery",
+      "entrypoint": "rust/crates/core/src/jobs.rs#recover"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "recovery.defer": {
     "title": "Defer recovery",
@@ -214,7 +304,12 @@
     },
     "errors": [
       "No valid reservation. Another user's reservation can be explicitly released; the acting user is recorded."
-    ]
+    ],
+    "implementation": {
+      "feature": "recovery",
+      "entrypoint": "rust/crates/core/src/jobs.rs#recover"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "recovery.reactivate": {
     "title": "Reactivate deferred Job",
@@ -225,7 +320,12 @@
     },
     "errors": [
       "Job is not deferred."
-    ]
+    ],
+    "implementation": {
+      "feature": "recovery",
+      "entrypoint": "rust/crates/core/src/jobs.rs#recover"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "events.list": {
     "title": "Completion and error events",
@@ -237,7 +337,12 @@
     },
     "errors": [
       "Unsupported kind or invalid cursor."
-    ]
+    ],
+    "implementation": {
+      "feature": "recovery",
+      "entrypoint": "rust/crates/core/src/query.rs#event_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "events.ack": {
     "title": "Acknowledge event",
@@ -248,14 +353,24 @@
     },
     "errors": [
       "Event belongs to another recipient or seq does not exist."
-    ]
+    ],
+    "implementation": {
+      "feature": "recovery",
+      "entrypoint": "rust/crates/core/src/query.rs#event_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.list": {
     "title": "List components",
     "description": "Read the latest revision of all components. Set owner to filter the namespace.",
     "returns": "Component[] · owner (namespace), id, revision, owner_profile, owner_name, owner_kind",
     "example": {},
-    "errors": []
+    "errors": [],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/software.rs#software_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.get": {
     "title": "Component details",
@@ -266,7 +381,12 @@
     },
     "errors": [
       "Missing component or owner access denied."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/software.rs#software_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.write": {
     "title": "Write source",
@@ -279,7 +399,12 @@
     },
     "errors": [
       "Absolute path, parent-directory escape or owner access denied."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/software.rs#software_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.register": {
     "title": "Register revision",
@@ -298,7 +423,12 @@
     },
     "errors": [
       "Missing source, unavailable runtime, missing GPU permission or profile contract mismatch."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/software.rs#software_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.register_profile": {
     "title": "Register profile",
@@ -330,26 +460,29 @@
         "metadata_schemas": {},
         "runtime": {
           "executor": "container",
-          "image": "python:3.12-slim",
-          "resources": {
-            "cpus": 1,
-            "memory": "1g"
+          "runtime_ref": {
+            "id": "example-producer-runtime",
+            "revision": 1
           },
           "command": [
-            "python3",
-            "/component/run.py"
+            "/opt/example/bin/producer"
           ],
           "lane": "cpu"
         },
         "limits": {
           "timeout_seconds": 60,
-          "max_attempts": 4
+          "max_attempts": 1
         }
       }
     },
     "errors": [
       "Uncached image, resource limit exceeded, unregistered component or invalid schema."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/software.rs#software_action"
+    },
+    "example_note": "The exact Runtime must contain the shown prebuilt Rust executable, and the referenced Component must already exist. Replace these placeholders; for @producer builds follow the authoring guide and verified receipt workflow."
   },
   "components.get_profile": {
     "title": "Profile details",
@@ -360,21 +493,36 @@
     },
     "errors": [
       "Profile access denied or missing revision."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/software.rs#software_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.profiles": {
     "title": "Available execution profiles",
     "description": "Read exact Profile combinations, stage environments and observed Job usage. Repeated environment dependencies are a bounded preview (dependency_count, dependencies_complete); use components.get_runtime for the complete inventory. Read scope does not grant execution or registration rights.",
     "returns": "Profile[] · kind, revision, params_schema, outputs, limits, usage, combination",
     "example": {},
-    "errors": []
+    "errors": [],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/composition.rs#profile_listing"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.list": {
     "title": "List artifacts",
     "description": "Discover native artifacts and imported models/datasets/experiments from the active catalog. For record_type=historical, pass history_ref to results.historical; other entries use results.get. Discovery does not establish file availability.",
     "returns": "Artifact list · native registry entries or historical entries with history_ref and detail_action",
     "example": {},
-    "errors": []
+    "errors": [],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/results.rs#result_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.get": {
     "title": "Artifact details",
@@ -386,7 +534,12 @@
     },
     "errors": [
       "Artifact access denied or missing revision."
-    ]
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/results.rs#result_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.reindex": {
     "title": "Reindex results",
@@ -398,7 +551,12 @@
     },
     "errors": [
       "Not the current Attempt or publication cannot be retried in this state."
-    ]
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/results.rs#result_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.reconnect": {
     "title": "Reconnect artifact location",
@@ -413,11 +571,16 @@
     },
     "errors": [
       "Requires submit scope; unknown store/component, unsafe path or mismatched size/hash is rejected."
-    ]
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/results.rs#result_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.annotate": {
     "title": "Add annotation",
-    "description": "Append evidence and a note without overwriting existing results.",
+    "description": "Append an immutable evidence-backed note to an existing Job; the id is a Job ID, not an artifact ID. Existing results are preserved.",
     "returns": "Annotation receipt",
     "example": {
       "id": "<job-id>",
@@ -427,7 +590,12 @@
     },
     "errors": [
       "Requires submit scope."
-    ]
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/results.rs#result_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.history": {
     "title": "Preserved history",
@@ -440,7 +608,12 @@
     },
     "errors": [
       "Requires read scope."
-    ]
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/results.rs#result_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.historical": {
     "title": "Historical record",
@@ -454,14 +627,24 @@
     },
     "errors": [
       "The specified record does not exist."
-    ]
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/results.rs#result_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.updates": {
     "title": "Release check status",
     "description": "Compare cached GitHub Releases with the current build. Reads do not wait on network requests or the Job database.",
     "returns": "ReleaseCheck · status, installed, latest, update_available, checked_at, last_success_at, next_check_at, error, stale",
     "example": {},
-    "errors": []
+    "errors": [],
+    "implementation": {
+      "feature": "api",
+      "entrypoint": "rust/crates/core/src/query.rs#system_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.check_updates": {
     "title": "Check for releases",
@@ -470,14 +653,24 @@
     "example": {},
     "errors": [
       "Failures appear in updates.error while preserving the last successful result."
-    ]
+    ],
+    "implementation": {
+      "feature": "api",
+      "entrypoint": "rust/crates/core/src/query.rs#system_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.status": {
     "title": "Service status",
     "description": "Read build, contract revision, admission, registered runtimes and GPU execution availability.",
     "returns": "Status · build, api_revision, admission, inventory, runtime_ids, gpu_execution_enabled",
     "example": {},
-    "errors": []
+    "errors": [],
+    "implementation": {
+      "feature": "api",
+      "entrypoint": "rust/crates/core/src/query.rs#system_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.docker": {
     "title": "Container status",
@@ -486,18 +679,28 @@
     "example": {},
     "errors": [
       "Missing or stale observations are reported through status and errors."
-    ]
+    ],
+    "implementation": {
+      "feature": "api",
+      "entrypoint": "rust/crates/core/src/query.rs#system_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.contract": {
     "title": "Job contract",
     "description": "Read Job properties, public states, recovery policy and submission schema.",
     "returns": "Contract · revision, submit_schema, status_values, recovery_policy",
     "example": {},
-    "errors": []
+    "errors": [],
+    "implementation": {
+      "feature": "onboarding",
+      "entrypoint": "rust/crates/core/src/query.rs#system_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.describe": {
     "title": "Action reference",
-    "description": "Without arguments, return the full usage reference. Supply both group/action to describe one action.",
+    "description": "Omit group/action for the full reference; supply group for that group reference, or group and action for one exact action schema and example.",
     "returns": "Documentation index or Action reference · schema, scope, returns, errors, examples",
     "example": {
       "group": "jobs",
@@ -505,7 +708,12 @@
     },
     "errors": [
       "Unknown action or action outside current scopes."
-    ]
+    ],
+    "implementation": {
+      "feature": "onboarding",
+      "entrypoint": "rust/crates/core/src/query.rs#system_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.curate": {
     "title": "Curate Runtimes workspace metadata",
@@ -519,7 +727,12 @@
     },
     "errors": [
       "Submit scope, maintenance fence, exact identity, dependency scope or preference conflict."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/composition.rs#curate_software"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.inspect_profile": {
     "title": "Inspect a reusable Profile",
@@ -531,7 +744,12 @@
     },
     "errors": [
       "Unknown Profile or invalid inspection arguments."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/composition.rs#inspect_profiles"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.compare_profiles": {
     "title": "Compare exact Profile definitions",
@@ -543,7 +761,12 @@
     },
     "errors": [
       "Unknown Profile."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/composition.rs#inspect_profiles"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.annotate": {
     "title": "Classify software",
@@ -561,21 +784,36 @@
     },
     "errors": [
       "Missing revision, invalid tag, submit scope denied or maintenance fence."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/composition.rs#curate_software"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.runtimes": {
     "title": "List Runtimes",
     "description": "Read administrator-granted execution environments, exact dependencies, validation evidence and Profile/Job usage. Legacy entries are not verification evidence.",
     "returns": "Runtime catalog",
     "example": {},
-    "errors": []
+    "errors": [],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/software.rs#software_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.dependencies": {
     "title": "Dependencies",
     "description": "Read major software units grouped across current granted Runtimes, with exact versions, distinct installation origins and Runtime links. Full transitive package inventories remain on each Runtime. This is recorded metadata, not filesystem discovery or proof of scientific use.",
     "returns": "Dependency catalog",
     "example": {},
-    "errors": []
+    "errors": [],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/software.rs#software_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.get_dependency": {
     "title": "Dependency versions",
@@ -586,7 +824,12 @@
     },
     "errors": [
       "Dependency unavailable or outside instance grant."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/software.rs#software_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.get_runtime": {
     "title": "Runtime revision",
@@ -598,14 +841,24 @@
     },
     "errors": [
       "Missing revision or instance grant."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/software.rs#software_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.list_tools": {
     "title": "List research Tools",
     "description": "List shared reusable software independently of Job Components.",
     "returns": "Tool[]",
     "example": {},
-    "errors": []
+    "errors": [],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/software.rs#software_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.get_tool": {
     "title": "Tool revision",
@@ -617,7 +870,12 @@
     },
     "errors": [
       "Missing Tool revision."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/software.rs#software_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "components.register_tool": {
     "title": "Register research Tool",
@@ -636,7 +894,12 @@
     },
     "errors": [
       "Invalid source, missing legacy revision or denied submit scope."
-    ]
+    ],
+    "implementation": {
+      "feature": "extensions",
+      "entrypoint": "rust/crates/core/src/software.rs#software_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.submit_workflow": {
     "title": "Submit one logical Job",
@@ -663,7 +926,12 @@
     },
     "errors": [
       "Unknown/cyclic node dependency, conflicting key, invalid Profile or output alias. All nodes roll back on rejection."
-    ]
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/jobs.rs#submit_workflow"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.curate": {
     "title": "Curate research presentation",
@@ -685,7 +953,12 @@
     },
     "errors": [
       "Unknown identity, repeated item, parent cycle, conflicting batch key, maintenance or scope denied."
-    ]
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/query.rs#curate_research"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.search_items": {
     "title": "Search Items",
@@ -699,13 +972,20 @@
       "source_unavailable",
       "content_changed",
       "query_too_broad"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/index_store.rs#search_items"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.get_item": {
     "title": "Read Item",
     "description": "Read a compact typed descriptor using a decimal-string Item ID and optional exact revision.",
     "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
-    "example": {},
+    "example": {
+      "item_id": "12345678901234567890"
+    },
     "errors": [
       "unknown_item",
       "index_unavailable",
@@ -713,13 +993,25 @@
       "source_unavailable",
       "content_changed",
       "query_too_broad"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/items.rs#get_item"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.resolve_item": {
     "title": "Resolve native reference",
     "description": "Resolve an already adopted full native identity without allocation, promotion or latest-snapshot substitution.",
     "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
-    "example": {},
+    "example": {
+      "native_ref": {
+        "kind": "job",
+        "identity": {
+          "id": "<job-id>"
+        }
+      }
+    },
     "errors": [
       "unknown_item",
       "index_unavailable",
@@ -727,13 +1019,21 @@
       "source_unavailable",
       "content_changed",
       "query_too_broad"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/items.rs#resolve_item"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.item_relations": {
     "title": "Read Item relations",
     "description": "Page exact outgoing declarations and indexed reverse software use. Cursors pin source revision, authority head, actor and index generation; unresolved references remain explicit.",
     "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
-    "example": {},
+    "example": {
+      "item_id": "12345678901234567890",
+      "limit": 50
+    },
     "errors": [
       "unknown_item",
       "index_unavailable",
@@ -741,13 +1041,21 @@
       "source_unavailable",
       "content_changed",
       "query_too_broad"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/graph.rs#item_graph"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.item_files": {
     "title": "List Item files",
     "description": "Page the sealed registered file inventory for an exact Item revision; File IDs survive derived index rebuilds.",
     "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
-    "example": {},
+    "example": {
+      "item_id": "12345678901234567890",
+      "limit": 50
+    },
     "errors": [
       "unknown_item",
       "index_unavailable",
@@ -755,13 +1063,20 @@
       "source_unavailable",
       "content_changed",
       "query_too_broad"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/store.rs#execute"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.get_file": {
     "title": "Read File descriptor",
     "description": "Read recorded digest, exact owner revision and currently registered candidate copies.",
     "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
-    "example": {},
+    "example": {
+      "file_item_id": "12345678901234567890"
+    },
     "errors": [
       "unknown_item",
       "index_unavailable",
@@ -769,13 +1084,22 @@
       "source_unavailable",
       "content_changed",
       "query_too_broad"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/inventory.rs#get_file"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.read_file": {
     "title": "Read registered bytes",
     "description": "Read at most 262144 verified bytes; offsets are decimal strings and returned data_base64 preserves raw bytes.",
     "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
-    "example": {},
+    "example": {
+      "file_item_id": "12345678901234567890",
+      "offset": "0",
+      "limit": 4096
+    },
     "errors": [
       "unknown_item",
       "index_unavailable",
@@ -783,13 +1107,20 @@
       "source_unavailable",
       "content_changed",
       "query_too_broad"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/inventory.rs#read_file"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.log_streams": {
     "title": "List log streams",
     "description": "Discover exact Attempt/stage/effect streams for an existing Job without creating work or acknowledging notifications.",
     "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
-    "example": {},
+    "example": {
+      "id": "<job-id>"
+    },
     "errors": [
       "unknown_item",
       "index_unavailable",
@@ -797,13 +1128,22 @@
       "source_unavailable",
       "content_changed",
       "query_too_broad"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/log_index.rs#log_streams"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.read_log": {
     "title": "Read log range",
     "description": "Read raw byte ranges or bounded tail. Keep source_generation with offsets; report closed, gap and unavailable states.",
     "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
-    "example": {},
+    "example": {
+      "stream_id": "12345678901234567890",
+      "offset": "0",
+      "limit": 4096
+    },
     "errors": [
       "unknown_item",
       "index_unavailable",
@@ -811,13 +1151,21 @@
       "source_unavailable",
       "content_changed",
       "query_too_broad"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/log_index.rs#read_log"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.search_logs": {
     "title": "Search log ranges",
     "description": "Find indexed text within a Job or exact stream. Page the pinned index snapshot and follow raw offset references.",
     "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
-    "example": {},
+    "example": {
+      "id": "<job-id>",
+      "text": "error"
+    },
     "errors": [
       "unknown_item",
       "index_unavailable",
@@ -825,7 +1173,12 @@
       "source_unavailable",
       "content_changed",
       "query_too_broad"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/log_index.rs#search_logs"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.dashboard_summary": {
     "title": "Read Dashboard summary",
@@ -839,7 +1192,12 @@
       "source_unavailable",
       "content_changed",
       "query_too_broad"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/items.rs#dashboard_summary"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.search_status": {
     "title": "Read search status",
@@ -853,7 +1211,12 @@
       "source_unavailable",
       "content_changed",
       "query_too_broad"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/index_store.rs#search_status"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.reconcile_contract": {
     "title": "Discover reconciliation",
@@ -868,7 +1231,12 @@
       "retention_gap",
       "cursor_expired",
       "index_unavailable"
-    ]
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.reconcile_inspect": {
     "title": "Inspect registered reconciliation scope",
@@ -888,7 +1256,12 @@
       "retention_gap",
       "cursor_expired",
       "index_unavailable"
-    ]
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.reconcile_plan": {
     "title": "Plan an exact reconciliation",
@@ -920,7 +1293,12 @@
       "retention_gap",
       "cursor_expired",
       "index_unavailable"
-    ]
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.reconcile_get": {
     "title": "Read reconciliation receipt",
@@ -937,7 +1315,12 @@
       "retention_gap",
       "cursor_expired",
       "index_unavailable"
-    ]
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.reconcile_validate": {
     "title": "Validate reconciliation sources",
@@ -954,7 +1337,12 @@
       "retention_gap",
       "cursor_expired",
       "index_unavailable"
-    ]
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.reconcile_apply": {
     "title": "Apply verified reconciliation",
@@ -971,7 +1359,12 @@
       "retention_gap",
       "cursor_expired",
       "index_unavailable"
-    ]
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.rebuild_search": {
     "title": "Rebuild search online",
@@ -989,7 +1382,12 @@
       "retention_gap",
       "cursor_expired",
       "index_unavailable"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.catalog_task": {
     "title": "Read maintenance progress",
@@ -1006,7 +1404,12 @@
       "retention_gap",
       "cursor_expired",
       "index_unavailable"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "jobs.prune_logs": {
     "title": "Expire selected log generations",
@@ -1030,7 +1433,12 @@
       "retention_gap",
       "cursor_expired",
       "index_unavailable"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.dashboard_page": {
     "title": "Page Dashboard records",
@@ -1050,7 +1458,12 @@
       "retention_gap",
       "cursor_expired",
       "index_unavailable"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/catalog.rs#dashboard_page"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.dashboard_activity": {
     "title": "Dashboard activity",
@@ -1063,7 +1476,12 @@
       "unknown_item",
       "source_unavailable",
       "index_unavailable"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/activity.rs#dashboard_activity"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.dashboard_entity": {
     "title": "Dashboard entity",
@@ -1076,7 +1494,12 @@
       "unknown_item",
       "source_unavailable",
       "index_unavailable"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/catalog.rs#dashboard_entity"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.prune_search": {
     "title": "Prune retired search generations",
@@ -1092,7 +1515,12 @@
       "busy",
       "index_budget",
       "metadata_space"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "system.retry_catalog_task": {
     "title": "Retry failed catalog maintenance",
@@ -1107,6 +1535,241 @@
       "busy",
       "index_budget",
       "metadata_space"
-    ]
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
+  },
+  "components.scaffold": {
+    "title": "Scaffold a producer",
+    "description": "Return the selected Rust Tool/Component/hybrid source draft and vendored SDK. Runtime and external SDK placeholders require selection; this neither builds nor registers software.",
+    "returns": "files, manifest, draft_profile, producer_protocol and build_executed=false",
+    "example": {
+      "template": "component",
+      "name": "example-producer"
+    },
+    "errors": [
+      "Invalid package name."
+    ],
+    "implementation": {
+      "feature": "authoring",
+      "entrypoint": "rust/crates/core/src/software.rs#scaffold"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
+  },
+  "components.validate_package": {
+    "title": "Validate a source package",
+    "description": "Check source paths, bounds and declared Python integration metadata. This performs no compilation, import or installation.",
+    "returns": "valid, languages, source_sha256 and build_executed=false",
+    "example": {
+      "manifest": {
+        "implementation": {
+          "language": "rust"
+        }
+      },
+      "files": {
+        "src/main.rs": "fn main() {}\n"
+      }
+    },
+    "errors": [
+      "Escaping/conflicting paths, empty source, oversized package or undeclared Python integration."
+    ],
+    "implementation": {
+      "feature": "authoring",
+      "entrypoint": "rust/crates/core/src/software.rs#validate_package"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
+  },
+  "results.scenarios": {
+    "title": "List Scenarios",
+    "description": "List versioned research task/protocol contexts. Archived Scenarios are omitted unless requested.",
+    "returns": "Scenario summaries with current revision",
+    "example": {},
+    "errors": [],
+    "implementation": {
+      "feature": "scenarios",
+      "entrypoint": "rust/crates/core/src/scenario.rs#scenario_query"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
+  },
+  "results.get_scenario": {
+    "title": "Read a Scenario",
+    "description": "Read an exact Scenario revision, or the current revision when omitted. Archive state does not erase accepted context.",
+    "returns": "Scenario definition, revision and digest",
+    "example": {
+      "id": "<scenario-id>",
+      "revision": 1
+    },
+    "errors": [
+      "Unknown Scenario or revision."
+    ],
+    "implementation": {
+      "feature": "scenarios",
+      "entrypoint": "rust/crates/core/src/scenario.rs#scenario_query"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
+  },
+  "results.scenario_graph": {
+    "title": "Read Scenario links",
+    "description": "Page explicit links for a Scenario revision; links describe context and do not schedule execution.",
+    "returns": "Scenario and bounded links",
+    "example": {
+      "id": "<scenario-id>",
+      "revision": 1,
+      "limit": 50,
+      "offset": 0
+    },
+    "errors": [
+      "Unknown Scenario revision."
+    ],
+    "implementation": {
+      "feature": "scenarios",
+      "entrypoint": "rust/crates/core/src/scenario.rs#scenario_query"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
+  },
+  "results.register_scenario": {
+    "title": "Create a Scenario",
+    "description": "Create a versioned task/protocol definition with a nonempty label. Replay the same key and definition after uncertainty.",
+    "returns": "id, revision=1 and sha256",
+    "example": {
+      "key": "scenario-example-v1",
+      "definition": {
+        "label": "Example assembly task",
+        "description": "Task and evaluation protocol context."
+      }
+    },
+    "errors": [
+      "Invalid definition, changed request key or inactive installation."
+    ],
+    "implementation": {
+      "feature": "scenarios",
+      "entrypoint": "rust/crates/core/src/scenario.rs#create_scenario"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
+  },
+  "results.update_scenario": {
+    "title": "Revise a Scenario",
+    "description": "Append a definition revision using expected_revision and a reason. Existing Job/context pins retain their accepted revision.",
+    "returns": "id, new revision and sha256",
+    "example": {
+      "key": "scenario-example-v2",
+      "id": "<scenario-id>",
+      "expected_revision": 1,
+      "definition": {
+        "label": "Example assembly task",
+        "description": "Revised protocol."
+      },
+      "reason": "Protocol clarification"
+    },
+    "errors": [
+      "Stale expected_revision, archived Scenario or key conflict."
+    ],
+    "implementation": {
+      "feature": "scenarios",
+      "entrypoint": "rust/crates/core/src/scenario.rs#update_scenario"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
+  },
+  "results.archive_scenario": {
+    "title": "Archive a Scenario",
+    "description": "Remove a Scenario from default discovery using an expected current revision. Exact accepted references remain valid.",
+    "returns": "id and archived=true",
+    "example": {
+      "key": "archive-example",
+      "id": "<scenario-id>",
+      "expected_revision": 2,
+      "reason": "No longer a current protocol"
+    },
+    "errors": [
+      "Stale revision or key conflict."
+    ],
+    "implementation": {
+      "feature": "scenarios",
+      "entrypoint": "rust/crates/core/src/scenario.rs#archive_scenario"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
+  },
+  "results.link_scenario": {
+    "title": "Link Scenario context",
+    "description": "Add an explicit typed relationship to an exact existing target with provenance. Does not infer context, duplicate output or grant access.",
+    "returns": "Immutable link receipt",
+    "example": {
+      "key": "link-example",
+      "scenario_ref": {
+        "id": "<scenario-id>",
+        "revision": 1
+      },
+      "target": {
+        "kind": "job",
+        "identity": {
+          "id": "<job-id>"
+        }
+      },
+      "relation": "produced_for",
+      "provenance": {
+        "reason": "Explicit requested task"
+      }
+    },
+    "errors": [
+      "Unknown target/context or conflicting key."
+    ],
+    "implementation": {
+      "feature": "scenarios",
+      "entrypoint": "rust/crates/core/src/scenario.rs#link_scenario"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
+  },
+  "results.supersede_scenario_link": {
+    "title": "Supersede a context link",
+    "description": "Append a supersession receipt for a link, optionally naming an existing replacement. Original link evidence remains.",
+    "returns": "Link supersession receipt",
+    "example": {
+      "key": "supersede-example",
+      "id": "<link-id>",
+      "reason": "Corrected explicit context",
+      "replacement": null
+    },
+    "errors": [
+      "Unknown link/replacement or key conflict."
+    ],
+    "implementation": {
+      "feature": "scenarios",
+      "entrypoint": "rust/crates/core/src/scenario.rs#supersede_scenario_link"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
+  },
+  "results.bind_historical_location": {
+    "title": "Bind a historical copy",
+    "description": "Verify size, SHA-256 and granted store-relative locator, then add current availability to an exact historical file selector. Original history stays unchanged.",
+    "returns": "Verified additive binding receipt",
+    "example": {
+      "key": "historical-copy-example",
+      "identity": {
+        "source": "<source>",
+        "kind": "dataset",
+        "id": "<historical-id>",
+        "revision": "1",
+        "snapshot": "<snapshot>",
+        "file": "<file-selector>"
+      },
+      "locator": {
+        "machine_id": "<machine-id>",
+        "storage_id": "<storage-id>",
+        "ref": "inputs/example.bin"
+      },
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size": 0
+    },
+    "errors": [
+      "Unknown historical selector, conflicting original hash, changed bytes or unavailable grant."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/results.rs#result_action"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   }
 }

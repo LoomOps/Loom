@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0-alpha.10
+
+- Separate human documentation, task guides, implementation specifications and historical design records. Link every native action to its owning feature and handler.
+- Cover all 92 actions with explicit descriptions and schema-valid examples; add generated HTTP/API reference and documentation inventory checks.
+- Compile 15 task guides from one catalog. Refresh guidance for changed reference prose, packaged instructions and client descriptors; include the public Job contract in contract revision identity.
+- Pin Loom Use 0.1.0-alpha.11 with concise task routing and verified client documentation. Preserve existing credentials, software revisions, execution pins and storage state.
+
+
 ## 0.2.0-alpha.9
 
 - Add explicit plan/validate/apply reconciliation with immutable source evidence,

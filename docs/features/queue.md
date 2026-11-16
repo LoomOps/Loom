@@ -1,61 +1,42 @@
 # queue — Shared queue ordering, admission and preparation pipelines
 
-Native candidate authority: `rust/crates/core/src/jobs.rs#readiness`, `rust/crates/core/src/jobs.rs#job_action`.
-Retained Python paths below are compatibility references or administrator/web
-integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
-current process boundaries and acceptance limits.
-
-## Responsibilities and boundaries
+## Boundary
 
 Do not preempt running Jobs. Respect dependencies, allow concurrent preparation and never reassign resources before their return.
 
-## Inputs, outputs and authoritative sources
+The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
-- [ops/queue_control.py](../../ops/queue_control.py)
-- [ops/job_contract.py](../../ops/job_contract.py)
+## Interfaces
 
-The linked code/schemas define fields, enums and state transitions. This document does not duplicate them.
+| Boundary | Owning entry point | Input | Result / failure | Consumers |
+|---|---|---|---|---|
+| Scheduling decision | `rust/crates/core/src/jobs.rs#readiness` | Job row + DB dependency/recovery/hold state + lane | Eligibility/stage/waiting reason consumed by worker and UI | api, catalog |
+| Queue mutation | `rust/crates/core/src/jobs.rs#job_action` | Waiting Job, actor, relative/absolute placement | Persisted order and change receipt; running Job not preempted | api |
 
-## Call contracts
+Public actions and input schemas are in the generated [API reference](../reference/README.md). This block owns: `jobs.assign_owner`, `jobs.queue`, `jobs.reorder`, `jobs.hold`, `jobs.resume`, `jobs.list`, `jobs.get`, `jobs.submit`, `jobs.cancel`, `jobs.logs`, `jobs.submit_workflow`, `jobs.curate`.
 
-| Boundary | Input | Result or failure | Consumers |
-|---|---|---|---|
-| `ops/queue_control.py#scheduling` | Job row + DB dependency/recovery/hold state + lane | Eligibility/stage/waiting reason consumed by worker and UI | api, catalog |
-| `ops/queue_control.py#reorder` | Waiting Job, actor, relative/absolute placement | Persisted order and change receipt; running Job not preempted | api |
+## Sources and contracts
 
-## Related features and change impact
+- [ops/dispatch_control.py](../../ops/dispatch_control.py) — active administrator dispatch-control helper; native execution remains in Rust.
+- [ops/queue_control.py](../../ops/queue_control.py) — retained Python compatibility reference.
+- [rust/crates/core/src/jobs.rs](../../rust/crates/core/src/jobs.rs) — native implementation / contract.
+- [rust/crates/core/src/query.rs](../../rust/crates/core/src/query.rs) — native implementation / contract.
+- [ops/job_contract.py](../../ops/job_contract.py) — retained Python compatibility reference.
 
-[identity](identity.md) · [execution](execution.md) · [recovery](recovery.md) · [results](results.md)
+## Change review
 
 When queue policy changes, verify dispatch, catalog ordering and control capabilities with the same scenarios.
 
-Dependency readiness accepts completed Jobs or verified returned artifacts in
-processing/result_failed. A stale readiness flag on cancelled/failed execution
-does not qualify. Recovery patches refresh inferred inputs and reject graph cycles.
+Related blocks: [identity](identity.md) · [execution](execution.md) · [recovery](recovery.md) · [results](results.md).
 
-## Tests and failure boundaries
+## Verification
 
+- [tests/ops/test_job_lifecycle.py](../../tests/ops/test_job_lifecycle.py)
 - [tests/ops/test_queue_contract.py](../../tests/ops/test_queue_contract.py)
 - [tests/ops/test_queue_control.py](../../tests/ops/test_queue_control.py)
+- [tests/rust/application.rs](../../tests/rust/application.rs)
 
-Test sources define the concrete scenarios. `deploy/test.sh` records individual results as JSON/JUnit.
+Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
-## Live validation
-
-Actual long-running GPU workloads and power loss require separate acceptance testing.
-
-## Operator deployment pause
-
-`deploy/queue_control_cli.py pause --instance <root> --key <stable-UUID>` is a local
-operator operation for a drained installation. It refuses active execution,
-processing and pending callbacks, then atomically fences old workers and records
-a durable dispatch pause. The updater accepts this owned pause and preserves it.
-After update, admission may reopen so a corrected Job can be staged, while all
-new execution remains paused. Resume explicitly with the same key only after the
-continuation and its inputs are verified. Unrelated maintenance/read-only fences
-and another pause key are never cleared. API queue snapshots and Dashboard expose
-the dispatch pause separately from per-Job holds and resource return.
-
-Rollback to an older worker retains the maintenance fence while an operator
-pause is active; an older worker must not start queued work by ignoring the new
-dispatch-control row. Explicit matching-key resume clears that fence.
+Acceptance outside these fixtures:
+- Actual long-running GPU workloads and power loss require separate acceptance testing.

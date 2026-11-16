@@ -1,26 +1,47 @@
-# Rust producer authoring
+# authoring — Rust producer SDK, source/build identities and distributed authoring guidance
 
-Native candidate authority: `rust/crates/core/src/authoring.rs#verify_build`.
-Retained Python paths below are compatibility references or administrator/web
-integrations. See [the implementation map](../rust-port/IMPLEMENTATION.md) for
-current process boundaries and acceptance limits.
+## Boundary
 
-New orchestration defaults to Rust. Scientific SDK/framework integration may use
-explicit Python worker stages with package, stage, Runtime and a concrete reason.
-Accepted historical Python source/Profile pins remain unchanged.
+Accepted revisions and execution provenance remain immutable. Source registration never runs user code.
 
-The public `components` group discovers templates and validates packages. Source
-registration does not run Cargo, build scripts, import Python, access the network
-or install a compiler. The producer SDK has a bounded request/progress/manifest
-protocol without scheduler or credential access. Source identity and a compiled
-artifact/build receipt are separate. `@producer` binds a verified ELF artifact
-from a registered store in an exact granted builder Runtime; execution rechecks
-its hash and mounts it read-only in the selected container Runtime.
+The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
-Keep build execution in an explicitly authorized builder stage or administrator
-workflow. Use the configured dependency directory; an API restart/client update
-cannot install dependencies or backfill accepted execution pins. Tool presence
-means availability to the runner, not proof that an algorithm was called.
+## Interfaces
 
-Verify actual generated Cargo projects and hybrid worker failure/cancellation,
-not only template strings. Tests belong under `tests/rust/`.
+| Boundary | Owning entry point | Input | Result / failure | Consumers |
+|---|---|---|---|---|
+| Rust producer SDK, source/build identities and distributed authoring guidance | `rust/crates/core/src/authoring.rs#verify_build` | Authenticated typed action and exact revision identities | Transactional receipt or explicit conflict | extensions, execution, onboarding, installation |
+
+Public actions and input schemas are in the generated [API reference](../reference/README.md). This block owns: `components.scaffold`, `components.validate_package`.
+
+## Sources and contracts
+
+- [rust/contracts/authoring.md](../../rust/contracts/authoring.md) — native implementation / contract.
+- [rust/crates/core/src/authoring.rs](../../rust/crates/core/src/authoring.rs) — native implementation / contract.
+- [rust/crates/sdk/Cargo.toml](../../rust/crates/sdk/Cargo.toml) — native implementation / contract.
+- [rust/crates/sdk/src/lib.rs](../../rust/crates/sdk/src/lib.rs) — native implementation / contract.
+- [rust/crates/sdk/src/main.rs](../../rust/crates/sdk/src/main.rs) — native implementation / contract.
+- [rust/templates/hybrid.rs](../../rust/templates/hybrid.rs) — native implementation / contract.
+- [rust/templates/runner.rs](../../rust/templates/runner.rs) — native implementation / contract.
+- [rust/templates/sdk-Cargo.toml](../../rust/templates/sdk-Cargo.toml) — native implementation / contract.
+- [rust/templates/worker.py](../../rust/templates/worker.py) — native implementation / contract.
+- [rust/crates/core/src/software.rs](../../rust/crates/core/src/software.rs) — native implementation / contract.
+- [rust/crates/core/src/contracts.rs](../../rust/crates/core/src/contracts.rs) — native implementation / contract.
+
+## Change review
+
+Review live schemas, exact bindings, Dashboard, distributed guidance, migration and native acceptance together.
+
+Related blocks: [identity](identity.md) · [api](api.md).
+
+## Verification
+
+- [tests/rust/application.rs](../../tests/rust/application.rs)
+- [tests/rust/sdk.rs](../../tests/rust/sdk.rs)
+- [tests/rust/test_authoring.py](../../tests/rust/test_authoring.py)
+- [tests/rust/test_service.py](../../tests/rust/test_service.py)
+
+Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
+
+Acceptance outside these fixtures:
+- Run isolated Rust/HTTP/producer/browser fixtures; operational acceptance requires separately authorized deployment.

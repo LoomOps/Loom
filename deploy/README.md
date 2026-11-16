@@ -29,7 +29,7 @@ Give the resulting archive to the target user's agent with instructions to read
 `INSTALL.md`. The agent inspects the host, discusses storage/dependency/GPU needs,
 and applies the agreed plan using `setup.py`. The installer supports existing
 filesystem UUID mounts without formatting, optional pinned Git sources under
-`/dependencies`, and a systemd Compose unit that waits for storage mounts.
+the installation-configured dependency root, and a systemd Compose unit that waits for storage mounts.
 Host OS packages, GPU drivers and optional research environments are separate.
 This is a new-machine installation path; it refuses existing Loom instances.
 
