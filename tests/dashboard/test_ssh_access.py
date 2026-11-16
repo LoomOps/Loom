@@ -50,6 +50,26 @@ class SSHTests(unittest.TestCase):
     def test_share_revocation_revokes_ssh_too(self):
         self.change();self.s.revoke('member@example.test')
         self.assertEqual(self.s.rows()[0]['state'],'disabled')
+    def test_external_share_removal_revokes_managed_ssh_and_hides_the_session_during_retry(self):
+        request=self.a.request(self.user);self.a.tick()
+        self.api.shares[0].update(accepted=True,acceptedBy={'id':321,'loginName':self.user['login']})
+        self.a.update(request['id'],next_attempt=0);self.a.tick()
+        self.a.decide(request['id'],'approve',self.admin);self.a.tick()
+        self.change()
+        network={'Tailscale-User-Login':self.user['login']}
+        self.assertTrue(self.a.authorize_network(network))
+        self.api.shares.clear();self.a.update(request['id'],next_attempt=0)
+        original=self.api.call
+        def unavailable(method,path,*args,**kwargs):
+            if path.endswith('/acl'):raise RemoteError(503)
+            return original(method,path,*args,**kwargs)
+        with patch.object(self.api,'call',side_effect=unavailable):self.a.tick()
+        self.assertIsNone(self.a.authorize_network(network))
+        self.assertEqual(self.calls[-1],'disable')
+        self.a.update(request['id'],next_attempt=0);self.a.tick()
+        self.assertEqual(self.s.rows()[0]['state'],'disabled')
+        self.assertFalse(any('loomu_member' in rule.get('users',[]) for rule in self.api.policy.get('ssh',[])))
+
     def test_admin_or_member_cannot_create_system_account(self):
         for name in ['root','loom','tyui','loomu_a;id','loomu_../x']:
             with self.assertRaises(ValueError):self.change(name=name)

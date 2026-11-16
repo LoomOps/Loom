@@ -67,6 +67,9 @@ class InstallKitTests(unittest.TestCase):
   import ast
   paths={ROOT/d/n for d,names in builder.HOST_FILES.items() for n in names}
   names={p.stem for p in paths}
+  self.assertIn(ROOT/'deploy/client_release.py',paths)
+  self.assertIn(ROOT/'loom_use/client-release.json',paths)
+  paths.add(ROOT/'deploy/installer/doctor.py')
   local={p.stem for d in ['deploy','ops','executor','dashboard'] for p in (ROOT/d).glob('*.py')}
   for p in paths:
    self.assertTrue(p.is_file(),str(p))

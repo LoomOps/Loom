@@ -137,6 +137,22 @@ class NativeExecutorTests(unittest.TestCase):
   self.assertEqual(page['data_base64'],'AAAAAAAAAAAAAAAAAAAAAA==');self.assertTrue(self.rpc('drain_status',{})['ready'])
   self.assertEqual(self.rpc('log_range',{'ticket':accepted['ticket'],'limit':16})['source_generation'],page['source_generation'])
 
+ def test_capture_pointer_failure_does_not_leak_a_provider_process(self):
+  import shutil
+  accepted=self.rpc('start',self.request(['/bin/true']));self.wait(accepted['ticket'])
+  self.stop();folder=self.root/'failed-source';folder.mkdir();wrapper=folder/'docker'
+  wrapper.write_text('#!/bin/sh\nif [ "$1" = logs ]; then exec sleep 60; fi\nexec '+shutil.which('docker')+' "$@"\n');wrapper.chmod(0o700)
+  logs=self.host/'logs';logs.mkdir()
+  (logs/(hashlib.sha256(accepted['ticket'].encode()).hexdigest()+'.source.json')).symlink_to(self.root/'absent-pointer')
+  self.process=subprocess.Popen([str(ROOT/'target/debug/loom-host'),'serve',str(self.host)],env={**os.environ,'PATH':str(folder)+':'+os.environ['PATH']},stdout=self.log,stderr=self.log)
+  for _ in range(100):
+   try:self.rpc('drain_status',{});break
+   except OSError:time.sleep(.05)
+  self.rpc('log_range',{'ticket':accepted['ticket'],'limit':16},status=409)
+  children=[p.read_text().strip() for p in Path(f'/proc/{self.process.pid}/task').glob('*/children')]
+  self.assertFalse(any(children),children)
+  self.assertFalse(list(logs.glob('*.log')))
+
  def test_expired_provider_generation_never_recaptures_container_bytes(self):
   accepted=self.rpc('start',self.request(['/bin/sh','-c','echo EXPIRE-SECRET']))
   self.assertEqual(self.wait(accepted['ticket'])['exit_code'],0)

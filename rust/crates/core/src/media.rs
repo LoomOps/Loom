@@ -247,6 +247,7 @@ pub fn read(request: MediaRead) -> Result<HttpReply> {
                 libc::O_RDONLY
                     | libc::O_NOFOLLOW
                     | libc::O_NONBLOCK
+                    | libc::O_CLOEXEC
                     | if last { 0 } else { libc::O_DIRECTORY },
             )
         };

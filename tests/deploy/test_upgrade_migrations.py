@@ -91,7 +91,7 @@ print(json.dumps({'status':'done' if done else 'needed'}))
         with sqlite3.connect(self.db) as db:self.assertEqual(db.execute('SELECT * FROM credentials').fetchall(),[('owner','unchanged')])
 
 
-class PreservedRebuildTests(lifecycle.ReleaseLifecycleTests):
+class PreservedRebuildTests(lifecycle.ReleaseLifecycleFixture):
     def identity_state(self):
         (self.root/'config').mkdir();(self.root/'secrets').mkdir()
         (self.root/'config/api.json').write_text('{"installation_id":"original-install","machine_id":"original-machine"}')

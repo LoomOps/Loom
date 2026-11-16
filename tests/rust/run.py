@@ -4,6 +4,18 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 def declarations(path):
     return re.findall(r'#\[test\]\s*(?:#\[[^\]]*\]\s*)*(?:pub\s+)?fn\s+([A-Za-z_][A-Za-z_0-9]*)',path.read_text())
+def run_case(executable,full,path,timeout=60):
+    case={'name':path.stem+'.Rust.'+full.split('::')[-1],'source':str(path),'status':'failed'}
+    try:
+        result=subprocess.run([executable,full,'--exact','--nocapture'],capture_output=True,text=True,timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return {**case,'detail':f'Native test exceeded {timeout} seconds'}
+    output=result.stdout+result.stderr
+    # libtest returns zero for an ignored test and for a filter that ran nothing.
+    if result.returncode==0 and re.search(r'^test result: ok\. 1 passed; 0 failed; 0 ignored;',output,re.M):case['status']='passed'
+    elif result.returncode==0 and re.search(r'^test result: ok\. 0 passed; 0 failed; 1 ignored;',output,re.M):case['status']='skipped'
+    if case['status']!='passed':case['detail']=output
+    return case
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--output',type=Path,required=True);p.add_argument('--cargo',default=os.environ.get('CARGO','cargo'));a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
     start=time.monotonic();catalog=json.loads((ROOT/'docs/features/catalog.json').read_text());refs={s for f in catalog['features'] for s in f['sources']+f['tests']+f['contracts']+[f['spec']]};sources={s:hashlib.sha256((ROOT/s).read_bytes()).hexdigest() for s in sorted(refs)}
@@ -23,10 +35,7 @@ def main():
             if not line.endswith(': test'):continue
             full=line.removesuffix(': test');fn=full.split('::')[-1];path=index.get(fn)
             if path is None:errors.append('Unmapped native Rust test: '+full);continue
-            seen.add(fn);result=subprocess.run([executable,full,'--exact','--nocapture'],capture_output=True,text=True,timeout=60)
-            name=path.stem+'.Rust.'+fn;case={'name':name,'source':str(path.relative_to(ROOT)),'status':'passed' if result.returncode==0 else 'failed'}
-            if result.returncode:case['detail']=result.stdout+result.stderr
-            cases.append(case)
+            seen.add(fn);cases.append(run_case(executable,full,path.relative_to(ROOT)))
     errors.extend('Rust test was not executed: '+fn for fn in index.keys()-seen)
     report={'tests':len(cases),'successful':not errors and all(c['status']=='passed' for c in cases),'sources':sources,'cases':cases,'errors':errors,'seconds':time.monotonic()-start}
     (a.output/'rust.json').write_text(json.dumps(report,indent=2)+'\n')

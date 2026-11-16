@@ -222,7 +222,10 @@ impl Application {
             if kind == "cpu.smoke" {
                 stages.push(json!({"stage":"runtime","lane":"cpu","environment":{"type":"builtin","id":"Rust producer","dependencies":[],"primary_dependencies":[],"dependency_count":0},"storage":[],"inputs":[]}));
             }
-            let job_sql = r#"SELECT j.id,j.state,j.created,json_extract(j.spec,'$.category') category,json_extract(j.spec,'$.execution_mode') execution_mode,json_extract(j.spec,'$.profile.sha256') profile_sha256,COALESCE((SELECT c.id FROM jobs c,json_each(c.spec,'$.consolidates') src WHERE src.value=j.id AND c.state='complete' AND json_extract(c.result,'$.artifact_ready')=1 LIMIT 1),w.root,j.id) logical_job,EXISTS(SELECT 1 FROM attempts a LEFT JOIN rust_attempt_starts s ON s.attempt=a.id WHERE a.job=j.id AND (CASE WHEN s.attempt IS NOT NULL THEN s.accepted ELSE a.started END) IS NOT NULL) executed FROM jobs j LEFT JOIN workflow_nodes w ON w.job=j.id WHERE json_extract(j.spec,'$.kind')=? AND (? IS NULL OR json_extract(j.spec,'$.profile.sha256')=?)"#;
+            let job_sql = format!(
+                r#"{} SELECT j.id,j.state,j.created,json_extract(j.spec,'$.category') category,json_extract(j.spec,'$.execution_mode') execution_mode,json_extract(j.spec,'$.profile.sha256') profile_sha256,COALESCE((SELECT target FROM consolidation_roots WHERE source=j.id AND source_attempt IS j.attempt AND j.state='complete' ORDER BY target LIMIT 1),w.root,j.id) logical_job,EXISTS(SELECT 1 FROM attempts a LEFT JOIN rust_attempt_starts s ON s.attempt=a.id WHERE a.job=j.id AND (CASE WHEN s.attempt IS NOT NULL THEN s.accepted ELSE a.started END) IS NOT NULL) executed FROM jobs j LEFT JOIN workflow_nodes w ON w.job=j.id WHERE json_extract(j.spec,'$.kind')=? AND (? IS NULL OR json_extract(j.spec,'$.profile.sha256')=?)"#,
+                crate::query::CONSOLIDATION_CTE
+            );
             let jobs = rows(
                 &self.db,
                 &format!("{job_sql} ORDER BY created DESC LIMIT 200"),

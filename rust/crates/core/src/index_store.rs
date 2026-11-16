@@ -117,15 +117,33 @@ pub fn validate_layout(app: &Application) -> Result<()> {
         }
     }
     let overlaps = |a: &Path, b: &Path| a.starts_with(b) || b.starts_with(a);
+    let mut protected = vec![
+        app.bulk.clone(),
+        app.components.clone(),
+        app.local.join("log-spool"),
+        app.local.join("file-sources"),
+    ];
+    protected.extend(
+        app.config
+            .data_stores
+            .values()
+            .filter_map(|store| store["path"].as_str())
+            .map(PathBuf::from),
+    );
+    if let Some(path) = app
+        .config
+        .extra
+        .get("dependency_directory")
+        .and_then(Value::as_str)
+    {
+        protected.push(PathBuf::from(path));
+    }
     require(
         !overlaps(&index, &manifest)
-            && !app.local.starts_with(&index)
-            && !overlaps(&index, &app.local.join("log-spool"))
-            && !overlaps(&index, &app.local.join("file-sources"))
-            && !overlaps(&index, &app.bulk)
-            && !overlaps(&index, &app.components),
+            && [&index,&manifest].iter().all(|path|
+                !app.local.starts_with(path) && protected.iter().all(|root| !overlaps(path,root))),
         "catalog_layout",
-        "Derived index must be separate from authoritative state, manifests, logs and source roots",
+        "Derived catalog roots must be separate from authoritative state, logs, registered stores, software and dependencies",
         409,
     )
 }
@@ -743,7 +761,11 @@ impl Application {
             )?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(|_| Error::input("Unsupported search expression"))?;
-        let mut more = !file_scope && rows.len() > limit as usize;
+        let mut more = if file_scope {
+            rows.len() == 256
+        } else {
+            rows.len() > limit as usize
+        };
         let mut values = vec![];
         let mut bytes = 1024;
         let mut last = None;
@@ -774,13 +796,20 @@ impl Application {
                     && self
                         .canonical_file(&value)
                         .and_then(|entry| {
-                            let (file, _) = crate::inventory::open_copy(self, &entry)?;
+                            let readable =
+                                crate::inventory::open_copies(self, &entry).any(|candidate| {
+                                    candidate
+                                        .and_then(|(file, _)| {
+                                            file_receipt(
+                                                self,
+                                                &entry["item_id"],
+                                                &crate::inventory::file_stamp(&file.metadata()?),
+                                            )
+                                        })
+                                        .unwrap_or(false)
+                                });
                             require(
-                                file_receipt(
-                                    self,
-                                    &entry["item_id"],
-                                    &crate::inventory::file_stamp(&file.metadata()?),
-                                )?,
+                                readable,
                                 "content_changed",
                                 "Content search requires a current verified file receipt",
                                 409,
@@ -788,6 +817,9 @@ impl Application {
                         })
                         .is_err()
                 {
+                    // Continue from the last inspected candidate even when this
+                    // bounded page contains only unavailable content matches.
+                    last = Some((time, items::decimal(&id)?, tier, revision_key));
                     continue;
                 }
                 value.as_object_mut().unwrap().remove("summary");
@@ -810,7 +842,7 @@ impl Application {
             compact["match_basis"] = json!(if text.is_empty() { "filter" } else { "lexical" });
             values.push(compact);
         }
-        let next = if more && !values.is_empty() {
+        let next = if more {
             last.map(|(time,id,tier,revision)|sign(&json!({"query_version":2,"task_head":task_head,"last_tier":tier,"last_revision":revision,"generation":generation,"watermark":watermark,"query":query_hash,"access":access,"expires":c.as_ref().and_then(|c|c["expires"].as_f64()).unwrap_or(now()+300.),"last_time":time,"last_id":id}),&key)).transpose()?
         } else {
             None
@@ -861,43 +893,57 @@ impl IndexWriter {
             return Ok(0);
         }
         let mut count = 0;
-        for (id, body) in batch {
+        'files: for (id, body) in batch {
             self.db
                 .execute("UPDATE meta SET verification_after=? WHERE id=1", [&id])?;
             let hit: Value = serde_json::from_str(&body)?;
             let Ok(entry) = app.canonical_file(&hit) else {
                 continue;
             };
-            let Ok((mut f, _)) = crate::inventory::open_copy(app, &entry) else {
+            let mut chosen = None;
+            let mut budget = 64 * 1024 * 1024u64;
+            for candidate in crate::inventory::open_copies(app, &entry) {
+                let Ok((mut f, _)) = candidate else { continue };
+                let Ok(metadata) = f.metadata() else { continue };
+                let stamp = crate::inventory::file_stamp(&metadata);
+                let exists: bool = self.db.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM file_receipts WHERE id=? AND stamp=?)",
+                    params![id, stamp],
+                    |r| r.get(0),
+                )?;
+                if exists {
+                    continue 'files;
+                }
+                // Keep the original per-File hashing budget across all copies.
+                if metadata.len() > budget {
+                    continue;
+                }
+                budget -= metadata.len();
+                let verification = (|| -> Result<String> {
+                    let mut h = sha2::Sha256::new();
+                    let mut buf = [0u8; 65536];
+                    let mut bounded = f.by_ref().take(metadata.len() + 1);
+                    loop {
+                        let n = bounded.read(&mut buf)?;
+                        if n == 0 {
+                            break;
+                        }
+                        h.update(&buf[..n]);
+                    }
+                    Ok(format!("{:x}", h.finalize()))
+                })();
+                let Ok(digest) = verification else { continue };
+                if entry["sha256"] != digest
+                    || stamp != crate::inventory::file_stamp(&f.metadata()?)
+                {
+                    continue;
+                }
+                chosen = Some((f, metadata, stamp, digest));
+                break;
+            }
+            let Some((mut f, metadata, stamp, digest)) = chosen else {
                 continue;
             };
-            let metadata = f.metadata()?;
-            let stamp = crate::inventory::file_stamp(&metadata);
-            let exists: bool = self.db.query_row(
-                "SELECT EXISTS(SELECT 1 FROM file_receipts WHERE id=? AND stamp=?)",
-                params![id, stamp],
-                |r| r.get(0),
-            )?;
-            if exists {
-                continue;
-            }
-            // Large verification is an explicit administrator operation; never monopolize the index worker.
-            if metadata.len() > 64 * 1024 * 1024 {
-                continue;
-            }
-            let mut h = sha2::Sha256::new();
-            let mut buf = [0u8; 65536];
-            loop {
-                let n = f.read(&mut buf)?;
-                if n == 0 {
-                    break;
-                }
-                h.update(&buf[..n]);
-            }
-            let digest = format!("{:x}", h.finalize());
-            if entry["sha256"] != digest || stamp != crate::inventory::file_stamp(&f.metadata()?) {
-                continue;
-            }
             let mut projected = hit.clone();
             projected["copies"] = entry["copies"].clone();
             projected["availability"] = json!("verified");

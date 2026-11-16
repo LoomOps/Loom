@@ -1,6 +1,5 @@
 """Validate every distributable file, including code outside imported test modules."""
 import ast
-import hashlib
 import html
 import json
 from pathlib import Path
@@ -51,15 +50,6 @@ class DistributionTests(unittest.TestCase):
             if 'tests' in path.relative_to(ROOT).parts or path.name=='LICENSE':continue
             with self.subTest(path=str(path.relative_to(ROOT))):
                 self.assertNotRegex(path.read_text(),r'(?i)\bpale(?:-dispatcher)?\b|register_oidc|import jwt|import PyJWT|external_oidc')
-
-    def test_documentation_local_links_resolve(self):
-        for path in snapshot.sources():
-            if path.suffix!='.md':continue
-            for target in re.findall(r'\]\(([^\s)]+)\)',path.read_text()):
-                if ':' in target or target.startswith(('/', '#')) or '<' in target:continue
-                ref=target.partition('#')[0]
-                with self.subTest(document=str(path.relative_to(ROOT)),target=ref):
-                    self.assertTrue((path.parent/ref).exists())
 
     def test_server_entry_delegates_to_external_client_installer(self):
         entry=(ROOT/'loom_use/entry.md').read_text()

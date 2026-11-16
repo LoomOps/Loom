@@ -119,19 +119,10 @@ async fn perform_inner(
     work: Work,
 ) -> Result<()> {
     if work.publication {
-        let bytes = tokio::fs::read(work.folder.join("result.json"))
+        let manifest_path = work.folder.join("result.json");
+        let manifest = tokio::task::spawn_blocking(move || read_manifest(&manifest_path))
             .await
-            .map_err(Error::from);
-        let manifest = bytes
-            .and_then(|b| {
-                require(
-                    b.len() <= 8 * 1024 * 1024,
-                    "manifest",
-                    "Result manifest exceeds bound",
-                    400,
-                )?;
-                Ok(serde_json::from_slice(&b)?)
-            })
+            .map_err(|_| Error::new("verification", "Manifest reader stopped", 503))?
             .unwrap_or(Value::Null);
         let prepare_folder = work.folder.clone();
         let prepare_manifest = manifest.clone();
@@ -241,20 +232,24 @@ async fn perform_inner(
     }
     let mut request = service.request(work.clone()).await?;
     tokio::fs::create_dir_all(&work.folder).await?;
-    let verified_request = request.clone();
-    let verified_components = components.clone();
-    let verification =
-        tokio::task::spawn_blocking(move || verify_inputs(&verified_request, &verified_components))
-            .await
-            .map_err(|_| Error::new("verification", "Input verification task stopped", 503))?;
-    if let Err(e) = verification {
-        if already_sent {
-            service.unknown(work).await?;
-        } else {
-            service.returned(work,1,json!({"returned":true,"not_started":true,"reason":"input_verification_failed"})).await?;
+    let mut verified_request = request;
+    let verification = tokio::task::spawn_blocking(move || {
+        verify_inputs(&mut verified_request)?;
+        Ok::<_, Error>(verified_request)
+    })
+    .await
+    .map_err(|_| Error::new("verification", "Input verification task stopped", 503))?;
+    request = match verification {
+        Ok(request) => request,
+        Err(e) => {
+            if already_sent {
+                service.unknown(work).await?;
+            } else {
+                service.returned(work,1,json!({"returned":true,"not_started":true,"reason":"input_verification_failed"})).await?;
+            }
+            return Err(e);
         }
-        return Err(e);
-    }
+    };
     if work.spec["kind"] == "cpu.smoke" {
         return run_builtin(service, work, &mut request).await;
     }
@@ -451,20 +446,36 @@ async fn perform_inner(
     service.returned(work, code, state).await?;
     Ok(())
 }
-fn verify_inputs(request: &Value, _components: &Path) -> Result<()> {
-    for (_, item) in request["verified_inputs"].as_object().into_iter().flatten() {
-        let path = Path::new(
-            item["path"]
-                .as_str()
-                .ok_or_else(|| Error::input("Input path required"))?,
-        );
-        let (_, sha) = storage::file_hash(path)?;
-        require(
-            item["sha256"] == sha,
-            "input",
-            "Input changed after acceptance",
-            409,
-        )?;
+fn verify_inputs(request: &mut Value) -> Result<()> {
+    for (_, item) in request["verified_inputs"]
+        .as_object_mut()
+        .into_iter()
+        .flatten()
+    {
+        let candidates = item
+            .get("candidates")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_else(|| vec![item.clone()]);
+        let mut selected = None;
+        for candidate in candidates {
+            let path = Path::new(
+                candidate["path"]
+                    .as_str()
+                    .ok_or_else(|| Error::input("Input path required"))?,
+            );
+            if storage::file_hash(path).is_ok_and(|(_, sha)| candidate["sha256"] == sha) {
+                selected = Some(candidate);
+                break;
+            }
+        }
+        *item = selected.ok_or_else(|| {
+            Error::new(
+                "input",
+                "No registered input copy matches the accepted digest",
+                409,
+            )
+        })?;
     }
     if let Some(path) = request["component_path"].as_str() {
         for (name, digest) in request["source_pins"].as_object().into_iter().flatten() {
@@ -658,6 +669,13 @@ async fn run_builtin(service: Service, work: Work, request: &mut Value) -> Resul
     Ok(())
 }
 
+fn read_manifest(path: &Path) -> Result<Value> {
+    Ok(serde_json::from_slice(&loom_core::file_set::bounded(
+        path,
+        8 * 1024 * 1024,
+    )?)?)
+}
+
 fn verify_outputs(
     folder: &Path,
     manifest: &Value,
@@ -731,3 +749,7 @@ fn process_start(pid: u32) -> Option<String> {
     }
     values.nth(18).map(String::from)
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/rust/worker.rs"]
+mod tests;

@@ -1,17 +1,11 @@
 """Privacy regression for distributable template data, not a secret-audit guarantee."""
 import html
-import json
 from pathlib import Path
 import re
 import unittest
 ROOT=Path(__file__).resolve().parents[2]
 
 class PublicSourceTests(unittest.TestCase):
-    def payload(self,file,marker):
-        s=html.unescape((ROOT/file).read_text())
-        start=s.index(marker)+len(marker)
-        return json.JSONDecoder().raw_decode(s[start:])[0]
-
     def test_template_and_generated_workspace_start_without_embedded_records(self):
         for file in ['dashboard/workspace/template.html','dashboard/public/workspace.html']:
             with self.subTest(file=file):

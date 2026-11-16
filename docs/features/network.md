@@ -5,8 +5,6 @@
 New installations keep Dashboard and MCP on private Serve and require a separate public request-only Gateway. tag:loom supports Hub discovery; user grants apply per machine.
 tag:loom is Hub discovery only; access approvals target one stable machine/device identity and exact addresses. Public request listener exposes no operational data or MCP.
 
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
-
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
@@ -49,8 +47,6 @@ Related blocks: [identity](identity.md) · [diagnostics](diagnostics.md).
 - [tests/deploy/test_managed_resources.py](../../tests/deploy/test_managed_resources.py)
 - [tests/deploy/test_tailnet.py](../../tests/deploy/test_tailnet.py)
 
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
-
 Acceptance outside these fixtures:
 - Passing mocks does not replace actual administrator login, device approval or policy permissions.
 
@@ -59,3 +55,7 @@ session/CSRF relay, including read operations transported as POST. The native
 `/api/actions` and `/mcp` routes retain their direct-browser Origin rejection.
 The browser-relay-routes-v1 migration adds only missing owned private prefixes
 and refuses conflicting targets or a public private-ingress listener.
+
+An externally removed invitation enters the same revocation path as an explicit
+revoke. Local approval is removed before policy calls; managed SSH is disabled
+locally and cleanup failures remain retryable without restoring session access.

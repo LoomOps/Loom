@@ -261,10 +261,8 @@ def fence_for_uninstall(root,resume=False):
             raise
     elif mode=='maintenance' and resume:
         with sql(db) as c:
-            if c.execute("SELECT 1 FROM jobs WHERE state IN ('preparing','running','processing') LIMIT 1").fetchone():
-                raise ValueError('Active Jobs appeared before uninstall resume')
-            if c.execute("SELECT name FROM sqlite_master WHERE name='hooks'").fetchone() and c.execute("SELECT 1 FROM hooks WHERE state='pending' LIMIT 1").fetchone():
-                raise ValueError('Pending lifecycle callbacks before uninstall resume')
+            c.execute('BEGIN IMMEDIATE')
+            update.require_idle(c)
         resources_returned(root)
     else:raise ValueError('Instance is fenced by another operation: '+mode)
 

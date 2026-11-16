@@ -1,7 +1,6 @@
 // One scientific summary for cards and details. Registered-source extraction and
 // provenance live in Rust; this module formats their values, never host files.
 const loomResearchSections={context:'Context',collection:'Collection',quality:'Training eligibility',observations:'Sensors',physics:'Physics & control',annotations:'Annotations',instructions:'Language conditioning',model:'Model',training:'Training',validation:'Validation',evaluation:'Evaluation',population:'Population',scoring:'Success criteria'};
-const loomResearchMissing=new Set(['미기록','미측정','Not recorded','Unknown']);
 function loomResearchSummary(e){
  if(e.research_summary?.schema==='loom-research-summary/v1')return e.research_summary;
  // Compatibility with older servers/fixtures, restricted to recorded fields.
@@ -32,13 +31,13 @@ function loomResearchValue(f,{compact=false}={}){
  if(f.id==='split'&&typeof v==='object')return loomResearchSplit(v);
  if(f.id==='positive_coverage'&&v&&typeof v==='object')return Object.entries(v).map(([k,n])=>k+' '+loomResearchNumber(n)).join(' / ');
  if(f.id==='bc_ready'&&typeof v==='boolean')return v?'Ready':'Not ready';
- if(f.id==='architecture'&&typeof v==='string')return v.split(':')[0];
+ if(compact&&f.id==='architecture'&&typeof v==='string')return v.split(':')[0];
  if(f.id==='outputs'){
   if(Array.isArray(v))return v.join(' · ');
   if(v&&typeof v==='object')return Object.entries(v).map(([name,x])=>name+(x.shape?' ['+x.shape.join('×')+']':'')).join(' · ');
  }
  if(f.id==='model_role'&&typeof v==='string')return ({observer:'Observer',vla:'VLA',policy:'Policy',world_model:'World model'})[v]||v;
- if(f.id==='training_method'&&typeof v==='string')return v.split(';')[0];
+ if(compact&&f.id==='training_method'&&typeof v==='string')return v.split(';')[0];
  if(typeof v==='boolean')return v?'Yes':'No';
  if(typeof v==='number'){
   if(unit==='m'&&['validation_mean_error','validation_p95_error','point_mean_error','point_p95_error','hold_center_drift_m','height_tolerance_m'].includes(f.id)){v*=1000;unit='mm';}

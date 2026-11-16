@@ -20,7 +20,7 @@ A previous browser session cannot be used when the current Tailscale account dif
 
 - The `Tailscale` menu and lower-left profile open the same private tab.
 - Ordinary users see Account; only Admin sees Member/Access Request.
-- Pin the authenticated current Admin above members. List only **users whose share acceptance, Loom approval and grant application are complete**. Do not query tailnet `/users`. The Admin row is separate from share records and has no share-revoke button. Roles display Admin/Member. Acceptance alone or externally created shares do not qualify. Access Request displays English Grant status labels. Revocation immediately removes the user from Member.
+- Pin the authenticated current Admin above members. List only **users whose share acceptance, Loom approval and grant application are complete**. Member listing does not query tailnet `/users`; the pre-invitation identity check below does. The Admin row is separate from share records and has no share-revoke button. Roles display Admin/Member. Acceptance alone or externally created shares do not qualify. Access Request displays English Grant status labels. Revocation immediately removes the user from Member.
 - Administrative APIs: `/admission/session`, `/admission/requests`, `/admission/members`, `/admission/decide` (approve/deny/retry/revoke/remove), `/admission/share-revoke` (this machine's share ID). Admin Remove deletes fully cleaned denied/revoked requests and receipt links without leaving a deleted-state row; administrative audit logs remain. It cannot delete pending, ready or partially cleaned requests. Administration is integrated into the Dashboard Tailscale view. The public gateway exposes no administrative API, MCP or Jobs.
 - Public intake APIs return only request status linked to the caller's receipt, not invitation URLs or the actual accepting account. Sharing mode does not expose `/api/device`, `/api/device-name` or `/api/devices`.
 
@@ -30,7 +30,7 @@ Internal users use explicit native Tailscale bindings. External shared users req
 
 Signed Dashboard relay assertions retain the installation issuer/key but are verified locally. Every shared-session data request rechecks Serve identity and current approval. Copying a cookie to another user or revoking the share prevents data access through that session. MCP retains trusted Serve authentication, with network grants restricting the same ports.
 
-Deny/Revoke first removes Loom-granted group access, then deletes the share invitation. Preserve group access when the same account still needs it through another approved share or preserved membership approval. Never delete other machines, tailnet users, recipient devices or administrator-created permissions. Direct console share deletion is detected on the next reconciliation.
+Deny/Revoke removes local approval and disables managed SSH before remote cleanup. It then removes Loom-granted group access and deletes the share invitation. Preserve group access when the same account still needs it through another approved share or preserved membership approval. Never delete other machines, tailnet users, recipient devices or administrator-created permissions. Direct console share deletion is detected on the next reconciliation.
 
 ## Deduplication, retries and preservation
 

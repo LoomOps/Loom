@@ -19,8 +19,10 @@ pub fn call(socket: &Path, credential: &Path, action: &str, body: &Value) -> Res
         "Invalid host action",
         400,
     )?;
-    let token = std::fs::read_to_string(credential)?;
-    let token = token.trim();
+    let credential = loom_core::file_set::bounded(credential, 4096)?;
+    let token = std::str::from_utf8(&credential)
+        .map_err(|_| Error::input("Invalid executor credential encoding"))?
+        .trim();
     require(
         !token.is_empty() && !token.contains(['\r', '\n']),
         "credential",

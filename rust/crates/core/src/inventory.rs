@@ -28,7 +28,7 @@ pub struct PreparedInventory {
     pub sha256: String,
 }
 fn bounded(path: &Path, limit: usize) -> Result<Vec<u8>> {
-    let mut file = fs::File::open(path)?;
+    let mut file = storage::open_regular(path)?;
     let mut bytes = vec![];
     file.by_ref()
         .take(limit as u64 + 1)
@@ -92,7 +92,7 @@ fn source_entries(app: &Application, native: &Value) -> Result<Vec<Value>> {
             if let Some(binary) = m["build_receipt"].get("binary") {
                 let mut copy = binary.clone();
                 copy["type"] = json!("storage");
-                result.push(json!({"entry_key":"@build","path":"build artifact","role":"build","size":m["build_receipt"]["size"],"sha256":m["build_receipt"]["sha256"],"copies":[copy]}));
+                result.push(json!({"entry_key":"@build","path":"build artifact","role":"build","size":binary["size"],"sha256":binary["sha256"],"copies":[copy]}));
             }
         }
         _ => {}
@@ -655,22 +655,8 @@ impl Application {
         }
         let mut chosen = None;
         let mut first_error = None;
-        let maximum = self
-            .config
-            .extra
-            .get("catalog")
-            .and_then(|c| c["read_copy_candidates"].as_u64())
-            .unwrap_or(8)
-            .clamp(1, 32) as usize;
-        for copy in entry["copies"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .take(maximum)
-        {
-            let mut candidate = entry.clone();
-            candidate["copies"] = json!([copy]);
-            let result = open_copy(self, &candidate).and_then(|(mut file, _)| {
+        for candidate in open_copies(self, &entry) {
+            let result = candidate.and_then(|(mut file, _)| {
                 self.verified_open_copy(&entry, &mut file)
                     .map(|(stamp, size)| (file, stamp, size))
             });
@@ -730,6 +716,28 @@ pub fn file_stamp(m: &fs::Metadata) -> String {
         m.ctime(),
         m.ctime_nsec()
     )
+}
+pub(crate) fn open_copies<'a>(
+    app: &'a Application,
+    entry: &'a Value,
+) -> impl Iterator<Item = Result<(fs::File, Value)>> + 'a {
+    let maximum = app
+        .config
+        .extra
+        .get("catalog")
+        .and_then(|c| c["read_copy_candidates"].as_u64())
+        .unwrap_or(8)
+        .clamp(1, 32) as usize;
+    entry["copies"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .take(maximum)
+        .map(move |copy| {
+            let mut candidate = entry.clone();
+            candidate["copies"] = json!([copy]);
+            open_copy(app, &candidate)
+        })
 }
 pub fn open_copy(app: &Application, entry: &Value) -> Result<(fs::File, Value)> {
     for c in entry["copies"].as_array().into_iter().flatten() {

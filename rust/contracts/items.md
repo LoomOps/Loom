@@ -84,3 +84,45 @@ text. Legacy logs cannot bypass expiry; use exact stream ranges to inspect cover
 These actions do not acknowledge events, create scientific Jobs or stop containers.
 
 For explicit adoption/import/copy binding, load the `reconciliation` guide.
+
+## Local/SSH file analysis
+
+Use MCP for File identity, current copy locations and expected hashes; keep large
+file bytes on the owning host. For one `storage` copy from `results.get_file`:
+
+1. Match its `machine_id` to the selected connection's `system.status.machine_id`.
+2. Match its `storage_id` to a selector in `system.status.data_stores`.
+3. Use that selector's host root from `system.ssh.data_paths` plus the copy's
+   nonescaping relative `ref`. Do not use a container mount path as a host path.
+
+`system.ssh` also provides the current caller's optional SSH descriptor. Same-host
+clients use the current OS account. Remote clients need an enabled personal grant
+or an existing explicitly authorized manual route. An MCP token is not an SSH
+credential; metadata resolution does not prove login, file or interpreter access.
+A copy on another machine requires its own selected connection; never guess a host
+from a historical machine label or forward this connection's token to it.
+
+The independent Loom Use client offers `ssh resolve` and optional read-only probes;
+see its [SSH how-to](https://github.com/LoomOps/Loom-Use/blob/main/docs/ssh.md).
+Older clients can compose the metadata above without downloading the file through
+MCP. Preserve exact File/revision identity, copy locator, size and SHA-256. Check
+actual account permissions, storage identity and expected bytes before relying on
+an analysis. An SSH-side hash check does not create a server verification receipt.
+
+Use an existing suitable **host** interpreter for short CPU inspection. A registered
+container Runtime is not proof that its Python path or libraries are available on
+the host or readable by that SSH account. Select compatible Runtime/Profiles and
+Loom Jobs for GPU or long-running work; do not bypass the queue with SSH processes.
+Do not install packages merely because the host default Python lacks a reader.
+
+Inspect TAR/ZIP contents in place when practical and write derived working files
+in the personal workspace. An archive-member hint does not create a registered
+File or prove that member's contents. Follow explicit manifests, current historical
+bindings or preserved reference indexes for unregistered legacy working files.
+Search can be ready while `file_content_coverage_bounded` still marks file queries
+partial. Zero hits in such a query do not establish filesystem absence, and a
+single file question does not require whole-store reconciliation.
+
+A bounded file-content page may contain no readable matches and still return a
+`next_cursor`. Follow that cursor to continue the same search snapshot; stop when
+it is null. Unreadable content matches are excluded from the returned Items.

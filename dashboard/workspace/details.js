@@ -72,13 +72,12 @@ function loomJobPanel(job, entry) {
   const timeline=record.work_timeline;
   const timeRange=value=>queueTime(queueMillis(value?.started))+' → '+queueTime(queueMillis(value?.ended));
   const workTime=timeline?panel('전체 작업 시간','<p data-loom-work-time>'+timeRange(timeline)+'</p>'
-    +'<p>원본 생성부터 통합 검증까지의 경과 시간입니다. 아래 Attempts는 통합 검증 실행 기록입니다.</p>'
-    +catTable(['실행','시작','종료'],timeline.executions.map(value=>[value.role==='source'?catLink(value.job):'통합 검증',queueTime(queueMillis(value.started)),queueTime(queueMillis(value.ended))]))):'';
-  const internal = progress ? panel('Internal steps', '<p>실행기가 보고한 진행 상태입니다. Job 완료와 결과 검증은 별도로 확인합니다.</p>'
+    +catTable(['실행','시작','종료'],timeline.executions.map(value=>[catLink(value.job),queueTime(queueMillis(value.started)),queueTime(queueMillis(value.ended))]))):'';
+  const internal = progress ? panel('Internal steps', ''
     +(progress.status==='unavailable'?'<p>'+esc(progress.reason)+'</p>':'')
     +catTable(['Step','상태','원본 실행 시간','상세'],(progress.steps||[]).map(step=>[esc(step.label),esc(step.state),step.source_execution?timeRange(step.source_execution):'—',esc(step.detail||'')]))):'';
   const sources=record.consolidation?.sources||[];
-  const continuity=sources.length?panel('이전 실행 이력', '<p>검증된 기존 산출물을 재사용합니다. 원 실행 기록은 보존됩니다.</p>'
+  const continuity=sources.length?panel('이전 실행 이력', ''
     +catTable(['Job','Attempt'],sources.map(source=>[catLink(source.job),esc(source.attempt)]))):'';
   const target=record.consolidation?.consolidated_into;
   const previous=record.previous_result;
@@ -231,7 +230,6 @@ function loomDatasetProperties(entity) {
   const metadata = entity.metadata || p;
   const missing = {not_applicable:'해당 없음',not_recorded:'미기록',not_measured:'미측정',pending:'집계 대기',source_error:'소스 오류'};
   const quantity = (value, reason) => value == null ? (missing[reason] || '미기록') : catNum(value);
-  const role = d.role || p.dataset_role;
   const splitOrder={train:0,validation:1,val:1,test:2};
   const splits = Array.isArray(d.splits) ? [...d.splits].sort((a,b)=>(splitOrder[a.id]??3)-(splitOrder[b.id]??3)) : [];
   return {
@@ -335,7 +333,7 @@ catalogDetail = function(id) {
   // incorrectly suggested that these completed Jobs had no execution record.
   const liveJob = descriptor?.kind === 'job' || !!entity?.loom_imported_job;
   const base = loomDetailHeading(liveJob
-    ? heading('JOB', esc(entity.label), '', paiEntityActions(id))
+    ? heading('JOB', entity.label, '', paiEntityActions(id))
       + panel('실행', catTable(['등록','실행 시작','실행 종료','실행 시간'], [queueRow(entity).slice(2)]))
     : loomCatalogDetail(id), id);
   if (!descriptor) return base;

@@ -108,7 +108,7 @@ Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crate
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -155,7 +155,7 @@ Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crate
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -397,7 +397,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -623,7 +623,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -778,7 +778,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -825,7 +825,7 @@ Scope: `cancel`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -861,9 +861,12 @@ Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crate
       "type": "string"
     },
     "limit": {
+      "maximum": 65536,
+      "minimum": 1,
       "type": "integer"
     },
     "offset": {
+      "minimum": 0,
       "type": "integer"
     }
   },
@@ -890,7 +893,7 @@ Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crate
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -928,7 +931,7 @@ Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crate
 {}
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -938,7 +941,7 @@ Shared authentication, schema, scope and handler preconditions still apply.
 
 ## reorder
 
-Move a waiting Job ahead of other users' Jobs. Preserve running Jobs and dependencies.
+Move a waiting Job; a logical workflow moves its remaining waiting nodes as one group. Preserve running Jobs and dependencies.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/jobs.rs#job_action](../../rust/crates/core/src/jobs.rs).
 
@@ -996,7 +999,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1048,7 +1051,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1100,7 +1103,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1153,7 +1156,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1239,13 +1242,13 @@ Scope: `submit`. Owner: [catalog](../features/catalog.md). Implementation: [rust
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.
+Retention maintenance task · id, kind, state, progress, receipt, error
 
-source_conflict plan_stale validation_required content_changed retention_gap cursor_expired index_unavailable
+Live/unreturned source, unknown generation, unavailable raw bytes or changed request key.
 
 ## log_streams
 
@@ -1305,13 +1308,13 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.
+Stream page · items, next_after, partial, warnings
 
-unknown_item index_unavailable cursor_expired source_unavailable content_changed query_too_broad
+Unknown Job or unavailable exact stream metadata.
 
 ## search_logs
 
@@ -1388,13 +1391,13 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.
+Log search page · items with raw offset references, next_cursor, partial, consistency, warnings
 
-unknown_item index_unavailable cursor_expired source_unavailable content_changed query_too_broad
+Query too broad, unavailable index/source, expired cursor or retained-byte gap.
 
 ## read_log
 
@@ -1458,10 +1461,10 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.
+Log range · stream_id, source_generation, raw offsets, data_base64, text, eof, closed, gap
 
-unknown_item index_unavailable cursor_expired source_unavailable content_changed query_too_broad
+Unknown stream, changed source generation, expired retention or unavailable raw bytes.

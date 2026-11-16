@@ -514,8 +514,14 @@ impl Application {
                 continue;
             }
             let item = params[name].clone();
-            let locator = if item["artifact"].is_object() {
-                self.artifact_input(&item["artifact"], item["member"].as_str())?
+            require(
+                item.get("member").is_none_or(Value::is_string),
+                "input",
+                "Input member must be a string",
+                400,
+            )?;
+            let locators = if item["artifact"].is_object() {
+                self.artifact_copies(&item["artifact"], item["member"].as_str())?
             } else if item["job"].is_string() {
                 let upstream = item["job"].as_str().unwrap();
                 let entity = item["entity"]
@@ -562,55 +568,74 @@ impl Application {
                     .and_then(|r| r["entities"].as_array())
                     .and_then(|a| a.iter().find(|e| e["id"] == entity))
                     .ok_or_else(|| Error::input("Upstream output not found"))?;
-                if let Some(member) = item["member"].as_str() {
-                    self.artifact_input(
-                        &json!({"id":format!("{upstream}.{entity}"),"revision":1}),
-                        Some(member),
-                    )?
+                let identity = json!({"id":format!("{upstream}.{entity}"),"revision":1});
+                let registered: bool = self.db.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM all_entity_revisions WHERE id=? AND revision=1)",
+                    [identity["id"].as_str().unwrap()],
+                    |r| r.get(0),
+                )?;
+                if registered || item["member"].is_string() {
+                    self.artifact_copies(&identity, item["member"].as_str())?
                 } else {
+                    // Retained Jobs may predate the entity registry.
                     let mut locator = output["locator"].clone();
                     locator["sha256"] = output["sha256"].clone();
-                    locator
+                    vec![locator]
                 }
             } else {
-                item
+                vec![item]
             };
-            let path = crate::storage::locator(&self.config, &self.bulk, &locator)?;
-            let expected = locator["sha256"]
-                .as_str()
-                .ok_or_else(|| Error::input("Input hash required"))?;
-            let selector = if locator["storage_id"] == self.config.storage_id {
-                "data/0".to_string()
-            } else {
-                self.config
-                    .data_stores
-                    .iter()
-                    .find(|(_, s)| s["storage_id"] == locator["storage_id"])
-                    .map(|(k, _)| k.clone())
-                    .ok_or_else(|| Error::input("Input store unknown"))?
-            };
-            let (root, _) = crate::storage::store(
-                &self.config,
-                &self.bulk,
-                &selector,
-                locator["storage_id"].as_str(),
-            )?;
-            let prefix = crate::storage::prefix(
-                &root,
-                prefix
+            let mut candidates = Vec::new();
+            for locator in locators {
+                let path = crate::storage::locator(&self.config, &self.bulk, &locator)?;
+                let expected = locator["sha256"]
                     .as_str()
-                    .ok_or_else(|| Error::input("Input prefix required"))?,
-            )?;
+                    .ok_or_else(|| Error::input("Input hash required"))?;
+                let selector = if locator["storage_id"] == self.config.storage_id {
+                    "data/0".to_string()
+                } else {
+                    self.config
+                        .data_stores
+                        .iter()
+                        .find(|(_, s)| s["storage_id"] == locator["storage_id"])
+                        .map(|(k, _)| k.clone())
+                        .ok_or_else(|| Error::input("Input store unknown"))?
+                };
+                let (root, _) = crate::storage::store(
+                    &self.config,
+                    &self.bulk,
+                    &selector,
+                    locator["storage_id"].as_str(),
+                )?;
+                let prefix = crate::storage::prefix(
+                    &root,
+                    prefix
+                        .as_str()
+                        .ok_or_else(|| Error::input("Input prefix required"))?,
+                )?;
+                if path.starts_with(prefix) {
+                    candidates.push(json!({"path":path,"storage":selector,"ref":locator["ref"],"sha256":expected}));
+                }
+            }
+            candidates.truncate(
+                self.config
+                    .extra
+                    .get("catalog")
+                    .and_then(|c| c["read_copy_candidates"].as_u64())
+                    .unwrap_or(8)
+                    .clamp(1, 32) as usize,
+            );
             require(
-                path.starts_with(prefix),
+                !candidates.is_empty(),
                 "input",
                 "Input outside Profile prefix",
                 403,
             )?;
-            inputs.insert(
-                name.clone(),
-                json!({"path":path,"storage":selector,"ref":locator["ref"],"sha256":expected}),
-            );
+            let mut input = candidates[0].clone();
+            if candidates.len() > 1 {
+                input["candidates"] = json!(candidates);
+            }
+            inputs.insert(name.clone(), input);
             params[name] = json!(format!("/inputs/{name}"));
         }
         let mut runner = if work.stage == "run" {

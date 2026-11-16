@@ -45,10 +45,11 @@ impl Application {
             .and_then(|c| c["after"].as_str())
             .unwrap_or("");
         let limit = args["limit"].as_u64().unwrap_or(50).clamp(1, 200) as usize;
-        let inverse_software = matches!(
-            native["kind"].as_str(),
-            Some("component" | "tool" | "runtime" | "dependency")
-        );
+        let inverse_software = args["direction"] != "outgoing"
+            && matches!(
+                native["kind"].as_str(),
+                Some("component" | "tool" | "runtime" | "dependency")
+            );
         let index = if inverse_software {
             index_store::read(self)
                 .ok()
@@ -255,6 +256,10 @@ impl Application {
             }
             if offset + values.len() < declared.len() {
                 next = Some(json!({"lane":0,"offset":offset+values.len(),"after":""}));
+            } else if args["direction"] != "outgoing" && values.len() == limit {
+                // The last declaration can fill the page exactly. Continue in
+                // the reverse lane rather than dropping every incoming edge.
+                next = Some(json!({"lane":1,"offset":0,"after":""}));
             }
         }
         let mut inverse = vec![];

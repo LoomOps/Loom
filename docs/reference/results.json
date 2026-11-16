@@ -6,7 +6,6 @@
       "description": "Discover native artifacts and imported models/datasets/experiments from the active catalog. For record_type=historical, pass history_ref to results.historical; other entries use results.get. Discovery does not establish file availability. Labels use current presentation curation; results.historical retains the recorded source name.",
       "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/results.rs#result_action",
@@ -36,19 +35,18 @@
       "action": "get",
       "description": "Read an artifact record by ID and revision.",
       "errors": [
-        "Artifact access denied or missing revision."
+        "Missing artifact revision or read scope."
       ],
       "example": {
         "id": "<entity-id>",
         "revision": 1
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/results.rs#result_action",
         "feature": "results"
       },
-      "returns": "Registry entity view with the current curated display label; the accepted source manifest, revision and file pins remain unchanged.",
+      "returns": "Registry entity with current display label, immutable manifest fields and registered locations",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -79,7 +77,6 @@
         "attempt": "<attempt-id>",
         "id": "<job-id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/results.rs#result_action",
@@ -119,7 +116,6 @@
         "revision": 1,
         "storage": "data/1"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/results.rs#result_action",
@@ -172,7 +168,6 @@
         "id": "<job-id>",
         "reason": "Review note"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/results.rs#result_action",
@@ -218,7 +213,6 @@
         "limit": 50,
         "offset": 0
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/results.rs#result_action",
@@ -261,7 +255,6 @@
         "revision": "1",
         "source": "loom-ops"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/results.rs#result_action",
@@ -309,7 +302,6 @@
         "id": "<entity-id>",
         "owner": "<profile-id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/results.rs#result_action",
@@ -513,7 +505,6 @@
           "member_count": 20
         }
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities and hashes with exact registered records before preview or apply.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/dataset_lineage.rs#link_dataset",
@@ -788,7 +779,6 @@
       "description": "List versioned research task/protocol contexts. Archived Research Tasks are omitted unless requested.",
       "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/scenario.rs#scenario_query",
@@ -828,7 +818,6 @@
         "id": "<scenario-id>",
         "revision": 1
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/scenario.rs#scenario_query",
@@ -869,7 +858,6 @@
         "offset": 0,
         "revision": 1
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/scenario.rs#scenario_query",
@@ -920,7 +908,6 @@
         },
         "key": "scenario-example-v1"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/scenario.rs#create_scenario",
@@ -965,7 +952,6 @@
         "key": "scenario-example-v2",
         "reason": "Protocol clarification"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/scenario.rs#update_scenario",
@@ -1023,7 +1009,6 @@
         "key": "archive-example",
         "reason": "No longer a current protocol"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/scenario.rs#archive_scenario",
@@ -1088,7 +1073,6 @@
           "kind": "job"
         }
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/scenario.rs#link_scenario",
@@ -1186,7 +1170,6 @@
         "reason": "Corrected explicit context",
         "replacement": null
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/scenario.rs#supersede_scenario_link",
@@ -1253,7 +1236,6 @@
         "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
         "size": 0
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/results.rs#result_action",
@@ -1299,23 +1281,14 @@
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "reconcile_contract",
       "description": "Read accepted source adapters, explicit operations, scopes and limits.",
-      "errors": [
-        "source_conflict",
-        "plan_stale",
-        "validation_required",
-        "content_changed",
-        "retention_gap",
-        "cursor_expired",
-        "index_unavailable"
-      ],
+      "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation",
         "feature": "results"
       },
-      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "returns": "Contract · accepted asset adapters, operations, size/count limits and validation scope",
       "schema": {
         "additionalProperties": false,
         "properties": {},
@@ -1330,13 +1303,7 @@
       "action": "reconcile_inspect",
       "description": "Page registered metadata without scanning unregistered payload directories.",
       "errors": [
-        "source_conflict",
-        "plan_stale",
-        "validation_required",
-        "content_changed",
-        "retention_gap",
-        "cursor_expired",
-        "index_unavailable"
+        "Index unavailable, invalid filter or expired cursor."
       ],
       "example": {
         "kinds": [
@@ -1344,13 +1311,12 @@
         ],
         "limit": 50
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation",
         "feature": "results"
       },
-      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "returns": "Registered metadata page · items, next_cursor, partial, warnings, scope, scan_performed=false",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -1382,13 +1348,7 @@
       "action": "reconcile_plan",
       "description": "Normalize a bounded explicit proposal with a stable key; reject ambiguous or conflicting identities. This does not copy files or create research execution.",
       "errors": [
-        "source_conflict",
-        "plan_stale",
-        "validation_required",
-        "content_changed",
-        "retention_gap",
-        "cursor_expired",
-        "index_unavailable"
+        "Unknown source contract, conflicting source identity/key or proposal bound exceeded."
       ],
       "example": {
         "key": "preserved-assets-v1",
@@ -1408,13 +1368,12 @@
           "schema": "loom-reconcile/v1"
         }
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation",
         "feature": "results"
       },
-      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "returns": "Plan · plan_id, state, normalized proposal, validation and optional original receipt",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -1441,24 +1400,17 @@
       "action": "reconcile_get",
       "description": "Read the caller’s durable proposal, validation state and original apply receipt.",
       "errors": [
-        "source_conflict",
-        "plan_stale",
-        "validation_required",
-        "content_changed",
-        "retention_gap",
-        "cursor_expired",
-        "index_unavailable"
+        "Plan missing or owned by another actor."
       ],
       "example": {
         "plan_id": "plan-id"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation",
         "feature": "results"
       },
-      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "returns": "Plan · plan_id, state, proposal, created, validation summary, receipt",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -1481,24 +1433,17 @@
       "action": "reconcile_validate",
       "description": "Hash only declared candidates off the execution writer, check grants and original evidence, and record proofs. Validation is structural and byte-integrity only.",
       "errors": [
-        "source_conflict",
-        "plan_stale",
-        "validation_required",
-        "content_changed",
-        "retention_gap",
-        "cursor_expired",
-        "index_unavailable"
+        "Plan context/source changed, inaccessible candidate, mismatched digest/size or another actor’s plan."
       ],
       "example": {
         "plan_id": "plan-id"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation",
         "feature": "results"
       },
-      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "returns": "Plan with passed validation summary · file count, bytes and verification time",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -1521,24 +1466,17 @@
       "action": "reconcile_apply",
       "description": "Recheck source stamps, exact identities and grants, then atomically add imports or bindings. Historical originals and Job/Attempt counts are preserved.",
       "errors": [
-        "source_conflict",
-        "plan_stale",
-        "validation_required",
-        "content_changed",
-        "retention_gap",
-        "cursor_expired",
-        "index_unavailable"
+        "Validation required, stale contract/source/grant, changed bytes or conflicting import/binding."
       ],
       "example": {
         "plan_id": "plan-id"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/reconcile.rs#reconciliation",
         "feature": "results"
       },
-      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "returns": "Applied plan receipt with original operation outcomes; exact replay returns that receipt",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -1561,23 +1499,17 @@
       "action": "get_item",
       "description": "Read a compact typed descriptor using a decimal-string Item ID and optional exact revision. Display labels use current curation even when an exact revision is selected; immutable source pins remain unchanged.",
       "errors": [
-        "unknown_item",
-        "index_unavailable",
-        "cursor_expired",
-        "source_unavailable",
-        "content_changed",
-        "query_too_broad"
+        "Invalid Item ID or missing/deleted source revision. File Items also require their canonical inventory and index."
       ],
       "example": {
         "item_id": "12345678901234567890"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/items.rs#get_item",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "returns": "Item descriptor · item_id, revision_id, kind, label, native_ref and kind-specific metadata",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -1603,12 +1535,7 @@
       "action": "resolve_item",
       "description": "Resolve an already adopted full native identity without allocation, promotion or latest-snapshot substitution.",
       "errors": [
-        "unknown_item",
-        "index_unavailable",
-        "cursor_expired",
-        "source_unavailable",
-        "content_changed",
-        "query_too_broad"
+        "The exact native reference has not been adopted, or its source was deleted."
       ],
       "example": {
         "native_ref": {
@@ -1618,13 +1545,12 @@
           "kind": "job"
         }
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/items.rs#resolve_item",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "returns": "Exact alias · item_id, revision_id, native_ref",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -1656,23 +1582,17 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "search_items",
-      "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both.",
+      "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates.",
       "errors": [
-        "unknown_item",
-        "index_unavailable",
-        "cursor_expired",
-        "source_unavailable",
-        "content_changed",
-        "query_too_broad"
+        "Index unavailable, invalid/expired cursor, changed source/access or unsupported search."
       ],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/index_store.rs#search_items",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "returns": "Search page · items, next_cursor, partial, consistency, warnings",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -1811,24 +1731,18 @@
       "action": "item_files",
       "description": "Page the sealed registered file inventory for an exact Item revision; File IDs survive derived index rebuilds.",
       "errors": [
-        "unknown_item",
-        "index_unavailable",
-        "cursor_expired",
-        "source_unavailable",
-        "content_changed",
-        "query_too_broad"
+        "Missing owner revision, unavailable index/inventory or expired cursor."
       ],
       "example": {
         "item_id": "12345678901234567890",
         "limit": 50
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/store.rs#execute",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "returns": "File search page · items, next_cursor, partial, consistency, warnings",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -1977,23 +1891,17 @@
       "action": "get_file",
       "description": "Read recorded digest, exact owner revision and currently registered candidate copies.",
       "errors": [
-        "unknown_item",
-        "index_unavailable",
-        "cursor_expired",
-        "source_unavailable",
-        "content_changed",
-        "query_too_broad"
+        "Unknown File, unavailable index/canonical inventory or changed sealed metadata."
       ],
       "example": {
         "file_item_id": "12345678901234567890"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/inventory.rs#get_file",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "returns": "File · item_id, revision_id, parent_item_id, owner_revision_id, path, size, sha256, copies",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -2015,25 +1923,19 @@
       "action": "read_file",
       "description": "Read at most 262144 verified bytes; offsets are decimal strings and returned data_base64 preserves raw bytes.",
       "errors": [
-        "unknown_item",
-        "index_unavailable",
-        "cursor_expired",
-        "source_unavailable",
-        "content_changed",
-        "query_too_broad"
+        "No granted readable copy, pending verification, changed bytes or invalid offset."
       ],
       "example": {
         "file_item_id": "12345678901234567890",
         "limit": 4096,
         "offset": "0"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/inventory.rs#read_file",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "returns": "File range · file_item_id, offset, next_offset, total_bytes, data_base64, eof, verification",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -2064,24 +1966,18 @@
       "action": "item_relations",
       "description": "Page exact outgoing declarations and indexed reverse software use. Cursors pin source revision, authority head, actor and index generation; unresolved references remain explicit.",
       "errors": [
-        "unknown_item",
-        "index_unavailable",
-        "cursor_expired",
-        "source_unavailable",
-        "content_changed",
-        "query_too_broad"
+        "Missing source revision or expired cursor; incoming relations require a source-qualified index."
       ],
       "example": {
         "item_id": "12345678901234567890",
         "limit": 50
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "results",
       "implementation": {
         "entrypoint": "rust/crates/core/src/graph.rs#item_graph",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "returns": "Relation page · items, next_cursor, partial, warnings",
       "schema": {
         "additionalProperties": false,
         "properties": {

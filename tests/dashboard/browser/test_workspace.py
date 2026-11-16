@@ -794,6 +794,9 @@ const done=arguments[arguments.length-1];
         self.assertEqual(self.ui.js("return [...document.querySelectorAll('[data-loom-work-time] time')].map(t=>t.getAttribute('datetime'))"),
                          ['2026-11-09T23:09:40.000Z','2026-11-10T04:47:19.000Z'])
         self.assertTrue(self.ui.js("return document.querySelector('#pa-content').textContent.includes('08:09:40') && document.querySelector('#pa-content').textContent.includes('12:47:02') && document.querySelector('#pa-content').textContent.includes('13:46:49')"))
+        self.assertFalse(self.ui.js("return document.querySelector('#pa-content').textContent.includes('통합 검증')"))
+        self.assertTrue(self.ui.js("return !!document.querySelector('[data-loom-work-time]').closest('.pa-panel').querySelector('[data-entity=fixture-canonical]')"))
+
 
     def test_queue_merges_live_and_imported_history_and_expands(self):
         ui=self.ui
@@ -1627,9 +1630,11 @@ const done=arguments[arguments.length-1];
 
     def test_scientific_input_groups_fit_small_panes_and_do_not_duplicate_model_inputs(self):
         ui=self.ui;model=next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-model')
-        model['properties']={};model['research_summary']={'schema':'loom-research-summary/v1','kind':'model','inputs':[{'kind':'rgb','label':'Head + wrist RGB','status':'present','shape':[2,48,64,3],'dtype':'uint8','preprocessing':'Calibrated resize preserving aspect ratio'},{'kind':'depth','label':'Depth','status':'present','shape':[2,48,64],'unit':'m'},{'kind':'state','label':'Recorded zero','status':'present','value':0},{'kind':'state','label':'Structured value','status':'present','value':{'dimensions':8}}],'facts':[{'id':'architecture','section':'model','label':'Architecture','value':'FixtureNet','status':'recorded','evidence':[]}],'sources':[]}
+        model['properties']={};model['research_summary']={'schema':'loom-research-summary/v1','kind':'model','inputs':[{'kind':'rgb','label':'Head + wrist RGB','status':'present','shape':[2,48,64,3],'dtype':'uint8','preprocessing':'Calibrated resize preserving aspect ratio'},{'kind':'depth','label':'Depth','status':'present','shape':[2,48,64],'unit':'m'},{'kind':'state','label':'Recorded zero','status':'present','value':0},{'kind':'state','label':'Structured value','status':'present','value':{'dimensions':8}}],'facts':[{'id':'architecture','section':'model','label':'Architecture','value':'FixtureNet: temporal fusion','status':'recorded','evidence':[]}],'sources':[]}
         self.api.fixture['catalog']['revision']='input-groups';ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('input-groups')")
         ui.route('fixture-model');ui.wait("return !!document.querySelector('.pa-research-input-panel')")
+        self.assertIn('FixtureNet: temporal fusion',ui.js("return document.querySelector('[data-research-section=model]').textContent"))
+
         self.assertFalse(ui.js("return !!document.querySelector('.pa-research-input-panel table')"))
         self.assertIn('State\n0',ui.js("return document.querySelector('.pa-research-input-panel').innerText"))
         self.assertNotIn('[object Object]',ui.js("return document.querySelector('.pa-research-input-panel').innerText"))
@@ -1761,3 +1766,42 @@ return {text:ratio(s.color,s.backgroundColor),border:ratio(s.borderTopColor,s.ba
         if folder:=os.environ.get('LOOM_TEST_SCREENSHOTS'):
             (Path(folder)/'task-badge-contrast.json').write_text(__import__('json').dumps(measurements,indent=2))
         self.assertFalse(self.api.actions)
+
+    def test_output_titles_and_legacy_metric_counts_are_text_not_markup(self):
+        ui=self.ui
+        label='<img src=x onerror="window.outputInjected=true"> & recorded'
+        model=next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-model')
+        model['label']=label
+        model['metrics']=[{'id':'literal','label':label,'kind':'scalar','observations':[]}]
+        run={'id':'literal-run','kind':'run','label':'Literal evaluation','properties':{},'metrics':[],
+             'relations':[{'kind':'evaluated_model','id':model['id']}],'artifacts':[],
+             'stage_sequence':[{'label':'Recorded','numerator':label,'denominator':2,'ratio':.5}],
+             'comparison':{'all':[{'id':'ratio','label':'Ratio','kind':'ratio','value':.5,'numerator':label,'denominator':2},
+                                  {'id':'scalar','label':'Scalar','kind':'scalar','value':1,'sample_n':label,'cohort_n':2}]}}
+        self.api.fixture['catalog']['entities'].append(run)
+        issue={'id':'literal-issue','kind':'issue','label':'Literal issue','properties':{},
+               'metrics':[{'id':'count','label':'Count','kind':'scalar','unit':'cases',
+                           'observations':[{'value':1,'numerator':label,'denominator':2}]}],
+               'relations':[],'artifacts':[]}
+        self.api.fixture['catalog']['entities'].append(issue)
+        self.api.fixture['catalog']['revision']='literal-output-fields'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('literal-output-fields')")
+        ui.route(model['id'])
+        self.assertEqual(ui.js("return document.querySelector('.pa-heading h1').textContent"),label)
+        self.assertIn(label,ui.js("return document.querySelector('.pa-analysis-grid h2').textContent"))
+        self.assertFalse(ui.js("return !!document.querySelector('#pa-content img')||!!window.outputInjected"))
+        # Old imported numeric fields may be malformed. They remain inert text in
+        # result cards, charts and Comparison instead of becoming DOM elements.
+        ui.route(run['id'])
+        for mode in ('table','graph'):
+            ui.click('[data-result-view='+mode+']')
+            self.assertIn(label,ui.js("return document.querySelector('.pa-result-flow').textContent"))
+            self.assertFalse(ui.js("return !!document.querySelector('#pa-content img')||!!window.outputInjected"))
+        ui.nav('Experiments');ui.click('[data-output-page=comparison]');ui.click('[data-compare-add]')
+        ui.wait("return !!document.querySelector('[data-compare-remove=literal-run]')")
+        self.assertEqual(ui.js("return document.querySelector('.cmp-table tbody').textContent.split(arguments[0]).length-1",label),2)
+        self.assertFalse(ui.js("return !!document.querySelector('#pa-content img')||!!window.outputInjected"))
+        ui.route(issue['id'])
+        self.assertIn(label,ui.js("return document.querySelector('.pa-metric-grid').textContent"))
+        self.assertFalse(ui.js("return !!document.querySelector('#pa-content img')||!!window.outputInjected"))

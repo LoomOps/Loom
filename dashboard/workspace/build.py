@@ -24,6 +24,20 @@ def build(original):
     match = re.search(r'data-srcdoc="([^"]*)"', outer)
     inner = html.unescape(match[1])
     inner = patch_logs(inner)
+    # Heading fields are text. panel() titles may contain authored count markup,
+    # so only the source-owned metric label is escaped at that call site.
+    inner = inner.replace('${eyebrow}', '${esc(eyebrow)}').replace('${title}</h1>', '${esc(title)}</h1>')
+    inner = replace_once(inner, 'aria-label="${title} 도움말"', 'aria-label="${esc(title)} 도움말"')
+    inner = replace_once(inner, "heading('JOB',esc(e.label),", "heading('JOB',e.label,")
+    inner = replace_once(inner, 'panel(m.label,contents', 'panel(esc(m.label),contents')
+    # Historical numeric fields are untrusted display values, not HTML.
+    for expression in ('m.numerator', 'm.denominator', "m.sample_n??'—'", "m.cohort_n??'—'", 'p.common_n', "rows[0]?.denominator??'—'"):
+        inner = inner.replace('${'+expression+'}', '${esc('+expression+')}')
+    inner = replace_once(inner, "r.numerator+' / '+r.denominator+'회'", "esc(r.numerator)+' / '+esc(r.denominator)+'회'")
+    inner = replace_once(inner, '`${x.numerator} / ${x.denominator}', '`${esc(x.numerator)} / ${esc(x.denominator)}')
+    inner = replace_once(inner,
+        "${o.denominator!=null?' · '+o.numerator+' / '+o.denominator:o.count!=null?' · n='+o.count:''}",
+        "${esc(o.denominator!=null?' · '+o.numerator+' / '+o.denominator:o.count!=null?' · n='+o.count:'')}")
     inner = replace_once(inner,
         "d.open=d.dataset.workGroup?!!v.openWorkGroups?.includes(d.dataset.workGroup):!!v.openDetails?.includes(i);",
         "d.open=d.hasAttribute('data-dataset-family')?loomDatasetGroupOpen(v,'task:'+d.dataset.datasetFamily):d.hasAttribute('data-dataset-group')?loomDatasetGroupOpen(v,d.dataset.datasetGroup):d.dataset.workGroup?!!v.openWorkGroups?.includes(d.dataset.workGroup):!!v.openDetails?.includes(i);")

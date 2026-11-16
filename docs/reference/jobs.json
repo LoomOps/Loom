@@ -9,7 +9,6 @@
         "limit": 25,
         "offset": 0
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#job_list",
@@ -81,7 +80,6 @@
       "example": {
         "id": "<job-id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#job_detail",
@@ -120,7 +118,6 @@
         "owner": "<owner-id>",
         "params": {}
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/jobs.rs#submit",
@@ -344,7 +341,6 @@
         "notify": "<user>",
         "owner": "<user>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/jobs.rs#submit_workflow",
@@ -542,7 +538,6 @@
         "key": "review-1",
         "reason": "Reviewed request and execution evidence"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#curate_research",
@@ -668,7 +663,6 @@
       "example": {
         "id": "<job-id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/jobs.rs#job_action",
@@ -703,7 +697,6 @@
         "limit": 65536,
         "offset": 0
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#job_logs",
@@ -720,9 +713,12 @@
             "type": "string"
           },
           "limit": {
+            "maximum": 65536,
+            "minimum": 1,
             "type": "integer"
           },
           "offset": {
+            "minimum": 0,
             "type": "integer"
           }
         },
@@ -743,7 +739,6 @@
       "description": "Read every user's waiting order and available controls.",
       "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#queue",
@@ -762,7 +757,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "reorder",
-      "description": "Move a waiting Job ahead of other users' Jobs. Preserve running Jobs and dependencies.",
+      "description": "Move a waiting Job; a logical workflow moves its remaining waiting nodes as one group. Preserve running Jobs and dependencies.",
       "errors": [
         "Permission denied, invalid position or reference no longer waiting. If execution was claimed first, changed=false."
       ],
@@ -770,7 +765,6 @@
         "id": "<job-id>",
         "position": "next"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/jobs.rs#job_action",
@@ -819,7 +813,6 @@
       "example": {
         "id": "<job-id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/jobs.rs#job_action",
@@ -855,7 +848,6 @@
       "example": {
         "id": "<job-id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/jobs.rs#job_action",
@@ -892,7 +884,6 @@
         "id": "<job-id>",
         "owner": "<profile-id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#assign_job_owner",
@@ -923,13 +914,7 @@
       "action": "prune_logs",
       "description": "Expire explicit returned and closed stream generations, preserve gap evidence and remove their searchable/raw captured bytes. Does not remove Jobs or containers.",
       "errors": [
-        "source_conflict",
-        "plan_stale",
-        "validation_required",
-        "content_changed",
-        "retention_gap",
-        "cursor_expired",
-        "index_unavailable"
+        "Live/unreturned source, unknown generation, unavailable raw bytes or changed request key."
       ],
       "example": {
         "key": "retention-1",
@@ -941,13 +926,12 @@
           }
         ]
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "returns": "Retention maintenance task · id, kind, state, progress, receipt, error",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -998,23 +982,17 @@
       "action": "log_streams",
       "description": "Discover exact Attempt/stage/effect streams for an existing Job without creating work or acknowledging notifications.",
       "errors": [
-        "unknown_item",
-        "index_unavailable",
-        "cursor_expired",
-        "source_unavailable",
-        "content_changed",
-        "query_too_broad"
+        "Unknown Job or unavailable exact stream metadata."
       ],
       "example": {
         "id": "<job-id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/log_index.rs#log_streams",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "returns": "Stream page · items, next_after, partial, warnings",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -1050,24 +1028,18 @@
       "action": "search_logs",
       "description": "Find indexed text within a Job or exact stream. Page the pinned index snapshot and follow raw offset references.",
       "errors": [
-        "unknown_item",
-        "index_unavailable",
-        "cursor_expired",
-        "source_unavailable",
-        "content_changed",
-        "query_too_broad"
+        "Query too broad, unavailable index/source, expired cursor or retained-byte gap."
       ],
       "example": {
         "id": "<job-id>",
         "text": "error"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/log_index.rs#search_logs",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "returns": "Log search page · items with raw offset references, next_cursor, partial, consistency, warnings",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -1116,25 +1088,19 @@
       "action": "read_log",
       "description": "Read raw byte ranges or bounded tail. Keep source_generation with offsets; report closed, gap and unavailable states.",
       "errors": [
-        "unknown_item",
-        "index_unavailable",
-        "cursor_expired",
-        "source_unavailable",
-        "content_changed",
-        "query_too_broad"
+        "Unknown stream, changed source generation, expired retention or unavailable raw bytes."
       ],
       "example": {
         "limit": 4096,
         "offset": "0",
         "stream_id": "12345678901234567890"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "jobs",
       "implementation": {
         "entrypoint": "rust/crates/core/src/log_index.rs#read_log",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "returns": "Log range · stream_id, source_generation, raw offsets, data_base64, text, eof, closed, gap",
       "schema": {
         "additionalProperties": false,
         "properties": {

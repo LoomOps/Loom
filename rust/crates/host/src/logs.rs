@@ -137,14 +137,20 @@ pub fn follow(container: &str, path: &Path, returned: bool) -> Result<Source> {
                     Ok(())
                 });
             }
-            let child = command.spawn()?;
-            storage::atomic(
+            let mut child = command.spawn()?;
+            let saved = storage::atomic(
                 &pointer,
                 &serde_json::to_vec(
                     &json!({"generation":generation,"gap":previous,"pid":child.id()}),
                 )?,
                 0o600,
-            )?;
+            );
+            if let Err(error) = saved {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = fs::remove_file(&raw);
+                return Err(error);
+            }
             let c = Arc::new(Mutex::new(Collector {
                 child,
                 path: raw,

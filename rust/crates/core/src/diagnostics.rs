@@ -48,8 +48,11 @@ impl Application {
                 .append(true)
                 .create(true)
                 .mode(0o600)
-                .custom_flags(libc::O_NOFOLLOW)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
                 .open(file)?;
+            if !file.metadata()?.is_file() {
+                return Err(std::io::Error::other("nonregular diagnostic destination"));
+            }
             let operation: String = operation
                 .chars()
                 .filter(|c| c.is_ascii_alphanumeric() || "._-/".contains(*c))

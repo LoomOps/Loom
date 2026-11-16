@@ -1,4 +1,4 @@
-"""Local Loom Ops service with a durable, single-worker execution queue."""
+"""Retained Python compatibility engine; production authority is native loom-ops."""
 import fcntl
 import hashlib
 import hmac

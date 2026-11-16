@@ -66,7 +66,7 @@ Replay its exact key/request after uncertainty. Each node uses the ordinary
 scheduler, resource-return checks and recovery budget. The main Job has execution
 nodes, no invented Attempt. Repair/log/reindex target the actual node; cancel or
 hold/resume on the main Job delegates to its nodes. Per-node responses describe
-partial control outcomes. Reorder targets a waiting node. A failed node is exposed
+partial control outcomes. Reorder on the main Job moves its remaining waiting nodes as one group; an actual node can also be selected. A failed node is exposed
 in main Job errors; independent eligible nodes may continue. A main completion
 requires every node completed; supporting receipts are not new research outcomes.
 

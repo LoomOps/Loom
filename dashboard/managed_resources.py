@@ -77,8 +77,9 @@ def permissions_ready(c):
     if not path(c).parent.exists():return True
     owner=_owner(path(c))
     for p in (path(c),path(c).with_suffix('.lock')):
-        if not p.exists():continue
-        info=p.lstat()
+        try:info=p.lstat()
+        except FileNotFoundError:continue
+        except OSError:return False
         if not stat.S_ISREG(info.st_mode) or info.st_uid!=owner.st_uid or info.st_gid!=owner.st_gid or stat.S_IMODE(info.st_mode)!=0o600:
             return False
     return True

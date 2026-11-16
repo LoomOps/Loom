@@ -70,6 +70,21 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.ui.click('[data-search-item]');self.ui.wait("return document.querySelector('[data-search-detail]').textContent.includes('Revision')")
   self.assertTrue(self.ui.js("return document.querySelector('[data-search-item]').dataset.searchItem.length>16"))
 
+  # An old failed transport must not overwrite a newer selected detail.
+  self.ui.top()
+  self.ui.js("const original=window.fetch;window.fetch=function(url,options){if(String(url)==='/api/search/actions'&&JSON.parse(options.body).action==='get_item'&&!window.__rejectOldDetail)return new Promise((resolve,reject)=>window.__rejectOldDetail=reject);return original.call(window,url,options)};window.__restoreSearchFetch=()=>window.fetch=original")
+  try:
+   self.ui.frame();self.ui.click('[data-search-item]')
+   self.ui.top();self.ui.wait("return !!window.__rejectOldDetail")
+   self.ui.frame();self.ui.click('[data-search-item]')
+   self.ui.wait("return document.querySelector('[data-search-detail]').textContent.includes('Revision')")
+   current=self.ui.js("return document.querySelector('[data-search-detail]').textContent")
+   self.ui.top();self.ui.js("window.__rejectOldDetail(Error('Old transport failed'))")
+   time.sleep(.2);self.ui.frame()
+   self.assertEqual(self.ui.js("return document.querySelector('[data-search-detail]').textContent"),current)
+  finally:
+   self.ui.top();self.ui.js("window.__restoreSearchFetch()");self.ui.frame()
+
   for width in (1440,500):
    self.ui.top();self.wd('/window/rect',{'width':width,'height':1000});self.ui.frame()
    for theme in ('light','dark'):
@@ -103,7 +118,7 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.assertEqual(resources['sections']['memory']['status'],'ok')
   self.assertIsInstance(resources['sections']['leases']['data']['registered'],list)
 
- def test_native_research_lists_load_records_outside_the_bootstrap(self):
+ def seed_paged_research(self):
   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
    for kind in ('dataset','model','run','issue'):
     for n in range(65):
@@ -119,6 +134,9 @@ class NativeWorkspaceTests(unittest.TestCase):
   # More recent Items deliberately displace these records from the bootstrap.
   for n in range(55):self.call('results','register_scenario',{'key':f'after-lists-{n}','definition':{'label':f'Recent context {n}'}})
   self.wd('/url',{'url':self.base});self.ui.connect()
+
+ def test_native_research_lists_load_records_outside_the_bootstrap(self):
+  self.seed_paged_research()
   for nav,kind in [('Datasets','dataset'),('Models','model'),('Experiments','run'),('Troubleshooting','issue')]:
    self.ui.nav(nav)
    self.ui.wait("return document.querySelector('#pa-content').textContent.includes(arguments[0])",f'Paged {kind}')
@@ -128,10 +146,14 @@ class NativeWorkspaceTests(unittest.TestCase):
    self.ui.wait("return [...document.querySelectorAll('#pa-content [data-entity]')].filter(e=>e.textContent.startsWith(arguments[0])).length===65",f'Paged {kind}')
 
  def test_background_bootstrap_preserves_pages_and_reloads_after_revision_changes(self):
-  self.test_native_research_lists_load_records_outside_the_bootstrap()
+  self.seed_paged_research()
   for nav,kind in [('Datasets','dataset'),('Models','model'),('Experiments','run')]:
    self.ui.nav(nav)
    self.ui.wait("return document.querySelector('#pa-content').textContent.includes(arguments[0])",f'Paged {kind}')
+   page_kind='experiment' if kind=='run' else kind
+   self.ui.wait("return !!document.querySelector('[data-catalog-more='+arguments[0]+']')",page_kind)
+   self.ui.click('[data-catalog-more='+page_kind+']')
+   self.ui.wait("return [...document.querySelectorAll('#pa-content [data-entity]')].filter(e=>e.textContent.startsWith(arguments[0])).length===65",f'Paged {kind}')
    for changed in (False,True):
     if changed:
      self.call('results','register_scenario',{'key':'refresh-'+kind,'definition':{'label':'Refresh '+kind}})

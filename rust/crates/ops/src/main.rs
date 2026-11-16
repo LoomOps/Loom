@@ -71,6 +71,15 @@ async fn request(
         header::HeaderValue::from_static(reply.content_type),
     );
     response.headers_mut().insert(
+        "x-loom-revision",
+        header::HeaderValue::from_str(
+            loom_core::onboarding::identity()["revision"]
+                .as_str()
+                .expect("onboarding revision"),
+        )
+        .expect("hexadecimal revision"),
+    );
+    response.headers_mut().insert(
         header::CACHE_CONTROL,
         header::HeaderValue::from_static("no-store"),
     );

@@ -347,12 +347,9 @@ impl Application {
                 Ok(json!({"status":"bind","file":file}))
             }
             "bind_historical" => {
-                crate::results::verify_target(
+                crate::results::verify_historical_binding_target(
                     &self.db,
-                    &crate::contracts::Target {
-                        kind: "historical".into(),
-                        identity: op["identity"].clone(),
-                    },
+                    &op["identity"],
                     &self.config,
                 )?;
                 Ok(json!({"status":"bind_historical"}))

@@ -6,8 +6,6 @@ The loom service account, installation UUID and user profiles are independent. S
 New installation has one service contract: native Tailscale identity, Admin binding, Sharing Gateway, Ops, Dashboard, executor and explicit storage. Token-only fallback is not installation success.
 Doctor observes actual state independently of progress receipts. Only explicit smoke submits a Job; diagnostics never repair or grant access. Handoff leads with the verified Gateway URL.
 
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
-
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
@@ -120,7 +118,16 @@ Related blocks: [network](network.md) · [execution](execution.md) · [observati
 - [tests/rust/test_service.py](../../tests/rust/test_service.py)
 - [tests/rust/test_item_image.py](../../tests/rust/test_item_image.py)
 
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
-
 Acceptance outside these fixtures:
 - Temporary-filesystem tests do not replace real clean-host installation, reboot and rollback verification.
+
+Update admission rejects pending/running lifecycle callbacks and every unresolved
+native execution effect, including when its Job is already terminal. The database
+fence and idle checks share one transaction; container status alone does not prove
+that a callback or pending native start has returned.
+
+Image guide generation fails if the native binary cannot produce its bundle; it
+does not substitute the retained Python reference. Offline kits include the
+independent client acquisition helper and exact client descriptor used by handoff.
+Update, deployment pause and uninstall resume reject pending/running callbacks
+and unresolved native execution ownership before changing services.

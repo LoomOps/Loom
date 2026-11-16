@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0-alpha.30
+
+- Preserve exact recovery requests, output-store identity and dependency graphs; resolve nested consolidation by frozen Attempt across Steps, Activity and Profile usage.
+- Use bounded verified file-copy alternatives for inputs, reads and search; retain continuation past unavailable content matches and protect derived catalog roots.
+- Harden metadata/trust-key reads, Sharing revocation and idle update ownership checks; preserve native API/MCP revisions and complete offline client handoff.
+- Escape imported output labels/counts, preserve newer search details after stale errors, and remove obsolete Profile table styles.
+- Pin Loom Use alpha.13 with registered File handoff and active-connection Skill preservation. Simplify duplicated verification while retaining failure-boundary coverage.
+
 ## 0.2.0-alpha.27
 
 - Recognize equivalent imported Dataset records across publication/catalog envelopes. Preserve scientific metadata, file hashes, publication state and exact source links; ignore only JSON formatting and known generated index bindings.

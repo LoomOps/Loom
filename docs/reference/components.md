@@ -64,7 +64,7 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 {}
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -122,13 +122,13 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Component · owner (namespace), id, revision, manifest, profiles, owner_profile, owner_name, owner_kind
+Component · owner namespace, id, revision, manifest, profiles and current attribution
 
-Missing component or owner access denied.
+Missing Component revision or read scope.
 
 ## register
 
@@ -197,7 +197,7 @@ Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation:
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -263,13 +263,13 @@ Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation:
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Source receipt · id, path, bytes
+Editable source receipt · owner, id, path, bytes
 
-Absolute path, parent-directory escape or owner access denied.
+Invalid identity, unsafe relative path, missing submit scope or inactive installation.
 
 ## profiles
 
@@ -301,7 +301,7 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 {}
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1628,13 +1628,13 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Profile · owner, id, revision, profile
+Profile · owner namespace, id, revision, profile
 
-Profile access denied or missing revision.
+Missing Profile revision or read scope.
 
 ## list_tools
 
@@ -1671,7 +1671,7 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 {}
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1729,7 +1729,7 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1822,7 +1822,7 @@ Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation:
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1860,7 +1860,7 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 {}
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1913,7 +1913,7 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1951,7 +1951,7 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 {}
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1998,7 +1998,7 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -2070,7 +2070,7 @@ Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation:
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -2184,7 +2184,7 @@ Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation:
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -2404,7 +2404,7 @@ Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation:
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -2456,7 +2456,7 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -2509,7 +2509,7 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -2568,7 +2568,7 @@ Scope: `read`. Owner: [authoring](../features/authoring.md). Implementation: [ru
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -2630,7 +2630,7 @@ Scope: `read`. Owner: [authoring](../features/authoring.md). Implementation: [ru
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 

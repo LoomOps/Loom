@@ -389,6 +389,11 @@ pub fn actions() -> Vec<Action> {
         if entry.group == "results" && entry.action == "historical" {
             entry.schema["properties"]["snapshot"] = json!({"type":"string"});
         }
+        if entry.group == "jobs" && entry.action == "logs" {
+            entry.schema["properties"]["offset"]["minimum"] = json!(0);
+            entry.schema["properties"]["limit"]["minimum"] = json!(1);
+            entry.schema["properties"]["limit"]["maximum"] = json!(65536);
+        }
         if entry.group == "jobs" && entry.action == "list" {
             entry.schema["properties"]["view"]["default"] = json!("all");
         }

@@ -5,6 +5,282 @@ use serde_json::{json, Value};
 use std::fs;
 
 #[test]
+fn local_source_registration_rejects_special_and_oversized_files_before_publication() {
+    use std::os::unix::ffi::OsStrExt;
+    let mut f = Fixture::new();
+    let source = f.app.components.join("owner/local/src");
+    fs::create_dir_all(&source).unwrap();
+    let file = source.join("worker.rs");
+    let name = std::ffi::CString::new(file.as_os_str().as_bytes()).unwrap();
+    assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+    let args = json!({"id":"local","manifest":{},"files":{}});
+    assert_eq!(
+        f.call("components", "register", args.clone())
+            .unwrap_err()
+            .code,
+        "artifact"
+    );
+    fs::remove_file(&file).unwrap();
+    fs::File::create(&file)
+        .unwrap()
+        .set_len(8 * 1024 * 1024 + 1)
+        .unwrap();
+    assert_eq!(
+        f.call("components", "register", args.clone())
+            .unwrap_err()
+            .code,
+        "package"
+    );
+    assert_eq!(f.count("components"), 0);
+    assert!(!source.parent().unwrap().join("revisions").exists());
+    fs::write(file, "fn main() {}\n").unwrap();
+    assert_eq!(
+        f.call("components", "register", args).unwrap()["revision"],
+        1
+    );
+}
+
+#[test]
+fn recovery_recomputes_inferred_dependencies_and_preserves_graph_and_store_identity() {
+    let mut f = Fixture::new();
+    let old = f.submit("old-input");
+    let explicit = f.submit("explicit-input");
+    let new = f.submit("new-input");
+    // Dependency readiness is the fixture boundary; no source bytes are read.
+    for id in [&old, &explicit, &new] {
+        f.app
+            .db
+            .execute("UPDATE jobs SET state='complete' WHERE id=?", [id])
+            .unwrap();
+    }
+    let profile = json!({"schema":"loom-execution/v2","revision":"recover.input.r1","sha256":"a".repeat(64),"params_schema":{"type":"object"},"runtime":{"executor":"container","runtime_id":"cpu","lane":"cpu","command":["/bin/true"]},"inputs":{"data":"."},"outputs":null,"limits":{"max_attempts":1,"timeout_seconds":30}});
+    f.app
+        .config
+        .profiles
+        .insert("recover.input.r1".into(), profile);
+    let target=f.call("jobs","submit",json!({"key":"repair-input","kind":"recover.input.r1","owner":"owner","notify":"owner","depends_on":[explicit],"params":{"data":{"job":old,"entity":"data"}}})).unwrap()["id"].as_str().unwrap().to_string();
+    let work = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(work.job, target);
+    f.app
+        .stage_returned(&work, 1, json!({"returned":true}))
+        .unwrap();
+    let downstream=f.call("jobs","submit",json!({"key":"downstream","kind":"cpu.smoke","owner":"owner","notify":"owner","depends_on":[target],"params":{"seconds":0,"fail":false}})).unwrap()["id"].clone();
+    let workflow=f.call("jobs","submit_workflow",json!({"key":"downstream-graph","label":"Dependent graph","owner":"owner","notify":"owner","nodes":[{"id":"one","label":"Dependent","spec":{"kind":"cpu.smoke","depends_on":[target],"params":{"seconds":0,"fail":false}}}],"outputs":{}})).unwrap()["id"].clone();
+    let lease = f.call("recovery", "claim", json!({"id":target})).unwrap()["lease"].clone();
+    for dependency in [json!(target), downstream, workflow] {
+        let error=f.call("recovery","resume",json!({"id":target,"lease":lease,"patch":{"params":{"data":{"job":dependency,"entity":"data"}}}})).unwrap_err();
+        assert_eq!(error.code, "dependency_cycle");
+        assert_eq!(
+            jobs::load(&f.app.db, &target).unwrap().aggregate.state,
+            loom_domain::JobState::Failed
+        );
+    }
+    let request =
+        json!({"id":target,"lease":lease,"patch":{"params":{"data":{"job":new,"entity":"data"}}}});
+    f.app.config.storage_id = "replacement".into();
+    fs::write(
+        f.app.bulk.join(".loom-storage.json"),
+        r#"{"storage_id":"replacement"}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        f.call("recovery", "resume", request.clone())
+            .unwrap_err()
+            .code,
+        "storage"
+    );
+    f.app.config.storage_id = "fixture-data".into();
+    fs::write(
+        f.app.bulk.join(".loom-storage.json"),
+        r#"{"storage_id":"fixture-data"}"#,
+    )
+    .unwrap();
+    f.call("recovery", "resume", request).unwrap();
+    let repaired = jobs::load(&f.app.db, &target).unwrap();
+    assert_eq!(repaired.spec["_requested_dependencies"], json!([explicit]));
+    assert_eq!(repaired.spec["depends_on"], json!([explicit, new]));
+    assert_eq!(repaired.spec["_output_storage_id"], "fixture-data");
+    assert_eq!(f.count("attempts"), 1);
+}
+
+#[test]
+fn invalid_upstream_members_cannot_silently_select_the_whole_artifact() {
+    let mut f = Fixture::new();
+    let upstream = f.submit("member-source");
+    let mut work = f.app.next_work(&Default::default()).unwrap().unwrap();
+    let profile = json!({"schema":"loom-execution/v2","revision":"member.consumer.r1","sha256":"a".repeat(64),"params_schema":{"type":"object"},"runtime":{"executor":"container","runtime_id":"cpu","lane":"cpu","command":["/bin/true"]},"inputs":{"data":"."},"outputs":null,"limits":{"max_attempts":1,"timeout_seconds":30}});
+    f.app
+        .config
+        .profiles
+        .insert("member.consumer.r1".into(), profile.clone());
+    for member in [json!(false), json!(7), json!(null), json!([]), json!({})] {
+        let input = json!({"job":upstream,"entity":"observation","member":member});
+        let error=f.call("jobs","submit",json!({"key":"invalid-member","kind":"member.consumer.r1","owner":"owner","notify":"owner","params":{"data":input}})).unwrap_err();
+        assert_eq!(error.code, "input");
+        assert_eq!(f.count("jobs"), 1);
+        // Old accepted/corrupt snapshots must fail at execution too, rather than
+        // treating a non-string member as an absent selection.
+        work.spec["profile"] = profile.clone();
+        work.spec["params"] = json!({"data":input});
+        assert_eq!(
+            f.app.request_for(&work).unwrap_err().message,
+            "Input member must be a string"
+        );
+    }
+    let accepted=f.call("jobs","submit",json!({"key":"valid-member","kind":"member.consumer.r1","owner":"owner","notify":"owner","params":{"data":{"job":upstream,"entity":"observation","member":"selected.json"}}})).unwrap();
+    assert!(accepted["id"].is_string());
+}
+
+#[test]
+fn dashboard_and_tailscale_resolve_the_same_casefolded_user_binding() {
+    use base64::Engine;
+    use hmac::{Hmac, Mac};
+    let mut f = Fixture::new();
+    let key = f.root.join("relay-key");
+    let secret = b"fixture-only-relay-key-00000000000000";
+    fs::write(&key, secret).unwrap();
+    f.app.config.extra.insert("tailscale_auth".into(), json!({"enabled":true,"trusted_proxies":["127.0.0.1"],"users":{"Straße@EXAMPLE.test":"owner"}}));
+    f.app.config.extra.insert(
+        "dashboard_auth".into(),
+        json!({"enabled":true,"issuer":"fixture","relay_key_file":key,"link_tailscale_email":true}),
+    );
+    let login = "strasse@example.test";
+    let claims = json!({"aud":"loom-dashboard-relay","exp":store::now()+30.,"identity":{"issuer":"fixture","subject":"selected-user","login":login}});
+    let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(claims.to_string());
+    let mut mac = Hmac::<sha2::Sha256>::new_from_slice(secret).unwrap();
+    mac.update(payload.as_bytes());
+    let signature = mac
+        .finalize()
+        .into_bytes()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect::<String>();
+    for headers in [
+        std::collections::BTreeMap::from([("tailscale-user-login".into(), vec![login.into()])]),
+        std::collections::BTreeMap::from([(
+            "x-loom-dashboard-identity".into(),
+            vec![format!("{payload}.{signature}")],
+        )]),
+    ] {
+        let actor =
+            auth::authenticate(&f.app.db, &f.app.config, &headers, "127.0.0.1", false).unwrap();
+        assert_eq!(actor.id, "owner");
+        assert_eq!(actor.scopes, f.actor.scopes);
+    }
+}
+
+#[test]
+fn maintenance_keys_cannot_replay_another_action_with_identical_arguments() {
+    let mut f = Fixture::new();
+    let args = json!({"key":"one-operation"});
+    let first = f.call("system", "prune_search", args.clone()).unwrap();
+    assert_eq!(
+        first,
+        f.call("system", "prune_search", args.clone()).unwrap()
+    );
+    assert_eq!(
+        f.call("system", "rebuild_search", args).unwrap_err().code,
+        "idempotency"
+    );
+    assert_eq!(f.count("catalog_tasks"), 1);
+}
+
+#[test]
+fn component_and_tool_build_files_retain_binary_size_and_hash() {
+    let mut f = Fixture::new();
+    let sha = store::hash(b"built bytes");
+    for (table, kind) in [("components", "component"), ("tools", "tool")] {
+        let manifest = json!({"label":"Built producer","build_receipt":{"binary":{"machine_id":"fixture","storage_id":"fixture-data","ref":"producer","size":11,"sha256":sha}}});
+        let sql = if table == "tools" {
+            "INSERT INTO tools VALUES('owner','built',1,?,'source')"
+        } else {
+            "INSERT INTO components(owner,id,revision,manifest,profiles) VALUES('owner','built',1,?,'{}')"
+        };
+        f.app.db.execute(sql, [manifest.to_string()]).unwrap();
+        f.app.index_once().unwrap();
+        let parent=f.call("results","resolve_item",json!({"native_ref":{"kind":kind,"identity":{"owner":"owner","id":"built","revision":1}}})).unwrap();
+        f.app.index_once().unwrap();
+        let files = f
+            .call(
+                "results",
+                "item_files",
+                json!({"item_id":parent["item_id"]}),
+            )
+            .unwrap();
+        let binary = &files["items"][0];
+        assert_eq!(binary["size"], 11);
+        assert_eq!(binary["sha256"], sha);
+        let file = f
+            .call(
+                "results",
+                "get_file",
+                json!({"file_item_id":binary["item_id"]}),
+            )
+            .unwrap();
+        assert_eq!(file["size"], 11);
+        assert_eq!(file["sha256"], sha);
+    }
+}
+
+#[test]
+fn file_and_identity_probes_reject_unconnected_fifos_and_close_descriptors_on_exec() {
+    use std::os::{fd::AsRawFd, unix::fs::OpenOptionsExt};
+    use std::{sync::mpsc, thread, time::Duration};
+    let f = Fixture::new();
+    let fifo = f.root.join("not-a-file");
+    let name = std::ffi::CString::new(fifo.as_os_str().as_encoded_bytes()).unwrap();
+    assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+    for probe in ["hash", "inventory", "identity"] {
+        let path = fifo.clone();
+        let mut config = f.app.config.clone();
+        config.extra.insert(
+            "dashboard_auth".into(),
+            json!({"enabled":true,"relay_key_file":path}),
+        );
+        let (send, recv) = mpsc::channel();
+        let reader = thread::spawn(move || {
+            let rejected = match probe {
+                "inventory" => crate::file_set::bounded(&path, 100).is_err(),
+                "identity" => {
+                    let db = rusqlite::Connection::open_in_memory().unwrap();
+                    let headers = std::collections::BTreeMap::from([(
+                        "x-loom-dashboard-identity".into(),
+                        vec!["claims.signature".into()],
+                    )]);
+                    auth::authenticate(&db, &config, &headers, "127.0.0.1", false)
+                        .unwrap_err()
+                        .status
+                        == 503
+                }
+                _ => crate::storage::file_hash(&path).is_err(),
+            };
+            send.send(rejected).unwrap();
+        });
+        let result = recv.recv_timeout(Duration::from_secs(1));
+        if result.is_err() {
+            // Release an old blocking implementation before failing the assertion.
+            drop(
+                fs::OpenOptions::new()
+                    .write(true)
+                    .custom_flags(libc::O_NONBLOCK)
+                    .open(&fifo),
+            );
+        }
+        reader.join().unwrap();
+        assert!(
+            result.unwrap(),
+            "Special-file probe must not wait for a writer"
+        );
+    }
+    fs::write(f.root.join("regular"), b"bytes").unwrap();
+    let file = crate::storage::open_registered(&f.root, "regular").unwrap();
+    assert_ne!(
+        unsafe { libc::fcntl(file.as_raw_fd(), libc::F_GETFD) } & libc::FD_CLOEXEC,
+        0
+    );
+}
+
+#[test]
 fn imported_dataset_mirrors_preserve_content_hashes_and_publication_state() {
     let f = Fixture::new();
     let mut keys = vec![];
@@ -576,6 +852,12 @@ fn submit_key_replays_and_changed_parameters_conflict() {
     let id = f.submit("one");
     assert_eq!(f.submit("one"), id);
     assert_eq!(f.count("jobs"), 1);
+    f.app
+        .db
+        .execute("UPDATE node_control SET mode='draining' WHERE id=1", [])
+        .unwrap();
+    assert_eq!(f.submit("one"), id);
+    assert_eq!(f.call("jobs","submit",json!({"key":"new-drained","kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false}})).unwrap_err().code, "admission_fenced");
     assert!(f.call("jobs","submit",json!({"key":"one","kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":1,"fail":false}})).is_err());
 }
 #[test]
@@ -646,7 +928,30 @@ fn original_submission_key_replays_after_recovery_and_old_return_is_rejected() {
     let lease = f.call("recovery", "claim", json!({"id":id})).unwrap();
     let resume = json!({"id":id,"lease":lease["lease"],"patch":{"params":{"seconds":1,"fail":false}},"reason":"Retry with changed duration"});
     let first = f.call("recovery", "resume", resume.clone()).unwrap();
-    assert_eq!(first, f.call("recovery", "resume", resume).unwrap());
+    assert_eq!(first, f.call("recovery", "resume", resume.clone()).unwrap());
+    f.app
+        .db
+        .execute("UPDATE node_control SET mode='draining' WHERE id=1", [])
+        .unwrap();
+    let revisions = f.count("job_revisions");
+    assert_eq!(first, f.call("recovery", "resume", resume.clone()).unwrap());
+    assert_eq!(f.count("job_revisions"), revisions);
+    let mut changed = resume;
+    changed["reason"] = json!("A different request");
+    assert_eq!(
+        f.call("recovery", "resume", changed).unwrap_err().code,
+        "idempotency_conflict"
+    );
+    assert_eq!(
+        f.call("recovery", "claim", json!({"id":id}))
+            .unwrap_err()
+            .code,
+        "admission_fenced"
+    );
+    f.app
+        .db
+        .execute("UPDATE node_control SET mode='active' WHERE id=1", [])
+        .unwrap();
     assert_eq!(id, f.submit("original"));
     let next = f.app.next_work(&Default::default()).unwrap().unwrap();
     assert_ne!(old.attempt, next.attempt);
@@ -1144,6 +1449,25 @@ fn workflow_queue_moves_its_remaining_nodes_as_one_outcome() {
     let entries = queue["entries"].as_array().unwrap();
     assert_eq!(entries[2]["id"], first);
     assert!(entries[..2].iter().all(|e| e["workflow"] == root["id"]));
+    assert_eq!(queue["logical_entries"][0]["reason"], "ready");
+    f.call("jobs", "hold", json!({"id":root["id"]})).unwrap();
+    assert_eq!(
+        f.app.queue().unwrap()["logical_entries"][0]["reason"],
+        "held"
+    );
+    f.call("jobs", "resume", json!({"id":root["id"]})).unwrap();
+    let work = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(
+        f.app.queue().unwrap()["logical_entries"][0]["reason"],
+        "executing"
+    );
+    f.app
+        .stage_returned(&work, 0, json!({"returned":true}))
+        .unwrap();
+    assert_eq!(
+        f.app.queue().unwrap()["logical_entries"][0]["reason"],
+        "finalizing"
+    );
 }
 #[test]
 fn bound_historical_preview_reads_verified_copy_without_promoting_a_record() {
@@ -1227,6 +1551,20 @@ fn annotations_are_discoverable_and_responsibility_keeps_execution_owner_frozen(
     f.app.db.execute("INSERT INTO user_profiles(id,provider,login,display_name,updated) VALUES('responsible','test','r@example.test','Responsible',1)",[]).unwrap();
     let payload=f.call("results","annotate",json!({"id":id,"annotation_id":"input-locator","reason":"Preserved inputs","evidence":{"locator":"registered-copy"}})).unwrap();
     assert_eq!(payload["id"], "input-locator");
+    let note = json!({"id":id,"annotation_id":"drained-note","reason":"Late note","evidence":{}});
+    f.app
+        .db
+        .execute("UPDATE node_control SET mode='draining' WHERE id=1", [])
+        .unwrap();
+    assert_eq!(
+        f.call("results", "annotate", note).unwrap_err().code,
+        "admission_fenced"
+    );
+    assert_eq!(f.count("job_annotations"), 1);
+    f.app
+        .db
+        .execute("UPDATE node_control SET mode='active' WHERE id=1", [])
+        .unwrap();
     f.call(
         "jobs",
         "assign_owner",
@@ -1330,6 +1668,16 @@ fn diagnostics_fail_open_without_following_a_linked_directory_or_recording_secre
     );
     assert_eq!(fs::read_dir(&target).unwrap().count(), 0);
     fs::remove_file(f.app.local.join("diagnostics")).unwrap();
+    let diagnostics = f.app.local.join("diagnostics");
+    fs::create_dir(&diagnostics).unwrap();
+    let pipe = diagnostics.join("rust-incidents.jsonl");
+    let name = std::ffi::CString::new(pipe.as_os_str().as_encoded_bytes()).unwrap();
+    assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+    assert!(f
+        .app
+        .incident("jobs.submit", &Error::input("private"))
+        .is_none());
+    fs::remove_file(pipe).unwrap();
     assert!(f
         .app
         .incident(
@@ -1452,6 +1800,32 @@ fn file_ids_survive_search_database_rebuild_and_preserve_historical_records() {
     f.app.config.storage_id = "fixture-data".into();
     fs::write(f.app.bulk.join("relocated.txt"), bytes).unwrap();
     f.call("results","bind_historical_location",json!({"key":"file-id-relocation","identity":{"source":"catalog","kind":"dataset","id":"preserved","revision":"r1","snapshot":"s1","file":"original/receipt.txt"},"locator":{"machine_id":"fixture","storage_id":"fixture-data","ref":"relocated.txt"},"sha256":sha,"size":bytes.len()})).unwrap();
+    // Both copies were verified. A later change to the first copy must not
+    // conceal the still-readable exact copy from content search.
+    for _ in 0..4 {
+        f.app.index_once().unwrap();
+    }
+    fs::write(f.app.bulk.join("receipt.txt"), b"changed first copy").unwrap();
+    for _ in 0..4 {
+        f.app.index_once().unwrap();
+    }
+    assert_eq!(
+        f.call("results", "read_file", json!({"file_item_id":file}))
+            .unwrap()["data_base64"],
+        read["data_base64"]
+    );
+    let readable = f
+        .call(
+            "results",
+            "search_items",
+            json!({"text":"A recorded file","kinds":["file"]}),
+        )
+        .unwrap();
+    assert_eq!(
+        readable["items"].as_array().unwrap().len(),
+        1,
+        "Content search must try another exact verified copy"
+    );
     fs::remove_file(f.app.bulk.join("receipt.txt")).unwrap();
     assert_eq!(
         f.call("results", "get_file", json!({"file_item_id":file}))
@@ -1991,6 +2365,34 @@ fn file_search_uses_parent_presentation_at_the_pinned_projection_version() {
 #[test]
 fn disposable_index_configuration_cannot_overlap_preserved_authority_or_payloads() {
     let mut f = Fixture::new();
+    let secondary = f.root.join("secondary");
+    let dependencies = f.root.join("dependencies");
+    fs::create_dir_all(&secondary).unwrap();
+    fs::create_dir_all(&dependencies).unwrap();
+    f.app.config.data_stores.insert(
+        "data/1".into(),
+        json!({"path":secondary,"storage_id":"secondary-data","mode":"rw"}),
+    );
+    f.app
+        .config
+        .extra
+        .insert("dependency_directory".into(), json!(dependencies));
+    for key in ["index_directory", "manifest_directory"] {
+        for path in [&secondary, &dependencies, &f.app.bulk, &f.app.components] {
+            f.app
+                .config
+                .extra
+                .insert("catalog".into(), json!({key:path}));
+            assert_eq!(
+                crate::index_store::IndexWriter::open(&f.app)
+                    .err()
+                    .expect("Derived state must not own research or dependency roots")
+                    .code,
+                "catalog_layout"
+            );
+        }
+    }
+
     for path in [
         f.app.local.clone(),
         f.app.local.join("catalog-manifests"),
@@ -2074,9 +2476,60 @@ fn log_projection_and_ranges_never_adopt_an_uncommitted_spool_tail() {
 }
 
 #[test]
+fn standalone_profile_detail_retains_exact_identity_and_task_context() {
+    let mut f = Fixture::new();
+    let profile = json!({"revision":"owner.runner.r1","sha256":"a".repeat(64),"params_schema":{"type":"object"},"runtime":{"command":["/bin/true"],"lane":"cpu"},"inputs":{},"outputs":null,"limits":{"timeout_seconds":30,"max_attempts":1}});
+    let tx = f.app.transaction().unwrap();
+    tx.execute(
+        "INSERT INTO execution_profiles VALUES('owner','runner',1,?)",
+        [profile.to_string()],
+    )
+    .unwrap();
+    tx.commit().unwrap();
+    let reference =
+        json!({"kind":"profile","identity":{"owner":"owner","id":"runner","revision":1}});
+    let item = f
+        .call("results", "resolve_item", json!({"native_ref":reference}))
+        .unwrap();
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"profile-task","definition":{"label":"Reusable profile context"}}),
+        )
+        .unwrap();
+    f.call("results","link_scenario",json!({"key":"profile-context","scenario_ref":{"id":task["id"],"revision":1},"target":reference,"relation":"implements","provenance":{"reason":"Exact standalone profile"}})).unwrap();
+    let display = f
+        .call(
+            "system",
+            "dashboard_entity",
+            json!({"item_id":item["item_id"],"revision_id":item["revision_id"]}),
+        )
+        .unwrap();
+    let entity = display["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["loom_execution_profile"]["kind"] == "owner.runner.r1")
+        .expect("Exact standalone Profile must render");
+    assert_eq!(
+        entity["loom_execution_profile"]["sha256"],
+        profile["sha256"]
+    );
+    assert_eq!(entity["task_refs"][0]["id"], task["id"]);
+}
+
+#[test]
 fn relation_pages_preserve_all_edges_without_allocating_child_items() {
     let mut f = Fixture::new();
-    let root = f.submit("relations-bound");
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"relations-task","definition":{"label":"Relation context"}}),
+        )
+        .unwrap();
+    let root=f.call("jobs","submit",json!({"key":"relations-bound","kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false},"scenario_ref":{"id":task["id"],"revision":1}})).unwrap()["id"].as_str().unwrap().to_string();
     let item = f
         .call(
             "results",
@@ -2099,6 +2552,23 @@ fn relation_pages_preserve_all_edges_without_allocating_child_items() {
             .unwrap();
     }
     let before = f.count("catalog_items");
+    let boundary = f
+        .call(
+            "results",
+            "item_relations",
+            json!({"item_id":item["item_id"],"limit":1}),
+        )
+        .unwrap();
+    assert_eq!(boundary["items"][0]["relation"], "scenario");
+    assert!(boundary["next_cursor"].is_string());
+    let incoming = f
+        .call(
+            "results",
+            "item_relations",
+            json!({"item_id":item["item_id"],"limit":1,"cursor":boundary["next_cursor"]}),
+        )
+        .unwrap();
+    assert_eq!(incoming["items"][0]["relation"], "step");
     let page = f
         .call(
             "results",
@@ -2120,12 +2590,12 @@ fn relation_pages_preserve_all_edges_without_allocating_child_items() {
         edges.extend(page["items"].as_array().unwrap().clone());
         cursor = page["next_cursor"].clone();
     }
-    assert_eq!(edges.len(), 205);
+    assert_eq!(edges.len(), 206);
     let unique: std::collections::BTreeSet<_> = edges
         .iter()
         .map(|v| v["native_ref"]["identity"]["id"].as_str().unwrap())
         .collect();
-    assert_eq!(unique.len(), 205);
+    assert_eq!(unique.len(), 206);
     assert_eq!(f.count("catalog_items"), before);
     assert_eq!(f.count("jobs"), 1);
 }
@@ -2279,6 +2749,45 @@ fn inventory_publication_and_exact_member_inputs_do_not_expand_the_core_registry
         .unwrap();
     assert_eq!(input["sha256"], hash("member 299"));
     assert!(input["ref"].as_str().unwrap().ends_with("f0299.txt"));
+    // Additive relocation remains usable for every supported input identity.
+    let old_ref = f
+        .app
+        .db
+        .query_row(
+            "SELECT ref FROM entity_locations WHERE id=?",
+            [&native],
+            |r| r.get::<_, String>(0),
+        )
+        .unwrap();
+    let new_ref = "relocated-primary.txt";
+    fs::rename(f.app.bulk.join(&old_ref), f.app.bulk.join(new_ref)).unwrap();
+    f.app.db.execute("INSERT INTO entity_locations(id,revision,component,machine_id,storage_id,ref,status) VALUES(?,1,'f0000.txt','fixture','fixture-data',?,'available')", rusqlite::params![native,new_ref]).unwrap();
+    let profile = json!({"schema":"loom-execution/v2","revision":"copy.consumer.r1","sha256":"a".repeat(64),"params_schema":{"type":"object"},"runtime":{"executor":"container","runtime_id":"cpu","lane":"cpu","command":["/bin/true"]},"inputs":{"data":"."},"outputs":null,"limits":{"max_attempts":1,"timeout_seconds":30}});
+    f.app
+        .config
+        .profiles
+        .insert("copy.consumer.r1".into(), profile);
+    for (n, input) in [
+        json!({"job":id,"entity":"bundle"}),
+        json!({"job":id,"entity":"bundle","member":"f0000.txt"}),
+        json!({"artifact":{"id":native,"revision":1}}),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let target=f.call("jobs","submit",json!({"key":format!("copy-{n}"),"kind":"copy.consumer.r1","owner":"owner","notify":"owner","params":{"data":input}})).unwrap()["id"].as_str().unwrap().to_string();
+        let work = f.app.next_work(&Default::default()).unwrap().unwrap();
+        assert_eq!(work.job, target);
+        let request = f.app.request_for(&work).unwrap();
+        assert!(request["verified_inputs"]["data"]["candidates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v["ref"] == new_ref));
+        f.app
+            .stage_returned(&work, 1, json!({"returned":true}))
+            .unwrap();
+    }
 }
 
 #[test]
@@ -2652,6 +3161,11 @@ fn compact_activity_rollup_preserves_duration_and_excludes_operational_jobs() {
             [&work.attempt],
         )
         .unwrap();
+    // Old attempts without stage receipts retain their recorded fallback.
+    f.app
+        .db
+        .execute("DELETE FROM stage_runs WHERE job=?", [&id])
+        .unwrap();
     let research = f
         .call("system", "dashboard_activity", json!({"view":"research"}))
         .unwrap();
@@ -2671,6 +3185,41 @@ fn compact_activity_rollup_preserves_duration_and_excludes_operational_jobs() {
         .map(|d| d["milliseconds"].as_f64().unwrap())
         .sum();
     assert!((milliseconds - 10000.).abs() < 0.1);
+    f.app
+        .db
+        .execute(
+            "INSERT INTO stage_runs VALUES(?,?, 'on_error',?,?, 'returned')",
+            rusqlite::params![id, work.attempt, clock - 9., clock - 8.],
+        )
+        .unwrap();
+    let detail = f.app.job_detail(&id).unwrap();
+    assert_eq!(
+        detail["execution_intervals"][0]["start"],
+        json!(clock - 20.)
+    );
+    assert_eq!(detail["execution_intervals"][0]["end"], json!(clock - 10.));
+    // Native prepare/run receipts exclude the wait between stages, even though
+    // that gap lies inside the same Attempt wall time.
+    for (stage, start, end) in [
+        ("prepare", clock - 20., clock - 18.),
+        ("run", clock - 12., clock - 10.),
+    ] {
+        f.app
+            .db
+            .execute(
+                "INSERT INTO stage_runs VALUES(?,?,?,?,?,'returned')",
+                rusqlite::params![id, work.attempt, stage, start, end],
+            )
+            .unwrap();
+    }
+    let native = f.app.dashboard_activity("research").unwrap();
+    let active: f64 = native["days"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["milliseconds"].as_f64().unwrap())
+        .sum();
+    assert!((active - 4000.).abs() < 0.1);
     assert!(f
         .call("system", "dashboard_activity", json!({"view":"operations"}))
         .unwrap()["days"]
@@ -2689,6 +3238,9 @@ fn exact_scenario_dashboard_and_profile_graph_never_substitute_current_definitio
             json!({"key":"exact-browser","definition":{"label":"Original task"}}),
         )
         .unwrap();
+    let job = f.submit("target-shape");
+    let bad=f.call("results","link_scenario",json!({"key":"invalid-identity-shape","scenario_ref":{"id":s["id"],"revision":1},"target":{"kind":"job","identity":{"id":job,"unexpected_revision":999}},"relation":"used_by","provenance":{"reason":"Invalid extra selector must not become an invisible accepted link"}})).unwrap_err();
+    assert_eq!(bad.status, 400);
     let old = f
         .call(
             "results",
@@ -2933,11 +3485,39 @@ fn dashboard_keeps_frozen_consolidation_and_does_not_hide_a_new_source_attempt()
             [&source],
         )
         .unwrap();
+    f.app
+        .db
+        .execute(
+            "INSERT INTO attempts VALUES('preserved-attempt',?,'complete',110,200)",
+            [&source],
+        )
+        .unwrap();
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET attempt='preserved-attempt' WHERE id=?",
+            [&source],
+        )
+        .unwrap();
     let root=f.call("jobs","submit",json!({"key":"reuse-execution","kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false},"consolidates":[source]})).unwrap()["id"].as_str().unwrap().to_string();
     f.app
         .db
         .execute(
             "UPDATE jobs SET state='complete',result='{\"artifact_ready\":true}' WHERE id=?",
+            [&root],
+        )
+        .unwrap();
+    f.app
+        .db
+        .execute(
+            "INSERT INTO attempts VALUES('continuation-attempt',?,'complete',300,340)",
+            [&root],
+        )
+        .unwrap();
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET attempt='continuation-attempt' WHERE id=?",
             [&root],
         )
         .unwrap();
@@ -2961,6 +3541,64 @@ fn dashboard_keeps_frozen_consolidation_and_does_not_hide_a_new_source_attempt()
         )
         .unwrap();
     assert!(f.app.consolidation_target(&source).unwrap().is_none());
+    f.app
+        .db
+        .execute(
+            "INSERT INTO attempts VALUES('later-attempt',?,'running',500,NULL)",
+            [&source],
+        )
+        .unwrap();
+    let detail = f.app.job_detail(&root).unwrap();
+    assert_eq!(
+        detail["source_executions"][0]["attempt"],
+        "preserved-attempt"
+    );
+    assert_eq!(
+        detail["source_executions"][0]["attempts"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(detail["work_timeline"]["started"], 110.);
+    assert_eq!(detail["work_timeline"]["ended"], 340.);
+    assert_eq!(
+        detail["internal_steps"]["steps"].as_array().unwrap().len(),
+        2
+    );
+    assert_eq!(
+        detail["work_timeline"]["executions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert_eq!(
+        detail["internal_steps"]["steps"][0]["source_execution"]["started"],
+        110.
+    );
+    let listing = f.call("jobs", "list", json!({"view":"all"})).unwrap();
+    assert!(
+        listing
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|j| j["id"] == source),
+        "A later source Attempt remains an independent current execution"
+    );
+    f.app
+        .db
+        .execute("UPDATE jobs SET state='complete' WHERE id=?", [&source])
+        .unwrap();
+    f.app
+        .db
+        .execute(
+            "UPDATE attempts SET ended=600,state='complete' WHERE id='later-attempt'",
+            [],
+        )
+        .unwrap();
+    let next=f.call("jobs","submit",json!({"key":"reuse-new-source-attempt","kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false},"consolidates":[source]})).unwrap();
+    assert_ne!(next["id"], root);
 }
 
 #[test]
@@ -3118,6 +3756,34 @@ fn scientific_summary_recovers_verified_physics_and_observer_accuracy_without_us
     assert_eq!(fact("test_frames_read")["value"], 0);
     assert_eq!(e, original);
     assert!(fact("physics_hz")["evidence"][0]["source"]["sha256"].is_string());
+    let document =
+        json!({"input_features":{"camera/rgb~main":{"type":"VISUAL","shape":[3,64,64]}}});
+    let shaped = crate::research_metadata::summarize(
+        &json!({"kind":"model"}),
+        &[(document.clone(), json!({"kind":"file"}))],
+    );
+    let pointer = shaped["inputs"][0]["evidence"]["pointer"].as_str().unwrap();
+    assert_eq!(
+        document.pointer(pointer).unwrap()["shape"],
+        json!([3, 64, 64])
+    );
+    let sparse = crate::research_metadata::summarize(
+        &json!({"kind":"model","inputs":[{"kind":"state"}]}),
+        &[(
+            json!({"input_features":{"camera":{"type":"VISUAL"}}}),
+            json!({"kind":"file"}),
+        )],
+    );
+    assert_eq!(sparse["inputs"][0]["status"], "unrecorded");
+    assert!(sparse["inputs"][1].get("shape").is_none());
+    crate::contracts::validate(
+        &serde_json::from_str(include_str!(
+            "../../rust/contracts/research-summary.schema.json"
+        ))
+        .unwrap(),
+        &sparse,
+    )
+    .unwrap();
 }
 
 #[test]
@@ -3450,4 +4116,136 @@ fn metadata_materialization_is_exact_to_historical_snapshot_and_scope() {
     let mut entity = json!({"kind":"dataset","loom_history":{"source":"source","kind":"dataset","id":"legacy","revision":"r1","snapshot":"second"}});
     crate::research_metadata::attach_materialized(&f.app, &mut entity).unwrap();
     assert!(entity["research_summary"].is_null());
+}
+
+#[test]
+fn content_search_can_continue_past_a_full_batch_of_unreadable_matches() {
+    let mut f = Fixture::new();
+    let bytes = b"needle uniquely recorded content";
+    let locations: Vec<Value>=(0..270).map(|n|{
+        let path=format!("entry-{n:04}.txt");
+        fs::write(f.app.bulk.join(&path),bytes).unwrap();
+        json!({"source_ref":path,"target_ref":path,"machine_id":"fixture","storage_id":"fixture-data","size":bytes.len(),"sha256":store::hash(bytes),"status":"available"})
+    }).collect();
+    let original = json!({"original":{"label":"Paged content fixture"},"locations":locations});
+    f.app
+        .db
+        .execute(
+            "INSERT INTO history_records VALUES('catalog','dataset','paged','r1','s1',?)",
+            [original.to_string()],
+        )
+        .unwrap();
+    for _ in 0..40 {
+        f.app.index_once().unwrap();
+    }
+    let index = crate::index_store::IndexWriter::open(&f.app).unwrap();
+    let mut q = index
+        .db
+        .prepare(
+            "SELECT body FROM docs WHERE kind='file' AND valid_to IS NULL ORDER BY id LIMIT 256",
+        )
+        .unwrap();
+    let paths = q
+        .query_map([], |r| r.get::<_, String>(0))
+        .unwrap()
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .unwrap();
+    assert_eq!(paths.len(), 256);
+    for body in paths {
+        let entry: Value = serde_json::from_str(&body).unwrap();
+        fs::remove_file(f.app.bulk.join(entry["path"].as_str().unwrap())).unwrap();
+    }
+    drop(q);
+    drop(index);
+    let args = json!({"text":"needle uniquely recorded content","kinds":["file"],"limit":50});
+    let first = f.call("results", "search_items", args.clone()).unwrap();
+    assert!(first["items"].as_array().unwrap().is_empty());
+    assert!(
+        first["next_cursor"].is_string(),
+        "A bounded batch must not hide later readable matches"
+    );
+    let mut next = args;
+    next["cursor"] = first["next_cursor"].clone();
+    let second = f.call("results", "search_items", next).unwrap();
+    assert_eq!(second["items"].as_array().unwrap().len(), 14);
+    assert!(second["next_cursor"].is_null());
+}
+
+#[test]
+fn nested_consolidation_has_one_logical_activity_and_profile_use() {
+    let mut f = Fixture::new();
+    let clock = store::now();
+    let mut ids: Vec<String> = vec![];
+    for n in 0..3 {
+        let sources = ids.last().map(|id| vec![id.clone()]).unwrap_or_default();
+        let mut request = json!({"key":format!("nested-{n}"),"kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false},"presentation":{"scope":"research","role":"main"}});
+        if !sources.is_empty() {
+            request["consolidates"] = json!(sources);
+        }
+        let id = f.call("jobs", "submit", request).unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let attempt = format!("nested-attempt-{n}");
+        f.app
+            .db
+            .execute(
+                "INSERT INTO attempts VALUES(?,?,'complete',?,?)",
+                rusqlite::params![
+                    attempt,
+                    id,
+                    clock - 60. + n as f64 * 10.,
+                    clock - 55. + n as f64 * 10.
+                ],
+            )
+            .unwrap();
+        f.app.db.execute("UPDATE jobs SET attempt=?,state='complete',result='{\"artifact_ready\":true}' WHERE id=?",rusqlite::params![attempt,id]).unwrap();
+        ids.push(id);
+    }
+    assert_eq!(
+        f.app.consolidation_target(&ids[0]).unwrap(),
+        Some(ids[2].clone())
+    );
+    let detail = f.app.job_detail(&ids[2]).unwrap();
+    assert_eq!(
+        detail["work_timeline"]["executions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(
+        detail["internal_steps"]["steps"].as_array().unwrap().len(),
+        3
+    );
+    let activity = f.app.dashboard_activity("research").unwrap();
+    assert_eq!(
+        activity["days"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d["job_count"].as_u64().unwrap())
+            .sum::<u64>(),
+        1
+    );
+    assert!(
+        (activity["days"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d["milliseconds"].as_f64().unwrap())
+            .sum::<f64>()
+            - 15000.)
+            .abs()
+            < 1.
+    );
+    let profiles = f.call("components", "profiles", json!({})).unwrap();
+    let profile = profiles
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["kind"] == "cpu.smoke")
+        .unwrap();
+    assert_eq!(profile["usage_stats"]["logical_jobs"], 1);
+    assert_eq!(profile["usage_stats"]["recorded_executions"], 3);
 }

@@ -27,8 +27,14 @@ Do not group unrelated scenes merely because they cite the same model/demo.
 The compatible API names remain scenarios, scenario_ref and link_scenario.
 Dashboard records expose task_refs (id, revision, label), including exact
 additive links even when the Task is outside the current catalog page.
-dashboard_page/search_items task_id filters span Task revisions. The exact\nscenario_ref filter selects one revision. Both match accepted pins and active
+dashboard_page/search_items task_id filters span Task revisions. The exact
+scenario_ref filter selects one revision. Both match accepted pins and active
 typed links. An explicitly linked historical snapshot remains selectable even
 when another snapshot is newer; link corrections expire context-filtered cursors.
 Unassigned records remain visible in All tasks. The Dashboard has no standalone
 Scenario navigation tab; Tasks are filters and links on research lists.
+
+Target identity objects accept only their documented selector fields. Extra fields
+are rejected before storing a link, so a typo cannot create an accepted reference
+that catalog membership cannot resolve. Standalone Profile aliases use
+`owner/id/revision`; accepted definition references use `kind/sha256`.

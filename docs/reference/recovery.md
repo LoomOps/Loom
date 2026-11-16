@@ -63,7 +63,7 @@ Scope: `submit`. Owner: [recovery](../features/recovery.md). Implementation: [ru
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -124,7 +124,7 @@ Scope: `submit`. Owner: [recovery](../features/recovery.md). Implementation: [ru
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -187,7 +187,7 @@ Scope: `submit`. Owner: [recovery](../features/recovery.md). Implementation: [ru
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -246,7 +246,7 @@ Scope: `submit`. Owner: [recovery](../features/recovery.md). Implementation: [ru
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -305,7 +305,7 @@ Scope: `submit`. Owner: [recovery](../features/recovery.md). Implementation: [ru
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 

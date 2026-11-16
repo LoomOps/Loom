@@ -99,6 +99,62 @@ impl Drop for Fixture {
     }
 }
 #[test]
+fn host_transport_rejects_nonregular_or_oversized_credentials_before_connecting() {
+    let f = Fixture::new();
+    let credential = f.root.join("credential");
+    let name = std::ffi::CString::new(credential.as_os_str().as_encoded_bytes()).unwrap();
+    assert_eq!(unsafe { libc::mkfifo(name.as_ptr(), 0o600) }, 0);
+    assert_eq!(
+        loom_host::wire::call(
+            &f.root.join("absent.sock"),
+            &credential,
+            "status",
+            &json!({})
+        )
+        .unwrap_err()
+        .code,
+        "artifact"
+    );
+    std::fs::remove_file(&credential).unwrap();
+    std::fs::write(&credential, "x".repeat(4097)).unwrap();
+    assert_eq!(
+        loom_host::wire::call(
+            &f.root.join("absent.sock"),
+            &credential,
+            "status",
+            &json!({})
+        )
+        .unwrap_err()
+        .status,
+        413
+    );
+}
+
+#[test]
+fn invalid_unicode_memory_returns_an_error_without_launching_or_panicking() {
+    let mut f = Fixture::new();
+    f.executor
+        .config
+        .instances
+        .get_mut("one")
+        .unwrap()
+        .declared_runtime = json!({"enabled":true});
+    for memory in ["é", "1기가", "", "1💾"] {
+        let error = f
+            .executor
+            .handle(
+                "one",
+                "resolve",
+                json!({"image":"fixture","resources":{"memory":memory}}),
+            )
+            .unwrap_err();
+        assert_eq!(error.code, "memory");
+    }
+    let state = f.fake.0.lock().unwrap();
+    assert_eq!((state.creates, state.starts), (0, 0));
+}
+
+#[test]
 fn lost_create_reply_reuses_exact_matching_launch() {
     let mut f = Fixture::new();
     f.fake.0.lock().unwrap().lost_create = true;

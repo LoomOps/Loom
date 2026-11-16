@@ -4,6 +4,20 @@ ROOT=Path(__file__).resolve().parents[2];sys.path.insert(0,str(ROOT/'deploy'))
 import features
 
 class FeatureCatalogTests(unittest.TestCase):
+    def test_native_runner_distinguishes_actual_pass_ignore_missing_failure_and_timeout(self):
+        import importlib.util,tempfile,subprocess
+        spec=importlib.util.spec_from_file_location('native_test_runner',ROOT/'tests/rust/run.py')
+        runner=importlib.util.module_from_spec(spec);spec.loader.exec_module(runner)
+        with tempfile.TemporaryDirectory() as temp:
+            source=Path(temp)/'cases.rs';binary=Path(temp)/'cases'
+            source.write_text('#[test] fn passed() {}\n#[test] #[ignore] fn ignored() {}\n#[test] fn failed() { panic!("fixture"); }\n#[test] fn slow() { std::thread::sleep(std::time::Duration::from_secs(10)); }')
+            subprocess.run(['rustc','--test',str(source),'-o',str(binary)],check=True,capture_output=True,timeout=30)
+            for name,status in [('passed','passed'),('ignored','skipped'),('missing','failed'),('failed','failed'),('slow','failed')]:
+                with self.subTest(name=name):
+                    result=runner.run_case(str(binary),name,Path('fixture.rs'),timeout=1)
+                    self.assertEqual(result['status'],status)
+                    if status!='passed':self.assertTrue(result['detail'])
+
     def test_expected_failure_and_unexpected_success_are_never_recorded_as_passes(self):
         import importlib.util,io
         spec=importlib.util.spec_from_file_location('loom_test_result',ROOT/'tests/suite.py')

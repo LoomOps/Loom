@@ -135,6 +135,7 @@ def serve(path,policy,host,port,cert=None,key=None):
                 if actor is None:
                     raise PermissionError('Invalid machine credential')
                 body=json.loads(self.rfile.read(length))
+                if not isinstance(body,dict):raise ValueError('Request must be an object')
                 if body.get('binding') != policy[actor]['binding']:
                     raise PermissionError('Machine/storage binding does not match the grant')
                 with sqlite3.connect(database,uri=True,timeout=10) as c:

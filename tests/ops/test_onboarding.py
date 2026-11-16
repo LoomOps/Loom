@@ -5,7 +5,7 @@ from urllib.request import Request,urlopen
 from urllib.error import HTTPError
 import onboarding,ops
 from client_source import PACKAGE
-from test_api_contract import APIContractTests
+import test_api_contract
 from test_support import IsolatedOps
 
 class GuideTests(IsolatedOps):
@@ -49,7 +49,7 @@ class GuideTests(IsolatedOps):
     self.assertNotEqual(before['guide_revision'],after['guide_revision'])
     self.assertEqual(before['contract_revision'],after['contract_revision'])
 
-class GuideHTTPTests(APIContractTests):
+class GuideHTTPTests(test_api_contract.APIHTTPFixture):
  def test_error_trace_is_available_to_standard_mcp_clients(self):
   trace='02c11225fd5740a9833b384f68aad3af'
   with patch('ops.diagnostics.record',return_value=trace):

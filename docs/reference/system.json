@@ -8,7 +8,6 @@
         "Not enabled, unavailable or SSH management not configured."
       ],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#system_action",
@@ -30,7 +29,6 @@
       "description": "List registered user profiles available for ownership assignment.",
       "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#system_action",
@@ -52,7 +50,6 @@
       "description": "Read build, contract revision, admission, registered runtimes and GPU execution availability.",
       "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#system_action",
@@ -74,7 +71,6 @@
       "description": "Compare cached GitHub Releases with the current build. Reads do not wait on network requests or the Job database.",
       "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#system_action",
@@ -98,7 +94,6 @@
         "Failures appear in updates.error while preserving the last successful result."
       ],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#system_action",
@@ -122,7 +117,6 @@
         "Missing or stale observations are reported through status and errors."
       ],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#system_action",
@@ -144,7 +138,6 @@
       "description": "Read Job properties, public states, recovery policy and submission schema.",
       "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#system_action",
@@ -171,7 +164,6 @@
         "action": "submit",
         "group": "jobs"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#system_action",
@@ -211,7 +203,6 @@
         "Unknown document ID or invalid arguments."
       ],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#system_action",
@@ -239,23 +230,18 @@
       "action": "prune_search",
       "description": "Remove at most eight retired private shadow generations older than ten minutes. Preserve active generation and all authority.",
       "errors": [
-        "task_stale",
-        "task_state",
-        "busy",
-        "index_budget",
-        "metadata_space"
+        "Changed request under the same key or incompatible catalog roots."
       ],
       "example": {
         "key": "retired-search-cleanup",
         "max_generations": 4
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance",
         "feature": "catalog"
       },
-      "returns": "Durable maintenance progress or an explicit conflict.",
+      "returns": "Cleanup maintenance task · id, kind, state, progress, receipt, error",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -283,22 +269,17 @@
       "action": "retry_catalog_task",
       "description": "Resume a failed task with retained progress and unchanged configured roots. An exhausted original batch budget requires a new rebuild request.",
       "errors": [
-        "task_stale",
-        "task_state",
-        "busy",
-        "index_budget",
-        "metadata_space"
+        "Task missing/not failed, changed roots or another pending rebuild."
       ],
       "example": {
         "id": "task-id"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance",
         "feature": "catalog"
       },
-      "returns": "Durable maintenance progress or an explicit conflict.",
+      "returns": "Maintenance task with retained progress and state=pending",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -321,25 +302,18 @@
       "action": "rebuild_search",
       "description": "Build a separate source-qualified generation while the current index stays readable; switch atomically after catch-up.",
       "errors": [
-        "source_conflict",
-        "plan_stale",
-        "validation_required",
-        "content_changed",
-        "retention_gap",
-        "cursor_expired",
-        "index_unavailable"
+        "Changed request under the same key, another pending rebuild or incompatible roots."
       ],
       "example": {
         "key": "rebuild-index-1",
         "max_batches": 10000
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "returns": "Maintenance task · id, kind, state, progress, receipt, error",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -367,24 +341,17 @@
       "action": "catalog_task",
       "description": "Read caller-scoped durable background maintenance progress, failure or receipt.",
       "errors": [
-        "source_conflict",
-        "plan_stale",
-        "validation_required",
-        "content_changed",
-        "retention_gap",
-        "cursor_expired",
-        "index_unavailable"
+        "Task missing or owned by another actor."
       ],
       "example": {
         "id": "task-id"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/maintenance.rs#maintenance",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "returns": "Caller-owned maintenance task · id, kind, state, progress, receipt, error",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -407,13 +374,7 @@
       "action": "dashboard_page",
       "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both.",
       "errors": [
-        "source_conflict",
-        "plan_stale",
-        "validation_required",
-        "content_changed",
-        "retention_gap",
-        "cursor_expired",
-        "index_unavailable"
+        "Unavailable index/source, incompatible filters or expired cursor."
       ],
       "example": {
         "kinds": [
@@ -421,13 +382,12 @@
         ],
         "limit": 50
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/catalog.rs#dashboard_page",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
+      "returns": "Browser catalog page · entities, research_tasks, next_cursor, partial, consistency and shared catalog metadata",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -565,22 +525,14 @@
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "search_status",
       "description": "Read safe generation/checkpoint and partial coverage status without filesystem paths or private diagnostic content.",
-      "errors": [
-        "unknown_item",
-        "index_unavailable",
-        "cursor_expired",
-        "source_unavailable",
-        "content_changed",
-        "query_too_broad"
-      ],
+      "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/index_store.rs#search_status",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "returns": "Index status · status, catalog_head, backfill/adoption/inventory counts; generation and indexed_through when available",
       "schema": {
         "additionalProperties": false,
         "properties": {},
@@ -594,22 +546,14 @@
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "dashboard_summary",
       "description": "Read compact Item counts and index capabilities; does not expand file or log inventories.",
-      "errors": [
-        "unknown_item",
-        "index_unavailable",
-        "cursor_expired",
-        "source_unavailable",
-        "content_changed",
-        "query_too_broad"
-      ],
+      "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/items.rs#dashboard_summary",
         "feature": "catalog"
       },
-      "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
+      "returns": "Summary · schema, counts by kind, search, capabilities, observed_at",
       "schema": {
         "additionalProperties": false,
         "properties": {},
@@ -624,20 +568,17 @@
       "action": "dashboard_activity",
       "description": "Read a compact KST activity rollup from actual execution intervals and eligible registration times; no full catalog expansion.",
       "errors": [
-        "unknown_item",
-        "source_unavailable",
-        "index_unavailable"
+        "Unsupported view or unavailable source state."
       ],
       "example": {
         "view": "research"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/activity.rs#dashboard_activity",
         "feature": "catalog"
       },
-      "returns": "Typed JSON with explicit coverage and stable source identity.",
+      "returns": "Activity · timezone, through, coverage and daily Job/asset counts with execution durations",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -660,20 +601,17 @@
       "action": "dashboard_entity",
       "description": "Read one exact source-qualified browser record with lazy file inventories.",
       "errors": [
-        "unknown_item",
-        "source_unavailable",
-        "index_unavailable"
+        "Missing Item/source revision or unavailable canonical metadata."
       ],
       "example": {
         "item_id": "2156055679491977121222771780406505881"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "system",
       "implementation": {
         "entrypoint": "rust/crates/core/src/catalog.rs#dashboard_entity",
         "feature": "catalog"
       },
-      "returns": "Typed JSON with explicit coverage and stable source identity.",
+      "returns": "Exact browser catalog projection including selected entities and common Item/revision IDs",
       "schema": {
         "additionalProperties": false,
         "properties": {

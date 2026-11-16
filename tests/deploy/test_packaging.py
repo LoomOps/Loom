@@ -54,11 +54,7 @@ class PackagingTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 installer.install(Path(tmp)/'second',data,18080,18081,18082,'loom','ops:test','dashboard:test',os.getuid(),os.getgid())
 
-    def test_host_executor_and_installer_parse(self):
-        for path in [ROOT/'executor/server.py',ROOT/'deploy/install.py',ROOT/'deploy/executor-attach.py']:
-            ast.parse(path.read_text(),filename=str(path))
-
-    def test_local_api_imports_are_packaged_in_active_image(self):
+    def test_reference_api_imports_are_packaged_in_reference_image(self):
         local={p.stem for p in (ROOT/'ops').glob('*.py')}
         for name in ['Dockerfile.loom']:
             included=copied_python(ROOT/'ops'/name)

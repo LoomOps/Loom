@@ -93,7 +93,17 @@ pub fn store(
             )?;
         }
     }
-    let marker: Value = serde_json::from_slice(&fs::read(root.join(".loom-storage.json"))?)?;
+    let mut bytes = Vec::new();
+    open_regular(&root.join(".loom-storage.json"))?
+        .take(65537)
+        .read_to_end(&mut bytes)?;
+    require(
+        bytes.len() <= 65536,
+        "storage",
+        "Storage marker exceeds bound",
+        409,
+    )?;
+    let marker: Value = serde_json::from_slice(&bytes)?;
     require(
         marker == json!({"storage_id":id}),
         "storage",
@@ -137,12 +147,23 @@ pub fn locator(config: &Config, bulk: &Path, v: &Value) -> Result<PathBuf> {
             .ok_or_else(|| Error::input("Location ref required"))?,
     )
 }
+/// Reject links and special files before reading, including FIFOs without a writer.
+pub fn open_regular(path: &Path) -> Result<fs::File> {
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)?;
+    require(
+        file.metadata()?.is_file(),
+        "artifact",
+        "Regular file required",
+        400,
+    )?;
+    Ok(file)
+}
 pub fn file_hash(path: &Path) -> Result<(u64, String)> {
     use std::os::unix::fs::MetadataExt;
-    let mut file = fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW)
-        .open(path)?;
+    let mut file = open_regular(path)?;
     let before = file.metadata()?;
     require(before.is_file(), "artifact", "Regular file required", 400)?;
     use sha2::{Digest, Sha256};
@@ -407,6 +428,7 @@ pub fn open_registered(root: &Path, reference: &str) -> Result<std::fs::File> {
                 libc::O_RDONLY
                     | libc::O_NOFOLLOW
                     | libc::O_NONBLOCK
+                    | libc::O_CLOEXEC
                     | if n + 1 < parts.len() {
                         libc::O_DIRECTORY
                     } else {

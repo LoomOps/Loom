@@ -50,21 +50,26 @@ impl Facts {
             if value.as_object().is_some_and(serde_json::Map::is_empty) {
                 continue;
             }
-            self.record(doc, id, section, label, value, path, unit);
+            self.record(
+                id,
+                section,
+                label,
+                value,
+                json!({"source":doc.source,"pointer":path}),
+                unit,
+            );
             break;
         }
     }
     fn record(
         &mut self,
-        doc: &Document,
         id: &str,
         section: &str,
         label: &str,
         value: &Value,
-        path: &str,
+        evidence: Value,
         unit: Option<&str>,
     ) {
-        let evidence = json!({"source":doc.source,"pointer":path});
         let entry=self.values.entry(id.into()).or_insert_with(||json!({"id":id,"section":section,"label":label,"value":value,"unit":unit,"status":"recorded","evidence":[]}));
         if entry["value"] != *value {
             if entry["alternatives"].is_null() {
@@ -91,6 +96,9 @@ impl Facts {
                         continue;
                     }
                     let mut next = input.clone();
+                    if !next["status"].is_string() {
+                        next["status"] = json!("unrecorded");
+                    }
                     next["evidence"] = json!({"source":doc.source,"pointer":path});
                     let kind = next["kind"].as_str().unwrap_or("");
                     if kind.is_empty() {
@@ -128,7 +136,11 @@ impl Facts {
                     _ => continue,
                 };
                 if !self.inputs.iter().any(|v| v["label"] == *name) {
-                    self.inputs.push(json!({"kind":kind,"label":name,"status":"present","shape":feature["shape"],"evidence":{"source":doc.source,"pointer":format!("/input_features/{name}")}}))
+                    let mut input = json!({"kind":kind,"label":name,"status":"present","evidence":{"source":doc.source,"pointer":format!("/input_features/{}", name.replace('~', "~0").replace('/', "~1"))}});
+                    if feature["shape"].is_array() {
+                        input["shape"] = feature["shape"].clone();
+                    }
+                    self.inputs.push(input);
                 }
             }
         }
@@ -685,20 +697,6 @@ pub fn summarize(entity: &Value, documents: &[(Value, Value)]) -> Value {
                 None
             );
             field!(
-                "selected_step",
-                "training",
-                "Selected step",
-                &["/research/model/selected_step", "/selected_step"],
-                Some("updates")
-            );
-            field!(
-                "optimizer_updates",
-                "training",
-                "Training steps",
-                &["/research/model/optimizer_updates", "/optimizer_updates"],
-                Some("updates")
-            );
-            field!(
                 "selection",
                 "training",
                 "Checkpoint selection",
@@ -709,20 +707,6 @@ pub fn summarize(entity: &Value, documents: &[(Value, Value)]) -> Value {
                     "/ensemble_validation/selection_data",
                     "/model/selection"
                 ],
-                None
-            );
-            field!(
-                "train_frames",
-                "training",
-                "Train frames",
-                &["/research/model/train_frames", "/train_frames"],
-                None
-            );
-            field!(
-                "validation_frames",
-                "training",
-                "Validation frames",
-                &["/research/model/validation_frames", "/validation_frames"],
                 None
             );
             field!(
@@ -817,12 +801,11 @@ pub fn summarize(entity: &Value, documents: &[(Value, Value)]) -> Value {
                     .collect();
                 if !outcomes.is_empty() {
                     facts.record(
-                        d,
                         "condition_outcomes",
                         "evaluation",
                         "Condition outcomes",
                         &json!(outcomes),
-                        pointer,
+                        json!({"source":d.source,"pointer":pointer}),
                         None,
                     );
                     break;

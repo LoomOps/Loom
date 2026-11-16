@@ -6,7 +6,6 @@
       "description": "Read the latest revision of all components. Set owner to filter the namespace.",
       "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#software_action",
@@ -32,18 +31,17 @@
       "action": "get",
       "description": "Read an exact or latest Job lifecycle Component manifest and profiles.",
       "errors": [
-        "Missing component or owner access denied."
+        "Missing Component revision or read scope."
       ],
       "example": {
         "id": "<component-id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#software_action",
         "feature": "extensions"
       },
-      "returns": "Component · owner (namespace), id, revision, manifest, profiles, owner_profile, owner_name, owner_kind",
+      "returns": "Component · owner namespace, id, revision, manifest, profiles and current attribution",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -86,7 +84,6 @@
           }
         }
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#software_action",
@@ -130,20 +127,19 @@
       "action": "write",
       "description": "Save editable source at a relative path. Active revisions remain unchanged.",
       "errors": [
-        "Absolute path, parent-directory escape or owner access denied."
+        "Invalid identity, unsafe relative path, missing submit scope or inactive installation."
       ],
       "example": {
         "content": "import json, sys\nfrom pathlib import Path\nr = json.loads(Path(sys.argv[-1]).read_text())\no = Path(r[\"output_dir\"])\n(o/\"sample.txt\").write_text(\"hello\")\np = {\"profile\": r[\"profile\"][\"revision\"], \"producer_sha256\": r[\"profile\"][\"sha256\"]}\n(o/\"result.json\").write_text(json.dumps({\"entities\": [{\"id\": \"sample\", \"kind\": \"artifact\", \"path\": \"sample.txt\", \"provenance\": p, \"relations\": []}], \"metrics\": []}))\n",
         "id": "demo",
         "path": "run.py"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#software_action",
         "feature": "extensions"
       },
-      "returns": "Source receipt · id, path, bytes",
+      "returns": "Editable source receipt · owner, id, path, bytes",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -179,7 +175,6 @@
       "description": "Read exact Profile combinations, stage environments and observed Job usage. Repeated environment dependencies are a bounded preview (dependency_count, dependencies_complete); use components.get_runtime for the complete inventory. Read scope does not grant execution or registration rights.",
       "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/composition.rs#profile_listing",
@@ -1452,18 +1447,17 @@
       "action": "get_profile",
       "description": "Read a specific or latest revision of an independently registered profile.",
       "errors": [
-        "Profile access denied or missing revision."
+        "Missing Profile revision or read scope."
       ],
       "example": {
         "id": "demo-run"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#software_action",
         "feature": "extensions"
       },
-      "returns": "Profile · owner, id, revision, profile",
+      "returns": "Profile · owner namespace, id, revision, profile",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -1493,7 +1487,6 @@
       "description": "List shared reusable software independently of Job Components.",
       "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#software_action",
@@ -1524,7 +1517,6 @@
         "id": "planner",
         "revision": 1
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#software_action",
@@ -1572,7 +1564,6 @@
           }
         }
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#software_action",
@@ -1634,7 +1625,6 @@
       "description": "Read administrator-granted execution environments, exact dependencies, validation evidence and Profile/Job usage. Legacy entries are not verification evidence.",
       "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#software_action",
@@ -1661,7 +1651,6 @@
         "id": "simulation",
         "revision": 1
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#software_action",
@@ -1693,7 +1682,6 @@
       "description": "Read major software units grouped across current granted Runtimes, with exact versions, distinct installation origins and Runtime links. Full transitive package inventories remain on each Runtime. This is recorded metadata, not filesystem discovery or proof of scientific use.",
       "errors": [],
       "example": {},
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#software_action",
@@ -1719,7 +1707,6 @@
       "example": {
         "id": "dependency-<id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#software_action",
@@ -1754,7 +1741,6 @@
         "namespace": "research",
         "owner": "<user-profile-id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/composition.rs#curate_software",
@@ -1812,7 +1798,6 @@
           "motion-planning"
         ]
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/composition.rs#curate_software",
@@ -1901,7 +1886,6 @@
         "label": "Evaluation",
         "type": "profile"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/composition.rs#curate_software",
@@ -2092,7 +2076,6 @@
         "kind": "owner.example.run.r1",
         "params": {}
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/composition.rs#inspect_profiles",
@@ -2128,7 +2111,6 @@
         "left": "owner.example.run.r1",
         "right": "owner.example.run.r2"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/composition.rs#inspect_profiles",
@@ -2165,7 +2147,6 @@
         "name": "example-producer",
         "template": "component"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#scaffold",
@@ -2214,7 +2195,6 @@
           }
         }
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "components",
       "implementation": {
         "entrypoint": "rust/crates/core/src/software.rs#validate_package",

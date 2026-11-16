@@ -3,9 +3,7 @@
 ## Boundary
 
 Distinguish historical originals from current display overlays. Never assume missing files are valid artifacts.
-Common IDs are decimal strings. Native identities and historical snapshots remain exact; derived search never owns Job transitions. File identity survives index deletion in authoritative sealed manifests.
-
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
+Common IDs are decimal strings. Native identities and historical snapshots remain exact; derived search never owns Job transitions. File identity survives index deletion in authoritative sealed manifests. Relation pages continue into incoming edges when the last outgoing edge fills a page exactly. Activity uses accepted prepare/run stage intervals; Attempt elapsed time is a compatibility fallback only when stage receipts are absent.
 
 ## Interfaces
 
@@ -56,8 +54,6 @@ Related blocks: [identity](identity.md) · [results](results.md) · [queue](queu
 - [tests/rust/test_service.py](../../tests/rust/test_service.py)
 - [tests/rust/test_item_image.py](../../tests/rust/test_item_image.py)
 - [tests/rust/test_reconciliation.py](../../tests/rust/test_reconciliation.py)
-
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
 Acceptance outside these fixtures:
 - Verify migrated data reference integrity separately from fixtures.
@@ -119,3 +115,5 @@ annotation. Stored facts remain recorded evidence when a source file later becom
 unavailable; current file availability is distinct from capture-time verification.
 Re-running capture derives current sources again, not a re-stamped old annotation.
 Projection-version triggers invalidate catalog caches after annotation changes.
+
+Maintenance keys identify both action and arguments; a key cannot replay a different maintenance kind. Component/Tool build File descriptors use the accepted binary locator size and SHA-256. Existing sealed inventories remain immutable; these rules do not silently rewrite prior File identities.

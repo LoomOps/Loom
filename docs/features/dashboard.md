@@ -12,8 +12,6 @@ follows explicit exact lineage, retains variant names and overlapping counts, an
 does not infer a data-parent edge from Task names or general consumes relations.
 Group counts describe loaded variants; paging does not claim a complete lineage.
 
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
-
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
@@ -77,8 +75,6 @@ Related blocks: [identity](identity.md) · [api](api.md) · [catalog](catalog.md
 - [tests/dashboard/browser/test_workspace.py](../../tests/dashboard/browser/test_workspace.py)
 - [tests/dashboard/test_proxy.py](../../tests/dashboard/test_proxy.py)
 
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
-
 Acceptance outside these fixtures:
 - Actual Safari behavior, existing user sessions and SSO provider login require separate acceptance testing.
 
@@ -134,9 +130,9 @@ Measured physics, annotation, language conditioning, evaluation scope, protocol,
 evaluator, population and thresholds are shown when recorded, never inferred from
 an item name. Missing metadata is not fabricated from a benchmark example.
 
-Index projection status appears in the lower sidebar. Its host software values
-use the newest source observation, so an older catalog bootstrap cannot replace
-a newer resource sample. Source timestamps remain source timestamps.
+Host software values use the newest source observation, so an older catalog
+bootstrap cannot replace a newer resource sample. Source timestamps remain source
+timestamps.
 
 Presentation references: [robomimic dataset structure](https://robomimic.github.io/docs/datasets/overview.html)
 separates environment arguments, observation/action arrays, trajectories and split

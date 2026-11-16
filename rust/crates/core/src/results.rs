@@ -7,6 +7,23 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 pub fn verify_target(db: &Connection, target: &Target, config: &Config) -> Result<()> {
     let v = &target.identity;
+    let fields: &[&str] = match target.kind.as_str() {
+        "job" => &["id"],
+        "scenario" | "entity" | "protocol_artifact" => &["id", "revision"],
+        "historical" => &["source", "kind", "id", "revision", "snapshot"],
+        "profile" if v["kind"].is_string() => &["kind", "sha256"],
+        "component" | "tool" | "profile" => &["owner", "id", "revision"],
+        "runtime" => &["id", "revision", "sha256"],
+        _ => &[],
+    };
+    require(
+        v.as_object()
+            .is_some_and(|o| o.keys().all(|k| fields.contains(&k.as_str())))
+            && v.get("sha256").is_none_or(Value::is_string),
+        "target",
+        "Unexpected exact target identity fields",
+        400,
+    )?;
     let exists=match target.kind.as_str() {
   "scenario"=>db.query_row("SELECT EXISTS(SELECT 1 FROM scenario_revisions WHERE scenario_id=? AND revision=?)",params![v["id"].as_str(),v["revision"].as_i64()],|r|r.get(0))?,
   "job"=>{let id=v["id"].as_str().ok_or_else(||Error::input("Job target ID required"))?;db.query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=? UNION SELECT 1 FROM job_workflows WHERE id=?)",params![id,id],|r|r.get(0))?},
@@ -18,6 +35,35 @@ pub fn verify_target(db: &Connection, target: &Target, config: &Config) -> Resul
   _=>false,
  };
     require(exists, "target", "Exact target identity not found", 404)
+}
+// File bindings extend an exact historical record pin with a member selector.
+// Task/lineage targets remain record identities and cannot carry these fields.
+pub(crate) fn verify_historical_binding_target(
+    db: &Connection,
+    identity: &Value,
+    config: &Config,
+) -> Result<()> {
+    let mut record = identity.clone();
+    if let Some(fields) = record.as_object_mut() {
+        for selector in ["file", "component"] {
+            if let Some(value) = fields.remove(selector) {
+                require(
+                    value.is_string(),
+                    "identity",
+                    "Historical member selector must be a string",
+                    400,
+                )?;
+            }
+        }
+    }
+    verify_target(
+        db,
+        &Target {
+            kind: "historical".into(),
+            identity: record,
+        },
+        config,
+    )
 }
 impl Application {
     // Display names are current curation, never a rewrite of an accepted source.
@@ -148,8 +194,8 @@ impl Application {
                     "Annotation exceeds its structured evidence bound",
                     400,
                 )?;
-                let old: Option<String> = self
-                    .db
+                let tx = self.transaction()?;
+                let old: Option<String> = tx
                     .query_row(
                         "SELECT payload FROM job_annotations WHERE job=? AND id=?",
                         params![id, annotation],
@@ -164,11 +210,13 @@ impl Application {
                         409,
                     )?;
                 } else {
-                    self.db.execute(
+                    active(&tx)?;
+                    tx.execute(
                         "INSERT INTO job_annotations VALUES(?,?,?)",
                         params![id, annotation, encode(&payload)?],
                     )?;
                 }
+                tx.commit()?;
                 Ok(payload)
             }
             "assign_owner" => {
@@ -206,11 +254,7 @@ impl Application {
             return Ok(result);
         }
         let identity = args["identity"].clone();
-        let target = Target {
-            kind: "historical".into(),
-            identity: identity.clone(),
-        };
-        verify_target(&self.db, &target, &self.config)?;
+        verify_historical_binding_target(&self.db, &identity, &self.config)?;
         let path = storage::locator(&self.config, &self.bulk, &args["locator"])?;
         let proof = self.verified_file(&path)?;
         let (size, sha) = (proof.size, proof.sha256.clone());

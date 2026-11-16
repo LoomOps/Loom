@@ -366,7 +366,18 @@ impl Application {
                 ))
             }
         };
-        result["_meta"] = json!({"loom":onboarding::identity()});
+        let identity = onboarding::identity();
+        if method == "tools/call" {
+            if let Some(content) = result["content"].as_array_mut() {
+                content.push(
+                    json!({"type":"text","text":format!("Loom {} | contract {} | guide {}",
+                    identity["build_id"].as_str().unwrap_or("unversioned"),
+                    &identity["contract_revision"].as_str().expect("contract digest")[..12],
+                    &identity["guide_revision"].as_str().expect("guide digest")[..12])}),
+                );
+            }
+        }
+        result["_meta"] = json!({"loom":identity});
         Ok(Some(json!({"jsonrpc":"2.0","id":id,"result":result})))
     }
     fn register_person(&mut self, actor: &mut Actor) -> Result<()> {
@@ -949,6 +960,7 @@ impl ReadContext {
             .as_str()
             .or(job.aggregate.fence.attempt.as_ref().map(|a| a.as_str()))
             .ok_or_else(|| Error::input("Attempt required"))?;
+        app.require_log_attempt(job.aggregate.id.as_str(), attempt)?;
         crate::log_index::legacy_guard(&app, job.aggregate.id.as_str(), attempt)?;
         let evidence: Option<String> = app.db.query_row("SELECT evidence FROM rust_effects WHERE job=? AND attempt=? AND stage='run' AND state IN ('accepted','unknown','returned') ORDER BY created DESC LIMIT 1",params![job.aggregate.id.as_str(),attempt],|row|row.get(0)).optional()?.flatten();
         let Some(evidence) = evidence else {
@@ -960,7 +972,7 @@ impl ReadContext {
         };
         Ok(Some((
             executor.clone(),
-            json!({"ticket":ticket,"id":job.aggregate.id.as_str(),"attempt":attempt,"offset":args["offset"].as_u64().unwrap_or(0),"limit":args["limit"].as_u64().unwrap_or(65536).min(1024*1024)}),
+            json!({"ticket":ticket,"id":job.aggregate.id.as_str(),"attempt":attempt,"offset":args["offset"].as_u64().unwrap_or(0),"limit":args["limit"].as_u64().unwrap_or(65536).min(65536)}),
         )))
     }
     pub fn http_with_logs(self, r: HttpRequest, logs: Option<Result<Value>>) -> Result<HttpReply> {

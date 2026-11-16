@@ -8,7 +8,29 @@ from unittest.mock import patch
 import ops
 from test_support import IsolatedOps
 
-class APIContractTests(IsolatedOps):
+class APIHTTPFixture(IsolatedOps):
+    def setUp(self):
+        super().setUp()
+        for p in [patch.object(ops,'guard'),patch.dict(os.environ,{'LOOM_DEV_NO_AUTH':'0'})]:
+            p.start();self.addCleanup(p.stop)
+        self.server=ThreadingHTTPServer(('127.0.0.1',0),ops.API);self.server.config=self.config
+        self.thread=Thread(target=self.server.serve_forever,kwargs={'poll_interval':.01},daemon=True);self.thread.start()
+        self.addCleanup(self.close_server)
+        self.base='http://127.0.0.1:'+str(self.server.server_port)
+
+    def close_server(self):
+        self.server.shutdown();self.server.server_close();self.thread.join(2)
+
+    def request(self,path,body=None,token='fixture-owner',headers=None):
+        h={'Content-Type':'application/json',**(headers or {})}
+        if token:h['Authorization']='Bearer '+token
+        request=Request(self.base+path,data=json.dumps(body).encode() if body is not None else None,headers=h)
+        try:
+            with urlopen(request,timeout=3) as r:return r.status,json.load(r)
+        except HTTPError as r:return r.code,json.load(r)
+
+
+class APIContractTests(APIHTTPFixture):
     def test_workflow_http_mcp_replay_and_read_scope(self):
         args={'key':'workflow-http','label':'One requested outcome','owner':'owner','notify':'owner',
               'nodes':[{'id':'check','label':'Check','spec':{'kind':'cpu.smoke','params':{'seconds':0,'fail':False}}}]}
@@ -203,23 +225,6 @@ class APIContractTests(IsolatedOps):
             self.assertEqual(self.request('/api/jobs?'+query)[0],400)
         self.assertEqual(self.request('/api/jobs/contract',token=None)[0],403)
 
-    def setUp(self):
-        super().setUp()
-        for p in [patch.object(ops,'guard'),patch.dict(os.environ,{'LOOM_DEV_NO_AUTH':'0'})]:
-            p.start();self.addCleanup(p.stop)
-        self.server=ThreadingHTTPServer(('127.0.0.1',0),ops.API);self.server.config=self.config
-        self.thread=Thread(target=self.server.serve_forever,kwargs={'poll_interval':.01},daemon=True);self.thread.start()
-        self.addCleanup(self.close_server)
-        self.base='http://127.0.0.1:'+str(self.server.server_port)
-    def close_server(self):
-        self.server.shutdown();self.server.server_close();self.thread.join(2)
-    def request(self,path,body=None,token='fixture-owner',headers=None):
-        h={'Content-Type':'application/json',**(headers or {})}
-        if token:h['Authorization']='Bearer '+token
-        request=Request(self.base+path,data=json.dumps(body).encode() if body is not None else None,headers=h)
-        try:
-            with urlopen(request,timeout=3) as r:return r.status,json.load(r)
-        except HTTPError as r:return r.code,json.load(r)
     def test_auth_and_cross_origin_denial(self):
         self.assertEqual(self.request('/api/status',token=None)[0],403)
         self.assertEqual(self.request('/api/status',token='wrong')[0],403)

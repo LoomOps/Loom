@@ -80,7 +80,7 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 {}
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -133,13 +133,13 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Registry entity view with the current curated display label; the accepted source manifest, revision and file pins remain unchanged.
+Registry entity with current display label, immutable manifest fields and registered locations
 
-Artifact access denied or missing revision.
+Missing artifact revision or read scope.
 
 ## reindex
 
@@ -186,7 +186,7 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -259,7 +259,7 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -324,7 +324,7 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -383,7 +383,7 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -452,7 +452,7 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -505,7 +505,7 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -921,7 +921,7 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 }
 ```
 
-Illustrative arguments. Replace symbolic identities and hashes with exact registered records before preview or apply.
+
 
 ### Result and failures
 
@@ -1069,7 +1069,7 @@ Scope: `read`. Owner: [scenarios](../features/scenarios.md). Implementation: [ru
 {}
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1124,7 +1124,7 @@ Scope: `read`. Owner: [scenarios](../features/scenarios.md). Implementation: [ru
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1192,7 +1192,7 @@ Scope: `read`. Owner: [scenarios](../features/scenarios.md). Implementation: [ru
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1250,7 +1250,7 @@ Scope: `submit`. Owner: [scenarios](../features/scenarios.md). Implementation: [
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1331,7 +1331,7 @@ Scope: `submit`. Owner: [scenarios](../features/scenarios.md). Implementation: [
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1403,7 +1403,7 @@ Scope: `submit`. Owner: [scenarios](../features/scenarios.md). Implementation: [
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1531,7 +1531,7 @@ Scope: `submit`. Owner: [scenarios](../features/scenarios.md). Implementation: [
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1604,7 +1604,7 @@ Scope: `submit`. Owner: [scenarios](../features/scenarios.md). Implementation: [
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1690,7 +1690,7 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
@@ -1728,13 +1728,13 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 {}
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.
+Contract · accepted asset adapters, operations, size/count limits and validation scope
 
-source_conflict plan_stale validation_required content_changed retention_gap cursor_expired index_unavailable
+Shared authentication, schema, scope and handler preconditions still apply.
 
 ## reconcile_inspect
 
@@ -1791,13 +1791,13 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.
+Registered metadata page · items, next_cursor, partial, warnings, scope, scan_performed=false
 
-source_conflict plan_stale validation_required content_changed retention_gap cursor_expired index_unavailable
+Index unavailable, invalid filter or expired cursor.
 
 ## reconcile_plan
 
@@ -1860,13 +1860,13 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.
+Plan · plan_id, state, normalized proposal, validation and optional original receipt
 
-source_conflict plan_stale validation_required content_changed retention_gap cursor_expired index_unavailable
+Unknown source contract, conflicting source identity/key or proposal bound exceeded.
 
 ## reconcile_get
 
@@ -1909,13 +1909,13 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.
+Plan · plan_id, state, proposal, created, validation summary, receipt
 
-source_conflict plan_stale validation_required content_changed retention_gap cursor_expired index_unavailable
+Plan missing or owned by another actor.
 
 ## reconcile_validate
 
@@ -1958,13 +1958,13 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.
+Plan with passed validation summary · file count, bytes and verification time
 
-source_conflict plan_stale validation_required content_changed retention_gap cursor_expired index_unavailable
+Plan context/source changed, inaccessible candidate, mismatched digest/size or another actor’s plan.
 
 ## reconcile_apply
 
@@ -2007,13 +2007,13 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.
+Applied plan receipt with original operation outcomes; exact replay returns that receipt
 
-source_conflict plan_stale validation_required content_changed retention_gap cursor_expired index_unavailable
+Validation required, stale contract/source/grant, changed bytes or conflicting import/binding.
 
 ## get_item
 
@@ -2060,13 +2060,13 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.
+Item descriptor · item_id, revision_id, kind, label, native_ref and kind-specific metadata
 
-unknown_item index_unavailable cursor_expired source_unavailable content_changed query_too_broad
+Invalid Item ID or missing/deleted source revision. File Items also require their canonical inventory and index.
 
 ## resolve_item
 
@@ -2125,17 +2125,17 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.
+Exact alias · item_id, revision_id, native_ref
 
-unknown_item index_unavailable cursor_expired source_unavailable content_changed query_too_broad
+The exact native reference has not been adopted, or its source was deleted.
 
 ## search_items
 
-Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both.
+Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates.
 
 Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/index_store.rs#search_items](../../rust/crates/core/src/index_store.rs).
 
@@ -2307,13 +2307,13 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 {}
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.
+Search page · items, next_cursor, partial, consistency, warnings
 
-unknown_item index_unavailable cursor_expired source_unavailable content_changed query_too_broad
+Index unavailable, invalid/expired cursor, changed source/access or unsupported search.
 
 ## item_files
 
@@ -2504,13 +2504,13 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.
+File search page · items, next_cursor, partial, consistency, warnings
 
-unknown_item index_unavailable cursor_expired source_unavailable content_changed query_too_broad
+Missing owner revision, unavailable index/inventory or expired cursor.
 
 ## get_file
 
@@ -2552,13 +2552,13 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.
+File · item_id, revision_id, parent_item_id, owner_revision_id, path, size, sha256, copies
 
-unknown_item index_unavailable cursor_expired source_unavailable content_changed query_too_broad
+Unknown File, unavailable index/canonical inventory or changed sealed metadata.
 
 ## read_file
 
@@ -2613,13 +2613,13 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.
+File range · file_item_id, offset, next_offset, total_bytes, data_base64, eof, verification
 
-unknown_item index_unavailable cursor_expired source_unavailable content_changed query_too_broad
+No granted readable copy, pending verification, changed bytes or invalid offset.
 
 ## item_relations
 
@@ -2689,10 +2689,10 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 }
 ```
 
-Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.
+
 
 ### Result and failures
 
-Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.
+Relation page · items, next_cursor, partial, warnings
 
-unknown_item index_unavailable cursor_expired source_unavailable content_changed query_too_broad
+Missing source revision or expired cursor; incoming relations require a source-qualified index.

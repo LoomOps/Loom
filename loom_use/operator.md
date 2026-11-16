@@ -7,7 +7,7 @@ The service account is non-login loom:loom without sudo or Docker group membersh
 - **loom-ops**: MCP/API, Job queue and worker, state, metadata and result registration. One MCP endpoint exposes six tool groups.
 - **loom-dashboard**: web UI and authenticated API relay, including Job controls and Admin token management. Ops enforces the operation contracts.
 - **host executor**: creates Job containers from approved images and manages resource allocation, termination and return. Platform and Job containers have independent lifetimes.
-- **Storage**: instance databases, settings and secrets under `/loom/ops`; registered source/profiles under `/loom/components` and `/loom/profiles`; artifacts on external storage attached through Compose.
+- **Storage**: instance databases, settings and secrets under `/loom/ops`; registered Component/Tool source under the configured source root, with Profile revisions in the Ops DB; artifacts on external storage attached through Compose.
 - **Host helpers**: observations and configured execution-authority services under `/loom/shared`. Addresses, ports and external storage paths are installation-specific.
 
 Server-specific SSH access, personal development paths, historical archive locations and entry skills belong in separate server documentation. The common Loom package does not install them or require them for entry.
@@ -43,11 +43,11 @@ The installing Linux user, service account loom:loom and Loom ownership profiles
 
 ## MCP transport
 
-One `/mcp` endpoint provides stateless Streamable HTTP. Supported versions are `2025-03-26`, `2025-06-18` and `2025-11-25`, negotiated during initialize. Send `MCP-Protocol-Version` on subsequent requests. Normal responses are JSON; requests selecting SSE receive only their own response before the stream closes. Notifications return 202 with an empty body; GET/DELETE return 405. No sessions, separate `/sse` or `/messages` endpoints, or resident subscriptions are created. Callers remain responsible for Job event consumption. The server does not advertise the 2026-07-28 discovery contract.
+One `/mcp` endpoint provides stateless Streamable HTTP. Supported versions are `2024-11-05`, `2025-03-26` and `2025-06-18`, negotiated during initialize. Send `MCP-Protocol-Version` on subsequent requests. Normal responses are JSON; requests selecting SSE receive only their own response before the stream closes. Notifications return 202 with an empty body; GET/DELETE return 405. No sessions, separate `/sse` or `/messages` endpoints, or resident subscriptions are created. Callers remain responsible for Job event consumption.
 
 Source installation starts at deploy/install.py, host execution attachment at deploy/executor-attach.py, and Compose at deploy/compose.sh. Prepare Docker/Compose and Python 3; GPU execution also requires NVIDIA drivers and Container Toolkit. Read deploy/PLATFORM.md and deploy/README.md from the selected deployment source.
 
-/loom/ops stores instance configuration, DB and secrets. /loom/shared stores executor, authority and observation services. /loom/components and /loom/profiles store registered revisions. /loom/loom_use stores versioned user guides. External data storage is declared in Compose; the installation-configured dependency directory holds external source, Runtime recipes and installation evidence.
+/loom/ops stores instance configuration, DB and secrets. /loom/shared stores executor, authority and observation services. The configured Component source root (default /loom/components) stores sealed Component/Tool sources; registered Profiles are in the Ops DB. Preserve legacy Profile configuration directories independently. /loom/loom_use stores versioned user guides. External data storage is declared in Compose; the installation-configured dependency directory holds external source, Runtime recipes and installation evidence.
 
 Updates deploy immutable images with matching guides. Block execution admission and confirm actual worker/lease return before backing up the DB, configuration and image identity and switching versions. Use isolated dev-build for development; never copy its authentication bypass into deployment defaults.
 
@@ -94,3 +94,11 @@ no SSH registration is needed. For remote file analysis, install the optional
 Loom SSH Skill from the pinned Loom Use release, reuse existing authorized SSH,
 or ask the Dashboard Admin to enable a personal account. MCP tokens are not SSH
 passwords. Component/Tool/Profile drafts are registered via MCP; Jobs stay in the queue.
+
+For file analysis, load the `items` guide. It describes how File copy storage IDs,
+`system.status.data_stores` and `system.ssh.data_paths` identify the current host
+path. The Loom Use client can compose these into an access plan and optionally
+probe the actual account/file/interpreter without changing host configuration.
+Dashboard Enable retains its current dedicated-group read/write ACL and locked
+Unix password with Tailscale authentication; it does not add `ax`, sudo or Docker.
+Dependency/interpreter access is distinct from data-store access.

@@ -3,8 +3,7 @@
 ## Boundary
 
 Distinguish execution completion from indexing completion. Ownership changes must not overwrite original artifact or execution provenance.
-
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
+File hashing, retained inventory and storage-marker reads reject symlinks and special files without waiting for a FIFO writer. Marker metadata is bounded to 64 KiB. Registered path/media descriptors close on exec; they do not become inherited producer permissions.
 
 ## Interfaces
 
@@ -41,8 +40,6 @@ Related blocks: [identity](identity.md) · [extensions](extensions.md).
 - [tests/ops/test_storage_results.py](../../tests/ops/test_storage_results.py)
 - [tests/rust/application.rs](../../tests/rust/application.rs)
 - [tests/rust/test_service.py](../../tests/rust/test_service.py)
-
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
 Acceptance outside these fixtures:
 - Verify large artifacts and external filesystem failures against actual storage.

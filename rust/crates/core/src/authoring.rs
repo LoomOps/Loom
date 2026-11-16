@@ -1,7 +1,7 @@
 //! Source and build artifacts are different immutable identities. The API never builds code.
 use crate::{error::require, runtime, storage, store::*, Error, Result};
 use serde_json::{json, Value};
-use std::{fs::File, io::Read, os::unix::fs::PermissionsExt};
+use std::{io::Read, os::unix::fs::PermissionsExt};
 impl Application {
     pub fn verify_build(&self, manifest: &Value, source_sha: &Value) -> Result<Option<Value>> {
         let Some(receipt) = manifest.get("build_receipt") else {
@@ -50,7 +50,7 @@ impl Application {
             409,
         )?;
         let mut header = [0; 20];
-        File::open(&path)?.read_exact(&mut header)?;
+        storage::open_regular(&path)?.read_exact(&mut header)?;
         require(
             &header[..4] == b"\x7fELF" && header[4] == 2 && header[5] == 1,
             "build",

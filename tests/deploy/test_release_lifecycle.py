@@ -65,7 +65,7 @@ def bundle(version,extra=None):
   if extra:z.writestr(extra,'unsafe')
  return b.getvalue()
 
-class ReleaseLifecycleTests(unittest.TestCase):
+class ReleaseLifecycleFixture(unittest.TestCase):
  def setUp(self):
   t=tempfile.TemporaryDirectory();self.addCleanup(t.cleanup);self.p=Path(t.name);self.root=self.p/'ops';self.root.mkdir()
   (self.root/'runtime').mkdir();self.db=self.root/'runtime/ops.sqlite3'
@@ -79,8 +79,10 @@ class ReleaseLifecycleTests(unittest.TestCase):
   self.old=self.p/'checkout';(self.old/'deploy').mkdir(parents=True);(self.old/'deploy/compose.sh').write_text('old compose')
   for kind in ('components','profiles'):
    (self.p/kind).mkdir();(self.p/kind/'custom.json').write_text('user revision')
+
  def mode(self):
   with sqlite3.connect(self.db) as c:return c.execute('select mode from node_control').fetchone()[0]
+
  def contexts(self):
   from contextlib import ExitStack
   stack=ExitStack();stack.enter_context(patch.object(update,'previous_source',return_value=self.old))
@@ -91,13 +93,31 @@ class ReleaseLifecycleTests(unittest.TestCase):
   props=f'Environment=LOOM_INSTANCE={self.root} LOOM_PROJECT=fixture\nActiveState=active\nSubState=exited'
   stack.enter_context(patch.object(update,'run',side_effect=lambda *args,**kw:props if args[:2]==('systemctl','show') else ''));stack.enter_context(patch.object(update,'compose',return_value=''));stack.enter_context(patch.object(update,'check_health'))
   return stack
+
+ def boot_units(self):
+  stack='[Unit]\nRequiresMountsFor=/data/custom\n[Service]\nType=oneshot\nRemainAfterExit=yes\nTimeoutStartSec=180\nEnvironment=LOOM_PROJECT=custom\nExecStart=/bin/bash /old/deploy/compose.sh up -d --no-build\nExecStop=/bin/bash /old/deploy/compose.sh stop\n'
+  authority='[Unit]\nAfter=tailscaled.service\n[Service]\nUser=loom\nRestart=on-failure\nRestartSec=1\nExecStart=/usr/bin/python3 /protected/remote_fence.py --bind 100.64.0.42 --port 19924\n'
+  originals={self.p/'loom-stack.service':stack,self.p/'loom-authority.service':authority}
+  for path,body in originals.items():path.write_text(body)
+  return originals
+
+
+class ReleaseLifecycleTests(ReleaseLifecycleFixture):
  def test_gate_rejects_running_jobs_and_pending_hooks_without_state_change(self):
   with sqlite3.connect(self.db) as c:c.execute("update jobs set state='running'")
   with self.assertRaises(ValueError):update.idle_gate(self.db)
   self.assertEqual(self.mode(),'active')
-  with sqlite3.connect(self.db) as c:c.execute("update jobs set state='complete'");c.execute("insert into hooks values('pending')")
-  with self.assertRaises(ValueError):update.idle_gate(self.db)
-  self.assertEqual(self.mode(),'active')
+  for state in ('pending','running'):
+   with sqlite3.connect(self.db) as c:c.execute("update jobs set state='complete'");c.execute('DELETE FROM hooks');c.execute('INSERT INTO hooks VALUES(?)',(state,))
+   with self.assertRaises(ValueError):update.idle_gate(self.db)
+   self.assertEqual(self.mode(),'active')
+  with sqlite3.connect(self.db) as c:c.execute('DELETE FROM hooks');c.execute('CREATE TABLE rust_effects(state TEXT,stage TEXT)')
+  for state in ('pending','accepted','unknown'):
+   with sqlite3.connect(self.db) as c:c.execute('DELETE FROM rust_effects');c.execute("INSERT INTO rust_effects VALUES(?,'on_complete')",(state,))
+   with self.assertRaisesRegex(ValueError,'ownership'):update.idle_gate(self.db)
+   self.assertEqual(self.mode(),'active')
+  with sqlite3.connect(self.db) as c:c.execute("UPDATE rust_effects SET state='returned'")
+  update.idle_gate(self.db);self.assertEqual(self.mode(),'maintenance')
  def test_update_preserves_extensions_overrides_and_history_then_rolls_back(self):
   with self.contexts():
    receipt=update.apply(self.root,self.rel,'fixture',self.p)
@@ -115,12 +135,6 @@ class ReleaseLifecycleTests(unittest.TestCase):
    self.assertTrue((self.p/'loom_use/new/manifest.json').exists())
    with sqlite3.connect(self.db) as c:self.assertEqual(c.execute('select * from jobs').fetchall(),[('old','complete','{}')])
 
- def boot_units(self):
-  stack='[Unit]\nRequiresMountsFor=/data/custom\n[Service]\nType=oneshot\nRemainAfterExit=yes\nTimeoutStartSec=180\nEnvironment=LOOM_PROJECT=custom\nExecStart=/bin/bash /old/deploy/compose.sh up -d --no-build\nExecStop=/bin/bash /old/deploy/compose.sh stop\n'
-  authority='[Unit]\nAfter=tailscaled.service\n[Service]\nUser=loom\nRestart=on-failure\nRestartSec=1\nExecStart=/usr/bin/python3 /protected/remote_fence.py --bind 100.64.0.42 --port 19924\n'
-  originals={self.p/'loom-stack.service':stack,self.p/'loom-authority.service':authority}
-  for path,body in originals.items():path.write_text(body)
-  return originals
 
  def test_update_adopts_both_boot_policies_and_rollback_restores_exact_units(self):
   originals=self.boot_units()
@@ -245,19 +259,15 @@ class ReleaseLifecycleTests(unittest.TestCase):
 
 
 class GuideBundleTests(unittest.TestCase):
- def test_release_guide_generator_requests_complete_usage_scopes(self):
-  # Execute the exact bundle-generation script without Docker to inspect the distributable contract.
+ def test_release_guide_generation_uses_native_contract_and_propagates_failure(self):
   import subprocess
-  root=Path(__file__).resolve().parents[2]
+  command=['docker','run','--rm','--network','none','--entrypoint','loom-ops','fixture-image','--guide-bundle']
   with patch.object(guide_bundle.subprocess,'check_output',return_value=b'fixture') as call:
-   guide_bundle.generate('fixture-image')
-   command=call.call_args.args[0]
-  result=subprocess.run([sys.executable,'-c',command[-1]],cwd=root/'ops',capture_output=True,check=True)
-  with zipfile.ZipFile(io.BytesIO(result.stdout)) as z:
-   tools=json.loads(z.read('mcp-tools.json'))['tools']
-   self.assertEqual({t['name'] for t in tools},{'jobs','recovery','events','components','results','system'})
-   jobs=next(t for t in tools if t['name']=='jobs')
-   self.assertIn('cancel',jobs['inputSchema']['properties']['action']['enum'])
+   self.assertEqual(guide_bundle.generate('fixture-image'),b'fixture')
+   call.assert_called_once_with(command)
+  with patch.object(guide_bundle.subprocess,'check_output',side_effect=subprocess.CalledProcessError(1,command)) as call:
+   with self.assertRaises(subprocess.CalledProcessError):guide_bundle.generate('fixture-image')
+   self.assertEqual(call.call_count,1)
  def test_bundle_rejects_wrong_version_and_path_escape_before_writing(self):
   with tempfile.TemporaryDirectory() as t:
    root=Path(t)/'guides'

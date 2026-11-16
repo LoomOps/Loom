@@ -4,8 +4,6 @@
 
 Distinguish original preservation from current presentation and retain installation identifiers. Cloned installations running concurrently require distinct identities.
 
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
-
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
@@ -39,8 +37,6 @@ Related blocks: [identity](identity.md) · [catalog](catalog.md) · [results](re
 - [tests/rust/test_service.py](../../tests/rust/test_service.py)
 - [tests/rust/test_installation.py](../../tests/rust/test_installation.py)
 - [tests/rust/test_item_image.py](../../tests/rust/test_item_image.py)
-
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
 Acceptance outside these fixtures:
 - Verify actual cross-machine TLS/handoff and access to restored data.

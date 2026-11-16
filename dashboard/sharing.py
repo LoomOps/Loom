@@ -307,7 +307,11 @@ class SharingAdmission(Admission):
         else:
             invite=next((i for i in invites if str(i['id'])==row['invite_id']),None)
             if not invite:
-                self.policy(row,remove=True);self.update(row['id'],state='revoked',error=None,next_attempt=0);return
+                # Revoke local approval before remote cleanup; a failed policy
+                # call must not leave an externally removed share authorized.
+                self.update(row['id'],state='revoking',terminal='revoked',next_attempt=0)
+                self.reconcile({**row,'state':'revoking','terminal':'revoked'})
+                return
         # Repair a missing receipt after a restart between the DB and journal writes.
         managed_resources.invitation(self.config,row['invite_id'],row['id'],bool(row['send_started']),row['state'])
         if invite.get('sharerId') and not row.get('sender_email'):

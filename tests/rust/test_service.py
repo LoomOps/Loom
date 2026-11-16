@@ -53,11 +53,27 @@ class RustServiceTests(unittest.TestCase):
  def test_actual_rust_job_output_and_recipient_ack(self):
   job=self.wait(self.submit('native'));self.assertTrue(job['result']['artifact_ready']);self.assertTrue(job['result']['execution']['process_group_returned']);self.assertEqual(len(job['attempts']),1)
   entity=self.call('results','get',{'id':job['id']+'.observation','revision':1});self.assertEqual(entity['kind'],'artifact');self.assertEqual(entity['locations'][0]['status'],'available')
+  args={'id':job['id'],'attempt':job['attempts'][0]['id'],'offset':0,'limit':65536}
+  self.assertTrue(self.call('jobs','logs',args)['available'])
+  for patch in ({'offset':-1},{'limit':0},{'limit':65537},{'attempt':'not-this-job'}):
+   with self.assertRaises(HTTPError) as denied:self.call('jobs','logs',{**args,**patch})
+   self.assertEqual(denied.exception.code,403 if 'attempt' in patch else 400)
+  (self.data/'runs'/job['id']/args['attempt']/'worker.log').unlink()
+  missing=self.call('jobs','logs',args);self.assertFalse(missing['available']);self.assertEqual(missing['next_offset'],0)
+
   events=self.call('events','list',{'kind':'all'});completion=next(e for e in events if e['job']==job['id'] and e['code']=='complete');self.call('events','ack',{'seq':completion['seq']});self.assertFalse(any(e['seq']==completion['seq'] for e in self.call('events','list',{'kind':'all'})))
  def test_real_mcp_six_groups_and_guide(self):
   init=self.post('/mcp',{'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2025-03-26'}});self.assertEqual(init['result']['protocolVersion'],'2025-03-26')
   tools=self.post('/mcp',{'jsonrpc':'2.0','id':2,'method':'tools/list'});self.assertEqual({t['name'] for t in tools['result']['tools']},{'jobs','recovery','events','components','results','system'})
   guide=self.post('/mcp',{'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'system','arguments':{'action':'guide','arguments':{'id':'authoring'}}}});data=json.loads(guide['result']['content'][0]['text']);self.assertIn('Rust',data['content']);self.assertIn('loom',guide['result']['_meta'])
+  identity=guide['result']['_meta']['loom'];marker=f"Loom {identity['build_id']} | contract {identity['contract_revision'][:12]} | guide {identity['guide_revision'][:12]}"
+  self.assertEqual(guide['result']['content'][-1]['text'],marker)
+  error=self.post('/mcp',{'jsonrpc':'2.0','id':4,'method':'tools/call','params':{'name':'jobs','arguments':{'action':'get','arguments':{'id':'missing'}}}})['result']
+  self.assertTrue(error['isError']);self.assertEqual(error['content'][-1]['text'],marker)
+  self.assertNotEqual(error['content'][0]['text'],marker)
+  with urlopen(Request(self.url+'/api/status',headers={'Authorization':'Bearer '+self.token}),timeout=5) as response:
+   self.assertEqual(response.headers['X-Loom-Revision'],identity['revision'])
+
  def test_scenario_job_pin_and_reuse_are_real_api_operations(self):
   s=self.call('results','register_scenario',{'key':'s','definition':{'label':'Fixture task'}})
   job=self.wait(self.submit('first',scenario_ref={'id':s['id'],'revision':1}));self.call('results','update_scenario',{'key':'s2','id':s['id'],'expected_revision':1,'definition':{'label':'Updated task'},'reason':'New protocol'})
@@ -98,6 +114,7 @@ from stdio import OpsTransport
 t=OpsTransport(Path(sys.argv[1]));r=t.rpc({'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2025-03-26'}});assert r['result']['protocolVersion']=='2025-03-26'
 r=t.rpc({'jsonrpc':'2.0','id':2,'method':'tools/list'});assert len(r['result']['tools'])==6
 r=t.rpc({'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'system','arguments':{'action':'status','arguments':{}}}});assert json.loads(r['result']['content'][0]['text'])['engine']=='rust'
+r=t.rpc({'jsonrpc':'2.0','id':4,'method':'tools/call','params':{'name':'system','arguments':{'action':'guide','arguments':{}}}});assert json.loads(r['result']['content'][0]['text'])['manifest']['revision'];assert 'loom' in r['result']['_meta']
 '''
   result=subprocess.run([os.sys.executable,'-c',code,str(cfg)],cwd=package/'clients',capture_output=True,text=True,timeout=25);self.assertEqual(result.returncode,0,result.stderr)
  def test_restart_preserves_original_submission_and_no_second_attempt(self):
@@ -132,6 +149,9 @@ r=t.rpc({'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'system',
    try:self.get('/api/status');break
    except OSError:time.sleep(.05)
   self.wait(self.submit('remote-owned'))
+  for malformed in ([],True):
+   with self.assertRaises(HTTPError) as invalid:urlopen(Request(config['remote_fence']['url']+'/status',data=json.dumps(malformed).encode(),headers={'Authorization':'Bearer '+credential.read_text(),'Content-Type':'application/json'}),timeout=5)
+   self.assertEqual(invalid.exception.code,400)
   with sqlite3.connect(authority) as db:self.assertIsNotNone(db.execute('SELECT session FROM fence').fetchone()[0])
   body=json.dumps({'archive':'a'*64,'epoch':0,'binding':binding}).encode()
   with self.assertRaises(HTTPError) as denied:urlopen(Request(config['remote_fence']['url']+'/seal',data=body,headers={'Authorization':'Bearer '+credential.read_text(),'Content-Type':'application/json'}),timeout=5)

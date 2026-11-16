@@ -3,6 +3,24 @@ use crate::{auth::Actor, compat, contracts, error::require, storage, store::*, E
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use std::{collections::BTreeMap, fs, path::Path};
+const MAX_SOURCE_BYTES: usize = 8 * 1024 * 1024;
+const MAX_SOURCE_FILES: usize = 2048;
+
+fn source_text(path: &Path, remaining: &mut usize) -> Result<String> {
+    use std::io::Read;
+    let mut bytes = Vec::new();
+    storage::open_regular(path)?
+        .take(*remaining as u64 + 1)
+        .read_to_end(&mut bytes)?;
+    require(
+        bytes.len() <= *remaining,
+        "package",
+        "Package exceeds source limit",
+        400,
+    )?;
+    *remaining -= bytes.len();
+    String::from_utf8(bytes).map_err(|_| Error::input("Source must be UTF-8 text"))
+}
 fn ident(v: &str) -> Result<()> {
     require(
         !v.is_empty()
@@ -20,7 +38,7 @@ pub fn validate_files(files: &Value) -> Result<()> {
         .as_object()
         .ok_or_else(|| Error::input("Source files must be an object"))?;
     require(
-        !files.is_empty() && files.len() <= 2048,
+        !files.is_empty() && files.len() <= MAX_SOURCE_FILES,
         "package",
         "Source files required",
         400,
@@ -43,7 +61,7 @@ pub fn validate_files(files: &Value) -> Result<()> {
             .ok_or_else(|| Error::input("Source content must be UTF-8 text"))?;
         total += text.len();
         require(
-            total <= 8 * 1024 * 1024,
+            total <= MAX_SOURCE_BYTES,
             "package",
             "Package exceeds source limit",
             400,
@@ -498,23 +516,27 @@ impl Application {
                 .join("revisions")
                 .join(revision.to_string());
             let mut copied = serde_json::Map::new();
+            let mut remaining = MAX_SOURCE_BYTES;
+            require(
+                pins.as_object()
+                    .is_some_and(|p| p.len() <= MAX_SOURCE_FILES),
+                "package",
+                "Source file limit exceeded",
+                400,
+            )?;
             for (name, digest) in pins
                 .as_object()
                 .ok_or_else(|| Error::input("Invalid source pins"))?
             {
                 let path = storage::relative(&folder, name)?;
-                let bytes = fs::read(&path)?;
+                let text = source_text(&path, &mut remaining)?;
                 require(
-                    *digest == hash(&bytes),
+                    *digest == hash(&text),
                     "source",
                     "Legacy Component bytes changed",
                     409,
                 )?;
-                copied.insert(
-                    name.clone(),
-                    json!(String::from_utf8(bytes)
-                        .map_err(|_| Error::input("Legacy source must be UTF-8 text"))?),
-                );
+                copied.insert(name.clone(), json!(text));
             }
             files = json!(copied);
             manifest["origin"] =
@@ -527,6 +549,7 @@ impl Application {
                 root: &Path,
                 dir: &Path,
                 out: &mut serde_json::Map<String, Value>,
+                remaining: &mut usize,
             ) -> Result<()> {
                 for p in fs::read_dir(dir)? {
                     let p = p?.path();
@@ -537,17 +560,24 @@ impl Application {
                         400,
                     )?;
                     if p.is_dir() {
-                        read(root, &p, out)?;
+                        read(root, &p, out, remaining)?;
                     } else {
+                        require(
+                            out.len() < MAX_SOURCE_FILES,
+                            "package",
+                            "Source file limit exceeded",
+                            400,
+                        )?;
                         out.insert(
                             p.strip_prefix(root).unwrap().to_string_lossy().into(),
-                            json!(fs::read_to_string(p)?),
+                            json!(source_text(&p, remaining)?),
                         );
                     }
                 }
                 Ok(())
             }
-            read(&source, &source, &mut found)?;
+            let mut remaining = MAX_SOURCE_BYTES;
+            read(&source, &source, &mut found, &mut remaining)?;
             files = json!(found);
         }
         let report =

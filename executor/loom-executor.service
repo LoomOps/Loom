@@ -1,3 +1,4 @@
+# Retained Python reference unit. Installation generates the native loom-host unit.
 [Unit]
 Description=Loom Job executor
 After=docker.service

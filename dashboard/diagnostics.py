@@ -77,7 +77,7 @@ def record(component, operation, error=None, *, code='unexpected_error', directo
                         if older.is_symlink() or previous.is_symlink():return None
                         if i == backups:older.unlink(missing_ok=True)
                         if previous.exists():os.replace(previous, older)
-                fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW, 0o600)
+                fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
                 with os.fdopen(fd, 'ab') as out:
                     st = os.fstat(out.fileno())
                     if not stat.S_ISREG(st.st_mode) or st.st_uid != os.getuid() or st.st_nlink != 1:return None

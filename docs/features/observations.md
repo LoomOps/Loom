@@ -4,8 +4,6 @@
 
 Observations are read-only and do not affect queue dispatch. Preserve missing/stale/partial distinctions.
 
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
-
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
@@ -24,14 +22,10 @@ The current native service is implemented in `rust/`. Python files in this block
 
 When collector fields change, check host mounts, collection services, API projections and UI rendering. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.
 
-Related blocks: None..
-
 ## Verification
 
 - [tests/ops/test_docker_status.py](../../tests/ops/test_docker_status.py)
 - [tests/ops/test_host_metrics.py](../../tests/ops/test_host_metrics.py)
-
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
 Acceptance outside these fixtures:
 - Actual OS, kernel, driver and Docker socket responses require live verification.

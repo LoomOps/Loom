@@ -95,7 +95,7 @@ Catalog settings are optional under api.json.catalog:
 | minimum_free_bytes | 64 MiB | Reserved free space for metadata workers |
 | log_total_max_bytes | 2 GiB | Private Ops raw spool |
 | log_stream_max_bytes | 256 MiB | Per source generation, within host capture ceiling |
-| read_copy_candidates | 8 | Granted copies checked per file range (max 32) |
+| read_copy_candidates | 8 | Granted copies checked per range read, content-search check, background verification or artifact input (max 32) |
 | verify_registered_files | false | Explicit opt-in background payload hashing |
 
 The host provider has a 2-GiB default global capture budget; its administrator can
@@ -126,3 +126,8 @@ execution gates. The opt-in synthetic scale example requires a new fixture root
 and reports raw sizes, overlap, disk, RSS and latency; it never scans operational
 data. Representative operational acceptance must state actual sample sizes and
 separate structural import from GPU/Sim/scientific validation.
+
+Derived search and File-manifest roots must be separate from each other and from
+all configured data stores, software/dependency roots, logs and authoritative
+state files. They may use distinct private subdirectories of the state directory.
+The same layout check precedes offline rebuilds and online projection work.

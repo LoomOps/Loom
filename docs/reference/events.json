@@ -11,7 +11,6 @@
         "after": 0,
         "kind": "all"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "events",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#event_action",
@@ -51,7 +50,6 @@
       "example": {
         "seq": 123
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "events",
       "implementation": {
         "entrypoint": "rust/crates/core/src/query.rs#event_action",

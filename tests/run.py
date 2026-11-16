@@ -47,7 +47,7 @@ def main():
         (output/(name+'.log')).write_text(process.stdout+process.stderr)
         result=json.loads(report.read_text()) if report.is_file() else {'tests':0,'successful':False,'error':'Test runner did not produce a report'}
         result['exit_code']=process.returncode
-        summary['suites'][name]={key:value for key,value in result.items() if key!='cases'}
+        summary['suites'][name]={key:value for key,value in result.items() if key not in ('cases','sources')}
         summary['tests']+=result['tests'];summary['successful'] &= process.returncode==0 and result['successful']
         print(f"{name}: {result['tests']} tests · {'PASS' if process.returncode==0 and result['successful'] else 'FAIL'}",flush=True)
         if process.returncode:print(process.stderr,file=sys.stderr)

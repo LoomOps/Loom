@@ -4,8 +4,6 @@
 
 Admin-only mutations; never adopt existing accounts or grant sudo/Docker. Disable blocks the personal UID before remote cleanup. Same-host clients require no SSH.
 
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
-
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
@@ -33,7 +31,21 @@ Related blocks: [identity](identity.md) · [network](network.md) · [installatio
 - [tests/deploy/test_ssh_host.py](../../tests/deploy/test_ssh_host.py)
 - [tests/ops/test_ssh_info.py](../../tests/ops/test_ssh_info.py)
 
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
-
 Acceptance outside these fixtures:
 - Verify external personal Tailscale login and revoke separately; mocks do not prove provider enforcement.
+
+## File handoff consumer
+
+The independent Loom Use client composes existing `results.get_file`,
+`system.status` and `system.ssh` responses into an exact File access plan. The
+caller keeps the selected connection and File/revision ID. Storage IDs map through
+status selectors to `system.ssh.data_paths`; local detection retains these roots.
+Another-machine and unsupported copies are explicit results, not guessed paths.
+Optional account/file/Python probes run only on request and create no server
+receipt, account, key, grant, package or Job. Shared data remains read/write under
+the existing installation-specific group; no `ax` membership is introduced.
+
+Server guide authority is `rust/contracts/items.md`; client commands and their
+probes are owned by Loom-Use `clients/file_access.py` and `docs/ssh.md`. No new byte
+transfer API or host-execution MCP action is introduced. Verify real external
+login separately from metadata mapping and synthetic SSH protocol tests.

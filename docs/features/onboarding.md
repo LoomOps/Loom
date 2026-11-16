@@ -4,8 +4,6 @@
 
 The running server is authoritative for guides. Updates do not change personal instructions or active Job pins.
 
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
-
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
@@ -46,7 +44,10 @@ Related blocks: [identity](identity.md) · [api](api.md).
 - [tests/rust/documentation.rs](../../tests/rust/documentation.rs)
 - [tests/rust/test_documentation.py](../../tests/rust/test_documentation.py)
 
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
-
 Acceptance outside these fixtures:
 - Verify actual client reconnection and guide refresh separately.
+
+Native tool-call success and tool-error replies retain operation JSON/error in the
+first content block and append a short version footer. `_meta.loom` and HTTP
+`X-Loom-Revision` carry the full identities. The immutable binary identity is
+computed once per process; ordinary responses do not rehash all guide/schema text.

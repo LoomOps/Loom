@@ -2,10 +2,7 @@
 //! Chunks are authoritative metadata; no per-member rows are inserted into the core DB.
 use crate::{error::require, inventory, storage, store::*, Error, Result};
 use serde_json::{json, Value};
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 pub fn root(app: &Application) -> PathBuf {
     app.local.join("file-sources")
@@ -13,7 +10,7 @@ pub fn root(app: &Application) -> PathBuf {
 pub fn bounded(path: &Path, max: usize) -> Result<Vec<u8>> {
     use std::io::Read;
     let mut bytes = vec![];
-    fs::File::open(path)?
+    storage::open_regular(path)?
         .take(max as u64 + 1)
         .read_to_end(&mut bytes)?;
     require(
@@ -372,6 +369,23 @@ pub fn lookup(app: &Application, pin: &Value, entry: &str) -> Result<Value> {
 impl crate::Application {
     /// Exact revision/member resolution works from authority, without an FTS index.
     pub fn artifact_input(&self, identity: &Value, member: Option<&str>) -> Result<Value> {
+        self.artifact_copies(identity, member)?
+            .into_iter()
+            .next()
+            .ok_or_else(|| {
+                Error::new(
+                    "source_unavailable",
+                    "No granted registered artifact copy is available",
+                    409,
+                )
+            })
+    }
+
+    pub(crate) fn artifact_copies(
+        &self,
+        identity: &Value,
+        member: Option<&str>,
+    ) -> Result<Vec<Value>> {
         use rusqlite::params;
         let id = identity["id"]
             .as_str()
@@ -415,16 +429,21 @@ impl crate::Application {
         };
         let mut copies=crate::store::rows(&self.db,"SELECT machine_id,storage_id,ref FROM all_entity_locations WHERE id=? AND revision=? AND component=? AND status='available' ORDER BY ref",&[&id,&revision,&name])?;
         copies.extend(expected["copies"].as_array().cloned().unwrap_or_default());
+        let mut granted = Vec::new();
         for mut copy in copies {
             if storage::locator(&self.config, &self.bulk, &copy).is_ok() {
                 copy["sha256"] = expected["sha256"].clone();
-                return Ok(copy);
+                if !granted.contains(&copy) {
+                    granted.push(copy);
+                }
             }
         }
-        Err(Error::new(
+        require(
+            !granted.is_empty(),
             "source_unavailable",
             "No granted registered artifact copy is available",
             409,
-        ))
+        )?;
+        Ok(granted)
     }
 }

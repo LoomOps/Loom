@@ -4,8 +4,6 @@
 
 Development validation adds no new gates to Job execution. Distinguish test results from actual deployment state.
 
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
-
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
@@ -37,8 +35,6 @@ The current native service is implemented in `rust/`. Python files in this block
 
 Register each new feature's unique ID, owned files, inputs/outputs, dependencies, tests and live-validation limitations. Test behavior and failure boundaries rather than adding generic assertions.
 
-Related blocks: None..
-
 ## Verification
 
 - [tests/deploy/test_distribution.py](../../tests/deploy/test_distribution.py)
@@ -46,8 +42,6 @@ Related blocks: None..
 - [tests/rust/application.rs](../../tests/rust/application.rs)
 - [tests/rust/test_item_image.py](../../tests/rust/test_item_image.py)
 - [tests/deploy/test_documentation.py](../../tests/deploy/test_documentation.py)
-
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
 Acceptance outside these fixtures:
 - Passing all tests does not prove successful authentication with actual external services.

@@ -27,7 +27,7 @@ mode or ownership claim. Research-specific Ironfish/planner/policy code normally
 keeps user attribution. To change current attribution, discover
 `components.assign_owner` and provide the original `namespace`, `id`, extension
 `kind` and target registered user ID (or `built-in` for a verified Loom-provided
-item). This preserves namespace paths, revision pins and original provenance.
+item). Owner namespace selects the registered source identity. Reassignment preserves namespace paths, revision pins and original provenance; unknown historical identities remain explicit.
 
 A Component is an immutable Job lifecycle adapter: request handling, execution entry and result return. Research algorithms (planners, policy/hybrid runners, transforms) belong to independently versioned Tools, which may be called repeatedly within one Job. A profile is an execution contract binding that revision to an image, commands, inputs, outputs, defaults and limits. Use components.write to edit, components.register to register, and components.register_profile for standalone profiles. Read each action's exact fields through system.describe. New components do not require new MCP servers or tools.
 
@@ -42,7 +42,8 @@ Write files and result.json into output_dir. Use the `results` guide and `system
 - `<configured-dependencies>/<repository>`: editable external source checkouts.
 - `<configured-dependencies>/installations/<runtime>/<installation-attempt>`: Dockerfiles, patches, constraints/locks, build and validation records.
 - Python environments and installed libraries: inside pinned execution images.
-- `/loom/components`, `/loom/profiles`: registered user source and execution contracts.
+- Configured Component source root: sealed Component/Tool revisions.
+- Ops DB: registered standalone Profile contracts; legacy Profile configuration remains separate.
 
 Docker layer/build caches reduce installation work but do not preserve corrected source. Record local changes as recipes/patches, build a new image and select it in a new profile revision. Never overwrite existing image tags or active revisions. Source and recipes must remain sufficient to rebuild after cache deletion.
 
@@ -55,10 +56,6 @@ External dependency checkouts and image recipes use the dependency directory sel
 `system.status.data_stores` lists configured stores and their container paths. New installations default host `/loom/data` to `data/0`; additional directories are RW stores such as `data/1`. A profile runner can declare `"storage": ["data/1"]` on runtime, prepare or a lifecycle hook. The executor mounts only those registered names at `/loom/data/1`, and the runner receives `request.storage["data/1"]`. No host path is accepted in this declaration. Unknown stores fail registration/execution.
 
 For example: `"runtime": {"executor":"container","runtime_id":"python","command":["python3","/component/run.py"],"storage":["data/1"]}`. Standalone profiles expose the same field through HTTP and MCP. Omit storage for only `/work` plus declared read-only artifact inputs. Explicit RW access can modify shared files; coordinate changes to existing datasets. Publish result.json and registered outputs through `request.output_dir` on the Job’s selected `output_storage`; ordinary shared files in additional stores remain visible in Explorer. Storage mounts do not relocate historical artifacts or change their hashes/locators.
-
-## Attribution
-
-Owner namespace selects a registered source identity. Current responsibility can be changed with `components.assign_owner` without altering namespace, sealed revisions or Job pins. Built-in denotes Loom-supplied origin; it is not a synonym for shared research software. Unknown historical identities remain explicit.
 
 ## Research Tools
 
@@ -74,11 +71,7 @@ Tools share the existing administrator-granted source store under .tools.
 Use the running server's system.describe for these optional actions. Older clients
 can forward them without installing another MCP or changing authentication.
 
-Dashboard groups Profiles, Components, Tools and Runtimes under the **Runtimes** workspace and
-shows their exact combinations. Components implement Job lifecycle integration; Tools
-implement reusable research algorithms, including hybrid runners. Profiles bind
-execution contracts and immutable revisions. The navigation does not rename the
-six MCP groups or the `components` actions.
+The Runtimes workspace does not rename the six MCP groups or `components` actions.
 
 Driver libraries and network policy are administrator-owned executor settings.
 Defaults remain compute/utility and no network; explicit graphics or bridge egress
@@ -128,8 +121,7 @@ actually used Profile appear unused.
 
 ## Runtimes workspace curation and preparation
 
-The single sidebar entry is Runtimes; its inner views are Profiles, Components,
-Tools and Runtimes. Profile families retain exact revisions and can carry a
+Profile families retain exact revisions and can carry a
 preferred/archive marker without changing execution selection. Use
 components.curate for a concise display name, purpose/modes, grouping, declared
 Tool roles or stage-specific representative dependency selectors. For a Runtime,

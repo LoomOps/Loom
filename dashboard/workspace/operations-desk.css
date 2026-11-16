@@ -18,10 +18,7 @@
   background: var(--pa-paper);
 }
 
-#pai-studio .pa-panel,
-#pai-studio .pa-resources {
-  box-shadow: 0 1px 2px light-dark(rgb(23 36 60 / 5%), rgb(0 0 0 / 16%));
-}
+
 
 #pai-studio h1 {
   font-weight: 680;
@@ -325,12 +322,6 @@
 #pai-studio .pa-extension-summary p{margin:0;color:var(--pa-muted);font-size:12px;line-height:1.6}
 #pai-studio .pa-profile-purposes{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
 #pai-studio .pa-profile-purpose{display:inline-flex;padding:5px 10px;border:1px solid var(--pa-line);border-radius:9px;background:var(--pa-paper);font-size:12px;white-space:nowrap}
-#pai-studio .pa-profile-list{overflow-x:auto;margin-top:16px}
-#pai-studio .pa-profile-list table{width:100%;border-collapse:collapse;text-align:left;font-size:13px}
-#pai-studio .pa-profile-list th{color:var(--pa-muted);font-size:12px;font-weight:500;padding:12px 16px;border-bottom:1px solid var(--pa-line)}
-#pai-studio .pa-profile-list td{padding:20px 16px;vertical-align:top;border-bottom:1px solid var(--pa-line);overflow-wrap:anywhere}
-#pai-studio .pa-profile-list td:first-child{min-width:180px}
-#pai-studio .pa-profile-list td small{display:block;color:var(--pa-muted);font-size:11px;margin-top:5px}
 #pai-studio .pa-profile-meta{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 0 24px}
 #pai-studio .pa-profile-software{display:flex;flex-wrap:wrap;gap:20px;padding:0 0 22px;border-bottom:1px solid var(--pa-line)}
 #pai-studio .pa-profile-software>div{display:flex;flex-direction:column;gap:8px;min-width:0;overflow-wrap:anywhere}
@@ -351,7 +342,6 @@
 #pai-studio .pa-execution-options[open]>summary{margin-bottom:20px}
 @media(max-width:700px){
  #pai-studio .pa-profile-flow>li{grid-template-columns:80px minmax(0,1fr);gap:14px}
- #pai-studio .pa-profile-list th,#pai-studio .pa-profile-list td{padding:14px 10px}
 }
 @media(max-width:700px){
   #pai-studio .pa-extension-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
@@ -431,12 +421,6 @@
 #pai-studio [data-software-kind]{min-width:0;overflow-wrap:anywhere}
 #pai-studio [data-software-kind]>small{display:block;margin-bottom:7px}
 #pai-studio .pa-profile-purpose.is-observed{border-style:dashed;background:transparent}
-#pai-studio .pa-profile-list table{table-layout:fixed;min-width:840px}
-#pai-studio .pa-profile-list th:first-child{width:23%}
-#pai-studio .pa-profile-list th:nth-child(2){width:18%}
-#pai-studio .pa-profile-list th:nth-child(3){width:24%}
-#pai-studio .pa-profile-list th:nth-child(5){width:8%}
-#pai-studio .pa-profile-list th:nth-child(6){width:10%}
 @container pane (max-width:740px){
  #pai-studio .pa-profile-software{grid-template-columns:minmax(0,1fr)}
  #pai-studio .pa-profile-tools{border-left:0;border-top:1px solid var(--pa-line);padding:16px 0 0}
@@ -451,16 +435,6 @@
  #pai-studio #pa-nav .pa-nav-item svg{width:18px;height:18px}
 }
 
-@container pane (max-width:740px){
- #pai-studio .pa-profile-list table{min-width:0;display:block}
- #pai-studio .pa-profile-list thead{display:none}
- #pai-studio .pa-profile-list tbody{display:block}
- #pai-studio .pa-profile-list tr{display:block;border-top:1px solid var(--pa-line);padding:16px 0}
- #pai-studio .pa-profile-list td{display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px;min-width:0;border:0;padding:7px 0}
- #pai-studio .pa-profile-list td:first-child{display:block;min-width:0;font-size:14px;margin-bottom:8px}
- #pai-studio .pa-profile-list td:not(:first-child):before{content:attr(data-label);font-size:11px;color:var(--pa-muted)}
- #pai-studio .pa-profile-list td>div{min-width:0}
-}
 
 #pai-studio .pa-heading p:empty{display:none}
 /* The Runtimes workspace keeps one navigation context across its four registries. */

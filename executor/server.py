@@ -1,4 +1,4 @@
-"""Local host executor. Only Ops holds the Unix-socket credential; Jobs never do."""
+"""Retained Python executor fixture; installed execution authority is loom-host."""
 import hashlib
 import fcntl
 import runtime_store

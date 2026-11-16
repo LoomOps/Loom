@@ -10,7 +10,6 @@
       "example": {
         "id": "<job-id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "recovery",
       "implementation": {
         "entrypoint": "rust/crates/core/src/jobs.rs#recover",
@@ -52,7 +51,6 @@
         "id": "<job-id>",
         "lease": "<recovery-lease>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "recovery",
       "implementation": {
         "entrypoint": "rust/crates/core/src/jobs.rs#recover",
@@ -98,7 +96,6 @@
         "patch": {},
         "reason": "Rerun after repairing the cause"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "recovery",
       "implementation": {
         "entrypoint": "rust/crates/core/src/jobs.rs#recover",
@@ -140,7 +137,6 @@
       "example": {
         "id": "<job-id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "recovery",
       "implementation": {
         "entrypoint": "rust/crates/core/src/jobs.rs#recover",
@@ -181,7 +177,6 @@
       "example": {
         "id": "<job-id>"
       },
-      "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
       "group": "recovery",
       "implementation": {
         "entrypoint": "rust/crates/core/src/jobs.rs#recover",

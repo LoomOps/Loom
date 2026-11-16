@@ -2,7 +2,7 @@
 
 ## Research and execution
 
-A **Scenario** describes the task and protocol: what is being attempted, under which conditions, and how it is evaluated. It has immutable accepted revisions. Jobs and research records can link to an exact revision. A Scenario is not a scheduler and does not infer relationships from names.
+A **Task** (Scenario in API action/field names) describes the task and protocol: what is being attempted, under which conditions, and how it is evaluated. It has immutable accepted revisions. Jobs and research records can link to an exact revision. A Scenario is not a scheduler and does not infer relationships from names.
 
 A **Job** is one requested outcome, such as generating a dataset, training a model or evaluating a policy. Its **Profile** selects reusable execution behavior. Cases, shards and batches normally stay inside that Job as **Steps**. A Step is producer-reported progress, not a separate resource allocation or proof of success.
 

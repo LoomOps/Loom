@@ -135,6 +135,16 @@ class UninstallTests(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,'Active Jobs'):self.apply(p)
   self.assertTrue(all(m=='GET' for m,_ in self.api.calls[before:]))
   self.assertTrue((self.root/'secrets/admission/management.json').exists())
+  with sqlite3.connect(self.root/'runtime/ops.sqlite3') as db:
+   db.execute('delete from jobs')
+   db.execute('create table hooks(state text)')
+   db.execute("insert into hooks values('running')")
+  with self.assertRaisesRegex(ValueError,'lifecycle callbacks'):self.apply(p)
+  with sqlite3.connect(self.root/'runtime/ops.sqlite3') as db:
+   db.execute('delete from hooks')
+   db.execute('create table rust_effects(state text,stage text)')
+   db.execute("insert into rust_effects values('unknown','run')")
+  with self.assertRaisesRegex(ValueError,'ownership'):self.apply(p)
 
  def test_journaled_uninstall_removes_created_policy_and_tags_not_existing_access(self):
   import managed_resources as registry

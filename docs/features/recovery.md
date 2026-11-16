@@ -2,9 +2,8 @@
 
 ## Boundary
 
-The caller owns error repair. Preserve reservation deadlines, attempt limits and dependent-Job skipping. Event acknowledgments are recipient-specific.
-
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
+The caller owns error repair. Preserve reservation deadlines, attempt limits and downstream dependency blocking. Event acknowledgments are recipient-specific. Execution repair recomputes inferred input dependencies, retains explicit dependencies and the original output storage ID, and rejects self, transitive and workflow dependency cycles before committing.
+An exact consumed-lease replay returns its durable receipt even while admission is fenced; it creates no new revision or execution. A changed request still conflicts and a new recovery mutation remains fenced.
 
 ## Interfaces
 
@@ -33,8 +32,6 @@ Related blocks: [identity](identity.md) · [execution](execution.md).
 - [tests/ops/test_job_lifecycle.py](../../tests/ops/test_job_lifecycle.py)
 - [tests/ops/test_worker_recovery.py](../../tests/ops/test_worker_recovery.py)
 - [tests/rust/application.rs](../../tests/rust/application.rs)
-
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
 Acceptance outside these fixtures:
 - Actual external-agent reactivation and duplicate callback effects belong to client acceptance testing.

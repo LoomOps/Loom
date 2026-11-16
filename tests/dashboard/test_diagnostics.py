@@ -61,3 +61,10 @@ class DiagnosticsTests(unittest.TestCase):
             for i in range(10):diagnostics.record('test',f'zero{i}',directory=self.root)
         self.assertEqual(len(list(self.root.glob('*.jsonl'))),1)
         self.assertEqual(json.loads((self.root/'events.jsonl').read_text().splitlines()[-1])['operation'],'zero9')
+
+    def test_fifo_destination_does_not_block_the_request_thread(self):
+        import subprocess,sys
+        self.root.mkdir(mode=0o700)
+        os.mkfifo(self.root/'events.jsonl',0o600)
+        script="import diagnostics,sys; assert diagnostics.record('test','fifo',directory=sys.argv[1]) is None"
+        subprocess.run([sys.executable,'-c',script,str(self.root)],env={**os.environ,'PYTHONPATH':str(Path(diagnostics.__file__).parent)},timeout=3,check=True)

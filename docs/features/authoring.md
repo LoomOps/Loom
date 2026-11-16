@@ -2,9 +2,7 @@
 
 ## Boundary
 
-Accepted revisions and execution provenance remain immutable. Source registration never runs user code.
-
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
+Accepted revisions and execution provenance remain immutable. Source registration never runs user code. Local and copied legacy sources use the same bounded regular-file reader before staging; special files and cumulative package limits cannot leave a published revision.
 
 ## Interfaces
 
@@ -40,8 +38,6 @@ Related blocks: [identity](identity.md) · [api](api.md).
 - [tests/rust/sdk.rs](../../tests/rust/sdk.rs)
 - [tests/rust/test_authoring.py](../../tests/rust/test_authoring.py)
 - [tests/rust/test_service.py](../../tests/rust/test_service.py)
-
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
 Acceptance outside these fixtures:
 - Run isolated Rust/HTTP/producer/browser fixtures; operational acceptance requires separately authorized deployment.

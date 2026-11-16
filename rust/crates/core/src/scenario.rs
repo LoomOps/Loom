@@ -234,7 +234,21 @@ impl Application {
         Ok(json!(rows(&self.db,"SELECT s.id,s.current_revision AS revision,json_extract(r.definition,'$.label') AS label FROM scenarios s JOIN scenario_revisions r ON r.scenario_id=s.id AND r.revision=s.current_revision WHERE s.archived=0 ORDER BY s.label,s.id",&[])?))
     }
     pub fn attach_task_context(&self, entities: &mut [Value]) -> Result<()> {
-        let links=rows(&self.db,"SELECT l.scenario_id AS id,l.revision,l.target_kind,l.target,json_extract(r.definition,'$.label') AS label FROM scenario_links l JOIN scenario_revisions r ON r.scenario_id=l.scenario_id AND r.revision=l.revision WHERE l.superseded_by IS NULL ORDER BY label,l.scenario_id,l.revision",&[])?;
+        let mut links=rows(&self.db,"SELECT l.scenario_id AS id,l.revision,l.target_kind,l.target,json_extract(r.definition,'$.label') AS label FROM scenario_links l JOIN scenario_revisions r ON r.scenario_id=l.scenario_id AND r.revision=l.revision WHERE l.superseded_by IS NULL ORDER BY label,l.scenario_id,l.revision",&[])?;
+        // Decode once per link, and compare both supported Profile aliases as
+        // the same immutable definition without rewriting the saved reference.
+        for link in &mut links {
+            let mut identity: Value =
+                serde_json::from_str(link["target"].as_str().unwrap_or("{}"))?;
+            if link["target_kind"] == "profile" && identity["owner"].is_string() {
+                if let Ok(profile) =
+                    crate::software::exact_profile(&self.db, &self.config, &identity)
+                {
+                    identity = json!({"kind":profile["revision"],"sha256":profile["sha256"]});
+                }
+            }
+            link["target"] = identity;
+        }
         for entity in entities {
             let target = dashboard_target(entity);
             let mut refs = vec![];
@@ -251,8 +265,7 @@ impl Application {
                 } else {
                     link["target_kind"].as_str().unwrap_or("")
                 };
-                let identity: Value =
-                    serde_json::from_str(link["target"].as_str().unwrap_or("{}"))?;
+                let identity = &link["target"];
                 if target["kind"] == kind
                     && identity.as_object().is_some_and(|o| {
                         o.iter().all(|(k, v)| target["identity"].get(k) == Some(v))

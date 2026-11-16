@@ -54,6 +54,14 @@ fn equal(a: &str, b: &str) -> bool {
     }
     a.bytes().zip(b.bytes()).fold(0u8, |x, (a, b)| x | (a ^ b)) == 0
 }
+fn user_binding<'a>(policy: &'a Value, login: &str) -> Option<&'a str> {
+    policy["users"]
+        .as_object()?
+        .iter()
+        .find(|(key, _)| casefold(key) == login)?
+        .1
+        .as_str()
+}
 pub fn validate_current(db: &Connection, a: &Actor) -> Result<()> {
     if let Some(id) = &a.credential_id {
         let valid:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM resident_tokens WHERE id=? AND revoked IS NULL AND owner=?)",params![id,a.id],|r|r.get(0))?;
@@ -126,7 +134,8 @@ pub fn authenticate(
         let path = policy["relay_key_file"]
             .as_str()
             .ok_or_else(|| Error::new("identity", "Dashboard trust unavailable", 503))?;
-        let key = std::fs::read(path)?;
+        let key = crate::file_set::bounded(std::path::Path::new(path), 4096)
+            .map_err(|_| Error::new("identity", "Dashboard trust unavailable", 503))?;
         let key = key.trim_ascii();
         require(
             key.len() >= 32,
@@ -197,8 +206,7 @@ pub fn authenticate(
         let binding = config
             .extra
             .get("tailscale_auth")
-            .and_then(|p| p["users"].get(&login))
-            .and_then(Value::as_str);
+            .and_then(|p| user_binding(p, &login));
         let mut actor = if let Some(binding) = binding {
             config
                 .actors
@@ -226,10 +234,7 @@ pub fn authenticate(
                 403,
             )?;
             let login = casefold(login.trim());
-            let binding = policy["users"]
-                .as_object()
-                .and_then(|o| o.iter().find(|(k, _)| casefold(k) == login))
-                .and_then(|(_, v)| v.as_str());
+            let binding = user_binding(policy, &login);
             let mut a = if let Some(binding) = binding {
                 config
                     .actors

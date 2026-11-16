@@ -36,12 +36,17 @@ def runtime_install_lock(root,platform):
      if json.loads(value).get('container_returned') is False:raise ValueError('Runtime validation container return is unconfirmed')
   yield
 
+def require_idle(c):
+ """Check execution ownership inside the caller's fenced write transaction."""
+ if c.execute("SELECT 1 FROM jobs WHERE state IN ('preparing','running','processing') LIMIT 1").fetchone():raise ValueError('Active Jobs: wait for execution and result handling to finish')
+ if c.execute("SELECT name FROM sqlite_master WHERE name='hooks'").fetchone() and c.execute("SELECT 1 FROM hooks WHERE state IN ('pending','running') LIMIT 1").fetchone():raise ValueError('Pending or running lifecycle callbacks must return before update')
+ if c.execute("SELECT name FROM sqlite_master WHERE name='rust_effects'").fetchone() and c.execute("SELECT 1 FROM rust_effects WHERE state IN ('pending','accepted','unknown') AND stage!='publish' LIMIT 1").fetchone():raise ValueError('Native execution ownership must return before update')
+
 def idle_gate(path):
  """Same SQLite transaction as dispatch: no check-then-fence race."""
  with sql(path) as c:
   c.execute('BEGIN IMMEDIATE')
-  if c.execute("SELECT 1 FROM jobs WHERE state IN ('preparing','running','processing') LIMIT 1").fetchone():raise ValueError('Active Jobs: wait for execution and result handling to finish')
-  if c.execute("SELECT name FROM sqlite_master WHERE name='hooks'").fetchone() and c.execute("SELECT 1 FROM hooks WHERE state='pending' LIMIT 1").fetchone():raise ValueError('Pending lifecycle callbacks must finish before update')
+  require_idle(c)
   mode=c.execute('SELECT mode FROM node_control WHERE id=1').fetchone()[0]
   paused=c.execute("SELECT name FROM sqlite_master WHERE name='dispatch_control'").fetchone() and c.execute('SELECT paused FROM dispatch_control WHERE id=1').fetchone()[0]
   if mode!='active' and not (mode=='maintenance' and paused):raise ValueError('Instance is already fenced: '+mode)

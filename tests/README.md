@@ -25,7 +25,7 @@ python3 tests/suite.py tests/deploy /tmp/loom-packaging.json
 
 Set browser paths through `LOOM_TEST_FIREFOX` and `LOOM_TEST_GECKODRIVER`. `deploy/test.sh` is a compatibility wrapper. Each suite runs in a separate process to isolate product modules with matching names; use `run.py` for the full run.
 
-Maintain [validation scope and limitations](../deploy/TESTING.md) and the [feature-to-test mapping](../docs/features/catalog.json). Tests use temporary SQLite databases, files and HTTP servers without starting actual Jobs or deployments. Passing Docker/external-network mocks is distinct from verification on a real machine.
+Maintain [validation scope and limitations](../deploy/TESTING.md) and the [feature-to-test mapping](../docs/features/catalog.json). Tests use temporary SQLite databases, files and HTTP servers. Native acceptance runs real fixture Jobs and CPU producers; optional Docker cases use disposable containers. No operational installation or research Job is changed. Passing external-service mocks does not verify those services.
 
 ## Native Rust acceptance
 

@@ -576,7 +576,7 @@ impl<D: Docker> Executor<D> {
             403,
         )?;
         fn size(v: &str) -> Option<u64> {
-            let (n, u) = v.split_at(v.len().checked_sub(1)?);
+            let (n, u) = v.split_at_checked(v.len().checked_sub(1)?)?;
             let factor = match u {
                 "k" => 1024,
                 "m" => 1024 * 1024,
@@ -1162,7 +1162,7 @@ impl<D: Docker> Executor<D> {
                 loom_core::storage::atomic(&sealed, b"returned", 0o600)?;
             }
         }
-        let mut file = fs::File::open(&path)?;
+        let mut file = loom_core::storage::open_regular(&path)?;
         let total = file.metadata()?.len();
         let limit = args["limit"]
             .as_u64()

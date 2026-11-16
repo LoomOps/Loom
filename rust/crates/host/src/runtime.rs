@@ -77,7 +77,7 @@ pub fn verify_inventory(manifest: &Value) -> Result<()> {
         )?;
         let mut file = std::fs::OpenOptions::new()
             .read(true)
-            .custom_flags(libc::O_NOFOLLOW)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
             .open(path)?;
         require(
             file.metadata()?.is_file(),

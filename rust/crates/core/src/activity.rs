@@ -73,12 +73,20 @@ impl Application {
         let after = clock - 366. * 86400.;
         let mut days = BTreeMap::new();
         // Ordered ranges let us union overlapping Steps per logical Job without loading all Jobs.
-        let sql="WITH raw AS(
-          SELECT COALESCE((SELECT c.id FROM jobs c,json_each(c.spec,'$.consolidates') src WHERE src.value=j.id AND c.state='complete' AND json_extract(c.result,'$.artifact_ready')=1 LIMIT 1),w.root,j.id) id,
-            CASE WHEN s.attempt IS NOT NULL THEN s.accepted ELSE a.started END start,
-            COALESCE(a.ended,CASE WHEN j.state IN('running','preparing') THEN :clock END) finish,
-            a.ended IS NULL AND j.state IN('running','preparing') live
-          FROM attempts a JOIN jobs j ON j.id=a.job LEFT JOIN rust_attempt_starts s ON s.attempt=a.id LEFT JOIN workflow_nodes w ON w.job=j.id
+        let sql=format!("{}, execution_ranges AS(
+          SELECT s.job,s.attempt,s.started start,COALESCE(s.ended,CASE WHEN s.state='running' THEN :clock END) finish,
+            s.ended IS NULL AND s.state='running' live
+          FROM stage_runs s WHERE s.stage IN('prepare','run')
+          UNION ALL
+          SELECT a.job,a.id,CASE WHEN s.attempt IS NOT NULL THEN s.accepted ELSE a.started END,
+            COALESCE(a.ended,CASE WHEN j.state IN('running','preparing') THEN :clock END),
+            a.ended IS NULL AND j.state IN('running','preparing')
+          FROM attempts a JOIN jobs j ON j.id=a.job LEFT JOIN rust_attempt_starts s ON s.attempt=a.id
+          WHERE NOT EXISTS(SELECT 1 FROM stage_runs stage WHERE stage.job=a.job AND stage.attempt=a.id AND stage.stage IN('prepare','run'))
+        ), raw AS(
+          SELECT COALESCE((SELECT target FROM consolidation_roots WHERE source=j.id AND source_attempt IS r.attempt ORDER BY target LIMIT 1),w.root,j.id) id,
+            r.start,r.finish,r.live
+          FROM execution_ranges r JOIN jobs j ON j.id=r.job LEFT JOIN workflow_nodes w ON w.job=j.id
           WHERE (:view='all' OR COALESCE((SELECT json_extract(o.presentation,'$.scope') FROM research_overlays o WHERE o.kind='job' AND o.id=j.id),json_extract(j.spec,'$.presentation.scope'),'research')=:view)
           AND (:view!='research' OR COALESCE(json_extract(j.spec,'$.presentation.role'),'main')='main' OR w.root IS NOT NULL)
           UNION ALL
@@ -91,8 +99,8 @@ impl Application {
         ), normalized AS(SELECT id,
           CASE WHEN typeof(start) IN('integer','real') THEN start/CASE WHEN start>100000000000 THEN 1000. ELSE 1. END ELSE CAST(strftime('%s',start) AS REAL) END start,
           CASE WHEN typeof(finish) IN('integer','real') THEN finish/CASE WHEN finish>100000000000 THEN 1000. ELSE 1. END ELSE CAST(strftime('%s',finish) AS REAL) END finish,live FROM raw)
-        SELECT id,max(start,:after) start,min(finish,:clock) finish,live FROM normalized WHERE start IS NOT NULL AND start<=:clock AND (finish IS NULL OR finish>=:after) ORDER BY id,start";
-        let mut q = self.db.prepare(sql)?;
+        SELECT id,max(start,:after) start,min(finish,:clock) finish,live FROM normalized WHERE start IS NOT NULL AND start<=:clock AND (finish IS NULL OR finish>=:after) ORDER BY id,start",crate::query::CONSOLIDATION_CTE);
+        let mut q = self.db.prepare(&sql)?;
         let records = q.query_map(
             named_params! {":clock":clock,":after":after,":view":view},
             |r| {

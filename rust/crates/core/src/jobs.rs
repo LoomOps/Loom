@@ -256,6 +256,12 @@ fn prepare(
         let object = value
             .as_object()
             .ok_or_else(|| Error::input("Declared input must be a locator or upstream entity"))?;
+        require(
+            value.get("member").is_none_or(Value::is_string),
+            "input",
+            "Input member must be a string",
+            400,
+        )?;
         if matches!(object.len(), 2 | 3)
             && value["job"].is_string()
             && value["entity"].is_string()
@@ -276,8 +282,7 @@ fn prepare(
                 value["artifact"]["id"].is_string()
                     && value["artifact"]["revision"]
                         .as_i64()
-                        .is_some_and(|v| v > 0)
-                    && value.get("member").is_none_or(Value::is_string),
+                        .is_some_and(|v| v > 0),
                 "input",
                 "Exact artifact revision and optional member required",
                 400,
@@ -368,14 +373,15 @@ fn prepare(
         400,
     )?;
     for source in &v.consolidates {
-        let claimed: bool=db.query_row("SELECT EXISTS(SELECT 1 FROM jobs j,json_each(j.spec,'$.consolidates') c WHERE c.value=? AND j.state!='cancelled' AND NOT(j.submitter=? AND j.idem=?))",params![source,actor.id,v.key],|r|r.get(0))?;
+        let row = load(db, source)?;
+        let source_attempt = row.aggregate.fence.attempt.as_ref().map(|a| a.as_str());
+        let claimed: bool=db.query_row("SELECT EXISTS(SELECT 1 FROM jobs j,json_each(j.spec,'$.consolidates') c WHERE c.value=? AND j.state!='cancelled' AND (json_type(j.spec,'$._consolidation_sources') IS NOT 'array' OR EXISTS(SELECT 1 FROM json_each(j.spec,'$._consolidation_sources') frozen WHERE json_extract(frozen.value,'$.job')=? AND json_extract(frozen.value,'$.attempt') IS ?)) AND NOT(j.submitter=? AND j.idem=?))",params![source,source,source_attempt,actor.id,v.key],|r|r.get(0))?;
         require(
             !claimed,
             "consolidation",
             "Source Job already belongs to a consolidation",
             409,
         )?;
-        let row = load(db, source)?;
         require(
             row.aggregate.state == JobState::Complete
                 && row.owner == v.owner
@@ -493,7 +499,6 @@ impl Application {
                 "Submission key conflict",
                 409,
             )?;
-            active(&self.db)?;
             return Ok(json!({"id":old}));
         }
         let spec = prepare(&self.db, &self.config, &self.bulk, actor, &raw)?;
@@ -757,9 +762,6 @@ impl Application {
         let config = self.config.clone();
         let bulk = self.bulk.clone();
         let tx = self.transaction()?;
-        active(&tx)?;
-        tx.execute("UPDATE recovery SET state='deferred',token=NULL,updated=? WHERE job=? AND state IN ('waiting','claimed') AND deadline<=?",params![now(),id,now()])?;
-        let row = load(&tx, id)?;
         if action == "resume" {
             let lease = args["lease"]
                 .as_str()
@@ -769,6 +771,9 @@ impl Application {
                 return Ok(serde_json::from_str(&result)?);
             }
         }
+        active(&tx)?;
+        tx.execute("UPDATE recovery SET state='deferred',token=NULL,updated=? WHERE job=? AND state IN ('waiting','claimed') AND deadline<=?",params![now(),id,now()])?;
+        let row = load(&tx, id)?;
         let rec = rows(&tx, "SELECT * FROM recovery WHERE job=?", &[&id])?
             .into_iter()
             .next()
@@ -861,6 +866,19 @@ impl Application {
                         )?;
                     } else {
                         let mut requested = row.spec.clone();
+                        // Recompute inferred inputs while retaining only the
+                        // dependencies explicitly accepted from the caller.
+                        requested["depends_on"] = row
+                            .spec
+                            .get("_requested_dependencies")
+                            .unwrap_or(&row.spec["depends_on"])
+                            .clone();
+                        crate::storage::output_store(
+                            &config,
+                            &bulk,
+                            row.spec["output_storage"].as_str().unwrap_or("data/0"),
+                            row.spec["_output_storage_id"].as_str(),
+                        )?;
                         if let Some(reference) = requested
                             .get_mut("scenario_ref")
                             .and_then(Value::as_object_mut)
@@ -881,6 +899,15 @@ impl Application {
                             requested[k] = v.clone();
                         }
                         let spec = prepare(&tx, &config, &bulk, actor, &requested)?;
+                        let cycle: bool = tx.query_row(
+                            "WITH RECURSIVE needed(id) AS (SELECT value FROM json_each(?,'$.depends_on') UNION SELECT child.value FROM needed d JOIN jobs j ON j.id=d.id JOIN json_each(j.spec,'$.depends_on') child UNION SELECT n.job FROM needed d JOIN workflow_nodes n ON n.root=d.id) SELECT EXISTS(SELECT 1 FROM needed WHERE id=?)",
+                            params![encode(&spec)?,id], |r|r.get(0))?;
+                        require(
+                            !cycle,
+                            "dependency_cycle",
+                            "Recovery inputs would create a dependency cycle",
+                            409,
+                        )?;
                         transition(&tx, &row, Event::RetryExecution)?;
                         if let Some(old) = &row.result {
                             tx.execute(

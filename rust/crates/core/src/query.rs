@@ -10,9 +10,25 @@ use crate::{
 use loom_domain::{union_intervals, JobState};
 use rusqlite::{params, OptionalExtension};
 use serde_json::{json, Value};
+// Follow only completed, frozen Attempt membership. UNION terminates even if a
+// separately imported/corrupt graph contains a cycle; a cycle has no terminal root.
+pub(crate) const CONSOLIDATION_CTE: &str = r#"WITH RECURSIVE
+consolidation_edges(source,source_attempt,target,target_attempt) AS (
+ SELECT json_extract(src.value,'$.job'),json_extract(src.value,'$.attempt'),j.id,j.attempt
+ FROM jobs j,json_each(j.spec,'$._consolidation_sources') src
+ WHERE j.state='complete' AND json_extract(j.result,'$.artifact_ready')=1
+), consolidation_paths(source,source_attempt,target,target_attempt) AS (
+ SELECT * FROM consolidation_edges
+ UNION
+ SELECT p.source,p.source_attempt,e.target,e.target_attempt
+ FROM consolidation_paths p JOIN consolidation_edges e ON e.source=p.target AND e.source_attempt IS p.target_attempt
+), consolidation_roots AS (
+ SELECT p.* FROM consolidation_paths p WHERE NOT EXISTS(
+ SELECT 1 FROM consolidation_edges e WHERE e.source=p.target AND e.source_attempt IS p.target_attempt)
+)"#;
 impl Application {
     pub fn consolidation_target(&self, id: &str) -> Result<Option<String>> {
-        Ok(self.db.query_row("SELECT c.id FROM jobs c,json_each(c.spec,'$._consolidation_sources') src JOIN jobs original ON original.id=json_extract(src.value,'$.job') WHERE original.id=? AND original.state='complete' AND json_extract(src.value,'$.attempt') IS original.attempt AND c.state='complete' AND json_extract(c.result,'$.artifact_ready')=1 ORDER BY c.created,c.id LIMIT 1",[id],|r|r.get(0)).optional()?)
+        Ok(self.db.query_row(&format!("{CONSOLIDATION_CTE} SELECT r.target FROM consolidation_roots r JOIN jobs original ON original.id=r.source WHERE original.id=? AND original.state='complete' AND r.source_attempt IS original.attempt ORDER BY r.target LIMIT 1"),[id],|r|r.get(0)).optional()?)
     }
     pub fn job_detail(&self, id: &str) -> Result<Value> {
         let workflow = rows(&self.db, "SELECT * FROM job_workflows WHERE id=?", &[&id])?
@@ -109,6 +125,9 @@ impl Application {
         self.record_detail(&jobs::load(&self.db, id)?)
     }
     pub fn record_detail(&self, row: &Record) -> Result<Value> {
+        self.record_detail_for_attempt(row, None)
+    }
+    fn record_detail_for_attempt(&self, row: &Record, selected: Option<&str>) -> Result<Value> {
         let id = row.aggregate.id.as_str();
         let mut spec = row.spec.clone();
         for k in [
@@ -119,7 +138,7 @@ impl Application {
         ] {
             spec.as_object_mut().unwrap().remove(k);
         }
-        let mut attempts=rows(&self.db,"SELECT a.*,a.started reserved_at,CASE WHEN s.attempt IS NOT NULL THEN s.accepted ELSE a.started END started,r.result FROM attempts a LEFT JOIN rust_attempt_starts s ON s.attempt=a.id LEFT JOIN attempt_results r ON r.job=a.job AND r.attempt=a.id WHERE a.job=? ORDER BY a.started,a.id",&[&id])?;
+        let mut attempts=rows(&self.db,"SELECT a.*,a.started reserved_at,CASE WHEN s.attempt IS NOT NULL THEN s.accepted ELSE a.started END started,r.result FROM attempts a LEFT JOIN rust_attempt_starts s ON s.attempt=a.id LEFT JOIN attempt_results r ON r.job=a.job AND r.attempt=a.id WHERE a.job=? AND (? IS NULL OR a.id=?) ORDER BY a.started,a.id",&[&id,&selected,&selected])?;
         for a in &mut attempts {
             if let Some(r) = a["result"].as_str() {
                 a["result"] = serde_json::from_str(r)?;
@@ -127,8 +146,8 @@ impl Application {
         }
         let stages = rows(
             &self.db,
-            "SELECT * FROM stage_runs WHERE job=? ORDER BY started,stage",
-            &[&id],
+            "SELECT * FROM stage_runs WHERE job=? AND (? IS NULL OR attempt=?) ORDER BY started,stage",
+            &[&id,&selected,&selected],
         )?;
         let mut intervals = vec![];
         let mut open_intervals = vec![];
@@ -145,8 +164,10 @@ impl Application {
                 intervals.push((a, b));
             }
         }
-        if stages.is_empty() {
-            for a in &attempts {
+        for a in &attempts {
+            if !stages.iter().any(|s| {
+                s["attempt"] == a["id"] && matches!(s["stage"].as_str(), Some("run" | "prepare"))
+            }) {
                 if let Some(start) = a["started"].as_f64() {
                     if let Some(end) = a["ended"].as_f64() {
                         intervals.push((start, end));
@@ -220,15 +241,72 @@ impl Application {
             details["annotations"] = json!(annotations);
         }
         details["consolidation"] = json!({"consolidated_into":self.consolidation_target(id)?,"sources":row.spec["_consolidation_sources"].as_array().into_iter().flatten().map(|s|json!({"job":s["job"],"attempt":s["attempt"]})).collect::<Vec<_>>()});
-        if let Some(sources) = row.spec["_consolidation_sources"].as_array() {
+        if let Some(sources) = row.spec["_consolidation_sources"]
+            .as_array()
+            .filter(|_| selected.is_none())
+        {
             let mut executions = vec![];
-            for source in sources {
-                if let Some(id) = source["job"].as_str() {
-                    let source = jobs::load(&self.db, id)?;
-                    let detail = self.record_detail(&source)?;
-                    executions.push(json!({"job":id,"attempt":source.aggregate.fence.attempt.as_ref().map(|a|a.as_str()),"label":source.spec["presentation"].get("label").unwrap_or(&source.spec["kind"]),"attempts":detail["attempts"],"stages":detail["stages"],"state":detail["state"],"execution_intervals":detail["execution_intervals"],"created":detail["created"],"source":"preserved execution"}));
+            let mut timeline_executions = vec![];
+            let mut pending = std::collections::VecDeque::from(sources.clone());
+            let mut visited = std::collections::BTreeSet::from([(
+                id.to_string(),
+                row.aggregate
+                    .fence
+                    .attempt
+                    .as_ref()
+                    .map(|a| a.as_str().to_string()),
+            )]);
+            while let Some(source_pin) = pending.pop_front() {
+                if let Some(id) = source_pin["job"].as_str() {
+                    let attempt = source_pin["attempt"].as_str();
+                    if !visited.insert((id.to_string(), attempt.map(str::to_string))) {
+                        continue;
+                    }
+                    let mut source = jobs::load(&self.db, id)?;
+                    pending.extend(
+                        source.spec["_consolidation_sources"]
+                            .as_array()
+                            .into_iter()
+                            .flatten()
+                            .cloned(),
+                    );
+                    source.aggregate.fence.attempt =
+                        attempt.map(loom_domain::AttemptId::new).transpose()?;
+                    source.aggregate.state = JobState::Complete;
+                    source.result = source_pin.get("result").cloned();
+                    let detail =
+                        self.record_detail_for_attempt(&source, Some(attempt.unwrap_or("")))?;
+                    let label = source.spec["presentation"]
+                        .get("label")
+                        .unwrap_or(&source.spec["kind"]);
+                    if detail["attempts"].as_array().is_none_or(Vec::is_empty) {
+                        timeline_executions.push(json!({"job":id,"attempt":attempt,"role":"source","label":label,"state":"unrecorded","started":null,"ended":null}));
+                    }
+                    for a in detail["attempts"].as_array().into_iter().flatten() {
+                        timeline_executions.push(json!({"job":id,"attempt":a["id"],"role":"source","label":label,"state":a["state"],"started":a["started"],"ended":a["ended"]}));
+                    }
+                    executions.push(json!({"job":id,"attempt":attempt,"label":label,"attempts":detail["attempts"],"stages":detail["stages"],"state":detail["state"],"execution_intervals":detail["execution_intervals"],"created":detail["created"],"source":"preserved execution"}));
                 }
             }
+            for a in details["attempts"].as_array().into_iter().flatten() {
+                timeline_executions.push(json!({"job":id,"attempt":a["id"],"role":"continuation","label":details["presentation"].get("label").unwrap_or(&details["spec"]["kind"]),"state":a["state"],"started":a["started"],"ended":a["ended"]}));
+            }
+            let mut seen = std::collections::BTreeSet::new();
+            timeline_executions
+                .retain(|e| seen.insert((e["job"].to_string(), e["attempt"].to_string())));
+            let work_started = timeline_executions
+                .iter()
+                .filter_map(|e| e["started"].as_f64())
+                .min_by(f64::total_cmp);
+            let work_ended = if timeline_executions.iter().all(|e| e["ended"].is_number()) {
+                timeline_executions
+                    .iter()
+                    .filter_map(|e| e["ended"].as_f64())
+                    .max_by(f64::total_cmp)
+            } else {
+                None
+            };
+            details["work_timeline"] = json!({"authority":"frozen_attempt_receipts","queued":row.created,"started":work_started,"ended":work_ended,"executions":timeline_executions});
             let mut all_intervals = details["execution_intervals"]
                 .as_array()
                 .cloned()
@@ -257,10 +335,22 @@ impl Application {
                 .iter()
                 .filter_map(|e| e["created"].as_f64())
                 .fold(row.created, f64::min);
+            details["work_timeline"]["queued"] = json!(queued);
             details["timeline"] = json!({"authority":"frozen_source_execution","queued":queued,"started":started,"ended":ended,"executions":executions});
             details["execution_intervals"] = json!(all_intervals);
             if details["internal_steps"].is_null() {
-                details["internal_steps"] = json!({"schema":"loom-job-steps/v1","status":"preserved_execution","authority":"frozen source execution receipts","steps":executions.iter().map(|e|json!({"id":e["job"],"label":e["label"],"state":"reused","source_job":e["job"],"source_attempt":e["attempt"]})).collect::<Vec<_>>()});
+                details["internal_steps"] = json!({"schema":"loom-job-steps/v1","status":"preserved_execution","authority":"frozen source execution receipts","steps":timeline_executions.iter().map(|e|json!({"id":format!("{}-{}",e["job"].as_str().unwrap_or(""),e["attempt"].as_str().unwrap_or("unrecorded")),"label":e["label"],"state":if e["role"]=="source" && e["started"].is_number(){json!("reused")}else if e["state"]=="complete"{json!("completed")}else{e["state"].clone()},"source_job":e["job"],"source_attempt":e["attempt"]})).collect::<Vec<_>>()});
+            }
+            for step in details["internal_steps"]["steps"]
+                .as_array_mut()
+                .into_iter()
+                .flatten()
+            {
+                if let Some(execution) = timeline_executions.iter().find(|e| {
+                    e["job"] == step["source_job"] && e["attempt"] == step["source_attempt"]
+                }) {
+                    step["source_execution"] = execution.clone();
+                }
             }
             details["source_executions"] = json!(executions);
         }
@@ -273,7 +363,7 @@ impl Application {
         let category = args["category"].as_str();
         let mode = args["execution_mode"].as_str();
         let consolidated = args["include_consolidated"] == true;
-        let identities=rows(&self.db,"WITH folded AS (SELECT DISTINCT c.value id FROM jobs j,json_each(j.spec,'$.consolidates') c WHERE j.state='complete' AND json_extract(j.result,'$.artifact_ready')=1), candidates AS (SELECT j.id,j.created,CASE WHEN o.presentation IS NULL THEN j.spec ELSE json_patch(j.spec,json_object('presentation',json_patch(COALESCE(json_extract(j.spec,'$.presentation'),'{}'),o.presentation))) END spec,0 workflow FROM jobs j LEFT JOIN research_overlays o ON o.kind='job' AND o.id=j.id WHERE NOT EXISTS(SELECT 1 FROM workflow_nodes n WHERE n.job=j.id) AND (? OR NOT EXISTS(SELECT 1 FROM folded f WHERE f.id=j.id)) UNION ALL SELECT w.id,w.created,w.request,1 FROM job_workflows w UNION ALL SELECT h.id,COALESCE(json_extract(h.body,'$.record.created'),json_extract(h.body,'$.entity.created'),json_extract(h.body,'$.entity.properties.created_at'),0),COALESCE(json_extract(h.body,'$.record.spec'),json_extract(h.body,'$.entity.properties'),'{}'),2 FROM history_records h WHERE h.rowid IN(SELECT max(rowid) FROM history_records WHERE kind='job_view' AND source IN ('queue','loom-ops') GROUP BY id) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.id=h.id)) SELECT id,workflow FROM candidates WHERE (?='all' OR COALESCE(json_extract(spec,'$.presentation.scope'),json_extract(spec,'$.scope'),CASE WHEN json_extract(spec,'$.kind')='cpu.smoke' THEN 'operations' ELSE 'research' END)=?) AND (? IS NULL OR COALESCE(json_extract(spec,'$.category'),'other')=?) AND (? IS NULL OR json_extract(spec,'$.execution_mode')=?) ORDER BY created DESC,id LIMIT ? OFFSET ?",&[&consolidated,&view,&view,&category,&category,&mode,&mode,&limit,&offset])?;
+        let identities=rows(&self.db,"WITH folded AS (SELECT DISTINCT json_extract(c.value,'$.job') id FROM jobs j,json_each(j.spec,'$._consolidation_sources') c JOIN jobs original ON original.id=json_extract(c.value,'$.job') WHERE j.state='complete' AND json_extract(j.result,'$.artifact_ready')=1 AND original.state='complete' AND original.attempt IS json_extract(c.value,'$.attempt')), candidates AS (SELECT j.id,j.created,CASE WHEN o.presentation IS NULL THEN j.spec ELSE json_patch(j.spec,json_object('presentation',json_patch(COALESCE(json_extract(j.spec,'$.presentation'),'{}'),o.presentation))) END spec,0 workflow FROM jobs j LEFT JOIN research_overlays o ON o.kind='job' AND o.id=j.id WHERE NOT EXISTS(SELECT 1 FROM workflow_nodes n WHERE n.job=j.id) AND (? OR NOT EXISTS(SELECT 1 FROM folded f WHERE f.id=j.id)) UNION ALL SELECT w.id,w.created,w.request,1 FROM job_workflows w UNION ALL SELECT h.id,COALESCE(json_extract(h.body,'$.record.created'),json_extract(h.body,'$.entity.created'),json_extract(h.body,'$.entity.properties.created_at'),0),COALESCE(json_extract(h.body,'$.record.spec'),json_extract(h.body,'$.entity.properties'),'{}'),2 FROM history_records h WHERE h.rowid IN(SELECT max(rowid) FROM history_records WHERE kind='job_view' AND source IN ('queue','loom-ops') GROUP BY id) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.id=h.id)) SELECT id,workflow FROM candidates WHERE (?='all' OR COALESCE(json_extract(spec,'$.presentation.scope'),json_extract(spec,'$.scope'),CASE WHEN json_extract(spec,'$.kind')='cpu.smoke' THEN 'operations' ELSE 'research' END)=?) AND (? IS NULL OR COALESCE(json_extract(spec,'$.category'),'other')=?) AND (? IS NULL OR json_extract(spec,'$.execution_mode')=?) ORDER BY created DESC,id LIMIT ? OFFSET ?",&[&consolidated,&view,&view,&category,&category,&mode,&mode,&limit,&offset])?;
         let mut items = vec![];
         for identity in identities {
             let id = identity["id"].as_str().unwrap_or("");
@@ -374,11 +464,17 @@ impl Application {
             if children.is_empty() {
                 continue;
             }
-            d["reason"] = json!(if d["state"] == "running" || d["state"] == "preparing" {
-                "executing"
-            } else {
-                "recovery_required"
-            });
+            d["reason"] = match d["state"].as_str() {
+                Some("running" | "preparing") => json!("executing"),
+                Some("processing") => json!("finalizing"),
+                Some("failed" | "interrupted" | "result_failed") => json!("recovery_required"),
+                _ => children
+                    .iter()
+                    .find(|e| e["eligible"] == true)
+                    .or_else(|| children.iter().find(|e| e["position"].is_number()))
+                    .map(|e| e["reason"].clone())
+                    .unwrap_or(Value::Null),
+            };
             d["position"] = children
                 .iter()
                 .filter_map(|e| e["position"].as_i64())
@@ -639,6 +735,18 @@ impl Application {
             .to_string();
         self.assign_responsibility(actor, "job", id, owner, &fallback)
     }
+    pub(crate) fn require_log_attempt(&self, job: &str, attempt: &str) -> Result<()> {
+        require(
+            self.db.query_row(
+                "SELECT EXISTS(SELECT 1 FROM attempts WHERE job=? AND id=?)",
+                params![job, attempt],
+                |r| r.get::<_, bool>(0),
+            )?,
+            "attempt",
+            "Attempt outside Job",
+            403,
+        )
+    }
     pub fn job_logs(&self, args: Value) -> Result<Value> {
         let row = jobs::load(
             &self.db,
@@ -650,6 +758,7 @@ impl Application {
             .as_str()
             .or(row.aggregate.fence.attempt.as_ref().map(|a| a.as_str()))
             .ok_or_else(|| Error::input("Attempt required"))?;
+        self.require_log_attempt(row.aggregate.id.as_str(), attempt)?;
         crate::log_index::legacy_guard(self, row.aggregate.id.as_str(), attempt)?;
         if let Some(value) = &self.live_logs {
             return value.clone();
@@ -666,10 +775,19 @@ impl Application {
         )?;
         use std::io::{Read, Seek, SeekFrom};
         use std::os::unix::fs::OpenOptionsExt;
-        let mut file = std::fs::OpenOptions::new()
+        let file = std::fs::OpenOptions::new()
             .read(true)
             .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-            .open(path)?;
+            .open(path);
+        let mut file = match file {
+            Ok(file) => file,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(
+                    json!({"available":false,"offset":args["offset"],"next_offset":args["offset"],"text":""}),
+                )
+            }
+            Err(error) => return Err(error.into()),
+        };
         require(
             file.metadata()?.is_file(),
             "logs",
@@ -678,13 +796,13 @@ impl Application {
         )?;
         let total = file.metadata()?.len();
         let offset = args["offset"].as_u64().unwrap_or(0).min(total);
-        let limit = args["limit"].as_u64().unwrap_or(65536).min(1024 * 1024);
+        let limit = args["limit"].as_u64().unwrap_or(65536).min(65536);
         file.seek(SeekFrom::Start(offset))?;
         let mut content = vec![];
         file.take(limit).read_to_end(&mut content)?;
         let end = offset + content.len() as u64;
         Ok(
-            json!({"id":row.aggregate.id.as_str(),"attempt":attempt,"offset":offset,"next_offset":end,"text":String::from_utf8_lossy(&content),"eof":end==total,"total_bytes":total}),
+            json!({"available":true,"id":row.aggregate.id.as_str(),"attempt":attempt,"offset":offset,"next_offset":end,"text":String::from_utf8_lossy(&content),"eof":end==total,"total_bytes":total}),
         )
     }
 }

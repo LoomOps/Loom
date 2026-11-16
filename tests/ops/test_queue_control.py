@@ -37,6 +37,18 @@ class QueueControlTests(IsolatedOps):
   with ops.db() as c:
    self.assertFalse(dispatch_control.status(c)['paused'])
    self.assertEqual(c.execute('SELECT mode FROM node_control').fetchone()[0],'active')
+ def test_operator_deployment_pause_waits_for_callbacks_and_native_effects(self):
+  with ops.db() as c:
+   c.execute("insert into hooks(job,attempt,stage,state) values('fixture','attempt','callback','running')")
+  with self.assertRaisesRegex(ValueError,'callbacks'):
+   with ops.db() as c:dispatch_control.change(c,True,str(uuid.uuid4()))
+  with ops.db() as c:
+   c.execute('delete from hooks')
+   c.execute('create table rust_effects(state text,stage text)')
+   c.execute("insert into rust_effects values('unknown','run')")
+  with self.assertRaisesRegex(ValueError,'ownership'):
+   with ops.db() as c:dispatch_control.change(c,True,str(uuid.uuid4()))
+  with ops.db() as c:self.assertEqual(c.execute('select mode from node_control').fetchone()[0],'active')
  def test_fifo_placements_hold_and_reopen_persist(self):
   a,b,c=[self.submit(self.spec(x)) for x in 'abc']
   self.assertEqual(self.ids(),[a,b,c])

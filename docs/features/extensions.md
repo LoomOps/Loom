@@ -5,8 +5,6 @@
 Registering a new component must not require new MCP tools or platform redeployment. Preserve profile revision pins on submitted Jobs.
 Runtime metadata is separate from Job state; instance grants and exact revisions are verified, and dependency discovery does not authorize host installation.
 
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
-
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
@@ -56,8 +54,6 @@ Related blocks: [identity](identity.md).
 - [tests/ops/test_runtime_catalog.py](../../tests/ops/test_runtime_catalog.py)
 - [tests/ops/test_runtime_hub.py](../../tests/ops/test_runtime_hub.py)
 - [tests/rust/application.rs](../../tests/rust/application.rs)
-
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
 
 Acceptance outside these fixtures:
 - The execution-environment owner verifies actual external image dependencies, caches and GPU compatibility.

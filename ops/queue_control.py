@@ -128,7 +128,6 @@ def view(c,actor,lane_for):
     'can_hold':owned and 'submit' in actor['scopes'] and row['state'] in WAITING,
     'can_resume':owned and 'submit' in actor['scopes'] and bool(row['queue_held']) and row['state']!='running'})
  rows=[ownership.decorate(c,'job',row) for row in rows]
- revision=hashlib.sha256(json.dumps(rows,sort_keys=True).encode()).hexdigest()
  control=dispatch_control.status(c)
  revision=hashlib.sha256(json.dumps({'entries':rows,'dispatch':control},sort_keys=True).encode()).hexdigest()
  import research

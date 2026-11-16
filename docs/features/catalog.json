@@ -114,7 +114,8 @@
         "tests/rust/application.rs",
         "tests/rust/codec.rs",
         "tests/rust/test_service.py",
-        "tests/rust/read_admission.rs"
+        "tests/rust/read_admission.rs",
+        "tests/rust/worker.rs"
       ],
       "depends_on": [
         "identity",
@@ -641,7 +642,7 @@
     },
     {
       "id": "dashboard",
-      "summary": "Dashboard HTTP relay·workspace UI",
+      "summary": "Dashboard HTTP relay\u00b7workspace UI",
       "sources": [
         "dashboard/.dockerignore",
         "dashboard/Dockerfile",

@@ -34,8 +34,10 @@ def change(c, paused, token, reason=''):
         if mode!='active':raise ValueError('Instance has an unrelated maintenance fence')
         if c.execute("SELECT 1 FROM jobs WHERE state IN ('preparing','running','processing') LIMIT 1").fetchone():
             raise ValueError('Wait for running Jobs and result processing to return before pausing for deployment')
-        if c.execute("SELECT 1 FROM sqlite_master WHERE name='hooks'").fetchone() and c.execute("SELECT 1 FROM hooks WHERE state='pending' LIMIT 1").fetchone():
+        if c.execute("SELECT 1 FROM sqlite_master WHERE name='hooks'").fetchone() and c.execute("SELECT 1 FROM hooks WHERE state IN ('pending','running') LIMIT 1").fetchone():
             raise ValueError('Wait for lifecycle callbacks before deployment')
+        if c.execute("SELECT 1 FROM sqlite_master WHERE name='rust_effects'").fetchone() and c.execute("SELECT 1 FROM rust_effects WHERE state IN ('pending','accepted','unknown') AND stage!='publish' LIMIT 1").fetchone():
+            raise ValueError('Wait for native execution ownership before deployment')
         # Older workers honor this fence; new workers also retain dispatch pause
         # after the updater reopens admission for a staged continuation Job.
         c.execute("UPDATE node_control SET mode='maintenance' WHERE id=1")

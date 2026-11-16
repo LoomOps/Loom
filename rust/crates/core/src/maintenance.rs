@@ -53,17 +53,17 @@ impl Application {
         } else {
             return Err(Error::input("Unknown maintenance action"));
         };
-        let old: Option<(String, String)> = self
+        let old: Option<(String, String, String)> = self
             .db
             .query_row(
-                "SELECT id,request FROM catalog_tasks WHERE actor=? AND request_key=?",
+                "SELECT id,kind,request FROM catalog_tasks WHERE actor=? AND request_key=?",
                 params![actor.id, key],
-                |r| Ok((r.get(0)?, r.get(1)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .optional()?;
-        if let Some((id, request)) = old {
+        if let Some((id, previous_kind, request)) = old {
             require(
-                request == encode(args)?,
+                previous_kind == kind && request == encode(args)?,
                 "idempotency",
                 "Maintenance key reused for a changed request",
                 409,

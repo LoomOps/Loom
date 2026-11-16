@@ -34,3 +34,10 @@ class ManagedPermissionsTests(unittest.TestCase):
     def test_doctor_rejects_wrong_permissions(self):
         managed.write(self.config,managed.read(self.config));managed.path(self.config).chmod(0o644)
         self.assertFalse(managed.permissions_ready(self.config))
+    def test_doctor_rejects_dangling_journal_and_lock_links(self):
+        for path in (managed.path(self.config),managed.path(self.config).with_suffix('.lock')):
+            with self.subTest(path=path.name):
+                path.symlink_to(self.root/'missing')
+                self.assertFalse(managed.permissions_ready(self.config))
+                path.unlink()
+        self.assertTrue(managed.permissions_ready(self.config))

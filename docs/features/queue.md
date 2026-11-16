@@ -2,9 +2,7 @@
 
 ## Boundary
 
-Do not preempt running Jobs. Respect dependencies, allow concurrent preparation and never reassign resources before their return.
-
-The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
+Do not preempt running Jobs. Respect dependencies, allow concurrent preparation and never reassign resources before their return. Logical workflow queue summaries use child readiness for waiting states and distinguish execution, finalization and recovery. Accepted-key submission replays return their original Job while admission is draining; new submissions remain fenced.
 
 ## Interfaces
 
@@ -36,7 +34,16 @@ Related blocks: [identity](identity.md) · [execution](execution.md) · [recover
 - [tests/ops/test_queue_control.py](../../tests/ops/test_queue_control.py)
 - [tests/rust/application.rs](../../tests/rust/application.rs)
 
-Run the affected suites and `deploy/features.py check`; see [the verification matrix](VERIFICATION.md). Passing retained compatibility fixtures is distinct from exercising the native handler.
-
 Acceptance outside these fixtures:
 - Actual long-running GPU workloads and power loss require separate acceptance testing.
+
+Consolidation folding and duplicate-source claims compare the frozen source
+Job/Attempt pair. A later Attempt does not inherit an older consolidation in
+lists or Profile usage; Activity attributes each execution range by its Attempt.
+Exact source details filter both Attempt and stage receipts and expose the
+compatible `work_timeline`, without rewriting original execution times.
+
+Nested consolidation resolves the terminal logical Job using frozen Attempt
+membership. Activity and Profile usage share that mapping. Detailed source
+receipts use an iterative, deduplicated traversal; callbacks alone do not suppress
+a legacy Attempt execution interval.
