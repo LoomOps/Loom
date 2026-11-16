@@ -127,15 +127,15 @@ function loomJobClass(entity) {
 function loomFilteredWorkItems() {
   const items=workItems(),known=new Set(items.map(e=>e.id));
   if(state.jobSourceHistory)items.push(...(catalogData.all_entities||[]).filter(e=>e.kind==='job'&&!known.has(e.id)&&e.properties?.consolidated_into&&known.has(e.properties.consolidated_into)));
-  return items.filter(e => (!state.jobHistoryView || state.jobHistoryView==='all'
-      || (state.jobHistoryView==='operations'?e.presentation?.scope==='operations':e.presentation?.scope!=='operations'))
+  return items.filter(e => ((state.jobHistoryView||catalogData.presentation_view)==='all'
+      || ((state.jobHistoryView||catalogData.presentation_view)==='operations'?e.presentation?.scope==='operations':e.presentation?.scope!=='operations'))
     && (!state.jobCategory || (e.properties?.category || 'other') === state.jobCategory)
     && (!state.jobExecutionMode || e.properties?.execution_mode === state.jobExecutionMode)
     && (state.jobSourceHistory || !e.properties?.consolidated_into));
 }
 function loomJobFilters() {
   const c = loomJobContract();
-  const scope=state.jobHistoryView||'all';
+  const scope=state.jobHistoryView||catalogData.presentation_view||'research';
   return '<div class="pa-filter" aria-label="History scope">'+[['all','All'],['research','Research'],['operations','Operations']]
     .map(([value,label])=>'<button class="pa-pill '+(scope===value?'active':'')+'" aria-pressed="'+(scope===value)+'" data-job-history-view="'+value+'">'+label+'</button>').join('')+'</div>'
     +'<div class="pa-job-filters">' + [['jobCategory','Job Type',c.categories],['jobExecutionMode','Execution Mode',c.execution_modes]]

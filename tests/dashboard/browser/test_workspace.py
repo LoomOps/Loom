@@ -822,7 +822,7 @@ const done=arguments[arguments.length-1];
         current=lambda:ui.js("return [...document.querySelectorAll('.pa-current-work-queue tbody tr')].map(r=>r.textContent)")
         ui.wait("return document.querySelector('.pa-current-work-queue tbody')?.children.length===3")
         before=current();self.assertTrue(any('queue-operations' in x for x in before));self.assertTrue(any('minimal-operations' in x for x in before))
-        self.assertEqual(ui.js('return '+history+".querySelectorAll('tbody tr').length"),2)
+        self.assertEqual(ui.js('return '+history+".querySelectorAll('tbody tr').length"),1)
         ui.click('[data-job-history-view=operations]')
         self.assertIn('history-operations',ui.js('return '+history+'.textContent'))
         self.assertNotIn('history-research',ui.js('return '+history+'.textContent'))
@@ -847,6 +847,8 @@ const done=arguments[arguments.length-1];
         self.api.fixture['catalog']['entities']=entities
         ui.top();self.wd('/refresh',{});ui.connect()
         rows=lambda:ui.js("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelectorAll('tbody tr').length")
+        ui.wait("return document.querySelector('[data-job-history-view=research]')?.getAttribute('aria-pressed')==='true'")
+        ui.click('[data-job-history-view=all]')
         ui.wait("return document.querySelector('[data-job-history-view=all]')?.getAttribute('aria-pressed')==='true'")
         ui.wait("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelectorAll('tbody tr').length===10")
         self.assertEqual(rows(),10);ui.click('[data-history-more]');self.assertEqual(rows(),13)
@@ -1447,3 +1449,30 @@ const done=arguments[arguments.length-1];
         ui.js("for(const n of ['key','owner','notify'])document.querySelector('[data-profile-draft] [name='+n+']').value='owner'")
         ui.click('[data-profile-draft] button[type=submit]')
         self.assertTrue(ui.js("return document.querySelector('[data-draft-copy]').disabled"));self.assertFalse(self.api.actions)
+
+    def test_model_input_prose_wraps_in_a_narrow_list(self):
+        e=next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-model')
+        e['inputs']=[{'kind':'instruction','label':'Instruction','status':'present','value':'3 original source instructions; numeric phase excluded '+('source_reference_'*12)}]
+        self.api.fixture['catalog']['revision']='long-model-instruction'
+        self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        self.ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('long-model-instruction')")
+        self.ui.nav('Models')
+        self.ui.top();self.wd('/window/rect',{'width':500,'height':1000});self.ui.frame()
+        for theme in ('light','dark'):
+            self.ui.click('[data-theme='+theme+']')
+            self.assertTrue(self.ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
+            self.assertIn('numeric phase excluded',self.ui.js("return document.querySelector('#pa-content').textContent"))
+
+
+    def test_preserved_work_mirrors_have_one_history_row_and_exact_sources_remain(self):
+        import copy
+        e=copy.deepcopy(self.api.fixture['catalog']['entities'][0])
+        e.update(id='history:111',loom_history={'source':'queue','kind':'job_view','id':'work:same-work','revision':'q1','snapshot':'q1'})
+        mirror=copy.deepcopy(e);mirror.update(id='history:222',loom_history={'source':'catalog','kind':'job','id':'work:same-work','revision':'c1','snapshot':'c1'})
+        self.api.fixture['catalog']['entities']=[e,mirror]
+        self.api.fixture['catalog']['revision']='work-mirror'
+        self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        self.ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('work-mirror')")
+        self.ui.nav('Dashboard')
+        self.ui.wait("return document.querySelector('#pa-content [data-entity=\\\"history:111\\\"]')")
+        self.assertFalse(self.ui.js("return !!document.querySelector('#pa-content [data-entity=\\\"history:222\\\"]')"))

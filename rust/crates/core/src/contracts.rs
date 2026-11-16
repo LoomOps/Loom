@@ -254,7 +254,7 @@ pub fn actions() -> Vec<Action> {
         });
     }
     let mut search = object(
-        json!({"text":{"type":"string","maxLength":1024},"kinds":{"type":"array","items":{"type":"string"},"maxItems":16},"view":{"enum":["all","research","operations"]},"role":{"enum":["all","main","support","test"]},"scenario_ref":reference,"parent_item_id":item_id,"category":{"type":"string","maxLength":128},"availability":{"enum":["verified","source_unavailable","recorded"]},"recorded_from":{"type":"number"},"recorded_to":{"type":"number"},"cursor":{"type":"string","maxLength":4096},"limit":{"type":"integer","minimum":1,"maximum":200}}),
+        json!({"text":{"type":"string","maxLength":1024},"kinds":{"type":"array","items":{"type":"string"},"maxItems":16},"view":{"enum":["all","research","operations"]},"role":{"enum":["all","main","support","test"]},"scenario_ref":reference,"task_id":string,"parent_item_id":item_id,"category":{"type":"string","maxLength":128},"availability":{"enum":["verified","source_unavailable","recorded"]},"recorded_from":{"type":"number"},"recorded_to":{"type":"number"},"cursor":{"type":"string","maxLength":4096},"limit":{"type":"integer","minimum":1,"maximum":200}}),
         &[],
     );
     for (k, v) in [

@@ -100,7 +100,10 @@ def build(original):
     )
     if "['tools','Tools','wrench']" not in inner:
         inner=replace_once(inner,"['docker','Docker','boxes']","['tools','Tools','wrench'],['docker','Docker','boxes']")
-    inner=replace_once(inner,"['tools','Tools','wrench']","['scenarios','Scenarios','route'],['profiles','Runtimes',loomRuntimeIcon]")
+    inner=replace_once(inner,"['tools','Tools','wrench']","['profiles','Runtimes',loomRuntimeIcon]")
+    inner=replace_once(inner,"catalogData=catTitleSnapshot(e.data.catalog);","catalogData=loomCatalogRefresh(e.data.catalog);")
+    inner=replace_once(inner,"const interested=!!root.querySelector('[data-resource-panel]');","const interested=!!root.querySelector('[data-resource-panel],.pa-finder');")
+    inner=replace_once(inner,"const catKind=(k,includeDiscarded=false)=>catalogData.entities.filter(e=>e.kind===k&&(includeDiscarded||!catIsDiscarded(e)));","const catKind=(k,includeDiscarded=false)=>loomTaskItems(catalogData.entities.filter(e=>e.kind===k&&(includeDiscarded||!catIsDiscarded(e))),k);")
     inner=replace_once(inner,"return {page:e?.kind==='model'?", "return {page:e?.kind==='scenario'?'scenarios':e?.kind==='dependency'?'dependencies':e?.kind==='execution_profile'?'profiles':e?.kind==='component'?'components':e?.kind==='runtime'?'runtimes':e?.kind==='tool'?'tools':e?.kind==='model'?")
     inner=replace_once(inner,"const catEntity=id=>catalogData.entities.find(e=>e.id===id)||(typeof workStepRecord==='function'?workStepRecord(id):null);",
         "const catEntity=id=>(catalogData.all_entities||catalogData.entities).find(e=>e.id===id)||(typeof workStepRecord==='function'?workStepRecord(id):null)||loomHistoricalExtensionEntity(id);")

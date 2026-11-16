@@ -9,13 +9,13 @@ fn definition(value: &Value) -> Result<String> {
                 .as_str()
                 .is_some_and(|s| !s.trim().is_empty() && s.len() <= 200),
         "scenario",
-        "Scenario label required",
+        "Task label required",
         400,
     )?;
     require(
         serde_json::to_vec(value)?.len() <= 128 * 1024,
         "scenario",
-        "Scenario definition exceeds bound",
+        "Task definition exceeds bound",
         400,
     )?;
     for (k, v) in value.as_object().unwrap() {
@@ -25,14 +25,14 @@ fn definition(value: &Value) -> Result<String> {
                 "label" | "description" | "protocol" | "references" | "metadata"
             ),
             "scenario",
-            "Unknown Scenario field",
+            "Unknown Task field",
             400,
         )?;
         if k == "description" {
             require(
                 v.as_str().is_some_and(|s| s.len() <= 8192),
                 "scenario",
-                "Invalid Scenario description",
+                "Invalid Task description",
                 400,
             )?;
         }
@@ -42,7 +42,7 @@ fn definition(value: &Value) -> Result<String> {
 pub fn pin(db: &Connection, reference: &ScenarioRef) -> Result<Value> {
     let row:Option<(String,i64)>=db.query_row("SELECT r.sha256,s.archived FROM scenario_revisions r JOIN scenarios s ON s.id=r.scenario_id WHERE r.scenario_id=? AND r.revision=?",params![reference.id,reference.revision],|r|Ok((r.get(0)?,r.get(1)?))).optional()?;
     let Some((sha, archived)) = row else {
-        return Err(Error::new("scenario", "Scenario revision not found", 404));
+        return Err(Error::new("scenario", "Task revision not found", 404));
     };
     let _ = archived; // Archive changes discovery; exact historical context remains usable.
     Ok(json!({"id":reference.id,"revision":reference.revision,"sha256":sha}))
@@ -90,7 +90,7 @@ impl Application {
         require(
             changed == 1,
             "revision",
-            "Scenario revision changed or archived",
+            "Task revision changed or archived",
             409,
         )?;
         let revision = v.expected_revision + 1;
@@ -117,7 +117,7 @@ impl Application {
             "UPDATE scenarios SET archived=1 WHERE id=? AND current_revision=? AND archived=0",
             params![v["id"].as_str(), v["expected_revision"].as_i64()],
         )?;
-        require(n == 1, "revision", "Scenario revision changed", 409)?;
+        require(n == 1, "revision", "Task revision changed", 409)?;
         let result = json!({"id":v["id"],"archived":true});
         receipt(&tx, actor, key, "scenario.archive", &v, &result)?;
         tx.commit()?;
@@ -191,11 +191,11 @@ impl Application {
         }
         let id = v["id"]
             .as_str()
-            .ok_or_else(|| Error::input("Scenario ID required"))?;
+            .ok_or_else(|| Error::input("Task ID required"))?;
         let scenario = rows(&self.db, "SELECT * FROM scenarios WHERE id=?", &[&id])?
             .into_iter()
             .next()
-            .ok_or_else(|| Error::new("scenario", "Scenario not found", 404))?;
+            .ok_or_else(|| Error::new("scenario", "Task not found", 404))?;
         let revision = v["revision"]
             .as_i64()
             .or(scenario["current_revision"].as_i64())
@@ -225,4 +225,73 @@ impl Application {
         }
         Ok(result)
     }
+}
+
+/// Compact Task metadata is derived from exact accepted references and additive links.
+/// It never changes the original Job, result, or historical snapshot.
+impl Application {
+    pub fn dashboard_tasks(&self) -> Result<Value> {
+        Ok(json!(rows(&self.db,"SELECT s.id,s.current_revision AS revision,json_extract(r.definition,'$.label') AS label FROM scenarios s JOIN scenario_revisions r ON r.scenario_id=s.id AND r.revision=s.current_revision WHERE s.archived=0 ORDER BY s.label,s.id",&[])?))
+    }
+    pub fn attach_task_context(&self, entities: &mut [Value]) -> Result<()> {
+        let links=rows(&self.db,"SELECT l.scenario_id AS id,l.revision,l.target_kind,l.target,json_extract(r.definition,'$.label') AS label FROM scenario_links l JOIN scenario_revisions r ON r.scenario_id=l.scenario_id AND r.revision=l.revision WHERE l.superseded_by IS NULL ORDER BY label,l.scenario_id,l.revision",&[])?;
+        for entity in entities {
+            let target = dashboard_target(entity);
+            let mut refs = vec![];
+            if entity["scenario_ref"].is_object() {
+                let pin = &entity["scenario_ref"];
+                let label:Option<String>=self.db.query_row("SELECT json_extract(definition,'$.label') FROM scenario_revisions WHERE scenario_id=? AND revision=?",params![pin["id"].as_str(),pin["revision"].as_i64()],|r|r.get(0)).optional()?;
+                if let Some(label) = label {
+                    refs.push(json!({"id":pin["id"],"revision":pin["revision"],"label":label}));
+                }
+            }
+            for link in &links {
+                let kind = if link["target_kind"] == "protocol_artifact" {
+                    "entity"
+                } else {
+                    link["target_kind"].as_str().unwrap_or("")
+                };
+                let identity: Value =
+                    serde_json::from_str(link["target"].as_str().unwrap_or("{}"))?;
+                if target["kind"] == kind
+                    && identity.as_object().is_some_and(|o| {
+                        o.iter().all(|(k, v)| target["identity"].get(k) == Some(v))
+                    })
+                {
+                    let reference =
+                        json!({"id":link["id"],"revision":link["revision"],"label":link["label"]});
+                    if !refs.contains(&reference) {
+                        refs.push(reference);
+                    }
+                }
+            }
+            refs.sort_by_key(|v| v["label"].as_str().unwrap_or("").to_string());
+            entity["task_refs"] = json!(refs);
+        }
+        Ok(())
+    }
+}
+fn dashboard_target(e: &Value) -> Value {
+    if e["loom_registry"].is_object() {
+        return json!({"kind":"entity","identity":e["loom_registry"]});
+    }
+    if e["loom_history"].is_object() {
+        return json!({"kind":"historical","identity":e["loom_history"]});
+    }
+    if e["loom_extension"].is_object() {
+        let x = &e["loom_extension"];
+        return json!({"kind":e["kind"],"identity":{"owner":x["owner"],"id":x["id"],"revision":x["revision"]}});
+    }
+    if e["loom_runtime"].is_object() {
+        let x = &e["loom_runtime"];
+        return json!({"kind":"runtime","identity":{"id":x["id"],"revision":x["revision"],"sha256":x["sha256"]}});
+    }
+    if e["loom_execution_profile"].is_object() {
+        let x = &e["loom_execution_profile"];
+        return json!({"kind":"profile","identity":{"kind":x["kind"],"sha256":x["sha256"]}});
+    }
+    if e["kind"] == "job" {
+        return json!({"kind":"job","identity":{"id":e["id"]}});
+    }
+    Value::Null
 }

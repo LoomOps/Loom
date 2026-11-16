@@ -25,10 +25,10 @@ class NativeWorkspaceTests(unittest.TestCase):
  def call(self,group,action,arguments):
   with urlopen(Request(self.native+'/api/actions',data=json.dumps({'group':group,'action':action,'arguments':arguments}).encode(),headers={'Content-Type':'application/json'}),timeout=5) as response:return json.load(response)
  def setUp(self):
-  self.ui=Workspace(self.wd);self.wd('/window/rect',{'width':1440,'height':1000});self.wd('/url',{'url':self.base});self.ui.connect()
+  self.ui=Workspace(self.wd);self.wd('/window/rect',{'width':1440,'height':1000});self.wd('/url',{'url':self.base});self.ui.top();self.ui.js('localStorage.clear();sessionStorage.clear()');self.wd('/refresh',{});self.ui.connect()
  def test_native_scenario_create_revision_and_render_without_injected_markup(self):
-  ui=self.ui;ui.nav('Scenarios');ui.click('[data-scenario-create]');ui.js("const f=document.querySelector('[data-scenario-form]');f.elements.label.value='Native <img src=x onerror=alert(1)>';f.elements.description.value='Fixture context';f.elements.protocol.value='{}';f.querySelector('button[type=submit]').click()")
-  ui.wait("return !document.querySelector('[data-hub-dialog][open]')");ui.wait("return document.querySelector('#pa-content').textContent.includes('Native <img')");ui.click('#pa-content [data-entity]');ui.wait("return !!document.querySelector('[data-scenario-edit]')");self.assertFalse(ui.js("return !!document.querySelector('#pa-content img[src=x]')"));self.assertNotIn('Unassigned',ui.js("return document.querySelector('#pa-content').textContent"))
+  ui=self.ui;ui.nav('Models');self.assertFalse(ui.js("return !!document.querySelector('#pa-nav [data-go=scenarios]')"));ui.click('[data-scenario-create]');ui.js("const f=document.querySelector('[data-scenario-form]');f.elements.label.value='Native <img src=x onerror=alert(1)>';f.elements.description.value='Fixture context';f.elements.protocol.value='{}';f.querySelector('button[type=submit]').click()")
+  ui.wait("return !document.querySelector('[data-hub-dialog][open]')");ui.wait("return document.querySelector('#pa-content').textContent.includes('Native <img')");ui.wait("return !!document.querySelector('[data-scenario-edit]')");self.assertFalse(ui.js("return !!document.querySelector('#pa-content img[src=x]')"));self.assertNotIn('Unassigned',ui.js("return document.querySelector('#pa-content').textContent"))
   ui.click('[data-scenario-edit]');ui.js("const f=document.querySelector('[data-scenario-form]');f.elements.label.value='Native context revised';f.elements.reason.value='Protocol revision fixture';f.querySelector('button[type=submit]').click()");ui.wait("return !document.querySelector('[data-hub-dialog][open]')");ui.wait("return document.querySelector('[data-scenario-revision]')?.options.length===2")
   for width in (1440,500):
    ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
@@ -81,10 +81,9 @@ class NativeWorkspaceTests(unittest.TestCase):
  def test_native_catalog_pages_and_exact_history_are_server_backed(self):
   for n in range(65):
    self.call('results','register_scenario',{'key':'page-scenario-'+str(n),'definition':{'label':f'Paged Scenario {n:03}'}})
-  self.wd('/url',{'url':self.base});self.ui.connect();self.ui.nav('Scenarios')
-  self.ui.wait("return !!document.querySelector('[data-catalog-more=scenario]')")
-  self.ui.click('[data-catalog-more=scenario]')
-  self.ui.wait("return [...document.querySelectorAll('#pa-content [data-entity]')].filter(e=>e.textContent.includes('Paged Scenario')).length===65")
+  self.wd('/url',{'url':self.base});self.ui.connect();self.ui.nav('Models')
+  self.ui.wait("return [...document.querySelector('[data-research-task]').options].filter(e=>e.textContent.startsWith('Paged Scenario')).length===65")
+  self.assertFalse(self.ui.js("return !!document.querySelector('#pa-nav [data-go=scenarios]')"))
   with urlopen(self.native+'/api/dashboard/bootstrap',timeout=5) as response:bootstrap=json.load(response)
   self.assertTrue(bootstrap['capabilities']['catalog_pages']);self.assertIsInstance(bootstrap['activity']['days'],list)
   self.ui.nav('Profiles');self.ui.wait("return document.querySelector('#pa-content').textContent.includes('cpu.smoke')")
@@ -126,3 +125,70 @@ class NativeWorkspaceTests(unittest.TestCase):
    self.ui.wait("return !!document.querySelector('[data-catalog-more='+arguments[0]+']')",page_kind)
    self.ui.click(f'[data-catalog-more={page_kind}]')
    self.ui.wait("return [...document.querySelectorAll('#pa-content [data-entity]')].filter(e=>e.textContent.startsWith(arguments[0])).length===65",f'Paged {kind}')
+
+ def test_background_bootstrap_preserves_pages_and_reloads_after_revision_changes(self):
+  self.test_native_research_lists_load_records_outside_the_bootstrap()
+  for nav,kind in [('Datasets','dataset'),('Models','model'),('Experiments','run')]:
+   self.ui.nav(nav)
+   self.ui.wait("return document.querySelector('#pa-content').textContent.includes(arguments[0])",f'Paged {kind}')
+   for changed in (False,True):
+    if changed:
+     self.call('results','register_scenario',{'key':'refresh-'+kind,'definition':{'label':'Refresh '+kind}})
+    self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+    self.ui.wait("return document.querySelector('#pa-content').textContent.includes(arguments[0])",f'Paged {kind}')
+    time.sleep(.5)
+    self.assertIn(f'Paged {kind}',self.ui.js("return document.querySelector('#pa-content').textContent"))
+
+ def test_task_filter_loads_exact_links_without_a_task_navigation_tab(self):
+  task=self.call('results','register_scenario',{'key':'filter-task','definition':{'label':'Shared grasp task'}})
+  identity={'source':'catalog','kind':'model','id':'task-model','revision':'r1','snapshot':'exact'}
+  with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+   for snapshot in ['exact','other']:
+    body={'original':{'id':'task-model','kind':'model','label':'Linked model '+snapshot,'properties':{},'metrics':[],'relations':[],'artifacts':[]},'locations':[]}
+    db.execute('INSERT INTO history_records(source,kind,id,revision,snapshot,body) VALUES(?,?,?,?,?,?)',('catalog','model','task-model','r1',snapshot,json.dumps(body)))
+  self.call('results','link_scenario',{'key':'filter-link','scenario_ref':{'id':task['id'],'revision':1},'target':{'kind':'historical','identity':identity},'relation':'produced_for','provenance':{'reason':'Exact historical model'}})
+  for _ in range(100):
+   page=self.call('system','dashboard_page',{'kinds':['model'],'scenario_ref':{'id':task['id'],'revision':1}})
+   if page['entities']:break
+   time.sleep(.05)
+  self.assertEqual(len(page['entities']),1)
+  self.assertEqual(page['entities'][0]['loom_history']['snapshot'],'exact')
+  self.wd('/url',{'url':self.base});self.ui.connect();self.ui.nav('Models')
+  self.ui.js("const field=document.querySelector('[data-research-task]');field.value=arguments[0]+':1';field.dispatchEvent(new Event('change',{bubbles:true}))",task['id'])
+  self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Linked model exact')")
+  self.assertNotIn('Linked model other',self.ui.js("return document.querySelector('#pa-content').textContent"))
+  self.assertTrue(self.ui.js("return !!document.querySelector('.pa-task-label')"))
+  for width in (1440,500):
+   self.ui.top();self.wd('/window/rect',{'width':width,'height':1000});self.ui.frame()
+   for theme in ('light','dark'):
+    self.ui.click('[data-theme='+theme+']');self.assertTrue(self.ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
+
+
+ def test_explorer_fetches_registered_files_and_roots_without_the_inspector(self):
+  self.ui.top();self.ui.js('sessionStorage.clear()')
+  self.wd('/url',{'url':self.base+'/#/views/explorer'});self.ui.connect()
+  self.ui.wait("return !!document.querySelector('.pa-finder-favorites [data-column-node=\\\"storage/data/0\\\"]')")
+  self.assertFalse(self.ui.js("return !!document.querySelector('[data-resource-panel]')"))
+
+ def test_open_history_detail_survives_a_new_bootstrap_revision(self):
+  identity={'source':'catalog','kind':'model','id':'detail-refresh-model','revision':'r1','snapshot':'detail'}
+  with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+   body={'original':{'id':identity['id'],'kind':'model','label':'Detail refresh retained','properties':{},'metrics':[],'relations':[],'artifacts':[]},'locations':[]}
+   db.execute('INSERT INTO history_records(source,kind,id,revision,snapshot,body) VALUES(?,?,?,?,?,?)',(*identity.values(),json.dumps(body)))
+  for _ in range(100):
+   page=self.call('system','dashboard_page',{'kinds':['model'],'text':'Detail refresh retained'})
+   if page['entities']:break
+   time.sleep(.05)
+  ident=page['entities'][0]['id']
+  for n in range(55):self.call('results','register_scenario',{'key':'after-detail-'+str(n),'definition':{'label':'Recent detail context '+str(n)}})
+  self.wd('/url',{'url':self.base});self.ui.connect();self.ui.nav('Models')
+  for _ in range(5):
+   if self.ui.js("return !!document.querySelector('[data-entity=\\\"'+arguments[0]+'\\\"]')",ident):break
+   self.ui.click('[data-catalog-more=model]');time.sleep(.2)
+  self.ui.entity(ident)
+  for changed in (False,True):
+   if changed:self.call('results','register_scenario',{'key':'after-open-detail','definition':{'label':'Change while reading'}})
+   self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+   time.sleep(.7)
+   self.assertIn('Detail refresh retained',self.ui.js("return document.querySelector('#pa-content').textContent"))
+   self.assertTrue(self.ui.js("return !!document.querySelector('[data-share-route=\"'+arguments[0]+'\"]')",ident))

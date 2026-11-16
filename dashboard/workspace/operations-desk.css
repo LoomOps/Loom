@@ -528,3 +528,8 @@
 #pai-studio .pa-dependency-installation{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin:12px 0}
 #pai-studio .pa-dependency-installation code{overflow-wrap:anywhere}
 @media(max-width:650px){#pai-studio .pa-dependency-installation{grid-template-columns:1fr;gap:6px}#pai-studio .pa-dependency-categories button{flex:1 1 180px}}
+
+.pa-task-filter{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}.pa-task-filter label{display:flex;align-items:center;gap:8px}.pa-task-filter select{max-width:min(65vw,360px)}.pa-task-label{display:block;width:fit-content;max-width:100%;font-size:12px;color:var(--muted);margin:0 0 6px;padding:2px 6px;border:1px solid var(--border);border-radius:5px;white-space:normal;text-align:left}
+#pai-studio .pa-input-properties{max-width:100%;min-width:0}
+#pai-studio .pa-input-property{max-width:100%;min-width:0;align-items:baseline}
+#pai-studio .pa-input-property b{min-width:0;white-space:normal;overflow-wrap:anywhere}

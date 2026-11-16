@@ -80,7 +80,7 @@
     },
     {
       "id": "scenarios",
-      "title": "Scenarios",
+      "title": "Research Tasks",
       "source": "rust/contracts/scenarios.md",
       "type": "how-to",
       "summary": "Create versioned task context and exact evidence-backed links."

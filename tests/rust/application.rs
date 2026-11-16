@@ -2369,3 +2369,164 @@ fn search_initialization_without_committed_header_is_explicitly_unavailable() {
     assert!(!page["items"].as_array().unwrap().is_empty());
     assert_eq!(f.count("jobs"), 1);
 }
+
+#[test]
+fn task_context_pages_use_exact_additive_links_and_preserve_accepted_jobs() {
+    let mut f = Fixture::new();
+    let a = f.submit("linked-job");
+    let b = f.submit("unrelated-job");
+    let before = f.app.job_detail(&a).unwrap()["spec"].clone();
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"task-group","definition":{"label":"Common grasp task"}}),
+        )
+        .unwrap();
+    let link=f.call("results","link_scenario",json!({"key":"task-link","scenario_ref":{"id":task["id"],"revision":1},"target":{"kind":"job","identity":{"id":a}},"relation":"produced_for","provenance":{"reason":"Exact accepted source"}})).unwrap();
+    f.app.index_once().unwrap();
+    let query = json!({"kinds":["job"],"view":"all","role":"all","scenario_ref":{"id":task["id"],"revision":1}});
+    let page = f.call("system", "dashboard_page", query.clone()).unwrap();
+    let entities = page["entities"].as_array().unwrap();
+    assert_eq!(entities.len(), 1);
+    assert_eq!(entities[0]["id"], a);
+    assert_eq!(entities[0]["task_refs"][0]["label"], "Common grasp task");
+    assert!(page["research_tasks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|t| t["id"] == task["id"]));
+    assert_eq!(f.app.job_detail(&a).unwrap()["spec"], before);
+    f.call(
+        "results",
+        "supersede_scenario_link",
+        json!({"key":"withdraw-task-link","id":link["id"],"reason":"Incorrect association"}),
+    )
+    .unwrap();
+    let page = f.call("system", "dashboard_page", query).unwrap();
+    assert!(page["entities"].as_array().unwrap().is_empty());
+    let catalog = f.app.dashboard_catalog().unwrap();
+    assert!(catalog["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == b)
+        .unwrap()["task_refs"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn task_filter_spans_definition_revisions_without_repinning_sources() {
+    let mut f = Fixture::new();
+    let s = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"all-revisions","definition":{"label":"Old task"}}),
+        )
+        .unwrap();
+    let a=f.call("jobs","submit",json!({"key":"pinned-old","kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false},"scenario_ref":{"id":s["id"],"revision":1}})).unwrap();
+    f.call("results","update_scenario",json!({"key":"new-task-definition","id":s["id"],"expected_revision":1,"definition":{"label":"Current task"},"reason":"Clarify label"})).unwrap();
+    let b=f.call("jobs","submit",json!({"key":"pinned-new","kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false},"scenario_ref":{"id":s["id"],"revision":2}})).unwrap();
+    f.app.index_once().unwrap();
+    let all = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"kinds":["job"],"view":"all","role":"all","task_id":s["id"]}),
+        )
+        .unwrap();
+    assert_eq!(all["entities"].as_array().unwrap().len(), 2);
+    let exact=f.call("system","dashboard_page",json!({"kinds":["job"],"view":"all","role":"all","scenario_ref":{"id":s["id"],"revision":1}})).unwrap();
+    assert_eq!(exact["entities"][0]["id"], a["id"]);
+    assert_eq!(exact["entities"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        f.app.job_detail(b["id"].as_str().unwrap()).unwrap()["scenario_ref"]["revision"],
+        2
+    );
+    assert!(f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"task_id":s["id"],"scenario_ref":{"id":s["id"],"revision":1}})
+        )
+        .is_err());
+}
+
+#[test]
+fn historical_dashboard_role_matches_the_research_index_overlay() {
+    let mut f = Fixture::new();
+    let identity = json!({"source":"queue","kind":"job_view","id":"work:kept-research","revision":"r1","snapshot":"s1"});
+    let original = json!({"id":"work:kept-research","kind":"job","label":"Original label","properties":{"record_role":"work"},"relations":[],"artifacts":[]});
+    f.app.db.execute("INSERT INTO history_records(source,kind,id,revision,snapshot,body) VALUES('queue','job_view','work:kept-research','r1','s1',?)",[json!({"original":original}).to_string()]).unwrap();
+    f.app.db.execute("INSERT INTO research_overlays(kind,id,presentation,actor,reason,updated) VALUES('job','work:kept-research',?,'owner','Preserved classification',0)",[json!({"scope":"research","role":"support","label":"Preserved research"}).to_string()]).unwrap();
+    f.app.index_once().unwrap();
+    let page = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"kinds":["job"],"view":"research","role":"all"}),
+        )
+        .unwrap();
+    let e = page["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["loom_history"] == identity)
+        .unwrap();
+    assert_eq!(e["presentation"]["role"], "support");
+    assert_eq!(e["label"], "Preserved research");
+    assert!(f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"kinds":["job"],"view":"research","role":"main"})
+        )
+        .unwrap()["entities"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn dashboard_keeps_frozen_consolidation_and_does_not_hide_a_new_source_attempt() {
+    let mut f = Fixture::new();
+    let source = f.submit("source-execution");
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET state='complete',result='{\"artifact_ready\":true}' WHERE id=?",
+            [&source],
+        )
+        .unwrap();
+    let root=f.call("jobs","submit",json!({"key":"reuse-execution","kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false},"consolidates":[source]})).unwrap()["id"].as_str().unwrap().to_string();
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET state='complete',result='{\"artifact_ready\":true}' WHERE id=?",
+            [&root],
+        )
+        .unwrap();
+    let catalog = f.app.dashboard_catalog().unwrap();
+    let child = catalog["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == source)
+        .unwrap();
+    assert_eq!(child["properties"]["consolidated_into"], root);
+    assert_eq!(
+        f.app.job_detail(&root).unwrap()["consolidation"]["sources"][0]["job"],
+        source
+    );
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET state='running',attempt='later-attempt' WHERE id=?",
+            [&source],
+        )
+        .unwrap();
+    assert!(f.app.consolidation_target(&source).unwrap().is_none());
+}

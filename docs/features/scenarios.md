@@ -1,4 +1,4 @@
-# scenarios — Versioned research context and explicit immutable record links
+# scenarios — Versioned Research Task context and explicit immutable record links
 
 ## Boundary
 
@@ -37,3 +37,13 @@ Run the affected suites and `deploy/features.py check`; see [the verification ma
 
 Acceptance outside these fixtures:
 - Run isolated Rust/HTTP/producer/browser fixtures; operational acceptance requires separately authorized deployment.
+
+
+## Presentation and exact membership
+
+Public UI terminology is Task; Scenario action and field names remain compatible.
+List DTOs include compact task_refs and research_tasks metadata independently of
+the bounded bootstrap. Membership comes from accepted pins or active exact links,
+never label matching in a projection. Task filters are server-paginated and retain
+linked historical selectors. Withdrawn links stop matching; originals remain.
+Task metadata cannot hide current queue occupants or grant file access.

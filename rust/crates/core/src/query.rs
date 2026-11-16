@@ -11,6 +11,9 @@ use loom_domain::{union_intervals, JobState};
 use rusqlite::{params, OptionalExtension};
 use serde_json::{json, Value};
 impl Application {
+    pub fn consolidation_target(&self, id: &str) -> Result<Option<String>> {
+        Ok(self.db.query_row("SELECT c.id FROM jobs c,json_each(c.spec,'$._consolidation_sources') src JOIN jobs original ON original.id=json_extract(src.value,'$.job') WHERE original.id=? AND original.state='complete' AND json_extract(src.value,'$.attempt') IS original.attempt AND c.state='complete' AND json_extract(c.result,'$.artifact_ready')=1 ORDER BY c.created,c.id LIMIT 1",[id],|r|r.get(0)).optional()?)
+    }
     pub fn job_detail(&self, id: &str) -> Result<Value> {
         let workflow = rows(&self.db, "SELECT * FROM job_workflows WHERE id=?", &[&id])?
             .into_iter()
@@ -216,6 +219,7 @@ impl Application {
         if !annotations.is_empty() {
             details["annotations"] = json!(annotations);
         }
+        details["consolidation"] = json!({"consolidated_into":self.consolidation_target(id)?,"sources":row.spec["_consolidation_sources"].as_array().into_iter().flatten().map(|s|json!({"job":s["job"],"attempt":s["attempt"]})).collect::<Vec<_>>()});
         if let Some(sources) = row.spec["_consolidation_sources"].as_array() {
             let mut executions = vec![];
             for source in sources {
@@ -302,7 +306,7 @@ impl Application {
                     && presentation["role"] == "main"
                     && !presentation["parent_job"].is_string()
             );
-            item["consolidated_into"]=json!(self.db.query_row("SELECT c.id FROM jobs c,json_each(c.spec,'$.consolidates') src WHERE src.value=? AND c.state='complete' AND json_extract(c.result,'$.artifact_ready')=1 LIMIT 1",[id],|r|r.get::<_,String>(0)).optional()?);
+            item["consolidated_into"] = json!(self.consolidation_target(id)?);
             item["presentation"] = presentation;
             item["category"] = spec.get("category").cloned().unwrap_or(json!("other"));
             item["execution_mode"] = spec["execution_mode"].clone();

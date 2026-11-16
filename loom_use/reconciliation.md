@@ -15,7 +15,7 @@ and bind_historical for a full source/kind/id/revision/snapshot/file selector.
 Use import only when explicitly bringing an external asset into the current
 contract. Declare source.system/id/revision and optional snapshot plus original
 evidence; use schema=loom-asset/v2 and definition.kind/label/primary, optional
-metadata, Scenario and relations. The v1 adapter maps type/name/properties to the
+metadata, Research Task and relations. The v1 adapter maps type/name/properties to the
 same current definition. Unknown schemas and conflicting source reuse fail.
 Candidate locators use this installation's granted machine/storage identities and
 relative refs. Optional original sha256/size must match. Stage bytes separately;

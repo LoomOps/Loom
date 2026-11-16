@@ -609,7 +609,7 @@ source_conflict plan_stale validation_required content_changed retention_gap cur
 
 ## dashboard_page
 
-Project only selected metadata records into browser DTOs using the same filters and cursor as item search.
+Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both.
 
 Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/catalog.rs#dashboard_page](../../rust/crates/core/src/catalog.rs).
 
@@ -633,6 +633,7 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 | `related_to` | no | `"object"` | `—` |
 | `role` | no | `["all", "main", "support", "test"]` | `—` |
 | `scenario_ref` | no | `"object"` | `—` |
+| `task_id` | no | `"string"` | `—` |
 | `text` | no | `"string"` | `—` |
 | `timeout_ms` | no | `"integer"` | `—` |
 | `view` | no | `["all", "research", "operations"]` | `—` |
@@ -744,6 +745,11 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
         "revision"
       ],
       "type": "object"
+    },
+    "task_id": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
     },
     "text": {
       "maxLength": 1024,

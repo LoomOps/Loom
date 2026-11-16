@@ -962,7 +962,7 @@
   },
   "results.search_items": {
     "title": "Search Items",
-    "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits.",
+    "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both.",
     "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
     "example": {},
     "errors": [
@@ -1442,7 +1442,7 @@
   },
   "system.dashboard_page": {
     "title": "Page Dashboard records",
-    "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search.",
+    "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both.",
     "returns": "Bounded typed JSON; partial coverage, stable replay receipts and explicit source conflicts.",
     "example": {
       "kinds": [
@@ -1583,9 +1583,9 @@
     "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.scenarios": {
-    "title": "List Scenarios",
-    "description": "List versioned research task/protocol contexts. Archived Scenarios are omitted unless requested.",
-    "returns": "Scenario summaries with current revision",
+    "title": "List Research Tasks",
+    "description": "List versioned research task/protocol contexts. Archived Research Tasks are omitted unless requested.",
+    "returns": "Research Task summaries with current revision",
     "example": {},
     "errors": [],
     "implementation": {
@@ -1595,9 +1595,9 @@
     "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.get_scenario": {
-    "title": "Read a Scenario",
-    "description": "Read an exact Scenario revision, or the current revision when omitted. Archive state does not erase accepted context.",
-    "returns": "Scenario definition, revision and digest",
+    "title": "Read a Research Task",
+    "description": "Read an exact Research Task revision, or the current revision when omitted. Archive state does not erase accepted context.",
+    "returns": "Research Task definition, revision and digest",
     "example": {
       "id": "<scenario-id>",
       "revision": 1
@@ -1612,9 +1612,9 @@
     "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.scenario_graph": {
-    "title": "Read Scenario links",
-    "description": "Page explicit links for a Scenario revision; links describe context and do not schedule execution.",
-    "returns": "Scenario and bounded links",
+    "title": "Read Research Task links",
+    "description": "Page explicit links for a Research Task revision; links describe context and do not schedule execution.",
+    "returns": "Research Task and bounded links",
     "example": {
       "id": "<scenario-id>",
       "revision": 1,
@@ -1631,7 +1631,7 @@
     "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.register_scenario": {
-    "title": "Create a Scenario",
+    "title": "Create a Research Task",
     "description": "Create a versioned task/protocol definition with a nonempty label. Replay the same key and definition after uncertainty.",
     "returns": "id, revision=1 and sha256",
     "example": {
@@ -1651,7 +1651,7 @@
     "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.update_scenario": {
-    "title": "Revise a Scenario",
+    "title": "Revise a Research Task",
     "description": "Append a definition revision using expected_revision and a reason. Existing Job/context pins retain their accepted revision.",
     "returns": "id, new revision and sha256",
     "example": {
@@ -1674,8 +1674,8 @@
     "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.archive_scenario": {
-    "title": "Archive a Scenario",
-    "description": "Remove a Scenario from default discovery using an expected current revision. Exact accepted references remain valid.",
+    "title": "Archive a Research Task",
+    "description": "Remove a Research Task from default discovery using an expected current revision. Exact accepted references remain valid.",
     "returns": "id and archived=true",
     "example": {
       "key": "archive-example",
@@ -1693,7 +1693,7 @@
     "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
   },
   "results.link_scenario": {
-    "title": "Link Scenario context",
+    "title": "Link Research Task context",
     "description": "Add an explicit typed relationship to an exact existing target with provenance. Does not infer context, duplicate output or grant access.",
     "returns": "Immutable link receipt",
     "example": {

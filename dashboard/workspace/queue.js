@@ -37,11 +37,19 @@ workItems=function(){
   // Resource occupancy and execution history are independent of catalog view.
   const items=(catalogData.all_entities||catalogData.entities).filter(e=>e.kind==='job'&&!e.loom_registry
     && ['work','loom_job'].includes(e.properties?.record_role));
-  const known=new Set(items.map(e=>e.id));
+  // Imported catalog and queue snapshots can describe the same logical Work.
+  // Prefer its queue projection; both exact source records remain addressable.
+  const logical=new Map();
+  for(const e of items){
+    const key=e.properties?.record_role==='work'&&['queue','catalog'].includes(e.loom_history?.source)?'historical-work:'+e.loom_history.id:e.id;
+    if(!logical.has(key)||e.loom_history?.source==='queue')logical.set(key,e);
+  }
+  const displayed=[...logical.values()];
+  const known=new Set(displayed.map(e=>e.id));
   // Only authoritative workflow membership collapses execution nodes. A
   // presentation parent may group a separate follow-up; it must not hide it.
   const nodes=new Set(items.flatMap(e=>(e.loom_workflow?.executions||[]).map(n=>n.job)));
-  return items.filter(e=>!nodes.has(e.id)&&!e.properties?.consolidated_into).concat(loomQueueEntries().filter(r=>!known.has(r.id)).map(r=>({id:r.id,label:r.id,kind:'job',loom_queue_shared:true,presentation:r.presentation,
+  return displayed.filter(e=>!nodes.has(e.id)&&!e.properties?.consolidated_into).concat(loomQueueEntries().filter(r=>!known.has(r.id)).map(r=>({id:r.id,label:r.id,kind:'job',loom_queue_shared:true,presentation:r.presentation,
     properties:{record_role:'loom_job',state:r.state,owner:r.owner}})));
 };
 function loomQueueCompare(a,b) {
@@ -51,6 +59,7 @@ function loomQueueCompare(a,b) {
 const loomQueueWorkRow=workRow;
 workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
+  row[0]=loomTaskLabels(entity)+row[0];
   if(current && q){
     if(entity.loom_queue_shared)row[0]='<div class="pa-queue-name">'+esc(q.id)+'<small>'+esc(q.owner)+' · 공유 큐</small></div>';
     row[0]+='<small class="pa-queue-position">'+loomQueuePosition(q)+'</small>'+loomQueueControls(q.id);

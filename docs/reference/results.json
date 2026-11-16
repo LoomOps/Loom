@@ -338,7 +338,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "scenarios",
-      "description": "List versioned research task/protocol contexts. Archived Scenarios are omitted unless requested.",
+      "description": "List versioned research task/protocol contexts. Archived Research Tasks are omitted unless requested.",
       "errors": [],
       "example": {},
       "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation.",
@@ -347,7 +347,7 @@
         "entrypoint": "rust/crates/core/src/scenario.rs#scenario_query",
         "feature": "scenarios"
       },
-      "returns": "Scenario summaries with current revision",
+      "returns": "Research Task summaries with current revision",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -368,12 +368,12 @@
         "type": "object"
       },
       "scope": "read",
-      "title": "List Scenarios"
+      "title": "List Research Tasks"
     },
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "get_scenario",
-      "description": "Read an exact Scenario revision, or the current revision when omitted. Archive state does not erase accepted context.",
+      "description": "Read an exact Research Task revision, or the current revision when omitted. Archive state does not erase accepted context.",
       "errors": [
         "Unknown Scenario or revision."
       ],
@@ -387,7 +387,7 @@
         "entrypoint": "rust/crates/core/src/scenario.rs#scenario_query",
         "feature": "scenarios"
       },
-      "returns": "Scenario definition, revision and digest",
+      "returns": "Research Task definition, revision and digest",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -407,12 +407,12 @@
         "type": "object"
       },
       "scope": "read",
-      "title": "Read a Scenario"
+      "title": "Read a Research Task"
     },
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "scenario_graph",
-      "description": "Page explicit links for a Scenario revision; links describe context and do not schedule execution.",
+      "description": "Page explicit links for a Research Task revision; links describe context and do not schedule execution.",
       "errors": [
         "Unknown Scenario revision."
       ],
@@ -428,7 +428,7 @@
         "entrypoint": "rust/crates/core/src/scenario.rs#scenario_query",
         "feature": "scenarios"
       },
-      "returns": "Scenario and bounded links",
+      "returns": "Research Task and bounded links",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -457,7 +457,7 @@
         "type": "object"
       },
       "scope": "read",
-      "title": "Read Scenario links"
+      "title": "Read Research Task links"
     },
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
@@ -499,7 +499,7 @@
         "type": "object"
       },
       "scope": "submit",
-      "title": "Create a Scenario"
+      "title": "Create a Research Task"
     },
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
@@ -561,12 +561,12 @@
         "type": "object"
       },
       "scope": "submit",
-      "title": "Revise a Scenario"
+      "title": "Revise a Research Task"
     },
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "archive_scenario",
-      "description": "Remove a Scenario from default discovery using an expected current revision. Exact accepted references remain valid.",
+      "description": "Remove a Research Task from default discovery using an expected current revision. Exact accepted references remain valid.",
       "errors": [
         "Stale revision or key conflict."
       ],
@@ -615,7 +615,7 @@
         "type": "object"
       },
       "scope": "submit",
-      "title": "Archive a Scenario"
+      "title": "Archive a Research Task"
     },
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
@@ -724,7 +724,7 @@
         "type": "object"
       },
       "scope": "submit",
-      "title": "Link Scenario context"
+      "title": "Link Research Task context"
     },
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
@@ -1209,7 +1209,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "search_items",
-      "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits.",
+      "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both.",
       "errors": [
         "unknown_item",
         "index_unavailable",
@@ -1330,6 +1330,11 @@
               "revision"
             ],
             "type": "object"
+          },
+          "task_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
           },
           "text": {
             "maxLength": 1024,
@@ -1489,6 +1494,11 @@
               "revision"
             ],
             "type": "object"
+          },
+          "task_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
           },
           "text": {
             "maxLength": 1024,

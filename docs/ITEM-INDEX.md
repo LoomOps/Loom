@@ -30,7 +30,7 @@ Discover schemas through system.describe and read the items guide. Item, revisio
 File and stream IDs are decimal strings. Search defaults to Research/main and the
 latest historical record for each source identity; history=all retains exact older
 snapshots. Ranking uses exact, prefix and lexical tiers, then stable time/ID order.
-Origin, Scenario, relation, parent, kind and time filters are supported. Cursor
+Origin, Research Task, relation, parent, kind and time filters are supported. Cursor
 queries preserve the same arguments and expire after source/access/generation
 changes. at_least waits at most one second and reports unsatisfied consistency
 without making a Job wait for an index.
@@ -67,7 +67,7 @@ never proves episode counts, tensor semantics, simulation correctness or scienti
 acceptance. Unknown schemas/conflicting source reuse fail; v1 and current v2 asset
 adapters are discoverable. Replay returns the original applied receipt.
 
-This workflow does not perform an unregistered directory sweep, guess a Scenario,
+This workflow does not perform an unregistered directory sweep, guess a Research Task,
 move all research data, change accounts, install dependencies or resume work.
 Runtime inventories require a host administrator and explicit package roots under
 the configured dependency directory; missing inventory is not an empty tree.

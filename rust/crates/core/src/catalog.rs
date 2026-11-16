@@ -74,7 +74,7 @@ impl Application {
                     r.get(0)
                 })
                 .optional()?;
-            entities.push(json!({"id":id,"kind":"job","namespace":"loom","label":d["presentation"]["label"].as_str().unwrap_or(spec["kind"].as_str().unwrap_or(id)),"state":d["state"],"created":d["created"],"attempt":d["attempt"],"properties":{"id":id,"state":d["state"],"status":d["status"],"created":d["created"],"attempt":d["attempt"],"owner":d["owner"],"record_role":"loom_job","category":d["category"],"execution_mode":d["execution_mode"],"queued_at":d["created"],"started_at":d["timeline"].get("started").unwrap_or(&started),"process_exited_at":d["timeline"].get("ended").unwrap_or(&ended),"artifact_ready":d["result"]["artifact_ready"],"recovery":d["recovery"],"output_storage":spec["output_storage"],"internal_step_count":d["internal_steps"]["steps"].as_array().map(|a|a.len()).unwrap_or(0),"workflow_root":root},"attempts":attempts,"internal_steps":d["internal_steps"],"execution_intervals":d["execution_intervals"],"loom_job":{"id":id},"presentation":d["presentation"],"scenario_ref":d["scenario_ref"],"relations":[],"artifacts":[]}));
+            entities.push(json!({"id":id,"kind":"job","namespace":"loom","label":d["presentation"]["label"].as_str().unwrap_or(spec["kind"].as_str().unwrap_or(id)),"state":d["state"],"created":d["created"],"attempt":d["attempt"],"properties":{"id":id,"state":d["state"],"status":d["status"],"created":d["created"],"attempt":d["attempt"],"owner":d["owner"],"record_role":"loom_job","category":d["category"],"execution_mode":d["execution_mode"],"queued_at":d["created"],"started_at":d["timeline"].get("started").unwrap_or(&started),"process_exited_at":d["timeline"].get("ended").unwrap_or(&ended),"artifact_ready":d["result"]["artifact_ready"],"recovery":d["recovery"],"output_storage":spec["output_storage"],"consolidated_into":d["consolidation"]["consolidated_into"],"internal_step_count":d["internal_steps"]["steps"].as_array().map(|a|a.len()).unwrap_or(0),"workflow_root":root},"attempts":attempts,"internal_steps":d["internal_steps"],"execution_intervals":d["execution_intervals"],"loom_job":{"id":id},"presentation":d["presentation"],"scenario_ref":d["scenario_ref"],"relations":[],"artifacts":[]}));
             if let Some(entity) = entities.last_mut() {
                 for key in ["owner", "owner_name", "owner_profile"] {
                     entity[key] = d[key].clone();
@@ -191,6 +191,20 @@ impl Application {
                 entity["namespace"] = json!("history");
                 entity["loom_history"] = identity.clone();
                 entity["migration"] = json!({"read_only":true,"source":identity["source"],"snapshot":identity["snapshot"]});
+                // The index descriptor already resolved legacy presentation overlays.
+                // Keep list filters, labels and the displayed role consistent.
+                if !entity["presentation"].is_object() {
+                    entity["presentation"] = json!({});
+                }
+                for field in ["scope", "role"] {
+                    if item[field].is_string() {
+                        entity["presentation"][field] = item[field].clone();
+                    }
+                }
+                if item["label"].is_string() {
+                    entity["label"] = item["label"].clone();
+                }
+
                 if !entity["label"].is_string() {
                     entity["label"] = identity["id"].clone();
                 }
@@ -432,8 +446,9 @@ impl Application {
                 }
             }
         }
+        self.attach_task_context(&mut entities)?;
         let queue = self.queue()?;
-        let value = json!({"entities":entities,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true,"item_search":true},"host":self.dashboard_host()?,"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});
+        let value = json!({"entities":entities,"research_tasks":self.dashboard_tasks()?,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true,"item_search":true},"host":self.dashboard_host()?,"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});
         if all {
             *self
                 .catalog_cache

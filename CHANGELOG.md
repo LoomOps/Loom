@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0-alpha.15
+
+- Group research records with versioned Task filters and exact context links while retaining compatible Scenario API names. Remove standalone Scenario navigation.
+- Preserve loaded catalog pages and open details during refresh; reload pages on a changed revision without accepting stale responses.
+- Include support research in scoped Job history, collapse preserved Work mirrors, and retain exact completed consolidation boundaries without hiding later Attempts.
+- Discover Explorer storage observations without the Inspector and page registered file metadata independently of research lists.
+- Wrap long model input descriptions in narrow layouts and retain record ordering within a Task.
+
 ## 0.2.0-alpha.14
 
 - Route browser search, Runtime and Scenario actions through the authenticated Dashboard relay at the installed Tailscale ingress. Keep direct browser calls to the native API rejected.

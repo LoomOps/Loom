@@ -564,6 +564,11 @@ impl Application {
             checkpoint =
                 db.query_row("SELECT checkpoint FROM meta WHERE id=1", [], |r| r.get(0))?;
         }
+        let task_head = if args["scenario_ref"].is_object() || args["task_id"].is_string() {
+            self.catalog_head()?
+        } else {
+            0
+        };
         let mut query = args.clone();
         query.as_object_mut().unwrap().remove("cursor");
         let query_hash = hash(encode(&query)?);
@@ -576,6 +581,7 @@ impl Application {
             require(
                 c["generation"] == generation
                     && c["query_version"] == 2
+                    && c["task_head"].as_i64().unwrap_or(0) == task_head
                     && c["query"] == query_hash
                     && c["access"] == access
                     && c["expires"].as_f64().is_some_and(|t| t > now()),
@@ -644,7 +650,16 @@ impl Application {
             .and_then(|c| c["last_id"].as_str())
             .map(|s| items::parse(&json!(s)))
             .transpose()?;
-        let scenario = args["scenario_ref"]["id"].as_str().unwrap_or("");
+        require(
+            !(args["task_id"].is_string() && args["scenario_ref"].is_object()),
+            "query",
+            "Choose task_id or an exact scenario_ref",
+            400,
+        )?;
+        let scenario = args["task_id"]
+            .as_str()
+            .or_else(|| args["scenario_ref"]["id"].as_str())
+            .unwrap_or("");
         let scenario_revision = args["scenario_ref"]["revision"].as_i64();
         let scope="CASE WHEN kind='file' THEN COALESCE((SELECT scope FROM docs owner WHERE owner.id=docs.parent AND owner.valid_from<=?1 AND (owner.valid_to IS NULL OR owner.valid_to>?1) ORDER BY owner.valid_from DESC LIMIT 1),scope) ELSE scope END";
         let role_field="CASE WHEN kind='file' THEN COALESCE((SELECT role FROM docs owner WHERE owner.id=docs.parent AND owner.valid_from<=?1 AND (owner.valid_to IS NULL OR owner.valid_to>?1) ORDER BY owner.valid_from DESC LIMIT 1),role) ELSE role END";
@@ -677,7 +692,7 @@ impl Application {
             "authority.entity_revisions"
         };
         let native_current=format!("(?18=1 OR ?20='historical' OR COALESCE(json_extract(body,'$.native_ref.kind'),'')!='historical' OR NOT ((json_extract(body,'$.native_ref.identity.kind')='job_view' AND (EXISTS(SELECT 1 FROM authority.jobs j WHERE j.id=json_extract(docs.body,'$.native_ref.identity.id')) OR EXISTS(SELECT 1 FROM authority.job_workflows w WHERE w.id=json_extract(docs.body,'$.native_ref.identity.id')))) OR (json_extract(body,'$.native_ref.identity.kind') IN('dataset','model','experiment','run','artifact') AND EXISTS(SELECT 1 FROM {entities} e WHERE e.id=json_extract(docs.body,'$.native_ref.identity.id')))))");
-        let sql=format!("SELECT id,body,recorded,{scope} AS effective_scope,{role_field} AS effective_role,{tier} AS match_tier,COALESCE(hex(revision),'') AS revision_key FROM docs WHERE {native_current} AND valid_from<=?1 AND ((?18=0 AND (valid_to IS NULL OR valid_to>?1)) OR (?18=1 AND NOT EXISTS(SELECT 1 FROM docs newer WHERE newer.id=docs.id AND newer.revision=docs.revision AND newer.valid_from>docs.valid_from AND newer.valid_from<=?1))) AND ({text_clause}) AND ({kind_clause}) AND ({view_clause}) AND ({role_clause}) AND (?5='all' OR COALESCE(json_extract(body,'$.archived'),0)=0) AND (?7 IS NULL OR parent=?7) AND (?8='' OR json_extract(body,'$.scenario_ref.id')=?8) AND (?9 IS NULL OR json_extract(body,'$.scenario_ref.revision')=?9) AND (?13='' OR json_extract(body,'$.owner_revision_id')=?13 OR json_extract(body,'$.revision_id')=?13) AND (kind!='file' OR ?18=1 OR ?13!='' OR EXISTS(SELECT 1 FROM docs owner WHERE owner.id=docs.parent AND owner.valid_from<=?1 AND (owner.valid_to IS NULL OR owner.valid_to>?1) AND json_extract(owner.body,'$.revision_id')=json_extract(docs.body,'$.owner_revision_id'))) AND (?14='' OR json_extract(body,'$.category')=?14) AND ((?15 IS NULL AND ?16 IS NULL) OR json_type(body,'$.recorded_at') IN('integer','real')) AND (?15 IS NULL OR recorded>=?15) AND (?16 IS NULL OR recorded<=?16) AND (?17='' OR json_extract(body,'$.availability')=?17) AND (?18=1 OR COALESCE(json_extract(body,'$.native_ref.kind'),'')!='historical' OR NOT EXISTS(SELECT 1 FROM docs h WHERE json_extract(h.body,'$.native_ref.kind')='historical' AND json_extract(h.body,'$.native_ref.identity.source')=json_extract(docs.body,'$.native_ref.identity.source') AND json_extract(h.body,'$.native_ref.identity.kind')=json_extract(docs.body,'$.native_ref.identity.kind') AND json_extract(h.body,'$.native_ref.identity.id')=json_extract(docs.body,'$.native_ref.identity.id') AND json_extract(h.body,'$.source_order')>json_extract(docs.body,'$.source_order') AND h.valid_from<=?1 AND (h.valid_to IS NULL OR h.valid_to>?1))) AND (?19='' OR json_extract(body,'$.origin_type')=?19) AND (?20='' OR json_extract(body,'$.native_ref.kind')=?20) AND (?23='' OR json_extract(body,'$.dependency_ref')=?23) AND (?24 IS NULL OR id IN (SELECT e.source FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE a.item=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25)) OR id IN(SELECT a.item FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE e.source=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25))) AND (?10 IS NULL OR match_tier>?21 OR (match_tier=?21 AND (recorded<?10 OR (recorded=?10 AND (id>?11 OR (id=?11 AND revision_key>?22)))))) ORDER BY match_tier,recorded DESC,id,revision_key LIMIT ?12");
+        let sql=format!("SELECT id,body,recorded,{scope} AS effective_scope,{role_field} AS effective_role,{tier} AS match_tier,COALESCE(hex(revision),'') AS revision_key FROM docs WHERE (?8!='' OR {native_current}) AND valid_from<=?1 AND ((?18=0 AND (valid_to IS NULL OR valid_to>?1)) OR (?18=1 AND NOT EXISTS(SELECT 1 FROM docs newer WHERE newer.id=docs.id AND newer.revision=docs.revision AND newer.valid_from>docs.valid_from AND newer.valid_from<=?1))) AND ({text_clause}) AND ({kind_clause}) AND ({view_clause}) AND ({role_clause}) AND (?5='all' OR COALESCE(json_extract(body,'$.archived'),0)=0) AND (?7 IS NULL OR parent=?7) AND (?8='' OR (json_extract(body,'$.scenario_ref.id')=?8 AND (?9 IS NULL OR json_extract(body,'$.scenario_ref.revision')=?9)) OR EXISTS(SELECT 1 FROM authority.scenario_links sl WHERE sl.scenario_id=?8 AND (?9 IS NULL OR sl.revision=?9) AND sl.superseded_by IS NULL AND (CASE WHEN sl.target_kind='protocol_artifact' THEN 'entity' ELSE sl.target_kind END)=json_extract(docs.body,'$.native_ref.kind') AND NOT EXISTS(SELECT 1 FROM json_each(sl.target) field WHERE json_extract(docs.body,'$.native_ref.identity.'||field.key) IS NOT field.value))) AND (?13='' OR json_extract(body,'$.owner_revision_id')=?13 OR json_extract(body,'$.revision_id')=?13) AND (kind!='file' OR ?18=1 OR ?13!='' OR EXISTS(SELECT 1 FROM docs owner WHERE owner.id=docs.parent AND owner.valid_from<=?1 AND (owner.valid_to IS NULL OR owner.valid_to>?1) AND json_extract(owner.body,'$.revision_id')=json_extract(docs.body,'$.owner_revision_id'))) AND (?14='' OR json_extract(body,'$.category')=?14) AND ((?15 IS NULL AND ?16 IS NULL) OR json_type(body,'$.recorded_at') IN('integer','real')) AND (?15 IS NULL OR recorded>=?15) AND (?16 IS NULL OR recorded<=?16) AND (?17='' OR json_extract(body,'$.availability')=?17) AND (?8!='' OR ?18=1 OR COALESCE(json_extract(body,'$.native_ref.kind'),'')!='historical' OR NOT EXISTS(SELECT 1 FROM docs h WHERE json_extract(h.body,'$.native_ref.kind')='historical' AND json_extract(h.body,'$.native_ref.identity.source')=json_extract(docs.body,'$.native_ref.identity.source') AND json_extract(h.body,'$.native_ref.identity.kind')=json_extract(docs.body,'$.native_ref.identity.kind') AND json_extract(h.body,'$.native_ref.identity.id')=json_extract(docs.body,'$.native_ref.identity.id') AND json_extract(h.body,'$.source_order')>json_extract(docs.body,'$.source_order') AND h.valid_from<=?1 AND (h.valid_to IS NULL OR h.valid_to>?1))) AND (?19='' OR json_extract(body,'$.origin_type')=?19) AND (?20='' OR json_extract(body,'$.native_ref.kind')=?20) AND (?23='' OR json_extract(body,'$.dependency_ref')=?23) AND (?24 IS NULL OR id IN (SELECT e.source FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE a.item=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25)) OR id IN(SELECT a.item FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE e.source=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25))) AND (?10 IS NULL OR match_tier>?21 OR (match_tier=?21 AND (recorded<?10 OR (recorded=?10 AND (id>?11 OR (id=?11 AND revision_key>?22)))))) ORDER BY match_tier,recorded DESC,id,revision_key LIMIT ?12");
         let mut q = db.prepare(&sql)?;
         let rows = q
             .query_map(
@@ -796,7 +811,7 @@ impl Application {
             values.push(compact);
         }
         let next = if more && !values.is_empty() {
-            last.map(|(time,id,tier,revision)|sign(&json!({"query_version":2,"last_tier":tier,"last_revision":revision,"generation":generation,"watermark":watermark,"query":query_hash,"access":access,"expires":c.as_ref().and_then(|c|c["expires"].as_f64()).unwrap_or(now()+300.),"last_time":time,"last_id":id}),&key)).transpose()?
+            last.map(|(time,id,tier,revision)|sign(&json!({"query_version":2,"task_head":task_head,"last_tier":tier,"last_revision":revision,"generation":generation,"watermark":watermark,"query":query_hash,"access":access,"expires":c.as_ref().and_then(|c|c["expires"].as_f64()).unwrap_or(now()+300.),"last_time":time,"last_id":id}),&key)).transpose()?
         } else {
             None
         };

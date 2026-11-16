@@ -72,3 +72,16 @@ Run the affected suites and `deploy/features.py check`; see [the verification ma
 
 Acceptance outside these fixtures:
 - Actual Safari behavior, existing user sessions and SSO provider login require separate acceptance testing.
+
+
+## Bounded catalogs and refresh
+
+A bootstrap is only a seed. Same-revision refresh preserves loaded list pages and
+parent-side detail identities. A new revision invalidates page cursors and pending
+responses before the visible list reloads. Research history uses its selected
+scope; current queue occupants remain visible in every presentation view.
+Tasks appear as filters and record labels, without a standalone Scenario tab.
+Explorer requests actual storage observations even with the Inspector closed and
+loads registered file records independently of the research pane. Its bounded
+pages are not a recursive filesystem inventory or an assertion that unregistered
+files do not exist.

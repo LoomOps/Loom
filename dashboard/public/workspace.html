@@ -2059,7 +2059,7 @@ html,body{margin:0!important;padding:0!important;height:100%;overflow:hidden}
 (()=&gt;{
 const root=document.getElementById(&#x27;pai-studio&#x27;);
 const content=root.querySelector(&#x27;#pa-content&#x27;);
-const navs=[[&#x27;queue&#x27;,&#x27;Dashboard&#x27;,&#x27;layout-dashboard&#x27;],[&#x27;files&#x27;,&#x27;Explorer&#x27;,&#x27;folder-open&#x27;],[&#x27;models&#x27;,&#x27;Models&#x27;,&#x27;box&#x27;],[&#x27;datasets&#x27;,&#x27;Datasets&#x27;,&#x27;database&#x27;],[&#x27;experiments&#x27;,&#x27;Experiments&#x27;,&#x27;flask-conical&#x27;],[&#x27;comparison&#x27;,&#x27;Comparison&#x27;,&#x27;git-compare-arrows&#x27;],[&#x27;issues&#x27;,&#x27;Troubleshooting&#x27;,&#x27;wrench&#x27;],[&#x27;scenarios&#x27;,&#x27;Scenarios&#x27;,&#x27;route&#x27;],[&#x27;profiles&#x27;,&#x27;Runtimes&#x27;,loomRuntimeIcon],[&#x27;docker&#x27;,&#x27;Docker&#x27;,&#x27;boxes&#x27;],[&#x27;mcp&#x27;,&#x27;Loom Use&#x27;,&#x27;plug&#x27;],[&#x27;access&#x27;,&#x27;Tailscale&#x27;,&#x27;tailscale&#x27;]];
+const navs=[[&#x27;queue&#x27;,&#x27;Dashboard&#x27;,&#x27;layout-dashboard&#x27;],[&#x27;files&#x27;,&#x27;Explorer&#x27;,&#x27;folder-open&#x27;],[&#x27;models&#x27;,&#x27;Models&#x27;,&#x27;box&#x27;],[&#x27;datasets&#x27;,&#x27;Datasets&#x27;,&#x27;database&#x27;],[&#x27;experiments&#x27;,&#x27;Experiments&#x27;,&#x27;flask-conical&#x27;],[&#x27;comparison&#x27;,&#x27;Comparison&#x27;,&#x27;git-compare-arrows&#x27;],[&#x27;issues&#x27;,&#x27;Troubleshooting&#x27;,&#x27;wrench&#x27;],[&#x27;profiles&#x27;,&#x27;Runtimes&#x27;,loomRuntimeIcon],[&#x27;docker&#x27;,&#x27;Docker&#x27;,&#x27;boxes&#x27;],[&#x27;mcp&#x27;,&#x27;Loom Use&#x27;,&#x27;plug&#x27;],[&#x27;access&#x27;,&#x27;Tailscale&#x27;,&#x27;tailscale&#x27;]];
 const models=[];
 let state={page:&#x27;queue&#x27;,model:null,tab:&#x27;overview&#x27;,folder:&#x27;models&#x27;,episode:1,issue:false,queueFilter:&#x27;all&#x27;};
 const icon=n=&gt;n=== &quot;tailscale&quot;?loomTailscaleIcon():`&lt;i data-lucide=&quot;${n}&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;`;
@@ -2180,7 +2180,7 @@ let catalogConnection=&#x27;카탈로그 연결 중&#x27;;
 const kindLabels={model:&#x27;모델&#x27;,dataset:&#x27;데이터셋&#x27;,experiment:&#x27;실험&#x27;,run:&#x27;평가·실행&#x27;,job:&#x27;작업&#x27;,issue:&#x27;트러블슈팅&#x27;,component:&#x27;컴포넌트&#x27;,tool:&#x27;Tool&#x27;};
 const catEntity=id=&gt;(catalogData.all_entities||catalogData.entities).find(e=&gt;e.id===id)||(typeof workStepRecord===&#x27;function&#x27;?workStepRecord(id):null)||loomHistoricalExtensionEntity(id);
 function catIsDiscarded(e){return !!e&amp;&amp;[&#x27;run&#x27;,&#x27;experiment&#x27;].includes(e.kind)&amp;&amp;e.disposition?.state===&#x27;discarded&#x27;;}
-const catKind=(k,includeDiscarded=false)=&gt;catalogData.entities.filter(e=&gt;e.kind===k&amp;&amp;(includeDiscarded||!catIsDiscarded(e)));
+const catKind=(k,includeDiscarded=false)=&gt;loomTaskItems(catalogData.entities.filter(e=&gt;e.kind===k&amp;&amp;(includeDiscarded||!catIsDiscarded(e))),k);
 // One result projection for lists, detail and Comparison; no model/phase/metric IDs.
 function catResultMetrics(e){
  const comp=e.comparison?.all;
@@ -2341,7 +2341,7 @@ function catalogRefreshViews(){
  scheduleCatalogRender();
 }
 root.addEventListener(&#x27;click&#x27;,e=&gt;{const b=e.target.closest(&#x27;[data-entity],[data-catalog-refresh],[data-catalog-path]&#x27;);if(!b)return;if(e.metaKey||e.ctrlKey){e.preventDefault();e.stopImmediatePropagation();if(b.dataset.entity)paiSendRoute({type:&#x27;pai-route-new&#x27;,route:{type:&#x27;entities&#x27;,id:b.dataset.entity}});return;}e.preventDefault();e.stopImmediatePropagation();const pane=b.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;if(b.dataset.entity)openView(catView(b.dataset.entity),e.shiftKey?&#x27;other&#x27;:&#x27;current&#x27;);else if(b.dataset.catalogPath){const owner=catalogData.entities.find(x=&gt;(x.artifacts||[]).some(a=&gt;a.path===b.dataset.catalogPath&amp;&amp;a.id));const artifact=owner?.artifacts.find(a=&gt;a.path===b.dataset.catalogPath&amp;&amp;a.id);openView({page:&#x27;files&#x27;,fileSelected:b.dataset.catalogPath,routeOwner:owner?.id,routeArtifact:artifact?.id});}else parent.postMessage({type:&#x27;pai-catalog-refresh&#x27;},&#x27;*&#x27;);},true);
-window.addEventListener(&#x27;message&#x27;,e=&gt;{if(e.source!==parent||!e.data||typeof e.data!==&#x27;object&#x27;)return;if(e.data.type===&#x27;pai-catalog-data&#x27;&amp;&amp;Array.isArray(e.data.catalog?.entities)){catalogData=catTitleSnapshot(e.data.catalog);catalogConnection=e.data.connected?&#x27;최근 조회 성공&#x27;:&#x27;스냅샷 · 연결 끊김&#x27;;catalogRefreshViews();}else if(e.data.type===&#x27;pai-catalog-status&#x27;){if(catalogConnection===e.data.text)return;catalogConnection=e.data.text;catHostRefresh();scheduleCatalogRender();}});
+window.addEventListener(&#x27;message&#x27;,e=&gt;{if(e.source!==parent||!e.data||typeof e.data!==&#x27;object&#x27;)return;if(e.data.type===&#x27;pai-catalog-data&#x27;&amp;&amp;Array.isArray(e.data.catalog?.entities)){catalogData=loomCatalogRefresh(e.data.catalog);catalogConnection=e.data.connected?&#x27;최근 조회 성공&#x27;:&#x27;스냅샷 · 연결 끊김&#x27;;catalogRefreshViews();}else if(e.data.type===&#x27;pai-catalog-status&#x27;){if(catalogConnection===e.data.text)return;catalogConnection=e.data.text;catHostRefresh();scheduleCatalogRender();}});
 // Ephemeral host telemetry; no catalog mutations or scheduler decisions.
 let resourceData=null,resourceError=&#x27;&#x27;,resourceInterested=null;
 function resNum(v,d=1){return Number.isFinite(v)?v.toLocaleString(&#x27;en-US&#x27;,{maximumFractionDigits:d}):&#x27;—&#x27;;}
@@ -2360,7 +2360,7 @@ function resourceContents(){
  return `&lt;div class=&quot;pa-resource-heading&quot;&gt;&lt;div&gt;&lt;b&gt;Inspector&lt;/b&gt;${catHostLabel(resourceData?.host||catalogData.host)}&lt;/div&gt;&lt;small&gt;${resourceError?&#x27;연결 끊김 · 마지막 계측 유지&#x27;:resourceData?&#x27;2초 갱신&#x27;:&#x27;연결 중&#x27;} · ${resourceData?resTime(resourceData.observed_at):&#x27;—&#x27;}&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;pa-resource-grid&quot;&gt;${cpu+ram+gpu+storage}&lt;/div&gt;&lt;div class=&quot;pa-resource-reservations&quot;&gt;&lt;b&gt;이 환경의 실행 슬롯&lt;/b&gt; ${reservations}${l?` · 대기 ${l.queued_jobs}건 · 조회 권한 내 작업`:&#x27;&#x27;}${l?.unregistered_reservations?` · 미등록 예약 ${l.unregistered_reservations}건`:&#x27;&#x27;} ${resStatus(s.leases)}&lt;/div&gt;`;
 }
 function resourcePanel(){return `&lt;section class=&quot;pa-resources&quot; aria-label=&quot;Inspector&quot; data-resource-panel&gt;${resourceContents()}&lt;/section&gt;`;}
-function resourceInterest(){const interested=!!root.querySelector(&#x27;[data-resource-panel]&#x27;);if(interested!==resourceInterested){resourceInterested=interested;parent.postMessage({type:&#x27;pai-resource-interest&#x27;,active:interested},&#x27;*&#x27;);}}
+function resourceInterest(){const interested=!!root.querySelector(&#x27;[data-resource-panel],.pa-finder&#x27;);if(interested!==resourceInterested){resourceInterested=interested;parent.postMessage({type:&#x27;pai-resource-interest&#x27;,active:interested},&#x27;*&#x27;);}}
 const renderBeforeResources=render;render=function(){renderBeforeResources();resourceInterest();};
 // Reconcile only the small telemetry subtree. Preserve unchanged reservation links,
 // node identities and scroll anchors instead of deleting the entire Inspector.
@@ -4085,7 +4085,7 @@ const loomScenarioRequests=new Map(),loomScenarioGraphs=new Map();let loomScenar
 function loomScenarioAction(action,args){const id=&#x27;scenario-&#x27;+(++loomScenarioSequence);return new Promise((resolve,reject)=&gt;{const timeout=setTimeout(()=&gt;{loomScenarioRequests.delete(id);reject(Error(&#x27;Request timed out&#x27;));},30000);loomScenarioRequests.set(id,{resolve,reject,timeout});parent.postMessage({type:&#x27;loom-scenario-action&#x27;,id,action,arguments:args},&#x27;*&#x27;);});}
 window.addEventListener(&#x27;message&#x27;,event=&gt;{if(event.source!==parent||event.data?.type!==&#x27;loom-scenario-action-result&#x27;)return;const pending=loomScenarioRequests.get(event.data.id);if(!pending)return;clearTimeout(pending.timeout);loomScenarioRequests.delete(event.data.id);event.data.ok?pending.resolve(event.data.value):pending.reject(Error(event.data.value?.message||event.data.value?.error||&#x27;Request failed&#x27;));});
 function loomScenarios(){return (catalogData.all_entities||catalogData.entities).filter(e=&gt;e.kind===&#x27;scenario&#x27;);}
-function loomScenarioView(){const items=loomScenarios().filter(e=&gt;!e.loom_scenario.archived);return heading(&#x27;RESEARCH&#x27;,&#x27;Scenarios&#x27;,&#x27;&#x27;)+(catalogData.capabilities?.curate&amp;&amp;catalogData.capabilities?.scenarios?&#x27;&lt;button data-scenario-create&gt;New Scenario&lt;/button&gt;&#x27;:&#x27;&#x27;)+panel(&#x27;Scenarios&#x27;,items.length?catTable([&#x27;Scenario&#x27;,&#x27;Revision&#x27;,&#x27;Jobs&#x27;],items.map(e=&gt;[catLink(e.id,e.label),esc(e.loom_scenario.revision),esc((catalogData.all_entities||catalogData.entities).filter(j=&gt;j.kind===&#x27;job&#x27;&amp;&amp;j.scenario_ref?.id===e.id&amp;&amp;!j.properties?.workflow_root).length)])):&#x27;&lt;div class=&quot;pa-empty&quot;&gt;—&lt;/div&gt;&#x27;);}
+function loomScenarioView(){const items=loomScenarios().filter(e=&gt;!e.loom_scenario.archived);return heading(&#x27;RESEARCH&#x27;,&#x27;Tasks&#x27;,&#x27;&#x27;)+(catalogData.capabilities?.curate&amp;&amp;catalogData.capabilities?.scenarios?&#x27;&lt;button data-scenario-create&gt;New Task&lt;/button&gt;&#x27;:&#x27;&#x27;)+panel(&#x27;Tasks&#x27;,items.length?catTable([&#x27;Task&#x27;,&#x27;Revision&#x27;,&#x27;Jobs&#x27;],items.map(e=&gt;[catLink(e.id,e.label),esc(e.loom_scenario.revision),esc((catalogData.all_entities||catalogData.entities).filter(j=&gt;j.kind===&#x27;job&#x27;&amp;&amp;j.scenario_ref?.id===e.id&amp;&amp;!j.properties?.workflow_root).length)])):&#x27;&lt;div class=&quot;pa-empty&quot;&gt;—&lt;/div&gt;&#x27;);}
 function loomScenarioSameTarget(a,b){
  if(!a||!b)return false;
  const kind=a.kind===&#x27;protocol_artifact&#x27;?&#x27;entity&#x27;:a.kind,other=b.kind===&#x27;protocol_artifact&#x27;?&#x27;entity&#x27;:b.kind;
@@ -4096,17 +4096,17 @@ function loomScenarioSameTarget(a,b){
  return fields.every(k=&gt;x[k]!==undefined&amp;&amp;x[k]===y[k]);
 }
 function loomScenarioTargetLink(link){const target=link.target;const entity=(catalogData.all_entities||catalogData.entities).find(e=&gt;loomScenarioSameTarget(target,loomScenarioTarget(e)));const identity=target.identity||target;return entity?catLink(entity.id,entity.label):esc(identity.id||identity.kind||&#x27;—&#x27;);}
-function loomScenarioDetail(entity){const s=entity.loom_scenario,revision=state.scenarioId===entity.id&amp;&amp;state.scenarioRevision&lt;=s.revision?state.scenarioRevision:s.revision,key=entity.id+&#x27;:&#x27;+revision;let graph=loomScenarioGraphs.get(key);if(!graph){loomScenarioGraphs.set(key,{loading:true});loomScenarioAction(&#x27;scenario_graph&#x27;,{id:entity.id,revision}).then(value=&gt;{loomScenarioGraphs.set(key,value);render();}).catch(error=&gt;{loomScenarioGraphs.set(key,{error:error.message});render();});graph={loading:true};}
+function loomScenarioDetail(entity){const s=entity.loom_scenario,revision=state.scenarioId===entity.id&amp;&amp;state.scenarioRevision&lt;=s.revision?state.scenarioRevision:s.revision,key=entity.id+&#x27;:&#x27;+revision;let graph=loomScenarioGraphs.get(key);if(!graph){loomScenarioGraphs.set(key,{loading:true});loomScenarioLoadGraph(entity.id,revision);graph={loading:true};}
  const definition=graph.revision?.definition||s.definition,links=(graph.links||[]).filter(l=&gt;!l.superseded_by),jobs=(catalogData.all_entities||catalogData.entities).filter(e=&gt;e.kind===&#x27;job&#x27;&amp;&amp;e.scenario_ref?.id===entity.id&amp;&amp;e.scenario_ref?.revision===revision&amp;&amp;!e.properties?.workflow_root);
- return heading(&#x27;SCENARIO&#x27;,esc(definition.label||entity.label),&#x27;&#x27;)+`&lt;div class=&quot;pa-hub-context&quot;&gt;&lt;label&gt;Revision &lt;select data-scenario-revision&gt;${Array.from({length:s.revision},(_,i)=&gt;i+1).reverse().map(r=&gt;`&lt;option value=&quot;${r}&quot; ${r===revision?&#x27;selected&#x27;:&#x27;&#x27;}&gt;${r}&lt;/option&gt;`).join(&#x27;&#x27;)}&lt;/select&gt;&lt;/label&gt;${catalogData.capabilities?.curate&amp;&amp;revision===s.revision&amp;&amp;!s.archived?`&lt;button data-scenario-edit=&quot;${esc(entity.id)}&quot;&gt;Edit&lt;/button&gt;&lt;button data-scenario-archive=&quot;${esc(entity.id)}&quot;&gt;Archive&lt;/button&gt;`:&#x27;&#x27;}&lt;/div&gt;`+(definition.description?panel(&#x27;Description&#x27;,`&lt;p&gt;${esc(definition.description)}&lt;/p&gt;`):&#x27;&#x27;)+(definition.protocol&amp;&amp;Object.keys(definition.protocol).length?panel(&#x27;Protocol&#x27;,`&lt;pre&gt;${esc(JSON.stringify(definition.protocol,null,2))}&lt;/pre&gt;`):&#x27;&#x27;)+panel(&#x27;Jobs&#x27;,jobs.length?catTable([&#x27;Job&#x27;,&#x27;State&#x27;],jobs.map(j=&gt;[catLink(j.id,j.label),esc(j.state)])):&#x27;&lt;div class=&quot;pa-empty&quot;&gt;—&lt;/div&gt;&#x27;)+panel(&#x27;Records&#x27;,graph.error?esc(graph.error):graph.loading?&#x27;…&#x27;:links.length?catTable([&#x27;Record&#x27;,&#x27;Relation&#x27;],links.map(link=&gt;[loomScenarioTargetLink(link),esc(link.relation.replaceAll(&#x27;_&#x27;,&#x27; &#x27;))])):&#x27;&lt;div class=&quot;pa-empty&quot;&gt;—&lt;/div&gt;&#x27;);
+ return heading(&#x27;TASK&#x27;,esc(definition.label||entity.label),&#x27;&#x27;)+`&lt;div class=&quot;pa-hub-context&quot;&gt;&lt;label&gt;Revision &lt;select data-scenario-revision&gt;${Array.from({length:s.revision},(_,i)=&gt;i+1).reverse().map(r=&gt;`&lt;option value=&quot;${r}&quot; ${r===revision?&#x27;selected&#x27;:&#x27;&#x27;}&gt;${r}&lt;/option&gt;`).join(&#x27;&#x27;)}&lt;/select&gt;&lt;/label&gt;${catalogData.capabilities?.curate&amp;&amp;revision===s.revision&amp;&amp;!s.archived?`&lt;button data-scenario-edit=&quot;${esc(entity.id)}&quot;&gt;Edit&lt;/button&gt;&lt;button data-scenario-archive=&quot;${esc(entity.id)}&quot;&gt;Archive&lt;/button&gt;`:&#x27;&#x27;}&lt;/div&gt;`+(definition.description?panel(&#x27;Description&#x27;,`&lt;p&gt;${esc(definition.description)}&lt;/p&gt;`):&#x27;&#x27;)+(definition.protocol&amp;&amp;Object.keys(definition.protocol).length?panel(&#x27;Protocol&#x27;,`&lt;pre&gt;${esc(JSON.stringify(definition.protocol,null,2))}&lt;/pre&gt;`):&#x27;&#x27;)+panel(&#x27;Jobs&#x27;,jobs.length?catTable([&#x27;Job&#x27;,&#x27;State&#x27;],jobs.map(j=&gt;[catLink(j.id,j.label),esc(j.state)])):&#x27;&lt;div class=&quot;pa-empty&quot;&gt;—&lt;/div&gt;&#x27;)+(definition.metadata?.reference_demos?.length?panel(&#x27;Reference demos&#x27;,definition.metadata.reference_demos.map(d=&gt;&#x27;&lt;div&gt;&#x27;+esc(d.source_dataset||d.source_manifest||d.source||&#x27;—&#x27;)+&#x27;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)):&#x27;&#x27;)+panel(&#x27;Records&#x27;,graph.error?esc(graph.error):graph.loading?&#x27;…&#x27;:links.length?catTable([&#x27;Record&#x27;,&#x27;Relation&#x27;],links.map(link=&gt;[loomScenarioTargetLink(link),esc(link.relation.replaceAll(&#x27;_&#x27;,&#x27; &#x27;))])):&#x27;&lt;div class=&quot;pa-empty&quot;&gt;—&lt;/div&gt;&#x27;)+(graph.more?&#x27;&lt;button data-task-more=&quot;&#x27;+esc(entity.id)+&#x27;&quot; data-task-revision=&quot;&#x27;+revision+&#x27;&quot;&gt;More&lt;/button&gt;&#x27;:&#x27;&#x27;);
 }
-function loomScenarioContext(entity){const references=[];if(entity.scenario_ref)references.push(entity.scenario_ref);for(const scenario of loomScenarios()){for(const link of scenario.loom_scenario.links||[]){if(!link.superseded_by&amp;&amp;loomScenarioSameTarget(link.target,loomScenarioTarget(entity)))references.push({id:scenario.id,revision:link.revision});}}
- const unique=[...new Map(references.map(r=&gt;[r.id+&#x27;:&#x27;+r.revision,r])).values()];return unique.length?panel(&#x27;Scenarios&#x27;,unique.map(r=&gt;catLink(r.id,(catEntity(r.id)?.label||r.id)+&#x27; · r&#x27;+r.revision)).join(&#x27; · &#x27;)):&#x27;&#x27;;}
+function loomScenarioContext(entity){const references=[...(entity.task_refs||[])];if(entity.scenario_ref)references.push(entity.scenario_ref);for(const scenario of loomScenarios()){for(const link of scenario.loom_scenario.links||[]){if(!link.superseded_by&amp;&amp;loomScenarioSameTarget(link.target,loomScenarioTarget(entity)))references.push({id:scenario.id,revision:link.revision});}}
+ const unique=[...references.reduce((m,r)=&gt;{const key=r.id+&#x27;:&#x27;+r.revision;if(!m.has(key)||r.label)m.set(key,r);return m;},new Map()).values()];return unique.length?panel(&#x27;Tasks&#x27;,unique.map(r=&gt;catLink(r.id,(r.label||catEntity(r.id)?.label||r.id)+&#x27; · r&#x27;+r.revision)).join(&#x27; · &#x27;)):&#x27;&#x27;;}
 const loomScenarioCatalogDetail=catalogDetail;catalogDetail=function(id){const entity=catEntity(id);return loomScenarioCatalogDetail(id)+(entity&amp;&amp;entity.kind!==&#x27;scenario&#x27;?loomScenarioContext(entity):&#x27;&#x27;);};
-function loomScenarioEditor(entity){const s=entity?.loom_scenario;loomHubDialog(s?&#x27;Edit Scenario&#x27;:&#x27;New Scenario&#x27;,`&lt;form data-scenario-form=&quot;${esc(entity?.id||&#x27;&#x27;)}&quot;&gt;&lt;label&gt;Name&lt;input name=&quot;label&quot; required maxlength=&quot;200&quot; value=&quot;${esc(s?.definition?.label||&#x27;&#x27;)}&quot;&gt;&lt;/label&gt;&lt;label&gt;Description&lt;textarea name=&quot;description&quot; maxlength=&quot;8192&quot;&gt;${esc(s?.definition?.description||&#x27;&#x27;)}&lt;/textarea&gt;&lt;/label&gt;&lt;label&gt;Protocol&lt;textarea name=&quot;protocol&quot;&gt;${esc(s?.definition?.protocol?JSON.stringify(s.definition.protocol,null,2):&#x27;{}&#x27;)}&lt;/textarea&gt;&lt;/label&gt;${s?&#x27;&lt;label&gt;Reason&lt;input name=&quot;reason&quot; required maxlength=&quot;2000&quot;&gt;&lt;/label&gt;&#x27;:&#x27;&#x27;}&lt;p data-scenario-error role=&quot;alert&quot;&gt;&lt;/p&gt;&lt;button type=&quot;submit&quot;&gt;Save&lt;/button&gt;&lt;/form&gt;`);}
-root.addEventListener(&#x27;click&#x27;,event=&gt;{const create=event.target.closest(&#x27;[data-scenario-create]&#x27;),edit=event.target.closest(&#x27;[data-scenario-edit]&#x27;),archive=event.target.closest(&#x27;[data-scenario-archive]&#x27;);if(create)loomScenarioEditor();if(edit)loomScenarioEditor(catEntity(edit.dataset.scenarioEdit));if(archive){const e=catEntity(archive.dataset.scenarioArchive);loomHubDialog(&#x27;Archive Scenario&#x27;,`&lt;form data-scenario-archive-form=&quot;${esc(e.id)}&quot;&gt;&lt;label&gt;Reason&lt;input name=&quot;reason&quot; required maxlength=&quot;2000&quot;&gt;&lt;/label&gt;&lt;p data-scenario-error role=&quot;alert&quot;&gt;&lt;/p&gt;&lt;button type=&quot;submit&quot;&gt;Archive&lt;/button&gt;&lt;/form&gt;`);}});
+function loomScenarioEditor(entity){const s=entity?.loom_scenario;loomHubDialog(s?&#x27;Edit Task&#x27;:&#x27;New Task&#x27;,`&lt;form data-scenario-form=&quot;${esc(entity?.id||&#x27;&#x27;)}&quot;&gt;&lt;label&gt;Name&lt;input name=&quot;label&quot; required maxlength=&quot;200&quot; value=&quot;${esc(s?.definition?.label||&#x27;&#x27;)}&quot;&gt;&lt;/label&gt;&lt;label&gt;Description&lt;textarea name=&quot;description&quot; maxlength=&quot;8192&quot;&gt;${esc(s?.definition?.description||&#x27;&#x27;)}&lt;/textarea&gt;&lt;/label&gt;&lt;label&gt;Protocol&lt;textarea name=&quot;protocol&quot;&gt;${esc(s?.definition?.protocol?JSON.stringify(s.definition.protocol,null,2):&#x27;{}&#x27;)}&lt;/textarea&gt;&lt;/label&gt;${s?&#x27;&lt;label&gt;Reason&lt;input name=&quot;reason&quot; required maxlength=&quot;2000&quot;&gt;&lt;/label&gt;&#x27;:&#x27;&#x27;}&lt;p data-scenario-error role=&quot;alert&quot;&gt;&lt;/p&gt;&lt;button type=&quot;submit&quot;&gt;Save&lt;/button&gt;&lt;/form&gt;`);}
+root.addEventListener(&#x27;click&#x27;,event=&gt;{const create=event.target.closest(&#x27;[data-scenario-create]&#x27;),edit=event.target.closest(&#x27;[data-scenario-edit]&#x27;),archive=event.target.closest(&#x27;[data-scenario-archive]&#x27;);if(create)loomScenarioEditor();if(edit)loomScenarioEditor(catEntity(edit.dataset.scenarioEdit));if(archive){const e=catEntity(archive.dataset.scenarioArchive);loomHubDialog(&#x27;Archive Task&#x27;,`&lt;form data-scenario-archive-form=&quot;${esc(e.id)}&quot;&gt;&lt;label&gt;Reason&lt;input name=&quot;reason&quot; required maxlength=&quot;2000&quot;&gt;&lt;/label&gt;&lt;p data-scenario-error role=&quot;alert&quot;&gt;&lt;/p&gt;&lt;button type=&quot;submit&quot;&gt;Archive&lt;/button&gt;&lt;/form&gt;`);}});
 root.addEventListener(&#x27;change&#x27;,event=&gt;{if(event.target.matches(&#x27;[data-scenario-revision]&#x27;)){state.scenarioId=state.entity;state.scenarioRevision=Number(event.target.value);render();persist();}});
-async function loomScenarioSave(event){const form=event.target.closest(&#x27;[data-scenario-form],[data-scenario-archive-form]&#x27;);if(!form)return;event.preventDefault();const button=form.querySelector(&#x27;button[type=&quot;submit&quot;]&#x27;);button.disabled=true;const error=form.querySelector(&#x27;[data-scenario-error]&#x27;);try{const fields=new FormData(form),identity=form.dataset.scenarioForm||form.dataset.scenarioArchiveForm,key=crypto.randomUUID();let action,args;if(form.hasAttribute(&#x27;data-scenario-archive-form&#x27;)){action=&#x27;archive_scenario&#x27;;args={key,id:identity,expected_revision:catEntity(identity).loom_scenario.revision,reason:fields.get(&#x27;reason&#x27;)};}else{const definition={label:fields.get(&#x27;label&#x27;),description:fields.get(&#x27;description&#x27;),protocol:JSON.parse(fields.get(&#x27;protocol&#x27;)||&#x27;{}&#x27;)};if(identity){action=&#x27;update_scenario&#x27;;args={key,id:identity,expected_revision:catEntity(identity).loom_scenario.revision,definition,reason:fields.get(&#x27;reason&#x27;)};}else{action=&#x27;register_scenario&#x27;;args={key,definition};}}await loomScenarioAction(action,args);loomScenarioGraphs.clear();form.closest(&#x27;dialog&#x27;).close();}catch(e){error.textContent=e.message;}finally{button.disabled=false;}}
+async function loomScenarioSave(event){const form=event.target.closest(&#x27;[data-scenario-form],[data-scenario-archive-form]&#x27;);if(!form)return;event.preventDefault();const button=form.querySelector(&#x27;button[type=&quot;submit&quot;]&#x27;);button.disabled=true;const error=form.querySelector(&#x27;[data-scenario-error]&#x27;);try{const fields=new FormData(form),identity=form.dataset.scenarioForm||form.dataset.scenarioArchiveForm,key=crypto.randomUUID();let action,args;if(form.hasAttribute(&#x27;data-scenario-archive-form&#x27;)){action=&#x27;archive_scenario&#x27;;args={key,id:identity,expected_revision:catEntity(identity).loom_scenario.revision,reason:fields.get(&#x27;reason&#x27;)};}else{const definition={label:fields.get(&#x27;label&#x27;),description:fields.get(&#x27;description&#x27;),protocol:JSON.parse(fields.get(&#x27;protocol&#x27;)||&#x27;{}&#x27;)};if(identity){action=&#x27;update_scenario&#x27;;args={key,id:identity,expected_revision:catEntity(identity).loom_scenario.revision,definition,reason:fields.get(&#x27;reason&#x27;)};}else{action=&#x27;register_scenario&#x27;;args={key,definition};}}const saved=await loomScenarioAction(action,args);loomScenarioGraphs.clear();form.closest(&#x27;dialog&#x27;).close();if(action===&#x27;register_scenario&#x27;||action===&#x27;update_scenario&#x27;){const record=await loomScenarioAction(&#x27;get_scenario&#x27;,{id:saved.id,revision:saved.revision});loomCatalogMerge({entities:[{id:saved.id,kind:&#x27;scenario&#x27;,label:record.revision.definition.label,loom_scenario:{id:saved.id,revision:saved.revision,definition:record.revision.definition,archived:false,links:[]},properties:{},relations:[],artifacts:[]}]});openView({page:&#x27;scenarios&#x27;,entity:saved.id});}}catch(e){error.textContent=e.message;}finally{button.disabled=false;}}
 function loomScenarioTarget(entity){
  if(entity.loom_registry)return {kind:&#x27;entity&#x27;,identity:{id:entity.loom_registry.id,revision:entity.loom_registry.revision}};
  if(entity.loom_history?.snapshot)return {kind:&#x27;historical&#x27;,identity:entity.loom_history};
@@ -4125,6 +4125,13 @@ async function loomScenarioLinkSave(event){const form=event.target.closest(&#x27
 // The iframe deliberately has no allow-forms permission. Explicit clicks use the
 // authenticated parent relay and never navigate or submit a browser form.
 root.addEventListener(&#x27;click&#x27;,event=&gt;{const button=event.target.closest(&#x27;[data-scenario-form] button[type=&quot;submit&quot;],[data-scenario-archive-form] button[type=&quot;submit&quot;],[data-scenario-link-form] button[type=&quot;submit&quot;]&#x27;);if(!button)return;event.preventDefault();if(!button.closest(&#x27;form&#x27;).reportValidity())return;if(button.closest(&#x27;[data-scenario-link-form]&#x27;))loomScenarioLinkSave(event);else loomScenarioSave(event);});
+
+function loomScenarioLoadGraph(id,revision,more=false){
+ const key=id+&#x27;:&#x27;+revision,old=more?loomScenarioGraphs.get(key):null;
+ const offset=old?.links?.length||0;
+ loomScenarioAction(&#x27;scenario_graph&#x27;,{id,revision,offset,limit:100}).then(value=&gt;{loomScenarioGraphs.set(key,{...value,links:[...(old?.links||[]),...value.links],more:value.links.length===100});render();}).catch(error=&gt;{loomScenarioGraphs.set(key,{...old,error:error.message});render();});
+}
+root.addEventListener(&#x27;click&#x27;,event=&gt;{const b=event.target.closest(&#x27;[data-task-more]&#x27;);if(!b)return;b.disabled=true;loomScenarioLoadGraph(b.dataset.taskMore,Number(b.dataset.taskRevision),true);});
 
 const loomPayloadLabels = {
   available: &#x27;이관됨&#x27;,
@@ -4255,15 +4262,15 @@ function loomJobClass(entity) {
 function loomFilteredWorkItems() {
   const items=workItems(),known=new Set(items.map(e=&gt;e.id));
   if(state.jobSourceHistory)items.push(...(catalogData.all_entities||[]).filter(e=&gt;e.kind===&#x27;job&#x27;&amp;&amp;!known.has(e.id)&amp;&amp;e.properties?.consolidated_into&amp;&amp;known.has(e.properties.consolidated_into)));
-  return items.filter(e =&gt; (!state.jobHistoryView || state.jobHistoryView===&#x27;all&#x27;
-      || (state.jobHistoryView===&#x27;operations&#x27;?e.presentation?.scope===&#x27;operations&#x27;:e.presentation?.scope!==&#x27;operations&#x27;))
+  return items.filter(e =&gt; ((state.jobHistoryView||catalogData.presentation_view)===&#x27;all&#x27;
+      || ((state.jobHistoryView||catalogData.presentation_view)===&#x27;operations&#x27;?e.presentation?.scope===&#x27;operations&#x27;:e.presentation?.scope!==&#x27;operations&#x27;))
     &amp;&amp; (!state.jobCategory || (e.properties?.category || &#x27;other&#x27;) === state.jobCategory)
     &amp;&amp; (!state.jobExecutionMode || e.properties?.execution_mode === state.jobExecutionMode)
     &amp;&amp; (state.jobSourceHistory || !e.properties?.consolidated_into));
 }
 function loomJobFilters() {
   const c = loomJobContract();
-  const scope=state.jobHistoryView||&#x27;all&#x27;;
+  const scope=state.jobHistoryView||catalogData.presentation_view||&#x27;research&#x27;;
   return &#x27;&lt;div class=&quot;pa-filter&quot; aria-label=&quot;History scope&quot;&gt;&#x27;+[[&#x27;all&#x27;,&#x27;All&#x27;],[&#x27;research&#x27;,&#x27;Research&#x27;],[&#x27;operations&#x27;,&#x27;Operations&#x27;]]
     .map(([value,label])=&gt;&#x27;&lt;button class=&quot;pa-pill &#x27;+(scope===value?&#x27;active&#x27;:&#x27;&#x27;)+&#x27;&quot; aria-pressed=&quot;&#x27;+(scope===value)+&#x27;&quot; data-job-history-view=&quot;&#x27;+value+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;
     +&#x27;&lt;div class=&quot;pa-job-filters&quot;&gt;&#x27; + [[&#x27;jobCategory&#x27;,&#x27;Job Type&#x27;,c.categories],[&#x27;jobExecutionMode&#x27;,&#x27;Execution Mode&#x27;,c.execution_modes]]
@@ -4570,11 +4577,19 @@ workItems=function(){
   // Resource occupancy and execution history are independent of catalog view.
   const items=(catalogData.all_entities||catalogData.entities).filter(e=&gt;e.kind===&#x27;job&#x27;&amp;&amp;!e.loom_registry
     &amp;&amp; [&#x27;work&#x27;,&#x27;loom_job&#x27;].includes(e.properties?.record_role));
-  const known=new Set(items.map(e=&gt;e.id));
+  // Imported catalog and queue snapshots can describe the same logical Work.
+  // Prefer its queue projection; both exact source records remain addressable.
+  const logical=new Map();
+  for(const e of items){
+    const key=e.properties?.record_role===&#x27;work&#x27;&amp;&amp;[&#x27;queue&#x27;,&#x27;catalog&#x27;].includes(e.loom_history?.source)?&#x27;historical-work:&#x27;+e.loom_history.id:e.id;
+    if(!logical.has(key)||e.loom_history?.source===&#x27;queue&#x27;)logical.set(key,e);
+  }
+  const displayed=[...logical.values()];
+  const known=new Set(displayed.map(e=&gt;e.id));
   // Only authoritative workflow membership collapses execution nodes. A
   // presentation parent may group a separate follow-up; it must not hide it.
   const nodes=new Set(items.flatMap(e=&gt;(e.loom_workflow?.executions||[]).map(n=&gt;n.job)));
-  return items.filter(e=&gt;!nodes.has(e.id)&amp;&amp;!e.properties?.consolidated_into).concat(loomQueueEntries().filter(r=&gt;!known.has(r.id)).map(r=&gt;({id:r.id,label:r.id,kind:&#x27;job&#x27;,loom_queue_shared:true,presentation:r.presentation,
+  return displayed.filter(e=&gt;!nodes.has(e.id)&amp;&amp;!e.properties?.consolidated_into).concat(loomQueueEntries().filter(r=&gt;!known.has(r.id)).map(r=&gt;({id:r.id,label:r.id,kind:&#x27;job&#x27;,loom_queue_shared:true,presentation:r.presentation,
     properties:{record_role:&#x27;loom_job&#x27;,state:r.state,owner:r.owner}})));
 };
 function loomQueueCompare(a,b) {
@@ -4584,6 +4599,7 @@ function loomQueueCompare(a,b) {
 const loomQueueWorkRow=workRow;
 workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
+  row[0]=loomTaskLabels(entity)+row[0];
   if(current &amp;&amp; q){
     if(entity.loom_queue_shared)row[0]=&#x27;&lt;div class=&quot;pa-queue-name&quot;&gt;&#x27;+esc(q.id)+&#x27;&lt;small&gt;&#x27;+esc(q.owner)+&#x27; · 공유 큐&lt;/small&gt;&lt;/div&gt;&#x27;;
     row[0]+=&#x27;&lt;small class=&quot;pa-queue-position&quot;&gt;&#x27;+loomQueuePosition(q)+&#x27;&lt;/small&gt;&#x27;+loomQueueControls(q.id);
@@ -4887,7 +4903,7 @@ function loomRebuildExplorer() {
   const nodes=new Map([[&#x27;storage&#x27;,{id:&#x27;storage&#x27;,name:&#x27;Data Storage&#x27;,folder:true}]]);
   const observed=resourceData?.sections?.storage?.data;
   const roots=new Set(Array.isArray(observed)?observed.map(item=&gt;item.path).filter(path=&gt;/^data\/[^/]+$/.test(path)):[]);
-  const files=catalogData.entities.flatMap(entity=&gt;(entity.loom_files||[]).map(file=&gt;({file,entity})));
+  const files=(catalogData.all_entities||catalogData.entities).flatMap(entity=&gt;(entity.loom_files||[]).map(file=&gt;({file,entity})));
   // The catalog indexes registered files, not the host&#x27;s arbitrary filesystem.
   if(!Array.isArray(observed))for(const {file} of files){
     const match=/^data\/([^/]+)\//.exec(file.path||&#x27;&#x27;);if(match)roots.add(&#x27;data/&#x27;+match[1]);
@@ -4928,7 +4944,7 @@ files=function() {
     : &#x27;&lt;dt&gt;항목&lt;/dt&gt;&lt;dd&gt;&#x27;+fileNodes.filter(node=&gt;node.parent===current.id).length+&#x27;&lt;/dd&gt;&#x27;;
   const previews=chosen?.entity.loom_media?.filter(item=&gt;item.id===chosen.file.preview_id);
   const preview=previews?.length?loomMediaPanel(chosen.entity,previews):&#x27;&#x27;;
-  let body=heading(&#x27;WORKSPACE&#x27;,&#x27;Explorer&#x27;,&#x27;연결된 데이터 스토리지의 등록 파일을 확인합니다.&#x27;)
+  let body=heading(&#x27;WORKSPACE&#x27;,&#x27;Explorer&#x27;,&#x27;&#x27;)
     +`&lt;section class=&quot;pa-finder&quot;&gt;&lt;div class=&quot;pa-finder-toolbar&quot;&gt;&lt;span&gt;${icon(&#x27;columns-3&#x27;)} 열 보기&lt;/span&gt;&lt;span class=&quot;pa-muted-label&quot;&gt;읽기 전용 · 선택한 파일만 불러옵니다&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;pa-finder-dock&quot;&gt;&lt;aside class=&quot;pa-finder-favorites&quot;&gt;${favorites.map(node=&gt;`&lt;button data-column-node=&quot;${esc(node.id)}&quot; class=&quot;${selected.has(node.id)?&#x27;active&#x27;:&#x27;&#x27;}&quot;&gt;${icon(&#x27;folder&#x27;)}${esc(node.name===&#x27;references&#x27;?&#x27;이관되지 않은 참조&#x27;:node.name)}&lt;/button&gt;`).join(&#x27;&#x27;)}&lt;/aside&gt;&lt;div class=&quot;pa-columns-strip&quot; aria-label=&quot;폴더 열 탐색&quot;&gt;${trail.filter(node=&gt;node.folder).slice(-2).map(folder=&gt;`&lt;div class=&quot;pa-finder-column&quot;&gt;&lt;div class=&quot;pa-column-title&quot;&gt;${esc(folder.name)}&lt;/div&gt;&lt;div class=&quot;pa-column-items&quot; role=&quot;listbox&quot; aria-label=&quot;${esc(folder.name)} 항목&quot;&gt;${fileNodes.filter(node=&gt;node.parent===folder.id).sort((a,b)=&gt;Number(b.folder)-Number(a.folder)||a.name.localeCompare(b.name)).map(node=&gt;`&lt;button class=&quot;pa-column-node ${current.id===node.id?&#x27;is-current&#x27;:&#x27;&#x27;}&quot; role=&quot;option&quot; aria-selected=&quot;${selected.has(node.id)}&quot; data-column-node=&quot;${esc(node.id)}&quot; title=&quot;${esc(node.name)}&quot;&gt;${icon(node.folder?&#x27;folder&#x27;:&#x27;file-text&#x27;)}&lt;span&gt;${esc(node.name)}&lt;/span&gt;${node.folder?icon(&#x27;chevron-right&#x27;):&#x27;&#x27;}&lt;/button&gt;`).join(&#x27;&#x27;)||&#x27;&lt;div class=&quot;pa-empty-column&quot;&gt;등록된 파일이 없습니다.&lt;/div&gt;&#x27;}&lt;/div&gt;&lt;/div&gt;`).join(&#x27;&#x27;)}&lt;aside class=&quot;pa-finder-preview&quot; aria-label=&quot;선택 항목 정보&quot;&gt;${preview}&lt;div class=&quot;pa-file-symbol&quot;&gt;${icon(current.folder?&#x27;folder&#x27;:&#x27;file-text&#x27;)}&lt;/div&gt;&lt;h3&gt;${esc(current.name)}&lt;/h3&gt;&lt;dl class=&quot;pa-props&quot;&gt;${description}&lt;/dl&gt;${chosen?`&lt;button class=&quot;pa-button&quot; data-loom-explorer-entity=&quot;${esc(chosen.entity.id)}&quot;&gt;연결된 ${esc(chosen.entity.label||&#x27;기록&#x27;)} 열기&lt;/button&gt;`:&#x27;&#x27;}&lt;/aside&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;pa-finder-path&quot; aria-label=&quot;현재 경로&quot;&gt;${trail.map(node=&gt;`&lt;button data-column-node=&quot;${esc(node.id)}&quot;&gt;${esc(node.name)}&lt;/button&gt;`).join(&#x27;&lt;span&gt;›&lt;/span&gt;&#x27;)}&lt;/div&gt;&lt;/section&gt;`;
   return body;
 };
@@ -4937,6 +4953,10 @@ root.addEventListener(&#x27;click&#x27;,event=&gt;{
   const entity=catEntity(button.dataset.loomExplorerEntity);if(!entity)return;
   const page={model:&#x27;models&#x27;,dataset:&#x27;datasets&#x27;,experiment:&#x27;experiments&#x27;}[entity.kind]||&#x27;queue&#x27;;
   openView({page,entity:entity.id});
+});
+
+window.addEventListener(&#x27;message&#x27;,event=&gt;{
+ if(event.source===parent&amp;&amp;[&#x27;pai-resource-data&#x27;,&#x27;pai-resource-error&#x27;].includes(event.data?.type)&amp;&amp;root.querySelector(&#x27;.pa-finder&#x27;))scheduleCatalogRender();
 });
 
 // Continuous-corner card skins. Content itself remains unclipped, including menus.
@@ -5049,12 +5069,12 @@ root.addEventListener(&#x27;click&#x27;,event=&gt;{
 // Server-backed discovery. IDs stay decimal strings throughout browser navigation.
 const loomSearchPending=new Map(),loomSearchFilePages=new Map(),loomSearchRelationPages=new Map();let loomSearchDetailSequence=0;let loomSearchSequence=0,loomSearchState={query:{},items:[],cursor:null,busy:false};
 function loomSearchAction(group,action,args={}){const id=&#x27;search-&#x27;+(++loomSearchSequence);return new Promise((resolve,reject)=&gt;{const timeout=setTimeout(()=&gt;{loomSearchPending.delete(id);reject(Error(&#x27;Request timed out&#x27;));},15000);loomSearchPending.set(id,{resolve,reject,timeout});parent.postMessage({type:&#x27;loom-search-action&#x27;,id,group,action,arguments:args},&#x27;*&#x27;);});}
-window.addEventListener(&#x27;message&#x27;,event=&gt;{if(event.source!==parent||event.data?.type!==&#x27;loom-search-result&#x27;)return;const p=loomSearchPending.get(event.data.id);if(!p)return;clearTimeout(p.timeout);loomSearchPending.delete(event.data.id);event.data.ok?p.resolve(event.data.value):p.reject(Error(event.data.value?.message||event.data.value?.error||&#x27;Search unavailable&#x27;));});
+window.addEventListener(&#x27;message&#x27;,event=&gt;{if(event.source!==parent||event.data?.type!==&#x27;loom-search-result&#x27;)return;const p=loomSearchPending.get(event.data.id);if(!p)return;clearTimeout(p.timeout);loomSearchPending.delete(event.data.id);event.data.ok?p.resolve(event.data.value):p.reject(Object.assign(Error(event.data.value?.message||event.data.value?.error||&#x27;Search unavailable&#x27;),{code:event.data.value?.code||event.data.value?.error}));});
 function loomInstallSearchLauncher(){const launcher=root.querySelector(&#x27;[data-command-open]&#x27;);if(launcher){if(catalogData.capabilities?.item_search)launcher.dataset.itemSearch=&#x27;&#x27;;else delete launcher.dataset.itemSearch;}}
 const loomSearchRender=render;render=function(){loomSearchRender();loomInstallSearchLauncher();};
 const loomSearchCatalogRefresh=catalogRefreshViews;catalogRefreshViews=function(){const result=loomSearchCatalogRefresh();loomInstallSearchLauncher();return result;};
 
-function loomSearchOpen(){++loomSearchDetailSequence;loomSearchFilePages.clear();loomSearchRelationPages.clear();loomSearchState={query:{},items:[],cursor:null,busy:false};loomHubDialog(&#x27;Search&#x27;,`&lt;div class=&quot;pa-item-search&quot;&gt;&lt;form data-item-search-form&gt;&lt;input name=&quot;text&quot; aria-label=&quot;Search items&quot; maxlength=&quot;1024&quot; autofocus&gt;&lt;select name=&quot;kind&quot; aria-label=&quot;Item kind&quot;&gt;&lt;option value=&quot;&quot;&gt;All kinds&lt;/option&gt;${[&#x27;scenario&#x27;,&#x27;job&#x27;,&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;,&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;,&#x27;dependency&#x27;,&#x27;file&#x27;].map(k=&gt;`&lt;option value=&quot;${k}&quot;&gt;${esc(k)}&lt;/option&gt;`).join(&#x27;&#x27;)}&lt;/select&gt;&lt;select name=&quot;view&quot; aria-label=&quot;View&quot;&gt;&lt;option value=&quot;research&quot;&gt;Research&lt;/option&gt;&lt;option value=&quot;all&quot;&gt;All&lt;/option&gt;&lt;option value=&quot;operations&quot;&gt;Operations&lt;/option&gt;&lt;/select&gt;&lt;select name=&quot;history&quot; aria-label=&quot;Revisions&quot;&gt;&lt;option value=&quot;current&quot;&gt;Current&lt;/option&gt;&lt;option value=&quot;all&quot;&gt;All revisions&lt;/option&gt;&lt;/select&gt;&lt;button type=&quot;submit&quot;&gt;Search&lt;/button&gt;&lt;/form&gt;&lt;div data-search-status role=&quot;status&quot;&gt;&lt;/div&gt;&lt;div data-search-results&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; data-search-more hidden&gt;More&lt;/button&gt;&lt;div data-search-detail&gt;&lt;/div&gt;&lt;/div&gt;`);}
+function loomSearchOpen(){++loomSearchDetailSequence;loomSearchFilePages.clear();loomSearchRelationPages.clear();loomSearchState={query:{},items:[],cursor:null,busy:false};loomHubDialog(&#x27;Search&#x27;,`&lt;div class=&quot;pa-item-search&quot;&gt;&lt;form data-item-search-form&gt;&lt;input name=&quot;text&quot; aria-label=&quot;Search items&quot; maxlength=&quot;1024&quot; autofocus&gt;&lt;select name=&quot;kind&quot; aria-label=&quot;Item kind&quot;&gt;&lt;option value=&quot;&quot;&gt;All kinds&lt;/option&gt;${[&#x27;scenario&#x27;,&#x27;job&#x27;,&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;,&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;,&#x27;dependency&#x27;,&#x27;file&#x27;].map(k=&gt;`&lt;option value=&quot;${k}&quot;&gt;${esc(k===&#x27;scenario&#x27;?&#x27;Task&#x27;:k)}&lt;/option&gt;`).join(&#x27;&#x27;)}&lt;/select&gt;&lt;select name=&quot;view&quot; aria-label=&quot;View&quot;&gt;&lt;option value=&quot;research&quot;&gt;Research&lt;/option&gt;&lt;option value=&quot;all&quot;&gt;All&lt;/option&gt;&lt;option value=&quot;operations&quot;&gt;Operations&lt;/option&gt;&lt;/select&gt;&lt;select name=&quot;history&quot; aria-label=&quot;Revisions&quot;&gt;&lt;option value=&quot;current&quot;&gt;Current&lt;/option&gt;&lt;option value=&quot;all&quot;&gt;All revisions&lt;/option&gt;&lt;/select&gt;&lt;button type=&quot;submit&quot;&gt;Search&lt;/button&gt;&lt;/form&gt;&lt;div data-search-status role=&quot;status&quot;&gt;&lt;/div&gt;&lt;div data-search-results&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; data-search-more hidden&gt;More&lt;/button&gt;&lt;div data-search-detail&gt;&lt;/div&gt;&lt;/div&gt;`);}
 async function loomSearchRun(more=false){const area=document.querySelector(&#x27;.pa-item-search&#x27;);if(!area||loomSearchState.busy)return;const form=area.querySelector(&#x27;form&#x27;),fields=new FormData(form);if(!more)loomSearchState.query={text:fields.get(&#x27;text&#x27;),history:fields.get(&#x27;history&#x27;)||&#x27;current&#x27;,kinds:fields.get(&#x27;kind&#x27;)?[fields.get(&#x27;kind&#x27;)]:[],view:fields.get(&#x27;view&#x27;),role:fields.get(&#x27;view&#x27;)===&#x27;all&#x27;?&#x27;all&#x27;:&#x27;main&#x27;,limit:50};loomSearchState.busy=true;const state=loomSearchState;const status=area.querySelector(&#x27;[data-search-status]&#x27;);status.textContent=&#x27;…&#x27;;try{const result=await loomSearchAction(&#x27;results&#x27;,&#x27;search_items&#x27;,{...loomSearchState.query,...(more?{cursor:loomSearchState.cursor}:{})});if(state!==loomSearchState)return;loomSearchState.items=more?[...loomSearchState.items,...result.items]:result.items;loomSearchState.cursor=result.next_cursor;area.querySelector(&#x27;[data-search-results]&#x27;).innerHTML=catTable([&#x27;Name&#x27;,&#x27;Kind&#x27;],loomSearchState.items.map(v=&gt;[`&lt;button type=&quot;button&quot; class=&quot;pa-search-result&quot; data-search-item=&quot;${esc(v.item_id)}&quot; data-search-revision=&quot;${esc(v.revision_id||&#x27;&#x27;)}&quot;&gt;${esc(v.label||v.path||v.item_id)}&lt;/button&gt;`,esc(v.kind)]));area.querySelector(&#x27;[data-search-more]&#x27;).hidden=!result.next_cursor;status.textContent=result.partial?&#x27;Partial results&#x27;:result.items.length?&#x27;&#x27;:&#x27;No results&#x27;;}catch(error){if(state===loomSearchState)status.textContent=error.message;}finally{state.busy=false;}}
 async function loomSearchDetail(id,kind,revision){const sequence=++loomSearchDetailSequence;const area=document.querySelector(&#x27;[data-search-detail]&#x27;);if(!area)return;area.innerHTML=&#x27;…&#x27;;try{const hit=loomSearchState.items.find(v=&gt;v.item_id===id&amp;&amp;(!revision||v.revision_id===revision));let isFile=(kind||hit?.kind)===&#x27;file&#x27;;const item=await loomSearchAction(&#x27;results&#x27;,isFile?&#x27;get_file&#x27;:&#x27;get_item&#x27;,isFile?{file_item_id:id}:{item_id:id,...(revision?{revision_id:revision}:{})});if(sequence!==loomSearchDetailSequence)return;if(item.kind===&#x27;file&#x27;)isFile=true;area.innerHTML=`&lt;h3&gt;${esc(item.label||item.path||id)}&lt;/h3&gt;&lt;dl&gt;&lt;dt&gt;ID&lt;/dt&gt;&lt;dd&gt;${esc(item.item_id)}&lt;/dd&gt;&lt;dt&gt;Revision&lt;/dt&gt;&lt;dd&gt;${esc(item.revision_id||&#x27;—&#x27;)}&lt;/dd&gt;&lt;/dl&gt;${item.summary?`&lt;p&gt;${esc(item.summary)}&lt;/p&gt;`:&#x27;&#x27;}&lt;div data-search-related&gt;&lt;/div&gt;`;const related=area.querySelector(&#x27;[data-search-related]&#x27;);if(isFile){const text=/\.(jsonl?|txt|md|rs|py|toml|ya?ml|csv|log)$/i.test(item.path||&#x27;&#x27;);related.innerHTML=`&lt;dl&gt;${item.size!=null?`&lt;dt&gt;Bytes&lt;/dt&gt;&lt;dd&gt;${esc(item.size)}&lt;/dd&gt;`:&#x27;&#x27;}${item.sha256?`&lt;dt&gt;SHA-256&lt;/dt&gt;&lt;dd&gt;${esc(item.sha256)}&lt;/dd&gt;`:&#x27;&#x27;}&lt;/dl&gt;`+(text?`&lt;button data-search-read=&quot;${esc(id)}&quot;&gt;Preview&lt;/button&gt;&lt;pre data-search-preview&gt;&lt;/pre&gt;`:&#x27;&#x27;);return;}const files=await loomSearchAction(&#x27;results&#x27;,&#x27;item_files&#x27;,{item_id:id,revision_id:item.revision_id,limit:50});if(sequence!==loomSearchDetailSequence)return;loomSearchFilePages.set(id,{revision:item.revision_id,items:files.items,cursor:files.next_cursor});related.innerHTML=`&lt;div data-search-file-list&gt;${loomSearchFileTable(id)}&lt;/div&gt;&lt;div data-search-relations&gt;&lt;/div&gt;`;const relations=await loomSearchAction(&#x27;results&#x27;,&#x27;item_relations&#x27;,{item_id:id,revision_id:item.revision_id});if(sequence!==loomSearchDetailSequence)return;const declared=related.querySelector(&#x27;[data-search-relations]&#x27;);loomSearchRelationPages.set(id,{revision:item.revision_id,items:relations.items,cursor:relations.next_cursor});declared.innerHTML=loomSearchRelationTable(id);if(item.kind===&#x27;job&#x27;&amp;&amp;item.native_ref?.kind===&#x27;job&#x27;&amp;&amp;item.native_ref?.identity?.id){const streams=await loomSearchAction(&#x27;jobs&#x27;,&#x27;log_streams&#x27;,{id:item.native_ref.identity.id,limit:50});if(sequence!==loomSearchDetailSequence)return;related.innerHTML+=&#x27;&lt;h4&gt;Logs&lt;/h4&gt;&#x27;+streams.items.map(s=&gt;`&lt;button data-search-log=&quot;${esc(s.item_id)}&quot;&gt;${esc(s.stage)} · ${esc(s.attempt)}&lt;/button&gt;`).join(&#x27;&#x27;)+&#x27;&lt;pre data-search-preview&gt;&lt;/pre&gt;&#x27;;}}catch(error){area.textContent=error.message;}}
 root.addEventListener(&#x27;click&#x27;,event=&gt;{if(event.target.closest(&#x27;[data-item-search]&#x27;)){event.preventDefault();event.stopImmediatePropagation();loomSearchOpen();}},true);
@@ -5113,14 +5133,39 @@ function loomCatalogProjection(catalog) {
 
 // Bounded per-view transport. Payload trees, software combinations and logs stay lazy.
 const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityView=null;const loomCatalogOpening=new Set();
-const loomCatalogKinds={models:&#x27;model&#x27;,datasets:&#x27;dataset&#x27;,experiments:&#x27;experiment&#x27;,issues:&#x27;issue&#x27;,profiles:&#x27;profile&#x27;,components:&#x27;component&#x27;,tools:&#x27;tool&#x27;,runtimes:&#x27;runtime&#x27;,dependencies:&#x27;dependency&#x27;,scenarios:&#x27;scenario&#x27;,queue:&#x27;job&#x27;};
-function loomCatalogQuery(kind){const view=kind===&#x27;job&#x27;?&#x27;all&#x27;:catalogData.presentation_view||&#x27;research&#x27;;return {kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
+const loomCatalogKinds={models:&#x27;model&#x27;,datasets:&#x27;dataset&#x27;,experiments:&#x27;experiment&#x27;,issues:&#x27;issue&#x27;,profiles:&#x27;profile&#x27;,components:&#x27;component&#x27;,tools:&#x27;tool&#x27;,runtimes:&#x27;runtime&#x27;,dependencies:&#x27;dependency&#x27;,scenarios:&#x27;scenario&#x27;,queue:&#x27;job&#x27;,files:&#x27;explorer&#x27;};
+function loomCatalogQuery(kind){if(kind===&#x27;explorer&#x27;)return {kinds:[&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};const view=kind===&#x27;job&#x27;?(state.jobHistoryView||catalogData.presentation_view||&#x27;research&#x27;):catalogData.presentation_view||&#x27;research&#x27;;return {kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:kind===&#x27;job&#x27;?&#x27;all&#x27;:kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...([&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)&amp;&amp;state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
+// A bootstrap is a bounded seed, never a replacement for pages from its revision.
+function loomCatalogRefresh(value){
+ const changed=loomCatalogRevision!==value.revision;
+ const previous=catalogData.all_entities||catalogData.entities||[];
+ const open=new Set(ws.panes.map(p=&gt;activeTab(p).view.entity).filter(Boolean));
+ if(changed){loomCatalogPages.clear();loomScenarioGraphs.clear();loomCatalogRevision=value.revision;loomActivityView=null;
+  for(const id of open)queueMicrotask(async()=&gt;{
+   if(!catalogData.capabilities?.catalog_pages||loomCatalogOpening.has(id))return;
+   loomCatalogOpening.add(id);
+   try{await loomCatalogOpen(id,false);}catch(error){
+    // Keep the last good detail on a transient transport failure; an explicit
+    // missing source removes it rather than retaining a deleted record.
+    if(error.code===&#x27;unknown_item&#x27;||error.code===&#x27;not_found&#x27;){
+     catalogData.all_entities=(catalogData.all_entities||[]).filter(e=&gt;e.id!==id);
+     catalogData.entities=catalogData.entities.filter(e=&gt;e.id!==id);catalogRefreshViews();
+    }
+   }finally{loomCatalogOpening.delete(id);}
+  });
+ }
+ const old=changed?previous.filter(e=&gt;open.has(e.id)):previous;
+ const records=new Map(old.map(e=&gt;[e.id,e]));
+ for(const e of value.all_entities||value.entities){const old=records.get(e.id);records.set(e.id,old?.kind===&#x27;scenario&#x27;&amp;&amp;old.loom_scenario.revision&gt;e.loom_scenario?.revision?old:e);}
+ loomPresentationView=value.presentation_view||catalogData.presentation_view||&#x27;research&#x27;;
+ return catTitleSnapshot(loomCatalogProjection({...value,entities:[...records.values()]}));
+}
 function loomCatalogMerge(value){
  const existing=new Map((catalogData.all_entities||catalogData.entities).map(e=&gt;[e.id,e]));
  loomPresentationView=catalogData.presentation_view||&#x27;research&#x27;;
  const incoming=loomCatalogProjection(value);
- for(const e of incoming.all_entities||incoming.entities)existing.set(e.id,e);
+ for(const e of incoming.all_entities||incoming.entities){const old=existing.get(e.id);existing.set(e.id,old?.kind===&#x27;scenario&#x27;&amp;&amp;old.loom_scenario.revision&gt;e.loom_scenario?.revision?old:e);}
  // Old list pages can be refetched; keep the current record and recent browsing bounded.
  while(existing.size&gt;4000){const id=existing.keys().next().value;if(id===state.entity){const value=existing.get(id);existing.delete(id);existing.set(id,value);}else existing.delete(id);}
  const entities=[...existing.values()];
@@ -5163,7 +5208,7 @@ const loomPagedScenarios=loomScenarioView;
 loomScenarioView=function(){return loomPagedScenarios()+loomCatalogPager(&#x27;scenario&#x27;);};
 const loomPagedRender=render;
 render=function(){
- if(loomCatalogRevision!==catalogData.revision){loomCatalogPages.clear();loomCatalogRevision=catalogData.revision;}
+ if(loomCatalogRevision!==catalogData.revision){loomCatalogPages.clear();loomCatalogRevision=catalogData.revision;loomActivityView=null;}
  loomPagedRender();
  const kind=loomCatalogKinds[state.page];
  if(kind&amp;&amp;!state.entity)loomCatalogPager(kind);
@@ -5190,11 +5235,15 @@ activitySummary=function(entities,clock=Date.now(),through=clock){
   return [d.day,{jobs,assets,milliseconds:d.milliseconds,unknownTime,live:d.live,stale:d.live&amp;&amp;catalogData.activity.through*1000&lt;clock-60000}];
  }));
 };
-async function loomCatalogOpen(id){
- const tabKeyBefore=activeTab().id;
+async function loomCatalogOpen(id,navigate=true){
+ const tabKeyBefore=activeTab().id,known=catEntity(id);
+ if(known?.item_id){
+  const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:known.item_id,...(known.item_revision_id&amp;&amp;known.kind!==&#x27;scenario&#x27;?{revision_id:known.item_revision_id}:{})});
+  loomCatalogMerge(value);if(navigate&amp;&amp;activeTab().id===tabKeyBefore)openView(catView(id));catalogRefreshViews();return;
+ }
  if(/^(history|dependency):[0-9]+$/.test(id)){
   const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:id.slice(id.indexOf(&#x27;:&#x27;)+1)});
-  loomCatalogMerge(value);if(activeTab().id===tabKeyBefore)openView(catView(value.entities[0]?.id||id));catalogRefreshViews();return;
+  loomCatalogMerge(value);if(navigate&amp;&amp;activeTab().id===tabKeyBefore)openView(catView(value.entities[0]?.id||id));catalogRefreshViews();return;
  }
  let native=null;
  if(id.startsWith(&#x27;profile:&#x27;)) {
@@ -5211,9 +5260,33 @@ async function loomCatalogOpen(id){
  if(!hit){const name=native?.identity?.id||native?.identity?.kind||id;const page=await loomSearchAction(&#x27;results&#x27;,&#x27;search_items&#x27;,{text:name,view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:10});hit=page.items.find(e=&gt;(e.native_ref?.identity?.id===name||e.native_ref?.identity?.kind===name)&amp;&amp;(!native?.identity?.revision||e.native_ref.identity.revision===native.identity.revision));}
  if(!hit)throw Error(&#x27;Record unavailable&#x27;);
  const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:hit.item_id,...(hit.revision_id?{revision_id:hit.revision_id}:{})});
- loomCatalogMerge(value);if(activeTab().id===tabKeyBefore)openView(catView(catEntity(id)?id:value.entities[0]?.id||id));catalogRefreshViews();
+ loomCatalogMerge(value);if(navigate&amp;&amp;activeTab().id===tabKeyBefore)openView(catView(catEntity(id)?id:value.entities[0]?.id||id));catalogRefreshViews();
 }
 root.addEventListener(&#x27;click&#x27;,event=&gt;{const b=event.target.closest(&#x27;[data-entity]&#x27;);if(!catalogData.capabilities?.catalog_pages||!b||catEntity(b.dataset.entity))return;event.preventDefault();event.stopImmediatePropagation();loomCatalogOpen(b.dataset.entity).catch(error=&gt;{b.title=error.message;});},true);
+
+function loomTaskItems(items,kind){
+ if(![&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;,&#x27;run&#x27;].includes(kind))return items;
+ return items.filter(e=&gt;!state.researchTask||(e.task_refs||[]).some(t=&gt;t.id===state.researchTask.id))
+ .sort((a,b)=&gt;(a.task_refs?.[0]?.label||&#x27;\uffff&#x27;).localeCompare(b.task_refs?.[0]?.label||&#x27;\uffff&#x27;));
+}
+function loomTaskToolbar(){
+ const tasks=catalogData.research_tasks||[],selected=state.researchTask;
+ return &#x27;&lt;div class=&quot;pa-task-filter&quot;&gt;&lt;label&gt;Task &lt;select data-research-task&gt;&lt;option value=&quot;&quot;&gt;All tasks&lt;/option&gt;&#x27;+tasks.map(t=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(t.id+&#x27;:&#x27;+t.revision)+&#x27;&quot;&#x27;+(selected?.id===t.id&amp;&amp;selected?.revision===t.revision?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+esc(t.label)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;+(catalogData.capabilities?.curate&amp;&amp;catalogData.capabilities?.scenarios?&#x27;&lt;button data-scenario-create&gt;New Task&lt;/button&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+}
+function loomTaskLabels(entity){return (entity.task_refs||[]).map(t=&gt;&#x27;&lt;button class=&quot;pa-task-label&quot; data-entity=&quot;&#x27;+esc(t.id)+&#x27;&quot;&gt;&#x27;+esc(t.label)+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;);}
+const loomTaskCatalogRow=catListRow;
+catListRow=function(entity){return loomTaskCatalogRow(entity).replace(&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;,&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;+loomTaskLabels(entity));};
+const loomTaskResultCard=resultCard;
+resultCard=function(entity){return loomTaskResultCard(entity).replace(&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;,&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;+loomTaskLabels(entity));};
+const loomTaskModelList=modelList;
+modelList=function(){return loomTaskToolbar()+loomTaskModelList();};
+const loomTaskDatasetList=datasets;
+datasets=function(){return loomTaskToolbar()+loomTaskDatasetList();};
+const loomTaskExperimentList=experiments;
+experiments=function(){return loomTaskToolbar()+loomTaskExperimentList();};
+root.addEventListener(&#x27;change&#x27;,event=&gt;{const field=event.target.closest(&#x27;[data-research-task]&#x27;);if(!field)return;const pane=ws.panes.find(p=&gt;p.id===field.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);if(!pane)return;const value=field.value;activeTab(pane).view.researchTask=(catalogData.research_tasks||[]).find(t=&gt;t.id+&#x27;:&#x27;+t.revision===value);render();persist();});
+
+const loomPagedFiles=files;files=function(){return loomPagedFiles()+loomCatalogPager(&quot;explorer&quot;);};
 
 // Flat marks use compositor-friendly CSS; no animation frame loop on Dashboard.
 (()=&gt;{const sync=()=&gt;document.documentElement.toggleAttribute(&#x27;data-loom-motion-hidden&#x27;,document.hidden);document.addEventListener(&#x27;visibilitychange&#x27;,sync);sync();
@@ -6023,6 +6096,11 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 #pai-studio .pa-dependency-installation{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;margin:12px 0}
 #pai-studio .pa-dependency-installation code{overflow-wrap:anywhere}
 @media(max-width:650px){#pai-studio .pa-dependency-installation{grid-template-columns:1fr;gap:6px}#pai-studio .pa-dependency-categories button{flex:1 1 180px}}
+
+.pa-task-filter{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 16px}.pa-task-filter label{display:flex;align-items:center;gap:8px}.pa-task-filter select{max-width:min(65vw,360px)}.pa-task-label{display:block;width:fit-content;max-width:100%;font-size:12px;color:var(--muted);margin:0 0 6px;padding:2px 6px;border:1px solid var(--border);border-radius:5px;white-space:normal;text-align:left}
+#pai-studio .pa-input-properties{max-width:100%;min-width:0}
+#pai-studio .pa-input-property{max-width:100%;min-width:0;align-items:baseline}
+#pai-studio .pa-input-property b{min-width:0;white-space:normal;overflow-wrap:anywhere}
 /* Brand animation is decorative, never a live Job/status indicator. */
 :root{--loom-brand-accent:light-dark(#436fc7,#9bb9f1)}
 .loom-logo{overflow:visible;--loom-logo-blue:var(--loom-brand-accent)}
@@ -6600,9 +6678,12 @@ function loomCatalogProjection(catalog) {
       const incoming = await catalogRequest;
       if (signal.aborted) return;
       if (!Array.isArray(incoming.entities)) throw new Error('Invalid catalog response');
+      const sameRevision=catalogRevision===incoming.revision;
+      const records=new Map((sameRevision?researchIncoming?.entities||[]:[]).map(e=>[e.id,e]));
+      for(const entity of incoming.entities)records.set(entity.id,entity);
       catalogRevision = incoming.revision;
-      researchIncoming=incoming;
-      const catalog = loomCatalogProjection(incoming);
+      researchIncoming={...incoming,entities:[...records.values()]};
+      const catalog = loomCatalogProjection(researchIncoming);
       catalogEntities = new Map((catalog.all_entities||catalog.entities).map(entity => [entity.id, entity]));
       emit('pai-catalog-data', {catalog, connected: true});
       window.dispatchEvent(new Event('pai-auth-restored'));
@@ -6752,7 +6833,7 @@ function loomCatalogProjection(catalog) {
   async function searchAction(message) {
     const allowed={results:['search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file'],jobs:['log_streams','read_log','search_logs'],system:['search_status','dashboard_summary','dashboard_page','dashboard_activity','dashboard_entity']};
     if(!signedIn()||!allowed[message.group]?.includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;
-    try{const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({group:message.group,action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(15000)});const value=await response.json();if(response.ok&&message.group==='system'&&['dashboard_page','dashboard_entity'].includes(message.action)){for(const entity of value.entities||[])catalogEntities.set(entity.id,entity);}emit('loom-search-result',{id:message.id,ok:response.ok,value});}catch(error){emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});}
+    try{const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({group:message.group,action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(15000)});const value=await response.json();if(response.ok&&message.group==='system'&&['dashboard_page','dashboard_entity'].includes(message.action)){for(const entity of value.entities||[])catalogEntities.set(entity.id,entity);if(value.revision===catalogRevision){const records=new Map((researchIncoming?.entities||[]).map(e=>[e.id,e]));for(const entity of value.entities||[]){catalogEntities.set(entity.id,entity);records.set(entity.id,entity);}while(records.size>4000)records.delete(records.keys().next().value);researchIncoming={...researchIncoming,entities:[...records.values()]};}}emit('loom-search-result',{id:message.id,ok:response.ok,value});}catch(error){emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});}
   }
   async function scenarioAction(message) {
     if(!signedIn()||!['scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link'].includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;

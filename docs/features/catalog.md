@@ -61,3 +61,9 @@ Run the affected suites and `deploy/features.py check`; see [the verification ma
 
 Acceptance outside these fixtures:
 - Verify migrated data reference integrity separately from fixtures.
+
+Completed consolidation sources expose consolidated_into only while the frozen
+source Attempt still matches and the accepted consolidation is complete with
+ready artifacts. Research history can include support work without expanding
+those source executions into separate main Jobs. A later source Attempt remains
+visible and does not inherit the old consolidation's completion.

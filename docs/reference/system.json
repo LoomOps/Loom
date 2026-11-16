@@ -405,7 +405,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "dashboard_page",
-      "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search.",
+      "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both.",
       "errors": [
         "source_conflict",
         "plan_stale",
@@ -532,6 +532,11 @@
               "revision"
             ],
             "type": "object"
+          },
+          "task_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
           },
           "text": {
             "maxLength": 1024,

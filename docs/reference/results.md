@@ -512,7 +512,7 @@ Unregistered profile or missing artifact.
 
 ## scenarios
 
-List versioned research task/protocol contexts. Archived Scenarios are omitted unless requested.
+List versioned research task/protocol contexts. Archived Research Tasks are omitted unless requested.
 
 Scope: `read`. Owner: [scenarios](../features/scenarios.md). Implementation: [rust/crates/core/src/scenario.rs#scenario_query](../../rust/crates/core/src/scenario.rs).
 
@@ -560,13 +560,13 @@ Illustrative arguments. Replace symbolic identities, hashes and values with disc
 
 ### Result and failures
 
-Scenario summaries with current revision
+Research Task summaries with current revision
 
 Shared authentication, schema, scope and handler preconditions still apply.
 
 ## get_scenario
 
-Read an exact Scenario revision, or the current revision when omitted. Archive state does not erase accepted context.
+Read an exact Research Task revision, or the current revision when omitted. Archive state does not erase accepted context.
 
 Scope: `read`. Owner: [scenarios](../features/scenarios.md). Implementation: [rust/crates/core/src/scenario.rs#scenario_query](../../rust/crates/core/src/scenario.rs).
 
@@ -615,13 +615,13 @@ Illustrative arguments. Replace symbolic identities, hashes and values with disc
 
 ### Result and failures
 
-Scenario definition, revision and digest
+Research Task definition, revision and digest
 
 Unknown Scenario or revision.
 
 ## scenario_graph
 
-Page explicit links for a Scenario revision; links describe context and do not schedule execution.
+Page explicit links for a Research Task revision; links describe context and do not schedule execution.
 
 Scope: `read`. Owner: [scenarios](../features/scenarios.md). Implementation: [rust/crates/core/src/scenario.rs#scenario_query](../../rust/crates/core/src/scenario.rs).
 
@@ -683,7 +683,7 @@ Illustrative arguments. Replace symbolic identities, hashes and values with disc
 
 ### Result and failures
 
-Scenario and bounded links
+Research Task and bounded links
 
 Unknown Scenario revision.
 
@@ -828,7 +828,7 @@ Stale expected_revision, archived Scenario or key conflict.
 
 ## archive_scenario
 
-Remove a Scenario from default discovery using an expected current revision. Exact accepted references remain valid.
+Remove a Research Task from default discovery using an expected current revision. Exact accepted references remain valid.
 
 Scope: `submit`. Owner: [scenarios](../features/scenarios.md). Implementation: [rust/crates/core/src/scenario.rs#archive_scenario](../../rust/crates/core/src/scenario.rs).
 
@@ -1622,7 +1622,7 @@ unknown_item index_unavailable cursor_expired source_unavailable content_changed
 
 ## search_items
 
-Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits.
+Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both.
 
 Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/index_store.rs#search_items](../../rust/crates/core/src/index_store.rs).
 
@@ -1646,6 +1646,7 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 | `related_to` | no | `"object"` | `—` |
 | `role` | no | `["all", "main", "support", "test"]` | `—` |
 | `scenario_ref` | no | `"object"` | `—` |
+| `task_id` | no | `"string"` | `—` |
 | `text` | no | `"string"` | `—` |
 | `timeout_ms` | no | `"integer"` | `—` |
 | `view` | no | `["all", "research", "operations"]` | `—` |
@@ -1758,6 +1759,11 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
       ],
       "type": "object"
     },
+    "task_id": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
     "text": {
       "maxLength": 1024,
       "type": "string"
@@ -1824,6 +1830,7 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 | `revision_id` | no | `"string"` | `—` |
 | `role` | no | `["all", "main", "support", "test"]` | `—` |
 | `scenario_ref` | no | `"object"` | `—` |
+| `task_id` | no | `"string"` | `—` |
 | `text` | no | `"string"` | `—` |
 | `timeout_ms` | no | `"integer"` | `—` |
 | `view` | no | `["all", "research", "operations"]` | `—` |
@@ -1943,6 +1950,11 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
         "revision"
       ],
       "type": "object"
+    },
+    "task_id": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
     },
     "text": {
       "maxLength": 1024,
