@@ -106,8 +106,8 @@ window.addEventListener('message',event=>{
 });
 
 function loomDevelopmentJob(e){
- if(e.properties?.category==='development'||e.properties?.purpose==='engineering'||e.presentation?.role==='support')return true;
- return (catalogData.all_entities||catalogData.entities).some(output=>output.kind==='model'&&(output.loom_job?.id===e.id||output.presentation?.parent_job===e.id)&&modelFilterMeta(output).role==='Observer');
+ // Queue grouping must not depend on which output pages happen to be cached.
+ return e.properties?.category==='development'||e.properties?.purpose==='engineering'||e.presentation?.role==='support';
 }
 const loomDevelopmentWorkRow=workRow;
 workRow=function(e,current){const row=loomDevelopmentWorkRow(e,current);if(loomDevelopmentJob(e))row[0]='<small class="pa-job-development">Development / Supporting</small>'+row[0];return row;};

@@ -4667,8 +4667,8 @@ window.addEventListener(&#x27;message&#x27;,event=&gt;{
 });
 
 function loomDevelopmentJob(e){
- if(e.properties?.category===&#x27;development&#x27;||e.properties?.purpose===&#x27;engineering&#x27;||e.presentation?.role===&#x27;support&#x27;)return true;
- return (catalogData.all_entities||catalogData.entities).some(output=&gt;output.kind===&#x27;model&#x27;&amp;&amp;(output.loom_job?.id===e.id||output.presentation?.parent_job===e.id)&amp;&amp;modelFilterMeta(output).role===&#x27;Observer&#x27;);
+ // Queue grouping must not depend on which output pages happen to be cached.
+ return e.properties?.category===&#x27;development&#x27;||e.properties?.purpose===&#x27;engineering&#x27;||e.presentation?.role===&#x27;support&#x27;;
 }
 const loomDevelopmentWorkRow=workRow;
 workRow=function(e,current){const row=loomDevelopmentWorkRow(e,current);if(loomDevelopmentJob(e))row[0]=&#x27;&lt;small class=&quot;pa-job-development&quot;&gt;Development / Supporting&lt;/small&gt;&#x27;+row[0];return row;};
