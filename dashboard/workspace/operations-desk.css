@@ -594,3 +594,20 @@
 @container pane (max-width:760px){#pai-studio .pa-scientific-card .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .pa-research-conditions{min-width:0;overflow:auto}
+
+/* Research inputs use responsive field groups, not a six-column table inside
+   half a detail pane. The original source description remains available. */
+#pai-studio .pa-research-input-panel{grid-column:1/-1;min-width:0}
+#pai-studio .pa-research-input-panel>.pa-panel{margin:0 0 16px}
+#pai-studio .pa-research-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 28px}
+#pai-studio .pa-research-inputs article{min-width:0}
+#pai-studio .pa-research-inputs h3{font-size:13px;line-height:1.5;margin:0 0 8px;font-weight:600}
+#pai-studio .pa-research-inputs dl{margin:0;display:grid;gap:7px}
+#pai-studio .pa-research-inputs dl>div{display:grid;grid-template-columns:100px minmax(0,1fr);gap:12px;align-items:start}
+#pai-studio .pa-research-inputs dt{font-size:12px;color:var(--pa-muted)}
+#pai-studio .pa-research-inputs dd{margin:0;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+#pai-studio .pa-scientific-facts dt{font-size:12px;line-height:1.4;white-space:normal;overflow-wrap:normal}
+#pai-studio .pa-scientific-facts>div{border:0;padding:0}
+#pai-studio .pa-scientific-card>.pa-research-conditions{grid-column:1/-1;min-width:0}
+@container pane (max-width:760px){#pai-studio .pa-research-inputs{grid-template-columns:minmax(0,1fr)}}
+@container pane (max-width:420px){#pai-studio .pa-research-overview .pa-scientific-facts{grid-template-columns:minmax(0,1fr)}#pai-studio .pa-research-inputs dl>div{grid-template-columns:76px minmax(0,1fr);gap:8px}}

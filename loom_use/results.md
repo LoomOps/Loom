@@ -90,3 +90,10 @@ applicable. Do not fill irrelevant or unmeasured fields. Units are explicit.
 Keep a compact JSON context/report as a registered output and reference its exact
 artifact hashes; a path string alone is not a verified source. Record observed
 physics/sensor settings rather than treating a requested recipe as readback.
+
+To persist recovered facts on an existing record, preview
+`results.refresh_metadata` with the exact entity/historical `target`, `reason` and
+`dry_run:true`. Apply with the returned `expected_source_sha256`, `dry_run:false`
+and a stable `key`. This adds a source-bound annotation; it does not revise a Model,
+Dataset, accepted manifest, historical body or scientific acceptance. Keep missing
+facts missing. Repeat only for the requested records, not every host file.

@@ -1549,6 +1549,33 @@ const done=arguments[arguments.length-1];
             for theme in ('light','dark'):
                 ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
 
+    def test_scientific_input_groups_fit_small_panes_and_do_not_duplicate_model_inputs(self):
+        ui=self.ui;model=next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-model')
+        model['properties']={};model['research_summary']={'schema':'loom-research-summary/v1','kind':'model','inputs':[{'kind':'rgb','label':'Head + wrist RGB','status':'present','shape':[2,48,64,3],'dtype':'uint8','preprocessing':'Calibrated resize preserving aspect ratio'},{'kind':'depth','label':'Depth','status':'present','shape':[2,48,64],'unit':'m'},{'kind':'state','label':'Recorded zero','status':'present','value':0}],'facts':[{'id':'architecture','section':'model','label':'Architecture','value':'FixtureNet','status':'recorded','evidence':[]}],'sources':[]}
+        self.api.fixture['catalog']['revision']='input-groups';ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('input-groups')")
+        ui.route('fixture-model');ui.wait("return !!document.querySelector('.pa-research-input-panel')")
+        self.assertFalse(ui.js("return !!document.querySelector('.pa-research-input-panel table')"))
+        self.assertIn('Value\n0',ui.js("return document.querySelector('.pa-research-input-panel').innerText"))
+        self.assertIn('2 × 48 × 64 × 3',ui.js("return document.querySelector('.pa-research-input-panel').innerText"))
+        self.assertFalse(ui.js("return !!document.querySelector('[data-research-section=model] [data-research-fact=inputs]')"))
+        for width in (1440,500,390):
+            ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+            for theme in ('light','dark'):
+                ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
+                self.assertTrue(ui.js("const input=document.querySelector('.pa-research-input-panel').getBoundingClientRect(),overview=document.querySelector('.pa-research-overview').getBoundingClientRect();return Math.abs(input.width-overview.width)<2"))
+
+    def test_metadata_only_same_revision_refresh_preserves_verified_research_facts(self):
+        ui=self.ui;model=next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-model');model['properties']={}
+        model['research_summary']={'schema':'loom-research-summary/v1','kind':'model','facts':[{'id':'validation_mean_error','section':'validation','label':'Validation point error','value':.004,'unit':'m','status':'recorded','evidence':[]}],'inputs':[],'sources':[{'kind':'file','ref':'validation.json','status':'verified','sha256':'a'*64}]}
+        self.api.fixture['catalog']['revision']='retained-facts';ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('retained-facts')")
+        ui.nav('Models');ui.wait("return document.querySelector('[data-output-id=fixture-model]')?.textContent.includes('4 mm')")
+        model['research_summary']={'schema':'loom-research-summary/v1','kind':'model','facts':[],'inputs':[],'sources':[]}
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");time.sleep(.5)
+        self.assertIn('4 mm',ui.js("return document.querySelector('[data-output-id=fixture-model]').textContent"))
+        self.api.fixture['catalog']['revision']='new-source-without-facts';ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('new-source-without-facts')")
+        ui.wait("return !document.querySelector('[data-output-id=fixture-model]')?.textContent.includes('4 mm')")
+
     def test_scientific_condition_comparison_keeps_separate_denominators(self):
         ui=self.ui
         row={'id':'condition-comparison-fixture','kind':'experiment','label':'Condition comparison','properties':{},'metrics':[],'relations':[],'artifacts':[],'research_summary':{'schema':'loom-research-summary/v1','kind':'experiment','inputs':[],'sources':[],'facts':[{'id':'condition_outcomes','label':'Condition outcomes','section':'evaluation','status':'recorded','evidence':[],'value':[{'condition':'RGB','strict_success':12,'functional_success':14,'valid':20,'planned':24},{'condition':'Depth','strict_success':8,'valid':10,'planned':10},{'condition':'Empty','strict_success':0,'valid':0,'planned':4}]}]}}

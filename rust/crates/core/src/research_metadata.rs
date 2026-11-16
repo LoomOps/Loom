@@ -1122,3 +1122,164 @@ pub fn enrich(app: &Application, entity: &mut Value) {
     summary["sources"] = json!(sources);
     entity["research_summary"] = summary;
 }
+
+fn snapshot_target(entity: &Value) -> Option<crate::contracts::Target> {
+    let (kind, identity) = if entity["loom_registry"].is_object() {
+        ("entity", entity["loom_registry"].clone())
+    } else if entity["loom_history"].is_object() {
+        ("historical", entity["loom_history"].clone())
+    } else {
+        return None;
+    };
+    Some(crate::contracts::Target {
+        kind: kind.into(),
+        identity,
+    })
+}
+fn snapshot_key(target: &crate::contracts::Target) -> crate::Result<String> {
+    Ok(crate::store::hash(serde_json::to_vec(target)?))
+}
+fn source_identity(
+    app: &Application,
+    target: &crate::contracts::Target,
+) -> crate::Result<(String, String)> {
+    use rusqlite::params;
+    crate::results::verify_target(&app.db, target, &app.config)?;
+    let v = &target.identity;
+    let (body,kind):(String,String)=match target.kind.as_str() {
+        "entity"=>app.db.query_row("SELECT manifest,kind FROM all_entity_revisions WHERE id=? AND revision=?",params![v["id"].as_str(),v["revision"].as_i64()],|r|Ok((r.get(0)?,r.get(1)?)))?,
+        "historical"=>app.db.query_row("SELECT body,kind FROM history_records WHERE source=? AND kind=? AND id=? AND revision=? AND snapshot=?",params![v["source"].as_str(),v["kind"].as_str(),v["id"].as_str(),v["revision"].as_str(),v["snapshot"].as_str()],|r|Ok((r.get(0)?,r.get(1)?)))?,
+        _=>return Err(crate::Error::input("Exact entity or historical research target required"))
+    };
+    crate::error::require(
+        matches!(kind.as_str(), "dataset" | "model" | "experiment" | "run"),
+        "metadata_kind",
+        "Target has no scientific metadata projection",
+        400,
+    )?;
+    Ok((crate::store::hash(body), kind))
+}
+/// Retain recovered facts on the exact original revision. This is an annotation,
+/// never a replacement of an accepted manifest or a historical source body.
+pub fn attach_materialized(app: &Application, entity: &mut Value) -> crate::Result<()> {
+    use rusqlite::OptionalExtension;
+    let Some(target) = snapshot_target(entity) else {
+        return Ok(());
+    };
+    let old: Option<String> = app
+        .db
+        .query_row(
+            "SELECT body FROM rust_annotations WHERE kind='research_metadata' AND id=?",
+            [snapshot_key(&target)?],
+            |r| r.get(0),
+        )
+        .optional()?;
+    let Some(old) = old else {
+        return Ok(());
+    };
+    let saved: Value = serde_json::from_str(&old)?;
+    let (sha, _) = source_identity(app, &target)?;
+    if saved["source_sha256"] != sha || saved["extractor_version"] != 1 {
+        return Ok(());
+    }
+    if !entity["research_summary"].is_object() {
+        entity["research_summary"] = summarize(entity, &[]);
+    }
+    let summary = &mut entity["research_summary"];
+    for key in ["facts", "inputs", "sources"] {
+        let mut current = summary[key].as_array().cloned().unwrap_or_default();
+        for item in saved["summary"][key].as_array().into_iter().flatten() {
+            let duplicate = current.iter().any(|old| match key {
+                "facts" => old["id"] == item["id"],
+                "inputs" => old["kind"] == item["kind"] && old["label"] == item["label"],
+                _ => old["media_id"] == item["media_id"] && old["sha256"] == item["sha256"],
+            });
+            if !duplicate {
+                current.push(item.clone());
+            }
+        }
+        summary[key] = json!(current);
+    }
+    summary["materialized"] = json!({"source_sha256":sha,"captured_at":saved["captured_at"],"captured_by":saved["captured_by"]});
+    Ok(())
+}
+impl Application {
+    pub fn refresh_research_metadata(
+        &mut self,
+        actor: &crate::auth::Actor,
+        args: Value,
+    ) -> crate::Result<Value> {
+        use crate::{error::require, store::*};
+        let target: crate::contracts::Target = crate::contracts::decode(args["target"].clone())?;
+        let (source_sha, kind) = source_identity(self, &target)?;
+        let dry_run = args["dry_run"].as_bool().unwrap_or(true);
+        if !dry_run {
+            require(
+                args["expected_source_sha256"] == source_sha,
+                "source_changed",
+                "Source digest changed or preview digest missing",
+                409,
+            )?;
+            if let Some(receipt) = replay(
+                &self.db,
+                actor,
+                args["key"]
+                    .as_str()
+                    .ok_or_else(|| crate::Error::input("Request key required"))?,
+                "research.metadata",
+                &args,
+            )? {
+                return Ok(receipt);
+            }
+        }
+        let selected = json!({"native_ref":target,"kind":kind});
+        let value = self.dashboard_catalog_selected(Some(&[selected]))?;
+        let mut entity = value["entities"]
+            .as_array()
+            .and_then(|a| {
+                a.iter().find(|e| {
+                    snapshot_target(e)
+                        .is_some_and(|t| t.kind == target.kind && t.identity == target.identity)
+                })
+            })
+            .cloned()
+            .ok_or_else(|| crate::Error::input("Target projection unavailable"))?;
+        // Recompute from accepted metadata and currently verified sources. A
+        // previous snapshot cannot masquerade as newly verified evidence.
+        enrich(self, &mut entity);
+        let summary = &entity["research_summary"];
+        let facts = summary["facts"].as_array().map(Vec::len).unwrap_or(0);
+        let inputs = summary["inputs"].as_array().map(Vec::len).unwrap_or(0);
+        let mut receipt = json!({"target":target,"source_sha256":source_sha,"facts":facts,"inputs":inputs,"dry_run":dry_run,"stored":false});
+        if dry_run {
+            return Ok(receipt);
+        }
+        require(
+            facts + inputs > 0,
+            "metadata_unavailable",
+            "No recorded scientific facts or typed inputs could be recovered",
+            409,
+        )?;
+        let snapshot = json!({"schema":"loom-materialized-research/v1","extractor_version":1,"target":target,"source_sha256":source_sha,"summary":summary,"captured_at":now(),"captured_by":actor.id,"reason":args["reason"]});
+        require(
+            serde_json::to_vec(&snapshot)?.len() <= 1024 * 1024,
+            "metadata_size",
+            "Recovered metadata exceeds one MiB",
+            400,
+        )?;
+        let tx = self.transaction()?;
+        active(&tx)?;
+        tx.execute("INSERT INTO rust_annotations VALUES('research_metadata',?,?,?) ON CONFLICT(kind,id) DO UPDATE SET body=excluded.body,updated=excluded.updated",rusqlite::params![snapshot_key(&target)?,encode(&snapshot)?,now()])?;
+        receipt["stored"] = json!(true);
+        crate::store::receipt(
+            &tx,
+            actor,
+            args["key"].as_str().unwrap(),
+            "research.metadata",
+            &args,
+            &receipt,
+        )?;
+        tx.commit()?;
+        Ok(receipt)
+    }
+}

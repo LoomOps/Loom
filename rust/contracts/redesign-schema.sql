@@ -95,3 +95,7 @@ CREATE TRIGGER IF NOT EXISTS rust_projection_runtime_update AFTER UPDATE ON rust
 CREATE TRIGGER IF NOT EXISTS rust_projection_person_insert AFTER INSERT ON user_profiles BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; END;
 CREATE TRIGGER IF NOT EXISTS rust_projection_person_update AFTER UPDATE ON user_profiles WHEN OLD.display_name IS NOT NEW.display_name OR OLD.login IS NOT NEW.login BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; END;
 CREATE TRIGGER IF NOT EXISTS rust_projection_annotations_insert AFTER INSERT ON job_annotations BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; END;
+
+CREATE TRIGGER IF NOT EXISTS rust_projection_metadata_insert AFTER INSERT ON rust_annotations WHEN NEW.kind='research_metadata' BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; END;
+CREATE TRIGGER IF NOT EXISTS rust_projection_metadata_update AFTER UPDATE ON rust_annotations WHEN NEW.kind='research_metadata' BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; END;
+CREATE TRIGGER IF NOT EXISTS rust_projection_metadata_delete AFTER DELETE ON rust_annotations WHEN OLD.kind='research_metadata' BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; END;

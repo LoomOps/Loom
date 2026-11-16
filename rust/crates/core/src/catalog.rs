@@ -478,6 +478,12 @@ impl Application {
             } else {
                 crate::research_metadata::enrich(self, entity);
             }
+            if matches!(
+                entity["kind"].as_str(),
+                Some("model" | "dataset" | "experiment" | "run")
+            ) {
+                crate::research_metadata::attach_materialized(self, entity)?;
+            }
         }
         self.attach_task_context(&mut entities)?;
         let queue = self.queue()?;

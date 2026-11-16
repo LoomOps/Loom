@@ -2896,3 +2896,126 @@ fn scientific_condition_outcomes_keep_populations_separate_and_reject_check_coun
         .iter()
         .any(|f| f["id"] == "success"));
 }
+
+#[test]
+fn metadata_materialization_preserves_source_survives_restart_and_file_loss() {
+    let mut f = Fixture::new();
+    let data = f.root.join("data");
+    let raw = br#"{"physics_hz":240,"sampling_clocks_hz":{"command":80},"hdf5":{"rgb":"obs/rgb"}}"#;
+    fs::write(data.join("captured.json"), raw).unwrap();
+    let manifest = json!({"id":"capture","revision":1,"kind":"dataset","components":[{"ref":"captured.json","size":raw.len(),"sha256":hash(raw)}],"relations":[]});
+    f.app
+        .db
+        .execute(
+            "INSERT INTO asset_revisions VALUES('capture',1,NULL,'dataset','owner','owner',?)",
+            [manifest.to_string()],
+        )
+        .unwrap();
+    f.app.db.execute("INSERT INTO asset_locations VALUES('capture',1,'captured.json','fixture','fixture-data','captured.json','available')",[]).unwrap();
+    let target = json!({"kind":"entity","identity":{"id":"capture","revision":1}});
+    let preview = f
+        .call(
+            "results",
+            "refresh_metadata",
+            json!({"target":target,"reason":"fixture"}),
+        )
+        .unwrap();
+    assert_eq!(preview["dry_run"], true);
+    assert_eq!(f.count("rust_annotations"), 0);
+    let args = json!({"target":target,"reason":"fixture","dry_run":false,"key":"capture-fixture","expected_source_sha256":preview["source_sha256"]});
+    let mut wrong = args.clone();
+    wrong["expected_source_sha256"] = json!("f".repeat(64));
+    assert_eq!(
+        f.call("results", "refresh_metadata", wrong)
+            .unwrap_err()
+            .code,
+        "source_changed"
+    );
+    assert_eq!(f.count("rust_annotations"), 0);
+    let stored = f.call("results", "refresh_metadata", args.clone()).unwrap();
+    assert_eq!(stored["stored"], true);
+    assert_eq!(f.call("results", "refresh_metadata", args).unwrap(), stored);
+    assert_eq!(
+        f.app
+            .db
+            .query_row(
+                "SELECT manifest FROM asset_revisions WHERE id='capture'",
+                [],
+                |r| r.get::<_, String>(0)
+            )
+            .unwrap(),
+        manifest.to_string()
+    );
+    fs::remove_file(data.join("captured.json")).unwrap();
+    let reopened = Application::open(
+        &f.app.local,
+        &f.app.bulk,
+        &f.app.components,
+        f.app.config.clone(),
+    )
+    .unwrap();
+    let catalog = reopened.dashboard_catalog().unwrap();
+    let summary = &catalog["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == "capture")
+        .unwrap()["research_summary"];
+    assert!(summary["materialized"]["captured_at"].is_number());
+    assert!(summary["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|v| v["id"] == "physics_hz" && v["value"] == 240));
+    let fresh = f
+        .call(
+            "results",
+            "refresh_metadata",
+            json!({"target":target,"reason":"new preview"}),
+        )
+        .unwrap();
+    assert_eq!(fresh["facts"], 0);
+    f.app.db.execute("UPDATE asset_revisions SET manifest=json_set(manifest,'$.metadata.changed',1) WHERE id='capture'",[]).unwrap();
+    let selected = json!({"native_ref":target});
+    let changed = f.app.dashboard_catalog_selected(Some(&[selected])).unwrap();
+    assert!(changed["entities"][0]["research_summary"]["materialized"].is_null());
+}
+
+#[test]
+fn metadata_materialization_is_exact_to_historical_snapshot_and_scope() {
+    let mut f = Fixture::new();
+    for (snapshot, hz) in [("first", 120), ("second", 240)] {
+        let body = json!({"entity":{"id":"legacy","kind":"dataset","label":"Dataset","properties":{"physics_hz":hz},"relations":[],"artifacts":[]}});
+        f.app
+            .db
+            .execute(
+                "INSERT INTO history_records VALUES('source','dataset','legacy','r1',?,?)",
+                rusqlite::params![snapshot, body.to_string()],
+            )
+            .unwrap();
+    }
+    let target = json!({"kind":"historical","identity":{"source":"source","kind":"dataset","id":"legacy","revision":"r1","snapshot":"first"}});
+    let preview = f
+        .call(
+            "results",
+            "refresh_metadata",
+            json!({"target":target,"reason":"fixture"}),
+        )
+        .unwrap();
+    let args = json!({"target":target,"reason":"fixture","dry_run":false,"key":"historical-capture","expected_source_sha256":preview["source_sha256"]});
+    let mut actor = f.actor.clone();
+    actor.scopes = vec!["read".into()];
+    assert_eq!(
+        f.app
+            .execute(&actor, "results", "refresh_metadata", args.clone())
+            .unwrap_err()
+            .status,
+        403
+    );
+    f.call("results", "refresh_metadata", args).unwrap();
+    assert_eq!(f.count("rust_annotations"), 1);
+    assert_eq!(f.count("history_records"), 2);
+    let mut entity = json!({"kind":"dataset","loom_history":{"source":"source","kind":"dataset","id":"legacy","revision":"r1","snapshot":"second"}});
+    crate::research_metadata::attach_materialized(&f.app, &mut entity).unwrap();
+    assert!(entity["research_summary"].is_null());
+}

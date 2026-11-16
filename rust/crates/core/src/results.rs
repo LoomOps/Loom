@@ -121,6 +121,7 @@ impl Application {
                 tx.commit()?;
                 Ok(json!({"id":id,"attempt":attempt,"state":"processing"}))
             }
+            "refresh_metadata" => self.refresh_research_metadata(actor, args),
             "annotate" => {
                 let id = args["id"]
                     .as_str()

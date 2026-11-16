@@ -156,3 +156,10 @@ Explicit condition comparisons show Strict/Functional success counts over each
 condition's valid population, plus planned counts. They are not pooled into a
 headline rate. Check counters and counts greater than their population are not
 task outcome measurements.
+
+Scientific inputs use full-width responsive groups with signal, shape, units,
+dtype and preprocessing only when recorded. Dataset observations and Model inputs
+share this renderer. Detail summaries do not duplicate input tensors in both the
+Model panel and the Inputs panel. Empty list facts do not reserve blank rows.
+A same-generation metadata-only bootstrap retains verified detail/page facts;
+an exact read or a new source generation can replace them explicitly.

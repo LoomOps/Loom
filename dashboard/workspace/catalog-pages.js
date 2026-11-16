@@ -28,9 +28,18 @@ function loomCatalogRefresh(value){
  const retained=new Set([...open,...[...loomCatalogPages.values()].flatMap(page=>page.ids||[])]);
  const old=changed?previous.filter(e=>retained.has(e.id)||catalogData.capabilities?.catalog_pages&&['model','dataset','run','experiment'].includes(e.kind)):previous;
  const records=new Map(old.map(e=>[e.id,e]));
- for(const e of value.all_entities||value.entities){const old=records.get(e.id);records.set(e.id,old?.kind==='scenario'&&old.loom_scenario.revision>e.loom_scenario?.revision?old:e);}
+ for(const e of value.all_entities||value.entities){const old=records.get(e.id);records.set(e.id,old?.kind==='scenario'&&old.loom_scenario.revision>e.loom_scenario?.revision?old:loomCatalogRetainResearch(old,e,!changed));}
  loomPresentationView=value.presentation_view||catalogData.presentation_view||'research';
  return catTitleSnapshot(loomCatalogProjection({...value,entities:[...records.values()]}));
+}
+function loomCatalogRetainResearch(previous,incoming,sameRevision){
+ if(!sameRevision||!previous?.research_summary||!incoming.research_summary)return incoming;
+ const old=previous.research_summary,next=incoming.research_summary;
+ if((old.materialized||old.sources?.some(s=>s.status==='verified'))&&!next.materialized&&!next.sources?.some(s=>s.status==='verified')){
+  const seen=new Set((next.facts||[]).map(f=>f.id));
+  return {...incoming,research_summary:{...next,facts:[...(next.facts||[]),...(old.facts||[]).filter(f=>!seen.has(f.id))],inputs:next.inputs?.length?next.inputs:old.inputs,sources:old.sources,...(old.materialized?{materialized:old.materialized}:{})}};
+ }
+ return incoming;
 }
 function loomCatalogMerge(value){
  const existing=new Map((catalogData.all_entities||catalogData.entities).map(e=>[e.id,e]));

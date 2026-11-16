@@ -337,6 +337,81 @@
     },
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "refresh_metadata",
+      "description": "Preview or persist verified scientific browse facts for one exact existing entity/historical revision. The original manifest/body is preserved. Apply requires the preview source digest and a stable request key; unavailable fields are not fabricated.",
+      "errors": [
+        "Source changed, no recoverable metadata, unsupported target, maintenance fence or missing submit scope."
+      ],
+      "example": {
+        "dry_run": true,
+        "reason": "Recover registered scientific metadata",
+        "target": {
+          "identity": {
+            "id": "<entity-id>",
+            "revision": 1
+          },
+          "kind": "entity"
+        }
+      },
+      "example_note": "Preview first. Apply with dry_run=false, key and expected_source_sha256 from that preview.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/research_metadata.rs#refresh_research_metadata",
+        "feature": "catalog"
+      },
+      "returns": "Metadata receipt · target, source_sha256, facts, inputs, dry_run, stored",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "dry_run": {
+            "default": true,
+            "type": "boolean"
+          },
+          "expected_source_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "target": {
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object"
+              },
+              "kind": {
+                "enum": [
+                  "entity",
+                  "historical"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "identity"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "target",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Persist recovered research metadata"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "scenarios",
       "description": "List versioned research task/protocol contexts. Archived Research Tasks are omitted unless requested.",
       "errors": [],

@@ -14,7 +14,7 @@ The current native service is implemented in `rust/`. Python files in this block
 | Dashboard projection | `rust/crates/core/src/catalog.rs#dashboard_catalog` | DB, actor, instance config, storage roots | Current catalog including Owner overlay and availability facts | dashboard, api |
 | Artifact read | `rust/crates/core/src/media.rs#read` | Registered media index/key + allowed storage | Bounded allowed file stream or refusal; no arbitrary host path read | dashboard, api |
 
-Public actions and input schemas are in the generated [API reference](../reference/README.md). This block owns: `results.search_items`, `results.get_item`, `results.resolve_item`, `results.item_relations`, `results.item_files`, `results.get_file`, `results.read_file`, `jobs.log_streams`, `jobs.read_log`, `jobs.search_logs`, `system.dashboard_summary`, `system.search_status`, `system.rebuild_search`, `system.catalog_task`, `jobs.prune_logs`, `system.dashboard_page`, `system.dashboard_activity`, `system.dashboard_entity`, `system.prune_search`, `system.retry_catalog_task`.
+Public actions and input schemas are in the generated [API reference](../reference/README.md). This block owns: `results.refresh_metadata`, `results.search_items`, `results.get_item`, `results.resolve_item`, `results.item_relations`, `results.item_files`, `results.get_file`, `results.read_file`, `jobs.log_streams`, `jobs.read_log`, `jobs.search_logs`, `system.dashboard_summary`, `system.search_status`, `system.rebuild_search`, `system.catalog_task`, `jobs.prune_logs`, `system.dashboard_page`, `system.dashboard_activity`, `system.dashboard_entity`, `system.prune_search`, `system.retry_catalog_task`.
 
 ## Sources and contracts
 
@@ -91,7 +91,8 @@ At most 12 JSON files, 2 MiB each and 4 MiB aggregate are read per selected reco
 No archive extraction, arbitrary path found in JSON, model loading, code execution,
 recursive filesystem scan or database rewrite occurs. File access failures do not
 remove the original record or turn an unverified source into a scientific fact.
-This runs on the selected read page, outside the mutation lane.
+Automatic enrichment runs on the selected read page, outside the mutation lane.
+Explicit metadata capture is a bounded, single-record submit operation.
 
 Physics, controller/sensor clocks, annotation source and instructions stay separate.
 Model inputs carry their actual kind/shape/unit, not a generic used/unused label.
@@ -101,3 +102,20 @@ preserved; the summary does not change scientific acceptance.
 Whole-catalog compatibility/curation reads normalize accepted metadata only. They
 do not scan registered files inside the mutation lane; use a bounded page or exact
 Item detail to recover linked JSON context.
+
+## Persistent recovery of existing metadata
+
+`results.refresh_metadata` previews one exact entity/historical revision. Apply
+requires the returned source digest, a reason and an idempotent request key. The
+service derives facts from accepted metadata and registered verified JSON; callers
+cannot supply arbitrary scientific values. Captured facts, evidence and timestamps
+are stored as an exact-source annotation in `rust_annotations`, independently of
+the accepted manifest, history body, file bytes and display curation.
+
+Every catalog path includes a matching materialized annotation, including the
+metadata-only bootstrap. Live accepted facts lead; captured facts fill gaps. A
+source-body digest mismatch or incompatible extractor version disables the saved
+annotation. Stored facts remain recorded evidence when a source file later becomes
+unavailable; current file availability is distinct from capture-time verification.
+Re-running capture derives current sources again, not a re-stamped old annotation.
+Projection-version triggers invalidate catalog caches after annotation changes.

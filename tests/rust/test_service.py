@@ -190,3 +190,15 @@ r=t.rpc({'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'system',
   logs=self.call('jobs','read_log',{'stream_id':stream['item_id'],'tail':True});self.assertIsInstance(logs['offset'],str);self.assertTrue(logs['closed'])
   events=self.call('events','list',{'kind':'all'});self.assertEqual(sum(e['job']==id and e['code']=='complete' for e in events),1)
   self.assertNotIn('catalog.sqlite3',json.dumps(self.call('system','search_status',{})))
+
+ def test_metadata_capture_is_shared_by_http_mcp_and_catalog_without_source_rewrite(self):
+  import sqlite3
+  body={'entity':{'id':'metadata-fixture','kind':'dataset','label':'Measured dataset','properties':{'physics_hz':240},'relations':[],'artifacts':[]}}
+  db=sqlite3.connect(self.root/'state/ops.sqlite3');db.execute("INSERT INTO history_records VALUES('fixture','dataset','metadata-fixture','r1','snapshot',?)",(json.dumps(body),));db.commit();db.close()
+  target={'kind':'historical','identity':{'source':'fixture','kind':'dataset','id':'metadata-fixture','revision':'r1','snapshot':'snapshot'}}
+  preview=self.call('results','refresh_metadata',{'target':target,'reason':'fixture capture'})
+  args={'target':target,'reason':'fixture capture','dry_run':False,'key':'capture-http-mcp','expected_source_sha256':preview['source_sha256']}
+  reply=self.post('/mcp',{'jsonrpc':'2.0','id':78,'method':'tools/call','params':{'name':'results','arguments':{'action':'refresh_metadata','arguments':args}}})
+  self.assertFalse(reply['result'].get('isError',False));receipt=json.loads(reply['result']['content'][0]['text']);self.assertTrue(receipt['stored'])
+  self.assertEqual(self.call('results','refresh_metadata',args),receipt)
+  db=sqlite3.connect(self.root/'state/ops.sqlite3');self.assertEqual(json.loads(db.execute("SELECT body FROM history_records WHERE id='metadata-fixture'").fetchone()[0]),body);self.assertEqual(db.execute("SELECT count(*) FROM rust_annotations WHERE kind='research_metadata'").fetchone()[0],1);db.close()

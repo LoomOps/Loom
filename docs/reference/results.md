@@ -14,6 +14,7 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 - [history](#history)
 - [historical](#historical)
 - [assign_owner](#assign_owner)
+- [refresh_metadata](#refresh_metadata)
 - [scenarios](#scenarios)
 - [get_scenario](#get_scenario)
 - [scenario_graph](#scenario_graph)
@@ -509,6 +510,100 @@ Illustrative arguments. Replace symbolic identities, hashes and values with disc
 Item · id, owner, owner_profile
 
 Unregistered profile or missing artifact.
+
+## refresh_metadata
+
+Preview or persist verified scientific browse facts for one exact existing entity/historical revision. The original manifest/body is preserved. Apply requires the preview source digest and a stable request key; unavailable fields are not fabricated.
+
+Scope: `submit`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/research_metadata.rs#refresh_research_metadata](../../rust/crates/core/src/research_metadata.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `dry_run` | no | `"boolean"` | `true` |
+| `expected_source_sha256` | no | `"string"` | `—` |
+| `key` | no | `"string"` | `—` |
+| `reason` | yes | `"string"` | `—` |
+| `target` | yes | `"object"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "dry_run": {
+      "default": true,
+      "type": "boolean"
+    },
+    "expected_source_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "key": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "reason": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "target": {
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "type": "object"
+        },
+        "kind": {
+          "enum": [
+            "entity",
+            "historical"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "identity"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "target",
+    "reason"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "dry_run": true,
+  "reason": "Recover registered scientific metadata",
+  "target": {
+    "identity": {
+      "id": "<entity-id>",
+      "revision": 1
+    },
+    "kind": "entity"
+  }
+}
+```
+
+Preview first. Apply with dry_run=false, key and expected_source_sha256 from that preview.
+
+### Result and failures
+
+Metadata receipt · target, source_sha256, facts, inputs, dry_run, stored
+
+Source changed, no recoverable metadata, unsupported target, maintenance fence or missing submit scope.
 
 ## scenarios
 

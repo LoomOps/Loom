@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0-alpha.23
+
+- Persist recovered scientific metadata as exact-source annotations, with preview digests, idempotent apply, immutable original records and current cache invalidation. Include saved facts in every catalog projection.
+- Retain verified page/detail facts across metadata-only refreshes of the same generation. New revisions and exact reads can replace them explicitly.
+- Use full-width responsive input/observation groups, remove duplicate Model inputs, preserve readable labels in narrow panes and omit empty summary rows.
+
 ## 0.2.0-alpha.22
 
 - Preserve units on multi-valued clocks and meaningful precision on small scientific measurements. Apply the same source precedence/conflict handling to condition tables as scalar facts.

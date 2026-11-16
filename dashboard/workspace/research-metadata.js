@@ -1,6 +1,6 @@
 // One scientific summary for cards and details. Registered-source extraction and
 // provenance live in Rust; this module formats their values, never host files.
-const loomResearchSections={context:'Context',collection:'Collection',observations:'Observations',physics:'Physics & control',annotations:'Annotations',instructions:'Instructions',model:'Model',training:'Training',validation:'Validation',evaluation:'Evaluation',population:'Population',scoring:'Success criteria'};
+const loomResearchSections={context:'Context',collection:'Collection',observations:'Sensors',physics:'Physics & control',annotations:'Annotations',instructions:'Instructions',model:'Model',training:'Training',validation:'Validation',evaluation:'Evaluation',population:'Population',scoring:'Success criteria'};
 const loomResearchMissing=new Set(['미기록','미측정','Not recorded','Unknown']);
 function loomResearchSummary(e){
  if(e.research_summary?.schema==='loom-research-summary/v1')return e.research_summary;
@@ -115,28 +115,34 @@ function loomResearchCard(e,result=false){
  return '<article class="pa-catalog-item pa-scientific-card '+(e.kind==='dataset'?'pa-dataset-item':result?'pa-result-card':'')+'" data-output-id="'+esc(e.id)+'">'
   +loomTaskProperty(e)+'<div class="pa-row-main">'+catLink(e.id)+(result?resultDispositionPanel(e,true):'')+'</div>'
   +(outcomes.length?'<div class="pa-result-score">'+outcomes.map(m=>'<div class="pa-result-score-item"><small>'+esc(m.label)+'</small><strong>'+resultOutcomeValue(m)+'</strong></div>').join('')+'</div>':'')
-  +loomResearchFactsHTML(facts,true)+loomResearchConditions(e)
+  +(facts.length?loomResearchFactsHTML(facts,true):'')+loomResearchConditions(e)
   +(metrics.length>outcomes.length?'<details class="pa-output-metrics"><summary>Metrics · '+metrics.length+'</summary>'+catTable(['Metric','Value','Population'],metrics.map(m=>[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||m.aggregation||'—')]))+'</details>':'')+'</article>';
 }
 const loomResearchOldRow=catListRow;
 catListRow=function(e){return ['model','dataset'].includes(e.kind)?loomResearchCard(e):loomResearchOldRow(e);};
 resultCard=function(e){return loomResearchCard(e,true);};
+function loomResearchInputsHTML(inputs){
+ return '<div class="pa-research-inputs">'+inputs.map(x=>{
+  const value=x.shape?.length?x.shape.join(' × '):Array.isArray(x.value)?x.value.join(' · '):x.value;
+  const fields=[['Shape',x.shape?.length?value:null],['Value',!x.shape?.length&&value!==undefined&&value!==null&&value!==''&&!['사용','used','present','Present','Yes'].includes(value)?value:null],['Unit',x.unit],['Dtype',x.dtype],['Preprocessing',x.preprocessing]].filter(([,value])=>value!==undefined&&value!==null&&value!=='');
+  return '<article><h3>'+esc(x.label||loomResearchInputName(x))+'</h3>'+(fields.length?'<dl>'+fields.map(([label,value])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(value)+'</dd></div>').join('')+'</dl>':'')+'</article>';
+ }).join('')+'</div>';
+}
 function loomResearchOverview(e){
  const s=loomResearchSummary(e),map=loomResearchFactMap(e),inputs=s.inputs.filter(x=>x.status==='present');
- const order=e.kind==='model'?['model','validation','training','inputs','observations','physics','instructions','context']:
-  e.kind==='dataset'?['collection','physics','observations','annotations','instructions','context']:
+ const order=e.kind==='model'?['model','validation','inputs','training','observations','physics','instructions','context']:
+  e.kind==='dataset'?['collection','physics','inputs','observations','annotations','instructions','context']:
   ['evaluation','validation','training','scoring','population','physics','context','annotations','observations','instructions'];
  let body='<section class="pa-research-overview" aria-label="Research properties">';
  for(const id of order){
   if(id==='inputs'){
-   if(inputs.length)body+=panel('Inputs',catTable(['Signal','Shape / value','Unit','Dtype','Preprocessing'],inputs.map(x=>[esc(x.label||loomResearchInputName(x)),esc(x.shape?.join('×')||(Array.isArray(x.value)?x.value.join(' · '):x.value)||'—'),esc(x.unit||'—'),esc(x.dtype||'—'),esc(x.preprocessing||'—')])));
+   if(inputs.length)body+='<div class="pa-research-input-panel">'+panel(e.kind==='dataset'?'Observations':'Inputs',loomResearchInputsHTML(inputs))+'</div>';
    continue;
   }
   const facts=s.facts.filter(f=>f.section===id&&!['observation_schema','count_unit','condition_outcomes'].includes(f.id));
   if(id==='evaluation'&&map.has('condition_outcomes'))body+=panel('Condition outcomes',loomResearchConditions(e));
-  if(id==='model'&&inputs.length)facts.push({id:'inputs',label:'Inputs',value:loomResearchInputSummary(e),status:'recorded'});
   if(!facts.length)continue;
-  body+=panel(loomResearchSections[id],loomResearchFactsHTML(facts));
+  body+=panel(loomResearchSections[id],loomResearchFactsHTML(facts)).replace('<section ', '<section data-research-section="'+esc(id)+'" ');
  }
  const instruction=loomResearchInstruction(e);if(instruction&&!map.has('instruction_mode'))body+=panel('Instructions',catProperties({Mode:instruction}));
  const sourceRows=s.facts.flatMap(f=>(f.evidence||[]).map(ev=>[esc(f.label),esc(ev.source?.ref||'Record metadata'),esc(ev.pointer)]));

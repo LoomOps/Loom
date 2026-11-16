@@ -30,6 +30,15 @@ pub fn actions() -> Vec<Action> {
     let definitions = [
         (
             "results",
+            "refresh_metadata",
+            "submit",
+            object(
+                json!({"target":object(json!({"kind":{"enum":["entity","historical"]},"identity":{"type":"object"}}), &["kind","identity"]),"dry_run":{"type":"boolean","default":true},"key":string,"expected_source_sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},"reason":{"type":"string","minLength":1,"maxLength":2000}}),
+                &["target", "reason"],
+            ),
+        ),
+        (
+            "results",
             "scenarios",
             "read",
             object(

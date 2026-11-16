@@ -1771,5 +1771,29 @@
       "entrypoint": "rust/crates/core/src/results.rs#result_action"
     },
     "example_note": "Illustrative arguments. Replace symbolic identities, hashes and values with discovered records; check handler preconditions before a mutation."
+  },
+  "results.refresh_metadata": {
+    "title": "Persist recovered research metadata",
+    "description": "Preview or persist verified scientific browse facts for one exact existing entity/historical revision. The original manifest/body is preserved. Apply requires the preview source digest and a stable request key; unavailable fields are not fabricated.",
+    "returns": "Metadata receipt · target, source_sha256, facts, inputs, dry_run, stored",
+    "example": {
+      "target": {
+        "kind": "entity",
+        "identity": {
+          "id": "<entity-id>",
+          "revision": 1
+        }
+      },
+      "reason": "Recover registered scientific metadata",
+      "dry_run": true
+    },
+    "errors": [
+      "Source changed, no recoverable metadata, unsupported target, maintenance fence or missing submit scope."
+    ],
+    "implementation": {
+      "feature": "catalog",
+      "entrypoint": "rust/crates/core/src/research_metadata.rs#refresh_research_metadata"
+    },
+    "example_note": "Preview first. Apply with dry_run=false, key and expected_source_sha256 from that preview."
   }
 }
