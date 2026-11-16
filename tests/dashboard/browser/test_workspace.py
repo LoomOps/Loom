@@ -1551,11 +1551,13 @@ const done=arguments[arguments.length-1];
 
     def test_scientific_input_groups_fit_small_panes_and_do_not_duplicate_model_inputs(self):
         ui=self.ui;model=next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-model')
-        model['properties']={};model['research_summary']={'schema':'loom-research-summary/v1','kind':'model','inputs':[{'kind':'rgb','label':'Head + wrist RGB','status':'present','shape':[2,48,64,3],'dtype':'uint8','preprocessing':'Calibrated resize preserving aspect ratio'},{'kind':'depth','label':'Depth','status':'present','shape':[2,48,64],'unit':'m'},{'kind':'state','label':'Recorded zero','status':'present','value':0}],'facts':[{'id':'architecture','section':'model','label':'Architecture','value':'FixtureNet','status':'recorded','evidence':[]}],'sources':[]}
+        model['properties']={};model['research_summary']={'schema':'loom-research-summary/v1','kind':'model','inputs':[{'kind':'rgb','label':'Head + wrist RGB','status':'present','shape':[2,48,64,3],'dtype':'uint8','preprocessing':'Calibrated resize preserving aspect ratio'},{'kind':'depth','label':'Depth','status':'present','shape':[2,48,64],'unit':'m'},{'kind':'state','label':'Recorded zero','status':'present','value':0},{'kind':'state','label':'Structured value','status':'present','value':{'dimensions':8}}],'facts':[{'id':'architecture','section':'model','label':'Architecture','value':'FixtureNet','status':'recorded','evidence':[]}],'sources':[]}
         self.api.fixture['catalog']['revision']='input-groups';ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('input-groups')")
         ui.route('fixture-model');ui.wait("return !!document.querySelector('.pa-research-input-panel')")
         self.assertFalse(ui.js("return !!document.querySelector('.pa-research-input-panel table')"))
         self.assertIn('Value\n0',ui.js("return document.querySelector('.pa-research-input-panel').innerText"))
+        self.assertNotIn('[object Object]',ui.js("return document.querySelector('.pa-research-input-panel').innerText"))
+        self.assertIn('dimensions',ui.js("return document.querySelector('.pa-research-input-panel').innerText"))
         self.assertIn('2 × 48 × 64 × 3',ui.js("return document.querySelector('.pa-research-input-panel').innerText"))
         self.assertFalse(ui.js("return !!document.querySelector('[data-research-section=model] [data-research-fact=inputs]')"))
         for width in (1440,500,390):
@@ -1572,6 +1574,8 @@ const done=arguments[arguments.length-1];
         model['research_summary']={'schema':'loom-research-summary/v1','kind':'model','facts':[],'inputs':[],'sources':[]}
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");time.sleep(.5)
         self.assertIn('4 mm',ui.js("return document.querySelector('[data-output-id=fixture-model]').textContent"))
+        model['research_summary']['sources']=[{'kind':'file','ref':'validation.json','status':'unavailable'}]
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return !document.querySelector('[data-output-id=fixture-model]')?.textContent.includes('4 mm')")
         self.api.fixture['catalog']['revision']='new-source-without-facts';ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
         ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('new-source-without-facts')")
         ui.wait("return !document.querySelector('[data-output-id=fixture-model]')?.textContent.includes('4 mm')")

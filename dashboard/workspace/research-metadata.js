@@ -123,7 +123,7 @@ catListRow=function(e){return ['model','dataset'].includes(e.kind)?loomResearchC
 resultCard=function(e){return loomResearchCard(e,true);};
 function loomResearchInputsHTML(inputs){
  return '<div class="pa-research-inputs">'+inputs.map(x=>{
-  const value=x.shape?.length?x.shape.join(' × '):Array.isArray(x.value)?x.value.join(' · '):x.value;
+  const value=x.shape?.length?x.shape.join(' × '):Array.isArray(x.value)?x.value.map(v=>v&&typeof v==='object'?JSON.stringify(v):String(v)).join(' · '):x.value&&typeof x.value==='object'?JSON.stringify(x.value):x.value;
   const fields=[['Shape',x.shape?.length?value:null],['Value',!x.shape?.length&&value!==undefined&&value!==null&&value!==''&&!['사용','used','present','Present','Yes'].includes(value)?value:null],['Unit',x.unit],['Dtype',x.dtype],['Preprocessing',x.preprocessing]].filter(([,value])=>value!==undefined&&value!==null&&value!=='');
   return '<article><h3>'+esc(x.label||loomResearchInputName(x))+'</h3>'+(fields.length?'<dl>'+fields.map(([label,value])=>'<div><dt>'+esc(label)+'</dt><dd>'+esc(value)+'</dd></div>').join('')+'</dl>':'')+'</article>';
  }).join('')+'</div>';

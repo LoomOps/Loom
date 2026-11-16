@@ -35,7 +35,7 @@ function loomCatalogRefresh(value){
 function loomCatalogRetainResearch(previous,incoming,sameRevision){
  if(!sameRevision||!previous?.research_summary||!incoming.research_summary)return incoming;
  const old=previous.research_summary,next=incoming.research_summary;
- if((old.materialized||old.sources?.some(s=>s.status==='verified'))&&!next.materialized&&!next.sources?.some(s=>s.status==='verified')){
+ if((old.materialized||old.sources?.some(s=>s.status==='verified'))&&!next.materialized&&!(next.sources||[]).length){
   const seen=new Set((next.facts||[]).map(f=>f.id));
   return {...incoming,research_summary:{...next,facts:[...(next.facts||[]),...(old.facts||[]).filter(f=>!seen.has(f.id))],inputs:next.inputs?.length?next.inputs:old.inputs,sources:old.sources,...(old.materialized?{materialized:old.materialized}:{})}};
  }

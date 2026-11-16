@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0-alpha.24
+
+- Distinguish explicit source verification failures from metadata-only refreshes. Render structured input values without object placeholders.
+
 ## 0.2.0-alpha.23
 
 - Persist recovered scientific metadata as exact-source annotations, with preview digests, idempotent apply, immutable original records and current cache invalidation. Include saved facts in every catalog projection.
