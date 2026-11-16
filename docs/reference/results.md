@@ -39,7 +39,7 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 
 ## list
 
-Discover native artifacts and imported models/datasets/experiments from the active catalog. For record_type=historical, pass history_ref to results.historical; other entries use results.get. Discovery does not establish file availability.
+Discover native artifacts and imported models/datasets/experiments from the active catalog. For record_type=historical, pass history_ref to results.historical; other entries use results.get. Discovery does not establish file availability. Labels use current presentation curation; results.historical retains the recorded source name.
 
 Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/results.rs#result_action](../../rust/crates/core/src/results.rs).
 
@@ -134,7 +134,7 @@ Illustrative arguments. Replace symbolic identities, hashes and values with disc
 
 ### Result and failures
 
-Registry entity view
+Registry entity view with the current curated display label; the accepted source manifest, revision and file pins remain unchanged.
 
 Artifact access denied or missing revision.
 
@@ -1504,7 +1504,7 @@ source_conflict plan_stale validation_required content_changed retention_gap cur
 
 ## get_item
 
-Read a compact typed descriptor using a decimal-string Item ID and optional exact revision.
+Read a compact typed descriptor using a decimal-string Item ID and optional exact revision. Display labels use current curation even when an exact revision is selected; immutable source pins remain unchanged.
 
 Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/items.rs#get_item](../../rust/crates/core/src/items.rs).
 

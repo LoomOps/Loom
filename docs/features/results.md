@@ -46,3 +46,12 @@ Run the affected suites and `deploy/features.py check`; see [the verification ma
 
 Acceptance outside these fixtures:
 - Verify large artifacts and external filesystem failures against actual storage.
+
+## Current display names
+
+Output names are presentation curation. Native result reads, current listings,
+Item metadata (including an exact source revision) and Dashboard views use the
+current label without rewriting the accepted manifest or source definition.
+Historical source reads retain the recorded label. A parent Job title and Task
+membership do not replace an output name. Label changes keep native aliases,
+source hashes, file bindings and scientific revisions unchanged.

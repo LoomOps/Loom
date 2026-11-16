@@ -409,11 +409,22 @@ impl Application {
             } else {
                 entity["kind"].as_str().unwrap_or("")
             };
+            // A preserved DTO has a common Item ID, while its curation key is
+            // the original source identity. Task membership remains independent.
+            let historical = entity.get("loom_history").filter(|h| h.is_object());
+            let overlay_kind = if historical.is_some() && keykind == "run" {
+                "experiment"
+            } else {
+                keykind
+            };
+            let overlay_id = historical
+                .and_then(|h| h["id"].as_str())
+                .or_else(|| entity["id"].as_str());
             let overlay: Option<String> = self
                 .db
                 .query_row(
                     "SELECT presentation FROM research_overlays WHERE kind=? AND id=?",
-                    rusqlite::params![keykind, entity["id"].as_str()],
+                    rusqlite::params![overlay_kind, overlay_id],
                     |r| r.get(0),
                 )
                 .optional()?;
@@ -422,12 +433,18 @@ impl Application {
                 .cloned()
                 .unwrap_or_else(|| json!({"scope":"research","role":"main"}));
             if let Some(overlay) = overlay {
-                presentation.as_object_mut().unwrap().extend(
-                    serde_json::from_str::<Value>(&overlay)?
-                        .as_object()
-                        .unwrap()
-                        .clone(),
-                );
+                let curated: Value = serde_json::from_str(&overlay)?;
+                if matches!(
+                    entity["kind"].as_str(),
+                    Some("model" | "dataset" | "experiment" | "run")
+                ) && curated["label"].is_string()
+                {
+                    entity["label"] = curated["label"].clone();
+                }
+                presentation
+                    .as_object_mut()
+                    .unwrap()
+                    .extend(curated.as_object().unwrap().clone());
             }
             if entity["properties"]["workflow_root"].is_string() {
                 presentation["parent_job"] = entity["properties"]["workflow_root"].clone();

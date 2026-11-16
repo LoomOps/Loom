@@ -20,6 +20,21 @@ pub fn verify_target(db: &Connection, target: &Target, config: &Config) -> Resul
     require(exists, "target", "Exact target identity not found", 404)
 }
 impl Application {
+    // Display names are current curation, never a rewrite of an accepted source.
+    pub(crate) fn output_label(&self, kind: &str, id: &str, recorded: &Value) -> Result<Value> {
+        let overlay: Option<String> = self
+            .db
+            .query_row(
+                "SELECT presentation FROM research_overlays WHERE kind=? AND id=?",
+                params![kind, id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        Ok(overlay
+            .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+            .and_then(|p| p["label"].as_str().map(|s| json!(s)))
+            .unwrap_or_else(|| recorded.clone()))
+    }
     pub fn result_action(&mut self, actor: &Actor, action: &str, args: Value) -> Result<Value> {
         match action {
             "list" => self.results_listing(&args),
@@ -34,6 +49,10 @@ impl Application {
                     |r| r.get(0),
                 )?;
                 let mut value: Value = serde_json::from_str(&text)?;
+                let display_label = self.output_label("entity", id, &value["label"])?;
+                if display_label.is_string() {
+                    value["label"] = display_label;
+                }
                 if value["file_set"]["entries"]
                     .as_u64()
                     .is_some_and(|n| n > 200)

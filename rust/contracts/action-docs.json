@@ -514,7 +514,7 @@
   },
   "results.list": {
     "title": "List artifacts",
-    "description": "Discover native artifacts and imported models/datasets/experiments from the active catalog. For record_type=historical, pass history_ref to results.historical; other entries use results.get. Discovery does not establish file availability.",
+    "description": "Discover native artifacts and imported models/datasets/experiments from the active catalog. For record_type=historical, pass history_ref to results.historical; other entries use results.get. Discovery does not establish file availability. Labels use current presentation curation; results.historical retains the recorded source name.",
     "returns": "Artifact list · native registry entries or historical entries with history_ref and detail_action",
     "example": {},
     "errors": [],
@@ -527,7 +527,7 @@
   "results.get": {
     "title": "Artifact details",
     "description": "Read an artifact record by ID and revision.",
-    "returns": "Registry entity view",
+    "returns": "Registry entity view with the current curated display label; the accepted source manifest, revision and file pins remain unchanged.",
     "example": {
       "id": "<entity-id>",
       "revision": 1
@@ -981,7 +981,7 @@
   },
   "results.get_item": {
     "title": "Read Item",
-    "description": "Read a compact typed descriptor using a decimal-string Item ID and optional exact revision.",
+    "description": "Read a compact typed descriptor using a decimal-string Item ID and optional exact revision. Display labels use current curation even when an exact revision is selected; immutable source pins remain unchanged.",
     "returns": "Bounded typed JSON with exact IDs; explicit errors or partial coverage when unavailable.",
     "example": {
       "item_id": "12345678901234567890"

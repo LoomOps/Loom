@@ -50,7 +50,7 @@ impl Application {
    native.insert(row["id"].as_str().unwrap_or("").to_string());
    let overlay:Option<String>=self.db.query_row("SELECT presentation FROM research_overlays WHERE (kind='entity' AND id=?) OR (kind='job' AND id=?) ORDER BY kind LIMIT 1",params![row["id"].as_str(),row["job"].as_str()],|r|r.get(0)).optional()?;
    let mut presentation=manifest.get("presentation").or_else(||spec.get("presentation")).cloned().unwrap_or(json!({"scope":"research","role":"main"}));if let Some(overlay)=overlay{presentation.as_object_mut().unwrap().extend(serde_json::from_str::<Value>(&overlay)?.as_object().unwrap().clone());}
-   row.as_object_mut().unwrap().remove("manifest");row.as_object_mut().unwrap().remove("spec");row["record_type"]=json!("native");row["detail_action"]=json!("results.get");row["label"]=manifest.get("label").cloned().unwrap_or_else(||row["id"].clone());row["presentation"]=presentation;
+   row.as_object_mut().unwrap().remove("manifest");row.as_object_mut().unwrap().remove("spec");row["record_type"]=json!("native");row["detail_action"]=json!("results.get");row["label"]=self.output_label("entity",row["id"].as_str().unwrap_or(""),manifest.get("label").unwrap_or(&row["id"]))?;row["presentation"]=presentation;
    if view=="all"||row["presentation"]["scope"]==view{let id=row["id"].as_str().unwrap_or("").to_string();let owner=row["owner"].as_str().unwrap_or("").to_string();out.push(self.decorate_owner("entity",&id,&owner,row)?)}
   }
         let snapshot:Option<String>=self.db.query_row("SELECT snapshot FROM history_records WHERE source='catalog' ORDER BY rowid DESC LIMIT 1",[],|r|r.get(0)).optional()?;
@@ -58,7 +58,7 @@ impl Application {
             for row in rows(&self.db,"SELECT * FROM history_records WHERE source='catalog' AND snapshot=? AND kind IN ('model','dataset','run','experiment','artifact') ORDER BY rowid DESC",&[&snapshot])?{
    let id=row["id"].as_str().unwrap_or("");if !native.insert(id.into()){continue}let body:Value=serde_json::from_str(row["body"].as_str().unwrap_or("{}"))?;let original=&body["original"];
    let presentation=original.get("presentation").cloned().unwrap_or(json!({"scope":"research","role":"main"}));
-   if view=="all"||presentation["scope"]==view{out.push(json!({"id":id,"revision":row["revision"],"kind":row["kind"],"label":original.get("label").unwrap_or(&row["id"]),"record_type":"historical","history_ref":{"source":row["source"],"kind":row["kind"],"id":id,"revision":row["revision"],"snapshot":snapshot},"detail_action":"results.historical","presentation":presentation}));}
+   if view=="all"||presentation["scope"]==view{out.push(json!({"id":id,"revision":row["revision"],"kind":row["kind"],"label":self.output_label(if row["kind"]=="run"{"experiment"}else{row["kind"].as_str().unwrap_or("")},id,original.get("label").unwrap_or(&row["id"]))?,"record_type":"historical","history_ref":{"source":row["source"],"kind":row["kind"],"id":id,"revision":row["revision"],"snapshot":snapshot},"detail_action":"results.historical","presentation":presentation}));}
   }
         }
         Ok(json!(out))

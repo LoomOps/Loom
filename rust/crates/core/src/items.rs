@@ -366,6 +366,14 @@ pub fn adopt(db: &Connection, topic: &str, key: &Value) -> Result<()> {
     }
     if topic == "research_overlays" {
         let kind = key["kind"].as_str().unwrap_or("job");
+        if matches!(kind, "model" | "dataset" | "experiment") {
+            let refs=crate::store::rows(db,"SELECT r.native_ref FROM catalog_items i JOIN catalog_revisions r ON i.current_revision=r.id WHERE i.native_kind='historical' AND i.kind=? AND json_extract(r.native_ref,'$.identity.id')=?",&[&kind,&key["id"].as_str()])?;
+            for r in refs {
+                let native: Value = serde_json::from_str(r["native_ref"].as_str().unwrap_or("{}"))?;
+                adopt(db, "history_records", &native["identity"])?;
+            }
+            return Ok(());
+        }
         let table = match kind {
             "job" => "jobs",
             "component" => "components",
@@ -609,6 +617,19 @@ impl Application {
         };
         let text = body.ok_or_else(|| Error::new("unknown_item", "Item not found", 404))?;
         let mut value: Value = serde_json::from_str(&text)?;
+        let native = &value["native_ref"];
+        if matches!(native["kind"].as_str(), Some("entity" | "historical")) {
+            let kind = if native["kind"] == "entity" {
+                "entity"
+            } else {
+                value["kind"].as_str().unwrap_or("")
+            };
+            value["label"] = self.output_label(
+                kind,
+                native["identity"]["id"].as_str().unwrap_or(""),
+                &value["label"],
+            )?;
+        }
         value["files"] = json!({"action":"results.item_files","item_id":args["item_id"],"revision_id":value["revision_id"]});
         Ok(value)
     }

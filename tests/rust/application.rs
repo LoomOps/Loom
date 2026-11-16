@@ -2530,3 +2530,138 @@ fn dashboard_keeps_frozen_consolidation_and_does_not_hide_a_new_source_attempt()
         .unwrap();
     assert!(f.app.consolidation_target(&source).unwrap().is_none());
 }
+
+#[test]
+fn output_name_curation_preserves_sources_and_agrees_across_current_read_models() {
+    let mut f = Fixture::new();
+    let job = f.submit("label-source");
+    f.app.db.execute("UPDATE jobs SET spec=json_set(spec,'$.presentation.label','Parent Job title') WHERE id=?",[&job]).unwrap();
+    let id = format!("{job}.policy");
+    let manifest=json!({"id":id,"revision":1,"job":job,"kind":"model","label":"Recorded model","components":[],"relations":[],"metadata":{"selected_step":2000}}).to_string();
+    f.app
+        .db
+        .execute(
+            "INSERT INTO entity_revisions VALUES(?,1,?,'model','owner','owner',?)",
+            rusqlite::params![id, job, manifest],
+        )
+        .unwrap();
+    let original=json!({"original":{"id":"source-dataset","kind":"dataset","label":"Recorded dataset","properties":{"episodes":20},"metrics":[],"relations":[],"artifacts":[]},"locations":[]}).to_string();
+    f.app.db.execute("INSERT INTO history_records VALUES('catalog','dataset','source-dataset','r1','fixture',?)",[&original]).unwrap();
+    for _ in 0..8 {
+        f.app.index_once().unwrap();
+    }
+    let page = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"kinds":["model"],"view":"all","role":"all"}),
+        )
+        .unwrap();
+    assert_eq!(page["entities"][0]["label"], "Recorded model");
+    let refs = [
+        json!({"kind":"entity","identity":{"id":id,"revision":1}}),
+        json!({"kind":"historical","identity":{"source":"catalog","kind":"dataset","id":"source-dataset","revision":"r1","snapshot":"fixture"}}),
+    ];
+    let resolved: Vec<Value> = refs
+        .iter()
+        .map(|r| {
+            f.call("results", "resolve_item", json!({"native_ref":r}))
+                .unwrap()
+        })
+        .collect();
+    for (iteration, model_label, dataset_label) in [
+        (
+            1,
+            "Policy · RGB · Curated model",
+            "Grasp · RGB-D · Curated dataset",
+        ),
+        (
+            2,
+            "Policy · RGB · Revised name",
+            "Grasp · RGB-D · Revised name",
+        ),
+    ] {
+        f.call("jobs","curate",json!({"key":format!("curated-label-{iteration}"),"reason":"User requested a display-name change","dry_run":false,"changes":[{"kind":"entity","id":id,"presentation":{"label":model_label}}]})).unwrap();
+        f.app.db.execute("INSERT INTO research_overlays VALUES('dataset','source-dataset',?,'owner','Historical display curation',0) ON CONFLICT(kind,id) DO UPDATE SET presentation=excluded.presentation",[json!({"label":dataset_label}).to_string()]).unwrap();
+        for _ in 0..8 {
+            f.app.index_once().unwrap();
+        }
+        for (index, label) in [model_label, dataset_label].into_iter().enumerate() {
+            let exact = &resolved[index];
+            let current = f
+                .call("results", "resolve_item", json!({"native_ref":refs[index]}))
+                .unwrap();
+            assert_eq!(&current, exact);
+            let item = f
+                .call(
+                    "results",
+                    "get_item",
+                    json!({"item_id":exact["item_id"],"revision_id":exact["revision_id"]}),
+                )
+                .unwrap();
+            assert_eq!(item["label"], label);
+            let detail = f
+                .call(
+                    "system",
+                    "dashboard_entity",
+                    json!({"item_id":exact["item_id"],"revision_id":exact["revision_id"]}),
+                )
+                .unwrap();
+            assert_eq!(detail["entities"][0]["label"], label);
+            let page=f.call("system","dashboard_page",json!({"kinds":[if index==0{"model"}else{"dataset"}],"view":"all","role":"all"})).unwrap();
+            assert_eq!(page["entities"][0]["label"], label);
+            let found = f
+                .call(
+                    "results",
+                    "search_items",
+                    json!({"text":label,"view":"all","role":"all"}),
+                )
+                .unwrap();
+            assert!(found["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|e| e["item_id"] == exact["item_id"] && e["label"] == label));
+        }
+        let native = f
+            .call("results", "get", json!({"id":id,"revision":1}))
+            .unwrap();
+        assert_eq!(native["label"], model_label);
+        assert_eq!(native["metadata"]["selected_step"], 2000);
+        let list = f.call("results", "list", json!({"view":"all"})).unwrap();
+        assert!(list
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["id"] == id && e["label"] == model_label));
+        assert!(list
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["record_type"] == "historical" && e["label"] == dataset_label));
+        assert_eq!(
+            f.app
+                .db
+                .query_row(
+                    "SELECT manifest FROM entity_revisions WHERE id=?",
+                    [&id],
+                    |r| r.get::<_, String>(0)
+                )
+                .unwrap(),
+            manifest
+        );
+        assert_eq!(
+            f.app
+                .db
+                .query_row(
+                    "SELECT body FROM history_records WHERE id='source-dataset'",
+                    [],
+                    |r| r.get::<_, String>(0)
+                )
+                .unwrap(),
+            original
+        );
+        assert_eq!(f.count("entity_revisions"), 1);
+        assert_eq!(f.count("history_records"), 1);
+    }
+}

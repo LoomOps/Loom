@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0-alpha.18
+
+- Read current curated output names consistently in native results, historical listings, exact Item metadata and Dashboard list/detail views. Preserve accepted manifests, historical source bodies, file pins, Task links and scientific revisions.
+- Refresh historical search descriptors after display curation. Keep output names independent of parent Job titles.
+
 ## 0.2.0-alpha.17
 
 - Group Datasets, Experiments and Models in Outputs, with Comparison inside Experiments. Keep existing deep links and exact record identities.

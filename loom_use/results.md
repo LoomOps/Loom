@@ -50,3 +50,9 @@ With the Rust SDK, register the file/entity or inventory, then call
 use `definition.label` with the discovered registration schema. A curation/import
 workflow must preserve existing names unless the user explicitly requests a
 rename; this convention is not a migration gate for legacy results.
+
+Display-name curation changes current result, Item and Dashboard names without
+rewriting accepted source manifests, historical bodies or file pins. An exact
+source revision retains its identity when its display name changes; historical
+source reads still show the recorded name. Keep Job titles and Task membership
+separate from the output name.
