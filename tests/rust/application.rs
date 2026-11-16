@@ -3,6 +3,217 @@ use super::*;
 use crate::store::hash;
 use serde_json::{json, Value};
 use std::fs;
+
+#[test]
+fn historical_dataset_mirrors_require_identical_original_bodies_not_matching_names() {
+    let f = Fixture::new();
+    let mut keys = vec![];
+    for (source, count) in [("published", 4), ("catalog", 4), ("different", 5)] {
+        let body = json!({"entity":{"id":"legacy","kind":"dataset","label":"Same label","properties":{"count":count}}});
+        f.app
+            .db
+            .execute(
+                "INSERT INTO history_records VALUES(?,'dataset','legacy','r1','fixture',?)",
+                rusqlite::params![source, body.to_string()],
+            )
+            .unwrap();
+        let mut e = json!({"kind":"dataset","loom_history":{"source":source,"kind":"dataset","id":"legacy","revision":"r1","snapshot":"fixture"}});
+        crate::dataset_lineage::attach(&f.app, &mut e).unwrap();
+        keys.push(e["dataset_mirror_key"].clone());
+    }
+    assert_eq!(keys[0], keys[1]);
+    assert_ne!(keys[0], keys[2]);
+}
+
+#[test]
+fn native_dataset_publication_resolves_only_declared_data_parent_inputs() {
+    let mut f = Fixture::new();
+    let parent =
+        json!({"id":"source-dataset","revision":1,"kind":"dataset","components":[],"relations":[]});
+    f.app.db.execute("INSERT INTO asset_revisions VALUES('source-dataset',1,NULL,'dataset','owner','owner',?)",[parent.to_string()]).unwrap();
+    let job = f.submit("derived-publication");
+    let mut spec = jobs::load(&f.app.db, &job).unwrap().spec;
+    spec["params"] = json!({"data":{"artifact":{"id":"source-dataset","revision":1}}});
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET state='processing',attempt='fixture-attempt',spec=? WHERE id=?",
+            rusqlite::params![spec.to_string(), job],
+        )
+        .unwrap();
+    let folder = f.root.join("data").join("derived");
+    fs::create_dir(&folder).unwrap();
+    fs::write(folder.join("dataset.json"), b"{}").unwrap();
+    let manifest = json!({"entities":[{"id":"selected","kind":"dataset","path":"dataset.json","provenance":{},"relations":[],"lineage":[{"input":"data","transformation":{"kind":"condition_selection","details":"Selected two conditions","member_count":2}}]}],"metrics":[]});
+    let mut missing = manifest.clone();
+    missing["entities"][0]["lineage"][0]["input"] = json!("not-an-input");
+    assert_eq!(
+        f.app
+            .publish_result(&job, "fixture-attempt", missing, &folder)
+            .unwrap_err()
+            .code,
+        "lineage_input"
+    );
+    assert_eq!(f.count("entity_revisions"), 0);
+    f.app
+        .publish_result(&job, "fixture-attempt", manifest, &folder)
+        .unwrap();
+    let result = f
+        .call(
+            "results",
+            "get",
+            json!({"id":format!("{job}.selected"),"revision":1}),
+        )
+        .unwrap();
+    let links = result["dataset_lineage"]["parents"].as_array().unwrap();
+    assert_eq!(links.len(), 1);
+    assert_eq!(links[0]["parent"]["identity"]["id"], "source-dataset");
+    assert_eq!(links[0]["transformation"]["kind"], "condition_selection");
+    assert_eq!(
+        result["relations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|r| r["kind"] == "consumes")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn dataset_lineage_requires_exact_sources_evidence_and_acyclic_relations() {
+    let mut f = Fixture::new();
+    let mut manifests = vec![];
+    for id in ["parent", "child", "other"] {
+        let manifest = json!({"id":id,"revision":1,"kind":"dataset","label":id,"components":[{"ref":"manifest.json","sha256":hash(id),"size":id.len()}],"relations":[]});
+        f.app
+            .db
+            .execute(
+                "INSERT INTO asset_revisions VALUES(?,1,NULL,'dataset','owner','owner',?)",
+                rusqlite::params![id, manifest.to_string()],
+            )
+            .unwrap();
+        manifests.push(manifest);
+    }
+    let parent = json!({"kind":"entity","identity":{"id":"parent","revision":1}});
+    let child = json!({"kind":"entity","identity":{"id":"child","revision":1}});
+    let mut args = json!({"target":child,"parent":parent,"transformation":{"kind":"subset","details":"Two selected members","member_count":2},"evidence":[{"target":parent,"component":"manifest.json","sha256":hash("parent")}],"reason":"Bounded fixture"});
+    let preview = f.call("results", "link_dataset", args.clone()).unwrap();
+    assert_eq!(preview["stored"], false);
+    assert_eq!(f.count("rust_annotations"), 0);
+    let mut alias = args.clone();
+    alias["parent"] = alias["target"].clone();
+    alias["parent"]["identity"]["ignored"] = json!(true);
+    assert_eq!(
+        f.call("results", "link_dataset", alias).unwrap_err().code,
+        "lineage_target"
+    );
+    args["dry_run"] = json!(false);
+    args["key"] = json!("link");
+    args["expected_digest"] = json!("f".repeat(64));
+    assert_eq!(
+        f.call("results", "link_dataset", args.clone())
+            .unwrap_err()
+            .code,
+        "source_changed"
+    );
+    args["expected_digest"] = preview["digest"].clone();
+    let applied = f.call("results", "link_dataset", args.clone()).unwrap();
+    assert_eq!(applied["stored"], true);
+    assert_eq!(
+        f.call("results", "link_dataset", args.clone()).unwrap(),
+        applied
+    );
+    assert_eq!(f.count("rust_annotations"), 1);
+    let mut reverse = args.clone();
+    reverse["target"] = parent.clone();
+    reverse["parent"] = child.clone();
+    reverse["dry_run"] = json!(true);
+    reverse["key"] = json!("cycle");
+    assert_eq!(
+        f.call("results", "link_dataset", reverse).unwrap_err().code,
+        "lineage_cycle"
+    );
+    let mut bad = args.clone();
+    bad["evidence"][0]["sha256"] = json!("a".repeat(64));
+    assert_eq!(
+        f.call("results", "link_dataset", bad).unwrap_err().code,
+        "lineage_evidence"
+    );
+    let mut missing = args;
+    missing["parent"]["identity"]["revision"] = json!(99);
+    assert!(f.call("results", "link_dataset", missing).is_err());
+    let result = f
+        .call("results", "get", json!({"id":"child","revision":1}))
+        .unwrap();
+    assert_eq!(result["dataset_lineage"]["parents"][0]["parent"], parent);
+    for manifest in manifests {
+        let text: String = f
+            .app
+            .db
+            .query_row(
+                "SELECT manifest FROM asset_revisions WHERE id=?",
+                [manifest["id"].as_str().unwrap()],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(serde_json::from_str::<Value>(&text).unwrap(), manifest);
+    }
+}
+
+#[test]
+fn observer_annotation_source_cannot_imply_stored_language_or_depth() {
+    let entity = json!({"id":"paired","kind":"dataset","dataset_overview":{"count":4,"count_unit":"episodes","inputs":[{"kind":"vision","label":"Stored","status":"present","value":"RGB-D","source_ref":"manifest.json#dynamic_instruction_source"}]}});
+    let doc = json!({"BC_ready":false,"positive_coverage":{"train":0,"validation":0},"dynamic_instruction_source":"observer-current-and-past","frames":40});
+    let summary = crate::research_metadata::summarize(
+        &entity,
+        &[(doc, json!({"kind":"file","ref":"manifest.json"}))],
+    );
+    let facts = summary["facts"].as_array().unwrap();
+    assert!(facts
+        .iter()
+        .any(|f| f["id"] == "bc_ready" && f["value"] == false));
+    assert!(facts
+        .iter()
+        .any(|f| f["id"] == "positive_coverage" && f["value"]["train"] == 0));
+    assert!(!facts.iter().any(|f| f["id"] == "instruction_source"));
+    assert!(summary["inputs"].as_array().unwrap().is_empty());
+}
+
+#[test]
+fn obsolete_captured_observer_aliases_cannot_return_when_source_file_is_missing() {
+    let f = Fixture::new();
+    let manifest = json!({"id":"old","revision":1,"kind":"dataset","components":[],"relations":[]});
+    f.app
+        .db
+        .execute(
+            "INSERT INTO asset_revisions VALUES('old',1,NULL,'dataset','owner','owner',?)",
+            [manifest.to_string()],
+        )
+        .unwrap();
+    let target: contracts::Target =
+        serde_json::from_value(json!({"kind":"entity","identity":{"id":"old","revision":1}}))
+            .unwrap();
+    let snapshot = json!({"extractor_version":1,"source_sha256":hash(manifest.to_string()),"summary":{"facts":[{"id":"instruction_source","evidence":[{"pointer":"/dynamic_instruction_source"}],"value":"observer"},{"id":"physics_hz","value":120}],"inputs":[{"kind":"vision","source_ref":"manifest.json#dynamic_instruction_source"}],"sources":[]}});
+    f.app
+        .db
+        .execute(
+            "INSERT INTO rust_annotations VALUES('research_metadata',?,?,0)",
+            rusqlite::params![
+                crate::research_metadata::snapshot_key(&target).unwrap(),
+                snapshot.to_string()
+            ],
+        )
+        .unwrap();
+    let mut e = json!({"kind":"dataset","loom_registry":{"id":"old","revision":1}});
+    crate::research_metadata::attach_materialized(&f.app, &mut e).unwrap();
+    assert_eq!(e["research_summary"]["facts"].as_array().unwrap().len(), 1);
+    assert_eq!(e["research_summary"]["facts"][0]["id"], "physics_hz");
+    assert!(e["research_summary"]["inputs"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}
 struct Fixture {
     app: Application,
     root: std::path::PathBuf,

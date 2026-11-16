@@ -201,6 +201,29 @@ impl Producer {
         entity["label"] = json!(label);
         Ok(())
     }
+    /// Declare exactly which accepted Dataset input contributes data to an output.
+    /// Other consumed artifacts stay execution provenance, not Dataset parents.
+    pub fn derive_dataset(&mut self, id: &str, input: &str, transformation: Value) -> Result<()> {
+        let entity = self
+            .entities
+            .iter_mut()
+            .find(|e| e["id"] == id)
+            .ok_or("Pending Dataset not found")?;
+        if entity["kind"] != "dataset" || input.is_empty() || !transformation.is_object() {
+            return Err("Dataset input and typed transformation required".into());
+        }
+        if entity["lineage"].is_null() {
+            entity["lineage"] = json!([]);
+        }
+        let parents = entity["lineage"]
+            .as_array_mut()
+            .ok_or("Invalid Dataset lineage")?;
+        if parents.iter().any(|p| p["input"] == input) {
+            return Err("Dataset input already declared".into());
+        }
+        parents.push(json!({"input":input,"transformation":transformation}));
+        Ok(())
+    }
     pub fn register_entity(&mut self, entity: Value) -> Result<()> {
         let path = entity["path"].as_str().ok_or("Entity path required")?;
         let p = inside(&self.request.output_dir, path)?;

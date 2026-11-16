@@ -5502,7 +5502,7 @@ function loomOutputRank(e){
 
 // One scientific summary for cards and details. Registered-source extraction and
 // provenance live in Rust; this module formats their values, never host files.
-const loomResearchSections={context:&#x27;Context&#x27;,collection:&#x27;Collection&#x27;,observations:&#x27;Sensors&#x27;,physics:&#x27;Physics &amp; control&#x27;,annotations:&#x27;Annotations&#x27;,instructions:&#x27;Instructions&#x27;,model:&#x27;Model&#x27;,training:&#x27;Training&#x27;,validation:&#x27;Validation&#x27;,evaluation:&#x27;Evaluation&#x27;,population:&#x27;Population&#x27;,scoring:&#x27;Success criteria&#x27;};
+const loomResearchSections={context:&#x27;Context&#x27;,collection:&#x27;Collection&#x27;,quality:&#x27;Training eligibility&#x27;,observations:&#x27;Sensors&#x27;,physics:&#x27;Physics &amp; control&#x27;,annotations:&#x27;Annotations&#x27;,instructions:&#x27;Language conditioning&#x27;,model:&#x27;Model&#x27;,training:&#x27;Training&#x27;,validation:&#x27;Validation&#x27;,evaluation:&#x27;Evaluation&#x27;,population:&#x27;Population&#x27;,scoring:&#x27;Success criteria&#x27;};
 const loomResearchMissing=new Set([&#x27;미기록&#x27;,&#x27;미측정&#x27;,&#x27;Not recorded&#x27;,&#x27;Unknown&#x27;]);
 function loomResearchSummary(e){
  if(e.research_summary?.schema===&#x27;loom-research-summary/v1&#x27;)return e.research_summary;
@@ -5531,6 +5531,8 @@ function loomResearchValue(f,{compact=false}={}){
  if(f.status===&#x27;conflict&#x27;)return &#x27;Conflicting records&#x27;;
  let v=f.value,unit=f.unit||&#x27;&#x27;;
  if(f.id===&#x27;split&#x27;&amp;&amp;typeof v===&#x27;object&#x27;)return loomResearchSplit(v);
+ if(f.id===&#x27;positive_coverage&#x27;&amp;&amp;v&amp;&amp;typeof v===&#x27;object&#x27;)return Object.entries(v).map(([k,n])=&gt;k+&#x27; &#x27;+loomResearchNumber(n)).join(&#x27; / &#x27;);
+ if(f.id===&#x27;bc_ready&#x27;&amp;&amp;typeof v===&#x27;boolean&#x27;)return v?&#x27;Ready&#x27;:&#x27;Not ready&#x27;;
  if(f.id===&#x27;architecture&#x27;&amp;&amp;typeof v===&#x27;string&#x27;)return v.split(&#x27;:&#x27;)[0];
  if(f.id===&#x27;outputs&#x27;){
   if(Array.isArray(v))return v.join(&#x27; · &#x27;);
@@ -5549,7 +5551,7 @@ function loomResearchValue(f,{compact=false}={}){
 }
 function loomResearchInputs(e){return loomResearchSummary(e).inputs||[];}
 function loomResearchInputName(input){
- const kinds={rgb:&#x27;RGB&#x27;,depth:&#x27;Depth&#x27;,rgbd:&#x27;RGB-D&#x27;,state:&#x27;State&#x27;,action:&#x27;Action&#x27;,depth_validity:&#x27;Depth mask&#x27;,camera_intrinsics:&#x27;Intrinsics&#x27;,camera_transform:&#x27;Camera pose&#x27;,instruction:&#x27;Instruction&#x27;,joint_state:&#x27;Joint state&#x27;,object_ground_truth:&#x27;Object GT&#x27;,vision:&#x27;Vision&#x27;};
+ const kinds={rgb:&#x27;RGB&#x27;,depth:&#x27;Depth&#x27;,rgbd:&#x27;RGB-D&#x27;,state:&#x27;State&#x27;,proprioception:&#x27;Proprioception&#x27;,action:&#x27;Action&#x27;,depth_validity:&#x27;Depth mask&#x27;,camera_intrinsics:&#x27;Intrinsics&#x27;,camera_transform:&#x27;Camera pose&#x27;,instruction:&#x27;Language&#x27;,joint_state:&#x27;Joint state&#x27;,object_ground_truth:&#x27;Object GT&#x27;,vision:&#x27;Vision&#x27;};
  if(input.kind===&#x27;vision&#x27;){
   const v=Array.isArray(input.value)?input.value.join(&#x27; · &#x27;):input.value;
   const modes=String(v||&#x27;&#x27;).match(/RGB-D|RGB|Depth/gi);if(modes?.length)return [...new Set(modes)].join(&#x27; · &#x27;);
@@ -5559,7 +5561,7 @@ function loomResearchInputName(input){
 function loomResearchInputSummary(e){
  const items=loomResearchInputs(e).filter(x=&gt;x.status===&#x27;present&#x27;&amp;&amp;![&#x27;instruction&#x27;,&#x27;camera_intrinsics&#x27;,&#x27;camera_transform&#x27;,&#x27;depth_validity&#x27;].includes(x.kind));
  if(!items.length)return null;
- const names=[...new Set(items.map(x=&gt;loomResearchInputName(x)+(x.shape?.length?&#x27; [&#x27;+x.shape.join(&#x27;×&#x27;)+&#x27;]&#x27;:x.kind===&#x27;state&#x27;&amp;&amp;typeof x.value===&#x27;string&#x27;&amp;&amp;/^[0-9]+D$/i.test(x.value)?&#x27; &#x27;+x.value:&#x27;&#x27;)))];return names.join(&#x27; · &#x27;);
+ const names=[...new Set(items.map(x=&gt;loomResearchInputName(x)+(x.shape?.length?&#x27; [&#x27;+x.shape.join(&#x27;×&#x27;)+&#x27;]&#x27;:x.dimensions?&#x27; &#x27;+x.dimensions+&#x27;D&#x27;:x.kind===&#x27;state&#x27;&amp;&amp;typeof x.value===&#x27;string&#x27;&amp;&amp;/^[0-9]+D$/i.test(x.value)?&#x27; &#x27;+x.value:&#x27;&#x27;)))];return names.join(&#x27; · &#x27;);
 }
 function loomResearchInstruction(e){
  const direct=loomResearchFactMap(e).get(&#x27;instruction_mode&#x27;);if(direct)return loomResearchValue(direct);
@@ -5569,7 +5571,7 @@ function loomResearchInstruction(e){
 }
 function loomResearchCardFacts(e){
  const map=loomResearchFactMap(e),isDataset=e.kind===&#x27;dataset&#x27;,isModel=e.kind===&#x27;model&#x27;;
- const order=isDataset?[&#x27;count&#x27;,&#x27;frames&#x27;,&#x27;train_snapshots&#x27;,&#x27;validation_snapshots&#x27;,&#x27;inputs&#x27;,&#x27;split&#x27;,&#x27;physics&#x27;,&#x27;dynamics&#x27;,&#x27;annotation&#x27;,&#x27;annotation_source&#x27;,&#x27;instruction_mode&#x27;,&#x27;source_demos&#x27;]:
+ const order=isDataset?[&#x27;count&#x27;,&#x27;frames&#x27;,&#x27;bc_ready&#x27;,&#x27;positive_coverage&#x27;,&#x27;train_snapshots&#x27;,&#x27;validation_snapshots&#x27;,&#x27;inputs&#x27;,&#x27;split&#x27;,&#x27;physics&#x27;,&#x27;dynamics&#x27;,&#x27;annotation&#x27;,&#x27;source_demos&#x27;]:
   isModel?[&#x27;model_role&#x27;,&#x27;architecture&#x27;,&#x27;inputs&#x27;,&#x27;outputs&#x27;,&#x27;validation_mean_error&#x27;,&#x27;validation_p95_error&#x27;,&#x27;test_action_mse&#x27;,&#x27;test_action_mae&#x27;,&#x27;test_action_rmse&#x27;,&#x27;selected_step&#x27;,&#x27;train_frames&#x27;,&#x27;validation_frames&#x27;,&#x27;train_snapshots&#x27;,&#x27;validation_snapshots&#x27;,&#x27;training_method&#x27;,&#x27;initialization&#x27;,&#x27;instruction_mode&#x27;]:
   [&#x27;outcome&#x27;,&#x27;terminal_reason&#x27;,&#x27;evaluation_mode&#x27;,&#x27;evaluator&#x27;,&#x27;valid&#x27;,&#x27;episodes&#x27;,&#x27;frames&#x27;,&#x27;split&#x27;,&#x27;validation_mean_error&#x27;,&#x27;validation_p95_error&#x27;,&#x27;point_mean_error&#x27;,&#x27;point_p95_error&#x27;,&#x27;selected_step&#x27;,&#x27;optimizer_updates&#x27;,&#x27;selection_validation_loss&#x27;,&#x27;test_action_rmse&#x27;,&#x27;distance_tolerance_mm&#x27;,&#x27;hold_center_drift_m&#x27;,&#x27;height_tolerance_m&#x27;,&#x27;angle_tolerance_deg&#x27;,&#x27;rotation_tolerance_deg&#x27;,&#x27;continuous_s&#x27;,&#x27;hold_seconds&#x27;,&#x27;physics_hz&#x27;,&#x27;control_hz&#x27;,&#x27;infra&#x27;];
  const input=loomResearchInputSummary(e);if(input)map.set(&#x27;inputs&#x27;,{id:&#x27;inputs&#x27;,label:&#x27;Inputs&#x27;,value:input,status:&#x27;recorded&#x27;});
@@ -5626,14 +5628,14 @@ resultCard=function(e){return loomResearchCard(e,true);};
 function loomResearchInputsHTML(inputs){
  return &#x27;&lt;div class=&quot;pa-research-inputs&quot;&gt;&#x27;+inputs.map(x=&gt;{
   const value=x.shape?.length?x.shape.join(&#x27; × &#x27;):Array.isArray(x.value)?x.value.map(v=&gt;v&amp;&amp;typeof v===&#x27;object&#x27;?JSON.stringify(v):String(v)).join(&#x27; · &#x27;):x.value&amp;&amp;typeof x.value===&#x27;object&#x27;?JSON.stringify(x.value):x.value;
-  const fields=[[&#x27;Shape&#x27;,x.shape?.length?value:null],[&#x27;Value&#x27;,!x.shape?.length&amp;&amp;value!==undefined&amp;&amp;value!==null&amp;&amp;value!==&#x27;&#x27;&amp;&amp;![&#x27;사용&#x27;,&#x27;used&#x27;,&#x27;present&#x27;,&#x27;Present&#x27;,&#x27;Yes&#x27;].includes(value)?value:null],[&#x27;Unit&#x27;,x.unit],[&#x27;Dtype&#x27;,x.dtype],[&#x27;Preprocessing&#x27;,x.preprocessing]].filter(([,value])=&gt;value!==undefined&amp;&amp;value!==null&amp;&amp;value!==&#x27;&#x27;);
-  return &#x27;&lt;article&gt;&lt;h3&gt;&#x27;+esc(x.label||loomResearchInputName(x))+&#x27;&lt;/h3&gt;&#x27;+(fields.length?&#x27;&lt;dl&gt;&#x27;+fields.map(([label,value])=&gt;&#x27;&lt;div&gt;&lt;dt&gt;&#x27;+esc(label)+&#x27;&lt;/dt&gt;&lt;dd&gt;&#x27;+esc(value)+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/dl&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/article&gt;&#x27;;
+  const fields=[[&#x27;Shape&#x27;,x.shape?.length?value:null],[&#x27;Dimensions&#x27;,x.dimensions],[&#x27;&#x27;,!x.shape?.length&amp;&amp;value!==undefined&amp;&amp;value!==null&amp;&amp;value!==&#x27;&#x27;&amp;&amp;![&#x27;사용&#x27;,&#x27;used&#x27;,&#x27;present&#x27;,&#x27;Present&#x27;,&#x27;Yes&#x27;].includes(value)?value:null],[&#x27;Used by&#x27;,x.used_by],[&#x27;Unit&#x27;,x.unit],[&#x27;Dtype&#x27;,x.dtype],[&#x27;Preprocessing&#x27;,x.preprocessing]].filter(([,value])=&gt;value!==undefined&amp;&amp;value!==null&amp;&amp;value!==&#x27;&#x27;);
+  return &#x27;&lt;article&gt;&lt;h3&gt;&#x27;+esc(loomResearchInputName(x))+&#x27;&lt;/h3&gt;&#x27;+(fields.length?&#x27;&lt;dl&gt;&#x27;+fields.map(([label,value])=&gt;&#x27;&lt;div&gt;&#x27;+(label?&#x27;&lt;dt&gt;&#x27;+esc(label)+&#x27;&lt;/dt&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;dd&gt;&#x27;+esc(value)+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/dl&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/article&gt;&#x27;;
  }).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
 }
 function loomResearchOverview(e){
  const s=loomResearchSummary(e),map=loomResearchFactMap(e),inputs=s.inputs.filter(x=&gt;x.status===&#x27;present&#x27;);
  const order=e.kind===&#x27;model&#x27;?[&#x27;model&#x27;,&#x27;validation&#x27;,&#x27;inputs&#x27;,&#x27;training&#x27;,&#x27;observations&#x27;,&#x27;physics&#x27;,&#x27;instructions&#x27;,&#x27;context&#x27;]:
-  e.kind===&#x27;dataset&#x27;?[&#x27;collection&#x27;,&#x27;physics&#x27;,&#x27;inputs&#x27;,&#x27;observations&#x27;,&#x27;annotations&#x27;,&#x27;instructions&#x27;,&#x27;context&#x27;]:
+  e.kind===&#x27;dataset&#x27;?[&#x27;collection&#x27;,&#x27;quality&#x27;,&#x27;physics&#x27;,&#x27;inputs&#x27;,&#x27;observations&#x27;,&#x27;annotations&#x27;,&#x27;context&#x27;]:
   [&#x27;evaluation&#x27;,&#x27;validation&#x27;,&#x27;training&#x27;,&#x27;scoring&#x27;,&#x27;population&#x27;,&#x27;physics&#x27;,&#x27;context&#x27;,&#x27;annotations&#x27;,&#x27;observations&#x27;,&#x27;instructions&#x27;];
  let body=&#x27;&lt;section class=&quot;pa-research-overview&quot; aria-label=&quot;Research properties&quot;&gt;&#x27;;
  for(const id of order){
@@ -5641,15 +5643,19 @@ function loomResearchOverview(e){
    if(inputs.length)body+=&#x27;&lt;div class=&quot;pa-research-input-panel&quot;&gt;&#x27;+panel(e.kind===&#x27;dataset&#x27;?&#x27;Observations&#x27;:&#x27;Inputs&#x27;,loomResearchInputsHTML(inputs))+&#x27;&lt;/div&gt;&#x27;;
    continue;
   }
-  const facts=s.facts.filter(f=&gt;f.section===id&amp;&amp;![&#x27;observation_schema&#x27;,&#x27;count_unit&#x27;,&#x27;condition_outcomes&#x27;].includes(f.id));
+  const facts=s.facts.filter(f=&gt;f.section===id&amp;&amp;![&#x27;observation_schema&#x27;,&#x27;count_unit&#x27;,&#x27;condition_outcomes&#x27;].includes(f.id)).map(f=&gt;f.id===&#x27;count&#x27;?{...f,label:({episodes:&#x27;Episodes&#x27;,clips:&#x27;Clips&#x27;,cases:&#x27;Cases&#x27;,snapshots:&#x27;Snapshots&#x27;})[map.get(&#x27;count_unit&#x27;)?.value]||&#x27;Count&#x27;}:f);
   if(id===&#x27;evaluation&#x27;&amp;&amp;map.has(&#x27;condition_outcomes&#x27;))body+=panel(&#x27;Condition outcomes&#x27;,loomResearchConditions(e));
   if(!facts.length)continue;
   body+=panel(loomResearchSections[id],loomResearchFactsHTML(facts)).replace(&#x27;&lt;section &#x27;, &#x27;&lt;section data-research-section=&quot;&#x27;+esc(id)+&#x27;&quot; &#x27;);
  }
- const instruction=loomResearchInstruction(e);if(instruction&amp;&amp;!map.has(&#x27;instruction_mode&#x27;))body+=panel(&#x27;Instructions&#x27;,catProperties({Mode:instruction}));
+ const instruction=loomResearchInstruction(e);if(e.kind!==&#x27;dataset&#x27;&amp;&amp;instruction&amp;&amp;!map.has(&#x27;instruction_mode&#x27;))body+=panel(&#x27;Language conditioning&#x27;,catProperties({Mode:instruction}));
+ if(e.kind===&#x27;dataset&#x27;)body+=loomDatasetParentHTML(e);
  const sourceRows=s.facts.flatMap(f=&gt;(f.evidence||[]).map(ev=&gt;[esc(f.label),esc(ev.source?.ref||&#x27;Record metadata&#x27;),esc(ev.pointer)]));
- body+=&#x27;&lt;details class=&quot;pa-output-source&quot;&gt;&lt;summary&gt;Sources&lt;/summary&gt;&#x27;+catTable([&#x27;Fact&#x27;,&#x27;Source&#x27;,&#x27;JSON pointer&#x27;],sourceRows)
-  +(s.sources?.some(x=&gt;x.status!==&#x27;verified&#x27;)?&#x27;&lt;p class=&quot;pa-catalog-warning&quot;&gt;Some registered metadata files could not be verified.&lt;/p&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/details&gt;&lt;/section&gt;&#x27;;
+ body+=&#x27;&lt;details class=&quot;pa-output-source&quot; data-output-sources&gt;&lt;summary&gt;Sources&lt;/summary&gt;&#x27;+catTable([&#x27;Fact&#x27;,&#x27;Source&#x27;,&#x27;JSON pointer&#x27;],sourceRows)
+  +catProperties({Owner:e.owner_profile?.display_name||e.owner||&#x27;—&#x27;,ID:e.id})
+  +(s.sources?.some(x=&gt;x.status!==&#x27;verified&#x27;)?&#x27;&lt;p class=&quot;pa-catalog-warning&quot;&gt;Some registered metadata files could not be verified.&lt;/p&gt;&#x27;:&#x27;&#x27;)
+  +(e.dataset_mirror_key?&#x27;&lt;div class=&quot;pa-source-copies&quot;&gt;&#x27;+loomDatasetMirrors(e).map(copy=&gt;catLink(copy.id,copy.loom_history?.source||copy.id)).join(&#x27; · &#x27;)+&#x27;&lt;/div&gt;&#x27;:&#x27;&#x27;)
+  +&#x27;&lt;details data-output-record=&quot;&#x27;+esc(e.id)+&#x27;&quot; &#x27;+((state.openOutputRecords||[]).includes(e.id)?&#x27;open&#x27;:&#x27;&#x27;)+&#x27;&gt;&lt;summary&gt;Original record&lt;/summary&gt;&lt;pre&gt;&#x27;+((state.openOutputRecords||[]).includes(e.id)?esc(loomResearchRaw(e)):&#x27;&#x27;)+&#x27;&lt;/pre&gt;&lt;/details&gt;&lt;/details&gt;&lt;/section&gt;&#x27;;
  return body;
 }
 const loomResearchOldDetail=catalogDetail;
@@ -5658,18 +5664,76 @@ catalogDetail=function(id){
  const t=document.createElement(&#x27;template&#x27;);t.innerHTML=html;const title=t.content.querySelector(&#x27;.pa-heading&#x27;);if(!title)return html;
  // The canonical overview replaces generic flat highlights and arbitrary scalar
  // tiles. Full metrics, lineage and original producer metadata remain below.
- for(const node of t.content.querySelectorAll(&#x27;.pa-entity-facts,.pa-model-meta,.pa-metric-grid,.pa-outcome-highlights&#x27;))node.remove();
+ for(const node of t.content.querySelectorAll(&#x27;.pa-entity-intro,.pa-entity-facts,.pa-model-meta,.pa-metric-grid,.pa-outcome-highlights&#x27;))node.remove();
+ const sources=[];
  for(const node of t.content.querySelectorAll(&#x27;.pa-panel&#x27;)){
   const name=node.querySelector(&#x27;:scope &gt; .pa-panel-head &gt; h2&#x27;)?.textContent;
-  if([&#x27;속성&#x27;,&#x27;Dataset Properties&#x27;].includes(name)){const details=document.createElement(&#x27;details&#x27;);details.className=&#x27;pa-output-source&#x27;;details.innerHTML=&#x27;&lt;summary&gt;Source metadata&lt;/summary&gt;&#x27;+node.innerHTML;node.replaceWith(details);}
+  if([&#x27;속성&#x27;,&#x27;Dataset Properties&#x27;].includes(name)){node.remove();}
+  if([&#x27;출처&#x27;,&#x27;이관 위치&#x27;,&#x27;Loom 실행 기록&#x27;].includes(name)){sources.push(node.outerHTML);node.remove();}
  }
  title.insertAdjacentHTML(&#x27;afterend&#x27;,loomResearchOverview(e));
+ t.content.querySelector(&#x27;[data-output-sources]&#x27;)?.insertAdjacentHTML(&#x27;beforeend&#x27;,sources.join(&#x27;&#x27;));
+ for(const node of t.content.querySelectorAll(&#x27;.pa-analysis-grid&#x27;))if(!node.textContent.trim())node.remove();
  title.insertAdjacentHTML(&#x27;beforebegin&#x27;,loomTaskProperty(e));
  const primary=[&#x27;run&#x27;,&#x27;experiment&#x27;].includes(e.kind)?loomRepresentativeOutcome(e):[];
  if(primary.length)title.insertAdjacentHTML(&#x27;afterend&#x27;,panel(&#x27;Outcome&#x27;,catTable([&#x27;Metric&#x27;,&#x27;Value&#x27;,&#x27;Population&#x27;],primary.map(m=&gt;[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||&#x27;—&#x27;)]))));
- const record=document.createElement(&#x27;details&#x27;);record.className=&#x27;pa-output-source&#x27;;record.innerHTML=&#x27;&lt;summary&gt;Record&lt;/summary&gt;&#x27;+catProperties({Owner:e.owner_profile?.display_name||e.owner||&#x27;—&#x27;,ID:e.id});t.content.append(record);
  return t.innerHTML;
 };
+
+const loomDatasetTransformLabels={subset:&#x27;Subset of&#x27;,condition_selection:&#x27;Conditions selected from&#x27;,includes:&#x27;Includes data from&#x27;,relabel:&#x27;Relabeled from&#x27;,resample:&#x27;Resampled from&#x27;,sensor_rerender:&#x27;Sensor re-render from&#x27;,augment:&#x27;Augmented from&#x27;,merge:&#x27;Merged from&#x27;};
+function loomDatasetMirrors(e){return e.dataset_mirror_key?(catalogData.all_entities||catalogData.entities).filter(x=&gt;x.kind===&#x27;dataset&#x27;&amp;&amp;x.dataset_mirror_key===e.dataset_mirror_key):[e];}
+function loomDatasetParentEntity(link){
+ return (catalogData.all_entities||catalogData.entities).find(e=&gt;e.kind===&#x27;dataset&#x27;&amp;&amp;(e.item_id&amp;&amp;e.item_id===link.item_id&amp;&amp;e.item_revision_id===link.revision_id||link.parent?.kind===&#x27;entity&#x27;&amp;&amp;e.loom_registry?.id===link.parent.identity.id&amp;&amp;e.loom_registry.revision===link.parent.identity.revision||link.parent?.kind===&#x27;historical&#x27;&amp;&amp;e.loom_history&amp;&amp;[&#x27;source&#x27;,&#x27;kind&#x27;,&#x27;id&#x27;,&#x27;revision&#x27;,&#x27;snapshot&#x27;].every(k=&gt;e.loom_history[k]===link.parent.identity[k])));
+}
+function loomDatasetParentHTML(e){
+ const parents=e.dataset_lineage?.parents||[];if(!parents.length)return &#x27;&#x27;;
+ return panel(&#x27;Data lineage&#x27;,parents.map(link=&gt;&#x27;&lt;div class=&quot;pa-dataset-parent&quot;&gt;&lt;span&gt;&#x27;+esc(loomDatasetTransformLabels[link.transformation?.kind]||&#x27;Derived from&#x27;)+&#x27;&lt;/span&gt;&#x27;+(link.item_id&amp;&amp;link.revision_id?&#x27;&lt;button class=&quot;pa-button&quot; data-dataset-parent-item=&quot;&#x27;+esc(link.item_id)+&#x27;&quot; data-dataset-parent-revision=&quot;&#x27;+esc(link.revision_id)+&#x27;&quot;&gt;&#x27;+esc(link.label||loomDatasetParentEntity(link)?.label||link.parent?.identity?.id)+&#x27;&lt;/button&gt;&#x27;:loomDatasetParentEntity(link)?catLink(loomDatasetParentEntity(link).id):&#x27;&lt;span&gt;&#x27;+esc(link.label||link.parent?.identity?.id)+&#x27;&lt;/span&gt;&#x27;)+&#x27;&lt;small&gt;&#x27;+esc(link.transformation?.details||&#x27;&#x27;)+&#x27;&lt;/small&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;));
+}
+const loomResearchCatalogList=catalogList;
+catalogList=function(kind){
+ if(kind!==&#x27;dataset&#x27;)return loomResearchCatalogList(kind);
+ const allRows=catKind(&#x27;dataset&#x27;),mirrors=new Map(),groups=new Map();
+ for(const e of allRows)if(!mirrors.has(e.dataset_mirror_key||e.id))mirrors.set(e.dataset_mirror_key||e.id,e);
+ const rows=[...mirrors.values()];
+ function anchor(e,seen=new Set()){
+  if(seen.has(e.id))return e;seen.add(e.id);
+  const links=e.dataset_lineage?.parents||[],link=links.length===1?links[0]:links.find(l=&gt;l.primary);
+  const exact=link&amp;&amp;loomDatasetParentEntity(link),parent=exact&amp;&amp;(mirrors.get(exact.dataset_mirror_key||exact.id)||exact);return parent?anchor(parent,seen):e;
+ }
+ for(const e of rows){const a=anchor(e);if(!groups.has(a.id))groups.set(a.id,{anchor:a,rows:[]});groups.get(a.id).rows.push(e);}
+ const content=[...groups.values()].map(group=&gt;{
+  if(group.rows.length===1&amp;&amp;!group.rows[0].dataset_lineage?.parents?.length)return catListRow(group.rows[0]);
+  const ordered=[...group.rows].sort((a,b)=&gt;Number(a.id!==group.anchor.id)-Number(b.id!==group.anchor.id));
+  return &#x27;&lt;details class=&quot;pa-dataset-group&quot; data-output-id=&quot;group:&#x27;+esc(group.anchor.id)+&#x27;&quot; &#x27;+((state.openDatasetGroups||[]).includes(group.anchor.id)?&#x27;open&#x27;:&#x27;&#x27;)+&#x27;&gt;&lt;summary data-dataset-group-toggle=&quot;&#x27;+esc(group.anchor.id)+&#x27;&quot;&gt;&#x27;+esc(group.anchor.label)+&#x27;&lt;small&gt;&#x27;+group.rows.length+&#x27; variants&lt;/small&gt;&lt;/summary&gt;&#x27;+ordered.map(e=&gt;{
+   const parents=e.dataset_lineage?.parents||[];
+   return &#x27;&lt;div class=&quot;pa-dataset-variant &#x27;+(parents.length?&#x27;is-derived&#x27;:&#x27;&#x27;)+&#x27;&quot;&gt;&#x27;+(parents.length?&#x27;&lt;div class=&quot;pa-dataset-transform&quot;&gt;&#x27;+parents.map(p=&gt;esc(loomDatasetTransformLabels[p.transformation?.kind]||&#x27;Derived from&#x27;)+&#x27; · &#x27;+esc(loomDatasetParentEntity(p)?.label||p.label||p.parent?.identity?.id)).join(&#x27; / &#x27;)+&#x27;&lt;/div&gt;&#x27;:&#x27;&#x27;)+catListRow(e)+&#x27;&lt;/div&gt;&#x27;;
+  }).join(&#x27;&#x27;)+&#x27;&lt;/details&gt;&#x27;;
+ }).join(&#x27;&#x27;);
+ return heading(&#x27;CATALOG&#x27;,&#x27;Datasets&#x27;,&#x27;&#x27;)+catStatus()+content+(!rows.length?&#x27;&lt;div class=&quot;pa-empty&quot;&gt;등록된 기록이 없습니다.&lt;/div&gt;&#x27;:&#x27;&#x27;)+loomCatalogPager(&#x27;dataset&#x27;);
+};
+root.addEventListener(&#x27;click&#x27;,event=&gt;{
+ const summary=event.target.closest(&#x27;[data-dataset-group-toggle]&#x27;);if(!summary)return;
+ event.preventDefault();event.stopImmediatePropagation();
+ const pane=summary.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;
+ const detail=summary.parentElement,view=activeTab().view,opened=new Set(view.openDatasetGroups||[]);
+ detail.open=!detail.open;if(detail.open)opened.add(summary.dataset.datasetGroupToggle);else opened.delete(summary.dataset.datasetGroupToggle);
+ view.openDatasetGroups=[...opened];persist();
+},true);
+root.addEventListener(&#x27;toggle&#x27;,event=&gt;{
+ const detail=event.target;if(!detail.matches?.(&#x27;details[data-output-record]&#x27;))return;
+ const e=catEntity(detail.dataset.outputRecord),pre=detail.querySelector(&#x27;pre&#x27;);if(!e||!pre)return;
+ const pane=ws.panes.find(p=&gt;p.id===detail.closest(&#x27;[data-pane]&#x27;)?.dataset.pane),view=activeTab(pane).view,opened=new Set(view.openOutputRecords||[]);
+ if(detail.open){opened.add(e.id);pre.textContent=loomResearchRaw(e);}else opened.delete(e.id);
+ view.openOutputRecords=[...opened];persist();
+},true);
+function loomResearchRaw(e){return JSON.stringify({id:e.id,owner:e.owner_profile?.display_name||e.owner,properties:e.properties,metadata:e.metadata,dataset_overview:e.dataset_overview,protocol:e.protocol,summary:e.summary,description:e.description,revision:e.revision,dataset_lineage:e.dataset_lineage},null,2);}
+root.addEventListener(&#x27;click&#x27;,async event=&gt;{
+ const button=event.target.closest(&#x27;[data-dataset-parent-item]&#x27;);if(!button)return;
+ event.preventDefault();event.stopImmediatePropagation();const pane=button.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;
+ button.disabled=true;
+ try{const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:button.dataset.datasetParentItem,revision_id:button.dataset.datasetParentRevision});loomCatalogMerge(value);if(value.entities?.[0])openView(catView(value.entities[0].id));}
+ catch(error){button.disabled=false;button.textContent=error.message;}
+},true);
 
 // Flat marks use compositor-friendly CSS; no animation frame loop on Dashboard.
 (()=&gt;{const sync=()=&gt;document.documentElement.toggleAttribute(&#x27;data-loom-motion-hidden&#x27;,document.hidden);document.addEventListener(&#x27;visibilitychange&#x27;,sync);sync();
@@ -6524,44 +6588,42 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 #pai-studio .pa-footer span:empty{display:none}
 #pai-studio .pa-node-summary [data-index-state]{margin-top:8px;color:var(--pa-accent)}
 
-/* Scientific fields are shared across output families; long producer prose and
-   raw paths stay in source details, not in the first visible card rows. */
-#pai-studio .pa-scientific-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 22px;margin:12px 0 0;grid-column:1/-1;flex-basis:100%}
-#pai-studio .pa-scientific-facts&gt;div{min-width:0;display:block;max-width:100%}
-#pai-studio .pa-scientific-facts dt{font-size:11px;color:var(--pa-muted);margin-bottom:4px;white-space:nowrap}
+/* Output detail sections share one spacing/field layout. Raw metadata stays in
+   one disclosure; a one-field section never becomes a large empty card. */
+#pai-studio .pa-scientific-facts{display:flex;flex-wrap:wrap;gap:12px 24px;margin:12px 0 0;grid-column:1/-1;flex-basis:100%}
+#pai-studio .pa-scientific-facts&gt;div{display:block;min-width:0;max-width:100%;border:0;padding:0;flex:0 1 auto}
+#pai-studio .pa-scientific-facts dt{font-size:12px;line-height:1.4;color:var(--pa-muted);margin:0 0 4px;white-space:normal}
 #pai-studio .pa-scientific-facts dd{margin:0;font-size:13px;line-height:1.5;overflow-wrap:anywhere;color:var(--pa-ink)}
-#pai-studio .pa-scientific-facts.is-compact dd{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-#pai-studio .pa-scientific-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 20px;align-items:start;padding:20px 0}
-#pai-studio .pa-scientific-card .pa-output-task{margin-bottom:12px}
-#pai-studio .pa-research-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
-#pai-studio .pa-research-overview .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr));margin:0}
-#pai-studio .pa-research-overview&gt;.pa-output-source{grid-column:1/-1}
+#pai-studio .pa-scientific-facts.is-compact dd{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:44ch}
+#pai-studio .pa-scientific-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 16px;align-items:start;padding:16px 0}
+#pai-studio .pa-scientific-card .pa-output-task{margin-bottom:8px}
 #pai-studio .pa-scientific-card .pa-row-main&gt;a{font-weight:600;font-size:14px}
-@container pane (max-width:760px){#pai-studio .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr))}#pai-studio .pa-research-overview{grid-template-columns:minmax(0,1fr)}}
-@container pane (max-width:420px){#pai-studio .pa-scientific-card{grid-template-columns:minmax(0,1fr)}#pai-studio .pa-scientific-card .pa-result-score{margin-top:12px}}
-#pai-studio .pa-scientific-card .pa-scientific-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 22px}
-#pai-studio .pa-scientific-card .pa-scientific-facts&gt;div{display:block}
-#pai-studio .pa-research-overview{align-items:start}
-@container pane (max-width:760px){#pai-studio .pa-scientific-card .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
-
-.pa-research-conditions{min-width:0;overflow:auto}
-
-/* Research inputs use responsive field groups, not a six-column table inside
-   half a detail pane. The original source description remains available. */
-#pai-studio .pa-research-input-panel{grid-column:1/-1;min-width:0}
-#pai-studio .pa-research-input-panel&gt;.pa-panel{margin:0 0 16px}
-#pai-studio .pa-research-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 28px}
-#pai-studio .pa-research-inputs article{min-width:0}
+#pai-studio .pa-research-overview{display:flex;flex-direction:column;gap:24px;margin:16px 0 24px;min-width:0}
+#pai-studio .pa-research-overview&gt;.pa-panel,#pai-studio .pa-research-input-panel&gt;.pa-panel{margin:0;padding:0;border:0;border-radius:0;background:none;box-shadow:none;min-height:0;width:100%}
+#pai-studio .pa-research-overview .pa-panel-head{padding:0 0 12px;margin:0;border:0}
+#pai-studio .pa-research-overview .pa-panel-body{padding:0;margin:0}
+#pai-studio .pa-research-overview .pa-scientific-facts{margin:0}
+#pai-studio .pa-research-overview&gt;.pa-output-source{width:100%;border-top:1px solid var(--pa-line);margin:0;padding-top:8px}
+#pai-studio .pa-output-source pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}
+#pai-studio .pa-research-input-panel{min-width:0;width:100%}
+#pai-studio .pa-research-inputs{display:flex;flex-wrap:wrap;gap:16px 24px;min-width:0}
+#pai-studio .pa-research-inputs article{min-width:0;max-width:100%;flex:1 1 220px}
 #pai-studio .pa-research-inputs h3{font-size:13px;line-height:1.5;margin:0 0 8px;font-weight:600}
-#pai-studio .pa-research-inputs dl{margin:0;display:grid;gap:7px}
-#pai-studio .pa-research-inputs dl&gt;div{display:grid;grid-template-columns:100px minmax(0,1fr);gap:12px;align-items:start}
+#pai-studio .pa-research-inputs dl{margin:0;display:grid;gap:8px}
+#pai-studio .pa-research-inputs dl&gt;div{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
 #pai-studio .pa-research-inputs dt{font-size:12px;color:var(--pa-muted)}
 #pai-studio .pa-research-inputs dd{margin:0;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
-#pai-studio .pa-scientific-facts dt{font-size:12px;line-height:1.4;white-space:normal;overflow-wrap:normal}
-#pai-studio .pa-scientific-facts&gt;div{border:0;padding:0}
-#pai-studio .pa-scientific-card&gt;.pa-research-conditions{grid-column:1/-1;min-width:0}
-@container pane (max-width:760px){#pai-studio .pa-research-inputs{grid-template-columns:minmax(0,1fr)}}
-@container pane (max-width:420px){#pai-studio .pa-research-overview .pa-scientific-facts{grid-template-columns:minmax(0,1fr)}#pai-studio .pa-research-inputs dl&gt;div{grid-template-columns:76px minmax(0,1fr);gap:8px}}
+#pai-studio .pa-research-conditions{min-width:0;overflow:auto;grid-column:1/-1}
+#pai-studio .pa-dataset-group{margin:0 0 24px;min-width:0}
+#pai-studio .pa-dataset-group&gt;summary{padding:12px 0;font-weight:600;overflow-wrap:anywhere}
+#pai-studio .pa-dataset-group&gt;summary small{font-weight:400;color:var(--pa-muted);margin-left:12px;white-space:nowrap}
+#pai-studio .pa-dataset-variant{border-top:1px solid var(--pa-line);min-width:0}
+#pai-studio .pa-dataset-variant.is-derived{border-left:1px solid var(--pa-line);padding-left:16px}
+#pai-studio .pa-dataset-transform{font-size:12px;color:var(--pa-muted);padding-top:12px;overflow-wrap:anywhere}
+#pai-studio .pa-dataset-transform+.pa-scientific-card{padding-top:8px}
+#pai-studio .pa-dataset-parent{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;margin:8px 0}
+#pai-studio .pa-dataset-parent&gt;small{flex-basis:100%;color:var(--pa-muted);overflow-wrap:anywhere}
+@container pane (max-width:420px){#pai-studio .pa-scientific-card{grid-template-columns:minmax(0,1fr)}#pai-studio .pa-scientific-card .pa-result-score{margin-top:12px}#pai-studio .pa-dataset-variant.is-derived{padding-left:12px}}
 /* Brand animation is decorative, never a live Job/status indicator. */
 :root{--loom-brand-accent:light-dark(#436fc7,#9bb9f1)}
 .loom-logo{overflow:visible;--loom-logo-blue:var(--loom-brand-accent)}

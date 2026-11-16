@@ -111,12 +111,27 @@ impl Application {
             }
         }
         let mut profile_kind = None;
+        if let Ok(target) = crate::contracts::decode::<crate::contracts::Target>(native.clone()) {
+            for link in crate::dataset_lineage::declared(self, &target)? {
+                let mut relation = edge(
+                    "derived_from",
+                    link["parent"]["kind"].as_str().unwrap_or("entity"),
+                    link["parent"]["identity"].clone(),
+                );
+                relation["transformation"] = link["transformation"].clone();
+                relation["evidence"] = link["evidence"].clone();
+                declared.push(relation);
+            }
+        }
         let mut definition = Value::Null;
         if native["kind"] == "entity" {
             let text:Option<String>=self.db.query_row("SELECT json_extract(manifest,'$.relations') FROM all_entity_revisions WHERE id=? AND revision=?",params![id["id"].as_str(),id["revision"].as_i64()],|r|r.get(0))?;
             if let Some(text) = text {
                 let values: Value = serde_json::from_str(&text)?;
                 for r in values.as_array().into_iter().flatten() {
+                    if r["kind"] == "derived_from" {
+                        continue;
+                    }
                     let mut v = edge(
                         r["kind"].as_str().unwrap_or("related"),
                         "entity",

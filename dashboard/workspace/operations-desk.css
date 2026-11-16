@@ -573,41 +573,39 @@
 #pai-studio .pa-footer span:empty{display:none}
 #pai-studio .pa-node-summary [data-index-state]{margin-top:8px;color:var(--pa-accent)}
 
-/* Scientific fields are shared across output families; long producer prose and
-   raw paths stay in source details, not in the first visible card rows. */
-#pai-studio .pa-scientific-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 22px;margin:12px 0 0;grid-column:1/-1;flex-basis:100%}
-#pai-studio .pa-scientific-facts>div{min-width:0;display:block;max-width:100%}
-#pai-studio .pa-scientific-facts dt{font-size:11px;color:var(--pa-muted);margin-bottom:4px;white-space:nowrap}
+/* Output detail sections share one spacing/field layout. Raw metadata stays in
+   one disclosure; a one-field section never becomes a large empty card. */
+#pai-studio .pa-scientific-facts{display:flex;flex-wrap:wrap;gap:12px 24px;margin:12px 0 0;grid-column:1/-1;flex-basis:100%}
+#pai-studio .pa-scientific-facts>div{display:block;min-width:0;max-width:100%;border:0;padding:0;flex:0 1 auto}
+#pai-studio .pa-scientific-facts dt{font-size:12px;line-height:1.4;color:var(--pa-muted);margin:0 0 4px;white-space:normal}
 #pai-studio .pa-scientific-facts dd{margin:0;font-size:13px;line-height:1.5;overflow-wrap:anywhere;color:var(--pa-ink)}
-#pai-studio .pa-scientific-facts.is-compact dd{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-#pai-studio .pa-scientific-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 20px;align-items:start;padding:20px 0}
-#pai-studio .pa-scientific-card .pa-output-task{margin-bottom:12px}
-#pai-studio .pa-research-overview{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
-#pai-studio .pa-research-overview .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr));margin:0}
-#pai-studio .pa-research-overview>.pa-output-source{grid-column:1/-1}
+#pai-studio .pa-scientific-facts.is-compact dd{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:44ch}
+#pai-studio .pa-scientific-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 16px;align-items:start;padding:16px 0}
+#pai-studio .pa-scientific-card .pa-output-task{margin-bottom:8px}
 #pai-studio .pa-scientific-card .pa-row-main>a{font-weight:600;font-size:14px}
-@container pane (max-width:760px){#pai-studio .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr))}#pai-studio .pa-research-overview{grid-template-columns:minmax(0,1fr)}}
-@container pane (max-width:420px){#pai-studio .pa-scientific-card{grid-template-columns:minmax(0,1fr)}#pai-studio .pa-scientific-card .pa-result-score{margin-top:12px}}
-#pai-studio .pa-scientific-card .pa-scientific-facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 22px}
-#pai-studio .pa-scientific-card .pa-scientific-facts>div{display:block}
-#pai-studio .pa-research-overview{align-items:start}
-@container pane (max-width:760px){#pai-studio .pa-scientific-card .pa-scientific-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
-
-.pa-research-conditions{min-width:0;overflow:auto}
-
-/* Research inputs use responsive field groups, not a six-column table inside
-   half a detail pane. The original source description remains available. */
-#pai-studio .pa-research-input-panel{grid-column:1/-1;min-width:0}
-#pai-studio .pa-research-input-panel>.pa-panel{margin:0 0 16px}
-#pai-studio .pa-research-inputs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 28px}
-#pai-studio .pa-research-inputs article{min-width:0}
+#pai-studio .pa-research-overview{display:flex;flex-direction:column;gap:24px;margin:16px 0 24px;min-width:0}
+#pai-studio .pa-research-overview>.pa-panel,#pai-studio .pa-research-input-panel>.pa-panel{margin:0;padding:0;border:0;border-radius:0;background:none;box-shadow:none;min-height:0;width:100%}
+#pai-studio .pa-research-overview .pa-panel-head{padding:0 0 12px;margin:0;border:0}
+#pai-studio .pa-research-overview .pa-panel-body{padding:0;margin:0}
+#pai-studio .pa-research-overview .pa-scientific-facts{margin:0}
+#pai-studio .pa-research-overview>.pa-output-source{width:100%;border-top:1px solid var(--pa-line);margin:0;padding-top:8px}
+#pai-studio .pa-output-source pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}
+#pai-studio .pa-research-input-panel{min-width:0;width:100%}
+#pai-studio .pa-research-inputs{display:flex;flex-wrap:wrap;gap:16px 24px;min-width:0}
+#pai-studio .pa-research-inputs article{min-width:0;max-width:100%;flex:1 1 220px}
 #pai-studio .pa-research-inputs h3{font-size:13px;line-height:1.5;margin:0 0 8px;font-weight:600}
-#pai-studio .pa-research-inputs dl{margin:0;display:grid;gap:7px}
-#pai-studio .pa-research-inputs dl>div{display:grid;grid-template-columns:100px minmax(0,1fr);gap:12px;align-items:start}
+#pai-studio .pa-research-inputs dl{margin:0;display:grid;gap:8px}
+#pai-studio .pa-research-inputs dl>div{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
 #pai-studio .pa-research-inputs dt{font-size:12px;color:var(--pa-muted)}
 #pai-studio .pa-research-inputs dd{margin:0;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
-#pai-studio .pa-scientific-facts dt{font-size:12px;line-height:1.4;white-space:normal;overflow-wrap:normal}
-#pai-studio .pa-scientific-facts>div{border:0;padding:0}
-#pai-studio .pa-scientific-card>.pa-research-conditions{grid-column:1/-1;min-width:0}
-@container pane (max-width:760px){#pai-studio .pa-research-inputs{grid-template-columns:minmax(0,1fr)}}
-@container pane (max-width:420px){#pai-studio .pa-research-overview .pa-scientific-facts{grid-template-columns:minmax(0,1fr)}#pai-studio .pa-research-inputs dl>div{grid-template-columns:76px minmax(0,1fr);gap:8px}}
+#pai-studio .pa-research-conditions{min-width:0;overflow:auto;grid-column:1/-1}
+#pai-studio .pa-dataset-group{margin:0 0 24px;min-width:0}
+#pai-studio .pa-dataset-group>summary{padding:12px 0;font-weight:600;overflow-wrap:anywhere}
+#pai-studio .pa-dataset-group>summary small{font-weight:400;color:var(--pa-muted);margin-left:12px;white-space:nowrap}
+#pai-studio .pa-dataset-variant{border-top:1px solid var(--pa-line);min-width:0}
+#pai-studio .pa-dataset-variant.is-derived{border-left:1px solid var(--pa-line);padding-left:16px}
+#pai-studio .pa-dataset-transform{font-size:12px;color:var(--pa-muted);padding-top:12px;overflow-wrap:anywhere}
+#pai-studio .pa-dataset-transform+.pa-scientific-card{padding-top:8px}
+#pai-studio .pa-dataset-parent{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;margin:8px 0}
+#pai-studio .pa-dataset-parent>small{flex-basis:100%;color:var(--pa-muted);overflow-wrap:anywhere}
+@container pane (max-width:420px){#pai-studio .pa-scientific-card{grid-template-columns:minmax(0,1fr)}#pai-studio .pa-scientific-card .pa-result-score{margin-top:12px}#pai-studio .pa-dataset-variant.is-derived{padding-left:12px}}

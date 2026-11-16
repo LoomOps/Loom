@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0-alpha.25
+
+- Register exact Dataset derivations from accepted inputs or source-bound additive evidence; reject missing revisions, bad component hashes and cycles. Preserve original records and expose lineage in results, Item graph and Dashboard.
+- Group related Dataset variants and collapse only byte-identical imported original records, retaining exact source links and individual counts.
+- Replace oversized output sections with compact typed fields and one Sources disclosure. Remove Overview prose; distinguish stored Dataset language, observer inputs and policy conditioning.
+- Show recorded BC eligibility/positive coverage, retain false and zero, and correct ambiguous saved observer-source aliases without invalidating unrelated metadata.
+- Publish matching server reference/producer guidance and pin Loom Use alpha.12.
+
 ## 0.2.0-alpha.24
 
 - Distinguish explicit source verification failures from metadata-only refreshes. Render structured input values without object placeholders.

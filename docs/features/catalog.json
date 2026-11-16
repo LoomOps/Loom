@@ -360,7 +360,8 @@
         "rust/crates/core/src/results.rs",
         "rust/crates/core/src/storage.rs",
         "rust/crates/core/src/file_set.rs",
-        "rust/crates/core/src/reconcile.rs"
+        "rust/crates/core/src/reconcile.rs",
+        "rust/crates/core/src/dataset_lineage.rs"
       ],
       "tests": [
         "tests/ops/test_installation_smoke.py",

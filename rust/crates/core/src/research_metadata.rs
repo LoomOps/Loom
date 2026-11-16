@@ -7,6 +7,20 @@ use std::collections::BTreeMap;
 const FILE_BYTES: u64 = 2 * 1024 * 1024;
 const ENTITY_BYTES: u64 = 4 * 1024 * 1024;
 const FILES: usize = 12;
+const EXTRACTOR_VERSION: u64 = 2;
+
+fn ambiguous_observer_input(input: &Value) -> bool {
+    input["source_ref"]
+        .as_str()
+        .is_some_and(|s| s.ends_with("#dynamic_instruction_source"))
+}
+fn obsolete_fact(fact: &Value) -> bool {
+    fact["id"] == "instruction_source"
+        && fact["evidence"].as_array().is_some_and(|e| {
+            e.iter()
+                .any(|v| v["pointer"] == "/dynamic_instruction_source")
+        })
+}
 
 struct Document {
     value: Value,
@@ -73,6 +87,9 @@ impl Facts {
         for path in ["/inputs", "/research/inputs", "/dataset_overview/inputs"] {
             if let Some(values) = doc.value.pointer(path).and_then(Value::as_array) {
                 for input in values.iter().filter(|v| v.is_object()) {
+                    if ambiguous_observer_input(input) {
+                        continue;
+                    }
                     let mut next = input.clone();
                     next["evidence"] = json!({"source":doc.source,"pointer":path});
                     let kind = next["kind"].as_str().unwrap_or("");
@@ -340,11 +357,7 @@ pub fn summarize(entity: &Value, documents: &[(Value, Value)]) -> Value {
             "instruction_source",
             "instructions",
             "Instruction source",
-            &[
-                "/research/instruction/source",
-                "/dynamic_instruction_source",
-                "/instruction_source"
-            ],
+            &["/research/instruction/source", "/instruction_source"],
             None
         );
         field!(
@@ -367,6 +380,34 @@ pub fn summarize(entity: &Value, documents: &[(Value, Value)]) -> Value {
         );
         if kind == "dataset" {
             facts.inputs(d);
+            field!(
+                "bc_ready",
+                "quality",
+                "BC ready",
+                &["/research/quality/bc_ready", "/BC_ready"],
+                None
+            );
+            field!(
+                "positive_coverage",
+                "quality",
+                "Positive BC coverage",
+                &["/research/quality/positive_coverage", "/positive_coverage"],
+                None
+            );
+            field!(
+                "language_field",
+                "annotations",
+                "Stored language field",
+                &["/research/language/field"],
+                None
+            );
+            field!(
+                "language_granularity",
+                "annotations",
+                "Language annotation",
+                &["/research/language/granularity"],
+                None
+            );
             field!(
                 "annotation_source",
                 "annotations",
@@ -1123,7 +1164,7 @@ pub fn enrich(app: &Application, entity: &mut Value) {
     entity["research_summary"] = summary;
 }
 
-fn snapshot_target(entity: &Value) -> Option<crate::contracts::Target> {
+pub(crate) fn snapshot_target(entity: &Value) -> Option<crate::contracts::Target> {
     let (kind, identity) = if entity["loom_registry"].is_object() {
         ("entity", entity["loom_registry"].clone())
     } else if entity["loom_history"].is_object() {
@@ -1136,10 +1177,10 @@ fn snapshot_target(entity: &Value) -> Option<crate::contracts::Target> {
         identity,
     })
 }
-fn snapshot_key(target: &crate::contracts::Target) -> crate::Result<String> {
+pub(crate) fn snapshot_key(target: &crate::contracts::Target) -> crate::Result<String> {
     Ok(crate::store::hash(serde_json::to_vec(target)?))
 }
-fn source_identity(
+pub(crate) fn source_identity(
     app: &Application,
     target: &crate::contracts::Target,
 ) -> crate::Result<(String, String)> {
@@ -1179,7 +1220,12 @@ pub fn attach_materialized(app: &Application, entity: &mut Value) -> crate::Resu
     };
     let saved: Value = serde_json::from_str(&old)?;
     let (sha, _) = source_identity(app, &target)?;
-    if saved["source_sha256"] != sha || saved["extractor_version"] != 1 {
+    if saved["source_sha256"] != sha
+        || !matches!(
+            saved["extractor_version"].as_u64(),
+            Some(1 | EXTRACTOR_VERSION)
+        )
+    {
         return Ok(());
     }
     if !entity["research_summary"].is_object() {
@@ -1189,6 +1235,13 @@ pub fn attach_materialized(app: &Application, entity: &mut Value) -> crate::Resu
     for key in ["facts", "inputs", "sources"] {
         let mut current = summary[key].as_array().cloned().unwrap_or_default();
         for item in saved["summary"][key].as_array().into_iter().flatten() {
+            // A targeted semantic correction applies even if the original file
+            // is unavailable. Valid unrelated v1 captures remain usable.
+            if (key == "facts" && obsolete_fact(item))
+                || (key == "inputs" && ambiguous_observer_input(item))
+            {
+                continue;
+            }
             let duplicate = current.iter().any(|old| match key {
                 "facts" => old["id"] == item["id"],
                 "inputs" => old["kind"] == item["kind"] && old["label"] == item["label"],
@@ -1260,7 +1313,7 @@ impl Application {
             "No recorded scientific facts or typed inputs could be recovered",
             409,
         )?;
-        let snapshot = json!({"schema":"loom-materialized-research/v1","extractor_version":1,"target":target,"source_sha256":source_sha,"summary":summary,"captured_at":now(),"captured_by":actor.id,"reason":args["reason"]});
+        let snapshot = json!({"schema":"loom-materialized-research/v1","extractor_version":EXTRACTOR_VERSION,"target":target,"source_sha256":source_sha,"summary":summary,"captured_at":now(),"captured_by":actor.id,"reason":args["reason"]});
         require(
             serde_json::to_vec(&snapshot)?.len() <= 1024 * 1024,
             "metadata_size",

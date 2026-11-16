@@ -55,3 +55,24 @@ current label without rewriting the accepted manifest or source definition.
 Historical source reads retain the recorded label. A parent Job title and Task
 membership do not replace an output name. Label changes keep native aliases,
 source hashes, file bindings and scientific revisions unchanged.
+
+## Dataset lineage and field semantics
+
+`dataset_lineage.rs` owns additive exact Dataset relations. `results.link_dataset`
+previews a source-bound claim and applies it with a matching digest and request
+key. Endpoints must be exact Dataset revisions; registered component evidence,
+transform type, self-links and cycles are checked. The operation preserves source
+manifests and operator attribution. It validates structural provenance, not the
+scientific truth of a submitted transform. Native producers declare per-output
+`lineage` against frozen Dataset inputs; generic `consumes` remains separate.
+Result reads, Item graph and bounded Dashboard projection expose these edges.
+Historical mirrors share a browse key only for the same original Dataset ID and
+byte-identical source body, including its original metadata and component hashes.
+This does not merge Item identities, source revisions, locations or DB rows.
+
+Scientific extraction distinguishes stored Dataset fields, observer inputs and
+policy conditioning. An observer-source string cannot imply language storage or
+stored depth. Recorded BC eligibility and positive coverage retain false/zero.
+Extractor v2 suppresses the ambiguous v1 dynamic-instruction alias and affected
+input claims even when a captured source is offline, preserving unrelated facts.
+Refreshing affected captures is additive and cannot rewrite historical bodies.

@@ -1795,5 +1795,55 @@
       "entrypoint": "rust/crates/core/src/research_metadata.rs#refresh_research_metadata"
     },
     "example_note": "Preview first. Apply with dry_run=false, key and expected_source_sha256 from that preview."
+  },
+  "results.link_dataset": {
+    "title": "Link an existing derived Dataset",
+    "description": "Preview and add an exact, acyclic Dataset parent with a typed transformation and registered component evidence. Original records remain immutable; member-level semantic claims remain producer/operator evidence.",
+    "returns": "Lineage preview/receipt · digest, dry_run, stored, exact source-bound claim",
+    "example": {
+      "target": {
+        "kind": "entity",
+        "identity": {
+          "id": "derived-dataset",
+          "revision": 1
+        }
+      },
+      "parent": {
+        "kind": "entity",
+        "identity": {
+          "id": "source-dataset",
+          "revision": 1
+        }
+      },
+      "transformation": {
+        "kind": "subset",
+        "details": "Selected held-out conditions",
+        "member_count": 20
+      },
+      "evidence": [
+        {
+          "target": {
+            "kind": "entity",
+            "identity": {
+              "id": "source-dataset",
+              "revision": 1
+            }
+          },
+          "component": "manifest.json",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "pointer": "/members"
+        }
+      ],
+      "reason": "Register verified condition selection",
+      "dry_run": true
+    },
+    "errors": [
+      "Missing/non-Dataset revision, unregistered evidence hash, self/cyclic relation, or changed preview digest."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/dataset_lineage.rs#link_dataset"
+    },
+    "example_note": "Illustrative arguments. Replace symbolic identities and hashes with exact registered records before preview or apply."
   }
 }

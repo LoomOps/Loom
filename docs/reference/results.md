@@ -14,6 +14,7 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 - [history](#history)
 - [historical](#historical)
 - [assign_owner](#assign_owner)
+- [link_dataset](#link_dataset)
 - [refresh_metadata](#refresh_metadata)
 - [scenarios](#scenarios)
 - [get_scenario](#get_scenario)
@@ -510,6 +511,267 @@ Illustrative arguments. Replace symbolic identities, hashes and values with disc
 Item · id, owner, owner_profile
 
 Unregistered profile or missing artifact.
+
+## link_dataset
+
+Preview and add an exact, acyclic Dataset parent with a typed transformation and registered component evidence. Original records remain immutable; member-level semantic claims remain producer/operator evidence.
+
+Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/dataset_lineage.rs#link_dataset](../../rust/crates/core/src/dataset_lineage.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `dry_run` | no | `"boolean"` | `true` |
+| `evidence` | yes | `"array"` | `—` |
+| `expected_digest` | no | `"string"` | `—` |
+| `key` | no | `"string"` | `—` |
+| `parent` | yes | `"object"` | `—` |
+| `primary` | no | `"boolean"` | `false` |
+| `reason` | yes | `"string"` | `—` |
+| `target` | yes | `"object"` | `—` |
+| `transformation` | yes | `"object"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "dry_run": {
+      "default": true,
+      "type": "boolean"
+    },
+    "evidence": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "archive_member": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "component": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "member_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "pointer": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "target": {
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object"
+              },
+              "kind": {
+                "enum": [
+                  "job",
+                  "entity",
+                  "historical",
+                  "component",
+                  "tool",
+                  "profile",
+                  "runtime",
+                  "protocol_artifact"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "identity"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "target",
+          "component",
+          "sha256"
+        ],
+        "type": "object"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "type": "array"
+    },
+    "expected_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "key": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "parent": {
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "type": "object"
+        },
+        "kind": {
+          "enum": [
+            "job",
+            "entity",
+            "historical",
+            "component",
+            "tool",
+            "profile",
+            "runtime",
+            "protocol_artifact"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "identity"
+      ],
+      "type": "object"
+    },
+    "primary": {
+      "default": false,
+      "type": "boolean"
+    },
+    "reason": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "target": {
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "type": "object"
+        },
+        "kind": {
+          "enum": [
+            "job",
+            "entity",
+            "historical",
+            "component",
+            "tool",
+            "profile",
+            "runtime",
+            "protocol_artifact"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "identity"
+      ],
+      "type": "object"
+    },
+    "transformation": {
+      "additionalProperties": false,
+      "properties": {
+        "config_ref": {
+          "type": "object"
+        },
+        "details": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "subset",
+            "condition_selection",
+            "includes",
+            "relabel",
+            "resample",
+            "sensor_rerender",
+            "augment",
+            "merge"
+          ]
+        },
+        "member_count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tool_ref": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "kind",
+        "details"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "target",
+    "parent",
+    "transformation",
+    "evidence",
+    "reason"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "dry_run": true,
+  "evidence": [
+    {
+      "component": "manifest.json",
+      "pointer": "/members",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target": {
+        "identity": {
+          "id": "source-dataset",
+          "revision": 1
+        },
+        "kind": "entity"
+      }
+    }
+  ],
+  "parent": {
+    "identity": {
+      "id": "source-dataset",
+      "revision": 1
+    },
+    "kind": "entity"
+  },
+  "reason": "Register verified condition selection",
+  "target": {
+    "identity": {
+      "id": "derived-dataset",
+      "revision": 1
+    },
+    "kind": "entity"
+  },
+  "transformation": {
+    "details": "Selected held-out conditions",
+    "kind": "subset",
+    "member_count": 20
+  }
+}
+```
+
+Illustrative arguments. Replace symbolic identities and hashes with exact registered records before preview or apply.
+
+### Result and failures
+
+Lineage preview/receipt · digest, dry_run, stored, exact source-bound claim
+
+Missing/non-Dataset revision, unregistered evidence hash, self/cyclic relation, or changed preview digest.
 
 ## refresh_metadata
 

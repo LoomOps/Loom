@@ -7,6 +7,7 @@ pub mod catalog;
 pub mod compat;
 pub mod composition;
 pub mod contracts;
+pub mod dataset_lineage;
 pub mod diagnostics;
 pub mod error;
 pub mod execution;

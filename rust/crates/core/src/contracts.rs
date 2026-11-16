@@ -30,6 +30,15 @@ pub fn actions() -> Vec<Action> {
     let definitions = [
         (
             "results",
+            "link_dataset",
+            "submit",
+            object(
+                json!({"target":target,"parent":target,"primary":{"type":"boolean","default":false},"transformation":object(json!({"kind":{"enum":crate::dataset_lineage::TRANSFORMS},"details":{"type":"string","minLength":1,"maxLength":2000},"tool_ref":{"type":"object"},"config_ref":{"type":"object"},"member_count":{"type":"integer","minimum":0}}),&["kind","details"]),"evidence":{"type":"array","minItems":1,"maxItems":16,"items":object(json!({"target":target,"component":string,"sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},"pointer":{"type":"string","maxLength":2048},"archive_member":{"type":"string","maxLength":2048},"member_sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}}),&["target","component","sha256"])},"reason":{"type":"string","minLength":1,"maxLength":2000},"dry_run":{"type":"boolean","default":true},"expected_digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},"key":string}),
+                &["target", "parent", "transformation", "evidence", "reason"],
+            ),
+        ),
+        (
+            "results",
             "refresh_metadata",
             "submit",
             object(

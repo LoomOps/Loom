@@ -59,10 +59,14 @@ separate from the output name.
 
 ## Research metadata and primary outcomes
 
-Record dataset quantity/unit/split, observation modalities, source demonstrations,
-physics/control configuration, annotation origin and instruction conditioning when
-applicable. Distinguish measured observations, privileged simulator labels and
-estimated observer labels. An absent language input is different from unknown.
+Record dataset quantity/unit/split, stored observation fields, source demonstrations,
+physics/control configuration and annotation origin. Dataset language means an
+actual stored task/text annotation, with its field and granularity; a generator's
+prompt or an observer-source identifier does not establish stored language or
+depth. Keep stored observations, observer inputs and policy inputs separate.
+For Models, record actual policy conditioning and input consumers (`used_by`),
+including proprioception dimensions. An absent language input differs from unknown.
+Do not author Overview prose for Outputs; keep useful information in typed fields.
 
 For evaluations, record offline versus closed-loop scope, Sim versus Real,
 protocol and success predicate/threshold/window, evaluator Tool/Component revision,
@@ -82,7 +86,9 @@ JSON manifests/readiness/protocol reports that were not flattened into metadata.
 New Profiles should declare a `metadata.research` object in their output metadata
 schema. Use explicit `environment`, `robot`, `physics` (physics_hz, control_hz,
 rgb_hz, state_hz, collision, payload_mass_kg, robot_gravity_disabled), `annotation`
-(method/source), `instruction` (mode/source), `collection` (count/unit/split,
+(method/source), `language` (stored Dataset field/granularity), `instruction`
+(Model/evaluation conditioning mode/source), `quality` (recorded BC eligibility
+and positive coverage), `collection` (count/unit/split,
 source_demos/method), `model` (role/architecture/outputs/initialization/base_model,
 training_method/selected_step/optimizer_updates/selection) and `evaluation`
 (mode/evaluator/cohort/split/success_criteria/planned/valid/infra/pending) fields as
@@ -97,3 +103,42 @@ To persist recovered facts on an existing record, preview
 and a stable `key`. This adds a source-bound annotation; it does not revise a Model,
 Dataset, accepted manifest, historical body or scientific acceptance. Keep missing
 facts missing. Repeat only for the requested records, not every host file.
+
+## Dataset derivation
+
+Search existing Datasets and inspect their exact Item/source revisions before
+publishing a variant. Reuse the existing Dataset when only its location changes.
+A subset, relabel, sensor rerender or merge is a separate Dataset; a shared Task
+or a calibration/tool input alone is not a data-parent relation.
+
+In a native Dataset output, declare `lineage` with one entry per accepted
+Dataset input. This is an illustrative fragment, not a complete runnable manifest:
+
+```json
+{"lineage":[{"input":"parent_dataset","transformation":{"kind":"subset","details":"Selected held-out conditions","member_count":20}}]}
+```
+
+Finalization resolves `input` from the frozen accepted Job inputs to one exact
+Dataset revision. It keeps ordinary `consumes` edges separately. Supported
+transform kinds are discovered in `system.describe`/the results reference;
+condition selection is not sensor recording, and partial reuse does not mean the
+whole target is a copy. Pin the producing Tool/config in the transformation when
+applicable. With Rust, call `Producer::derive_dataset` after registering the output.
+
+For existing native or historical Datasets, preview `results.link_dataset` with
+exact `target` and `parent`, `transformation`, `reason` and registered component
+`evidence` (target/component/SHA-256, optional JSON pointer or archive member).
+Apply using its `expected_digest`, a stable `key` and `dry_run:false`.
+The server validates exact identities, registered component hashes and acyclicity.
+Transform semantics and any member-level comparisons remain the submitting
+producer/operator's evidenced claim, not an automatic scientific verification.
+An archive-member digest is retained evidence, not a claim that the API has read
+every archive member. Existing source bodies/IDs/Jobs remain unchanged.
+
+Browse `dataset_lineage.parents` in result/details and `results.item_graph` for
+exact edges. Dashboard groups loaded variants while preserving their names and
+counts; it never sums overlapping episodes or treats every consumed input as a
+data parent. Multi-parent variants retain every parent cross-link; optionally
+declare one `primary:true` parent for browsing. Shared context is not derivation.
+Imported copies share a browse row only when the original Dataset identity and
+entire original record body are identical. Sources retains their exact links.

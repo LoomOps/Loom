@@ -72,6 +72,9 @@ impl Application {
                     value["components_complete"] = json!(true);
                 }
                 value["locations"]=json!(rows(&self.db,"SELECT component,machine_id,storage_id,ref,status FROM all_entity_locations WHERE id=? AND revision=? ORDER BY component,ref",&[&id,&rev])?);
+                if value["kind"] == "dataset" {
+                    value["dataset_lineage"] = json!({"schema":"loom-dataset-lineage/v1","parents":crate::dataset_lineage::declared(self,&Target{kind:"entity".into(),identity:json!({"id":id,"revision":rev})})?});
+                }
                 let owner: String = self.db.query_row(
                     "SELECT owner FROM all_entity_revisions WHERE id=? AND revision=?",
                     params![id, rev],
@@ -122,6 +125,7 @@ impl Application {
                 Ok(json!({"id":id,"attempt":attempt,"state":"processing"}))
             }
             "refresh_metadata" => self.refresh_research_metadata(actor, args),
+            "link_dataset" => self.link_dataset(actor, args),
             "annotate" => {
                 let id = args["id"]
                     .as_str()
@@ -545,6 +549,33 @@ impl Application {
                 }
             }
             let identity = format!("{job}.{entity_id}");
+            for lineage in entity["lineage"].as_array().into_iter().flatten() {
+                let input = lineage["input"].as_str().unwrap_or("");
+                let matches = relations
+                    .iter()
+                    .filter(|r| r["kind"] == "consumes" && r["input"] == input)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                require(
+                    matches.len() == 1,
+                    "lineage_input",
+                    "Dataset parent input must resolve to one exact accepted Dataset",
+                    400,
+                )?;
+                let parent = &matches[0];
+                let parent_kind: String = self.db.query_row(
+                    "SELECT kind FROM all_entity_revisions WHERE id=? AND revision=?",
+                    params![parent["id"].as_str(), parent["revision"].as_i64()],
+                    |r| r.get(0),
+                )?;
+                require(
+                    parent_kind == "dataset",
+                    "lineage_kind",
+                    "Data parent input must be a Dataset",
+                    400,
+                )?;
+                relations.push(json!({"kind":"derived_from","input":input,"id":parent["id"],"revision":parent["revision"],"transformation":lineage["transformation"],"primary":lineage["primary"].as_bool().unwrap_or(false)}));
+            }
             let mut published = json!({"id":identity,"revision":1,"kind":kind,"origin_machine":self.config.machine_id,"job":job,"attempt":attempt,"provenance":entity.get("provenance").cloned().unwrap_or(json!({})),"components":components,"relations":relations,"metadata_schema":row.spec["profile"]["metadata_schemas"].get(entity_id).or_else(||row.spec["profile"]["metadata_schemas"].get("*")).cloned(),"metrics":manifest["metrics"].as_array().unwrap().iter().filter(|m|m["entity_id"]==entity_id).collect::<Vec<_>>()});
             if entity["inventory"].is_object() {
                 require(
@@ -746,6 +777,7 @@ fn validate_output_semantics(manifest: &Value, profile: Option<&Value>) -> Resul
                                 "label",
                                 "description",
                                 "inventory",
+                                "lineage",
                             ]
                             .contains(&k.as_str())
                         })
@@ -795,6 +827,49 @@ fn validate_output_semantics(manifest: &Value, profile: Option<&Value>) -> Resul
                 "Invalid typed output relation",
                 400,
             )?;
+        }
+        if let Some(lineage) = entity.get("lineage") {
+            require(
+                entity["kind"] == "dataset" && lineage.as_array().is_some_and(|a| a.len() <= 16),
+                "lineage",
+                "Only Dataset outputs declare up to 16 data-parent inputs",
+                400,
+            )?;
+            let mut seen = std::collections::BTreeSet::new();
+            require(
+                lineage
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .filter(|p| p["primary"] == true)
+                    .count()
+                    <= 1,
+                "lineage_primary",
+                "At most one primary browsing parent is allowed",
+                400,
+            )?;
+            for parent in lineage.as_array().unwrap() {
+                require(
+                    parent.get("primary").is_none_or(Value::is_boolean),
+                    "lineage",
+                    "primary must be boolean",
+                    400,
+                )?;
+                require(
+                    parent.as_object().is_some_and(|o| {
+                        o.keys()
+                            .all(|k| ["input", "transformation", "primary"].contains(&k.as_str()))
+                            && o.contains_key("input")
+                            && o.contains_key("transformation")
+                    }) && parent["input"]
+                        .as_str()
+                        .is_some_and(|s| !s.is_empty() && seen.insert(s.to_string())),
+                    "lineage",
+                    "Each data-parent input must be named exactly once",
+                    400,
+                )?;
+                crate::dataset_lineage::validate_transform(&parent["transformation"])?;
+            }
         }
     }
     for metric in metrics {

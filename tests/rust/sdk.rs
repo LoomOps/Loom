@@ -1,5 +1,34 @@
 use super::*;
 #[test]
+fn dataset_derivation_pins_the_named_input_without_changing_artifact_bytes() {
+    let root = std::env::temp_dir().join(format!("loom-sdk-lineage-{}", uuid::Uuid::new_v4()));
+    fs::create_dir(&root).unwrap();
+    fs::write(root.join("data.json"), b"{}").unwrap();
+    let request: Request = serde_json::from_value(
+        json!({"output_dir":root,"profile":{"revision":"fixture.r1","sha256":"a".repeat(64)}}),
+    )
+    .unwrap();
+    let mut producer = Producer::new(request).unwrap();
+    producer
+        .register_entity(
+            json!({"id":"data","kind":"dataset","path":"data.json","provenance":{},"relations":[]}),
+        )
+        .unwrap();
+    producer
+        .derive_dataset(
+            "data",
+            "parent_data",
+            json!({"kind":"subset","details":"Selected recorded members"}),
+        )
+        .unwrap();
+    assert_eq!(producer.entities[0]["lineage"][0]["input"], "parent_data");
+    assert!(producer
+        .derive_dataset("data", "parent_data", json!({}))
+        .is_err());
+    assert_eq!(fs::read(root.join("data.json")).unwrap(), b"{}");
+    fs::remove_dir_all(root).unwrap();
+}
+#[test]
 fn source_digest_is_stable() {
     assert_eq!(
         Producer::source_hash(b"abc"),

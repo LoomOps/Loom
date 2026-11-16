@@ -483,6 +483,7 @@ impl Application {
                 Some("model" | "dataset" | "experiment" | "run")
             ) {
                 crate::research_metadata::attach_materialized(self, entity)?;
+                crate::dataset_lineage::attach(self, entity)?;
             }
         }
         self.attach_task_context(&mut entities)?;

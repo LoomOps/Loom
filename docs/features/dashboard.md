@@ -4,6 +4,14 @@
 
 Never send credentials to the opaque iframe. Browser writes respect Origin/CSRF boundaries. The UI must not infer completed backend states.
 
+Outputs uses compact typed field sections, without Overview prose. One Sources
+disclosure contains original metadata, field evidence, file locations and
+publication context. Dataset quantity labels preserve episodes/cases/snapshots;
+recorded training eligibility is not a model-quality acceptance. Dataset grouping
+follows explicit exact lineage, retains variant names and overlapping counts, and
+does not infer a data-parent edge from Task names or general consumes relations.
+Group counts describe loaded variants; paging does not claim a complete lineage.
+
 The current native service is implemented in `rust/`. Python files in this block may be retained web/administrator integrations or compatibility references; they do not supersede the native transactional handlers. See [implementation boundaries](../IMPLEMENTATION.md).
 
 ## Interfaces
