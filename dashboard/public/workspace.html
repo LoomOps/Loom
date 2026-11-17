@@ -344,8 +344,8 @@ function loomTailscaleIcon(){return `&lt;svg class=&quot;pa-tailscale-symbol&quo
 
 .pa-item-search{min-width:0;max-width:100%;}.pa-item-search form{display:flex;gap:8px;flex-wrap:wrap}.pa-item-search input{min-width:120px;flex:1}.pa-item-search dd{overflow-wrap:anywhere;margin-inline-start:0}.pa-item-search pre{max-height:380px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.pa-search-result{text-align:left;overflow-wrap:anywhere}.pa-item-search [data-search-detail]{max-width:100%;overflow:auto}.pa-item-search table{width:100%;table-layout:fixed}
 #pai-studio .pa-report-workspace { min-width:0; margin:20px 0; }
-#pai-studio .pa-report-tabs { display:flex; flex-wrap:wrap; gap:6px 20px; border-bottom:1px solid var(--pa-line); margin-bottom:24px; }
-#pai-studio .pa-report-tabs button { font:inherit; color:var(--pa-muted); background:none; border:0; padding:12px 0; border-bottom:2px solid transparent; }
+#pai-studio .pa-report-tabs { display:flex; flex-direction:row; flex-wrap:wrap; gap:6px 20px; border-bottom:1px solid var(--pa-line); margin-bottom:24px; }
+#pai-studio .pa-report-tabs button { flex:0 0 auto; width:auto; min-width:0; font:inherit; color:var(--pa-muted); background:none; border:0; padding:12px 0; border-bottom:2px solid transparent; }
 #pai-studio .pa-report-tabs button[aria-current=page] { color:var(--pa-ink); border-bottom-color:var(--pa-accent); }
 #pai-studio .pa-report-controls { display:flex; flex-wrap:wrap; gap:16px; margin-bottom:24px; }
 #pai-studio .pa-report-controls label { display:grid; gap:6px; color:var(--pa-muted); }
@@ -5939,7 +5939,9 @@ function loomReportContent(e){
 const loomReportPreviousDetail=catalogDetail;
 catalogDetail=function(id){
  const e=catEntity(id),html=loomReportPreviousDetail(id);if(!e||![&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;run&#x27;].includes(e.kind)||!catalogData.capabilities?.reporting)return html;
- const t=document.createElement(&#x27;template&#x27;);t.innerHTML=html;const overview=t.content.querySelector(&#x27;.pa-research-overview&#x27;);if(!overview)return html;
+ const t=document.createElement(&#x27;template&#x27;);t.innerHTML=html;
+ if(e.kind===&#x27;model&#x27;&amp;&amp;(e.reporting||e.metadata?.research?.model?.role===&#x27;policy&#x27;||[&#x27;VLA&#x27;,&#x27;Policy&#x27;].includes(modelFilterMeta(e).role))){const label=t.content.querySelector(&#x27;.pa-heading .pa-eyebrow&#x27;);if(label)label.textContent=&#x27;POLICY&#x27;;}
+ const overview=t.content.querySelector(&#x27;.pa-research-overview&#x27;);if(!overview)return t.innerHTML;
  loomReportOverviewBodies.set(e.id,overview.outerHTML);while(loomReportOverviewBodies.size&gt;160)loomReportOverviewBodies.delete(loomReportOverviewBodies.keys().next().value);
  const view=loomReportState(e);const parent=document.createElement(&#x27;section&#x27;);parent.className=&#x27;pa-report-workspace&#x27;;parent.dataset.reportOutput=e.id;
  parent.innerHTML=&#x27;&lt;nav class=&quot;pa-report-tabs&quot; aria-label=&quot;Output details&quot;&gt;&#x27;+loomReportTabs(e).map(([id,label])=&gt;&#x27;&lt;button data-report-tab=&quot;&#x27;+id+&#x27;&quot; aria-current=&quot;&#x27;+(view.tab===id?&#x27;page&#x27;:&#x27;false&#x27;)+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/nav&gt;&lt;div data-report-content&gt;&#x27;+loomReportContent(e)+&#x27;&lt;/div&gt;&#x27;;

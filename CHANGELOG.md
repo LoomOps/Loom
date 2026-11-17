@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0-alpha.34
+
+- Keep report detail tabs compact and horizontal; wrap only as needed on narrow panes.
+
 ## 0.2.0-alpha.33
 
 - Register immutable metadata formats, reporting contracts and metric/factor/protocol definitions with shared Item identities. Reuse Built-in coverage, derive evidence-backed exclusions/replacements, or author additional analysis without a platform release.

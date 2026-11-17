@@ -1,6 +1,6 @@
 #pai-studio .pa-report-workspace { min-width:0; margin:20px 0; }
-#pai-studio .pa-report-tabs { display:flex; flex-wrap:wrap; gap:6px 20px; border-bottom:1px solid var(--pa-line); margin-bottom:24px; }
-#pai-studio .pa-report-tabs button { font:inherit; color:var(--pa-muted); background:none; border:0; padding:12px 0; border-bottom:2px solid transparent; }
+#pai-studio .pa-report-tabs { display:flex; flex-direction:row; flex-wrap:wrap; gap:6px 20px; border-bottom:1px solid var(--pa-line); margin-bottom:24px; }
+#pai-studio .pa-report-tabs button { flex:0 0 auto; width:auto; min-width:0; font:inherit; color:var(--pa-muted); background:none; border:0; padding:12px 0; border-bottom:2px solid transparent; }
 #pai-studio .pa-report-tabs button[aria-current=page] { color:var(--pa-ink); border-bottom-color:var(--pa-accent); }
 #pai-studio .pa-report-controls { display:flex; flex-wrap:wrap; gap:16px; margin-bottom:24px; }
 #pai-studio .pa-report-controls label { display:grid; gap:6px; color:var(--pa-muted); }

@@ -83,7 +83,9 @@ function loomReportContent(e){
 const loomReportPreviousDetail=catalogDetail;
 catalogDetail=function(id){
  const e=catEntity(id),html=loomReportPreviousDetail(id);if(!e||!['dataset','model','experiment','run'].includes(e.kind)||!catalogData.capabilities?.reporting)return html;
- const t=document.createElement('template');t.innerHTML=html;const overview=t.content.querySelector('.pa-research-overview');if(!overview)return html;
+ const t=document.createElement('template');t.innerHTML=html;
+ if(e.kind==='model'&&(e.reporting||e.metadata?.research?.model?.role==='policy'||['VLA','Policy'].includes(modelFilterMeta(e).role))){const label=t.content.querySelector('.pa-heading .pa-eyebrow');if(label)label.textContent='POLICY';}
+ const overview=t.content.querySelector('.pa-research-overview');if(!overview)return t.innerHTML;
  loomReportOverviewBodies.set(e.id,overview.outerHTML);while(loomReportOverviewBodies.size>160)loomReportOverviewBodies.delete(loomReportOverviewBodies.keys().next().value);
  const view=loomReportState(e);const parent=document.createElement('section');parent.className='pa-report-workspace';parent.dataset.reportOutput=e.id;
  parent.innerHTML='<nav class="pa-report-tabs" aria-label="Output details">'+loomReportTabs(e).map(([id,label])=>'<button data-report-tab="'+id+'" aria-current="'+(view.tab===id?'page':'false')+'">'+label+'</button>').join('')+'</nav><div data-report-content>'+loomReportContent(e)+'</div>';

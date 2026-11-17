@@ -83,10 +83,15 @@ class NativeWorkspaceTests(unittest.TestCase):
   try:ui.wait("return document.querySelector('[data-report-content]')?.textContent.includes('Approach <target> with open gripper.')")
   except AssertionError:self.fail(ui.js("return document.querySelector('#pa-content').innerText"))
   self.assertFalse(ui.js("return !!document.querySelector('[data-report-content] target')"))
+  self.assertEqual(ui.js("return document.querySelector('.pa-document-pane.is-active .pa-heading .pa-eyebrow').textContent"),'POLICY')
   ui.click('[data-report-tab=learning]');ui.wait("return document.querySelectorAll('.pa-report-chart polyline').length===2")
   self.assertTrue(ui.js("return [...document.querySelector('[data-report-filter=phase]').options].some(o=>o.value==='carry')"))
   ui.js("const s=document.querySelector('[data-report-filter=phase]');s.value='carry';s.dispatchEvent(new Event('change',{bubbles:true}))");ui.wait("return document.querySelectorAll('.pa-report-chart polyline').length===1")
   ui.click('[data-report-tab=metrics]');ui.wait("return document.querySelector('[data-report-content]')?.textContent.includes('rad²')")
+  for width in (1440,500):
+   ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+   self.assertLessEqual(ui.js("return document.querySelector('.pa-report-tabs').getBoundingClientRect().height"),110)
+   self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-report-tabs button')].every(b=>b.getBoundingClientRect().width<200)"))
   ui.click('[data-report-tab=contract]');self.assertIn('browser.fixture',ui.js("return document.querySelector('[data-report-content]').textContent"))
   excluded=json.loads(json.dumps(entity));excluded['id']=job+'.unconditional-policy';excluded['reporting']['reports']=[r for r in reports if r['role']!='instructions'];excluded['reporting']['exclusions']=[{'id':'instructions','role':'instructions','reason':'Verified language-free input interface'}]
   with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:db.execute("INSERT INTO entity_revisions VALUES(?,1,?,'model','owner','owner',?)",(excluded['id'],job,json.dumps(excluded)))
