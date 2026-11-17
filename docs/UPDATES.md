@@ -226,3 +226,8 @@ open. Existing `runtime_curation` Profile/Runtime states remain authoritative an
 are not rewritten. New Component/Tool/Template/Contract/Definition lifecycle rows
 use the same overlay table. Upgrade and restore preserve both tables, registry
 source bodies, accepted Job pins and files. No host resource is archived by upgrade.
+
+Native update preservation permits Runtime/Dependency observation retirement and
+monotonic catalog access-epoch advancement. Their original IDs, native keys,
+creation identity, immutable revisions and aliases remain preserved. Scientific
+Item retirement, origin/cursor-key changes and access-epoch regression are rejected.

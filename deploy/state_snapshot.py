@@ -82,11 +82,18 @@ def databases(root):
         if header==b'SQLite format 3\x00':yield p
 
 
-def rows(c,table,columns):
+def rows(c,table,columns,observations=False):
     quote=lambda s:'"'+s.replace('"','""')+'"'
     def value(item):
         return {'blob':item.hex()} if isinstance(item,bytes) else item
-    return Counter(hashlib.sha256(json.dumps([value(x) for x in row],ensure_ascii=True,separators=(',',':')).encode()).hexdigest()
+    def normalized(row):
+        row=list(row)
+        if observations and table=='catalog_items' and {'kind','native_kind','deleted'}<=set(columns):
+            kind=row[columns.index('native_kind')]
+            if kind in ('dependency','runtime') and row[columns.index('kind')]==kind and row[columns.index('deleted')] in (0,1):
+                row[columns.index('deleted')]=0
+        return row
+    return Counter(hashlib.sha256(json.dumps([value(x) for x in normalized(row)],ensure_ascii=True,separators=(',',':')).encode()).hexdigest()
                    for row in c.execute('SELECT '+','.join(map(quote,columns))+' FROM '+quote(table)))
 
 
@@ -194,11 +201,16 @@ def verify(root,base):
                     if table=='catalog_dirty':continue
                     mutable={'rust_runtime_observation':{'value','observed'},'rust_projection_version':{'version'},
                              'user_profiles':{'updated'} if {'id','provider','login','display_name','updated'}<=set(columns) else set(),
-                             'catalog_items':{'current_revision'},'catalog_aliases':{'revision'},'catalog_sources':{'body'},
+                             'catalog_items':{'current_revision'},'catalog_meta':{'access_epoch'} if 'access_epoch' in columns else set(),'catalog_aliases':{'revision'},'catalog_sources':{'body'},
                              'catalog_backfill':{'position','complete'},'catalog_tasks':{'state','progress','receipt','error','updated'}}.get(table,set())
                     if mutable:
                         columns=[k for k in columns if k not in mutable]
-                        with database(Path(base)/'instance'/rel,readonly=True) as original:expected_rows=rows(original,table,columns)
+                        with database(Path(base)/'instance'/rel,readonly=True) as original:expected_rows=rows(original,table,columns,observations=table=='catalog_items')
+                    if table=='catalog_meta' and 'access_epoch' in baseline['columns']:
+                        with database(Path(base)/'instance'/rel,readonly=True) as original:
+                            for identity,epoch in original.execute('SELECT id,access_epoch FROM catalog_meta'):
+                                present=c.execute('SELECT access_epoch FROM catalog_meta WHERE id=?',(identity,)).fetchone()
+                                if not present or not isinstance(present[0],int) or present[0]<epoch:problems.append('catalog-access-epoch')
                     if table=='catalog_tasks':
                         with database(Path(base)/'instance'/rel,readonly=True) as original:
                             for task,receipt in original.execute('SELECT id,receipt FROM catalog_tasks WHERE receipt IS NOT NULL'):
@@ -210,7 +222,7 @@ def verify(root,base):
                     columns=[k for k in columns if k not in ('updated','next_attempt')]
                     with database(Path(base)/'instance'/rel,readonly=True) as original:
                         expected_rows=rows(original,table,columns)
-                try:actual=rows(c,table,columns)
+                try:actual=rows(c,table,columns,observations=rel=='runtime/ops.sqlite3' and table=='catalog_items')
                 except sqlite3.DatabaseError:problems.append('table:'+table);continue
                 if expected_rows-actual:problems.append('rows:'+table)
             if rel=='runtime/ops.sqlite3' and 'catalog_items' in tables and 'catalog_revisions' in tables:

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0-alpha.38
+
+- Preserve native Runtime/Dependency observation retirement during upgrades without treating it as scientific Item deletion. Keep original IDs, native keys, creation identity and immutable revisions exact.
+- Permit only monotonic catalog access-epoch advancement while preserving origin and cursor-signing keys; reject epoch regression and scientific Item retirement. Add focused preservation failure regressions.
+
 ## 0.2.0-alpha.37
 
 - Add reversible Archive, Restore and deprecation for exact Component, Tool, Profile, Runtime, metadata Template, report Contract and report Definition registrations. Preview dependencies and Job usage, explicitly select related registrations, and apply an audited atomic batch while preserving source files, accepted pins and execution history. Protect Built-ins and enforce management rights.

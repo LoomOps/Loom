@@ -306,6 +306,30 @@ class ItemManifestPreservationTests(unittest.TestCase):
             with sqlite3.connect(db) as c:c.execute("DELETE FROM catalog_revisions WHERE id='r1'")
             with self.assertRaisesRegex(ValueError,'catalog_revisions'):state_snapshot.verify(root,saved)
 
+    def test_observed_runtime_retirement_preserves_identity_but_scientific_retirement_does_not(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)/'ops';(root/'runtime').mkdir(parents=True);(root/'compose.env').write_text('');db=root/'runtime/ops.sqlite3'
+            with sqlite3.connect(db) as c:
+                c.executescript("CREATE TABLE catalog_items(id,kind,native_kind,native_key,current_revision,created,deleted);INSERT INTO catalog_items VALUES('dep','dependency','dependency','original-package',NULL,1,0);INSERT INTO catalog_items VALUES('science','model','entity','original-model',NULL,1,0);")
+            archive=Path(temp)/'backup';archive.mkdir();saved=state_snapshot.capture(root,archive,Path(temp))
+            with sqlite3.connect(db) as c:c.execute("UPDATE catalog_items SET deleted=1 WHERE id='dep'")
+            self.assertTrue(state_snapshot.verify(root,saved)['preserved'])
+            with sqlite3.connect(db) as c:c.execute("UPDATE catalog_items SET deleted=1 WHERE id='science'")
+            with self.assertRaisesRegex(ValueError,'catalog_items'):state_snapshot.verify(root,saved)
+            with sqlite3.connect(db) as c:c.execute("UPDATE catalog_items SET deleted=0 WHERE id='science'");c.execute("UPDATE catalog_items SET native_key='changed' WHERE id='dep'")
+            with self.assertRaisesRegex(ValueError,'catalog_items'):state_snapshot.verify(root,saved)
+
+    def test_catalog_epoch_only_advances_while_origin_and_cursor_key_stay_exact(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)/'ops';(root/'runtime').mkdir(parents=True);(root/'compose.env').write_text('');db=root/'runtime/ops.sqlite3'
+            with sqlite3.connect(db) as c:c.executescript("CREATE TABLE catalog_meta(id,origin,cursor_key,access_epoch);INSERT INTO catalog_meta VALUES(1,'original-origin','original-key',4);")
+            archive=Path(temp)/'backup';archive.mkdir();saved=state_snapshot.capture(root,archive,Path(temp))
+            with sqlite3.connect(db) as c:c.execute('UPDATE catalog_meta SET access_epoch=5')
+            self.assertTrue(state_snapshot.verify(root,saved)['preserved'])
+            for column,value in [('access_epoch',3),('origin','changed'),('cursor_key','changed')]:
+                with sqlite3.connect(db) as c:c.execute("UPDATE catalog_meta SET origin='original-origin',cursor_key='original-key',access_epoch=5");c.execute('UPDATE catalog_meta SET '+column+'=?',(value,))
+                with self.assertRaises(ValueError):state_snapshot.verify(root,saved)
+
     def test_snapshot_omits_sqlite_sidecars_and_keeps_committed_wal_rows(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)/'ops';(root/'runtime').mkdir(parents=True);(root/'compose.env').write_text('')
