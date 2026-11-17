@@ -4465,3 +4465,61 @@ fn image_os_dependencies_do_not_oscillate_between_distinct_runtime_images() {
         .iter()
         .all(|v| v["native_ref"]["identity"]["origin"]["image"].is_string()));
 }
+
+#[test]
+fn runtime_revision_links_resolve_old_exact_aliases_without_hash_fallback() {
+    let mut f = Fixture::new();
+    let first = json!({"label":"Original Runtime","runtime":{"image":format!("sha256:{}","a".repeat(64))},"dependencies":[]});
+    let later = json!({"label":"Later Runtime","runtime":{"image":format!("sha256:{}","b".repeat(64))},"dependencies":[]});
+    let sha1 = hash(compat::seal(&first));
+    let sha2 = hash(compat::seal(&later));
+    f.app.observe_runtimes(json!({"runtimes":[{"id":"sim","revision":1,"sha256":sha1,"manifest":first},{"id":"sim","revision":2,"sha256":sha2,"manifest":later}]})).unwrap();
+    for _ in 0..8 {
+        f.app.index_once().unwrap();
+    }
+    let exact=f.call("results","resolve_item",json!({"native_ref":{"kind":"runtime","identity":{"id":"sim","revision":1,"sha256":sha1}}})).unwrap();
+    let link = json!({"native_ref":{"kind":"runtime","identity":{"id":"sim","revision":1}}});
+    let resolved = f.call("results", "resolve_item", link.clone()).unwrap();
+    assert_eq!(resolved["item_id"], exact["item_id"]);
+    assert_eq!(resolved["revision_id"], exact["revision_id"]);
+    let detail = f
+        .call(
+            "system",
+            "dashboard_entity",
+            json!({"item_id":resolved["item_id"],"revision_id":resolved["revision_id"]}),
+        )
+        .unwrap();
+    assert_eq!(detail["entities"][0]["loom_runtime"]["revision"], 1);
+    assert_eq!(detail["entities"][0]["label"], "Original Runtime");
+    assert!(f.call("results","resolve_item",json!({"native_ref":{"kind":"runtime","identity":{"id":"sim","revision":1,"sha256":sha2}}})).is_err());
+    assert!(f
+        .call(
+            "results",
+            "resolve_item",
+            json!({"native_ref":{"kind":"runtime","identity":{"id":"sim","revision":99}}})
+        )
+        .is_err());
+    let second = f
+        .call(
+            "results",
+            "resolve_item",
+            json!({"native_ref":{"kind":"runtime","identity":{"id":"sim","revision":2}}}),
+        )
+        .unwrap();
+    f.app
+        .db
+        .execute(
+            "INSERT INTO catalog_aliases VALUES('runtime',?,?,?)",
+            rusqlite::params![
+                json!({"id":"sim","revision":1,"sha256":sha2}).to_string(),
+                crate::items::parse(&second["item_id"]).unwrap(),
+                crate::items::parse(&second["revision_id"]).unwrap()
+            ],
+        )
+        .unwrap();
+    assert_eq!(
+        f.call("results", "resolve_item", link).unwrap_err().code,
+        "ambiguous_reference"
+    );
+    assert_eq!(f.call("results","resolve_item",json!({"native_ref":{"kind":"runtime","identity":{"id":"sim","revision":1,"sha256":sha1}}})).unwrap()["revision_id"],exact["revision_id"]);
+}

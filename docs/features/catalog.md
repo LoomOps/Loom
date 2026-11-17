@@ -134,3 +134,9 @@ deleted. Paged discovery and exact native aliases must survive curation. An
 operator can replay the existing presentation through `jobs.curate` with a new
 key to repair an earlier derived tombstone without replacing its Item identity,
 workflow, Attempts or accepted execution graph.
+
+An unloaded Runtime link may supply id/revision without SHA. Resolve only one
+existing immutable alias for that revision; reject conflicting aliases and keep
+explicit-hash mismatch or missing revision failures. Never substitute the newest
+Runtime. Exact Dashboard projection must use the resolved revision, including
+older granted environments referenced by recorded Jobs.

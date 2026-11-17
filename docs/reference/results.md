@@ -2592,7 +2592,7 @@ Invalid Item ID or missing/deleted source revision. File Items also require thei
 
 ## resolve_item
 
-Resolve an already adopted full native identity without allocation, promotion or latest-snapshot substitution.
+Resolve an already adopted full native identity without allocation, promotion or latest-snapshot substitution. A Runtime id/revision link resolves only one exact immutable native alias; conflicting aliases return ambiguous_reference. A provided SHA is always matched exactly, and a missing revision never falls back to the latest Runtime.
 
 Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/items.rs#resolve_item](../../rust/crates/core/src/items.rs).
 

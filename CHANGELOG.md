@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0-alpha.43
+
+- Resolve unloaded Runtime ID/revision links to one exact immutable alias, including older revisions used by recorded Jobs. Reject conflicting aliases or explicit SHA mismatch; never substitute the latest Runtime.
+- Verify Main Job pagination, historical Runtime navigation and back-links with actual recorded metadata on an isolated native service. Publish API v55 and the matching reference.
+- Includes workflow discovery, asynchronous Activity, preparation/Runtime usage, Dataset split and System smoke corrections below.
+
 ## 0.2.0-alpha.42
 
 - Renew Home Activity when a bootstrap revision changes without a full render. Keep one request per revision/view, ignore late replies, and preserve the last verified rollup until replacement.

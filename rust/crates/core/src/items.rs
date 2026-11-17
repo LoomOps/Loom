@@ -693,7 +693,7 @@ impl Application {
     }
     pub fn resolve_item(&self, args: &Value) -> Result<Value> {
         let r = &args["native_ref"];
-        let row: Option<(Vec<u8>, Vec<u8>)> = self
+        let mut row: Option<(Vec<u8>, Vec<u8>)> = self
             .db
             .query_row(
                 "SELECT item,revision FROM catalog_aliases WHERE kind=? AND identity=?",
@@ -701,6 +701,32 @@ impl Application {
                 |v| Ok((v.get(0)?, v.get(1)?)),
             )
             .optional()?;
+        // A Runtime URL contains its immutable id/revision but not a content hash.
+        // Resolve only one exact revision; an explicit hash never falls back.
+        if row.is_none()
+            && r["kind"] == "runtime"
+            && r["identity"]
+                .as_object()
+                .is_some_and(|v| v.len() == 2 && v.contains_key("id") && v.contains_key("revision"))
+        {
+            let mut q=self.db.prepare("SELECT DISTINCT item,revision FROM catalog_aliases WHERE kind='runtime' AND json_extract(identity,'$.id')=? AND json_extract(identity,'$.revision')=? LIMIT 2")?;
+            let found = q
+                .query_map(
+                    params![
+                        r["identity"]["id"].as_str(),
+                        r["identity"]["revision"].as_i64()
+                    ],
+                    |v| Ok((v.get::<_, Vec<u8>>(0)?, v.get::<_, Vec<u8>>(1)?)),
+                )?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            require(
+                found.len() <= 1,
+                "ambiguous_reference",
+                "Runtime revision has conflicting native aliases",
+                409,
+            )?;
+            row = found.into_iter().next();
+        }
         let (item, revision) = row
             .ok_or_else(|| Error::new("unknown_item", "Exact native reference not adopted", 404))?;
         self.require_catalog_item(&item)?;
