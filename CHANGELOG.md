@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0-alpha.32
+## 0.2.0-alpha.33
 
 - Register immutable metadata formats, reporting contracts and metric/factor/protocol definitions with shared Item identities. Reuse Built-in coverage, derive evidence-backed exclusions/replacements, or author additional analysis without a platform release.
 - Freeze reporter capabilities, exact scientific inputs, analysis schedules and expected values before new Jobs. Verify report bytes, producer/attempt pins, populations, SDG membership and evaluation predicates before publication; preserve accepted legacy execution and repair evidence without rerunning computation.

@@ -203,27 +203,74 @@ impl Producer {
     }
     /// Write a hash-bound analysis report for this output's frozen coverage contract.
     pub fn report(&mut self, id: &str, requirement_id: &str, mut data: Value) -> Result<()> {
-        let entity=self.entities.iter_mut().find(|e|e["id"]==id).ok_or("Pending output not found")?;
-        let pin=self.request.profile["reporting_pins"].get(format!("output:{id}").as_str())
-            .or_else(||self.request.profile["reporting_pins"].get(entity["kind"].as_str().unwrap_or(""))).ok_or("No frozen reporting contract")?;
-        let requirements=pin["definition"]["effective_requirements"].as_array().or_else(||pin["definition"]["requirements"].as_array()).ok_or("No resolved coverage")?;
-        if !requirements.iter().any(|r|r["id"]==requirement_id) {return Err("Unknown or excluded report requirement".into());}
-        if !requirement_id.bytes().all(|c|c.is_ascii_alphanumeric()||b"._-".contains(&c)) {return Err("Invalid report ID".into());}
-        let contract_ref=json!({"id":pin["id"],"revision":pin["revision"],"sha256":pin["sha256"]});
-        if data.get("inputs").is_some() {data["inputs"]=self.request.extra.get("report_inputs").cloned().unwrap_or(json!([]));}
-        let report=json!({"schema":"loom-report/v1","contract_ref":contract_ref,"requirement_id":requirement_id,"producer":{"job":self.request.job,"attempt":self.request.attempt,"profile_sha256":self.request.profile["sha256"]},"data":data});
-        let relative=Path::new(entity["path"].as_str().ok_or("Output path missing")?).parent().unwrap_or(Path::new(""));
-        let name=format!("report-{id}-{requirement_id}.json");
-        let path=inside(&self.request.output_dir,relative.join(&name).to_str().ok_or("Invalid report path")?)?;
-        let bytes=serde_json::to_vec_pretty(&report)?;
-        if bytes.len()>8*1024*1024 {return Err("Report exceeds 8 MiB".into());}
-        if entity.get("reporting").is_none() {entity["reporting"]=json!({"contract_ref":contract_ref,"reports":[]});}
-        let reports=entity["reporting"]["reports"].as_array_mut().ok_or("Invalid report bindings")?;
-        if reports.iter().any(|r|r["requirement_id"]==requirement_id) {return Err("Report requirement already bound".into());}
-        atomic(&path,&bytes)?;
+        let entity = self
+            .entities
+            .iter_mut()
+            .find(|e| e["id"] == id)
+            .ok_or("Pending output not found")?;
+        let pin = self.request.profile["reporting_pins"]
+            .get(format!("output:{id}").as_str())
+            .or_else(|| {
+                self.request.profile["reporting_pins"].get(entity["kind"].as_str().unwrap_or(""))
+            })
+            .ok_or("No frozen reporting contract")?;
+        let requirements = pin["definition"]["effective_requirements"]
+            .as_array()
+            .or_else(|| pin["definition"]["requirements"].as_array())
+            .ok_or("No resolved coverage")?;
+        if !requirements.iter().any(|r| r["id"] == requirement_id) {
+            return Err("Unknown or excluded report requirement".into());
+        }
+        if !requirement_id
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c))
+        {
+            return Err("Invalid report ID".into());
+        }
+        let contract_ref =
+            json!({"id":pin["id"],"revision":pin["revision"],"sha256":pin["sha256"]});
+        if data.get("inputs").is_some() {
+            data["inputs"] = self
+                .request
+                .extra
+                .get("report_inputs")
+                .cloned()
+                .unwrap_or(json!([]));
+        }
+        let report = json!({"schema":"loom-report/v1","contract_ref":contract_ref,"requirement_id":requirement_id,"producer":{"job":self.request.job,"attempt":self.request.attempt,"profile_sha256":self.request.profile["sha256"]},"data":data});
+        let relative = Path::new(entity["path"].as_str().ok_or("Output path missing")?)
+            .parent()
+            .unwrap_or(Path::new(""));
+        let name = format!("report-{id}-{requirement_id}.json");
+        let path = inside(
+            &self.request.output_dir,
+            relative.join(&name).to_str().ok_or("Invalid report path")?,
+        )?;
+        let bytes = serde_json::to_vec_pretty(&report)?;
+        if bytes.len() > 8 * 1024 * 1024 {
+            return Err("Report exceeds 8 MiB".into());
+        }
+        if entity.get("reporting").is_none() {
+            entity["reporting"] = json!({"contract_ref":contract_ref,"reports":[]});
+        }
+        let reports = entity["reporting"]["reports"]
+            .as_array_mut()
+            .ok_or("Invalid report bindings")?;
+        if reports
+            .iter()
+            .any(|r| r["requirement_id"] == requirement_id)
+        {
+            return Err("Report requirement already bound".into());
+        }
+        atomic(&path, &bytes)?;
         reports.push(json!({"requirement_id":requirement_id,"component":name,"sha256":format!("{:x}",Sha256::digest(&bytes))}));
-        if entity.get("components").is_none(){entity["components"]=json!([]);}
-        entity["components"].as_array_mut().ok_or("Invalid output members")?.push(json!(name));
+        if entity.get("components").is_none() {
+            entity["components"] = json!([]);
+        }
+        entity["components"]
+            .as_array_mut()
+            .ok_or("Invalid output members")?
+            .push(json!(name));
         Ok(())
     }
     /// Set a template-backed research object; the server validates the frozen Profile.

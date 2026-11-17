@@ -221,6 +221,11 @@ fn report_publication_is_atomic_hash_bound_and_readable_with_bounded_pages() {
     f.app
         .publish_result(&job, "report-attempt", manifest, &folder)
         .unwrap();
+    // Stale or altered registered copies must not mask another verified copy.
+    fs::write(f.app.bulk.join("000bad-report.json"), "{}").unwrap();
+    for stale in ["000missing-report.json", "000bad-report.json"] {
+        f.app.db.execute("INSERT INTO entity_locations VALUES(?,1,'membership.json','fixture','fixture-data',?,'available')", rusqlite::params![format!("{job}.data"),stale]).unwrap();
+    }
     let args = json!({"id":format!("{job}.data"),"revision":1,"requirement_id":"membership","pointer":"/members","limit":1});
     let report = f.call("results", "read_report", args.clone()).unwrap();
     assert_eq!(report["value"][0]["id"], "e1");

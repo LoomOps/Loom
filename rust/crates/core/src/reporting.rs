@@ -216,7 +216,7 @@ fn source_body(db: &Connection, target: &contracts::Target) -> Result<String> {
                 |r| r.get::<_, String>(0),
             )?
         } else {
-            crate::metadata_templates::source_record(db, &target)?.0
+            crate::metadata_templates::source_record(db, target)?.0
         },
     )
 }
@@ -980,13 +980,13 @@ fn read_json(path: &Path, proof: &storage::VerifiedFile) -> Result<Value> {
 pub fn validate_reports(
     spec: &Value,
     entity: &Value,
-    job: &str,
-    attempt: &str,
+    producer: (&str, &str),
     folder: &Path,
     components: &[Value],
     proofs: &[storage::VerifiedFile],
     relations: &[Value],
 ) -> Result<Option<Value>> {
+    let (job, attempt) = producer;
     let profile = &spec["profile"];
     if profile["reporting_policy"] != POLICY {
         return Ok(None);
@@ -1728,28 +1728,39 @@ impl Application {
         )?;
         let locations=rows(&self.db,"SELECT storage_id,ref FROM all_entity_locations WHERE id=? AND revision=? AND component=? AND status='available' ORDER BY storage_id,ref",&[&id,&(revision as i64),&report["component"].as_str()])?;
         let mut data = None;
+        let mut last_error = None;
         for l in locations {
-            let path = storage::locator(
-                &self.config,
-                &self.bulk,
-                &json!({"machine_id":self.config.machine_id,"storage_id":l["storage_id"],"ref":l["ref"]}),
-            )?;
-            let proof = storage::VerifiedFile::read(&path)?;
-            require(
-                report["sha256"] == proof.sha256,
-                "report_changed",
-                "Stored report bytes changed",
-                409,
-            )?;
-            data = Some(read_json(&path, &proof)?);
-            break;
+            let read = (|| -> Result<Value> {
+                let path = storage::locator(
+                    &self.config,
+                    &self.bulk,
+                    &json!({"machine_id":self.config.machine_id,"storage_id":l["storage_id"],"ref":l["ref"]}),
+                )?;
+                let proof = storage::VerifiedFile::read(&path)?;
+                require(
+                    report["sha256"] == proof.sha256,
+                    "report_changed",
+                    "Stored report bytes changed",
+                    409,
+                )?;
+                read_json(&path, &proof)
+            })();
+            match read {
+                Ok(value) => {
+                    data = Some(value);
+                    break;
+                }
+                Err(error) => last_error = Some(error),
+            }
         }
         let payload = data.ok_or_else(|| {
-            Error::new(
-                "report_unavailable",
-                "No currently readable registered report copy",
-                404,
-            )
+            last_error.unwrap_or_else(|| {
+                Error::new(
+                    "report_unavailable",
+                    "No currently readable registered report copy",
+                    404,
+                )
+            })
         })?;
         let pointer = args["pointer"].as_str().unwrap_or("");
         let mut value = payload["data"]

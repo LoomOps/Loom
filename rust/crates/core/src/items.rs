@@ -267,7 +267,10 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
             let mut m = decode(&row["body"]);
             let identity = decode(&row["identity"]);
             let k = row["kind"].as_str().unwrap_or("profile");
-            if matches!(k,"metadata_template"|"report_contract"|"report_definition") {
+            if matches!(
+                k,
+                "metadata_template" | "report_contract" | "report_definition"
+            ) {
                 let definition = m.clone();
                 m.as_object_mut().unwrap().remove("definition");
                 m["native_ref"] = json!({"kind":k,"identity":identity});
