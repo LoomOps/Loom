@@ -1,7 +1,7 @@
 // Bounded per-view transport. Payload trees, software combinations and logs stay lazy.
 const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityView=null;const loomCatalogOpening=new Set();
 const loomCatalogKinds={models:'model',datasets:'dataset',experiments:'experiment',issues:'issue',profiles:'profile',components:'component',tools:'tool',runtimes:'runtime',dependencies:'dependency',scenarios:'scenario',queue:'job',files:'explorer'};
-function loomCatalogQuery(kind){if(kind==='explorer')return {kinds:['dataset','model','experiment','artifact'],view:'all',role:'all',limit:50};const view=kind==='job'?(state.jobHistoryView||catalogData.presentation_view||'research'):catalogData.presentation_view||'research';return {...(['profile','component','tool','runtime'].includes(kind)?{...loomRegistryArgs(state.registryFilter||'current'),...(state.registryFilter==='archived'?{history:'all'}:{})}:{}),kinds:[kind],view:view==='builtin'?'all':view,role:kind==='job'?'all':['model','dataset','experiment'].includes(kind)?((state.outputPurpose||(view==='research'?'research':'all'))==='research'?'main':'all'):kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(['model','dataset','experiment'].includes(kind)&&state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
+function loomCatalogQuery(kind){if(kind==='explorer')return {kinds:['dataset','model','experiment','artifact'],view:'all',role:'all',limit:50};const view=kind==='job'?(state.jobHistoryView||'all'):catalogData.presentation_view||'research';return {...(['profile','component','tool','runtime'].includes(kind)?{...loomRegistryArgs(state.registryFilter||'current'),...(state.registryFilter==='archived'?{history:'all'}:{})}:{}),kinds:[kind],view:view==='builtin'?'all':view,role:kind==='job'?'all':['model','dataset','experiment'].includes(kind)?((state.outputPurpose||(view==='research'?'research':'all'))==='research'?'main':'all'):kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(['model','dataset','experiment'].includes(kind)&&state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 // A bootstrap is a bounded seed, never a replacement for pages from its revision.
 function loomCatalogRefresh(value){
@@ -30,7 +30,8 @@ function loomCatalogRefresh(value){
  const records=new Map(old.map(e=>[e.id,e]));
  for(const e of value.all_entities||value.entities){const old=records.get(e.id);records.set(e.id,old?.kind==='scenario'&&old.loom_scenario.revision>e.loom_scenario?.revision?old:loomCatalogRetainResearch(old,e,!changed));}
  loomPresentationView=value.presentation_view||catalogData.presentation_view||'research';
- return catTitleSnapshot(loomCatalogProjection({...value,entities:[...records.values()]}));
+ const activity=catalogData.activity?.view==='all'?catalogData.activity:value.activity;
+ return catTitleSnapshot(loomCatalogProjection({...value,activity,entities:[...records.values()]}));
 }
 function loomCatalogRetainResearch(previous,incoming,sameRevision){
  if(!sameRevision||!previous?.research_summary||!incoming.research_summary)return incoming;
@@ -119,10 +120,10 @@ render=function(){
  if(catalogData.capabilities?.catalog_pages&&state.entity&&!catEntity(state.entity)&&!loomCatalogOpening.has(state.entity)){
   const id=state.entity;loomCatalogOpening.add(id);queueMicrotask(()=>loomCatalogOpen(id).catch(()=>{}).finally(()=>loomCatalogOpening.delete(id)));
  }
- const view=catalogData.presentation_view==='builtin'?'all':catalogData.presentation_view||'research';
+ const view='all';
  if(catalogData.capabilities?.catalog_pages&&loomActivityView!==view){
-  loomActivityView=view;
-  queueMicrotask(async()=>{try{const activity=await loomSearchAction('system','dashboard_activity',{view});if(loomActivityView===view){catalogData.activity=activity;catalogRefreshViews();}}catch{}});
+  const revision=catalogData.revision;loomActivityView=view;
+  queueMicrotask(async()=>{try{const activity=await loomSearchAction('system','dashboard_activity',{view});if(loomActivityView===view&&catalogData.revision===revision){catalogData.activity={...activity,view};catalogRefreshViews();}}catch{if(loomActivityView===view&&catalogData.revision===revision)loomActivityView=null;}});
  }
 };
 document.addEventListener('click',event=>{const b=event.target.closest('[data-catalog-more]');if(!b)return;event.preventDefault();const pane=b.closest('[data-pane]');if(pane)ws.active=pane.dataset.pane;state=activeTab().view;const kind=b.dataset.catalogMore,page=loomCatalogPages.get(loomCatalogPageKey(kind));if(page?.error){page.loaded=false;page.error=null;}loomCatalogLoad(kind,!!page?.cursor);});

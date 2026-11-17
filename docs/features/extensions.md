@@ -86,3 +86,8 @@ Ownership changes invalidate visibility-bound cursors without changing artifact
 identity. Visibility does not remove resource reservations, execution gates or data.
 
 Archive/Restore and deprecation follow [Registry lifecycle](registry-lifecycle.md). Exact pins and source files remain preserved.
+
+Runtime consumers come from immutable Job stage pins, including operations and
+failed history, rather than current Profile definitions. Exact stage-start
+receipts distinguish a bound environment from an executed one. Outcome grouping
+adds navigation only and never changes the accepted environment identity.

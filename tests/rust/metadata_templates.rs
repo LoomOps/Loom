@@ -306,6 +306,130 @@ fn legacy_metadata_never_treats_episode_records_as_counts() {
 }
 
 #[test]
+fn legacy_split_counts_survive_template_adoption_and_dashboard_reads() {
+    let mut f = Fixture::new();
+    let template = dataset(&mut f);
+    let expected = json!({"train":90,"validation":6,"test":0});
+    let representations = [
+        expected.clone(),
+        json!({"train":{"count":90,"frames":900},"validation":{"adopted":6},"test":{"count":0}}),
+        json!([{"id":"train","count":90,"frames":900},{"id":"validation","count":6},{"id":"test","count":0}]),
+    ];
+    for (n, splits) in representations.into_iter().enumerate() {
+        let job = f.submit(&format!("split-source-{n}"));
+        let id = format!("{job}.data");
+        let entity =
+            json!({"id":id,"kind":"dataset","properties":{"dataset_overview":{"splits":splits}}});
+        let summary = crate::research_metadata::summarize(&entity, &[]);
+        let fact = summary["facts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|v| v["id"] == "split")
+            .unwrap();
+        assert_eq!(fact["value"], expected);
+        assert_eq!(fact["evidence"][0]["pointer"], "/dataset_overview/splits");
+        let manifest = json!({"id":id,"revision":1,"kind":"dataset","job":job,"metadata":entity["properties"],"components":[],"relations":[]}).to_string();
+        f.app
+            .db
+            .execute(
+                "INSERT INTO entity_revisions VALUES(?,1,?,'dataset','owner','owner',?)",
+                rusqlite::params![id, job, manifest],
+            )
+            .unwrap();
+        let mut metadata = research();
+        metadata["collection"]["count"] = json!(96);
+        metadata["collection"]["split"] = fact["value"].clone();
+        let mut request = json!({"target":{"kind":"entity","identity":{"id":id,"revision":1}},"template_ref":crate::metadata_templates::reference(&template),"research":metadata,"reason":"Preserve original split counts and zero"});
+        let preview = f
+            .call("results", "adopt_metadata", request.clone())
+            .unwrap();
+        request["dry_run"] = json!(false);
+        request["expected_digest"] = preview["expected_digest"].clone();
+        request["key"] = json!(format!("split-adoption-{n}"));
+        f.call("results", "adopt_metadata", request).unwrap();
+        let item = f
+            .call(
+                "results",
+                "resolve_item",
+                json!({"native_ref":{"kind":"entity","identity":{"id":id,"revision":1}}}),
+            )
+            .unwrap();
+        for _ in 0..6 {
+            f.app.index_once().unwrap();
+        }
+        let exact = f
+            .call(
+                "system",
+                "dashboard_entity",
+                json!({"item_id":item["item_id"]}),
+            )
+            .unwrap();
+        let split = |entity: &Value| {
+            entity["research_summary"]["facts"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|v| v["id"] == "split")
+                .unwrap()["value"]
+                .clone()
+        };
+        assert_eq!(split(&exact["entities"][0]), expected);
+        let page = f
+            .call(
+                "system",
+                "dashboard_page",
+                json!({"kinds":["dataset"],"view":"all","role":"all"}),
+            )
+            .unwrap();
+        assert_eq!(
+            split(
+                page["entities"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|e| e["id"] == id)
+                    .unwrap()
+            ),
+            expected
+        );
+        let original: String = f
+            .app
+            .db
+            .query_row(
+                "SELECT manifest FROM entity_revisions WHERE id=?",
+                [id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(original, manifest);
+    }
+}
+
+#[test]
+fn legacy_split_conversion_preserves_missing_states_and_rejects_ambiguous_counts() {
+    use crate::research_metadata::canonical_split;
+    assert_eq!(
+        canonical_split(
+            &json!([{"id":"train","count":0},{"id":"validation","status":"unrecorded"},{"id":"test","status":"not_applicable"}])
+        ),
+        Some(json!({"train":0,"validation":"unrecorded","test":"not_applicable"}))
+    );
+    for invalid in [
+        json!([]),
+        json!({}),
+        json!({"train":{"frames":100}}),
+        json!({"train":-1}),
+        json!({"train":1.5}),
+        json!({"train":{"count":2,"adopted":3}}),
+        json!([{"id":"train","count":2},{"id":"train","count":3}]),
+        json!({"train":[{"episode":1}]}),
+    ] {
+        assert_eq!(canonical_split(&invalid), None, "{invalid}");
+    }
+}
+
+#[test]
 fn legacy_capture_count_alternatives_do_not_return_raw_episode_records() {
     let mut f = Fixture::new();
     let job = f.submit("captured-source");
@@ -321,7 +445,7 @@ fn legacy_capture_count_alternatives_do_not_return_raw_episode_records() {
     let target: contracts::Target =
         contracts::decode(json!({"kind":"entity","identity":{"id":id,"revision":1}})).unwrap();
     let key = crate::research_metadata::snapshot_key(&target).unwrap();
-    let capture=json!({"schema":"loom-materialized-research/v1","extractor_version":2,"target":target,"source_sha256":crate::store::hash(&manifest),"summary":{"facts":[{"id":"count","label":"Count","section":"collection","status":"recorded","value":9,"alternatives":[{"value":[{"episode":1,"frames":[1,2,3]}]}]}],"inputs":[],"sources":[]}}).to_string();
+    let capture=json!({"schema":"loom-materialized-research/v1","extractor_version":3,"target":target,"source_sha256":crate::store::hash(&manifest),"summary":{"facts":[{"id":"count","label":"Count","section":"collection","status":"recorded","value":9,"alternatives":[{"value":[{"episode":1,"frames":[1,2,3]}]}]},{"id":"split","value":[{"id":"train","count":0,"frames":0},{"id":"validation","status":"unrecorded"}]}],"inputs":[],"sources":[]}}).to_string();
     f.app
         .db
         .execute(
@@ -332,6 +456,10 @@ fn legacy_capture_count_alternatives_do_not_return_raw_episode_records() {
     let mut record = json!({"kind":"dataset","loom_registry":{"id":id,"revision":1},"research_summary":{"facts":[],"inputs":[],"sources":[]}});
     crate::research_metadata::attach_materialized(&f.app, &mut record).unwrap();
     assert_eq!(record["research_summary"]["facts"][0]["value"], 9);
+    assert_eq!(
+        record["research_summary"]["facts"][1]["value"],
+        json!({"train":0,"validation":"unrecorded"})
+    );
     assert!(record["research_summary"]["facts"][0]
         .get("alternatives")
         .is_none());

@@ -126,20 +126,22 @@ function loomJobClass(entity) {
 function loomFilteredWorkItems() {
   const items=workItems(),known=new Set(items.map(e=>e.id));
   if(state.jobSourceHistory)items.push(...(catalogData.all_entities||[]).filter(e=>e.kind==='job'&&!known.has(e.id)&&e.properties?.consolidated_into&&known.has(e.properties.consolidated_into)));
-  return items.filter(e => ((state.jobHistoryView||catalogData.presentation_view)==='all'
-      || ((state.jobHistoryView||catalogData.presentation_view)==='operations'?e.presentation?.scope==='operations':e.presentation?.scope!=='operations'))
+  const matching=items.filter(e => ((state.jobHistoryView||'all')==='all'
+      || ((state.jobHistoryView||'all')==='operations'?e.presentation?.scope==='operations':e.presentation?.scope!=='operations'))
     && (!state.jobCategory || (e.properties?.category || 'other') === state.jobCategory)
     && (!state.jobExecutionMode || e.properties?.execution_mode === state.jobExecutionMode)
     && (state.jobSourceHistory || !e.properties?.consolidated_into));
+  const parents=new Set(matching.map(e=>e.id));
+  return matching.filter(e=>state.jobSourceHistory || !e.presentation?.parent_job || !parents.has(e.presentation.parent_job));
 }
 function loomJobFilters() {
   const c = loomJobContract();
-  const scope=state.jobHistoryView||catalogData.presentation_view||'research';
+  const scope=state.jobHistoryView||'all';
   return '<div class="pa-filter" aria-label="History scope">'+[['all','All'],['research','Research'],['operations','Operations']]
     .map(([value,label])=>'<button class="pa-pill '+(scope===value?'active':'')+'" aria-pressed="'+(scope===value)+'" data-job-history-view="'+value+'">'+label+'</button>').join('')+'</div>'
     +'<div class="pa-job-filters">' + [['jobCategory','Job Type',c.categories],['jobExecutionMode','Execution Mode',c.execution_modes]]
     .map(([key,label,choices]) => '<label>'+label+' <select data-job-filter="'+key+'" aria-label="'+label+'"><option value="">전체</option>'
-      + Object.entries(choices).map(([value,name]) => '<option value="'+esc(value)+'"'+(state[key]===value?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select></label>').join('')+'<label><input type="checkbox" data-job-filter="jobSourceHistory"'+(state.jobSourceHistory?' checked':'')+'> 이전 분할 실행 표시</label></div>';
+      + Object.entries(choices).map(([value,name]) => '<option value="'+esc(value)+'"'+(state[key]===value?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select></label>').join('')+'<label><input type="checkbox" data-job-filter="jobSourceHistory"'+(state.jobSourceHistory?' checked':'')+'> 선행·원본 실행 표시</label></div>';
 }
 root.addEventListener('click',event=>{
   const button=event.target.closest('[data-job-history-view]');if(!button)return;

@@ -72,8 +72,10 @@ def run(setup, plan, timeout=45):
         receipt['system_component']=True;write(receipt_path,receipt,uid,gid)
     if not receipt.get('job'):
         job=call(setup,plan,'jobs','submit',{'key':'installation-smoke-'+build+'-'+digest[:12],
-            'kind':receipt['kind'],'owner':'owner','notify':'owner','params':{},'category':'other','execution_mode':'smoke','presentation':{'scope':'operations','role':'test','label':'Installation smoke'}})
-        receipt['job']=job['id'];write(receipt_path,receipt,uid,gid)
+            'kind':receipt['kind'],'owner':'system' if filename=='producer.json' else 'owner','notify':'owner','params':{},'category':'other','execution_mode':'smoke','presentation':{'scope':'operations','role':'test','label':'Installation smoke'}})
+        receipt['job']=job['id']
+        if filename=='producer.json':receipt['system_job']=True
+        write(receipt_path,receipt,uid,gid)
     if filename=='producer.json' and not receipt.get('system_job'):
         call(setup,plan,'jobs','assign_owner',{'id':receipt['job'],'owner':'system'})
         receipt['system_job']=True;write(receipt_path,receipt,uid,gid)

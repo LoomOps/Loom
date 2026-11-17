@@ -21,6 +21,48 @@ from verify_browser import request,FIREFOX
 from verify_workspace import Workspace
 
 class WorkspaceBrowserTests(unittest.TestCase):
+    def test_user_preparation_links_runtime_and_activity_across_output_filters(self):
+        main,main_record=native('preparation-main')
+        child,child_record=native('preparation-repair')
+        main['presentation']={'scope':'operations','role':'main','visible':False}
+        child['presentation']={'scope':'operations','role':'support','parent_job':main['id'],'visible':False}
+        main_record['presentation']=main['presentation'];child_record['presentation']=child['presentation']
+        child['state']='failed';child['properties']['state']='failed';child_record['state']='failed'
+        main['properties']['category']='other';child['properties']['category']='development'
+        members=[{'id':e['id'],'parent':None if e is main else main['id'],'state':e['state'],'label':e['label'],'runtime_refs':[]} for e in [main,child]]
+        main_record['family']={'root':main['id'],'complete':True,'members':members}
+        item={'id':'sim','revision':1,'manifest':{'dependencies':[],'runtime':{}},'used_by_profiles':[],
+              'job_usage':[{'id':child['id'],'group_root':main['id'],'profile':'sim-check.r1','stages':['runtime'],'state':'failed'}],
+              'executed_jobs':[child['id']],'jobs_complete':True}
+        runtime={'id':'runtime:sim:1','kind':'runtime','label':'Simulation baseline','properties':{},'loom_runtime':item}
+        catalog=self.api.fixture['catalog'];catalog.update(entities=[main,child,runtime],revision='preparation-family-v1',capabilities={'catalog_pages':True})
+        self.api.fixture['jobs'].update({main['id']:main_record,child['id']:child_record})
+        now=time.time();day=time.strftime('%Y-%m-%d',time.gmtime(now+9*3600))
+        activity={'days':[{'day':day,'jobs':[{'id':main['id'],'time':now-10}],'job_count':1,'asset_count':0,'milliseconds':40000,'live':False,'unknown_time_count':0}]}
+        self.api.fixture['search_actions']={'dashboard_page':{'entities':[main,child,runtime],'revision':catalog['revision'],'next_cursor':None},'dashboard_activity':activity}
+        self.ui.top();self.wd('/refresh',{});self.ui.connect()
+        self.ui.wait("return document.querySelector('.pa-activity-heading small')?.textContent.includes('1 JOB')")
+        self.assertTrue(any(a.get('action')=='dashboard_activity' and a['arguments']['view']=='all' for a in self.api.actions))
+        self.assertTrue(any(a.get('action')=='dashboard_page' and a['arguments'].get('kinds')==['job'] and a['arguments']['view']=='all' for a in self.api.actions))
+        history="[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))"
+        self.ui.wait('return '+history+"?.querySelectorAll('tbody tr').length===1")
+        self.assertFalse(self.ui.js('return !!'+history+"?.querySelector('[data-entity=\"'+arguments[0]+'\"]')",child['id']))
+        # A parent outside an explicit category filter must not hide its match.
+        self.ui.js("const e=document.querySelector('[data-job-filter=jobCategory]');e.value='development';e.dispatchEvent(new Event('change',{bubbles:true}))")
+        self.ui.wait('return !!'+history+"?.querySelector('[data-entity=\"'+arguments[0]+'\"]')",child['id'])
+        # A scientific bootstrap must not erase the fetched all-work rollup.
+        catalog['activity']={'days':[]}
+        self.ui.top();self.wd('/refresh',{});self.ui.frame()
+        self.ui.wait("return document.querySelector('.pa-activity-heading small')?.textContent.includes('1 JOB')")
+        self.ui.route(main['id'])
+        self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Related Jobs')")
+        self.assertTrue(self.ui.js("return !!document.querySelector('[data-entity=\"'+arguments[0]+'\"]')",child['id']))
+        self.assertIn('failed',self.ui.js("return document.querySelector('#pa-content').textContent"))
+        self.ui.route(runtime['id'])
+        self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Pinned Job executions')")
+        self.ui.click('details.pa-execution-options summary')
+        self.assertTrue(self.ui.js("return !!document.querySelector('[data-entity=\"'+arguments[0]+'\"]') && !!document.querySelector('[data-entity=\"'+arguments[1]+'\"]')",child['id'],main['id']))
+
     def test_research_modes_hide_operational_fixtures_but_keep_direct_evidence(self):
         model={'id':'fixture-operational-model','kind':'model','label':'Operational fixture model',
             'namespace':'fixture','properties':{},'metrics':[],'relations':[],'artifacts':[],
@@ -848,7 +890,7 @@ const done=arguments[arguments.length-1];
         current=lambda:ui.js("return [...document.querySelectorAll('.pa-current-work-queue tbody tr')].map(r=>r.textContent)")
         ui.wait("return document.querySelector('.pa-current-work-queue tbody')?.children.length===3")
         before=current();self.assertTrue(any('queue-operations' in x for x in before));self.assertTrue(any('minimal-operations' in x for x in before))
-        self.assertEqual(ui.js('return '+history+".querySelectorAll('tbody tr').length"),1)
+        self.assertEqual(ui.js('return '+history+".querySelectorAll('tbody tr').length"),2)
         ui.click('[data-job-history-view=operations]')
         self.assertIn('history-operations',ui.js('return '+history+'.textContent'))
         self.assertNotIn('history-research',ui.js('return '+history+'.textContent'))
@@ -874,8 +916,7 @@ const done=arguments[arguments.length-1];
         self.api.fixture['catalog']['entities']=entities
         ui.top();self.wd('/refresh',{});ui.connect()
         rows=lambda:ui.js("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelectorAll('tbody tr').length")
-        ui.wait("return document.querySelector('[data-job-history-view=research]')?.getAttribute('aria-pressed')==='true'")
-        ui.click('[data-job-history-view=all]')
+        # New sessions include operational preparation without a filter click.
         ui.wait("return document.querySelector('[data-job-history-view=all]')?.getAttribute('aria-pressed')==='true'")
         ui.wait("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelectorAll('tbody tr').length===10")
         self.assertEqual(rows(),10);ui.click('[data-history-more]');self.assertEqual(rows(),13)

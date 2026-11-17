@@ -7,7 +7,60 @@ use std::collections::BTreeMap;
 const FILE_BYTES: u64 = 2 * 1024 * 1024;
 const ENTITY_BYTES: u64 = 4 * 1024 * 1024;
 const FILES: usize = 12;
-const EXTRACTOR_VERSION: u64 = 3;
+const EXTRACTOR_VERSION: u64 = 4;
+
+/// Convert recorded legacy split counts to the template representation. Keep
+/// frame counts/member records in Sources; never infer a population from a name.
+pub fn canonical_split(value: &Value) -> Option<Value> {
+    fn count(value: &Value) -> Option<Value> {
+        if value.as_u64().is_some()
+            || matches!(value.as_str(), Some("unrecorded" | "not_applicable"))
+        {
+            return Some(value.clone());
+        }
+        if !value.is_object() {
+            return None;
+        }
+        let recorded = value.get("count").or_else(|| value.get("adopted"));
+        if let Some(recorded) = recorded {
+            if !recorded.as_u64().is_some()
+                || value
+                    .get("count")
+                    .zip(value.get("adopted"))
+                    .is_some_and(|(a, b)| a != b)
+            {
+                return None;
+            }
+            return Some(recorded.clone());
+        }
+        value
+            .get("status")
+            .filter(|s| matches!(s.as_str(), Some("unrecorded" | "not_applicable")))
+            .cloned()
+    }
+    let mut splits = serde_json::Map::new();
+    let mut add = |id: &str, value: &Value| -> Option<()> {
+        if id.is_empty() || id.chars().count() > 64 || splits.contains_key(id) {
+            return None;
+        }
+        splits.insert(id.into(), count(value)?);
+        Some(())
+    };
+    match value {
+        Value::Object(values) if !values.is_empty() && values.len() <= 24 => {
+            for (id, value) in values {
+                add(id, value)?;
+            }
+        }
+        Value::Array(values) if !values.is_empty() && values.len() <= 24 => {
+            for value in values {
+                add(value.get("id")?.as_str()?, value)?;
+            }
+        }
+        _ => return None,
+    }
+    Some(Value::Object(splits))
+}
 
 fn ambiguous_observer_input(input: &Value) -> bool {
     input["source_ref"]
@@ -40,6 +93,11 @@ fn obsolete_fact(fact: &Value) -> bool {
 }
 fn compact_fact(fact: &Value) -> Value {
     let mut value = fact.clone();
+    if fact["id"] == "split" {
+        if let Some(split) = canonical_split(&fact["value"]) {
+            value["value"] = split;
+        }
+    }
     if let Some(alternatives) = fact["alternatives"].as_array() {
         let alternatives = alternatives
             .iter()
@@ -104,6 +162,8 @@ impl Facts {
         evidence: Value,
         unit: Option<&str>,
     ) {
+        let canonical = (id == "split").then(|| canonical_split(value)).flatten();
+        let value = canonical.as_ref().unwrap_or(value);
         if obsolete_fact(&json!({"id":id,"value":value})) {
             return;
         }
@@ -1243,7 +1303,7 @@ pub fn attach_materialized(app: &Application, entity: &mut Value) -> crate::Resu
     if saved["source_sha256"] != sha
         || !matches!(
             saved["extractor_version"].as_u64(),
-            Some(1 | 2 | EXTRACTOR_VERSION)
+            Some(1 | 2 | 3 | EXTRACTOR_VERSION)
         )
     {
         return Ok(());

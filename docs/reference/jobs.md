@@ -118,9 +118,9 @@ Shared authentication, schema, scope and handler preconditions still apply.
 
 ## get
 
-Read state, Attempts, internal_steps, consolidation provenance, work_timeline from original execution receipts, waiting reasons, recovery, callbacks and artifacts. Consolidated work elapsed time includes sources; Attempts retain continuation runtime timestamps.
+Read state, Attempts, internal_steps, consolidation provenance, work_timeline from original execution receipts, waiting reasons, recovery, callbacks and artifacts. Consolidated work elapsed time includes sources; Attempts retain continuation runtime timestamps. family adds bounded Main Job, prerequisite/follow-up and real execution-node navigation with original states and Runtime pins; presentation grouping does not change execution membership or completion.
 
-Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/query.rs#job_detail](../../rust/crates/core/src/query.rs).
+Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/query.rs#inspect_job](../../rust/crates/core/src/query.rs).
 
 ### Inputs
 
@@ -633,7 +633,7 @@ Unknown/cyclic node dependency, conflicting key, invalid Profile or output alias
 
 ## curate
 
-Preview or apply additive, evidence-backed presentation bindings. Original execution, timestamps, results and software revisions remain intact. Omit dry_run for a preview; false applies the exact batch once.
+Preview or apply additive, evidence-backed presentation bindings. Original execution, timestamps, results and software revisions remain intact. Omit dry_run for a preview; false applies the exact batch once. User-requested Runtime preparation and diagnostics remain user work; test/System is reserved for platform checks. parent_job groups the same requested outcome across follow-ups without changing scheduler dependencies or Runtime pins.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/query.rs#curate_research](../../rust/crates/core/src/query.rs).
 
@@ -698,7 +698,10 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
               "parent_job": {
                 "maxLength": 256,
                 "minLength": 1,
-                "type": "string"
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "request_ref": {
                 "maxLength": 1024,

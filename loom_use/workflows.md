@@ -74,6 +74,11 @@ requires every node completed; supporting receipts are not new research outcomes
 optional label, experiment, request_ref and output_roles. An explicitly requested
 research diagnostic can be main; a platform acceptance fixture is operations/test.
 Use server-side roles instead of guessing from names, Owner or Built-in origin.
+User-requested Runtime preparation, development and diagnostics are user work,
+even when their files are not eligible scientific Outputs. Keep their requested
+outcome `main`, category `development`; use `support` for prerequisite stages.
+Reserve `test`/System for platform installation checks. Scientific output roles
+do not determine whether the parent Job belongs in execution history or Activity.
 `jobs.list` defaults to `view=all`; `results.list` defaults to Research.
 Set `view=research` or `view=operations` explicitly for a purpose-specific list;
 `view=all` retains full audit access. Direct reads remain.
@@ -90,7 +95,11 @@ previous overlay. Historical grouping does not reschedule or change dependency
 readiness. Prefer an execution graph for new multi-stage work. Platform tests run
 in isolated dev instances; production-only acceptance stays operational.
 
-Reusable Profiles can declare presentation.scope/role/output_roles. Submission freezes these defaults; explicit Job presentation overrides them. Platform-check Component tags default new Jobs to operations/test. Neither later tag changes nor display overlays rewrite frozen submission identity.
+Profiles can record intended presentation.scope/role/output_roles. Pass Job
+presentation explicitly on native submissions; the accepted request freezes it.
+Without it, native submission defaults to research/main (cpu.smoke uses
+operations/test). Component tags classify software, not the requested Job's
+purpose. Later classification or display edits never rewrite submission identity.
 
 Declare output_roles for each experiment-shaped output when a Profile produces
 multiple experiments (for example an evaluation and a budget receipt). Without
@@ -101,3 +110,16 @@ explicitly identifies the requested primary result.
 
 
 For task/protocol context use the `scenarios` guide; source authoring uses `authoring`.
+
+## Preparation and follow-up history
+
+When a later preparation or repair serves the same requested outcome, preserve
+the existing Main Job ID and record `presentation.parent_job` on the follow-up.
+A new coordination task does not imply a new Loom outcome. Retain its own
+`request_ref`, exact Profile/Runtime pins and upstream inputs. `jobs.get.family`
+exposes this hierarchy, including failed Jobs and real workflow execution nodes;
+`relation` distinguishes presentation from scheduler membership. Up to 200
+members are returned with `total`/`complete`; exact Job reads remain available.
+Grouping never changes completion, cancels descendants or proves Runtime reuse.
+Do not submit a dummy Job for CPU-only planning or code review; associate that
+evidence with the existing task/outcome and reusable software instead.

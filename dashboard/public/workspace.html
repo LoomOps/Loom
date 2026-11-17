@@ -3990,7 +3990,7 @@ function loomRuntimeDetail(entity){
  const deps=(manifest.dependencies||[]).filter(d=&gt;(filter===&#x27;all&#x27;||loomHubOrigin(d)===filter)&amp;&amp;[d.name,d.version,d.scope].join(&#x27; &#x27;).toLowerCase().includes(query));
  const dependencies=catTable([&#x27;Package&#x27;,&#x27;Version&#x27;,&#x27;Scope&#x27;,&#x27;Origin&#x27;],deps.map(d=&gt;[esc(d.name),esc(d.version),esc(d.scope||&#x27;—&#x27;),esc(loomHubOrigin(d))]));
  const profiles=(item.used_by_profiles||[]).map(p=&gt;`&lt;div class=&quot;pa-row&quot;&gt;${catLink(&#x27;profile:&#x27;+p.kind,loomProfileName(catEntity(&#x27;profile:&#x27;+p.kind)?.loom_execution_profile||{kind:p.kind,label:p.kind}))}&lt;span&gt;${esc(p.stages.join(&#x27;, &#x27;))}&lt;/span&gt;&lt;/div&gt;`).join(&#x27;&#x27;)||&#x27;&lt;p class=&quot;pa-empty&quot;&gt;No linked profiles&lt;/p&gt;&#x27;;
- const jobs=(item.executed_jobs||[]).map(loomJobInventoryLink).join(&#x27; · &#x27;)||&#x27;—&#x27;;
+ const jobs=item.job_usage?catTable([&#x27;Execution&#x27;,&#x27;Main Job&#x27;,&#x27;Profile&#x27;,&#x27;Stage&#x27;,&#x27;State&#x27;],item.job_usage.map(j=&gt;[loomJobInventoryLink(j.id),loomJobInventoryLink(j.group_root),catLink(&#x27;profile:&#x27;+j.profile,j.profile),esc(j.stages.join(&#x27; · &#x27;)),esc(j.state)]))+(item.jobs_complete===false?&#x27;&lt;p class=&quot;pa-subtle&quot;&gt;Showing 200 records&lt;/p&gt;&#x27;:&#x27;&#x27;):(item.executed_jobs||[]).map(loomJobInventoryLink).join(&#x27; · &#x27;)||&#x27;—&#x27;;
  const versions=loomExtensionRows().filter(e=&gt;e.kind===&#x27;runtime&#x27;&amp;&amp;e.loom_runtime.id===item.id);
  return loomHubTabs()+heading(&#x27;RUNTIME&#x27;,item.curation?.label||entity.label,&#x27;&#x27;,&#x27;&lt;button class=&quot;pa-button&quot; data-extension-home&gt;Runtimes&lt;/button&gt;&#x27;)+catStatus()
   +`&lt;div class=&quot;pa-hub-actions&quot;&gt;${catalogData.capabilities?.curate&amp;&amp;item.revision?&#x27;&lt;button class=&quot;pa-button&quot; data-hub-edit&gt;Edit&lt;/button&gt;&#x27;:&#x27;&#x27;}&lt;/div&gt;`
@@ -4335,20 +4335,22 @@ function loomJobClass(entity) {
 function loomFilteredWorkItems() {
   const items=workItems(),known=new Set(items.map(e=&gt;e.id));
   if(state.jobSourceHistory)items.push(...(catalogData.all_entities||[]).filter(e=&gt;e.kind===&#x27;job&#x27;&amp;&amp;!known.has(e.id)&amp;&amp;e.properties?.consolidated_into&amp;&amp;known.has(e.properties.consolidated_into)));
-  return items.filter(e =&gt; ((state.jobHistoryView||catalogData.presentation_view)===&#x27;all&#x27;
-      || ((state.jobHistoryView||catalogData.presentation_view)===&#x27;operations&#x27;?e.presentation?.scope===&#x27;operations&#x27;:e.presentation?.scope!==&#x27;operations&#x27;))
+  const matching=items.filter(e =&gt; ((state.jobHistoryView||&#x27;all&#x27;)===&#x27;all&#x27;
+      || ((state.jobHistoryView||&#x27;all&#x27;)===&#x27;operations&#x27;?e.presentation?.scope===&#x27;operations&#x27;:e.presentation?.scope!==&#x27;operations&#x27;))
     &amp;&amp; (!state.jobCategory || (e.properties?.category || &#x27;other&#x27;) === state.jobCategory)
     &amp;&amp; (!state.jobExecutionMode || e.properties?.execution_mode === state.jobExecutionMode)
     &amp;&amp; (state.jobSourceHistory || !e.properties?.consolidated_into));
+  const parents=new Set(matching.map(e=&gt;e.id));
+  return matching.filter(e=&gt;state.jobSourceHistory || !e.presentation?.parent_job || !parents.has(e.presentation.parent_job));
 }
 function loomJobFilters() {
   const c = loomJobContract();
-  const scope=state.jobHistoryView||catalogData.presentation_view||&#x27;research&#x27;;
+  const scope=state.jobHistoryView||&#x27;all&#x27;;
   return &#x27;&lt;div class=&quot;pa-filter&quot; aria-label=&quot;History scope&quot;&gt;&#x27;+[[&#x27;all&#x27;,&#x27;All&#x27;],[&#x27;research&#x27;,&#x27;Research&#x27;],[&#x27;operations&#x27;,&#x27;Operations&#x27;]]
     .map(([value,label])=&gt;&#x27;&lt;button class=&quot;pa-pill &#x27;+(scope===value?&#x27;active&#x27;:&#x27;&#x27;)+&#x27;&quot; aria-pressed=&quot;&#x27;+(scope===value)+&#x27;&quot; data-job-history-view=&quot;&#x27;+value+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;
     +&#x27;&lt;div class=&quot;pa-job-filters&quot;&gt;&#x27; + [[&#x27;jobCategory&#x27;,&#x27;Job Type&#x27;,c.categories],[&#x27;jobExecutionMode&#x27;,&#x27;Execution Mode&#x27;,c.execution_modes]]
     .map(([key,label,choices]) =&gt; &#x27;&lt;label&gt;&#x27;+label+&#x27; &lt;select data-job-filter=&quot;&#x27;+key+&#x27;&quot; aria-label=&quot;&#x27;+label+&#x27;&quot;&gt;&lt;option value=&quot;&quot;&gt;전체&lt;/option&gt;&#x27;
-      + Object.entries(choices).map(([value,name]) =&gt; &#x27;&lt;option value=&quot;&#x27;+esc(value)+&#x27;&quot;&#x27;+(state[key]===value?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+esc(name)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;label&gt;&lt;input type=&quot;checkbox&quot; data-job-filter=&quot;jobSourceHistory&quot;&#x27;+(state.jobSourceHistory?&#x27; checked&#x27;:&#x27;&#x27;)+&#x27;&gt; 이전 분할 실행 표시&lt;/label&gt;&lt;/div&gt;&#x27;;
+      + Object.entries(choices).map(([value,name]) =&gt; &#x27;&lt;option value=&quot;&#x27;+esc(value)+&#x27;&quot;&#x27;+(state[key]===value?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+esc(name)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;label&gt;&lt;input type=&quot;checkbox&quot; data-job-filter=&quot;jobSourceHistory&quot;&#x27;+(state.jobSourceHistory?&#x27; checked&#x27;:&#x27;&#x27;)+&#x27;&gt; 선행·원본 실행 표시&lt;/label&gt;&lt;/div&gt;&#x27;;
 }
 root.addEventListener(&#x27;click&#x27;,event=&gt;{
   const button=event.target.closest(&#x27;[data-job-history-view]&#x27;);if(!button)return;
@@ -4756,6 +4758,15 @@ loomJobPanel=function(job,entry){
  if(nodes.length)result=panel(&#x27;Executions&#x27;,catTable([&#x27;Step&#x27;,&#x27;State&#x27;,&#x27;Attempts&#x27;,&#x27;Execution&#x27;],nodes.map(n=&gt;[
   esc(n.label),esc(n.state),esc(n.attempts.length),catLink(n.job,n.id)+loomQueueControls(n.job)
  ])))+result;
+ const family=record?.family;
+ if(family){
+  const members=(family.members||[]).filter(m=&gt;m.id!==job.id);
+  if(family.root!==job.id)result=panel(&#x27;Main Job&#x27;,catLink(family.root))+result;
+  if(members.length)result+=panel(&#x27;Related Jobs&#x27;,catTable([&#x27;Job&#x27;,&#x27;Parent&#x27;,&#x27;State&#x27;,&#x27;Runtime&#x27;],members.map(m=&gt;[
+   catLink(m.id,m.label||m.id),m.parent?catLink(m.parent):&#x27;—&#x27;,esc(m.state),
+   (m.runtime_refs||[]).map(r=&gt;catLink(&#x27;runtime:&#x27;+r.id+&#x27;:&#x27;+r.revision,r.id+&#x27; · r&#x27;+r.revision)).join(&#x27; · &#x27;)||&#x27;—&#x27;
+  ]))+(family.complete?&#x27;&#x27;:&#x27;&lt;p class=&quot;pa-subtle&quot;&gt;Showing 200 records&lt;/p&gt;&#x27;));
+ }
  const related=(catalogData.all_entities||catalogData.entities).filter(e=&gt;e.presentation?.parent_job===job.id&amp;&amp;e.kind!==&#x27;job&#x27;);
  if(related.length)result+=panel(&#x27;Supporting records&#x27;,catTable([&#x27;Record&#x27;,&#x27;Kind&#x27;],related.map(e=&gt;[catLink(e.id),esc(e.kind)])));
  return result;
@@ -5221,7 +5232,7 @@ function loomCatalogProjection(catalog) {
 // Bounded per-view transport. Payload trees, software combinations and logs stay lazy.
 const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityView=null;const loomCatalogOpening=new Set();
 const loomCatalogKinds={models:&#x27;model&#x27;,datasets:&#x27;dataset&#x27;,experiments:&#x27;experiment&#x27;,issues:&#x27;issue&#x27;,profiles:&#x27;profile&#x27;,components:&#x27;component&#x27;,tools:&#x27;tool&#x27;,runtimes:&#x27;runtime&#x27;,dependencies:&#x27;dependency&#x27;,scenarios:&#x27;scenario&#x27;,queue:&#x27;job&#x27;,files:&#x27;explorer&#x27;};
-function loomCatalogQuery(kind){if(kind===&#x27;explorer&#x27;)return {kinds:[&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};const view=kind===&#x27;job&#x27;?(state.jobHistoryView||catalogData.presentation_view||&#x27;research&#x27;):catalogData.presentation_view||&#x27;research&#x27;;return {...([&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;].includes(kind)?{...loomRegistryArgs(state.registryFilter||&#x27;current&#x27;),...(state.registryFilter===&#x27;archived&#x27;?{history:&#x27;all&#x27;}:{})}:{}),kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:kind===&#x27;job&#x27;?&#x27;all&#x27;:[&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)?((state.outputPurpose||(view===&#x27;research&#x27;?&#x27;research&#x27;:&#x27;all&#x27;))===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;):kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...([&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)&amp;&amp;state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
+function loomCatalogQuery(kind){if(kind===&#x27;explorer&#x27;)return {kinds:[&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};const view=kind===&#x27;job&#x27;?(state.jobHistoryView||&#x27;all&#x27;):catalogData.presentation_view||&#x27;research&#x27;;return {...([&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;].includes(kind)?{...loomRegistryArgs(state.registryFilter||&#x27;current&#x27;),...(state.registryFilter===&#x27;archived&#x27;?{history:&#x27;all&#x27;}:{})}:{}),kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:kind===&#x27;job&#x27;?&#x27;all&#x27;:[&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)?((state.outputPurpose||(view===&#x27;research&#x27;?&#x27;research&#x27;:&#x27;all&#x27;))===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;):kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...([&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)&amp;&amp;state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 // A bootstrap is a bounded seed, never a replacement for pages from its revision.
 function loomCatalogRefresh(value){
@@ -5250,7 +5261,8 @@ function loomCatalogRefresh(value){
  const records=new Map(old.map(e=&gt;[e.id,e]));
  for(const e of value.all_entities||value.entities){const old=records.get(e.id);records.set(e.id,old?.kind===&#x27;scenario&#x27;&amp;&amp;old.loom_scenario.revision&gt;e.loom_scenario?.revision?old:loomCatalogRetainResearch(old,e,!changed));}
  loomPresentationView=value.presentation_view||catalogData.presentation_view||&#x27;research&#x27;;
- return catTitleSnapshot(loomCatalogProjection({...value,entities:[...records.values()]}));
+ const activity=catalogData.activity?.view===&#x27;all&#x27;?catalogData.activity:value.activity;
+ return catTitleSnapshot(loomCatalogProjection({...value,activity,entities:[...records.values()]}));
 }
 function loomCatalogRetainResearch(previous,incoming,sameRevision){
  if(!sameRevision||!previous?.research_summary||!incoming.research_summary)return incoming;
@@ -5339,10 +5351,10 @@ render=function(){
  if(catalogData.capabilities?.catalog_pages&amp;&amp;state.entity&amp;&amp;!catEntity(state.entity)&amp;&amp;!loomCatalogOpening.has(state.entity)){
   const id=state.entity;loomCatalogOpening.add(id);queueMicrotask(()=&gt;loomCatalogOpen(id).catch(()=&gt;{}).finally(()=&gt;loomCatalogOpening.delete(id)));
  }
- const view=catalogData.presentation_view===&#x27;builtin&#x27;?&#x27;all&#x27;:catalogData.presentation_view||&#x27;research&#x27;;
+ const view=&#x27;all&#x27;;
  if(catalogData.capabilities?.catalog_pages&amp;&amp;loomActivityView!==view){
-  loomActivityView=view;
-  queueMicrotask(async()=&gt;{try{const activity=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_activity&#x27;,{view});if(loomActivityView===view){catalogData.activity=activity;catalogRefreshViews();}}catch{}});
+  const revision=catalogData.revision;loomActivityView=view;
+  queueMicrotask(async()=&gt;{try{const activity=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_activity&#x27;,{view});if(loomActivityView===view&amp;&amp;catalogData.revision===revision){catalogData.activity={...activity,view};catalogRefreshViews();}}catch{if(loomActivityView===view&amp;&amp;catalogData.revision===revision)loomActivityView=null;}});
  }
 };
 document.addEventListener(&#x27;click&#x27;,event=&gt;{const b=event.target.closest(&#x27;[data-catalog-more]&#x27;);if(!b)return;event.preventDefault();const pane=b.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;state=activeTab().view;const kind=b.dataset.catalogMore,page=loomCatalogPages.get(loomCatalogPageKey(kind));if(page?.error){page.loaded=false;page.error=null;}loomCatalogLoad(kind,!!page?.cursor);});

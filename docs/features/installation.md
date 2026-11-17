@@ -6,6 +6,11 @@ The loom service account, installation UUID and user profiles are independent. S
 New installation has one service contract: native Tailscale identity, Admin binding, Sharing Gateway, Ops, Dashboard, executor and explicit storage. Token-only fallback is not installation success.
 Doctor observes actual state independently of progress receipts. Only explicit smoke submits a Job; diagnostics never repair or grant access. Handoff leads with the verified Gateway URL.
 
+Native installation smoke submits with `owner:system` and the real notification
+recipient, so it is Dashboard-hidden from creation. A prior smoke receipt without
+System attribution is repaired idempotently before it is reused. User Jobs do
+not inherit System responsibility from a Profile, Runtime or smoke execution mode.
+
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |

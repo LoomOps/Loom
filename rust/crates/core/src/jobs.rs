@@ -634,7 +634,7 @@ impl Application {
         match action {
             "submit" => self.submit(actor, args),
             "submit_workflow" => self.submit_workflow(actor, args),
-            "get" => self.job_detail(
+            "get" => self.inspect_job(
                 args["id"]
                     .as_str()
                     .ok_or_else(|| Error::input("Job ID required"))?,

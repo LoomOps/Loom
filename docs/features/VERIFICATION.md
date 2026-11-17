@@ -27,6 +27,14 @@ The feature catalog maps every block to its executable cases. This matrix record
 
 ## Review and run
 
+For metadata normalization, assert recorded values survive extraction, template
+validation/adoption, exact entity reads and paged lists. Include legacy split
+rows with frame counts, nested counts, zero, explicit missing/N/A and duplicate
+or conflicting split identities. A matching template pin is insufficient.
+For installation smoke, assert System ownership on the submit request itself,
+preserve the notification recipient, and test old-receipt retry. Verify the same
+Profile remains usable by a user without hiding that user's work.
+
 1. Read the handler, consumers and invariant independently of the existing tests. Assess whether the tested behavior is the intended behavior.
 2. Run `python3 deploy/features.py check` and `impact <changed paths> --transitive`; update only affected contracts.
 3. Run the mapped native and retained suites. Use `python3 tests/run.py --browser --output <evidence-directory>` for the complete fixture boundary.
@@ -38,3 +46,13 @@ Guide revisions cover guide contents/titles, package metadata, reference prose/e
 Installation uses actual doctor results and the selected step's exit criteria. Ordinary Job use does not inherit an installation checklist. Live Tailscale consent, external clients, reboot, large-store performance, GPU/Sim and scientific semantics require separate scoped evidence.
 
 Historical release-specific notes are preserved in [VERIFICATION-HISTORY.md](VERIFICATION-HISTORY.md); they are not another current checklist.
+
+For preparation/follow-up grouping, exercise merged curation, workflow exact
+reads, parent removal, cycle rejection and immutable workflow membership. Retain
+failed history and all Attempt/Profile/Runtime pins; presentation controls must
+not operate on descendants as if they were execution nodes. Check Runtime usage
+against exact frozen ID/revision/SHA and stage-start receipts, including a
+prepare-only failure with a different unstarted run Runtime. Activity unions
+actual intervals within the Main Job and keeps explicit API scope filters;
+Home defaults to all user work independently of scientific Outputs. Browser
+coverage includes initial fetch, refresh retention and source/Main navigation.

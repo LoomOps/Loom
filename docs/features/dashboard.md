@@ -196,3 +196,9 @@ graph/table control and original definitions intact. They do not repeat below
 unrelated report tabs. Structured metric definitions render as escaped values,
 and long labels wrap without forcing the pane wider. Comparison initially chooses
 a model with an available evaluation; explicit user choices remain unchanged.
+
+Home Activity and the default terminal Job history include user work across
+Research and Operations. Scientific Outputs filters do not hide Runtime
+preparation or diagnostics from them. Explicit history scope filters remain.
+Scope-qualified Activity survives bootstraps until a replacement arrives;
+responses from older revisions cannot overwrite the current observation.

@@ -197,3 +197,11 @@ by `components.set_lifecycle`. See the Components guide for exact target selecto
 authorization and explicit batch selection. These overlays preserve sealed pins and
 files; they are not execution or scientific acceptance gates. Discovery accepts
 `include_archived` / `lifecycle_state`; exact reads remain available.
+
+`components.get_runtime.job_usage` follows frozen Job stage pins (ID, revision
+and SHA), independently of the scientific catalog filter or current Profile.
+Each row retains the original Job, Profile SHA, bound stages and `group_root`.
+`execution_receipts` identifies the actual started Attempt/stage; a bound but
+unstarted Runtime is not counted in `executed_jobs`. `jobs_complete=false` means
+the newest 200 records are shown. Presentation grouping does not rebind a Job to
+a newer Runtime or prove that another stage used the same environment.

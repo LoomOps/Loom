@@ -47,3 +47,11 @@ Nested consolidation resolves the terminal logical Job using frozen Attempt
 membership. Activity and Profile usage share that mapping. Detailed source
 receipts use an iterative, deduplicated traversal; callbacks alone do not suppress
 a legacy Attempt execution interval.
+
+Historical `parent_job` curation is an additive outcome hierarchy, separate from
+workflow execution membership and consolidation. Exact `jobs.get.family` reads
+retain each member's own state, Attempt and Runtime pins. Workflow presentation
+overlays apply to exact reads as well as the catalog. Partial presentation edits
+must validate cycles against the merged existing hierarchy; explicit null clears
+a presentation parent, while real workflow membership remains authoritative.
+Neither grouping nor a failed follow-up rewrites the original root's state.

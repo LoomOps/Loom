@@ -5,6 +5,47 @@ fn admin(f: &mut Fixture) {
     f.app.config.actors[0].token_sha256 = Some(digest);
 }
 #[test]
+fn platform_smoke_can_be_system_at_creation_while_user_smoke_stays_user_work() {
+    let mut f = Fixture::new();
+    let request = json!({"key":"system-at-submission","kind":"cpu.smoke","owner":"system","notify":"owner","params":{"seconds":0,"fail":false}});
+    assert_eq!(
+        f.call("jobs", "submit", request.clone())
+            .unwrap_err()
+            .status,
+        403
+    );
+    admin(&mut f);
+    let system = f.call("jobs", "submit", request.clone()).unwrap();
+    assert_eq!(system, f.call("jobs", "submit", request).unwrap());
+    let human = f.submit("human-smoke-same-profile");
+    assert_eq!(
+        f.call("jobs", "get", json!({"id":system["id"]})).unwrap()["owner"],
+        "system"
+    );
+    assert_eq!(
+        f.call("jobs", "get", json!({"id":human})).unwrap()["owner"],
+        "owner"
+    );
+    let visible = f.app.dashboard_queue().unwrap();
+    assert!(visible["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["id"] == human));
+    assert!(!visible["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["id"] == system["id"]));
+    assert_eq!(
+        f.call("jobs", "queue", json!({})).unwrap()["entries"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+}
+#[test]
 fn system_jobs_stay_in_mcp_and_execution_but_not_dashboard_paging_or_queue() {
     let mut f = Fixture::new();
     let human = f.submit("user-work");

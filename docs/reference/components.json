@@ -1689,7 +1689,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "get_runtime",
-      "description": "Read one exact immutable Runtime revision and its consumers. Installation/build is an explicit host-administrator workflow.",
+      "description": "Read one exact immutable Runtime revision and its consumers. Installation/build is an explicit host-administrator workflow. job_usage links frozen stage pins to source Jobs and their Main Job; execution_receipts distinguishes started stages from unexecuted bindings. At most 200 Job rows are returned with jobs_complete.",
       "errors": [
         "Missing revision or instance grant."
       ],

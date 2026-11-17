@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0-alpha.39
+
+- Connect preparation and follow-up Job history to its Main outcome while preserving original workflow membership, execution states, Attempts and accepted software pins. Apply workflow presentation overlays consistently and validate partial curation against the merged parent graph.
+- Expose exact Runtime consumers from frozen Job stage pins and started-stage receipts, with source Job/Profile and Main Job navigation.
+- Keep Home Activity and default terminal history independent of scientific Outputs filters. Group related preparation history, union actual execution intervals, retain explicit filters and fence stale Activity refresh responses.
+- Normalize recorded legacy Dataset split counts without losing zero, Missing or N/A distinctions; preserve conflicting source evidence instead of inventing counts.
+- Attribute native installation smoke to System at submission and preserve its notification recipient. Update API v54, generated references, authoring guides and regression coverage.
+
 ## 0.2.0-alpha.38
 
 - Preserve native Runtime/Dependency observation retirement during upgrades without treating it as scientific Item deletion. Keep original IDs, native keys, creation identity and immutable revisions exact.

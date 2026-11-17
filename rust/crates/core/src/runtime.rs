@@ -11,6 +11,13 @@ pub const STAGES: [&str; 6] = [
     "on_error",
     "on_cancel",
 ];
+pub(crate) fn profile_runtime_refs(profile: &Value) -> Vec<Value> {
+    STAGES.iter().filter_map(|stage| {
+        let pin = &profile[stage]["runtime_pin"];
+        pin["id"].as_str()?;
+        Some(json!({"stage":stage,"id":pin["id"],"revision":pin["revision"],"sha256":pin["sha256"]}))
+    }).collect()
+}
 pub fn primary(manifest: &Value, selection: Option<&Value>) -> Result<Vec<Value>> {
     let deps = manifest["dependencies"]
         .as_array()
@@ -244,6 +251,37 @@ impl Application {
             json!({"status":"unavailable","runtimes":[]})
         };
         for item in catalog["runtimes"].as_array_mut().unwrap() {
+            // Frozen submissions, not current Profile definitions or UI scope,
+            // are the authority for an environment's actual consumers.
+            let consumers = rows(&self.db,
+                "SELECT j.id,j.attempt,j.state,j.spec FROM jobs j WHERE EXISTS(SELECT 1 FROM json_each(j.spec,'$.profile') p WHERE p.key IN('prepare','runtime','finalize','on_complete','on_error','on_cancel') AND json_extract(p.value,'$.runtime_pin.id')=? AND json_extract(p.value,'$.runtime_pin.revision')=? AND json_extract(p.value,'$.runtime_pin.sha256')=?) ORDER BY j.created DESC,j.id LIMIT 201",
+                &[&item["id"].as_str(),&item["revision"].as_i64(),&item["sha256"].as_str()])?;
+            item["jobs_complete"] = json!(consumers.len() <= 200);
+            let mut jobs = vec![];
+            for row in consumers.into_iter().take(200) {
+                let spec: Value = serde_json::from_str(row["spec"].as_str().unwrap())?;
+                let stages: Vec<_> = profile_runtime_refs(&spec["profile"])
+                    .into_iter()
+                    .filter(|pin| {
+                        pin["id"] == item["id"]
+                            && pin["revision"] == item["revision"]
+                            && pin["sha256"] == item["sha256"]
+                    })
+                    .map(|pin| pin["stage"].clone())
+                    .collect();
+                let receipts = rows(&self.db,"SELECT attempt,CASE WHEN stage='run' THEN 'runtime' ELSE stage END stage FROM stage_runs WHERE job=? AND started IS NOT NULL ORDER BY started,stage",&[&row["id"].as_str()])?;
+                let executed: Vec<_> = receipts
+                    .into_iter()
+                    .filter(|r| stages.contains(&r["stage"]))
+                    .collect();
+                jobs.push(json!({"id":row["id"],"attempt":row["attempt"],"state":row["state"],"executed":!executed.is_empty(),"execution_receipts":executed,"group_root":self.job_family_root(row["id"].as_str().unwrap())?,"profile":spec["kind"],"profile_sha256":spec["profile"]["sha256"],"stages":stages}));
+            }
+            item["executed_jobs"] = json!(jobs
+                .iter()
+                .filter(|j| j["executed"] == true)
+                .map(|j| j["id"].clone())
+                .collect::<Vec<_>>());
+            item["job_usage"] = json!(jobs);
             let curated = self.curation(
                 "runtime",
                 item["id"].as_str().unwrap_or(""),

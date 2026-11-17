@@ -480,7 +480,10 @@
                     "maxLength": 1024
                   },
                   "parent_job": {
-                    "type": "string",
+                    "type": [
+                      "string",
+                      "null"
+                    ],
                     "minLength": 1,
                     "maxLength": 256
                   },

@@ -23,6 +23,15 @@ loomJobPanel=function(job,entry){
  if(nodes.length)result=panel('Executions',catTable(['Step','State','Attempts','Execution'],nodes.map(n=>[
   esc(n.label),esc(n.state),esc(n.attempts.length),catLink(n.job,n.id)+loomQueueControls(n.job)
  ])))+result;
+ const family=record?.family;
+ if(family){
+  const members=(family.members||[]).filter(m=>m.id!==job.id);
+  if(family.root!==job.id)result=panel('Main Job',catLink(family.root))+result;
+  if(members.length)result+=panel('Related Jobs',catTable(['Job','Parent','State','Runtime'],members.map(m=>[
+   catLink(m.id,m.label||m.id),m.parent?catLink(m.parent):'—',esc(m.state),
+   (m.runtime_refs||[]).map(r=>catLink('runtime:'+r.id+':'+r.revision,r.id+' · r'+r.revision)).join(' · ')||'—'
+  ]))+(family.complete?'':'<p class="pa-subtle">Showing 200 records</p>'));
+ }
  const related=(catalogData.all_entities||catalogData.entities).filter(e=>e.presentation?.parent_job===job.id&&e.kind!=='job');
  if(related.length)result+=panel('Supporting records',catTable(['Record','Kind'],related.map(e=>[catLink(e.id),esc(e.kind)])));
  return result;

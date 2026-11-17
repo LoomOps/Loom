@@ -99,6 +99,14 @@ Whole-catalog compatibility/curation reads normalize accepted metadata only. The
 do not scan registered files inside the mutation lane; use a bounded page or exact
 Item detail to recover linked JSON context.
 
+Legacy split count maps, nested count objects and `{id,count,frames}` rows
+normalize to the same bounded train/validation/test count map before template
+adoption. Zero and explicit unrecorded/not-applicable states remain distinct;
+frames, member records and conflicting duplicate split rows are not counts.
+Original source bodies and evidence pointers remain unchanged. Migration
+verification compares the actual exact-entity and paged Split values, not only
+the selected template reference.
+
 ## Persistent recovery of existing metadata
 
 `results.refresh_metadata` previews one exact entity/historical revision. Apply

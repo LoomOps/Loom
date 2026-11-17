@@ -211,7 +211,7 @@ function loomRuntimeDetail(entity){
  const deps=(manifest.dependencies||[]).filter(d=>(filter==='all'||loomHubOrigin(d)===filter)&&[d.name,d.version,d.scope].join(' ').toLowerCase().includes(query));
  const dependencies=catTable(['Package','Version','Scope','Origin'],deps.map(d=>[esc(d.name),esc(d.version),esc(d.scope||'—'),esc(loomHubOrigin(d))]));
  const profiles=(item.used_by_profiles||[]).map(p=>`<div class="pa-row">${catLink('profile:'+p.kind,loomProfileName(catEntity('profile:'+p.kind)?.loom_execution_profile||{kind:p.kind,label:p.kind}))}<span>${esc(p.stages.join(', '))}</span></div>`).join('')||'<p class="pa-empty">No linked profiles</p>';
- const jobs=(item.executed_jobs||[]).map(loomJobInventoryLink).join(' · ')||'—';
+ const jobs=item.job_usage?catTable(['Execution','Main Job','Profile','Stage','State'],item.job_usage.map(j=>[loomJobInventoryLink(j.id),loomJobInventoryLink(j.group_root),catLink('profile:'+j.profile,j.profile),esc(j.stages.join(' · ')),esc(j.state)]))+(item.jobs_complete===false?'<p class="pa-subtle">Showing 200 records</p>':''):(item.executed_jobs||[]).map(loomJobInventoryLink).join(' · ')||'—';
  const versions=loomExtensionRows().filter(e=>e.kind==='runtime'&&e.loom_runtime.id===item.id);
  return loomHubTabs()+heading('RUNTIME',item.curation?.label||entity.label,'','<button class="pa-button" data-extension-home>Runtimes</button>')+catStatus()
   +`<div class="pa-hub-actions">${catalogData.capabilities?.curate&&item.revision?'<button class="pa-button" data-hub-edit>Edit</button>':''}</div>`

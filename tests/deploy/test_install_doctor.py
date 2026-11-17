@@ -146,7 +146,8 @@ class InstallationDoctorTests(unittest.TestCase):
    if args[2:4]==('components','register'):
     request=args[4];self.assertEqual(request['manifest']['implementation']['language'],'rust');self.assertEqual(set(request['files']),{'producer.json'});self.assertEqual(request['manifest']['profiles']['check']['runtime']['image'],image);return {'owner':'owner','id':'installation-smoke-native','profiles':['native.r1']}
    if args[2:4]==('jobs','submit'):
-    self.assertEqual(args[4]['presentation']['scope'],'operations');self.assertEqual(args[4]['execution_mode'],'smoke');return {'id':'native-smoke'}
+    self.assertEqual(args[4]['owner'],'system');self.assertEqual(args[4]['notify'],'owner');self.assertEqual(args[4]['presentation']['scope'],'operations');self.assertEqual(args[4]['execution_mode'],'smoke');return {'id':'native-smoke'}
+   if args[2:4]==('jobs','assign_owner'):self.fail('New native smoke must be System-owned at submission, without a visible reassignment window')
    return {'state':'complete'}
   with patch.object(setup,'manifest',return_value=definition),patch.object(smoke,'call',side_effect=invoke),patch.object(smoke,'verify',return_value=True):self.assertEqual(smoke.run(setup,self.plan)['status'],'passed')
  def test_smoke_after_upgrade_registers_a_distinct_versioned_component(self):
@@ -160,6 +161,18 @@ class InstallationDoctorTests(unittest.TestCase):
   with patch.object(setup,'manifest',return_value={'build_id':'0.1.0-alpha.58'}),patch.object(smoke,'call',side_effect=call),patch.object(smoke,'verify',return_value=True):
    result=smoke.run(setup,self.plan)
   self.assertEqual(result['status'],'passed');self.assertEqual(result['job'],'new-job')
+ def test_native_smoke_repairs_prior_receipt_once_without_resubmitting(self):
+  manifest={'build_id':'test','files':{'platform/bin/loom-sdk':'verified'}}
+  self.write('config/install-smoke.json',{'build':'test','source_sha256':hashlib.sha256(smoke.NATIVE_SOURCE.encode()).hexdigest(),'job':'existing','kind':'pinned'})
+  requests=[]
+  def invoke(*args):
+   requests.append((args[2],args[3],args[4]))
+   self.assertNotEqual(args[2:4],('jobs','submit'))
+   return {'state':'complete'}
+  with patch.object(setup,'manifest',return_value=manifest),patch.object(smoke,'call',side_effect=invoke),patch.object(smoke,'verify',return_value=True):
+   self.assertEqual(smoke.run(setup,self.plan)['status'],'passed')
+   self.assertEqual(smoke.run(setup,self.plan)['status'],'passed')
+  self.assertEqual(requests,[('jobs','assign_owner',{'id':'existing','owner':'system'}),('jobs','get',{'id':'existing'}),('jobs','get',{'id':'existing'})])
  def test_plan_generator_keeps_explicit_admin_and_does_not_copy_host_accounts(self):
   state={'state':'Running','dns':'fixture.tail.test','tailnet':'example.test','device_id':'d123'}
   raw={'Self':{'HostName':'Fixture RTX','TailscaleIPs':['100.64.0.2']}}

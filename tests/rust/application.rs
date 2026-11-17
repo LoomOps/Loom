@@ -1161,6 +1161,136 @@ fn research_curation_rejects_cycles_and_unknown_items_atomically() {
     assert!(f.call("jobs","curate",json!({"key":"unknown","reason":"review","dry_run":false,"changes":[{"kind":"tool","id":"unknown","presentation":{"role":"support"}}]})).is_err());
 }
 #[test]
+fn preparation_family_preserves_workflow_states_pins_and_execution_membership() {
+    let mut f = Fixture::new();
+    let spec = json!({"kind":"cpu.smoke","params":{"seconds":0,"fail":false}});
+    let main=f.call("jobs","submit_workflow",json!({"key":"preparation-root","label":"Requested preparation","owner":"owner","notify":"owner","nodes":[{"id":"pilot","label":"Pilot","spec":spec}],"outputs":{},"presentation":{"scope":"operations","role":"test"}})).unwrap()["id"].clone();
+    let repair=f.call("jobs","submit_workflow",json!({"key":"preparation-repair","label":"Render repair","owner":"owner","notify":"owner","nodes":[{"id":"render","label":"Render","spec":spec}],"outputs":{}})).unwrap()["id"].clone();
+    let original = f.call("jobs", "get", json!({"id":repair})).unwrap();
+    let node = original["executions"][0]["job"].clone();
+    let changes = json!([{"kind":"job","id":main,"presentation":{"scope":"operations","role":"main"}},{"kind":"job","id":repair,"presentation":{"scope":"operations","role":"support","parent_job":main}}]);
+    let args = json!({"key":"link-preparation","reason":"Same requested pipeline","dry_run":false,"changes":changes});
+    let receipt = f.call("jobs", "curate", args.clone()).unwrap();
+    assert_eq!(receipt, f.call("jobs", "curate", args).unwrap());
+    let detail = f.call("jobs", "get", json!({"id":repair})).unwrap();
+    assert_eq!(detail["state"], original["state"]);
+    assert_eq!(detail["spec"], original["spec"]);
+    assert_eq!(detail["executions"], original["executions"]);
+    assert_eq!(detail["presentation"]["parent_job"], main);
+    assert_eq!(detail["family"]["root"], main);
+    assert_eq!(detail["family"]["total"], 4);
+    assert!(detail["family"]["members"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|m| m["id"] == node && m["parent"] == repair && m["relation"] == "execution_node"));
+    // A partial edit keeps the prior parent, and cycles use the merged graph.
+    f.call("jobs","curate",json!({"key":"label-preparation","reason":"Display only","dry_run":false,"changes":[{"kind":"job","id":repair,"presentation":{"label":"Corrected render"}}]})).unwrap();
+    assert_eq!(
+        f.call("jobs", "get", json!({"id":node})).unwrap()["family"]["root"],
+        main
+    );
+    assert!(f.call("jobs","curate",json!({"key":"cycle-after-label","reason":"Invalid","dry_run":false,"changes":[{"kind":"job","id":main,"presentation":{"parent_job":repair}}]})).is_err());
+    assert!(f.call("jobs","curate",json!({"key":"reparent-execution","reason":"Invalid","dry_run":false,"changes":[{"kind":"job","id":node,"presentation":{"parent_job":main}}]})).is_err());
+    f.call("jobs","curate",json!({"key":"clear-preparation","reason":"Restore separate display","dry_run":false,"changes":[{"kind":"job","id":repair,"presentation":{"parent_job":null}}]})).unwrap();
+    assert_eq!(
+        f.call("jobs", "get", json!({"id":node})).unwrap()["family"]["root"],
+        repair
+    );
+    assert_eq!(f.count("jobs"), 2);
+    assert_eq!(f.count("attempts"), 0);
+}
+
+#[test]
+fn runtime_usage_uses_frozen_stage_receipts_even_for_failed_operational_jobs() {
+    let mut f = Fixture::new();
+    let main = f.submit("runtime-main");
+    let child = f.submit("runtime-prerequisite");
+    let manifest1 = json!({"runtime":{"image":"image-one"},"dependencies":[]});
+    let manifest2 = json!({"runtime":{"image":"image-two"},"dependencies":[]});
+    let sha1 = hash(compat::seal(&manifest1));
+    let sha2 = hash(compat::seal(&manifest2));
+    let pin = json!({"id":"sim","revision":1,"sha256":sha1});
+    let mut spec: Value = serde_json::from_str(
+        &f.app
+            .db
+            .query_row("SELECT spec FROM jobs WHERE id=?", [&child], |r| {
+                r.get::<_, String>(0)
+            })
+            .unwrap(),
+    )
+    .unwrap();
+    spec["profile"] = json!({"sha256":"old-profile","prepare":{"runtime_pin":pin},"runtime":{"runtime_pin":{"id":"sim","revision":2,"sha256":sha2}}});
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET spec=?,state='failed' WHERE id=?",
+            rusqlite::params![spec.to_string(), child],
+        )
+        .unwrap();
+    f.call("jobs","curate",json!({"key":"runtime-history","reason":"User preparation","dry_run":false,"changes":[{"kind":"job","id":child,"presentation":{"parent_job":main}}]})).unwrap();
+    let observation = json!({"runtimes":[{"id":"sim","revision":1,"sha256":sha1,"manifest":manifest1},{"id":"sim","revision":2,"sha256":sha2,"manifest":manifest2}]});
+    f.app.observe_runtimes(observation).unwrap();
+    let catalog = f.app.runtime_inventory().unwrap();
+    assert_eq!(
+        catalog["runtimes"][0]["job_usage"][0]["profile_sha256"],
+        "old-profile"
+    );
+    assert_eq!(catalog["runtimes"][0]["job_usage"][0]["group_root"], main);
+    assert_eq!(catalog["runtimes"][0]["job_usage"][0]["state"], "failed");
+    assert_eq!(catalog["runtimes"][0]["executed_jobs"], json!([]));
+    // A prepare-only execution must not claim the different run Runtime executed.
+    f.app.db.execute("INSERT INTO stage_runs(job,attempt,stage,state,started) VALUES(?,'attempt-proof','prepare','failed',1)",[&child]).unwrap();
+    let catalog = f.call("components", "runtimes", json!({})).unwrap();
+    assert_eq!(catalog["runtimes"][0]["executed_jobs"], json!([child]));
+    assert_eq!(catalog["runtimes"][1]["executed_jobs"], json!([]));
+    assert_eq!(
+        catalog["runtimes"][0]["job_usage"][0]["execution_receipts"][0]["attempt"],
+        "attempt-proof"
+    );
+    let detail = f.call("jobs", "get", json!({"id":child})).unwrap();
+    assert_eq!(detail["family"]["root"], main);
+    assert_eq!(detail["spec"]["profile"], spec["profile"]);
+}
+#[test]
+fn activity_groups_preparation_by_main_job_and_unions_actual_intervals() {
+    let mut f = Fixture::new();
+    let main = f.submit("activity-preparation-main");
+    let child = f.submit("activity-preparation-repair");
+    let day = ((store::now() + 32400.) / 86400.).floor() - 1.;
+    let start = day * 86400. - 32400. + 43200.;
+    for (id, a, b) in [
+        (&main, start, start + 20.),
+        (&child, start + 10., start + 40.),
+    ] {
+        f.app
+            .db
+            .execute(
+                "INSERT INTO stage_runs VALUES(?,'proof','run',?,?,'returned')",
+                rusqlite::params![id, a, b],
+            )
+            .unwrap();
+    }
+    f.app
+        .db
+        .execute("UPDATE jobs SET state='failed' WHERE id=?", [&child])
+        .unwrap();
+    f.call("jobs","curate",json!({"key":"activity-preparation-link","reason":"Same requested preparation","dry_run":false,"changes":[{"kind":"job","id":main,"presentation":{"role":"main"}},{"kind":"job","id":child,"presentation":{"parent_job":main,"role":"support"}}]})).unwrap();
+    let all = f.app.dashboard_activity("all").unwrap();
+    assert_eq!(all["days"].as_array().unwrap().len(), 1);
+    assert_eq!(all["days"][0]["job_count"], 1);
+    assert_eq!(all["days"][0]["jobs"][0]["id"], main);
+    assert_eq!(all["days"][0]["milliseconds"], 40000.);
+    assert_eq!(
+        f.call("jobs", "get", json!({"id":child})).unwrap()["state"],
+        "failed"
+    );
+    assert_eq!(
+        f.app.dashboard_activity("research").unwrap()["days"],
+        json!([])
+    );
+}
+#[test]
 fn delivery_versions_replay_and_recipient_grants_are_preserved() {
     let mut f = Fixture::new();
     let (id, work) = fail_execution(&mut f, "delivery");

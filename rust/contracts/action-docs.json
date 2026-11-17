@@ -159,7 +159,7 @@
   },
   "jobs.get": {
     "title": "Job details",
-    "description": "Read state, Attempts, internal_steps, consolidation provenance, work_timeline from original execution receipts, waiting reasons, recovery, callbacks and artifacts. Consolidated work elapsed time includes sources; Attempts retain continuation runtime timestamps.",
+    "description": "Read state, Attempts, internal_steps, consolidation provenance, work_timeline from original execution receipts, waiting reasons, recovery, callbacks and artifacts. Consolidated work elapsed time includes sources; Attempts retain continuation runtime timestamps. family adds bounded Main Job, prerequisite/follow-up and real execution-node navigation with original states and Runtime pins; presentation grouping does not change execution membership or completion.",
     "returns": "Job · status, scheduling, recovery, attempts, stages, callbacks, result",
     "example": {
       "id": "<job-id>"
@@ -169,7 +169,7 @@
     ],
     "implementation": {
       "feature": "queue",
-      "entrypoint": "rust/crates/core/src/query.rs#job_detail"
+      "entrypoint": "rust/crates/core/src/query.rs#inspect_job"
     }
   },
   "jobs.submit": {
@@ -785,7 +785,7 @@
   },
   "components.get_runtime": {
     "title": "Runtime revision",
-    "description": "Read one exact immutable Runtime revision and its consumers. Installation/build is an explicit host-administrator workflow.",
+    "description": "Read one exact immutable Runtime revision and its consumers. Installation/build is an explicit host-administrator workflow. job_usage links frozen stage pins to source Jobs and their Main Job; execution_receipts distinguishes started stages from unexecuted bindings. At most 200 Job rows are returned with jobs_complete.",
     "returns": "Runtime",
     "example": {
       "id": "simulation",
@@ -882,7 +882,7 @@
   },
   "jobs.curate": {
     "title": "Curate research presentation",
-    "description": "Preview or apply additive, evidence-backed presentation bindings. Original execution, timestamps, results and software revisions remain intact. Omit dry_run for a preview; false applies the exact batch once.",
+    "description": "Preview or apply additive, evidence-backed presentation bindings. Original execution, timestamps, results and software revisions remain intact. Omit dry_run for a preview; false applies the exact batch once. User-requested Runtime preparation and diagnostics remain user work; test/System is reserved for platform checks. parent_job groups the same requested outcome across follow-ups without changing scheduler dependencies or Runtime pins.",
     "returns": "Preview or idempotent batch receipt",
     "example": {
       "key": "review-1",

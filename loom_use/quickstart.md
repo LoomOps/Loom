@@ -37,6 +37,12 @@ Replace the principal/recipient IDs with permitted identities and confirm the Pr
 
 If the response is lost, replay the same key and original arguments. A changed request under the same key conflicts. A different key would create another execution.
 
+Installation administrators submitting installation/platform acceptance checks
+use `owner:"system"` at submission and keep `notify` as the actual recipient.
+System attribution requires administrator authority and hides the check in the
+Dashboard while retaining MCP/API evidence. Using the built-in Profile alone does
+not make a user's Job System-owned; user research/preparation remains user work.
+
 ## 3. Observe and inspect outputs
 
 Call `jobs.get({id})`. `status` is the public phase; `state` retains the native value (`complete` corresponds to `completed`). Scheduling and recovery are separate objects. Continue legacy `jobs.logs` using `next_offset`, or use `jobs.log_streams/read_log` for exact source generations.

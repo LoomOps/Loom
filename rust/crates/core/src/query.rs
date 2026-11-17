@@ -26,7 +26,55 @@ consolidation_edges(source,source_attempt,target,target_attempt) AS (
  SELECT p.* FROM consolidation_paths p WHERE NOT EXISTS(
  SELECT 1 FROM consolidation_edges e WHERE e.source=p.target AND e.source_attempt IS p.target_attempt)
 )"#;
+pub(crate) const JOB_LINKS_CTE: &str = r#"job_links AS (
+ SELECT j.id,COALESCE(w.root,json_extract(json_patch(COALESCE(json_extract(j.spec,'$.presentation'),'{}'),COALESCE(o.presentation,'{}')),'$.parent_job')) parent
+ FROM (SELECT id,spec FROM jobs UNION ALL SELECT id,request FROM job_workflows) j
+ LEFT JOIN research_overlays o ON o.kind='job' AND o.id=j.id
+ LEFT JOIN workflow_nodes w ON w.job=j.id
+)"#;
 impl Application {
+    // Presentation links describe an outcome's preparation/follow-up history.
+    // They never become scheduler dependencies or accepted execution membership.
+    pub(crate) fn job_parent(&self, id: &str) -> Result<Option<String>> {
+        Ok(self.db.query_row(
+            "SELECT COALESCE((SELECT root FROM workflow_nodes WHERE job=?),json_extract(json_patch(COALESCE(json_extract(j.spec,'$.presentation'),'{}'),COALESCE(o.presentation,'{}')),'$.parent_job')) FROM (SELECT id,spec FROM jobs UNION ALL SELECT id,request FROM job_workflows) j LEFT JOIN research_overlays o ON o.kind='job' AND o.id=j.id WHERE j.id=?",
+            params![id,id], |r| r.get(0),
+        ).optional()?.flatten())
+    }
+    pub(crate) fn job_family_root(&self, id: &str) -> Result<String> {
+        let mut root = id.to_string();
+        let mut seen = std::collections::BTreeSet::new();
+        loop {
+            require(
+                seen.insert(root.clone()),
+                "presentation",
+                "Cyclic parent Job binding",
+                409,
+            )?;
+            match self.job_parent(&root)? {
+                Some(parent) => root = parent,
+                None => return Ok(root),
+            }
+        }
+    }
+    pub fn inspect_job(&self, id: &str) -> Result<Value> {
+        let mut detail = self.job_detail(id)?;
+        let root = self.job_family_root(id)?;
+        let members = rows(&self.db,
+            &format!("WITH RECURSIVE {JOB_LINKS_CTE}, family(id) AS (SELECT ? UNION SELECT l.id FROM job_links l JOIN family f ON l.parent=f.id) SELECT l.id,l.parent,EXISTS(SELECT 1 FROM workflow_nodes n WHERE n.job=l.id) execution_node,(SELECT count(*) FROM family) total FROM family f JOIN job_links l ON l.id=f.id ORDER BY l.id LIMIT 201"),
+            &[&root])?;
+        let total = members
+            .first()
+            .and_then(|m| m["total"].as_u64())
+            .unwrap_or(0);
+        let mut related = vec![];
+        for member in members.into_iter().take(200) {
+            let child = self.job_detail(member["id"].as_str().unwrap())?;
+            related.push(json!({"id":member["id"],"parent":member["parent"],"relation":if member["execution_node"]==1 {"execution_node"} else {"presentation"},"label":child["presentation"].get("label").or_else(||child["spec"].get("label")).or_else(||child["spec"].get("kind")),"state":child["state"],"attempt":child["attempt"],"profile":child["spec"]["profile"].get("sha256"),"runtime_refs":crate::runtime::profile_runtime_refs(&child["spec"]["profile"])}));
+        }
+        detail["family"] = json!({"root":root,"parent":self.job_parent(id)?,"authority":"presentation_and_workflow_membership","execution_unchanged":true,"total":total,"complete":total<=200,"members":related});
+        Ok(detail)
+    }
     pub fn consolidation_target(&self, id: &str) -> Result<Option<String>> {
         Ok(self.db.query_row(&format!("{CONSOLIDATION_CTE} SELECT r.target FROM consolidation_roots r JOIN jobs original ON original.id=r.source WHERE original.id=? AND original.state='complete' AND r.source_attempt IS original.attempt ORDER BY r.target LIMIT 1"),[id],|r|r.get(0)).optional()?)
     }
@@ -114,6 +162,22 @@ impl Application {
             let mut presentation = request.get("presentation").cloned().unwrap_or(Value::Null);
             if presentation.is_null() {
                 presentation = json!({"scope":"research","role":"main"});
+            }
+            if let Some(overlay) = self
+                .db
+                .query_row(
+                    "SELECT presentation FROM research_overlays WHERE kind='job' AND id=?",
+                    [id],
+                    |r| r.get::<_, String>(0),
+                )
+                .optional()?
+            {
+                presentation.as_object_mut().unwrap().extend(
+                    serde_json::from_str::<Value>(&overlay)?
+                        .as_object()
+                        .unwrap()
+                        .clone(),
+                );
             }
             return self.decorate_owner("job",id,workflow["owner"].as_str().unwrap_or(""),
                 json!({"id":id,"workflow":true,"owner":workflow["owner"],"notify":workflow["notify"],"created":workflow["created"],"state":state.as_str(),"status":state.public(),"spec":request,"executions":nodes,"execution_intervals":execution_intervals,"result":{"artifact_ready":state==JobState::Complete,"outputs":outputs},"errors":errors,"presentation":presentation,"scenario_ref":request["scenario_ref"]}),
@@ -363,7 +427,7 @@ impl Application {
         let category = args["category"].as_str();
         let mode = args["execution_mode"].as_str();
         let consolidated = args["include_consolidated"] == true;
-        let identities=rows(&self.db,"WITH folded AS (SELECT DISTINCT json_extract(c.value,'$.job') id FROM jobs j,json_each(j.spec,'$._consolidation_sources') c JOIN jobs original ON original.id=json_extract(c.value,'$.job') WHERE j.state='complete' AND json_extract(j.result,'$.artifact_ready')=1 AND original.state='complete' AND original.attempt IS json_extract(c.value,'$.attempt')), candidates AS (SELECT j.id,j.created,CASE WHEN o.presentation IS NULL THEN j.spec ELSE json_patch(j.spec,json_object('presentation',json_patch(COALESCE(json_extract(j.spec,'$.presentation'),'{}'),o.presentation))) END spec,0 workflow FROM jobs j LEFT JOIN research_overlays o ON o.kind='job' AND o.id=j.id WHERE NOT EXISTS(SELECT 1 FROM workflow_nodes n WHERE n.job=j.id) AND (? OR NOT EXISTS(SELECT 1 FROM folded f WHERE f.id=j.id)) UNION ALL SELECT w.id,w.created,w.request,1 FROM job_workflows w UNION ALL SELECT h.id,COALESCE(json_extract(h.body,'$.record.created'),json_extract(h.body,'$.entity.created'),json_extract(h.body,'$.entity.properties.created_at'),0),COALESCE(json_extract(h.body,'$.record.spec'),json_extract(h.body,'$.entity.properties'),'{}'),2 FROM history_records h WHERE h.rowid IN(SELECT max(rowid) FROM history_records WHERE kind='job_view' AND source IN ('queue','loom-ops') GROUP BY id) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.id=h.id)) SELECT id,workflow FROM candidates WHERE (?='all' OR COALESCE(json_extract(spec,'$.presentation.scope'),json_extract(spec,'$.scope'),CASE WHEN json_extract(spec,'$.kind')='cpu.smoke' THEN 'operations' ELSE 'research' END)=?) AND (? IS NULL OR COALESCE(json_extract(spec,'$.category'),'other')=?) AND (? IS NULL OR json_extract(spec,'$.execution_mode')=?) ORDER BY created DESC,id LIMIT ? OFFSET ?",&[&consolidated,&view,&view,&category,&category,&mode,&mode,&limit,&offset])?;
+        let identities=rows(&self.db,"WITH folded AS (SELECT DISTINCT json_extract(c.value,'$.job') id FROM jobs j,json_each(j.spec,'$._consolidation_sources') c JOIN jobs original ON original.id=json_extract(c.value,'$.job') WHERE j.state='complete' AND json_extract(j.result,'$.artifact_ready')=1 AND original.state='complete' AND original.attempt IS json_extract(c.value,'$.attempt')), candidates AS (SELECT j.id,j.created,CASE WHEN o.presentation IS NULL THEN j.spec ELSE json_patch(j.spec,json_object('presentation',json_patch(COALESCE(json_extract(j.spec,'$.presentation'),'{}'),o.presentation))) END spec,0 workflow FROM jobs j LEFT JOIN research_overlays o ON o.kind='job' AND o.id=j.id WHERE NOT EXISTS(SELECT 1 FROM workflow_nodes n WHERE n.job=j.id) AND (? OR NOT EXISTS(SELECT 1 FROM folded f WHERE f.id=j.id)) UNION ALL SELECT w.id,w.created,CASE WHEN o.presentation IS NULL THEN w.request ELSE json_patch(w.request,json_object('presentation',json_patch(COALESCE(json_extract(w.request,'$.presentation'),'{}'),o.presentation))) END,1 FROM job_workflows w LEFT JOIN research_overlays o ON o.kind='job' AND o.id=w.id UNION ALL SELECT h.id,COALESCE(json_extract(h.body,'$.record.created'),json_extract(h.body,'$.entity.created'),json_extract(h.body,'$.entity.properties.created_at'),0),COALESCE(json_extract(h.body,'$.record.spec'),json_extract(h.body,'$.entity.properties'),'{}'),2 FROM history_records h WHERE h.rowid IN(SELECT max(rowid) FROM history_records WHERE kind='job_view' AND source IN ('queue','loom-ops') GROUP BY id) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.id=h.id)) SELECT id,workflow FROM candidates WHERE (?='all' OR COALESCE(json_extract(spec,'$.presentation.scope'),json_extract(spec,'$.scope'),CASE WHEN json_extract(spec,'$.kind')='cpu.smoke' THEN 'operations' ELSE 'research' END)=?) AND (? IS NULL OR COALESCE(json_extract(spec,'$.category'),'other')=?) AND (? IS NULL OR json_extract(spec,'$.execution_mode')=?) ORDER BY created DESC,id LIMIT ? OFFSET ?",&[&consolidated,&view,&view,&category,&category,&mode,&mode,&limit,&offset])?;
         let mut items = vec![];
         for identity in identities {
             let id = identity["id"].as_str().unwrap_or("");
@@ -669,7 +733,33 @@ impl Application {
                 "Unknown or repeated research identity",
                 400,
             )?;
-            proposed.insert(key, change["presentation"].clone());
+            if key.0 == "job" {
+                if let Some(root) = self
+                    .db
+                    .query_row(
+                        "SELECT root FROM workflow_nodes WHERE job=?",
+                        [&key.1],
+                        |r| r.get::<_, String>(0),
+                    )
+                    .optional()?
+                {
+                    require(
+                        change["presentation"]
+                            .get("parent_job")
+                            .is_none_or(|p| p == &json!(root)),
+                        "presentation",
+                        "Workflow execution membership cannot be changed by presentation",
+                        400,
+                    )?;
+                }
+            }
+            let current = proposed.entry(key).or_insert_with(|| json!({}));
+            current.as_object_mut().unwrap().extend(
+                change["presentation"]
+                    .as_object()
+                    .ok_or_else(|| Error::input("Presentation object required"))?
+                    .clone(),
+            );
         }
         for ((kind, id), presentation) in &proposed {
             let mut cursor = presentation["parent_job"].as_str();
@@ -708,7 +798,21 @@ impl Application {
                 require(exists, "presentation", "Unknown parent reference", 400)?;
             }
             if args["dry_run"] == false {
-                tx.execute("INSERT INTO research_overlays VALUES(?,?,?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET presentation=excluded.presentation,actor=excluded.actor,reason=excluded.reason,updated=excluded.updated",params![kind,id,encode(&change["presentation"])?,actor.id,args["reason"].as_str(),now()])?;
+                let mut overlay: Value = tx
+                    .query_row(
+                        "SELECT presentation FROM research_overlays WHERE kind=? AND id=?",
+                        params![kind, id],
+                        |r| r.get::<_, String>(0),
+                    )
+                    .optional()?
+                    .map(|s| serde_json::from_str(&s))
+                    .transpose()?
+                    .unwrap_or(json!({}));
+                overlay
+                    .as_object_mut()
+                    .unwrap()
+                    .extend(change["presentation"].as_object().unwrap().clone());
+                tx.execute("INSERT INTO research_overlays VALUES(?,?,?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET presentation=excluded.presentation,actor=excluded.actor,reason=excluded.reason,updated=excluded.updated",params![kind,id,encode(&overlay)?,actor.id,args["reason"].as_str(),now()])?;
             }
         }
         let result =
