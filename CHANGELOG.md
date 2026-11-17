@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0-alpha.32
+
+- Register immutable metadata formats, reporting contracts and metric/factor/protocol definitions with shared Item identities. Reuse Built-in coverage, derive evidence-backed exclusions/replacements, or author additional analysis without a platform release.
+- Freeze reporter capabilities, exact scientific inputs, analysis schedules and expected values before new Jobs. Verify report bytes, producer/attempt pins, populations, SDG membership and evaluation predicates before publication; preserve accepted legacy execution and repair evidence without rerunning computation.
+- Separate Robot DoF, controlled joint DoF and ordered Action dimensions. Retain per-channel held-out MSE with squared units, MAE/RMSE, normalization, instruction assignments and checkpoint/phase learning series.
+- Show Policies and typed report detail sections in Outputs. Keep comparison as a derived view, expose Built-in/registered contract browsing, and preserve incomplete historical records with explicit Missing states. Keep reports indexed alongside sealed large-file inventories.
+- Prefix output display names with an evidence-backed robot model and support additive source-bound metadata adoption. Fix initial Dashboard Job pagination without a filter change.
+
 ## 0.2.0-alpha.31
 
 - Move Dashboard queue/history Task links below Job details and directly above Owner. Use subdued text without badge backgrounds or borders in both themes while retaining keyboard focus and readable contrast.

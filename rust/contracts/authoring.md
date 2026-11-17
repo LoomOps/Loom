@@ -43,7 +43,29 @@ A runner command beginning `@producer` requires this verified receipt and an exp
 Use `components.register` / `register_tool` and, when needed, `register_profile` with exact Component/Tool/Runtime references. Inspect the resulting revision and Profile. Submit the requested work through `jobs.submit` or one workflow, keeping batching internal. Package validation and registration do not establish GPU/SDK/scientific acceptance; perform the relevant bounded test only within the requested execution scope.
 
 New producer labels follow the Output names section of the results guide:
-subject · variant · purpose · revision/selected step, omitting unknown parts.
+robot model · subject · variant · purpose · revision/selected step, omitting unknown parts.
 Use `set_entity_label` after `register_entity`/`register_inventory`/`write_artifact` and
 before finish. This edits only the pending manifest's label; it never renames a
 registered result or its files. Keep Task links and scientific metadata separate.
+
+## Output metadata
+
+New Profile registrations freeze metadata templates by output kind or
+`output:<local-id>`. Select registered exact `{id, revision, sha256}` references
+through `metadata_templates`; Loom assigns `metadata_policy` and
+`metadata_template_pins`. Reuse a compatible existing output format before
+creating a new template revision. Preserve old Profile/Job pins.
+
+After registering a scientific output, call
+`producer.set_entity_metadata(local_id, template_ref, research)` and
+`producer.set_entity_label(local_id, label)`. The server validates the frozen
+schema and adds the recorded robot model before the human-readable label.
+Robot and Task remain separate properties. The `metadata` server guide defines
+canonical values, extension coverage and explicit existing-record adoption.
+
+## Analysis reporting
+
+Scientific Profiles select exact report contracts and declare reporter capabilities.
+Use `Producer::report` for hash-bound reports and producer/input lineage. See
+[report authoring](../../loom_use/reporting.md) for coverage adaptation, Robot DoF
+versus Action dimension, per-channel units and publication errors.

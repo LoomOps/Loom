@@ -135,11 +135,11 @@ def build(original):
         "const catEntity=id=>(catalogData.all_entities||catalogData.entities).find(e=>e.id===id)||(typeof workStepRecord==='function'?workStepRecord(id):null)||loomHistoricalExtensionEntity(id);")
     inner=replace_once(inner,"state.page===id?'active':''","(state.page===id||id==='profiles'&&loomIsHubPage(state.page)||id==='datasets'&&loomIsOutputPage(state.page))?'active':''")
     inner=replace_once(inner,"state.page===id?'page':'false'","(state.page===id||id==='profiles'&&loomIsHubPage(state.page)||id==='datasets'&&loomIsOutputPage(state.page))?'page':'false'")
-    inner=replace_once(inner,"(navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')","({scenarios:'Tasks',datasets:'Datasets',experiments:'Experiments',models:'Models',comparison:'Comparison',profiles:'Profiles',components:'Components',tools:'Tools',runtimes:'Runtimes',dependencies:'Dependencies'}[v.page]||navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')")
+    inner=replace_once(inner,"(navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')","({scenarios:'Tasks',datasets:'Datasets',experiments:'Experiments',models:'Policies',comparison:'Comparison',profiles:'Profiles',components:'Components',tools:'Tools',runtimes:'Runtimes',dependencies:'Dependencies'}[v.page]||navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')")
     marker = "catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');"
-    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "dependencies.js", "scenarios.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js", "search.js", "projection.js", "catalog-pages.js", "outputs.js", "research-metadata.js", "dataset-browser.js"))
+    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "dependencies.js", "scenarios.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js", "search.js", "projection.js", "catalog-pages.js", "outputs.js", "research-metadata.js", "dataset-browser.js", "reporting.js"))
     inner = replace_once(inner, marker, inner_additions + "\n" + (HERE.parent/"branding/brand.js").read_text() + "\n" + marker)
-    inner = inner.replace("</head>", "<style>" + (HERE / "frame.css").read_text() + "</style></head>", 1)
+    inner = inner.replace("</head>", "<style>" + (HERE / "frame.css").read_text() + (HERE / "reporting.css").read_text() + "</style></head>", 1)
     style = (HERE / "operations-desk.css").read_text() + (HERE.parent/"branding/brand.css").read_text()
     inner = replace_once(inner, "</body>", '<style id="pa-operations-desk">' + style + "</style></body>")
     outer = outer[:match.start(1)] + html.escape(inner, quote=True) + outer[match.end(1):]

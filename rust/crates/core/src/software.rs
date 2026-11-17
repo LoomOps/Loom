@@ -681,6 +681,10 @@ impl Application {
                     require(
                         [
                             "tool_pins",
+                            "metadata_policy",
+                            "metadata_template_pins",
+                            "reporting_pins",
+                            "reporting_policy",
                             "source_pins",
                             "component_path",
                             "sha256",
@@ -717,6 +721,8 @@ impl Application {
                     crate::authoring::bind_build(&mut p, build.as_ref())?;
                     crate::runtime::require_dependencies(&manifest, &p)?;
                     verify_tool_requirements(&tx, &p)?;
+                    crate::metadata_templates::bind_profile(&tx, &mut p)?;
+                    crate::reporting::bind_profile(&tx, &mut p)?;
                     profiles.insert(kind, seal(p)?);
                 }
             }
@@ -768,6 +774,10 @@ impl Application {
                 "revision",
                 "source_pins",
                 "tool_pins",
+                "metadata_policy",
+                "metadata_template_pins",
+                "reporting_pins",
+                "reporting_policy",
                 "component_path",
                 "owners",
                 "submitters",
@@ -818,6 +828,8 @@ impl Application {
         p["revision"] = json!(kind);
         p["owners"] = json!([owner]);
         p["submitters"] = json!([actor.id, owner]);
+        crate::metadata_templates::bind_profile(&tx, &mut p)?;
+        crate::reporting::bind_profile(&tx, &mut p)?;
         p = seal(p)?;
         tx.execute(
             "INSERT INTO execution_profiles VALUES(?,?,?,?)",

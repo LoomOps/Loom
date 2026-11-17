@@ -10,6 +10,18 @@ class ReconciliationTests(unittest.TestCase):
  get=service_fixture.RustServiceTests.get
  post=service_fixture.RustServiceTests.post
  call=service_fixture.RustServiceTests.call
+ def test_v3_scientific_import_selects_a_template_and_preserves_bytes(self):
+  raw=b'preserved scientific fixture\n';(self.data/'template.txt').write_bytes(raw)
+  t=self.call('results','get_metadata_template',{'id':'loom.dataset','revision':1});pin={k:t[k] for k in ('id','revision','sha256')}
+  definition={'kind':'dataset','label':'Source demonstrations','primary':{'machine_id':'fixture','storage_id':'fixture-data','ref':'template.txt'},'metadata':{'template_ref':pin,'research':{'robot':{'status':'recorded','model':'Franka Panda'},'collection':{'status':'recorded','count':0,'unit':'episodes'}}}}
+  op={'operation':'import','schema':'loom-asset/v3','source':{'system':'fixture','id':'typed-dataset','revision':'1'},'definition':definition}
+  p=self.call('results','reconcile_plan',{'key':'template-plan','proposal':{'schema':'loom-reconcile/v1','operations':[op]}})
+  args={'plan_id':p['plan_id']};self.call('results','reconcile_validate',args);applied=self.call('results','reconcile_apply',args)
+  self.assertEqual(applied,self.call('results','reconcile_apply',args))
+  with sqlite3.connect(self.root/'state/ops.sqlite3') as db:
+   row=json.loads(db.execute('SELECT manifest FROM asset_revisions').fetchone()[0]);self.assertEqual(row['label'],'Franka Panda · Source demonstrations');self.assertEqual(row['metadata_template'],pin)
+   self.assertEqual(db.execute('SELECT count(*) FROM jobs').fetchone()[0],0)
+  self.assertEqual((self.data/'template.txt').read_bytes(),raw)
  def import_file(self,key,name='original.txt',kind='artifact',metadata=None):
   definition={'kind':kind,'label':'Preserved '+kind,'metadata':metadata or {},'primary':{'machine_id':'fixture','storage_id':'fixture-data','ref':name}}
   op={'operation':'import','schema':'loom-asset/v2','source':{'system':'preserved-fixture','id':key,'revision':'original'},'definition':definition}

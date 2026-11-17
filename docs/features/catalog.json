@@ -363,7 +363,11 @@
         "rust/crates/core/src/file_set.rs",
         "rust/crates/core/src/reconcile.rs",
         "rust/crates/core/src/dataset_lineage.rs",
-        "rust/crates/core/src/dataset_organization.rs"
+        "rust/crates/core/src/dataset_organization.rs",
+        "rust/crates/core/src/metadata_templates.rs",
+        "rust/contracts/metadata-templates.json",
+        "rust/crates/core/src/reporting.rs",
+        "rust/contracts/reporting.json"
       ],
       "tests": [
         "tests/ops/test_installation_smoke.py",
@@ -372,7 +376,9 @@
         "tests/ops/test_result_pipeline.py",
         "tests/ops/test_storage_results.py",
         "tests/rust/application.rs",
-        "tests/rust/test_service.py"
+        "tests/rust/test_service.py",
+        "tests/rust/metadata_templates.rs",
+        "tests/rust/reporting.rs"
       ],
       "depends_on": [
         "identity",
@@ -383,7 +389,10 @@
         "rust/crates/core/src/reconcile.rs",
         "rust/crates/core/src/results.rs",
         "ops/mcp_groups.py",
-        "ops/registry.py"
+        "ops/registry.py",
+        "rust/contracts/metadata-templates.json",
+        "loom_use/metadata.md",
+        "rust/contracts/reporting.json"
       ],
       "invariants": [
         "Distinguish execution completion from indexing completion. Ownership changes must not overwrite original artifact or execution provenance."
@@ -642,7 +651,7 @@
     },
     {
       "id": "dashboard",
-      "summary": "Dashboard HTTP relay\u00b7workspace UI",
+      "summary": "Dashboard HTTP relay·workspace UI",
       "sources": [
         "dashboard/.dockerignore",
         "dashboard/Dockerfile",
@@ -681,7 +690,9 @@
         "dashboard/workspace/catalog-pages.js",
         "dashboard/workspace/outputs.js",
         "dashboard/workspace/research-metadata.js",
-        "dashboard/workspace/dataset-browser.js"
+        "dashboard/workspace/dataset-browser.js",
+        "dashboard/workspace/reporting.js",
+        "dashboard/workspace/reporting.css"
       ],
       "tests": [
         "tests/dashboard/browser/test_workspace.py",
@@ -741,7 +752,8 @@
         "rust/contracts/action-docs.json",
         "rust/crates/core/src/onboarding.rs",
         "tests/ops/client_source.py",
-        "loom_use/catalog.json"
+        "loom_use/catalog.json",
+        "loom_use/reporting.md"
       ],
       "tests": [
         "tests/deploy/test_client_release.py",

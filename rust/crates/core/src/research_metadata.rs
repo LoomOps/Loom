@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 const FILE_BYTES: u64 = 2 * 1024 * 1024;
 const ENTITY_BYTES: u64 = 4 * 1024 * 1024;
 const FILES: usize = 12;
-const EXTRACTOR_VERSION: u64 = 2;
+const EXTRACTOR_VERSION: u64 = 3;
 
 fn ambiguous_observer_input(input: &Value) -> bool {
     input["source_ref"]
@@ -15,11 +15,45 @@ fn ambiguous_observer_input(input: &Value) -> bool {
         .is_some_and(|s| s.ends_with("#dynamic_instruction_source"))
 }
 fn obsolete_fact(fact: &Value) -> bool {
-    fact["id"] == "instruction_source"
-        && fact["evidence"].as_array().is_some_and(|e| {
-            e.iter()
-                .any(|v| v["pointer"] == "/dynamic_instruction_source")
-        })
+    let value = &fact["value"];
+    let invalid_count = matches!(
+        fact["id"].as_str(),
+        Some(
+            "count"
+                | "episodes"
+                | "frames"
+                | "selected_step"
+                | "optimizer_updates"
+                | "source_demos"
+        )
+    ) && !(value.as_u64().is_some()
+        || value
+            .as_array()
+            .is_some_and(|a| a.len() <= 32 && a.iter().all(|v| v.as_u64().is_some())));
+    invalid_count
+        || serde_json::to_vec(value).is_ok_and(|v| v.len() > 8192)
+        || fact["id"] == "instruction_source"
+            && fact["evidence"].as_array().is_some_and(|e| {
+                e.iter()
+                    .any(|v| v["pointer"] == "/dynamic_instruction_source")
+            })
+}
+fn compact_fact(fact: &Value) -> Value {
+    let mut value = fact.clone();
+    if let Some(alternatives) = fact["alternatives"].as_array() {
+        let alternatives = alternatives
+            .iter()
+            .filter(|alt| !obsolete_fact(&json!({"id":fact["id"],"value":alt["value"]})))
+            .take(16)
+            .cloned()
+            .collect::<Vec<_>>();
+        if alternatives.is_empty() {
+            value.as_object_mut().unwrap().remove("alternatives");
+        } else {
+            value["alternatives"] = json!(alternatives);
+        }
+    }
+    value
 }
 
 struct Document {
@@ -70,6 +104,9 @@ impl Facts {
         evidence: Value,
         unit: Option<&str>,
     ) {
+        if obsolete_fact(&json!({"id":id,"value":value})) {
+            return;
+        }
         let entry=self.values.entry(id.into()).or_insert_with(||json!({"id":id,"section":section,"label":label,"value":value,"unit":unit,"status":"recorded","evidence":[]}));
         if entry["value"] != *value {
             if entry["alternatives"].is_null() {
@@ -1206,7 +1243,7 @@ pub fn attach_materialized(app: &Application, entity: &mut Value) -> crate::Resu
     if saved["source_sha256"] != sha
         || !matches!(
             saved["extractor_version"].as_u64(),
-            Some(1 | EXTRACTOR_VERSION)
+            Some(1 | 2 | EXTRACTOR_VERSION)
         )
     {
         return Ok(());
@@ -1231,7 +1268,11 @@ pub fn attach_materialized(app: &Application, entity: &mut Value) -> crate::Resu
                 _ => old["media_id"] == item["media_id"] && old["sha256"] == item["sha256"],
             });
             if !duplicate {
-                current.push(item.clone());
+                current.push(if key == "facts" {
+                    compact_fact(item)
+                } else {
+                    item.clone()
+                });
             }
         }
         summary[key] = json!(current);

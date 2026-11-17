@@ -1,6 +1,6 @@
 // One scientific summary for cards and details. Registered-source extraction and
 // provenance live in Rust; this module formats their values, never host files.
-const loomResearchSections={context:'Context',collection:'Collection',quality:'Training eligibility',observations:'Sensors',physics:'Physics & control',annotations:'Annotations',instructions:'Language conditioning',model:'Model',training:'Training',validation:'Validation',evaluation:'Evaluation',population:'Population',scoring:'Success criteria'};
+const loomResearchSections={context:'Context',extensions:'Properties',collection:'Collection',quality:'Training eligibility',observations:'Sensors',physics:'Physics & control',annotations:'Annotations',instructions:'Language conditioning',model:'Model',training:'Training',validation:'Validation',evaluation:'Evaluation',population:'Population',scoring:'Success criteria'};
 function loomResearchSummary(e){
  if(e.research_summary?.schema==='loom-research-summary/v1')return e.research_summary;
  // Compatibility with older servers/fixtures, restricted to recorded fields.
@@ -19,10 +19,10 @@ function loomResearchFactMap(e){return new Map(loomResearchSummary(e).facts.map(
 function loomResearchVisibleFact(f){return !(['annotation_source','instruction_source'].includes(f.id)&&/^(sha256:)?[a-f0-9]{64}$/i.test(String(f.value)));}
 function loomResearchNumber(v){return Math.abs(v)>0&&Math.abs(v)<.001?Number(v).toExponential(3):Number(v).toLocaleString('en-US',Math.abs(v)>0&&Math.abs(v)<1?{maximumSignificantDigits:4}:{maximumFractionDigits:3});}
 function loomResearchSplit(v){
- const items=Array.isArray(v)?v:Object.entries(v||{}).map(([id,value])=>({id,...(typeof value==='number'?{count:value}:Array.isArray(value)?{count:value.length}:value)}));
+ const items=Array.isArray(v)?v:Object.entries(v||{}).map(([id,value])=>({id,...(typeof value==='number'?{count:value}:Array.isArray(value)?{count:value.length}:typeof value==='string'?{status:value}:value)}));
  const rank={train:0,validation:1,val:1,test:2};
  return [...items].sort((a,b)=>(rank[a.id]??3)-(rank[b.id]??3)).map(x=>{
-  const n=x.count??x.adopted;return x.id+' '+(n==null?'—':loomResearchNumber(n));
+  const n=x.count??x.adopted;return x.id+' '+(n==null?(x.status==='not_applicable'?'N/A':x.status==='unrecorded'?'Unrecorded':'—'):loomResearchNumber(n));
  }).join(' / ');
 }
 function loomResearchValue(f,{compact=false}={}){
@@ -133,9 +133,9 @@ function loomResearchInputsHTML(inputs){
 function loomResearchSection(title,body){return '<section class="pa-output-section"><h2>'+esc(title)+'</h2>'+body+'</section>';}
 function loomResearchOverview(e){
  const s=loomResearchSummary(e),map=loomResearchFactMap(e),inputs=s.inputs.filter(x=>x.status==='present');
- const order=e.kind==='model'?['model','validation','inputs','training','observations','physics','instructions','context']:
-  e.kind==='dataset'?['collection','quality','physics','inputs','observations','annotations','context']:
-  ['evaluation','validation','training','scoring','population','physics','context','annotations','observations','instructions'];
+ const order=e.kind==='model'?['context','model','validation','inputs','training','observations','physics','annotations','instructions','extensions']:
+  e.kind==='dataset'?['context','collection','quality','physics','inputs','observations','annotations','extensions']:
+  ['context','evaluation','validation','training','scoring','population','model','inputs','physics','annotations','observations','instructions','extensions'];
  let body='<section class="pa-research-overview" aria-label="Research properties">';
  for(const id of order){
   if(id==='inputs'){
@@ -153,7 +153,7 @@ function loomResearchOverview(e){
  if(e.kind==='dataset')body+=loomDatasetParentHTML(e);
  const sourceRows=s.facts.flatMap(f=>(f.evidence||[]).map(ev=>[esc(f.label),esc(ev.source?.ref||'Record metadata'),esc(ev.pointer)]));
  body+='<details class="pa-output-source" data-output-sources><summary>Sources</summary>'+catTable(['Fact','Source','JSON pointer'],sourceRows)
-  +catProperties({Owner:e.owner_profile?.display_name||e.owner||'—',ID:e.id})
+  +catProperties({Template:e.metadata_status?.template_ref?e.metadata_status.template_ref.id+' · r'+e.metadata_status.template_ref.revision:null,Owner:e.owner_profile?.display_name||e.owner||'—',ID:e.id})
   +(s.sources?.some(x=>x.status!=='verified')?'<p class="pa-catalog-warning">Some registered metadata files could not be verified.</p>':'')
   +(e.dataset_mirror_key?'<div class="pa-source-copies">'+loomDatasetMirrors(e).map(copy=>catLink(copy.id,copy.loom_history?.source||copy.id)).join(' · ')+'</div>':'')
   +'<details data-output-record="'+esc(e.id)+'" '+((state.openOutputRecords||[]).includes(e.id)?'open':'')+'><summary>Original record</summary><pre>'+((state.openOutputRecords||[]).includes(e.id)?esc(loomResearchRaw(e)):'')+'</pre></details></details></section>';

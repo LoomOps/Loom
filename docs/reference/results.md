@@ -14,6 +14,11 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 - [history](#history)
 - [historical](#historical)
 - [assign_owner](#assign_owner)
+- [metadata_templates](#metadata_templates)
+- [get_metadata_template](#get_metadata_template)
+- [register_metadata_template](#register_metadata_template)
+- [validate_metadata](#validate_metadata)
+- [adopt_metadata](#adopt_metadata)
 - [organize_dataset](#organize_dataset)
 - [link_dataset](#link_dataset)
 - [refresh_metadata](#refresh_metadata)
@@ -39,6 +44,15 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 - [get_file](#get_file)
 - [read_file](#read_file)
 - [item_relations](#item_relations)
+- [report_contracts](#report_contracts)
+- [report_definitions](#report_definitions)
+- [get_report_contract](#get_report_contract)
+- [get_report_evidence](#get_report_evidence)
+- [get_report_definition](#get_report_definition)
+- [register_report_contract](#register_report_contract)
+- [register_report_definition](#register_report_definition)
+- [validate_report_contract](#validate_report_contract)
+- [read_report](#read_report)
 
 ## list
 
@@ -90,7 +104,7 @@ Shared authentication, schema, scope and handler preconditions still apply.
 
 ## get
 
-Read an artifact record by ID and revision.
+Read an artifact record by exact ID and revision. Template-backed scientific records include current typed research_summary, robot and metadata_status. Additive operator normalization exposes metadata_provenance with the source digest, evidence and reason; original manifest fields and execution remain preserved.
 
 Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/results.rs#result_action](../../rust/crates/core/src/results.rs).
 
@@ -137,7 +151,7 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 
 ### Result and failures
 
-Registry entity with current display label, immutable manifest fields and registered locations
+Registry entity with current display label, immutable manifest fields, registered locations and optional template metadata/provenance
 
 Missing artifact revision or read scope.
 
@@ -512,6 +526,501 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 Item · id, owner, owner_profile
 
 Unregistered profile or missing artifact.
+
+## metadata_templates
+
+List current immutable output metadata formats; include_revisions exposes previous revisions.
+
+Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/metadata_templates.rs#metadata_template_action](../../rust/crates/core/src/metadata_templates.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `include_revisions` | no | `"boolean"` | `false` |
+| `kind` | no | `["dataset", "model", "experiment"]` | `—` |
+| `limit` | no | `"integer"` | `—` |
+| `offset` | no | `"integer"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "include_revisions": {
+      "default": false,
+      "type": "boolean"
+    },
+    "kind": {
+      "enum": [
+        "dataset",
+        "model",
+        "experiment"
+      ]
+    },
+    "limit": {
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "offset": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "kind": "dataset"
+}
+```
+
+Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key.
+
+### Result and failures
+
+Templates · items, total, next_offset
+
+Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope.
+
+## get_metadata_template
+
+Read an exact schema, bounded display fields and content digest. Omitting revision explicitly selects the current revision.
+
+Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/metadata_templates.rs#metadata_template_action](../../rust/crates/core/src/metadata_templates.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `id` | yes | `"string"` | `—` |
+| `revision` | no | `"integer"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "id": "loom.dataset",
+  "revision": 1
+}
+```
+
+Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key.
+
+### Result and failures
+
+Template · id, revision, sha256, output_kind, definition
+
+Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope.
+
+## register_metadata_template
+
+Register or revise a shared format derived from an exact base. Extensions cannot weaken standard fields or replace their display meaning.
+
+Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/metadata_templates.rs#metadata_template_action](../../rust/crates/core/src/metadata_templates.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `definition` | yes | `"object"` | `—` |
+| `expected_revision` | no | `"integer"` | `—` |
+| `id` | yes | `"string"` | `—` |
+| `key` | yes | `"string"` | `—` |
+| `reason` | yes | `"string"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "definition": {
+      "type": "object"
+    },
+    "expected_revision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "id": {
+      "maxLength": 96,
+      "minLength": 1,
+      "type": "string"
+    },
+    "key": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "reason": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "definition",
+    "reason",
+    "key"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "definition": {
+    "base_ref": {
+      "id": "loom.dataset",
+      "revision": 1,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "fields": [
+      {
+        "format": "number",
+        "id": "friction",
+        "label": "Friction",
+        "pointer": "/extensions/friction",
+        "section": "extensions"
+      }
+    ],
+    "kind": "dataset",
+    "label": "Contact demonstrations",
+    "schema": {
+      "properties": {
+        "extensions": {
+          "additionalProperties": false,
+          "properties": {
+            "friction": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "id": "example.dataset",
+  "key": "template-example-r1",
+  "reason": "Add a source-measured friction field"
+}
+```
+
+Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key.
+
+### Result and failures
+
+Registered template · exact revision and hash
+
+Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope.
+
+## validate_metadata
+
+Validate a draft against an exact template kind, schema and display field types. Structural validation is not scientific acceptance.
+
+Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/metadata_templates.rs#metadata_template_action](../../rust/crates/core/src/metadata_templates.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `kind` | yes | `["dataset", "model", "experiment"]` | `—` |
+| `research` | yes | `"object"` | `—` |
+| `template_ref` | yes | `"object"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "kind": {
+      "enum": [
+        "dataset",
+        "model",
+        "experiment"
+      ]
+    },
+    "research": {
+      "type": "object"
+    },
+    "template_ref": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 96,
+          "minLength": 1,
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "sha256"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "kind",
+    "template_ref",
+    "research"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "kind": "dataset",
+  "research": {
+    "collection": {
+      "status": "unrecorded"
+    },
+    "robot": {
+      "status": "unrecorded"
+    }
+  },
+  "template_ref": {
+    "id": "loom.dataset",
+    "revision": 1,
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}
+```
+
+Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key.
+
+### Result and failures
+
+Validation · valid, template_ref, summary, scientific_acceptance
+
+Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope.
+
+## adopt_metadata
+
+Preview and apply an additive operator-declared normalization for an exact existing source. Retain originals and reject changed source or prior annotation. Evidence and the comparable format reference remain provenance; no scientific verification is invented.
+
+Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/metadata_templates.rs#metadata_template_action](../../rust/crates/core/src/metadata_templates.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `dry_run` | no | `"boolean"` | `true` |
+| `evidence` | no | `"array"` | `—` |
+| `expected_digest` | no | `"string"` | `—` |
+| `format_reference` | no | `"object"` | `—` |
+| `key` | no | `"string"` | `—` |
+| `reason` | yes | `"string"` | `—` |
+| `research` | yes | `"object"` | `—` |
+| `target` | yes | `"object"` | `—` |
+| `template_ref` | yes | `"object"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "dry_run": {
+      "default": true,
+      "type": "boolean"
+    },
+    "evidence": {
+      "items": {
+        "type": "object"
+      },
+      "maxItems": 16,
+      "type": "array"
+    },
+    "expected_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "format_reference": {
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "type": "object"
+        },
+        "kind": {
+          "enum": [
+            "job",
+            "entity",
+            "historical",
+            "component",
+            "tool",
+            "profile",
+            "runtime",
+            "protocol_artifact"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "identity"
+      ],
+      "type": "object"
+    },
+    "key": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "reason": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "research": {
+      "type": "object"
+    },
+    "target": {
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "type": "object"
+        },
+        "kind": {
+          "enum": [
+            "entity",
+            "historical"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "identity"
+      ],
+      "type": "object"
+    },
+    "template_ref": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 96,
+          "minLength": 1,
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "sha256"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "target",
+    "template_ref",
+    "research",
+    "reason"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "dry_run": true,
+  "reason": "Normalize only supported fields from the recorded source",
+  "research": {
+    "collection": {
+      "status": "unrecorded"
+    },
+    "robot": {
+      "status": "unrecorded"
+    }
+  },
+  "target": {
+    "identity": {
+      "id": "<entity-id>",
+      "revision": 1
+    },
+    "kind": "entity"
+  },
+  "template_ref": {
+    "id": "loom.dataset",
+    "revision": 1,
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}
+```
+
+Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key.
+
+### Result and failures
+
+Adoption · target, source_sha256, expected_digest, template_ref, summary, stored, previous_annotation
+
+Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope.
 
 ## organize_dataset
 
@@ -2696,3 +3205,603 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 Relation page · items, next_cursor, partial, warnings
 
 Missing source revision or expired cursor; incoming relations require a source-qualified index.
+
+## report_contracts
+
+Page registered immutable reporting templates; default requirements can be adapted with exact evidence before Job submission.
+
+Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reporting.rs#reporting_action](../../rust/crates/core/src/reporting.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `include_revisions` | no | `"boolean"` | `—` |
+| `kind` | no | `["dataset", "model", "experiment"]` | `—` |
+| `limit` | no | `"integer"` | `—` |
+| `offset` | no | `"integer"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "include_revisions": {
+      "type": "boolean"
+    },
+    "kind": {
+      "enum": [
+        "dataset",
+        "model",
+        "experiment"
+      ]
+    },
+    "limit": {
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "offset": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{}
+```
+
+
+
+### Result and failures
+
+Exact reporting resource, validated coverage or bounded verified report page
+
+Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes.
+
+## report_definitions
+
+Page registered metric, factor and evaluation protocol definitions.
+
+Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reporting.rs#reporting_action](../../rust/crates/core/src/reporting.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `include_revisions` | no | `"boolean"` | `—` |
+| `kind` | no | `["metric", "factor", "protocol"]` | `—` |
+| `limit` | no | `"integer"` | `—` |
+| `offset` | no | `"integer"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "include_revisions": {
+      "type": "boolean"
+    },
+    "kind": {
+      "enum": [
+        "metric",
+        "factor",
+        "protocol"
+      ]
+    },
+    "limit": {
+      "maximum": 100,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "offset": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{}
+```
+
+
+
+### Result and failures
+
+Exact reporting resource, validated coverage or bounded verified report page
+
+Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes.
+
+## get_report_contract
+
+Read exact coverage, schemas, display descriptors, semantic pins and evidence-backed adaptations.
+
+Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reporting.rs#reporting_action](../../rust/crates/core/src/reporting.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `id` | yes | `"string"` | `—` |
+| `revision` | no | `"integer"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "revision": {
+      "maximum": 9223372036854775807,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "id": "loom.report.dataset",
+  "revision": 1
+}
+```
+
+
+
+### Result and failures
+
+Exact reporting resource, validated coverage or bounded verified report page
+
+Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes.
+
+## get_report_evidence
+
+Read a bounded JSON subtree and exact source-body SHA-256 from an immutable artifact, historical record or registered software revision. Use the returned object as adaptation evidence; no database access or digest reconstruction is required.
+
+Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reporting.rs#reporting_action](../../rust/crates/core/src/reporting.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `pointer` | yes | `"string"` | `—` |
+| `target` | yes | `"object"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "pointer": {
+      "maxLength": 256,
+      "type": "string"
+    },
+    "target": {
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "type": "object"
+        },
+        "kind": {
+          "enum": [
+            "entity",
+            "historical",
+            "component",
+            "tool",
+            "profile"
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "identity"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "target",
+    "pointer"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "pointer": "/metadata/conditioning",
+  "target": {
+    "identity": {
+      "id": "job.policy",
+      "revision": 1
+    },
+    "kind": "entity"
+  }
+}
+```
+
+
+
+### Result and failures
+
+Exact target, source SHA-256, JSON pointer and value (maximum 64 KiB)
+
+Missing or inexact source, absent pointer, denied read scope, or evidence subtree larger than 64 KiB.
+
+## get_report_definition
+
+Read an exact metric, factor or protocol definition; semantic meaning and units remain pinned.
+
+Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reporting.rs#reporting_action](../../rust/crates/core/src/reporting.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `id` | yes | `"string"` | `—` |
+| `revision` | no | `"integer"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "revision": {
+      "maximum": 9223372036854775807,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "id": "loom.metric.success",
+  "revision": 1
+}
+```
+
+
+
+### Result and failures
+
+Exact reporting resource, validated coverage or bounded verified report page
+
+Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes.
+
+## register_report_contract
+
+Register a new shared analysis contract or immutable revision. A base can be adapted with source-bound evidence; new required analysis needs definitions and reporter support.
+
+Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reporting.rs#reporting_action](../../rust/crates/core/src/reporting.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `definition` | yes | `"object"` | `—` |
+| `expected_revision` | no | `"integer"` | `—` |
+| `id` | yes | `"string"` | `—` |
+| `key` | yes | `"string"` | `—` |
+| `reason` | yes | `"string"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "definition": {
+      "type": "object"
+    },
+    "expected_revision": {
+      "maximum": 9223372036854775806,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "id": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "key": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "reason": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "definition",
+    "reason",
+    "key"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "definition": {},
+  "id": "contact.dataset",
+  "key": "contact-v1",
+  "reason": "Coverage for the planned study"
+}
+```
+
+
+
+### Result and failures
+
+Exact reporting resource, validated coverage or bounded verified report page
+
+Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes.
+
+## register_report_definition
+
+Register a metric with units/population/reduction, an SDG factor or a task-specific protocol with an exact primary metric and success predicate.
+
+Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reporting.rs#reporting_action](../../rust/crates/core/src/reporting.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `definition` | yes | `"object"` | `—` |
+| `expected_revision` | no | `"integer"` | `—` |
+| `id` | yes | `"string"` | `—` |
+| `key` | yes | `"string"` | `—` |
+| `reason` | yes | `"string"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "definition": {
+      "type": "object"
+    },
+    "expected_revision": {
+      "maximum": 9223372036854775806,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "id": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "key": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "reason": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "definition",
+    "reason",
+    "key"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "definition": {},
+  "id": "task.success",
+  "key": "protocol-v1",
+  "reason": "Task success definition"
+}
+```
+
+
+
+### Result and failures
+
+Exact reporting resource, validated coverage or bounded verified report page
+
+Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes.
+
+## validate_report_contract
+
+Preview normalized effective coverage without registration or execution. Validates schemas, semantic references and adaptation evidence.
+
+Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reporting.rs#reporting_action](../../rust/crates/core/src/reporting.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `definition` | yes | `"object"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "definition": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "definition"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "definition": {}
+}
+```
+
+
+
+### Result and failures
+
+Exact reporting resource, validated coverage or bounded verified report page
+
+Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes.
+
+## read_report
+
+Read a report bound to an exact output revision and requirement. JSON pointers select a field; arrays are paged. Bytes are SHA-256 verified and responses are bounded to 256 KiB.
+
+Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reporting.rs#reporting_action](../../rust/crates/core/src/reporting.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `id` | yes | `"string"` | `—` |
+| `limit` | no | `"integer"` | `—` |
+| `offset` | no | `"integer"` | `—` |
+| `pointer` | no | `"string"` | `—` |
+| `requirement_id` | yes | `"string"` | `—` |
+| `revision` | yes | `"integer"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "limit": {
+      "maximum": 500,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "offset": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "pointer": {
+      "maxLength": 256,
+      "type": "string"
+    },
+    "requirement_id": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "revision": {
+      "maximum": 9223372036854775807,
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "id",
+    "revision",
+    "requirement_id"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "id": "<job>.data",
+  "limit": 100,
+  "pointer": "/members",
+  "requirement_id": "membership",
+  "revision": 1
+}
+```
+
+
+
+### Result and failures
+
+Exact reporting resource, validated coverage or bounded verified report page
+
+Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes.

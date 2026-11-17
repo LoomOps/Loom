@@ -1,0 +1,1490 @@
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "robot": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "recorded",
+              "unrecorded",
+              "not_applicable",
+              "multiple"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "models": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "mechanical_dof": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 512
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "recorded"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "model"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "multiple"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "models"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unrecorded",
+                    "not_applicable"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "model"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "models"
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "recorded"
+                }
+              }
+            },
+            "then": {
+              "not": {
+                "required": [
+                  "models"
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "multiple"
+                }
+              }
+            },
+            "then": {
+              "not": {
+                "required": [
+                  "model"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "environment": {
+        "enum": [
+          "sim",
+          "real",
+          "mixed",
+          "unrecorded",
+          "not_applicable"
+        ]
+      },
+      "purpose": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "inputs": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "rgb",
+                "depth",
+                "rgbd",
+                "vision",
+                "state",
+                "proprioception",
+                "joint_state",
+                "action",
+                "instruction",
+                "depth_validity",
+                "camera_intrinsics",
+                "camera_transform",
+                "object_ground_truth",
+                "other"
+              ]
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "status": {
+              "enum": [
+                "present",
+                "absent",
+                "unrecorded",
+                "not_applicable"
+              ]
+            },
+            "dimensions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "shape": {
+              "type": "array",
+              "maxItems": 8,
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "dtype": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "unit": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "used_by": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "preprocessing": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "mode": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "required": [
+            "kind",
+            "status"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "physics": {
+        "type": "object",
+        "properties": {
+          "physics_hz": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "control_hz": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "rgb_hz": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "state_hz": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "payload_mass_kg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "robot_gravity_disabled": {
+            "type": "boolean"
+          },
+          "collision": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "collection": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unit": {
+            "enum": [
+              "episodes",
+              "frames",
+              "samples",
+              "cases",
+              "conditions",
+              "clips",
+              "snapshots",
+              "trajectories",
+              "transitions"
+            ]
+          },
+          "status": {
+            "enum": [
+              "recorded",
+              "unrecorded",
+              "not_applicable"
+            ]
+          },
+          "split": {
+            "type": "object",
+            "maxProperties": 24,
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "enum": [
+                    "unrecorded",
+                    "not_applicable"
+                  ]
+                }
+              ]
+            }
+          },
+          "source_demos": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "method": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "frames": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "recorded"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "count",
+                "unit"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "enum": [
+                    "unrecorded",
+                    "not_applicable"
+                  ]
+                }
+              }
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "count"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "unit"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "model": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "enum": [
+              "policy",
+              "observer",
+              "other",
+              "unrecorded"
+            ]
+          },
+          "architecture": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "initialization": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "base_model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "training_method": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "selected_step": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "optimizer_updates": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "selection": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "outputs": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "train_frames": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "validation_frames": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "train_snapshots": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "validation_snapshots": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "action_chunk": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "executed_actions": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "frozen_base": {
+            "type": "boolean"
+          },
+          "action_dimension": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 512
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "additionalProperties": false
+      },
+      "evaluation": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "enum": [
+              "offline",
+              "closed_loop",
+              "diagnostic",
+              "unrecorded"
+            ]
+          },
+          "evaluator": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "kind": {
+                    "enum": [
+                      "component",
+                      "tool",
+                      "profile"
+                    ]
+                  },
+                  "owner": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "required": [
+                  "id",
+                  "revision"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "protocol": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "cohort": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "split": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "success_criteria": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "planned": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "valid": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "successes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "infra": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "distance_tolerance_mm": {
+            "type": "number",
+            "minimum": 0
+          },
+          "angle_tolerance_deg": {
+            "type": "number",
+            "minimum": 0
+          },
+          "continuous_s": {
+            "type": "number",
+            "minimum": 0
+          },
+          "active_hold_s": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "additionalProperties": false
+      },
+      "annotation": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "quality": {
+        "type": "object",
+        "properties": {
+          "bc_ready": {
+            "type": "boolean"
+          },
+          "positive_coverage": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "language": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "enum": [
+              "present",
+              "absent",
+              "unrecorded",
+              "not_applicable"
+            ]
+          },
+          "field": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "granularity": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "instruction": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "extensions": {
+        "type": "object",
+        "maxProperties": 32
+      },
+      "organization": {
+        "type": "object"
+      },
+      "observations": {
+        "type": "object",
+        "properties": {
+          "calibrated": {
+            "type": "boolean"
+          },
+          "sensor_noise": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "robot"
+    ],
+    "additionalProperties": false
+  },
+  "fields": [
+    {
+      "id": "robot",
+      "label": "Robot",
+      "pointer": "/robot/model",
+      "section": "context",
+      "format": "text"
+    },
+    {
+      "id": "environment",
+      "label": "Environment",
+      "pointer": "/environment",
+      "section": "context",
+      "format": "text"
+    },
+    {
+      "id": "purpose",
+      "label": "Purpose",
+      "pointer": "/purpose",
+      "section": "context",
+      "format": "text"
+    },
+    {
+      "id": "count",
+      "label": "Count",
+      "pointer": "/collection/count",
+      "section": "collection",
+      "format": "count",
+      "unit_pointer": "/collection/unit"
+    },
+    {
+      "id": "frames",
+      "label": "Frames",
+      "pointer": "/collection/frames",
+      "section": "collection",
+      "format": "count"
+    },
+    {
+      "id": "split",
+      "label": "Split",
+      "pointer": "/collection/split",
+      "section": "collection",
+      "format": "split"
+    },
+    {
+      "id": "source_demos",
+      "label": "Source demos",
+      "pointer": "/collection/source_demos",
+      "section": "collection",
+      "format": "count"
+    },
+    {
+      "id": "collection_method",
+      "label": "Method",
+      "pointer": "/collection/method",
+      "section": "collection",
+      "format": "text"
+    },
+    {
+      "id": "physics_hz",
+      "label": "Physics",
+      "pointer": "/physics/physics_hz",
+      "section": "physics",
+      "format": "number",
+      "unit": "Hz"
+    },
+    {
+      "id": "control_hz",
+      "label": "Control",
+      "pointer": "/physics/control_hz",
+      "section": "physics",
+      "format": "number",
+      "unit": "Hz"
+    },
+    {
+      "id": "rgb_hz",
+      "label": "RGB",
+      "pointer": "/physics/rgb_hz",
+      "section": "physics",
+      "format": "number",
+      "unit": "Hz"
+    },
+    {
+      "id": "state_hz",
+      "label": "State",
+      "pointer": "/physics/state_hz",
+      "section": "physics",
+      "format": "number",
+      "unit": "Hz"
+    },
+    {
+      "id": "payload_mass",
+      "label": "Payload mass",
+      "pointer": "/physics/payload_mass_kg",
+      "section": "physics",
+      "format": "number",
+      "unit": "kg"
+    },
+    {
+      "id": "robot_gravity_disabled",
+      "label": "Robot gravity disabled",
+      "pointer": "/physics/robot_gravity_disabled",
+      "section": "physics",
+      "format": "boolean"
+    },
+    {
+      "id": "annotation_method",
+      "label": "Annotation",
+      "pointer": "/annotation/method",
+      "section": "annotations",
+      "format": "text"
+    },
+    {
+      "id": "annotation_source",
+      "label": "Source",
+      "pointer": "/annotation/source",
+      "section": "annotations",
+      "format": "text"
+    },
+    {
+      "id": "model_role",
+      "label": "Role",
+      "pointer": "/model/role",
+      "section": "model",
+      "format": "text"
+    },
+    {
+      "id": "architecture",
+      "label": "Architecture",
+      "pointer": "/model/architecture",
+      "section": "model",
+      "format": "text"
+    },
+    {
+      "id": "initialization",
+      "label": "Initialization",
+      "pointer": "/model/initialization",
+      "section": "model",
+      "format": "text"
+    },
+    {
+      "id": "base_model",
+      "label": "Base model",
+      "pointer": "/model/base_model",
+      "section": "model",
+      "format": "text"
+    },
+    {
+      "id": "training_method",
+      "label": "Training method",
+      "pointer": "/model/training_method",
+      "section": "model",
+      "format": "text"
+    },
+    {
+      "id": "selection",
+      "label": "Selection",
+      "pointer": "/model/selection",
+      "section": "model",
+      "format": "text"
+    },
+    {
+      "id": "outputs",
+      "label": "Outputs",
+      "pointer": "/model/outputs",
+      "section": "model",
+      "format": "list"
+    },
+    {
+      "id": "selected_step",
+      "label": "Selected step",
+      "pointer": "/model/selected_step",
+      "section": "training",
+      "format": "count"
+    },
+    {
+      "id": "optimizer_updates",
+      "label": "Updates",
+      "pointer": "/model/optimizer_updates",
+      "section": "training",
+      "format": "count"
+    },
+    {
+      "id": "evaluation_mode",
+      "label": "Evaluation",
+      "pointer": "/evaluation/mode",
+      "section": "evaluation",
+      "format": "text"
+    },
+    {
+      "id": "evaluator",
+      "label": "Evaluator",
+      "pointer": "/evaluation/evaluator",
+      "section": "evaluation",
+      "format": "reference"
+    },
+    {
+      "id": "protocol",
+      "label": "Protocol",
+      "pointer": "/evaluation/protocol",
+      "section": "evaluation",
+      "format": "text"
+    },
+    {
+      "id": "cohort",
+      "label": "Cohort",
+      "pointer": "/evaluation/cohort",
+      "section": "evaluation",
+      "format": "text"
+    },
+    {
+      "id": "evaluation_split",
+      "label": "Split",
+      "pointer": "/evaluation/split",
+      "section": "evaluation",
+      "format": "text"
+    },
+    {
+      "id": "success_criteria",
+      "label": "Success criteria",
+      "pointer": "/evaluation/success_criteria",
+      "section": "evaluation",
+      "format": "text"
+    },
+    {
+      "id": "planned",
+      "label": "Planned",
+      "pointer": "/evaluation/planned",
+      "section": "population",
+      "format": "count"
+    },
+    {
+      "id": "valid",
+      "label": "Valid",
+      "pointer": "/evaluation/valid",
+      "section": "population",
+      "format": "count"
+    },
+    {
+      "id": "successes",
+      "label": "Successes",
+      "pointer": "/evaluation/successes",
+      "section": "population",
+      "format": "count"
+    },
+    {
+      "id": "infra",
+      "label": "Infrastructure failures",
+      "pointer": "/evaluation/infra",
+      "section": "population",
+      "format": "count"
+    },
+    {
+      "id": "pending",
+      "label": "Pending",
+      "pointer": "/evaluation/pending",
+      "section": "population",
+      "format": "count"
+    },
+    {
+      "id": "count_unit",
+      "label": "Unit",
+      "pointer": "/collection/unit",
+      "section": "collection",
+      "format": "text"
+    },
+    {
+      "id": "train_frames",
+      "label": "Train frames",
+      "pointer": "/model/train_frames",
+      "section": "training",
+      "format": "count"
+    },
+    {
+      "id": "validation_frames",
+      "label": "Validation frames",
+      "pointer": "/model/validation_frames",
+      "section": "training",
+      "format": "count"
+    },
+    {
+      "id": "train_snapshots",
+      "label": "Train snapshots",
+      "pointer": "/model/train_snapshots",
+      "section": "training",
+      "format": "count"
+    },
+    {
+      "id": "validation_snapshots",
+      "label": "Validation snapshots",
+      "pointer": "/model/validation_snapshots",
+      "section": "training",
+      "format": "count"
+    },
+    {
+      "id": "distance_tolerance_mm",
+      "label": "Position tolerance",
+      "pointer": "/evaluation/distance_tolerance_mm",
+      "section": "scoring",
+      "format": "number",
+      "unit": "mm"
+    },
+    {
+      "id": "angle_tolerance_deg",
+      "label": "Angle tolerance",
+      "pointer": "/evaluation/angle_tolerance_deg",
+      "section": "scoring",
+      "format": "number",
+      "unit": "°"
+    },
+    {
+      "id": "continuous_s",
+      "label": "Continuous hold",
+      "pointer": "/evaluation/continuous_s",
+      "section": "scoring",
+      "format": "number",
+      "unit": "s"
+    },
+    {
+      "id": "active_hold_s",
+      "label": "Hold window",
+      "pointer": "/evaluation/active_hold_s",
+      "section": "scoring",
+      "format": "number",
+      "unit": "s"
+    },
+    {
+      "id": "collision",
+      "label": "Collision",
+      "pointer": "/physics/collision",
+      "section": "physics",
+      "format": "text"
+    },
+    {
+      "id": "bc_ready",
+      "label": "BC",
+      "pointer": "/quality/bc_ready",
+      "section": "quality",
+      "format": "boolean"
+    },
+    {
+      "id": "positive_coverage",
+      "label": "Positive coverage",
+      "pointer": "/quality/positive_coverage",
+      "section": "quality",
+      "format": "number",
+      "unit": "ratio"
+    },
+    {
+      "id": "stored_language",
+      "label": "Stored language",
+      "pointer": "/language/status",
+      "section": "annotations",
+      "format": "text"
+    },
+    {
+      "id": "language_field",
+      "label": "Language field",
+      "pointer": "/language/field",
+      "section": "annotations",
+      "format": "text"
+    },
+    {
+      "id": "language_granularity",
+      "label": "Language granularity",
+      "pointer": "/language/granularity",
+      "section": "annotations",
+      "format": "text"
+    },
+    {
+      "id": "instruction_mode",
+      "label": "Conditioning",
+      "pointer": "/instruction/mode",
+      "section": "instructions",
+      "format": "text"
+    },
+    {
+      "id": "instruction_source",
+      "label": "Conditioning source",
+      "pointer": "/instruction/source",
+      "section": "instructions",
+      "format": "text"
+    },
+    {
+      "id": "calibrated",
+      "label": "Calibrated",
+      "pointer": "/observations/calibrated",
+      "section": "observations",
+      "format": "boolean"
+    },
+    {
+      "id": "sensor_noise",
+      "label": "Sensor noise",
+      "pointer": "/observations/sensor_noise",
+      "section": "observations",
+      "format": "boolean"
+    },
+    {
+      "id": "action_chunk",
+      "label": "Action chunk",
+      "pointer": "/model/action_chunk",
+      "section": "model",
+      "format": "count"
+    },
+    {
+      "id": "executed_actions",
+      "label": "Executed actions",
+      "pointer": "/model/executed_actions",
+      "section": "model",
+      "format": "count"
+    },
+    {
+      "id": "frozen_base",
+      "label": "Frozen base",
+      "pointer": "/model/frozen_base",
+      "section": "training",
+      "format": "boolean"
+    },
+    {
+      "id": "robot_dof",
+      "label": "Robot DoF",
+      "pointer": "/robot/mechanical_dof",
+      "section": "context",
+      "format": "count"
+    },
+    {
+      "id": "action_dimension",
+      "label": "Action dimension",
+      "pointer": "/model/action_dimension",
+      "section": "model",
+      "format": "count"
+    }
+  ],
+  "templates": [
+    {
+      "id": "loom.dataset",
+      "label": "Dataset",
+      "kind": "dataset",
+      "required": [
+        "robot",
+        "collection"
+      ],
+      "fields": [
+        "robot",
+        "environment",
+        "purpose",
+        "count",
+        "frames",
+        "split",
+        "source_demos",
+        "collection_method",
+        "physics_hz",
+        "control_hz",
+        "rgb_hz",
+        "state_hz",
+        "payload_mass",
+        "robot_gravity_disabled",
+        "annotation_method",
+        "annotation_source",
+        "count_unit",
+        "collision",
+        "bc_ready",
+        "positive_coverage",
+        "stored_language",
+        "language_field",
+        "language_granularity",
+        "calibrated",
+        "sensor_noise",
+        "robot_dof"
+      ],
+      "modules": [
+        "robot",
+        "environment",
+        "purpose",
+        "physics",
+        "inputs",
+        "observations",
+        "annotation",
+        "extensions",
+        "collection",
+        "quality",
+        "language",
+        "organization"
+      ]
+    },
+    {
+      "id": "loom.model",
+      "label": "Model",
+      "kind": "model",
+      "required": [
+        "robot",
+        "model"
+      ],
+      "fields": [
+        "robot",
+        "environment",
+        "purpose",
+        "physics_hz",
+        "control_hz",
+        "rgb_hz",
+        "state_hz",
+        "payload_mass",
+        "robot_gravity_disabled",
+        "annotation_method",
+        "annotation_source",
+        "model_role",
+        "architecture",
+        "initialization",
+        "base_model",
+        "training_method",
+        "selection",
+        "outputs",
+        "selected_step",
+        "optimizer_updates",
+        "train_frames",
+        "validation_frames",
+        "train_snapshots",
+        "validation_snapshots",
+        "collision",
+        "instruction_mode",
+        "instruction_source",
+        "calibrated",
+        "sensor_noise",
+        "action_chunk",
+        "executed_actions",
+        "frozen_base",
+        "robot_dof",
+        "action_dimension"
+      ],
+      "modules": [
+        "robot",
+        "environment",
+        "purpose",
+        "physics",
+        "inputs",
+        "observations",
+        "annotation",
+        "extensions",
+        "model",
+        "instruction"
+      ]
+    },
+    {
+      "id": "loom.model.policy",
+      "label": "Model · Policy",
+      "kind": "model",
+      "required": [
+        "robot",
+        "model"
+      ],
+      "fields": [
+        "robot",
+        "environment",
+        "purpose",
+        "physics_hz",
+        "control_hz",
+        "rgb_hz",
+        "state_hz",
+        "payload_mass",
+        "robot_gravity_disabled",
+        "annotation_method",
+        "annotation_source",
+        "model_role",
+        "architecture",
+        "initialization",
+        "base_model",
+        "training_method",
+        "selection",
+        "outputs",
+        "selected_step",
+        "optimizer_updates",
+        "train_frames",
+        "validation_frames",
+        "train_snapshots",
+        "validation_snapshots",
+        "collision",
+        "instruction_mode",
+        "instruction_source",
+        "calibrated",
+        "sensor_noise",
+        "action_chunk",
+        "executed_actions",
+        "frozen_base",
+        "robot_dof",
+        "action_dimension"
+      ],
+      "model_role": "policy",
+      "modules": [
+        "robot",
+        "environment",
+        "purpose",
+        "physics",
+        "inputs",
+        "observations",
+        "annotation",
+        "extensions",
+        "model",
+        "instruction"
+      ]
+    },
+    {
+      "id": "loom.model.observer",
+      "label": "Model · Observer",
+      "kind": "model",
+      "required": [
+        "robot",
+        "model"
+      ],
+      "fields": [
+        "robot",
+        "environment",
+        "purpose",
+        "physics_hz",
+        "control_hz",
+        "rgb_hz",
+        "state_hz",
+        "payload_mass",
+        "robot_gravity_disabled",
+        "annotation_method",
+        "annotation_source",
+        "model_role",
+        "architecture",
+        "initialization",
+        "base_model",
+        "training_method",
+        "selection",
+        "outputs",
+        "selected_step",
+        "optimizer_updates",
+        "train_frames",
+        "validation_frames",
+        "train_snapshots",
+        "validation_snapshots",
+        "collision",
+        "instruction_mode",
+        "instruction_source",
+        "calibrated",
+        "sensor_noise",
+        "action_chunk",
+        "executed_actions",
+        "frozen_base",
+        "robot_dof",
+        "action_dimension"
+      ],
+      "model_role": "observer",
+      "modules": [
+        "robot",
+        "environment",
+        "purpose",
+        "physics",
+        "inputs",
+        "observations",
+        "annotation",
+        "extensions",
+        "model",
+        "instruction"
+      ]
+    },
+    {
+      "id": "loom.experiment.evaluation",
+      "label": "Experiment · Evaluation",
+      "kind": "experiment",
+      "required": [
+        "robot",
+        "evaluation"
+      ],
+      "fields": [
+        "robot",
+        "environment",
+        "purpose",
+        "physics_hz",
+        "control_hz",
+        "rgb_hz",
+        "state_hz",
+        "payload_mass",
+        "robot_gravity_disabled",
+        "annotation_method",
+        "annotation_source",
+        "model_role",
+        "architecture",
+        "initialization",
+        "base_model",
+        "training_method",
+        "selection",
+        "outputs",
+        "selected_step",
+        "optimizer_updates",
+        "evaluation_mode",
+        "evaluator",
+        "protocol",
+        "cohort",
+        "evaluation_split",
+        "success_criteria",
+        "planned",
+        "valid",
+        "successes",
+        "infra",
+        "pending",
+        "train_frames",
+        "validation_frames",
+        "train_snapshots",
+        "validation_snapshots",
+        "distance_tolerance_mm",
+        "angle_tolerance_deg",
+        "continuous_s",
+        "active_hold_s",
+        "collision",
+        "instruction_mode",
+        "instruction_source",
+        "calibrated",
+        "sensor_noise",
+        "action_chunk",
+        "executed_actions",
+        "frozen_base",
+        "robot_dof"
+      ],
+      "modules": [
+        "robot",
+        "environment",
+        "purpose",
+        "physics",
+        "inputs",
+        "observations",
+        "annotation",
+        "extensions",
+        "evaluation",
+        "model",
+        "instruction"
+      ]
+    },
+    {
+      "id": "loom.experiment.diagnostic",
+      "label": "Experiment · Diagnostic",
+      "kind": "experiment",
+      "required": [
+        "robot",
+        "evaluation"
+      ],
+      "fields": [
+        "robot",
+        "environment",
+        "purpose",
+        "physics_hz",
+        "control_hz",
+        "rgb_hz",
+        "state_hz",
+        "payload_mass",
+        "robot_gravity_disabled",
+        "annotation_method",
+        "annotation_source",
+        "model_role",
+        "architecture",
+        "initialization",
+        "base_model",
+        "training_method",
+        "selection",
+        "outputs",
+        "selected_step",
+        "optimizer_updates",
+        "evaluation_mode",
+        "evaluator",
+        "protocol",
+        "cohort",
+        "evaluation_split",
+        "success_criteria",
+        "planned",
+        "valid",
+        "successes",
+        "infra",
+        "pending",
+        "train_frames",
+        "validation_frames",
+        "train_snapshots",
+        "validation_snapshots",
+        "distance_tolerance_mm",
+        "angle_tolerance_deg",
+        "continuous_s",
+        "active_hold_s",
+        "collision",
+        "instruction_mode",
+        "instruction_source",
+        "calibrated",
+        "sensor_noise",
+        "action_chunk",
+        "executed_actions",
+        "frozen_base",
+        "robot_dof"
+      ],
+      "modules": [
+        "robot",
+        "environment",
+        "purpose",
+        "physics",
+        "inputs",
+        "observations",
+        "annotation",
+        "extensions",
+        "evaluation",
+        "model",
+        "instruction"
+      ]
+    }
+  ]
+}

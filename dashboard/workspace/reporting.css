@@ -1,0 +1,32 @@
+#pai-studio .pa-report-workspace { min-width:0; margin:20px 0; }
+#pai-studio .pa-report-tabs { display:flex; flex-wrap:wrap; gap:6px 20px; border-bottom:1px solid var(--pa-line); margin-bottom:24px; }
+#pai-studio .pa-report-tabs button { font:inherit; color:var(--pa-muted); background:none; border:0; padding:12px 0; border-bottom:2px solid transparent; }
+#pai-studio .pa-report-tabs button[aria-current=page] { color:var(--pa-ink); border-bottom-color:var(--pa-accent); }
+#pai-studio .pa-report-controls { display:flex; flex-wrap:wrap; gap:16px; margin-bottom:24px; }
+#pai-studio .pa-report-controls label { display:grid; gap:6px; color:var(--pa-muted); }
+#pai-studio .pa-report-controls select { font:inherit; color:var(--pa-ink); background:var(--pa-paper); border:1px solid var(--pa-line); border-radius:6px; padding:8px 12px; }
+#pai-studio .pa-report-field { margin:16px 0 24px; min-width:0; }
+#pai-studio .pa-report-field h3 { margin:0 0 12px; font-size:14px; font-weight:500; }
+#pai-studio .pa-report-instruction { margin:12px 0 20px; }
+#pai-studio .pa-report-instruction blockquote { margin:8px 0; padding-left:16px; border-left:2px solid var(--pa-line); overflow-wrap:anywhere; }
+#pai-studio .pa-report-missing { color:var(--pa-muted); margin:16px 0; }
+#pai-studio .pa-report-page,.pa-report-axes { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin:12px 0; color:var(--pa-muted); }
+#pai-studio .pa-report-chart { width:100%; max-width:900px; color:var(--pa-accent); }
+#pai-studio .pa-report-chart svg { display:block; width:100%; height:auto; min-height:180px; overflow:visible; }
+#pai-studio .pa-report-chart circle { fill:currentColor; }
+#pai-studio .pa-report-chart polyline { stroke:currentColor; stroke-width:2; }
+#pai-studio .pa-report-chart .pa-report-axis { stroke:var(--pa-line); stroke-width:1; }
+#pai-studio .pa-report-chart text { fill:var(--pa-muted); font-size:12px; }
+#pai-studio .pa-report-workspace pre { white-space:pre-wrap; overflow-wrap:anywhere; }
+#pai-studio .pa-report-workspace table { width:100%; table-layout:fixed; }
+#pai-studio .pa-report-workspace td,#pai-studio .pa-report-workspace th { overflow-wrap:anywhere; }
+@media (max-width:600px) {
+ #pai-studio .pa-report-tabs { gap:0 14px; }
+ #pai-studio .pa-report-tabs button { min-height:44px; }
+ #pai-studio .pa-report-controls { gap:12px; }
+ #pai-studio .pa-report-controls select { max-width:100%; }
+}
+
+#pai-studio .pa-report-series { display:flex; flex-wrap:wrap; gap:10px 20px; margin:8px 0; color:var(--pa-muted); }
+#pai-studio .pa-report-series span { display:flex; gap:6px; align-items:center; }
+#pai-studio .pa-report-series i { display:inline-block; width:24px; border-bottom:2px solid var(--pa-accent); }

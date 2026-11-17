@@ -483,6 +483,7 @@ impl Application {
                 Some("model" | "dataset" | "experiment" | "run")
             ) {
                 crate::research_metadata::attach_materialized(self, entity)?;
+                crate::metadata_templates::attach(self, entity)?;
                 crate::dataset_lineage::attach(self, entity)?;
             }
         }
@@ -491,7 +492,7 @@ impl Application {
             crate::dataset_organization::attach(self, entity)?;
         }
         let queue = self.queue()?;
-        let value = json!({"entities":entities,"research_tasks":self.dashboard_tasks()?,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true,"item_search":true},"host":self.dashboard_host()?,"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});
+        let value = json!({"entities":entities,"research_tasks":self.dashboard_tasks()?,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true,"item_search":true,"metadata_templates":true,"reporting":true},"host":self.dashboard_host()?,"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});
         if all {
             *self
                 .catalog_cache

@@ -62,7 +62,10 @@ fn normalize(v: &Value) -> Result<Value> {
     match v["operation"].as_str().unwrap_or("") {
         "import" => {
             require(
-                v["schema"] == "loom-asset/v2",
+                matches!(
+                    v["schema"].as_str(),
+                    Some("loom-asset/v2" | "loom-asset/v3")
+                ),
                 "source_schema",
                 "Unsupported source schema; supply a documented adapter or current definition",
                 400,
@@ -144,7 +147,7 @@ impl Application {
     pub fn reconciliation(&mut self, actor: &Actor, action: &str, args: &Value) -> Result<Value> {
         match action {
             "reconcile_contract" => Ok(
-                json!({"schema":CONTRACT,"asset_schema":"loom-asset/v2","adapters":["loom-asset/v1","loom-asset/v2"],"operations":["import","bind_file","bind_historical","adopt"],"max_operations":200,"inline_members_max":200,"producer_inventory":"loom-output-inventory/v1","roots":"configured registered stores; Runtime payloads require protected host grants","stages":["plan","validate","apply","verify"],"scientific_validation":"declared metadata is not a scientific acceptance claim"}),
+                json!({"schema":CONTRACT,"asset_schema":"loom-asset/v3","adapters":["loom-asset/v1","loom-asset/v2","loom-asset/v3"],"operations":["import","bind_file","bind_historical","adopt"],"max_operations":200,"inline_members_max":200,"producer_inventory":"loom-output-inventory/v1","roots":"configured registered stores; Runtime payloads require protected host grants","stages":["plan","validate","apply","verify"],"scientific_validation":"declared metadata is not a scientific acceptance claim"}),
             ),
             "reconcile_plan" => {
                 let key = field(args, "key")?;
@@ -172,6 +175,22 @@ impl Application {
                             )?;
                         }
                         let d = &op["definition"];
+                        if op["schema"] == "loom-asset/v3"
+                            && matches!(
+                                d["kind"].as_str(),
+                                Some("dataset" | "model" | "experiment")
+                            )
+                        {
+                            let template = crate::metadata_templates::resolve(
+                                &self.db,
+                                &d["metadata"]["template_ref"],
+                            )?;
+                            crate::metadata_templates::validate(
+                                &template,
+                                &d["metadata"]["research"],
+                                d["kind"].as_str().unwrap(),
+                            )?;
+                        }
                         let mut names = std::collections::BTreeSet::new();
                         for member in d["members"].as_array().into_iter().flatten() {
                             let name = field(member, "key")?;
@@ -675,6 +694,25 @@ impl Application {
                         );
                     }
                     let mut record = json!({"id":identity,"revision":1,"kind":d["kind"],"label":d["label"],"description":d["description"].as_str().unwrap_or(""),"metadata":d.get("metadata").cloned().unwrap_or(json!({})),"components":components,"path":name,"relations":d.get("relations").cloned().unwrap_or(json!([])),"scenario_ref":d["scenario_ref"],"origin":{"type":"import","source":op["source"],"adapter":op["schema"],"plan_id":id},"presentation":d.get("presentation").cloned().unwrap_or(json!({"scope":"research","role":"main"})),"validation":{"level":"structural_and_byte_integrity","scientific_acceptance":"unverified"}});
+                    if op["schema"] == "loom-asset/v3"
+                        && matches!(d["kind"].as_str(), Some("dataset" | "model" | "experiment"))
+                    {
+                        let template = crate::metadata_templates::resolve(
+                            &tx,
+                            &d["metadata"]["template_ref"],
+                        )?;
+                        crate::metadata_templates::validate(
+                            &template,
+                            &d["metadata"]["research"],
+                            d["kind"].as_str().unwrap(),
+                        )?;
+                        record["metadata_template"] =
+                            crate::metadata_templates::reference(&template);
+                        record["label"] = json!(crate::metadata_templates::robot_prefix(
+                            &d["metadata"]["research"],
+                            d["label"].as_str().unwrap()
+                        ));
+                    }
                     if d["inventory"].is_object() {
                         record["file_set"] = validation["inventories"]
                             [inventory_key(primary.parent().unwrap(), &d["inventory"])?.as_str()]

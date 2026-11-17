@@ -137,7 +137,47 @@ pub fn prepare(app: &Application, item: &[u8], revision: &[u8]) -> Result<Prepar
                     }
                     Ok(entry)
                 });
-            return prepare_entries(app, item, revision, members);
+            // Reports may be attached after the large payload inventory was sealed.
+            // Merge their registered entries without collecting the bulk inventory.
+            let mut reports = source_entries(app, &native)?;
+            reports.retain(|entry| {
+                value["reporting"]["reports"]
+                    .as_array()
+                    .is_some_and(|a| a.iter().any(|r| r["component"] == entry["entry_key"]))
+            });
+            reports.sort_by(|a, b| a["entry_key"].as_str().cmp(&b["entry_key"].as_str()));
+            let mut reports = reports.into_iter().peekable();
+            let mut members = members.peekable();
+            let merged = std::iter::from_fn(move || {
+                let Some(report) = reports.peek() else {
+                    return members.next();
+                };
+                match members.peek() {
+                    Some(Err(_)) => members.next(),
+                    Some(Ok(member)) => match member["entry_key"]
+                        .as_str()
+                        .cmp(&report["entry_key"].as_str())
+                    {
+                        std::cmp::Ordering::Less => members.next(),
+                        std::cmp::Ordering::Greater => reports.next().map(Ok),
+                        std::cmp::Ordering::Equal => {
+                            let member = members.next().unwrap().unwrap();
+                            let report = reports.next().unwrap();
+                            Some(
+                                if member["sha256"] == report["sha256"]
+                                    && member["size"] == report["size"]
+                                {
+                                    Ok(report)
+                                } else {
+                                    Err(Error::conflict("Report and inventory declarations differ"))
+                                },
+                            )
+                        }
+                    },
+                    None => reports.next().map(Ok),
+                }
+            });
+            return prepare_entries(app, item, revision, merged);
         }
     }
     let mut entries = source_entries(app, &native)?;

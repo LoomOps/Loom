@@ -90,3 +90,36 @@ New Dataset outputs may declare `metadata.research.organization`. Native result
 reads and Dashboard DTOs expose effective organization with its authority.
 `dataset-browser.js` renders families, subgroups and an iterative multi-generation
 lineage tree. Parent links across filtered or unloaded groups stay in details.
+
+## Metadata templates
+
+`metadata_templates.rs` owns shared immutable formats in `catalog_sources`, exact
+Profile definition pins and additive source-bound adoption in `rust_annotations`.
+See [the implementation plan](../metadata-templates/PLAN.md) and the server
+[metadata guide](../../loom_use/metadata.md). New Component/standalone Profile
+registrations freeze selected/default templates; already accepted Profiles retain
+their validation contract. Publication validates templates in addition to existing
+metadata_schemas, prefixes an unambiguous recorded robot, and preserves the exact
+format reference. Typed v3 imports follow the same schema and naming boundary.
+
+Template checks enforce structure, display value types and population bounds;
+they cannot establish scientific truth. Existing adoption is explicitly an
+operator declaration, retaining source digest, evidence, previous annotation and
+original execution. Conflicting previews fail. Catalog list/detail, Item/search
+and result reads expose current robot/template context without changing accepted
+source bodies. Legacy extraction suppresses object/episode-array counts and
+oversized compact facts, including old captured facts, while retaining valid v1/v2
+captures. Original metadata stays in Sources.
+
+## Reporting contracts
+
+`reporting.rs` owns immutable contract/semantic-definition resources, source-bound
+adaptations, frozen Profile coverage, scientific admission and verified report
+publication. New scientific Profiles declare coverage and reporter capabilities;
+legacy scientific Profiles cannot accept new Jobs after cutover. Accepted Jobs
+retain their original contract. Publication verifies hashes, producer fences,
+schemas, exact inputs, populations, SDG membership and evaluation predicates before
+committing scientific records. A publication error does not restart computation.
+Read APIs verify bytes and page report fields. Built-in and registered formats
+share Item identity, versioned discovery and idempotent registration. Excluded,
+missing and zero remain distinct. See [reporting](../../loom_use/reporting.md).

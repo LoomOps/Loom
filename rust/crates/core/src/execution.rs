@@ -694,7 +694,7 @@ impl Application {
             runner = json!({"builtin":"cpu.smoke","lane":"cpu"});
         }
         Ok(
-            json!({"schema":"loom-run-request/v1","job":work.job,"job_id":work.job,"attempt":work.attempt,"attempt_id":work.attempt,"stage":work.stage,"params":params,"output_dir":"/work","profile":{"revision":profile["revision"],"sha256":profile["sha256"]},"event_id":format!("{}.{}.{}",work.job,work.attempt,work.stage),"result":work.result,"execution":work.spec["execution"],"tools":profile["tool_pins"],"tool_binaries":tool_binaries,"steps":profile["steps"],"runner":runner,"verified_inputs":inputs,"component_path":profile["component_path"],"source_pins":profile["source_pins"]}),
+            json!({"schema":"loom-run-request/v1","job":work.job,"job_id":work.job,"attempt":work.attempt,"attempt_id":work.attempt,"stage":work.stage,"params":params,"output_dir":"/work","profile":{"revision":profile["revision"],"sha256":profile["sha256"],"reporting_policy":profile["reporting_policy"],"reporting":profile["reporting"],"reporting_pins":profile["reporting_pins"],"metadata_template_pins":profile["metadata_template_pins"]},"report_inputs":crate::results::input_relations(&self.db,&work.spec["params"])?,"event_id":format!("{}.{}.{}",work.job,work.attempt,work.stage),"result":work.result,"execution":work.spec["execution"],"tools":profile["tool_pins"],"tool_binaries":tool_binaries,"steps":profile["steps"],"runner":runner,"verified_inputs":inputs,"component_path":profile["component_path"],"source_pins":profile["source_pins"]}),
         )
     }
 }

@@ -430,6 +430,7 @@ fn prepare(
         "Authenticated actor required",
         403,
     )?;
+    crate::reporting::validate_plan(db,&spec)?;
     Ok(spec)
 }
 fn insert(db: &Connection, actor: &Actor, raw: &Value, spec: &Value) -> Result<String> {
@@ -501,7 +502,9 @@ impl Application {
             )?;
             return Ok(json!({"id":old}));
         }
-        let spec = prepare(&self.db, &self.config, &self.bulk, actor, &raw)?;
+        let mut spec = prepare(&self.db, &self.config, &self.bulk, actor, &raw)?;
+        crate::reporting::validate_new_admission(&spec)?;
+        spec["_reporting_required"]=json!(true);
         let tx = self.transaction()?;
         let id = insert(&tx, actor, &raw, &spec)?;
         tx.commit()?;
@@ -597,7 +600,9 @@ impl Application {
                     }
                 }
             }
-            let frozen = prepare(&tx, &config, &bulk, actor, &spec)?;
+            let mut frozen = prepare(&tx, &config, &bulk, actor, &spec)?;
+            crate::reporting::validate_new_admission(&frozen)?;
+            frozen["_reporting_required"]=json!(true);
             let child = insert(&tx, actor, &spec, &frozen)?;
             tx.execute(
                 "INSERT INTO workflow_nodes VALUES(?,?,?,?)",
@@ -893,12 +898,14 @@ impl Application {
                                     | "_requested_dependencies"
                                     | "_output_storage_id"
                                     | "_consolidation_sources"
+                                    | "_reporting_required"
                             )
                         });
                         for (k, v) in patch.as_object().unwrap() {
                             requested[k] = v.clone();
                         }
-                        let spec = prepare(&tx, &config, &bulk, actor, &requested)?;
+                        let mut spec = prepare(&tx, &config, &bulk, actor, &requested)?;
+                        if let Some(flag)=row.spec.get("_reporting_required"){spec["_reporting_required"]=flag.clone();}
                         let cycle: bool = tx.query_row(
                             "WITH RECURSIVE needed(id) AS (SELECT value FROM json_each(?,'$.depends_on') UNION SELECT child.value FROM needed d JOIN jobs j ON j.id=d.id JOIN json_each(j.spec,'$.depends_on') child UNION SELECT n.job FROM needed d JOIN workflow_nodes n ON n.root=d.id) SELECT EXISTS(SELECT 1 FROM needed WHERE id=?)",
                             params![encode(&spec)?,id], |r|r.get(0))?;

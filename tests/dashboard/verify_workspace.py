@@ -30,10 +30,10 @@ class Workspace:
                      return true;""", selector)
 
     def nav(self, name):
-        if name in ('Outputs','Datasets','Experiments','Models','Comparison'):
+        if name in ('Outputs','Datasets','Experiments','Models','Policies','Comparison'):
             if not self.js("return !!document.querySelector('.pa-document-pane.is-active [data-output-page]')"):
                 self.click('#pa-nav [data-go=datasets]')
-            page={'Outputs':'datasets','Datasets':'datasets','Experiments':'experiments','Models':'models','Comparison':'comparison'}[name]
+            page={'Outputs':'datasets','Datasets':'datasets','Experiments':'experiments','Models':'models','Policies':'models','Comparison':'comparison'}[name]
             if page=='comparison':
                 self.click('.pa-document-pane.is-active [data-output-page=experiments]')
             self.click('.pa-document-pane.is-active [data-output-page="'+page+'"]')

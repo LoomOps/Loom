@@ -1,5 +1,5 @@
 // One output workspace; typed records and legacy deep links keep their identity.
-const loomOutputPages={datasets:'Datasets',experiments:'Experiments',models:'Models'};
+const loomOutputPages={datasets:'Datasets',experiments:'Experiments',models:'Policies'};
 function loomIsOutputPage(page){return Object.hasOwn(loomOutputPages,page)||page==='comparison'||page==='scenarios';}
 function loomOutputTabs(){
  const selected=state.page==='comparison'?'experiments':state.page;
@@ -15,7 +15,7 @@ function loomOutputChrome(){
  return '<div class="pa-output-header">'+loomOutputTabs()+(['experiments','comparison'].includes(state.page)&&!state.entity
   ?'<div class="pa-output-actions">'+(state.page==='comparison'
    ?'<button class="pa-button" data-output-page="experiments">Results</button>'
-   :'<button class="pa-button" data-output-page="comparison">'+icon('git-compare-arrows')+'Comparison</button>')+'</div>':'')+'</div>';
+   :'<button class="pa-button" data-output-page="comparison">'+icon('git-compare-arrows')+'Comparison</button>')+'</div>':'')+(catalogData.capabilities?.metadata_templates?'<button class="pa-button" data-metadata-templates>Templates</button>':'')+(catalogData.capabilities?.reporting?'<button class="pa-button" data-report-contracts>Contracts</button>':'')+'</div>';
 }
 function loomOutputNavigate(page){
  if(!loomIsOutputPage(page))return;
@@ -39,7 +39,7 @@ openView=function(view,...args){
 const loomOutputDatasets=datasets;
 datasets=function(){return loomOutputChrome()+loomOutputDatasets();};
 const loomOutputModels=modelList;
-modelList=function(){return loomOutputChrome()+loomOutputModels();};
+modelList=function(){return loomOutputChrome()+loomOutputModels().replace(/>Models</g,'>Policies<');};
 const loomOutputExperiments=experiments;
 experiments=function(){return loomOutputChrome()+loomOutputExperiments();};
 const loomOutputDetail=catalogDetail;
@@ -103,3 +103,32 @@ function loomOutputRank(e){
  if(e.kind==='model')return ({VLA:0,Policy:1,Observer:3}[modelFilterMeta(e).role]??2);
  return e.properties?.importance==='major'?0:1;
 }
+
+root.addEventListener('click',async event=>{
+ if(!event.target.closest('[data-metadata-templates]'))return;
+ const dialog=loomHubDialog('Metadata templates','<div data-template-list>…</div><div data-template-details></div>');
+ try{
+  const kind=({datasets:'dataset',models:'model',experiments:'experiment'})[state.page];
+  let selection=0,rows=[],offset=0,loading=false;
+  const load=async()=>{
+   if(loading)return;loading=true;
+   try{
+    const page=await loomSearchAction('results','metadata_templates',{...(kind?{kind}:{}),offset,limit:100});
+    if(!dialog.isConnected)return;
+    rows.push(...page.items);offset=page.next_offset;
+    dialog.querySelector('[data-template-list]').innerHTML=catTable(['Template','Kind','Revision'],rows.map(t=>['<button class="pa-button" data-template-id="'+esc(t.id)+'" data-template-revision="'+esc(t.revision)+'">'+esc(t.label)+'</button>',esc(t.output_kind),esc(t.revision)]))+(offset!=null?'<button class="pa-button" data-template-more>More</button>':'');
+   }finally{loading=false;}
+  };
+  dialog.querySelector('[data-template-list]').onclick=async e=>{
+   if(e.target.closest('[data-template-more]')){try{await load();}catch(error){if(dialog.isConnected)dialog.querySelector('[data-hub-result]').textContent=error.message;}return;}
+   const b=e.target.closest('[data-template-id]');if(!b)return;
+   const selected=++selection;
+   try{const t=await loomSearchAction('results','get_metadata_template',{id:b.dataset.templateId,revision:Number(b.dataset.templateRevision)});if(!dialog.isConnected||selected!==selection)return;
+    const target=dialog.querySelector('[data-template-details]'),pin={id:t.id,revision:t.revision,sha256:t.sha256};
+    target.innerHTML='<h3>'+esc(t.label)+'</h3>'+catTable(['Field','Format','Unit'],t.definition.fields.map(f=>[esc(f.label),esc(f.format),esc(f.unit||'—')]))+'<button class="pa-button" data-template-copy>Copy reference</button><details><summary>Schema</summary><pre>'+esc(JSON.stringify(t.definition.schema,null,2))+'</pre></details>';
+    target.querySelector('[data-template-copy]').onclick=()=>parent.postMessage({type:'loom-doc-copy',text:JSON.stringify(pin,null,2)},'*');
+   }catch(error){if(dialog.isConnected&&selected===selection)dialog.querySelector('[data-hub-result]').textContent=error.message;}
+  };
+  await load();
+ }catch(error){if(dialog.isConnected)dialog.querySelector('[data-template-list]').textContent=error.message;}
+});

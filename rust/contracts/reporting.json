@@ -1,0 +1,2386 @@
+{
+  "schema": "loom-reporting-resources/v1",
+  "definitions": [
+    {
+      "id": "loom.metric.denoising_mse",
+      "definition": {
+        "kind": "metric",
+        "label": "Masked denoising MSE",
+        "quantity": "denoising_error",
+        "unit": "normalized",
+        "population": "valid_targets",
+        "reduction": "mean over valid targets; phase/episode padding excluded",
+        "direction": "minimize",
+        "dimensions": [
+          "step",
+          "split",
+          "phase"
+        ]
+      }
+    },
+    {
+      "id": "loom.metric.action_rmse",
+      "definition": {
+        "kind": "metric",
+        "label": "Action RMSE",
+        "quantity": "action_error",
+        "unit": "rad",
+        "population": "valid_joint_vectors",
+        "reduction": "root mean squared joint error over valid targets",
+        "direction": "minimize",
+        "dimensions": [
+          "split",
+          "phase",
+          "joint"
+        ]
+      }
+    },
+    {
+      "id": "loom.metric.success",
+      "definition": {
+        "kind": "metric",
+        "label": "Whole-task success",
+        "quantity": "success_rate",
+        "unit": "ratio",
+        "population": "valid_cases",
+        "reduction": "successful valid cases / all valid cases",
+        "direction": "maximize",
+        "dimensions": [
+          "condition",
+          "seed"
+        ]
+      }
+    },
+    {
+      "id": "loom.factor.xy",
+      "definition": {
+        "kind": "factor",
+        "label": "Object XY offset",
+        "quantity": "position_offset",
+        "unit": "mm",
+        "frame": "explicit source reference frame"
+      }
+    },
+    {
+      "id": "loom.metric.joint_mse",
+      "definition": {
+        "kind": "metric",
+        "label": "Joint-position MSE",
+        "quantity": "joint_position_error",
+        "unit": "rad²",
+        "population": "valid_targets",
+        "reduction": "mean squared error per action channel over valid targets",
+        "direction": "minimize",
+        "dimensions": [
+          "split",
+          "phase",
+          "channel"
+        ]
+      }
+    },
+    {
+      "id": "loom.metric.translation_mse",
+      "definition": {
+        "kind": "metric",
+        "label": "Translation MSE",
+        "quantity": "translation_error",
+        "unit": "m²",
+        "population": "valid_targets",
+        "reduction": "mean squared error per action channel over valid targets",
+        "direction": "minimize",
+        "dimensions": [
+          "split",
+          "phase",
+          "channel"
+        ]
+      }
+    },
+    {
+      "id": "loom.metric.action_mae",
+      "definition": {
+        "kind": "metric",
+        "label": "Action MAE",
+        "quantity": "action_error",
+        "unit": "rad",
+        "population": "valid_targets",
+        "reduction": "mean absolute joint error over valid targets",
+        "direction": "minimize",
+        "dimensions": [
+          "split",
+          "phase",
+          "channel"
+        ]
+      }
+    }
+  ],
+  "contracts": [
+    {
+      "id": "loom.report.dataset",
+      "definition": {
+        "label": "Dataset membership",
+        "output_kind": "dataset",
+        "activity": "dataset_import",
+        "requirements": [
+          {
+            "id": "membership",
+            "label": "Membership and quality",
+            "role": "dataset_statistics",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "maxItems": 64
+                },
+                "members": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "split": {
+                        "enum": [
+                          "train",
+                          "validation",
+                          "test",
+                          "unsplit"
+                        ]
+                      },
+                      "source": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "split",
+                      "source"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 20000
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 18446744073709551615
+                },
+                "split_counts": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                },
+                "invalid_values": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 18446744073709551615
+                }
+              },
+              "required": [
+                "inputs",
+                "members",
+                "count",
+                "split_counts",
+                "invalid_values"
+              ],
+              "additionalProperties": false
+            },
+            "fields": [
+              {
+                "id": "count",
+                "label": "Episodes",
+                "pointer": "/count",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "members",
+                "label": "Members",
+                "pointer": "/members",
+                "format": "table",
+                "unit": "",
+                "columns": [
+                  {
+                    "label": "Episode",
+                    "pointer": "/id",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Split",
+                    "pointer": "/split",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Source",
+                    "pointer": "/source",
+                    "format": "text"
+                  }
+                ]
+              },
+              {
+                "id": "splits",
+                "label": "Split counts",
+                "pointer": "/split_counts",
+                "format": "properties",
+                "unit": ""
+              },
+              {
+                "id": "invalid",
+                "label": "Invalid values",
+                "pointer": "/invalid_values",
+                "format": "count",
+                "unit": ""
+              }
+            ],
+            "definitions": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "loom.report.sdg",
+      "definition": {
+        "label": "SDG coverage",
+        "output_kind": "dataset",
+        "activity": "sdg",
+        "requirements": [
+          {
+            "id": "membership",
+            "label": "Membership and quality",
+            "role": "dataset_statistics",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "maxItems": 64
+                },
+                "members": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "split": {
+                        "enum": [
+                          "train",
+                          "validation",
+                          "test",
+                          "unsplit"
+                        ]
+                      },
+                      "source": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "split",
+                      "source"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 20000
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 18446744073709551615
+                },
+                "split_counts": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                },
+                "invalid_values": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 18446744073709551615
+                }
+              },
+              "required": [
+                "inputs",
+                "members",
+                "count",
+                "split_counts",
+                "invalid_values"
+              ],
+              "additionalProperties": false
+            },
+            "fields": [
+              {
+                "id": "count",
+                "label": "Episodes",
+                "pointer": "/count",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "members",
+                "label": "Members",
+                "pointer": "/members",
+                "format": "table",
+                "unit": "",
+                "columns": [
+                  {
+                    "label": "Episode",
+                    "pointer": "/id",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Split",
+                    "pointer": "/split",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Source",
+                    "pointer": "/source",
+                    "format": "text"
+                  }
+                ]
+              },
+              {
+                "id": "splits",
+                "label": "Split counts",
+                "pointer": "/split_counts",
+                "format": "properties",
+                "unit": ""
+              },
+              {
+                "id": "invalid",
+                "label": "Invalid values",
+                "pointer": "/invalid_values",
+                "format": "count",
+                "unit": ""
+              }
+            ],
+            "definitions": []
+          },
+          {
+            "id": "conditions",
+            "label": "SDG target conditions",
+            "role": "sdg_conditions",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "factor_refs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 18446744073709551615
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "revision",
+                      "sha256"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 16
+                },
+                "frame": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "sampling": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "bounds": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "fixed": {
+                  "type": "object"
+                },
+                "conditions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "split": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "values": {
+                        "type": "object",
+                        "minProperties": 1
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "split",
+                      "values"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 20000
+                }
+              },
+              "required": [
+                "factor_refs",
+                "frame",
+                "sampling",
+                "bounds",
+                "fixed",
+                "conditions"
+              ],
+              "additionalProperties": false
+            },
+            "fields": [
+              {
+                "id": "conditions",
+                "label": "Planned conditions",
+                "pointer": "/conditions",
+                "format": "scatter",
+                "unit": "mm",
+                "x_pointer": "/values/xy_mm/0",
+                "y_pointer": "/values/xy_mm/1",
+                "x_label": "Requested ΔX",
+                "y_label": "Requested ΔY"
+              },
+              {
+                "id": "sampling",
+                "label": "Sampling",
+                "pointer": "/sampling",
+                "format": "text",
+                "unit": ""
+              },
+              {
+                "id": "frame",
+                "label": "Reference frame",
+                "pointer": "/frame",
+                "format": "text",
+                "unit": ""
+              },
+              {
+                "id": "bounds",
+                "label": "Target ranges",
+                "pointer": "/bounds",
+                "format": "properties",
+                "unit": ""
+              },
+              {
+                "id": "fixed",
+                "label": "Fixed factors",
+                "pointer": "/fixed",
+                "format": "properties",
+                "unit": ""
+              }
+            ],
+            "definitions": [
+              "loom.factor.xy"
+            ]
+          },
+          {
+            "id": "readback",
+            "label": "SDG generated coverage",
+            "role": "sdg_readback",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "factor_refs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "revision": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 18446744073709551615
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "revision",
+                      "sha256"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 16
+                },
+                "frame": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "observations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "member_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "attempt": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "state": {
+                        "enum": [
+                          "accepted",
+                          "rejected",
+                          "failed",
+                          "unexecuted"
+                        ]
+                      },
+                      "requested": {
+                        "type": "object"
+                      },
+                      "observed": {
+                        "type": "object"
+                      },
+                      "phase": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "member_id",
+                      "attempt",
+                      "state",
+                      "requested",
+                      "observed",
+                      "phase"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 20000
+                }
+              },
+              "required": [
+                "factor_refs",
+                "frame",
+                "observations"
+              ],
+              "additionalProperties": false
+            },
+            "fields": [
+              {
+                "id": "observations",
+                "label": "Generated coverage",
+                "pointer": "/observations",
+                "format": "table",
+                "unit": "",
+                "columns": [
+                  {
+                    "label": "Condition",
+                    "pointer": "/id",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Member",
+                    "pointer": "/member_id",
+                    "format": "text"
+                  },
+                  {
+                    "label": "State",
+                    "pointer": "/state",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Phase",
+                    "pointer": "/phase",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Requested",
+                    "pointer": "/requested",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Observed",
+                    "pointer": "/observed",
+                    "format": "text"
+                  }
+                ]
+              },
+              {
+                "id": "frame",
+                "label": "Reference frame",
+                "pointer": "/frame",
+                "format": "text",
+                "unit": ""
+              }
+            ],
+            "definitions": [
+              "loom.factor.xy"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "loom.report.policy",
+      "definition": {
+        "label": "Policy training",
+        "output_kind": "model",
+        "activity": "training",
+        "requirements": [
+          {
+            "id": "instructions",
+            "label": "Policy instructions",
+            "role": "instructions",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "none",
+                    "fixed",
+                    "phase_conditioned",
+                    "parameterized"
+                  ]
+                },
+                "texts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "phase": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "text"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 1000
+                },
+                "assignments": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "selector": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "instruction_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "selector",
+                      "instruction_id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 20000
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "assigned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "assigned"
+                  ],
+                  "additionalProperties": false
+                },
+                "tokenizer": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "mode",
+                "texts",
+                "assignments",
+                "coverage",
+                "tokenizer"
+              ],
+              "additionalProperties": false
+            },
+            "fields": [
+              {
+                "id": "texts",
+                "label": "Instructions",
+                "pointer": "/texts",
+                "format": "instructions",
+                "unit": ""
+              },
+              {
+                "id": "mode",
+                "label": "Conditioning",
+                "pointer": "/mode",
+                "format": "text",
+                "unit": ""
+              },
+              {
+                "id": "tokenizer",
+                "label": "Tokenizer",
+                "pointer": "/tokenizer",
+                "format": "text",
+                "unit": ""
+              },
+              {
+                "id": "assigned",
+                "label": "Assigned examples",
+                "pointer": "/coverage/assigned",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "assignments",
+                "label": "Instruction assignments",
+                "pointer": "/assignments",
+                "format": "table",
+                "unit": "",
+                "columns": [
+                  {
+                    "label": "Selector",
+                    "pointer": "/selector",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Instruction",
+                    "pointer": "/instruction_id",
+                    "format": "text"
+                  }
+                ]
+              }
+            ],
+            "definitions": []
+          },
+          {
+            "id": "inputs",
+            "label": "Dataset and checkpoint",
+            "role": "policy_inputs",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "maxItems": 64
+                },
+                "checkpoint": {
+                  "type": "object",
+                  "properties": {
+                    "step": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "step",
+                    "sha256"
+                  ],
+                  "additionalProperties": false
+                },
+                "normalization": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "image_processing": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "state_dimension": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 18446744073709551615
+                },
+                "action_dimension": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 18446744073709551615
+                },
+                "chunk_size": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 18446744073709551615
+                },
+                "robot_dof": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "controlled_joint_dof": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "action_channels": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 512,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 18446744073709551615
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "kind": {
+                        "enum": [
+                          "joint_position",
+                          "joint_velocity",
+                          "cartesian_position",
+                          "cartesian_orientation",
+                          "gripper",
+                          "latent",
+                          "other"
+                        ]
+                      },
+                      "unit": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "joint": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 160
+                      }
+                    },
+                    "required": [
+                      "index",
+                      "name",
+                      "kind",
+                      "unit",
+                      "joint"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "action_representation": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              },
+              "required": [
+                "inputs",
+                "checkpoint",
+                "normalization",
+                "image_processing",
+                "state_dimension",
+                "action_dimension",
+                "chunk_size",
+                "robot_dof",
+                "controlled_joint_dof",
+                "action_channels",
+                "action_representation"
+              ],
+              "additionalProperties": false
+            },
+            "fields": [
+              {
+                "id": "step",
+                "label": "Selected step",
+                "pointer": "/checkpoint/step",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "inputs",
+                "label": "Datasets",
+                "pointer": "/inputs",
+                "format": "table",
+                "unit": "",
+                "columns": [
+                  {
+                    "label": "Input",
+                    "pointer": "/input",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Record",
+                    "pointer": "/id",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Revision",
+                    "pointer": "/revision",
+                    "format": "text"
+                  }
+                ]
+              },
+              {
+                "id": "robot_dof",
+                "label": "Robot DoF",
+                "pointer": "/robot_dof",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "action_dimension",
+                "label": "Action dimension",
+                "pointer": "/action_dimension",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "action_channels",
+                "label": "Action channels",
+                "pointer": "/action_channels",
+                "format": "table",
+                "unit": "",
+                "columns": [
+                  {
+                    "label": "Index",
+                    "pointer": "/index",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Channel",
+                    "pointer": "/name",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Control",
+                    "pointer": "/kind",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Joint",
+                    "pointer": "/joint",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Unit",
+                    "pointer": "/unit",
+                    "format": "text"
+                  }
+                ]
+              },
+              {
+                "id": "representation",
+                "label": "Action representation",
+                "pointer": "/action_representation",
+                "format": "text",
+                "unit": ""
+              },
+              {
+                "id": "controlled_dof",
+                "label": "Controlled joint DoF",
+                "pointer": "/controlled_joint_dof",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "normalization",
+                "label": "Normalization",
+                "pointer": "/normalization",
+                "format": "text",
+                "unit": ""
+              },
+              {
+                "id": "images",
+                "label": "Image processing",
+                "pointer": "/image_processing",
+                "format": "text",
+                "unit": ""
+              },
+              {
+                "id": "state_dimension",
+                "label": "State dimension",
+                "pointer": "/state_dimension",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "chunk",
+                "label": "Action chunk",
+                "pointer": "/chunk_size",
+                "format": "count",
+                "unit": ""
+              }
+            ],
+            "definitions": []
+          },
+          {
+            "id": "training",
+            "label": "Training objective",
+            "role": "learning_series",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "definition_ref": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 18446744073709551615
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision",
+                    "sha256"
+                  ],
+                  "additionalProperties": false
+                },
+                "points": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "step": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 18446744073709551615
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "population": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 18446744073709551615
+                      },
+                      "split": {
+                        "enum": [
+                          "train",
+                          "validation",
+                          "test"
+                        ]
+                      },
+                      "phase": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "step",
+                      "value",
+                      "population",
+                      "split"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 20000,
+                  "minItems": 1
+                },
+                "schedule": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "maxItems": 20000,
+                  "minItems": 1
+                },
+                "interruptions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "step": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 18446744073709551615
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "step",
+                      "reason"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 100
+                },
+                "selection": {
+                  "type": "object",
+                  "properties": {
+                    "step": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "split": {
+                      "enum": [
+                        "train",
+                        "validation"
+                      ]
+                    },
+                    "criterion": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    }
+                  },
+                  "required": [
+                    "step",
+                    "split",
+                    "criterion"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "definition_ref",
+                "points",
+                "schedule",
+                "interruptions"
+              ],
+              "additionalProperties": false
+            },
+            "fields": [
+              {
+                "id": "points",
+                "label": "Training loss",
+                "pointer": "/points",
+                "format": "series",
+                "unit": "",
+                "x_pointer": "/step",
+                "y_pointer": "/value",
+                "x_label": "Optimizer step",
+                "y_label": "Metric value"
+              },
+              {
+                "id": "metric",
+                "label": "Metric definition",
+                "pointer": "/definition_ref",
+                "format": "reference",
+                "unit": ""
+              }
+            ],
+            "definitions": [
+              "loom.metric.denoising_mse"
+            ]
+          },
+          {
+            "id": "validation",
+            "label": "Validation and selection",
+            "role": "learning_series",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "definition_ref": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 18446744073709551615
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision",
+                    "sha256"
+                  ],
+                  "additionalProperties": false
+                },
+                "points": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "step": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 18446744073709551615
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "population": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 18446744073709551615
+                      },
+                      "split": {
+                        "enum": [
+                          "train",
+                          "validation",
+                          "test"
+                        ]
+                      },
+                      "phase": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "step",
+                      "value",
+                      "population",
+                      "split"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 20000,
+                  "minItems": 1
+                },
+                "schedule": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "maxItems": 20000,
+                  "minItems": 1
+                },
+                "interruptions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "step": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 18446744073709551615
+                      },
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "step",
+                      "reason"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 100
+                },
+                "selection": {
+                  "type": "object",
+                  "properties": {
+                    "step": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "split": {
+                      "enum": [
+                        "train",
+                        "validation"
+                      ]
+                    },
+                    "criterion": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    }
+                  },
+                  "required": [
+                    "step",
+                    "split",
+                    "criterion"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "definition_ref",
+                "points",
+                "schedule",
+                "interruptions",
+                "selection"
+              ],
+              "additionalProperties": false
+            },
+            "fields": [
+              {
+                "id": "points",
+                "label": "Validation loss",
+                "pointer": "/points",
+                "format": "series",
+                "unit": "",
+                "x_pointer": "/step",
+                "y_pointer": "/value",
+                "x_label": "Optimizer step",
+                "y_label": "Metric value"
+              },
+              {
+                "id": "metric",
+                "label": "Metric definition",
+                "pointer": "/definition_ref",
+                "format": "reference",
+                "unit": ""
+              },
+              {
+                "id": "selected_step",
+                "label": "Selected step",
+                "pointer": "/selection/step",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "selection",
+                "label": "Selection criterion",
+                "pointer": "/selection/criterion",
+                "format": "text",
+                "unit": ""
+              }
+            ],
+            "definitions": [
+              "loom.metric.denoising_mse"
+            ]
+          },
+          {
+            "id": "action_metrics",
+            "label": "Held-out action error",
+            "role": "action_metrics",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "maxItems": 64
+                },
+                "measurements": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "definition_ref": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 2000
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 18446744073709551615
+                          },
+                          "sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "revision",
+                          "sha256"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "value": {
+                        "type": "number"
+                      },
+                      "population": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 18446744073709551615
+                      },
+                      "split": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "phase": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "joint": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "channel_index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 18446744073709551615
+                      },
+                      "error": {
+                        "enum": [
+                          "mse",
+                          "mae",
+                          "rmse"
+                        ]
+                      },
+                      "unit": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      }
+                    },
+                    "required": [
+                      "definition_ref",
+                      "value",
+                      "population",
+                      "split",
+                      "channel_index",
+                      "error",
+                      "unit"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 20000
+                },
+                "channels": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 512,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 18446744073709551615
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "kind": {
+                        "enum": [
+                          "joint_position",
+                          "joint_velocity",
+                          "cartesian_position",
+                          "cartesian_orientation",
+                          "gripper",
+                          "latent",
+                          "other"
+                        ]
+                      },
+                      "unit": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "joint": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 160
+                      }
+                    },
+                    "required": [
+                      "index",
+                      "name",
+                      "kind",
+                      "unit",
+                      "joint"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "representation": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                },
+                "normalization": {
+                  "type": "object",
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "physical",
+                        "normalized"
+                      ]
+                    },
+                    "definition": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 160
+                    },
+                    "fitted_split": {
+                      "enum": [
+                        "train",
+                        "external",
+                        "none"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "mode",
+                    "definition",
+                    "fitted_split"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "inputs",
+                "measurements",
+                "channels",
+                "representation",
+                "normalization"
+              ],
+              "additionalProperties": false
+            },
+            "fields": [
+              {
+                "id": "measurements",
+                "label": "Action error",
+                "pointer": "/measurements",
+                "format": "table",
+                "unit": "",
+                "columns": [
+                  {
+                    "label": "Channel",
+                    "pointer": "/channel_index",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Error",
+                    "pointer": "/error",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Value",
+                    "pointer": "/value",
+                    "format": "number"
+                  },
+                  {
+                    "label": "Unit",
+                    "pointer": "/unit",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Phase",
+                    "pointer": "/phase",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Population",
+                    "pointer": "/population",
+                    "format": "text"
+                  }
+                ]
+              },
+              {
+                "id": "channels",
+                "label": "Action channels",
+                "pointer": "/channels",
+                "format": "table",
+                "unit": "",
+                "columns": [
+                  {
+                    "label": "Index",
+                    "pointer": "/index",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Channel",
+                    "pointer": "/name",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Control",
+                    "pointer": "/kind",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Unit",
+                    "pointer": "/unit",
+                    "format": "text"
+                  }
+                ]
+              }
+            ],
+            "definitions": [
+              "loom.metric.action_rmse",
+              "loom.metric.joint_mse",
+              "loom.metric.translation_mse",
+              "loom.metric.action_mae"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "loom.report.policy_import",
+      "definition": {
+        "label": "Imported policy",
+        "output_kind": "model",
+        "activity": "policy_import",
+        "requirements": [
+          {
+            "id": "instructions",
+            "label": "Policy instructions",
+            "role": "instructions",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "enum": [
+                    "none",
+                    "fixed",
+                    "phase_conditioned",
+                    "parameterized"
+                  ]
+                },
+                "texts": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "text": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "phase": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "text"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 1000
+                },
+                "assignments": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "selector": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "instruction_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      }
+                    },
+                    "required": [
+                      "selector",
+                      "instruction_id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 20000
+                },
+                "coverage": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "assigned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    }
+                  },
+                  "required": [
+                    "total",
+                    "assigned"
+                  ],
+                  "additionalProperties": false
+                },
+                "tokenizer": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                }
+              },
+              "required": [
+                "mode",
+                "texts",
+                "assignments",
+                "coverage",
+                "tokenizer"
+              ],
+              "additionalProperties": false
+            },
+            "fields": [
+              {
+                "id": "texts",
+                "label": "Instructions",
+                "pointer": "/texts",
+                "format": "instructions",
+                "unit": ""
+              },
+              {
+                "id": "mode",
+                "label": "Conditioning",
+                "pointer": "/mode",
+                "format": "text",
+                "unit": ""
+              },
+              {
+                "id": "tokenizer",
+                "label": "Tokenizer",
+                "pointer": "/tokenizer",
+                "format": "text",
+                "unit": ""
+              },
+              {
+                "id": "assigned",
+                "label": "Assigned examples",
+                "pointer": "/coverage/assigned",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "assignments",
+                "label": "Instruction assignments",
+                "pointer": "/assignments",
+                "format": "table",
+                "unit": "",
+                "columns": [
+                  {
+                    "label": "Selector",
+                    "pointer": "/selector",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Instruction",
+                    "pointer": "/instruction_id",
+                    "format": "text"
+                  }
+                ]
+              }
+            ],
+            "definitions": []
+          },
+          {
+            "id": "inputs",
+            "label": "Dataset and checkpoint",
+            "role": "policy_inputs",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "maxItems": 64
+                },
+                "checkpoint": {
+                  "type": "object",
+                  "properties": {
+                    "step": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "step",
+                    "sha256"
+                  ],
+                  "additionalProperties": false
+                },
+                "normalization": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "image_processing": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                },
+                "state_dimension": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 18446744073709551615
+                },
+                "action_dimension": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 18446744073709551615
+                },
+                "chunk_size": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 18446744073709551615
+                },
+                "robot_dof": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "controlled_joint_dof": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 0
+                },
+                "action_channels": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 512,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "index": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 18446744073709551615
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "kind": {
+                        "enum": [
+                          "joint_position",
+                          "joint_velocity",
+                          "cartesian_position",
+                          "cartesian_orientation",
+                          "gripper",
+                          "latent",
+                          "other"
+                        ]
+                      },
+                      "unit": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "joint": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 160
+                      }
+                    },
+                    "required": [
+                      "index",
+                      "name",
+                      "kind",
+                      "unit",
+                      "joint"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "action_representation": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              },
+              "required": [
+                "inputs",
+                "checkpoint",
+                "normalization",
+                "image_processing",
+                "state_dimension",
+                "action_dimension",
+                "chunk_size",
+                "robot_dof",
+                "controlled_joint_dof",
+                "action_channels",
+                "action_representation"
+              ],
+              "additionalProperties": false
+            },
+            "fields": [
+              {
+                "id": "step",
+                "label": "Selected step",
+                "pointer": "/checkpoint/step",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "inputs",
+                "label": "Datasets",
+                "pointer": "/inputs",
+                "format": "table",
+                "unit": "",
+                "columns": [
+                  {
+                    "label": "Input",
+                    "pointer": "/input",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Record",
+                    "pointer": "/id",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Revision",
+                    "pointer": "/revision",
+                    "format": "text"
+                  }
+                ]
+              },
+              {
+                "id": "robot_dof",
+                "label": "Robot DoF",
+                "pointer": "/robot_dof",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "action_dimension",
+                "label": "Action dimension",
+                "pointer": "/action_dimension",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "action_channels",
+                "label": "Action channels",
+                "pointer": "/action_channels",
+                "format": "table",
+                "unit": "",
+                "columns": [
+                  {
+                    "label": "Index",
+                    "pointer": "/index",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Channel",
+                    "pointer": "/name",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Control",
+                    "pointer": "/kind",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Joint",
+                    "pointer": "/joint",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Unit",
+                    "pointer": "/unit",
+                    "format": "text"
+                  }
+                ]
+              },
+              {
+                "id": "representation",
+                "label": "Action representation",
+                "pointer": "/action_representation",
+                "format": "text",
+                "unit": ""
+              },
+              {
+                "id": "controlled_dof",
+                "label": "Controlled joint DoF",
+                "pointer": "/controlled_joint_dof",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "normalization",
+                "label": "Normalization",
+                "pointer": "/normalization",
+                "format": "text",
+                "unit": ""
+              },
+              {
+                "id": "images",
+                "label": "Image processing",
+                "pointer": "/image_processing",
+                "format": "text",
+                "unit": ""
+              },
+              {
+                "id": "state_dimension",
+                "label": "State dimension",
+                "pointer": "/state_dimension",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "chunk",
+                "label": "Action chunk",
+                "pointer": "/chunk_size",
+                "format": "count",
+                "unit": ""
+              }
+            ],
+            "definitions": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "loom.report.evaluation",
+      "definition": {
+        "label": "Policy evaluation",
+        "output_kind": "experiment",
+        "activity": "evaluation",
+        "requirements": [
+          {
+            "id": "evaluation",
+            "label": "Evaluation cases",
+            "role": "evaluation_cases",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "inputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  },
+                  "maxItems": 64
+                },
+                "protocol_ref": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 18446744073709551615
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "revision",
+                    "sha256"
+                  ],
+                  "additionalProperties": false
+                },
+                "counts": {
+                  "type": "object",
+                  "properties": {
+                    "planned": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "executed": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "unexecuted": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "valid": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "successes": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "infra": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "invalid": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    }
+                  },
+                  "required": [
+                    "planned",
+                    "executed",
+                    "unexecuted",
+                    "valid",
+                    "successes",
+                    "infra",
+                    "invalid"
+                  ],
+                  "additionalProperties": false
+                },
+                "cases": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "seed": {
+                        "type": "integer",
+                        "maximum": 18446744073709551615
+                      },
+                      "valid": {
+                        "type": "boolean"
+                      },
+                      "outcome": {
+                        "enum": [
+                          "success",
+                          "failure",
+                          "infra",
+                          "invalid"
+                        ]
+                      },
+                      "failure_stage": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 160
+                      },
+                      "factors": {
+                        "type": "object"
+                      },
+                      "measurements": {
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "seed",
+                      "valid",
+                      "outcome",
+                      "failure_stage",
+                      "factors",
+                      "measurements"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 20000
+                }
+              },
+              "required": [
+                "inputs",
+                "protocol_ref",
+                "counts",
+                "cases"
+              ],
+              "additionalProperties": false
+            },
+            "fields": [
+              {
+                "id": "cases",
+                "label": "Cases",
+                "pointer": "/cases",
+                "format": "table",
+                "unit": "",
+                "columns": [
+                  {
+                    "label": "Condition",
+                    "pointer": "/id",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Seed",
+                    "pointer": "/seed",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Outcome",
+                    "pointer": "/outcome",
+                    "format": "text"
+                  },
+                  {
+                    "label": "Failure",
+                    "pointer": "/failure_stage",
+                    "format": "text"
+                  }
+                ]
+              },
+              {
+                "id": "valid",
+                "label": "Valid cases",
+                "pointer": "/counts/valid",
+                "format": "count",
+                "unit": ""
+              },
+              {
+                "id": "successes",
+                "label": "Successes",
+                "pointer": "/counts/successes",
+                "format": "count",
+                "unit": ""
+              }
+            ],
+            "definitions": [
+              "loom.metric.success"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

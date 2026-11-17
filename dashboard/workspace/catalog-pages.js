@@ -106,6 +106,10 @@ const loomPagedDependencies=loomDependenciesView;
 loomDependenciesView=function(){return loomPagedDependencies()+loomCatalogPager('dependency');};
 const loomPagedScenarios=loomScenarioView;
 loomScenarioView=function(){return loomPagedScenarios()+loomCatalogPager('scenario');};
+// Bootstrap arrival patches pane contents without calling the navigation render.
+// Queue demand must therefore originate in the view, like the other paged lists.
+const loomPagedQueue=queue;
+queue=function(){return loomPagedQueue()+loomCatalogPager('job');};
 const loomPagedRender=render;
 render=function(){
  if(loomCatalogRevision!==catalogData.revision){for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],desired:Math.min(4000,page.ids?.length||50),loaded:false,busy:false,cursor:null});loomCatalogRevision=catalogData.revision;loomActivityView=null;}
@@ -120,8 +124,6 @@ render=function(){
   loomActivityView=view;
   queueMicrotask(async()=>{try{const activity=await loomSearchAction('system','dashboard_activity',{view});if(loomActivityView===view){catalogData.activity=activity;catalogRefreshViews();}}catch{}});
  }
- const queue=root.querySelector('.pa-queue-caption');
- if(state.page==='queue'&&queue&&!root.querySelector('[data-catalog-queue-more]')){const v=document.createElement('div');v.dataset.catalogQueueMore='';v.innerHTML=loomCatalogPager('job');queue.after(v);}
 };
 document.addEventListener('click',event=>{const b=event.target.closest('[data-catalog-more]');if(!b)return;event.preventDefault();const pane=b.closest('[data-pane]');if(pane)ws.active=pane.dataset.pane;state=activeTab().view;const kind=b.dataset.catalogMore,page=loomCatalogPages.get(loomCatalogPageKey(kind));if(page?.error){page.loaded=false;page.error=null;}loomCatalogLoad(kind,!!page?.cursor);});
 const loomPagedActivitySummary=activitySummary;
@@ -154,7 +156,7 @@ async function loomCatalogOpen(id,navigate=true){
  } else if(id.startsWith('runtime:')) {
   const p=id.split(':');
   if(p.length===3)native={kind:'runtime',identity:{id:p[1],revision:Number(p[2])}};
- }
+ } else native={kind:'entity',identity:{id}};
  let hit;
  if(native){try{hit=await loomSearchAction('results','resolve_item',{native_ref:native});}catch{}}
  if(!hit){const name=native?.identity?.id||native?.identity?.kind||id;const page=await loomSearchAction('results','search_items',{text:name,view:'all',role:'all',limit:10});hit=page.items.find(e=>(e.native_ref?.identity?.id===name||e.native_ref?.identity?.kind===name)&&(!native?.identity?.revision||e.native_ref.identity.revision===native.identity.revision));}

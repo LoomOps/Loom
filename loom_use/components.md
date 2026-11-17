@@ -35,7 +35,7 @@ The runner receives a request JSON path as its final argument. The request inclu
 
 ## Outputs
 
-Write files and result.json into output_dir. Use the `results` guide and `system.contract` for entity/metric output shapes; declare IDs, kinds, paths, provenance and relations where the contract requires them. Record request.profile.revision and request.profile.sha256 as provenance.profile and provenance.producer_sha256 respectively. Declare domain semantics such as measurements, units, denominators and data splits in the profile's outputs/metadata_schemas. Generic Job state transitions do not generate domain metadata automatically.
+Write files and result.json into output_dir. Use the `results` guide and `system.contract` for entity/metric output shapes; declare IDs, kinds, paths, provenance and relations where the contract requires them. Record request.profile.revision and request.profile.sha256 as provenance.profile and provenance.producer_sha256 respectively. Declare measurements, units, denominators and splits through exact registered metadata templates in the Profile; retain metadata_schemas for additional checks. Read the metadata guide before publishing a new output format. Generic Job state transitions do not generate domain metadata automatically.
 
 ## Installation and reuse
 

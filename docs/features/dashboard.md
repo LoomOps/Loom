@@ -85,6 +85,11 @@ A bootstrap is only a seed. Same-revision refresh preserves loaded list pages an
 parent-side detail identities. A new revision invalidates page cursors and pending
 responses before the visible list reloads. Research history uses its selected
 scope; current queue occupants remain visible in every presentation view.
+Dashboard history starts its paged Job read when bootstrap data patches the pane,
+without requiring navigation or a filter change. Its pager remains available on
+subsequent background patches and in restored panes.
+An unloaded native output deep link resolves its logical Item alias before text
+search; it does not require the record to be among bootstrap or first-page rows.
 Tasks appear as filters and record labels, without a standalone Scenario tab.
 Explorer requests actual storage observations even with the Inspector closed and
 loads registered file records independently of the research pane. Its bounded
@@ -176,3 +181,11 @@ count units, sampling/physics facts and exact cross-links. Collapsed groups and
 branches survive catalog refresh. Other records remain available in the All view.
 Catalog indexing uses an accessible icon-only spinner beside the footer update
 control; it is hidden at idle and respects reduced-motion preferences.
+
+## Metadata formats
+
+Outputs exposes a bounded template browser only when the server advertises
+metadata_templates. Exact references can be copied for Profile/producer selection.
+Profile details show their frozen formats. Robot context precedes scientific
+sections, which render the same typed template fields as list facts; extension
+fields remain escaped and bounded. Old servers retain their existing UI.

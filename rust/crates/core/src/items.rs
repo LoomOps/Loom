@@ -264,9 +264,20 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
             )
         }
         "catalog_sources" => {
-            let m = decode(&row["body"]);
+            let mut m = decode(&row["body"]);
             let identity = decode(&row["identity"]);
             let k = row["kind"].as_str().unwrap_or("profile");
+            if matches!(k,"metadata_template"|"report_contract"|"report_definition") {
+                let definition = m.clone();
+                m.as_object_mut().unwrap().remove("definition");
+                m["native_ref"] = json!({"kind":k,"identity":identity});
+                return Ok(Some((
+                    k.into(),
+                    json!({"id":identity["id"]}),
+                    definition,
+                    m,
+                )));
+            }
             return Ok(Some((k.into(), identity.clone(), identity, m)));
         }
         "rust_effects" => {
@@ -297,6 +308,27 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
             "registered"
         });
     }
+    if matches!(native_kind, "entity" | "historical") {
+        if definition["metadata_template"].is_object() {
+            body["robot"] = definition["metadata"]["research"]["robot"].clone();
+            body["metadata_template_ref"] = definition["metadata_template"].clone();
+        }
+        let target = crate::contracts::Target {
+            kind: native_kind.into(),
+            identity: exact.clone(),
+        };
+        if let Some(metadata) = crate::metadata_templates::annotation(db, &target)? {
+            if let Some(label) = body["label"].as_str() {
+                body["label"] = json!(crate::metadata_templates::robot_prefix(
+                    &metadata["research"],
+                    label
+                ));
+            }
+            body["robot"] = metadata["research"]["robot"].clone();
+            body["metadata_template_ref"] =
+                crate::metadata_templates::reference(&metadata["template"]);
+        }
+    }
     let id = exact["id"].as_str().unwrap_or("");
     let overlay: Option<String> = db
         .query_row(
@@ -318,6 +350,14 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
             if p[k].is_string() {
                 body[k] = p[k].clone();
             }
+        }
+    }
+    if body["robot"].is_object() {
+        if let Some(label) = body["label"].as_str() {
+            body["label"] = json!(crate::metadata_templates::robot_prefix(
+                &json!({"robot":body["robot"]}),
+                label
+            ));
         }
     }
     let kind = body["kind"].as_str().unwrap_or(native_kind).to_string();
@@ -629,6 +669,12 @@ impl Application {
                 native["identity"]["id"].as_str().unwrap_or(""),
                 &value["label"],
             )?;
+            if let Some(label) = value["label"].as_str() {
+                value["label"] = json!(crate::metadata_templates::robot_prefix(
+                    &json!({"robot":value["robot"]}),
+                    label
+                ));
+            }
         }
         value["files"] = json!({"action":"results.item_files","item_id":args["item_id"],"revision_id":value["revision_id"]});
         Ok(value)
@@ -739,6 +785,8 @@ impl Application {
     pub fn cache_catalog_sources(&mut self) -> Result<()> {
         let profiles = self.config.profiles.clone();
         let tx = self.transaction()?;
+        crate::metadata_templates::cache_builtins(&tx)?;
+        crate::reporting::cache_builtins(&tx)?;
         for (kind, p) in profiles {
             let identity = json!({"kind":kind});
             let body = json!({"kind":"profile","label":p.get("label").and_then(Value::as_str).unwrap_or(&kind),"summary":p.get("description").and_then(Value::as_str).unwrap_or(""),"source_key":p["sha256"].as_str().map(String::from).unwrap_or(hash(encode(&p)?)),"native_ref":{"kind":"profile","identity":{"kind":kind,"sha256":p["sha256"]}},"scope":"research","role":"main","origin_type":"installation"});

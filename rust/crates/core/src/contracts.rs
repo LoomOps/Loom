@@ -27,7 +27,57 @@ pub fn actions() -> Vec<Action> {
         json!({"kind":{"enum":["job","entity","historical","component","tool","profile","runtime","protocol_artifact"]},"identity":{"type":"object"}}),
         &["kind", "identity"],
     );
+    let template_ref = object(
+        json!({"id":{"type":"string","minLength":1,"maxLength":96},"revision":{"type":"integer","minimum":1},"sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}}),
+        &["id", "revision", "sha256"],
+    );
+    let metadata_kind = json!({"enum":["dataset","model","experiment"]});
     let definitions = [
+        (
+            "results",
+            "metadata_templates",
+            "read",
+            object(
+                json!({"kind":metadata_kind,"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":100},"include_revisions":{"type":"boolean","default":false}}),
+                &[],
+            ),
+        ),
+        (
+            "results",
+            "get_metadata_template",
+            "read",
+            object(
+                json!({"id":string,"revision":{"type":"integer","minimum":1}}),
+                &["id"],
+            ),
+        ),
+        (
+            "results",
+            "register_metadata_template",
+            "submit",
+            object(
+                json!({"id":{"type":"string","minLength":1,"maxLength":96},"definition":{"type":"object"},"expected_revision":{"type":"integer","minimum":0},"reason":{"type":"string","minLength":1,"maxLength":2000},"key":string}),
+                &["id", "definition", "reason", "key"],
+            ),
+        ),
+        (
+            "results",
+            "validate_metadata",
+            "read",
+            object(
+                json!({"kind":metadata_kind,"template_ref":template_ref,"research":{"type":"object"}}),
+                &["kind", "template_ref", "research"],
+            ),
+        ),
+        (
+            "results",
+            "adopt_metadata",
+            "submit",
+            object(
+                json!({"target":object(json!({"kind":{"enum":["entity","historical"]},"identity":{"type":"object"}}), &["kind","identity"]),"template_ref":template_ref,"research":{"type":"object"},"reason":{"type":"string","minLength":1,"maxLength":2000},"format_reference":target,"evidence":{"type":"array","maxItems":16,"items":{"type":"object"}},"dry_run":{"type":"boolean","default":true},"key":string,"expected_digest":{"type":"string","pattern":"^[a-f0-9]{64}$"}}),
+                &["target", "template_ref", "research", "reason"],
+            ),
+        ),
         (
             "results",
             "organize_dataset",
@@ -384,6 +434,19 @@ pub fn actions() -> Vec<Action> {
             scope: "read".into(),
             schema,
         });
+    }
+    for (name,scope,schema) in [
+        ("report_contracts","read",object(json!({"kind":{"enum":["dataset","model","experiment"]},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":100},"include_revisions":{"type":"boolean"}}),&[])),
+        ("report_definitions","read",object(json!({"kind":{"enum":["metric","factor","protocol"]},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":100},"include_revisions":{"type":"boolean"}}),&[])),
+        ("get_report_contract","read",object(json!({"id":string,"revision":{"type":"integer","minimum":1,"maximum":i64::MAX}}),&["id"])),
+        ("get_report_evidence","read",object(json!({"target":{"type":"object","properties":{"kind":{"enum":["entity","historical","component","tool","profile"]},"identity":{"type":"object"}},"required":["kind","identity"],"additionalProperties":false},"pointer":{"type":"string","maxLength":256}}),&["target","pointer"])),
+        ("get_report_definition","read",object(json!({"id":string,"revision":{"type":"integer","minimum":1,"maximum":i64::MAX}}),&["id"])),
+        ("register_report_contract","submit",object(json!({"id":string,"definition":{"type":"object"},"expected_revision":{"type":"integer","minimum":0,"maximum":i64::MAX-1},"reason":{"type":"string","minLength":1,"maxLength":2000},"key":string}),&["id","definition","reason","key"])),
+        ("register_report_definition","submit",object(json!({"id":string,"definition":{"type":"object"},"expected_revision":{"type":"integer","minimum":0,"maximum":i64::MAX-1},"reason":{"type":"string","minLength":1,"maxLength":2000},"key":string}),&["id","definition","reason","key"])),
+        ("validate_report_contract","read",object(json!({"definition":{"type":"object"}}),&["definition"])),
+        ("read_report","read",object(json!({"id":string,"revision":{"type":"integer","minimum":1,"maximum":i64::MAX},"requirement_id":string,"pointer":{"type":"string","maxLength":256},"offset":{"type":"integer","minimum":0,"maximum":10000000},"limit":{"type":"integer","minimum":1,"maximum":500}}),&["id","revision","requirement_id"])),
+    ] {
+        result.push(Action{group:"results".into(),action:name.into(),operation:format!("results.{name}"),scope:scope.into(),schema});
     }
     for entry in &mut result {
         if entry.group == "results" && entry.action == "historical" {

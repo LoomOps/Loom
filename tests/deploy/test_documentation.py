@@ -13,6 +13,12 @@ class DocumentationTests(unittest.TestCase):
    before=documentation.inventory(root)
    (root/'new-guide.md').write_text('# New task\n')
    self.assertNotEqual(before,documentation.inventory(root))
+ def test_explicit_proposal_is_not_classified_as_an_implemented_capability(self):
+  with tempfile.TemporaryDirectory() as temp:
+   root=Path(temp);(root/'docs').mkdir();(root/'docs/reporting.md').write_text('# Reporting\n\nStatus: proposed design.\n')
+   entry=next(x for x in documentation.inventory(root)['documents'] if x['path']=='docs/reporting.md')
+   self.assertEqual(entry['status'],'proposed')
+   self.assertIn('not an installed capability',entry['authority'])
  def test_local_links_are_checked_but_code_and_external_urls_are_not_paths(self):
   with tempfile.TemporaryDirectory() as temp:
    root=Path(temp);(root/'README.md').write_text('[missing](guide.md)\n[external](https://example.test/path)\n```text\n[example](not-a-doc.md)\n```\n')

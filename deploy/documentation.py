@@ -31,10 +31,15 @@ def markdown(root):
     if result.returncode==0:return sorted(set(result.stdout.splitlines()))
     return sorted(str(p.relative_to(root)) for p in root.rglob('*.md') if not {'.git','target','evidence','__pycache__'}.intersection(p.parts))
 
-def classification(path):
+def classification(path,root=ROOT):
     if path.endswith('THIRD_PARTY_NOTICES.md'):return ('legal','preserved','license notices')
     if path.startswith('docs/reference/'):return ('caller','generated','compiled native registry')
     if path.startswith(('docs/rust-port/','docs/item-index/')) or path=='docs/features/VERIFICATION-HISTORY.md':return ('maintainer','historical','recorded design/audit revision')
+    if path.startswith('docs/'):
+        try:
+            with (root/path).open() as source:heading=source.read(1024)
+        except OSError:heading=''
+        if re.search(r'^Status: proposed\b',heading,re.M):return ('maintainer','proposed','explicit design proposal; not an installed capability')
     if path.startswith('docs/features/'):return ('maintainer','current','feature catalog and native implementation')
     if path.endswith('SKILL.md') or path=='AGENTS.md':return ('agent','current','repository/client entry instructions')
     if path.startswith(('loom_use/','rust/contracts/')):return ('agent','current','running native guide catalog and handlers')
@@ -46,7 +51,7 @@ def classification(path):
 def inventory(root=ROOT):
     docs=[]
     for path in markdown(root):
-        audience,status,authority=classification(path)
+        audience,status,authority=classification(path,root)
         docs.append({'path':path,'audience':audience,'status':status,'authority':authority})
     for path,(audience,authority) in sorted(INSTRUCTION_SURFACES.items()):
         if (root/path).exists():docs.append({'path':path,'audience':audience,'status':'compatibility' if audience=='compatibility' else 'current','authority':authority})

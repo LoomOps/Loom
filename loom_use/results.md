@@ -26,13 +26,18 @@ For a historical additional copy use `results.bind_historical_location` or the b
 ## Output names
 
 For new outputs, set a human-readable top-level label before publication.
-Use `<subject> · <variant> · <purpose> [· <revision or selected step>]`.
+Use `<robot model> · <subject> · <variant> · <purpose> [· <revision or selected step>]`.
 Omit unknown or irrelevant parts; never invent counts, stages or a selected step.
 Prefer English and keep the label under 120 characters (the SDK helper allows 200).
 
-- Dataset: Grasp · RGB-D · Demonstrations · v2
-- Model: X-VLA · RGB-D · Grasp policy · step 20000
-- Experiment: X-VLA · Closed-loop evaluation · test96 · r3
+- Dataset: Franka Panda · Grasp · RGB-D demonstrations · v2
+- Model: Franka Panda · X-VLA · RGB-D grasp policy · step 20000
+- Experiment: Franka Panda · X-VLA · Closed-loop evaluation · test96
+
+Robot is also a typed property, independent of the label and Task context. Use
+the recorded model; retain unknown or inapplicable status explicitly rather than
+inventing a name. Multiple-robot outputs declare their models without selecting
+one arbitrarily. See `metadata` for registered formats and canonical field types.
 
 Include the discriminators needed to distinguish sibling outputs: modality,
 model family, protocol/cohort, checkpoint role or revision as appropriate.
@@ -68,6 +73,12 @@ For Models, record actual policy conditioning and input consumers (`used_by`),
 including proprioception dimensions. An absent language input differs from unknown.
 Do not author Overview prose for Outputs; keep useful information in typed fields.
 
+Find the most comparable exact prior output before choosing a format. Reuse its
+registered metadata template when compatible; copy its structure rather than
+values. New or changed fields require template coverage. New Profiles bind exact
+template revisions; legacy metadata_schemas remain an additional compatibility
+check, not a substitute for the selected template contract. Read `metadata`.
+
 For evaluations, record offline versus closed-loop scope, Sim versus Real,
 protocol and success predicate/threshold/window, evaluator Tool/Component revision,
 checkpoint, cohort/split and successes with their exact denominator. Keep invalid,
@@ -83,8 +94,10 @@ For a scientific summary, resolve the exact Item then call
 their evidence instead of guessing from a label. It can recover existing verified
 JSON manifests/readiness/protocol reports that were not flattened into metadata.
 
-New Profiles should declare a `metadata.research` object in their output metadata
-schema. Use explicit `environment`, `robot`, `physics` (physics_hz, control_hz,
+The selected template defines `metadata.research`; a Profile may add
+`metadata_schemas` for further producer constraints. Read its required fields and
+recording statuses rather than duplicating a schema. Use explicit `environment`,
+`robot`, `physics` (physics_hz, control_hz,
 rgb_hz, state_hz, collision, payload_mass_kg, robot_gravity_disabled), `annotation`
 (method/source), `language` (stored Dataset field/granularity), `instruction`
 (Model/evaluation conditioning mode/source), `quality` (recorded BC eligibility

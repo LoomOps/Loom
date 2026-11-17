@@ -524,6 +524,18 @@
       "authority": "recorded design/audit revision"
     },
     {
+      "path": "docs/metadata-templates/PLAN.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/metadata-templates/REPORTING-CONTRACT.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
       "path": "docs/reference/README.md",
       "audience": "caller",
       "status": "generated",
@@ -788,6 +800,12 @@
       "authority": "running native guide catalog and handlers"
     },
     {
+      "path": "loom_use/metadata.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
       "path": "loom_use/operator.md",
       "audience": "agent",
       "status": "current",
@@ -807,6 +825,12 @@
     },
     {
       "path": "loom_use/recovery.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/reporting.md",
       "audience": "agent",
       "status": "current",
       "authority": "running native guide catalog and handlers"

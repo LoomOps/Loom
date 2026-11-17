@@ -1,5 +1,5 @@
 """Firefox, retained Dashboard relay and the native Ops process on private fixture roots."""
-import base64,json,os,socket,sqlite3,subprocess,tempfile,time,unittest
+import base64,hashlib,json,os,socket,sqlite3,subprocess,tempfile,time,unittest
 from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.error import HTTPError
@@ -27,6 +27,74 @@ class NativeWorkspaceTests(unittest.TestCase):
   with urlopen(Request(self.native+'/api/actions',data=json.dumps({'group':group,'action':action,'arguments':arguments}).encode(),headers={'Content-Type':'application/json'}),timeout=5) as response:return json.load(response)
  def setUp(self):
   self.ui=Workspace(self.wd);self.wd('/window/rect',{'width':1440,'height':1000});self.wd('/url',{'url':self.base});self.ui.top();self.ui.js('localStorage.clear();sessionStorage.clear()');self.wd('/refresh',{});self.ui.connect()
+ def test_metadata_template_browser_and_typed_robot_properties(self):
+  base=self.call('results','get_metadata_template',{'id':'loom.dataset','revision':1});base_ref={k:base[k] for k in ('id','revision','sha256')}
+  definition={'label':'Contact <img src=x onerror=alert(1)>','kind':'dataset','base_ref':base_ref,'schema':{'type':'object','properties':{'extensions':{'type':'object','properties':{'friction':{'type':'number'}}}}},'fields':[{'id':'friction','label':'Friction','pointer':'/extensions/friction','section':'extensions','format':'number'}]}
+  t=self.call('results','register_metadata_template',{'id':'ui.contact','key':'ui-contact-template','reason':'Browser fixture format','definition':definition});pin={k:t[k] for k in ('id','revision','sha256')}
+  (self.native_root/'data/template.json').write_text('{}')
+  metadata={'template_ref':pin,'research':{'robot':{'status':'recorded','model':'Franka Panda'},'collection':{'status':'recorded','count':0,'unit':'episodes','split':{'train':0,'validation':'unrecorded','test':'not_applicable'}},'extensions':{'friction':0.2}}}
+  op={'operation':'import','schema':'loom-asset/v3','source':{'system':'browser-fixture','id':'typed-contact','revision':'1'},'definition':{'kind':'dataset','label':'Contact demonstrations','metadata':metadata,'primary':{'machine_id':'browser-fixture','storage_id':'browser-data','ref':'template.json'}}}
+  plan=self.call('results','reconcile_plan',{'key':'ui-contact-import','proposal':{'schema':'loom-reconcile/v1','operations':[op]}});args={'plan_id':plan['plan_id']};self.call('results','reconcile_validate',args);self.call('results','reconcile_apply',args)
+  with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:identity=db.execute("SELECT id FROM asset_revisions WHERE json_extract(manifest,'$.origin.source.id')='typed-contact'").fetchone()[0]
+  ui=self.ui;ui.nav('Datasets');ui.route(identity)
+  ui.wait("return document.querySelector('[data-research-fact=robot]')?.textContent.includes('Franka Panda')")
+  self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-research-overview [data-research-section]')][0]?.dataset.researchSection==='context'"))
+  self.assertIn('train 0 / validation Unrecorded / test N/A',ui.js("return document.querySelector('.pa-research-overview').innerText"))
+  self.assertIn('0.2',ui.js("return document.querySelector('[data-research-section=extensions]').textContent"))
+  ui.click('[data-metadata-templates]');ui.wait("return !!document.querySelector('[data-template-id=\"ui.contact\"]')");ui.click('[data-template-id="ui.contact"]')
+  ui.wait("return !!document.querySelector('[data-template-copy]')")
+  self.assertFalse(ui.js("return !!document.querySelector('[data-hub-dialog] img[src=x]')"))
+  self.assertIn(definition['label'],ui.js("return document.querySelector('[data-hub-dialog]').textContent"))
+  for width in (1440,500):
+   ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+   for theme in ('light','dark'):
+    ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("const d=document.querySelector('[data-hub-dialog]');return d.scrollWidth<=d.clientWidth+1"))
+    if folder:=os.environ.get('LOOM_TEST_SCREENSHOTS'):
+     output=Path(folder);output.mkdir(parents=True,exist_ok=True);ui.top();(output/f'metadata-templates-{width}-{theme}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));ui.frame()
+ def test_builtin_reporting_contracts_are_browsable_and_legacy_missing_is_explicit(self):
+  ui=self.ui;ui.nav('Datasets');ui.click('[data-report-contracts]')
+  ui.wait("return !!document.querySelector('[data-report-contract-id=\"loom.report.policy\"]')")
+  ui.click('[data-report-contract-id="loom.report.policy"]')
+  ui.wait("return document.querySelector('[data-report-contract-detail]')?.textContent.includes('Policy instructions')")
+  self.assertIn('Built-in',ui.js("return document.querySelector('[data-report-contract-list]').textContent"))
+  self.assertIn('Action dimension',ui.js("return document.querySelector('[data-report-contract-detail]').textContent"))
+  self.assertFalse(ui.js("return !!document.querySelector('[data-hub-dialog] [data-contract-register]')"))
+  for width in (1440,500):
+   ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+   for theme in ('light','dark'):
+    ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("const d=document.querySelector('[data-hub-dialog]');return d.scrollWidth<=d.clientWidth+1"))
+ def test_verified_report_views_show_exact_instructions_channels_and_separate_phase_curves(self):
+  job=self.call('jobs','submit',{'key':'browser-reports','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False}})['id'];identity=job+'.report-policy'
+  def field(id,label,pointer,format,**extra):return dict(id=id,label=label,pointer=pointer,format=format,unit='',**extra)
+  source=[('instructions','instructions',{'texts':[{'id':'phase0','phase':'approach','text':'Approach <target> with open gripper.'}]},[field('texts','Instructions','/texts','instructions')]),('validation','learning_series',{'points':[{'step':1,'value':.2,'phase':'approach','split':'validation'},{'step':2,'value':.1,'phase':'approach','split':'validation'},{'step':1,'value':.4,'phase':'carry','split':'validation'},{'step':2,'value':.3,'phase':'carry','split':'validation'}]},[field('points','Validation','/points','series',x_pointer='/step',y_pointer='/value',x_label='Optimizer step',y_label='MSE')]),('errors','action_metrics',{'measurements':[{'channel_index':0,'error':'mse','value':.04,'unit':'rad²','phase':'approach','split':'test','population':10}]},[field('errors','Channel errors','/measurements','table',columns=[{'label':l,'pointer':p,'format':'text'} for l,p in [('Channel','/channel_index'),('Error','/error'),('Value','/value'),('Unit','/unit')]])])]
+  components=[];reports=[]
+  for name,role,data,fields in source:
+   raw=json.dumps({'schema':'loom-report/v1','data':data}).encode();file='browser-report-'+name+'.json';(self.native_root/'data'/file).write_bytes(raw);sha=hashlib.sha256(raw).hexdigest();components.append({'ref':file,'size':len(raw),'sha256':sha});reports.append({'requirement_id':name,'label':name,'role':role,'state':'recorded','required':True,'component':file,'sha256':sha,'fields':fields})
+  entity={'id':identity,'revision':1,'kind':'model','label':'Report view fixture','job':job,'components':components,'relations':[],'metadata':{'research':{'robot':{'status':'recorded','model':'Fixture robot'},'model':{'role':'policy','action_dimension':1}}},'reporting':{'state':'validated','contract_ref':{'id':'browser.fixture','revision':1,'sha256':'f'*64},'activity':'training','reports':reports,'inputs':[]}}
+  with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:
+   db.execute("INSERT INTO entity_revisions VALUES(?,1,?,'model','owner','owner',?)",(identity,job,json.dumps(entity)))
+   for c in components:db.execute("INSERT INTO entity_locations VALUES(?,1,?,'browser-fixture','browser-data',?,'available')",(identity,c['ref'],c['ref']))
+  for _ in range(100):
+   try:
+    resolved=self.call('results','resolve_item',{'native_ref':{'kind':'entity','identity':{'id':identity,'revision':1}}});break
+   except HTTPError:time.sleep(.05)
+  else:self.fail('Native report Item was not indexed')
+  ui=self.ui;ui.nav('Policies');ui.route(identity)
+  try:ui.wait("return document.querySelector('[data-report-content]')?.textContent.includes('Approach <target> with open gripper.')")
+  except AssertionError:self.fail(ui.js("return document.querySelector('#pa-content').innerText"))
+  self.assertFalse(ui.js("return !!document.querySelector('[data-report-content] target')"))
+  ui.click('[data-report-tab=learning]');ui.wait("return document.querySelectorAll('.pa-report-chart polyline').length===2")
+  self.assertTrue(ui.js("return [...document.querySelector('[data-report-filter=phase]').options].some(o=>o.value==='carry')"))
+  ui.js("const s=document.querySelector('[data-report-filter=phase]');s.value='carry';s.dispatchEvent(new Event('change',{bubbles:true}))");ui.wait("return document.querySelectorAll('.pa-report-chart polyline').length===1")
+  ui.click('[data-report-tab=metrics]');ui.wait("return document.querySelector('[data-report-content]')?.textContent.includes('rad²')")
+  ui.click('[data-report-tab=contract]');self.assertIn('browser.fixture',ui.js("return document.querySelector('[data-report-content]').textContent"))
+  excluded=json.loads(json.dumps(entity));excluded['id']=job+'.unconditional-policy';excluded['reporting']['reports']=[r for r in reports if r['role']!='instructions'];excluded['reporting']['exclusions']=[{'id':'instructions','role':'instructions','reason':'Verified language-free input interface'}]
+  with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:db.execute("INSERT INTO entity_revisions VALUES(?,1,?,'model','owner','owner',?)",(excluded['id'],job,json.dumps(excluded)))
+  for _ in range(100):
+   try:self.call('results','resolve_item',{'native_ref':{'kind':'entity','identity':{'id':excluded['id'],'revision':1}}});break
+   except HTTPError:time.sleep(.05)
+  ui.route(excluded['id']);ui.click('[data-report-tab=instructions]');ui.wait("return document.querySelector('[data-report-content]')?.textContent.includes('Not applicable')")
+
  def test_native_scenario_create_revision_and_render_without_injected_markup(self):
   task=self.call('results','register_scenario',{'key':'native-ui-context','definition':{'label':'Native <img src=x onerror=alert(1)>','description':'Fixture context'}})
   ui=self.ui;ui.nav('Models');self.assertFalse(ui.js("return !!document.querySelector('[data-scenario-create]')"));ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return [...document.querySelector('[data-research-task]').options].some(o=>o.value===arguments[0]+':1')",task['id']);ui.route(task['id']);ui.wait("return !!document.querySelector('[data-scenario-edit]')");self.assertFalse(ui.js("return !!document.querySelector('#pa-content img[src=x]')"));self.assertNotIn('Unassigned',ui.js("return document.querySelector('#pa-content').textContent"))

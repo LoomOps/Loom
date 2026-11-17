@@ -130,6 +130,17 @@ class ProxyTest(unittest.TestCase):
         self.assertEqual(self.request('/api/mcp/docs?action=submit',headers={'Authorization':'Bearer fixture'})[0],404)
         self.assertEqual(self.request('/api/mcp/docs',headers={'Authorization':'Bearer fixture'},method='POST')[0],405)
 
+    def test_metadata_search_relay_allows_reads_and_rejects_registration_and_adoption(self):
+        headers={'Authorization':'Bearer fixture'}
+        for action in ('metadata_templates','get_metadata_template','validate_metadata'):
+            payload={'group':'results','action':action,'arguments':{}}
+            self.assertEqual(self.request('/api/search/actions',headers=headers,method='POST',body=payload)[0],200)
+            self.assertEqual(self.api.history_calls[-1][2],payload)
+        before=len(self.api.history_calls)
+        for action in ('register_metadata_template','adopt_metadata'):
+            self.assertEqual(self.request('/api/search/actions',headers=headers,method='POST',body={'group':'results','action':action,'arguments':{}})[0],400)
+        self.assertEqual(len(self.api.history_calls),before)
+
     def start(self, server):
         worker = Thread(target=server.serve_forever, daemon=True)
         worker.start()

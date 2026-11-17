@@ -58,6 +58,13 @@
       "summary": "Publish, consume, annotate or reconnect outputs."
     },
     {
+      "id": "metadata",
+      "title": "Output metadata templates",
+      "source": "loom_use/metadata.md",
+      "type": "how-to",
+      "summary": "Reuse exact comparable formats, validate robot-first typed output metadata and normalize selected existing records."
+    },
+    {
       "id": "items",
       "title": "Items, files and logs",
       "source": "rust/contracts/items.md",
@@ -105,6 +112,13 @@
       "source": "loom_use/inventory.md",
       "type": "reference",
       "summary": "Identify the authority and update path for packaged resources."
+    },
+    {
+      "id": "reporting",
+      "title": "Analysis reporting contracts",
+      "source": "loom_use/reporting.md",
+      "type": "how-to",
+      "summary": "Reuse or author coverage, bind reporters, publish verified reports and inspect per-channel metrics."
     }
   ]
 }

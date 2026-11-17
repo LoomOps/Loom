@@ -497,8 +497,8 @@
   },
   "results.get": {
     "title": "Artifact details",
-    "description": "Read an artifact record by ID and revision.",
-    "returns": "Registry entity with current display label, immutable manifest fields and registered locations",
+    "description": "Read an artifact record by exact ID and revision. Template-backed scientific records include current typed research_summary, robot and metadata_status. Additive operator normalization exposes metadata_provenance with the source digest, evidence and reason; original manifest fields and execution remain preserved.",
+    "returns": "Registry entity with current display label, immutable manifest fields, registered locations and optional template metadata/provenance",
     "example": {
       "id": "<entity-id>",
       "revision": 1
@@ -1648,5 +1648,305 @@
       "entrypoint": "rust/crates/core/src/dataset_organization.rs#organize_dataset"
     },
     "example_note": "Preview first, then apply with expected_digest, a stable key and dry_run=false."
+  },
+  "results.metadata_templates": {
+    "title": "List metadata templates",
+    "description": "List current immutable output metadata formats; include_revisions exposes previous revisions.",
+    "returns": "Templates · items, total, next_offset",
+    "example": {
+      "kind": "dataset"
+    },
+    "errors": [
+      "Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/metadata_templates.rs#metadata_template_action"
+    },
+    "example_note": "Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key."
+  },
+  "results.get_metadata_template": {
+    "title": "Read a metadata template",
+    "description": "Read an exact schema, bounded display fields and content digest. Omitting revision explicitly selects the current revision.",
+    "returns": "Template · id, revision, sha256, output_kind, definition",
+    "example": {
+      "id": "loom.dataset",
+      "revision": 1
+    },
+    "errors": [
+      "Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/metadata_templates.rs#metadata_template_action"
+    },
+    "example_note": "Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key."
+  },
+  "results.register_metadata_template": {
+    "title": "Register a metadata template revision",
+    "description": "Register or revise a shared format derived from an exact base. Extensions cannot weaken standard fields or replace their display meaning.",
+    "returns": "Registered template · exact revision and hash",
+    "example": {
+      "id": "example.dataset",
+      "key": "template-example-r1",
+      "reason": "Add a source-measured friction field",
+      "definition": {
+        "label": "Contact demonstrations",
+        "kind": "dataset",
+        "base_ref": {
+          "id": "loom.dataset",
+          "revision": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "schema": {
+          "type": "object",
+          "properties": {
+            "extensions": {
+              "type": "object",
+              "properties": {
+                "friction": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "fields": [
+          {
+            "id": "friction",
+            "label": "Friction",
+            "pointer": "/extensions/friction",
+            "section": "extensions",
+            "format": "number"
+          }
+        ]
+      }
+    },
+    "errors": [
+      "Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/metadata_templates.rs#metadata_template_action"
+    },
+    "example_note": "Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key."
+  },
+  "results.validate_metadata": {
+    "title": "Validate output metadata",
+    "description": "Validate a draft against an exact template kind, schema and display field types. Structural validation is not scientific acceptance.",
+    "returns": "Validation · valid, template_ref, summary, scientific_acceptance",
+    "example": {
+      "kind": "dataset",
+      "template_ref": {
+        "id": "loom.dataset",
+        "revision": 1,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "research": {
+        "robot": {
+          "status": "unrecorded"
+        },
+        "collection": {
+          "status": "unrecorded"
+        }
+      }
+    },
+    "errors": [
+      "Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/metadata_templates.rs#metadata_template_action"
+    },
+    "example_note": "Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key."
+  },
+  "results.adopt_metadata": {
+    "title": "Normalize existing output metadata",
+    "description": "Preview and apply an additive operator-declared normalization for an exact existing source. Retain originals and reject changed source or prior annotation. Evidence and the comparable format reference remain provenance; no scientific verification is invented.",
+    "returns": "Adoption · target, source_sha256, expected_digest, template_ref, summary, stored, previous_annotation",
+    "example": {
+      "target": {
+        "kind": "entity",
+        "identity": {
+          "id": "<entity-id>",
+          "revision": 1
+        }
+      },
+      "template_ref": {
+        "id": "loom.dataset",
+        "revision": 1,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "research": {
+        "robot": {
+          "status": "unrecorded"
+        },
+        "collection": {
+          "status": "unrecorded"
+        }
+      },
+      "reason": "Normalize only supported fields from the recorded source",
+      "dry_run": true
+    },
+    "errors": [
+      "Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/metadata_templates.rs#metadata_template_action"
+    },
+    "example_note": "Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key."
+  },
+  "results.report_contracts": {
+    "title": "List report contracts",
+    "description": "Page registered immutable reporting templates; default requirements can be adapted with exact evidence before Job submission.",
+    "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+    "example": {},
+    "errors": [
+      "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action"
+    }
+  },
+  "results.get_report_contract": {
+    "title": "Read report contract",
+    "description": "Read exact coverage, schemas, display descriptors, semantic pins and evidence-backed adaptations.",
+    "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+    "example": {
+      "id": "loom.report.dataset",
+      "revision": 1
+    },
+    "errors": [
+      "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action"
+    }
+  },
+  "results.register_report_contract": {
+    "title": "Register report contract",
+    "description": "Register a new shared analysis contract or immutable revision. A base can be adapted with source-bound evidence; new required analysis needs definitions and reporter support.",
+    "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+    "example": {
+      "id": "contact.dataset",
+      "key": "contact-v1",
+      "reason": "Coverage for the planned study",
+      "definition": {}
+    },
+    "errors": [
+      "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action"
+    }
+  },
+  "results.validate_report_contract": {
+    "title": "Validate report contract",
+    "description": "Preview normalized effective coverage without registration or execution. Validates schemas, semantic references and adaptation evidence.",
+    "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+    "example": {
+      "definition": {}
+    },
+    "errors": [
+      "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action"
+    }
+  },
+  "results.report_definitions": {
+    "title": "List reporting definitions",
+    "description": "Page registered metric, factor and evaluation protocol definitions.",
+    "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+    "example": {},
+    "errors": [
+      "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action"
+    }
+  },
+  "results.get_report_definition": {
+    "title": "Read reporting definition",
+    "description": "Read an exact metric, factor or protocol definition; semantic meaning and units remain pinned.",
+    "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+    "example": {
+      "id": "loom.metric.success",
+      "revision": 1
+    },
+    "errors": [
+      "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action"
+    }
+  },
+  "results.register_report_definition": {
+    "title": "Register reporting definition",
+    "description": "Register a metric with units/population/reduction, an SDG factor or a task-specific protocol with an exact primary metric and success predicate.",
+    "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+    "example": {
+      "id": "task.success",
+      "key": "protocol-v1",
+      "reason": "Task success definition",
+      "definition": {}
+    },
+    "errors": [
+      "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action"
+    }
+  },
+  "results.read_report": {
+    "title": "Read verified report fields",
+    "description": "Read a report bound to an exact output revision and requirement. JSON pointers select a field; arrays are paged. Bytes are SHA-256 verified and responses are bounded to 256 KiB.",
+    "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+    "example": {
+      "id": "<job>.data",
+      "revision": 1,
+      "requirement_id": "membership",
+      "pointer": "/members",
+      "limit": 100
+    },
+    "errors": [
+      "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action"
+    }
+  },
+  "results.get_report_evidence": {
+    "title": "Read adaptation source evidence",
+    "description": "Read a bounded JSON subtree and exact source-body SHA-256 from an immutable artifact, historical record or registered software revision. Use the returned object as adaptation evidence; no database access or digest reconstruction is required.",
+    "returns": "Exact target, source SHA-256, JSON pointer and value (maximum 64 KiB)",
+    "example": {
+      "target": {
+        "kind": "entity",
+        "identity": {
+          "id": "job.policy",
+          "revision": 1
+        }
+      },
+      "pointer": "/metadata/conditioning"
+    },
+    "errors": [
+      "Missing or inexact source, absent pointer, denied read scope, or evidence subtree larger than 64 KiB."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action"
+    }
   }
 }

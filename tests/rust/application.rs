@@ -510,6 +510,8 @@ fn native_dataset_publication_resolves_only_declared_data_parent_inputs() {
     f.app.db.execute("INSERT INTO asset_revisions VALUES('source-dataset',1,NULL,'dataset','owner','owner',?)",[parent.to_string()]).unwrap();
     let job = f.submit("derived-publication");
     let mut spec = jobs::load(&f.app.db, &job).unwrap().spec;
+    // The lineage boundary also applies to executions accepted before reporting.
+    spec.as_object_mut().unwrap().remove("_reporting_required");
     spec["params"] = json!({"data":{"artifact":{"id":"source-dataset","revision":1}}});
     let task = f
         .call(
@@ -4249,3 +4251,8 @@ fn nested_consolidation_has_one_logical_activity_and_profile_use() {
     assert_eq!(profile["usage_stats"]["logical_jobs"], 1);
     assert_eq!(profile["usage_stats"]["recorded_executions"], 3);
 }
+
+#[path = "metadata_templates.rs"]
+mod metadata_template_tests;
+#[path = "reporting.rs"]
+mod reporting_tests;

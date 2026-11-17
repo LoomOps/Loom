@@ -798,6 +798,29 @@ const done=arguments[arguments.length-1];
         self.assertTrue(self.ui.js("return !!document.querySelector('[data-loom-work-time]').closest('.pa-panel').querySelector('[data-entity=fixture-canonical]')"))
 
 
+    def test_dashboard_first_load_fetches_jobs_beyond_bootstrap_without_filter_click(self):
+        entities=[]
+        for i in range(15):
+            entity,record=native('cold-dashboard-'+str(i));entities.append(entity)
+            self.api.fixture['jobs'][entity['id']]=record
+        catalog=self.api.fixture['catalog']
+        catalog.update(entities=entities[:3],revision='cold-dashboard-v1',capabilities={'catalog_pages':True})
+        self.api.fixture['search_actions']={
+            'dashboard_page':{'entities':entities[:13],'revision':catalog['revision'],'next_cursor':'more-jobs'},
+            'dashboard_activity':{'days':[]}}
+        self.ui.top();self.wd('/refresh',{});self.ui.connect()
+        history="[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))"
+        self.ui.wait('return '+history+"?.querySelectorAll('tbody tr').length===10")
+        self.assertEqual(self.ui.js('return '+history+'.querySelector("h2").textContent'),'종료 이력 · 13')
+        self.ui.top();self.wd('/refresh',{});self.ui.connect()
+        self.ui.wait('return '+history+'?.querySelector("h2").textContent===\'종료 이력 · 13\'')
+        self.api.fixture['search_actions']['dashboard_page']={'entities':entities[13:],'revision':catalog['revision'],'next_cursor':None}
+        self.ui.click('[data-catalog-more=job]')
+        self.ui.wait('return '+history+'?.querySelector("h2").textContent===\'종료 이력 · 15\'')
+        self.assertFalse(self.ui.js("return !!document.querySelector('[data-catalog-more=job]')"))
+        self.assertTrue(any(a.get('action')=='dashboard_page' and a.get('arguments',{}).get('kinds')==['job'] for a in self.api.actions))
+        self.assertTrue(all(a.get('group')=='system' for a in self.api.actions))
+
     def test_queue_merges_live_and_imported_history_and_expands(self):
         ui=self.ui
         def rows():return ui.js("return [...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))?.querySelectorAll('tbody tr').length")
@@ -1693,7 +1716,7 @@ const done=arguments[arguments.length-1];
         ui.nav('Outputs')
         self.assertEqual(ui.js("return [...document.querySelectorAll('#pa-nav button')].filter(e=>e.textContent.trim()==='Outputs').length"),1)
         self.assertFalse(ui.js("return [...document.querySelectorAll('#pa-nav button')].some(e=>['Datasets','Models','Experiments','Comparison'].includes(e.textContent.trim()))"))
-        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-output-tabs button')].map(e=>e.textContent)"),['Datasets','Experiments','Models'])
+        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-output-tabs button')].map(e=>e.textContent)"),['Datasets','Experiments','Policies'])
         self.assertTrue(ui.js("return new Set([...document.querySelectorAll('.pa-output-tabs button')].map(e=>Math.round(e.getBoundingClientRect().top))).size===1"))
         self.assertTrue(ui.js("const row=document.querySelector('[data-output-id=output-dataset]'),family=row.closest('[data-dataset-family]');return family.open&&family.querySelector(':scope>summary h2').textContent==='Assembly'&&family.querySelector(':scope>summary').getBoundingClientRect().bottom<=row.getBoundingClientRect().top&&!row.querySelector('.pa-output-task')"))
         before=ui.js("return document.querySelectorAll('.pa-document-tabs [role=tab]').length")

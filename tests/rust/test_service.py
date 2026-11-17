@@ -37,6 +37,31 @@ class RustServiceTests(unittest.TestCase):
   with urlopen(Request(self.url+path,data=json.dumps(body).encode(),headers={'Content-Type':'application/json','Authorization':'Bearer '+(token or self.token)}),timeout=5) as r:return json.load(r)
  def call(self,group,action,args=None):return self.post('/api/actions',{'group':group,'action':action,'arguments':args or {}})
  def submit(self,key,seconds=0,**more):return self.call('jobs','submit',{'key':key,'kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':seconds,'fail':False},**more})['id']
+ def test_metadata_templates_use_the_same_http_and_mcp_contract(self):
+  listing=self.call('results','metadata_templates',{'kind':'dataset','limit':1});self.assertEqual(listing['items'][0]['id'],'loom.dataset');self.assertNotIn('definition',listing['items'][0])
+  t=self.call('results','get_metadata_template',{'id':'loom.dataset','revision':1});pin={k:t[k] for k in ('id','revision','sha256')}
+  args={'kind':'dataset','template_ref':pin,'research':{'robot':{'status':'recorded','model':'Franka Panda'},'collection':{'status':'recorded','count':0,'unit':'episodes'}}}
+  http=self.call('results','validate_metadata',args)
+  reply=self.post('/mcp',{'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':'results','arguments':{'action':'validate_metadata','arguments':args}}})
+  self.assertEqual(json.loads(reply['result']['content'][0]['text']),http);self.assertEqual(http['scientific_acceptance'],'unverified')
+  args['research']['collection']['count']=[{'episode':1}]
+  with self.assertRaises(HTTPError) as error:self.call('results','validate_metadata',args)
+  self.assertEqual(error.exception.code,400)
+  self.assertIn('metadata',json.dumps(self.call('system','guide')))
+ def test_report_contracts_share_http_mcp_and_published_schemas(self):
+  contract=self.call('results','get_report_contract',{'id':'loom.report.sdg','revision':1})
+  reply=self.post('/mcp',{'jsonrpc':'2.0','id':2,'method':'tools/call','params':{'name':'results','arguments':{'action':'get_report_contract','arguments':{'id':'loom.report.sdg','revision':1}}}})
+  self.assertEqual(json.loads(reply['result']['content'][0]['text']),contract)
+  self.assertEqual(contract['origin'],'builtin')
+  self.assertTrue(self.call('results','report_contracts',{'kind':'dataset','limit':1})['items'])
+  coverage=self.call('results','validate_report_contract',{'definition':contract['definition']})
+  self.assertEqual(len(coverage['definition']['effective_requirements']),3)
+  args={'id':'http.sdg','key':'http-sdg','reason':'Reusable coverage fixture','definition':contract['definition']}
+  created=self.call('results','register_report_contract',args)
+  self.assertEqual(created,self.call('results','register_report_contract',args))
+  with self.assertRaises(HTTPError) as error:self.call('results','validate_report_contract',{'definition':{'label':'Empty','output_kind':'experiment','activity':'comparison','requirements':[]}})
+  self.assertEqual(error.exception.code,400)
+  self.assertIn('reporting',json.dumps(self.call('system','guide')))
  def wait(self,id,state='complete'):
   for _ in range(100):
    job=self.call('jobs','get',{'id':id})
@@ -216,6 +241,12 @@ r=t.rpc({'jsonrpc':'2.0','id':4,'method':'tools/call','params':{'name':'system',
   body={'entity':{'id':'metadata-fixture','kind':'dataset','label':'Measured dataset','properties':{'physics_hz':240},'relations':[],'artifacts':[]}}
   db=sqlite3.connect(self.root/'state/ops.sqlite3');db.execute("INSERT INTO history_records VALUES('fixture','dataset','metadata-fixture','r1','snapshot',?)",(json.dumps(body),));db.commit();db.close()
   target={'kind':'historical','identity':{'source':'fixture','kind':'dataset','id':'metadata-fixture','revision':'r1','snapshot':'snapshot'}}
+  evidence_args={'target':target,'pointer':'/entity/properties/physics_hz'}
+  evidence=self.call('results','get_report_evidence',evidence_args)
+  self.assertEqual(evidence['value'],240)
+  self.assertEqual(evidence['sha256'],hashlib.sha256(json.dumps(body).encode()).hexdigest())
+  reply=self.post('/mcp',{'jsonrpc':'2.0','id':77,'method':'tools/call','params':{'name':'results','arguments':{'action':'get_report_evidence','arguments':evidence_args}}})
+  self.assertEqual(json.loads(reply['result']['content'][0]['text']),evidence)
   preview=self.call('results','refresh_metadata',{'target':target,'reason':'fixture capture'})
   args={'target':target,'reason':'fixture capture','dry_run':False,'key':'capture-http-mcp','expected_source_sha256':preview['source_sha256']}
   reply=self.post('/mcp',{'jsonrpc':'2.0','id':78,'method':'tools/call','params':{'name':'results','arguments':{'action':'refresh_metadata','arguments':args}}})

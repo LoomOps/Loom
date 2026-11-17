@@ -50,7 +50,7 @@
     "consolidation": "jobs.submit.consolidates preserves completed source execution; list(include_consolidated=true) exposes all sources"
   },
   "semantics": "Classification does not change kind, params, task level, verification, or dispatch.",
-  "api_revision": "loom-ops/v49",
+  "api_revision": "loom-ops/v50",
   "authoring": {
     "default": "rust",
     "python": "external SDK workers"

@@ -82,6 +82,19 @@ impl Application {
             .unwrap_or_else(|| recorded.clone()))
     }
     pub fn result_action(&mut self, actor: &Actor, action: &str, args: Value) -> Result<Value> {
+        if matches!(action,"get_report_evidence"|"report_contracts"|"get_report_contract"|"register_report_contract"|"validate_report_contract"|"report_definitions"|"get_report_definition"|"register_report_definition"|"read_report") {
+            return self.reporting_action(actor,action,args);
+        }
+        if matches!(
+            action,
+            "metadata_templates"
+                | "get_metadata_template"
+                | "register_metadata_template"
+                | "validate_metadata"
+                | "adopt_metadata"
+        ) {
+            return self.metadata_template_action(actor, action, args);
+        }
         match action {
             "list" => self.results_listing(&args),
             "get" => {
@@ -98,6 +111,20 @@ impl Application {
                 let display_label = self.output_label("entity", id, &value["label"])?;
                 if display_label.is_string() {
                     value["label"] = display_label;
+                }
+                let mut projected = value.clone();
+                projected["loom_registry"] = json!({"id":id,"revision":rev});
+                crate::metadata_templates::attach(self, &mut projected)?;
+                for key in [
+                    "robot",
+                    "research_summary",
+                    "metadata_status",
+                    "metadata_provenance",
+                    "label",
+                ] {
+                    if let Some(v) = projected.get(key) {
+                        value[key] = v.clone();
+                    }
                 }
                 if value["file_set"]["entries"]
                     .as_u64()
@@ -413,6 +440,9 @@ impl Application {
             "At least one and at most 1024 outputs required",
             400,
         )?;
+        if row.spec["_reporting_required"]==true && entities.iter().any(|e|matches!(e["kind"].as_str(),Some("model"|"dataset"|"experiment"))) {
+            require(row.spec["profile"]["reporting_policy"]==crate::reporting::POLICY,"report_profile_legacy","New scientific outputs require a frozen reporting contract; declare scientific outputs before submission",409)?;
+        }
         let typed = row.spec["kind"] != "cpu.smoke";
         validate_output_semantics(
             &manifest,
@@ -564,38 +594,7 @@ impl Application {
             for relation in entity["relations"].as_array().into_iter().flatten() {
                 relations.push(json!({"kind":relation["kind"],"id":format!("{job}.{}",relation["entity_id"].as_str().unwrap_or("")),"revision":1}));
             }
-            for (input, value) in row.spec["params"].as_object().into_iter().flatten() {
-                if let (Some(upstream), Some(output)) =
-                    (value["job"].as_str(), value["entity"].as_str())
-                {
-                    let parent = rows(
-                        &self.db,
-                        "SELECT request FROM job_workflows WHERE id=?",
-                        &[&upstream],
-                    )?
-                    .into_iter()
-                    .next();
-                    let (upstream, output) = if let Some(parent) = parent {
-                        let request: Value =
-                            serde_json::from_str(parent["request"].as_str().unwrap_or("{}"))?;
-                        let alias = &request["outputs"][output];
-                        let child: String = self.db.query_row(
-                            "SELECT job FROM workflow_nodes WHERE root=? AND node=?",
-                            params![upstream, alias["node"].as_str()],
-                            |r| r.get(0),
-                        )?;
-                        (child, alias["entity"].as_str().unwrap_or("").to_string())
-                    } else {
-                        (upstream.into(), output.into())
-                    };
-                    let upstream_row = jobs::load(&self.db, &upstream)?;
-                    relations.push(json!({"kind":"consumes","input":input,"id":format!("{upstream}.{output}"),"revision":1,"attempt":upstream_row.aggregate.fence.attempt.as_ref().map(|s|s.as_str())}));
-                } else if value["artifact"].is_object() {
-                    relations.push(json!({"kind":"consumes","input":input,"id":value["artifact"]["id"],"revision":value["artifact"]["revision"],"member":value["member"]}));
-                } else if value["ref"].is_string() && value["sha256"].is_string() {
-                    for hit in rows(&self.db,"SELECT DISTINCT e.id,e.revision,e.manifest FROM all_entity_revisions e JOIN all_entity_locations l ON e.id=l.id AND e.revision=l.revision WHERE l.storage_id=? AND l.ref=? AND l.status='available'",&[&value["storage_id"].as_str(),&value["ref"].as_str()])? {let manifest:Value=serde_json::from_str(hit["manifest"].as_str().unwrap_or("{}"))?;if manifest["components"].as_array().is_some_and(|a|a.iter().any(|c|c["sha256"]==value["sha256"])){relations.push(json!({"kind":"consumes","input":input,"id":hit["id"],"revision":hit["revision"]}));}}
-                }
-            }
+            relations.extend(input_relations(&self.db,&row.spec["params"])?);
             let identity = format!("{job}.{entity_id}");
             for lineage in entity["lineage"].as_array().into_iter().flatten() {
                 let input = lineage["input"].as_str().unwrap_or("");
@@ -625,13 +624,12 @@ impl Application {
                 relations.push(json!({"kind":"derived_from","input":input,"id":parent["id"],"revision":parent["revision"],"transformation":lineage["transformation"],"primary":lineage["primary"].as_bool().unwrap_or(false)}));
             }
             let mut published = json!({"id":identity,"revision":1,"kind":kind,"origin_machine":self.config.machine_id,"job":job,"attempt":attempt,"provenance":entity.get("provenance").cloned().unwrap_or(json!({})),"components":components,"relations":relations,"metadata_schema":row.spec["profile"]["metadata_schemas"].get(entity_id).or_else(||row.spec["profile"]["metadata_schemas"].get("*")).cloned(),"metrics":manifest["metrics"].as_array().unwrap().iter().filter(|m|m["entity_id"]==entity_id).collect::<Vec<_>>()});
+
             if entity["inventory"].is_object() {
                 require(
-                    !entity
-                        .get("components")
-                        .is_some_and(|v| v.as_array().is_none_or(|a| !a.is_empty())),
+                    entity.get("components").is_none_or(|v|v.as_array().is_some_and(|a|a.iter().all(|component|row.spec["profile"]["reporting_policy"]==crate::reporting::POLICY&&entity["reporting"]["reports"].as_array().is_some_and(|reports|reports.iter().any(|r|r["component"]==*component))))),
                     "inventory",
-                    "Use inventory or inline output members",
+                    "Inventory outputs may add only declared analysis reports as inline members",
                     400,
                 )?;
                 let key =
@@ -655,6 +653,18 @@ impl Application {
                     published[key] = v.clone();
                 }
             }
+            if let Some(pin) =
+                crate::metadata_templates::validate_output(&row.spec["profile"], entity)?
+            {
+                published["metadata_template"] = pin;
+                published["metadata"]["template_ref"] = published["metadata_template"].clone();
+                if let Some(label) = published["label"].as_str() {
+                    published["label"] = json!(crate::metadata_templates::robot_prefix(
+                        &published["metadata"]["research"],
+                        label
+                    ));
+                }
+            }
             if let Some(organization) = entity.pointer("/metadata/research/organization") {
                 let task = &row.spec["scenario_ref"];
                 require(
@@ -666,6 +676,9 @@ impl Application {
                     409,
                 )?;
                 published["scenario_ref"] = task.clone();
+            }
+            if let Some(reporting) = crate::reporting::validate_reports(&row.spec,entity,job,attempt,path.parent().unwrap(),published["components"].as_array().unwrap(),&verified_files,&relations)? {
+                published["reporting"] = reporting;
             }
             prepared.push((
                 identity,
@@ -838,6 +851,7 @@ fn validate_output_semantics(manifest: &Value, profile: Option<&Value>) -> Resul
                                 "description",
                                 "inventory",
                                 "lineage",
+                                "reporting",
                             ]
                             .contains(&k.as_str())
                         })
@@ -859,6 +873,8 @@ fn validate_output_semantics(manifest: &Value, profile: Option<&Value>) -> Resul
                 .cloned()
                 .unwrap_or(json!({"type":"object"}));
             crate::contracts::validate(&schema, &metadata)?;
+            crate::metadata_templates::validate_output(profile, entity)?;
+            crate::reporting::validate_declaration(profile, entity)?;
             if let Some(organization) = metadata.pointer("/research/organization") {
                 require(
                     entity["kind"] == "dataset",
@@ -1074,4 +1090,42 @@ pub(crate) fn validate_historical_digest(
     hashes(&body, selected, false, &mut known);
     require(known.len()==1&&known.contains(sha),"historical_hash","Select an exact file with a matching original hash; explicit promotion/review required otherwise",409)?;
     Ok(())
+}
+
+pub(crate) fn input_relations(db: &Connection, params: &Value) -> Result<Vec<Value>> {
+    let mut relations=vec![];
+            for (input, value) in params.as_object().into_iter().flatten() {
+                if let (Some(upstream), Some(output)) =
+                    (value["job"].as_str(), value["entity"].as_str())
+                {
+                    let parent = rows(
+                        db,
+                        "SELECT request FROM job_workflows WHERE id=?",
+                        &[&upstream],
+                    )?
+                    .into_iter()
+                    .next();
+                    let (upstream, output) = if let Some(parent) = parent {
+                        let request: Value =
+                            serde_json::from_str(parent["request"].as_str().unwrap_or("{}"))?;
+                        let alias = &request["outputs"][output];
+                        let child: String = db.query_row(
+                            "SELECT job FROM workflow_nodes WHERE root=? AND node=?",
+                            params![upstream, alias["node"].as_str()],
+                            |r| r.get(0),
+                        )?;
+                        (child, alias["entity"].as_str().unwrap_or("").to_string())
+                    } else {
+                        (upstream.into(), output.into())
+                    };
+                    let upstream_row = jobs::load(db, &upstream)?;
+                    relations.push(json!({"kind":"consumes","input":input,"id":format!("{upstream}.{output}"),"revision":1,"attempt":upstream_row.aggregate.fence.attempt.as_ref().map(|s|s.as_str())}));
+                } else if value["artifact"].is_object() {
+                    relations.push(json!({"kind":"consumes","input":input,"id":value["artifact"]["id"],"revision":value["artifact"]["revision"],"member":value["member"]}));
+                } else if value["ref"].is_string() && value["sha256"].is_string() {
+                    for hit in rows(db,"SELECT DISTINCT e.id,e.revision,e.manifest FROM all_entity_revisions e JOIN all_entity_locations l ON e.id=l.id AND e.revision=l.revision WHERE l.storage_id=? AND l.ref=? AND l.status='available'",&[&value["storage_id"].as_str(),&value["ref"].as_str()])? {let manifest:Value=serde_json::from_str(hit["manifest"].as_str().unwrap_or("{}"))?;if manifest["components"].as_array().is_some_and(|a|a.iter().any(|c|c["sha256"]==value["sha256"])){relations.push(json!({"kind":"consumes","input":input,"id":hit["id"],"revision":hit["revision"]}));}}
+                }
+            }
+
+    Ok(relations)
 }

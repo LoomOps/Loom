@@ -33,7 +33,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "get",
-      "description": "Read an artifact record by ID and revision.",
+      "description": "Read an artifact record by exact ID and revision. Template-backed scientific records include current typed research_summary, robot and metadata_status. Additive operator normalization exposes metadata_provenance with the source digest, evidence and reason; original manifest fields and execution remain preserved.",
       "errors": [
         "Missing artifact revision or read scope."
       ],
@@ -46,7 +46,7 @@
         "entrypoint": "rust/crates/core/src/results.rs#result_action",
         "feature": "results"
       },
-      "returns": "Registry entity with current display label, immutable manifest fields and registered locations",
+      "returns": "Registry entity with current display label, immutable manifest fields, registered locations and optional template metadata/provenance",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -326,6 +326,408 @@
       },
       "scope": "submit",
       "title": "Assign result owner"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "metadata_templates",
+      "description": "List current immutable output metadata formats; include_revisions exposes previous revisions.",
+      "errors": [
+        "Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope."
+      ],
+      "example": {
+        "kind": "dataset"
+      },
+      "example_note": "Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/metadata_templates.rs#metadata_template_action",
+        "feature": "results"
+      },
+      "returns": "Templates · items, total, next_offset",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "include_revisions": {
+            "default": false,
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "dataset",
+              "model",
+              "experiment"
+            ]
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "List metadata templates"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "get_metadata_template",
+      "description": "Read an exact schema, bounded display fields and content digest. Omitting revision explicitly selects the current revision.",
+      "errors": [
+        "Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope."
+      ],
+      "example": {
+        "id": "loom.dataset",
+        "revision": 1
+      },
+      "example_note": "Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/metadata_templates.rs#metadata_template_action",
+        "feature": "results"
+      },
+      "returns": "Template · id, revision, sha256, output_kind, definition",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read a metadata template"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "register_metadata_template",
+      "description": "Register or revise a shared format derived from an exact base. Extensions cannot weaken standard fields or replace their display meaning.",
+      "errors": [
+        "Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope."
+      ],
+      "example": {
+        "definition": {
+          "base_ref": {
+            "id": "loom.dataset",
+            "revision": 1,
+            "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "fields": [
+            {
+              "format": "number",
+              "id": "friction",
+              "label": "Friction",
+              "pointer": "/extensions/friction",
+              "section": "extensions"
+            }
+          ],
+          "kind": "dataset",
+          "label": "Contact demonstrations",
+          "schema": {
+            "properties": {
+              "extensions": {
+                "additionalProperties": false,
+                "properties": {
+                  "friction": {
+                    "minimum": 0,
+                    "type": "number"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "id": "example.dataset",
+        "key": "template-example-r1",
+        "reason": "Add a source-measured friction field"
+      },
+      "example_note": "Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/metadata_templates.rs#metadata_template_action",
+        "feature": "results"
+      },
+      "returns": "Registered template · exact revision and hash",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "type": "object"
+          },
+          "expected_revision": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "id": {
+            "maxLength": 96,
+            "minLength": 1,
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "definition",
+          "reason",
+          "key"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Register a metadata template revision"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "validate_metadata",
+      "description": "Validate a draft against an exact template kind, schema and display field types. Structural validation is not scientific acceptance.",
+      "errors": [
+        "Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope."
+      ],
+      "example": {
+        "kind": "dataset",
+        "research": {
+          "collection": {
+            "status": "unrecorded"
+          },
+          "robot": {
+            "status": "unrecorded"
+          }
+        },
+        "template_ref": {
+          "id": "loom.dataset",
+          "revision": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      "example_note": "Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/metadata_templates.rs#metadata_template_action",
+        "feature": "results"
+      },
+      "returns": "Validation · valid, template_ref, summary, scientific_acceptance",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "dataset",
+              "model",
+              "experiment"
+            ]
+          },
+          "research": {
+            "type": "object"
+          },
+          "template_ref": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 96,
+                "minLength": 1,
+                "type": "string"
+              },
+              "revision": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "revision",
+              "sha256"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "template_ref",
+          "research"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Validate output metadata"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "adopt_metadata",
+      "description": "Preview and apply an additive operator-declared normalization for an exact existing source. Retain originals and reject changed source or prior annotation. Evidence and the comparable format reference remain provenance; no scientific verification is invented.",
+      "errors": [
+        "Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope."
+      ],
+      "example": {
+        "dry_run": true,
+        "reason": "Normalize only supported fields from the recorded source",
+        "research": {
+          "collection": {
+            "status": "unrecorded"
+          },
+          "robot": {
+            "status": "unrecorded"
+          }
+        },
+        "target": {
+          "identity": {
+            "id": "<entity-id>",
+            "revision": 1
+          },
+          "kind": "entity"
+        },
+        "template_ref": {
+          "id": "loom.dataset",
+          "revision": 1,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      "example_note": "Resolve the real template and use its returned sha256; the illustrative digest is a placeholder. Adoption applies only with the preview expected_digest, dry_run=false and a stable key.",
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/metadata_templates.rs#metadata_template_action",
+        "feature": "results"
+      },
+      "returns": "Adoption · target, source_sha256, expected_digest, template_ref, summary, stored, previous_annotation",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "dry_run": {
+            "default": true,
+            "type": "boolean"
+          },
+          "evidence": {
+            "items": {
+              "type": "object"
+            },
+            "maxItems": 16,
+            "type": "array"
+          },
+          "expected_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "format_reference": {
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object"
+              },
+              "kind": {
+                "enum": [
+                  "job",
+                  "entity",
+                  "historical",
+                  "component",
+                  "tool",
+                  "profile",
+                  "runtime",
+                  "protocol_artifact"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "identity"
+            ],
+            "type": "object"
+          },
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "research": {
+            "type": "object"
+          },
+          "target": {
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object"
+              },
+              "kind": {
+                "enum": [
+                  "entity",
+                  "historical"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "identity"
+            ],
+            "type": "object"
+          },
+          "template_ref": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 96,
+                "minLength": 1,
+                "type": "string"
+              },
+              "revision": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "sha256": {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "revision",
+              "sha256"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "target",
+          "template_ref",
+          "research",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Normalize existing output metadata"
     },
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
@@ -2015,6 +2417,440 @@
       },
       "scope": "read",
       "title": "Read Item relations"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "report_contracts",
+      "description": "Page registered immutable reporting templates; default requirements can be adapted with exact evidence before Job submission.",
+      "errors": [
+        "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+      ],
+      "example": {},
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action",
+        "feature": "results"
+      },
+      "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "include_revisions": {
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "dataset",
+              "model",
+              "experiment"
+            ]
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "List report contracts"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "report_definitions",
+      "description": "Page registered metric, factor and evaluation protocol definitions.",
+      "errors": [
+        "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+      ],
+      "example": {},
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action",
+        "feature": "results"
+      },
+      "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "include_revisions": {
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "metric",
+              "factor",
+              "protocol"
+            ]
+          },
+          "limit": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "List reporting definitions"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "get_report_contract",
+      "description": "Read exact coverage, schemas, display descriptors, semantic pins and evidence-backed adaptations.",
+      "errors": [
+        "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+      ],
+      "example": {
+        "id": "loom.report.dataset",
+        "revision": 1
+      },
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action",
+        "feature": "results"
+      },
+      "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read report contract"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "get_report_evidence",
+      "description": "Read a bounded JSON subtree and exact source-body SHA-256 from an immutable artifact, historical record or registered software revision. Use the returned object as adaptation evidence; no database access or digest reconstruction is required.",
+      "errors": [
+        "Missing or inexact source, absent pointer, denied read scope, or evidence subtree larger than 64 KiB."
+      ],
+      "example": {
+        "pointer": "/metadata/conditioning",
+        "target": {
+          "identity": {
+            "id": "job.policy",
+            "revision": 1
+          },
+          "kind": "entity"
+        }
+      },
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action",
+        "feature": "results"
+      },
+      "returns": "Exact target, source SHA-256, JSON pointer and value (maximum 64 KiB)",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "pointer": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "target": {
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "type": "object"
+              },
+              "kind": {
+                "enum": [
+                  "entity",
+                  "historical",
+                  "component",
+                  "tool",
+                  "profile"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "identity"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "target",
+          "pointer"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read adaptation source evidence"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "get_report_definition",
+      "description": "Read an exact metric, factor or protocol definition; semantic meaning and units remain pinned.",
+      "errors": [
+        "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+      ],
+      "example": {
+        "id": "loom.metric.success",
+        "revision": 1
+      },
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action",
+        "feature": "results"
+      },
+      "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read reporting definition"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "register_report_contract",
+      "description": "Register a new shared analysis contract or immutable revision. A base can be adapted with source-bound evidence; new required analysis needs definitions and reporter support.",
+      "errors": [
+        "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+      ],
+      "example": {
+        "definition": {},
+        "id": "contact.dataset",
+        "key": "contact-v1",
+        "reason": "Coverage for the planned study"
+      },
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action",
+        "feature": "results"
+      },
+      "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "type": "object"
+          },
+          "expected_revision": {
+            "maximum": 9223372036854775806,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "definition",
+          "reason",
+          "key"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Register report contract"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "register_report_definition",
+      "description": "Register a metric with units/population/reduction, an SDG factor or a task-specific protocol with an exact primary metric and success predicate.",
+      "errors": [
+        "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+      ],
+      "example": {
+        "definition": {},
+        "id": "task.success",
+        "key": "protocol-v1",
+        "reason": "Task success definition"
+      },
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action",
+        "feature": "results"
+      },
+      "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "type": "object"
+          },
+          "expected_revision": {
+            "maximum": 9223372036854775806,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "definition",
+          "reason",
+          "key"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Register reporting definition"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "validate_report_contract",
+      "description": "Preview normalized effective coverage without registration or execution. Validates schemas, semantic references and adaptation evidence.",
+      "errors": [
+        "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+      ],
+      "example": {
+        "definition": {}
+      },
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action",
+        "feature": "results"
+      },
+      "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "definition": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "definition"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Validate report contract"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "read_report",
+      "description": "Read a report bound to an exact output revision and requirement. JSON pointers select a field; arrays are paged. Bytes are SHA-256 verified and responses are bounded to 256 KiB.",
+      "errors": [
+        "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
+      ],
+      "example": {
+        "id": "<job>.data",
+        "limit": 100,
+        "pointer": "/members",
+        "requirement_id": "membership",
+        "revision": 1
+      },
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action",
+        "feature": "results"
+      },
+      "returns": "Exact reporting resource, validated coverage or bounded verified report page",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "limit": {
+            "maximum": 500,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "offset": {
+            "maximum": 10000000,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "pointer": {
+            "maxLength": 256,
+            "type": "string"
+          },
+          "requirement_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "revision",
+          "requirement_id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read verified report fields"
     }
   ],
   "description": "Results and versioned Scenario context",

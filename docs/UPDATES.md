@@ -204,3 +204,19 @@ assign replacement IDs. Missing core Item identity metadata blocks startup rathe
 than reconstructing new IDs from a surviving search cache. See
 [Item index operations](ITEM-INDEX.md) and the
 [implementation boundary](item-index/IMPLEMENTATION.md) before preparing a release.
+
+## Reporting contract cutover
+
+Alpha.32 adds report contracts without rewriting installed Profiles, accepted Jobs
+or original outputs. Inventory `components.profiles` before enabling new research
+submissions: `reporting_policy: loom-reporting/v1` and exact `reporting_pins`
+identify ready revisions. Legacy scientific Profiles require an explicitly authored
+new revision for new Jobs; their already accepted execution remains compatible.
+Read `system.guide` with `id: reporting`, select coverage, declare reporter roles
+and expected schedules, then register the new Profile. Do not edit user Profile
+files silently or rerun old computation to manufacture missing reports.
+
+New Jobs also freeze reporting policy when output kinds were formerly dynamic;
+declaring a scientific output only at publication cannot bypass the new boundary.
+Read-only historical results may retain Missing. Contract registration and Metadata
+adoption are separate from scientific verification and do not fabricate measurements.
