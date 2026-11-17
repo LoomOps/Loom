@@ -202,3 +202,9 @@ Research and Operations. Scientific Outputs filters do not hide Runtime
 preparation or diagnostics from them. Explicit history scope filters remain.
 Scope-qualified Activity survives bootstraps until a replacement arrives;
 responses from older revisions cannot overwrite the current observation.
+
+An asynchronous bootstrap refresh must renew Activity for its new revision even
+when no full render occurs. Keep one in-flight request per revision/view, ignore
+older responses and retain the last verified rollup until replacement. Browser
+regression holds an old reply across a bootstrap and requires the newer request
+without a filter click or navigation.

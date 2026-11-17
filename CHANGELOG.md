@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0-alpha.42
+
+- Renew Home Activity when a bootstrap revision changes without a full render. Keep one request per revision/view, ignore late replies, and preserve the last verified rollup until replacement.
+- Add a deterministic browser regression that holds an old empty Activity reply across a bootstrap and requires the newer populated response without clicking a filter.
+- Includes the workflow discovery correction and prior preparation/Runtime, Dataset split and System smoke fixes below.
+
 ## 0.2.0-alpha.41
 
 - Keep logical workflow roots in paged Item discovery after Job presentation curation. Refresh from the workflow authority instead of treating an absent physical Job as a deleted workflow; preserve exact native aliases during a source-backed repair.

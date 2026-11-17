@@ -7,7 +7,7 @@ import socket
 import subprocess
 import sys
 import tempfile
-from threading import Thread
+from threading import Event, Thread
 import time
 import unittest
 from unittest.mock import patch
@@ -40,7 +40,21 @@ class WorkspaceBrowserTests(unittest.TestCase):
         now=time.time();day=time.strftime('%Y-%m-%d',time.gmtime(now+9*3600))
         activity={'days':[{'day':day,'jobs':[{'id':main['id'],'time':now-10}],'job_count':1,'asset_count':0,'milliseconds':40000,'live':False,'unknown_time_count':0}]}
         self.api.fixture['search_actions']={'dashboard_page':{'entities':[main,child,runtime],'revision':catalog['revision'],'next_cursor':None},'dashboard_activity':activity}
+        first=Event();second=Event();release=Event();original=self.api.RequestHandlerClass.send_json
+        def delayed(handler,value,status=200):
+            if value is activity:
+                if not first.is_set():
+                    first.set();release.wait(timeout=5);value={'days':[]}
+                else:second.set()
+            return original(handler,value,status)
+        patcher=patch.object(self.api.RequestHandlerClass,'send_json',delayed);patcher.start();self.addCleanup(patcher.stop);self.addCleanup(release.set)
         self.ui.top();self.wd('/refresh',{});self.ui.connect()
+        self.assertTrue(first.wait(timeout=5))
+        # A new bootstrap arrives while the initial Activity reply is outstanding.
+        catalog['revision']='preparation-family-v2'
+        self.api.fixture['search_actions']['dashboard_page']['revision']=catalog['revision']
+        self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        self.assertTrue(second.wait(timeout=5));release.set()
         self.ui.wait("return document.querySelector('.pa-activity-heading small')?.textContent.includes('1 JOB')")
         self.assertTrue(any(a.get('action')=='dashboard_activity' and a['arguments']['view']=='all' for a in self.api.actions))
         self.assertTrue(any(a.get('action')=='dashboard_page' and a['arguments'].get('kinds')==['job'] and a['arguments']['view']=='all' for a in self.api.actions))

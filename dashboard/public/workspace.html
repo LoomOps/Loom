@@ -5231,6 +5231,20 @@ function loomCatalogProjection(catalog) {
 
 // Bounded per-view transport. Payload trees, software combinations and logs stay lazy.
 const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityView=null;const loomCatalogOpening=new Set();
+// Bootstrap refreshes do not invoke render(); renew Activity for their revision.
+function loomCatalogActivity(){
+ const view=&#x27;all&#x27;,revision=catalogData.revision,key=JSON.stringify([revision,view]);
+ if(!catalogData.capabilities?.catalog_pages||loomActivityView===key)return;
+ loomActivityView=key;
+ queueMicrotask(async()=&gt;{
+  try{
+   const activity=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_activity&#x27;,{view});
+   if(loomActivityView!==key)return;
+   if(catalogData.revision!==revision){loomActivityView=null;loomCatalogActivity();return;}
+   catalogData.activity={...activity,view};catalogRefreshViews();
+  }catch{if(loomActivityView===key)loomActivityView=null;}
+ });
+}
 const loomCatalogKinds={models:&#x27;model&#x27;,datasets:&#x27;dataset&#x27;,experiments:&#x27;experiment&#x27;,issues:&#x27;issue&#x27;,profiles:&#x27;profile&#x27;,components:&#x27;component&#x27;,tools:&#x27;tool&#x27;,runtimes:&#x27;runtime&#x27;,dependencies:&#x27;dependency&#x27;,scenarios:&#x27;scenario&#x27;,queue:&#x27;job&#x27;,files:&#x27;explorer&#x27;};
 function loomCatalogQuery(kind){if(kind===&#x27;explorer&#x27;)return {kinds:[&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};const view=kind===&#x27;job&#x27;?(state.jobHistoryView||&#x27;all&#x27;):catalogData.presentation_view||&#x27;research&#x27;;return {...([&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;].includes(kind)?{...loomRegistryArgs(state.registryFilter||&#x27;current&#x27;),...(state.registryFilter===&#x27;archived&#x27;?{history:&#x27;all&#x27;}:{})}:{}),kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:kind===&#x27;job&#x27;?&#x27;all&#x27;:[&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)?((state.outputPurpose||(view===&#x27;research&#x27;?&#x27;research&#x27;:&#x27;all&#x27;))===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;):kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...([&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)&amp;&amp;state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
@@ -5261,6 +5275,7 @@ function loomCatalogRefresh(value){
  const records=new Map(old.map(e=&gt;[e.id,e]));
  for(const e of value.all_entities||value.entities){const old=records.get(e.id);records.set(e.id,old?.kind===&#x27;scenario&#x27;&amp;&amp;old.loom_scenario.revision&gt;e.loom_scenario?.revision?old:loomCatalogRetainResearch(old,e,!changed));}
  loomPresentationView=value.presentation_view||catalogData.presentation_view||&#x27;research&#x27;;
+ queueMicrotask(loomCatalogActivity);
  const activity=catalogData.activity?.view===&#x27;all&#x27;?catalogData.activity:value.activity;
  return catTitleSnapshot(loomCatalogProjection({...value,activity,entities:[...records.values()]}));
 }
@@ -5351,11 +5366,7 @@ render=function(){
  if(catalogData.capabilities?.catalog_pages&amp;&amp;state.entity&amp;&amp;!catEntity(state.entity)&amp;&amp;!loomCatalogOpening.has(state.entity)){
   const id=state.entity;loomCatalogOpening.add(id);queueMicrotask(()=&gt;loomCatalogOpen(id).catch(()=&gt;{}).finally(()=&gt;loomCatalogOpening.delete(id)));
  }
- const view=&#x27;all&#x27;;
- if(catalogData.capabilities?.catalog_pages&amp;&amp;loomActivityView!==view){
-  const revision=catalogData.revision;loomActivityView=view;
-  queueMicrotask(async()=&gt;{try{const activity=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_activity&#x27;,{view});if(loomActivityView===view&amp;&amp;catalogData.revision===revision){catalogData.activity={...activity,view};catalogRefreshViews();}}catch{if(loomActivityView===view&amp;&amp;catalogData.revision===revision)loomActivityView=null;}});
- }
+ loomCatalogActivity();
 };
 document.addEventListener(&#x27;click&#x27;,event=&gt;{const b=event.target.closest(&#x27;[data-catalog-more]&#x27;);if(!b)return;event.preventDefault();const pane=b.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;state=activeTab().view;const kind=b.dataset.catalogMore,page=loomCatalogPages.get(loomCatalogPageKey(kind));if(page?.error){page.loaded=false;page.error=null;}loomCatalogLoad(kind,!!page?.cursor);});
 const loomPagedActivitySummary=activitySummary;
