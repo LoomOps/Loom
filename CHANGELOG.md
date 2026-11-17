@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0-alpha.41
+
+- Keep logical workflow roots in paged Item discovery after Job presentation curation. Refresh from the workflow authority instead of treating an absent physical Job as a deleted workflow; preserve exact native aliases during a source-backed repair.
+- Verify workflow curation through real HTTP pagination and recovery of an earlier derived tombstone, alongside original execution preservation.
+- Let the large catalog-read concurrency fixture use its intended 20-second read budget while retaining the separate 2-second mutation-lane assertion.
+
 ## 0.2.0-alpha.40
 
 - Give the 100,000-entry inventory correctness fixture a dedicated 120-second process watchdog on shared CI runners while retaining its full input and growth/chunking assertions. Other native cases retain their 60-second watchdog. Record elapsed time and the chosen budget for each native case.

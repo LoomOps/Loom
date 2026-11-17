@@ -31,8 +31,8 @@ class RustServiceTests(unittest.TestCase):
    self.process.terminate()
    try:self.process.wait(timeout=8)
    except subprocess.TimeoutExpired:self.process.kill();self.process.wait(timeout=5)
- def get(self,path):
-  with urlopen(Request(self.url+path,headers={'Authorization':'Bearer '+self.token}),timeout=5) as r:return json.load(r)
+ def get(self,path,timeout=5):
+  with urlopen(Request(self.url+path,headers={'Authorization':'Bearer '+self.token}),timeout=timeout) as r:return json.load(r)
  def post(self,path,body,token=None):
   with urlopen(Request(self.url+path,data=json.dumps(body).encode(),headers={'Content-Type':'application/json','Authorization':'Bearer '+(token or self.token)}),timeout=5) as r:return json.load(r)
  def call(self,group,action,args=None):return self.post('/api/actions',{'group':group,'action':action,'arguments':args or {}})
@@ -113,6 +113,21 @@ class RustServiceTests(unittest.TestCase):
   done=self.wait(workflow['id']);self.assertTrue(done['workflow']);self.assertEqual(len(done['executions']),2)
   events=self.call('events','list',{'kind':'all'});self.assertEqual([(e['job'],e['code']) for e in events if e['code']=='complete'],[(workflow['id'],'complete')])
   streams=self.call('jobs','log_streams',{'id':workflow['id']});self.assertGreaterEqual(len(streams['items']),2);self.assertTrue(all(s['job']!=workflow['id'] for s in streams['items']))
+  reference={'native_ref':{'kind':'job','identity':{'id':workflow['id']}}}
+  for _ in range(100):
+   try:original=self.call('results','resolve_item',reference);break
+   except HTTPError as error:
+    if error.code!=404:raise
+    time.sleep(.05)
+  else:self.fail('Workflow root not adopted')
+  self.call('jobs','curate',{'key':'workflow-presentation','reason':'User preparation','dry_run':False,'changes':[{'kind':'job','id':workflow['id'],'presentation':{'scope':'operations','role':'main'}}]})
+  for _ in range(100):
+   page=self.call('system','dashboard_page',{'kinds':['job'],'view':'operations','role':'all','limit':100})
+   if any(e['id']==workflow['id'] for e in page['entities']):break
+   time.sleep(.05)
+  else:self.fail('Curated workflow disappeared from paged discovery')
+  self.assertEqual(original,self.call('results','resolve_item',reference))
+  self.assertEqual(self.call('jobs','get',{'id':workflow['id']})['state'],'complete')
  def test_bad_credential_and_origin_cannot_submit(self):
   with self.assertRaises(HTTPError) as denied:self.post('/api/actions',{'group':'jobs','action':'queue','arguments':{}},token='wrong')
   self.assertEqual(denied.exception.code,401)
@@ -192,7 +207,7 @@ r=t.rpc({'jsonrpc':'2.0','id':4,'method':'tools/call','params':{'name':'system',
   id=self.submit('concurrent-cancel',seconds=10);self.wait(id,'running');spec={'kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False},'category':'other','execution_mode':'smoke','depends_on':[],'output_storage':'data/0','presentation':{'scope':'operations','role':'test'}}
   with sqlite3.connect(self.root/'state/ops.sqlite3',timeout=10) as db:db.executemany("INSERT INTO jobs(id,submitter,idem,spec,owner,notify,state,created,cancel) VALUES(?,'owner',?,?,'owner','owner','cancelled',1,1)",[(f'synthetic-{i}',f'synthetic-{i}',json.dumps(spec)) for i in range(5000)])
   with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-   pending=pool.submit(self.get,'/api/dashboard/catalog');time.sleep(.1);started=time.monotonic();self.call('jobs','cancel',{'id':id});elapsed=time.monotonic()-started;self.assertLess(elapsed,2.0);catalog=pending.result(timeout=20);self.assertGreaterEqual(len(catalog['entities']),5001)
+   pending=pool.submit(self.get,'/api/dashboard/catalog',timeout=20);time.sleep(.1);started=time.monotonic();self.call('jobs','cancel',{'id':id});elapsed=time.monotonic()-started;self.assertLess(elapsed,2.0);catalog=pending.result(timeout=20);self.assertGreaterEqual(len(catalog['entities']),5001)
   self.wait(id,'cancelled')
 
  def test_dashboard_navigation_burst_keeps_catalog_and_inspector_available(self):

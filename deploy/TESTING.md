@@ -86,3 +86,8 @@ Native test process watchdogs are not throughput assertions. Ordinary cases have
 seconds for shared CI runners. Its input size, chunking and bounded Core-growth
 assertions are unchanged. Native reports record elapsed seconds and the selected
 watchdog so a timeout remains distinguishable from a domain assertion failure.
+
+The large full-catalog concurrency fixture permits a 20-second read response,
+matching its existing future deadline, while retaining the independent 2-second
+cancellation assertion. This tests mutation-lane isolation, not a 5-second
+throughput guarantee for the compatibility full-catalog endpoint.

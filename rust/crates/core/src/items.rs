@@ -418,6 +418,15 @@ pub fn adopt(db: &Connection, topic: &str, key: &Value) -> Result<()> {
             return Ok(());
         }
         let table = match kind {
+            "job"
+                if db.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM job_workflows WHERE id=?)",
+                    [key["id"].as_str()],
+                    |r| r.get::<_, bool>(0),
+                )? =>
+            {
+                "job_workflows"
+            }
             "job" => "jobs",
             "component" => "components",
             "tool" => "tools",

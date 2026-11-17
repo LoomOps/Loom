@@ -1167,11 +1167,48 @@ fn preparation_family_preserves_workflow_states_pins_and_execution_membership() 
     let main=f.call("jobs","submit_workflow",json!({"key":"preparation-root","label":"Requested preparation","owner":"owner","notify":"owner","nodes":[{"id":"pilot","label":"Pilot","spec":spec}],"outputs":{},"presentation":{"scope":"operations","role":"test"}})).unwrap()["id"].clone();
     let repair=f.call("jobs","submit_workflow",json!({"key":"preparation-repair","label":"Render repair","owner":"owner","notify":"owner","nodes":[{"id":"render","label":"Render","spec":spec}],"outputs":{}})).unwrap()["id"].clone();
     let original = f.call("jobs", "get", json!({"id":repair})).unwrap();
+    for _ in 0..8 {
+        f.app.index_once().unwrap();
+    }
+    let native = json!({"kind":"job","identity":{"id":main}});
+    let main_item = f
+        .call("results", "resolve_item", json!({"native_ref":native}))
+        .unwrap();
+    // Reproduce the old routing bug: treating a workflow as an absent physical Job.
+    crate::items::adopt(&f.app.db, "jobs", &json!({"id":main})).unwrap();
+    assert!(f
+        .call("results", "resolve_item", json!({"native_ref":native}))
+        .is_err());
     let node = original["executions"][0]["job"].clone();
     let changes = json!([{"kind":"job","id":main,"presentation":{"scope":"operations","role":"main"}},{"kind":"job","id":repair,"presentation":{"scope":"operations","role":"support","parent_job":main}}]);
     let args = json!({"key":"link-preparation","reason":"Same requested pipeline","dry_run":false,"changes":changes});
     let receipt = f.call("jobs", "curate", args.clone()).unwrap();
     assert_eq!(receipt, f.call("jobs", "curate", args).unwrap());
+    for _ in 0..8 {
+        f.app.index_once().unwrap();
+    }
+    assert_eq!(
+        main_item,
+        f.call("results", "resolve_item", json!({"native_ref":native}))
+            .unwrap()
+    );
+    let page = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"kinds":["job"],"view":"all","role":"all","limit":100}),
+        )
+        .unwrap();
+    assert!(page["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["id"] == main));
+    assert!(page["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|e| e["id"] == repair));
     let detail = f.call("jobs", "get", json!({"id":repair})).unwrap();
     assert_eq!(detail["state"], original["state"]);
     assert_eq!(detail["spec"], original["spec"]);

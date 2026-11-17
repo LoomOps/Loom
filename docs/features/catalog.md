@@ -127,3 +127,10 @@ Projection-version triggers invalidate catalog caches after annotation changes.
 Maintenance keys identify both action and arguments; a key cannot replay a different maintenance kind. Component/Tool build File descriptors use the accepted binary locator size and SHA-256. Existing sealed inventories remain immutable; these rules do not silently rewrite prior File identities.
 
 Image-origin Dependency identities include the immutable Runtime image. Repeated observations of distinct base images must not alternate one current package or append redundant catalog changes; prior exact aliases remain preserved.
+
+Workflow presentation refresh resolves `job_workflows`, not the physical `jobs`
+table. Missing physical execution is not evidence that a logical workflow was
+deleted. Paged discovery and exact native aliases must survive curation. An
+operator can replay the existing presentation through `jobs.curate` with a new
+key to repair an earlier derived tombstone without replacing its Item identity,
+workflow, Attempts or accepted execution graph.
