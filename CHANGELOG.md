@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0-alpha.36
+
+- Reuse prepared responsibility queries for large Dashboard catalogs and remove a redundant Job ownership lookup.
+
 ## 0.2.0-alpha.35
 
 - Reserve System responsibility for Loom platform/install smoke checks. Preserve original namespaces and execution identity; restrict System attribution changes to administrators.

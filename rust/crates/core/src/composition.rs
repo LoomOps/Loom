@@ -693,11 +693,6 @@ impl Application {
             )
             .optional()?
             .unwrap_or(fallback.into());
-        let owner = if kind == "job" && self.system_job(id)? {
-            "system".to_string()
-        } else {
-            owner
-        };
         let person = if owner == "system" {
             crate::system_ownership::person()
         } else {

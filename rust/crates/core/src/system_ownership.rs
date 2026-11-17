@@ -46,7 +46,10 @@ impl Application {
             "SELECT COALESCE(({}),0) FROM (SELECT ? AS native)",
             native_sql("native", "")
         );
-        Ok(self.db.query_row(&sql, [encode(native)?], |r| r.get(0))?)
+        Ok(self
+            .db
+            .prepare_cached(&sql)?
+            .query_row([encode(native)?], |r| r.get(0))?)
     }
     pub fn system_job(&self, id: &str) -> Result<bool> {
         self.system_native(&json!({"kind":"job","identity":{"id":id}}))
