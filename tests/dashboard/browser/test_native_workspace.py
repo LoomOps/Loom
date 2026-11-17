@@ -110,8 +110,8 @@ class NativeWorkspaceTests(unittest.TestCase):
     ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"));output=os.environ.get('LOOM_TEST_SCREENSHOTS')
     if output:
      path=Path(output);path.mkdir(parents=True,exist_ok=True);ui.top();(path/f'native-scenario-{width}-{theme}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));ui.frame()
- def test_native_builtin_profile_and_all_queue_occupants_are_visible(self):
-  self.ui.nav('Profiles');self.ui.wait("return document.querySelector('#pa-content').innerText.includes('cpu.smoke')")
+ def test_system_builtin_profile_is_mcp_only_and_user_jobs_keep_queue_visibility(self):
+  self.ui.nav('Profiles');self.ui.wait("return document.querySelector('#pa-content').innerText.includes('browser.profile.r1')");self.assertNotIn('cpu.smoke',self.ui.js("return document.querySelector('#pa-content').innerText"));self.assertEqual(next(p for p in self.call('components','profiles',{}) if p['kind']=='cpu.smoke')['owner_kind'],'system')
   job=self.call('jobs','submit',{'key':'browser-cpu','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':1,'fail':False}})
   self.assertIsInstance(job['id'],str);queue=self.call('jobs','queue',{});self.assertIn(job['id'],[j['id'] for j in queue['entries']])
 
@@ -175,7 +175,7 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.assertFalse(self.ui.js("return !!document.querySelector('#pa-nav [data-go=scenarios]')"))
   with urlopen(self.native+'/api/dashboard/bootstrap',timeout=5) as response:bootstrap=json.load(response)
   self.assertTrue(bootstrap['capabilities']['catalog_pages']);self.assertIsInstance(bootstrap['activity']['days'],list)
-  self.ui.nav('Profiles');self.ui.wait("return document.querySelector('#pa-content').textContent.includes('cpu.smoke')")
+  self.ui.nav('Profiles');self.ui.wait("return document.querySelector('#pa-content').textContent.includes('browser.profile.r1')")
 
  def test_native_machine_and_inspector_use_the_collected_host_sample(self):
   sample={'observed_at':time.time(),'host':{'hostname':'observed-machine','ip':'192.0.2.4','ip_kind':'LAN','os':'Fixture Linux','kernel':'fixture-kernel'},'engine':{'version':'29.9.3'},'containers':[]}

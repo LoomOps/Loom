@@ -212,6 +212,9 @@ fn prepare(
     request: &Value,
 ) -> Result<Value> {
     let v: Submit = contracts::decode(request.clone())?;
+    if v.owner == "system" {
+        crate::system_ownership::require_admin(config, actor)?;
+    }
     require(
         v.params.is_object(),
         "params",

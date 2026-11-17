@@ -2644,7 +2644,7 @@ The exact native reference has not been adopted, or its source was deleted.
 
 ## search_items
 
-Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates.
+Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates. include_system defaults to true for API/MCP discovery; false excludes current System responsibility before pagination, including files inherited from a System parent.
 
 Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/index_store.rs#search_items](../../rust/crates/core/src/index_store.rs).
 
@@ -2658,6 +2658,7 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 | `cursor` | no | `"string"` | `—` |
 | `dependency_ref` | no | `"object"` | `—` |
 | `history` | no | `["current", "all"]` | `—` |
+| `include_system` | no | `"boolean"` | `true` |
 | `kinds` | no | `"array"` | `—` |
 | `limit` | no | `"integer"` | `—` |
 | `native_kind` | no | `"string"` | `—` |
@@ -2706,6 +2707,10 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
         "current",
         "all"
       ]
+    },
+    "include_system": {
+      "default": true,
+      "type": "boolean"
     },
     "kinds": {
       "items": {
@@ -2840,6 +2845,7 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 | `cursor` | no | `"string"` | `—` |
 | `dependency_ref` | no | `"object"` | `—` |
 | `history` | no | `["current", "all"]` | `—` |
+| `include_system` | no | `"boolean"` | `true` |
 | `item_id` | yes | `"string"` | `—` |
 | `kinds` | no | `"array"` | `—` |
 | `limit` | no | `"integer"` | `—` |
@@ -2890,6 +2896,10 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
         "current",
         "all"
       ]
+    },
+    "include_system": {
+      "default": true,
+      "type": "boolean"
     },
     "item_id": {
       "pattern": "^[1-9][0-9]{0,38}$",

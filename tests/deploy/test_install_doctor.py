@@ -144,7 +144,7 @@ class InstallationDoctorTests(unittest.TestCase):
   self.write('config/install-smoke.json',{})
   def invoke(*args):
    if args[2:4]==('components','register'):
-    request=args[4];self.assertEqual(request['manifest']['implementation']['language'],'rust');self.assertEqual(set(request['files']),{'producer.json'});self.assertEqual(request['manifest']['profiles']['check']['runtime']['image'],image);return {'profiles':['native.r1']}
+    request=args[4];self.assertEqual(request['manifest']['implementation']['language'],'rust');self.assertEqual(set(request['files']),{'producer.json'});self.assertEqual(request['manifest']['profiles']['check']['runtime']['image'],image);return {'owner':'owner','id':'installation-smoke-native','profiles':['native.r1']}
    if args[2:4]==('jobs','submit'):
     self.assertEqual(args[4]['presentation']['scope'],'operations');self.assertEqual(args[4]['execution_mode'],'smoke');return {'id':'native-smoke'}
    return {'state':'complete'}

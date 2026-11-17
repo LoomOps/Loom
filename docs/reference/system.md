@@ -623,6 +623,7 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 | `cursor` | no | `"string"` | `—` |
 | `dependency_ref` | no | `"object"` | `—` |
 | `history` | no | `["current", "all"]` | `—` |
+| `include_system` | no | `"boolean"` | `true` |
 | `kinds` | no | `"array"` | `—` |
 | `limit` | no | `"integer"` | `—` |
 | `native_kind` | no | `"string"` | `—` |
@@ -671,6 +672,10 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
         "current",
         "all"
       ]
+    },
+    "include_system": {
+      "default": true,
+      "type": "boolean"
     },
     "kinds": {
       "items": {

@@ -3,7 +3,7 @@ members = ["rust/crates/domain", "rust/crates/core", "rust/crates/sdk", "rust/cr
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0-alpha.34"
+version = "0.2.0-alpha.35"
 edition = "2021"
 rust-version = "1.100"
 publish = false

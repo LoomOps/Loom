@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0-alpha.35
+
+- Reserve System responsibility for Loom platform/install smoke checks. Preserve original namespaces and execution identity; restrict System attribution changes to administrators.
+- Hide System records from Dashboard catalog, queue, search, counts and Activity while preserving normal MCP/API discovery. Keep user Runtime development and diagnostic work separate.
+
 ## 0.2.0-alpha.34
 
 - Keep report detail tabs compact and horizontal; wrap only as needed on narrow panes.

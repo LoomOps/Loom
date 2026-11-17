@@ -279,6 +279,7 @@
       if(!response.ok){const error=new Error('HTTP '+response.status);error.status=response.status;throw error;}
       const data=await response.json();
       await refreshCatalog();
+      if(data&&typeof data==='object')for(const key of ['entries','logical_entries'])if(Array.isArray(data[key]))data[key]=data[key].filter(e=>e.owner!=='system'&&e.owner_profile?.id!=='system');
       if(!signal.aborted)emit('loom-queue-result',{data});
     } catch(error) {
       if(signal.aborted)return;

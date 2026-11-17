@@ -1731,7 +1731,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "assign_owner",
-      "description": "Set the responsible user or built-in attribution for Loom-supplied software. Sharing, namespace, source revisions and Job pins remain unchanged.",
+      "description": "Set the responsible user or built-in attribution for Loom-supplied software. Sharing, namespace, source revisions and Job pins remain unchanged. Reserved system attribution requires installation administrator access for both assignment and restoration. Runtime uses namespace host; software namespaces/pins and execution permissions remain preserved. System resources remain discoverable through MCP and are hidden from Dashboard discovery.",
       "errors": [
         "Unregistered user, missing extension, read-only scope or maintenance fence."
       ],
@@ -1758,7 +1758,8 @@
             "enum": [
               "component",
               "tool",
-              "profile"
+              "profile",
+              "runtime"
             ]
           },
           "namespace": {
@@ -1766,7 +1767,7 @@
             "type": "string"
           },
           "owner": {
-            "description": "Registered responsible user ID or built-in for Loom-supplied software. Does not restrict sharing.",
+            "description": "Registered responsible user ID, built-in or reserved system. System transitions require installation administrator access; original namespace and execution permissions are preserved. Runtime uses namespace host.",
             "type": "string"
           }
         },

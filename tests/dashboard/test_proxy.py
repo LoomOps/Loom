@@ -130,6 +130,11 @@ class ProxyTest(unittest.TestCase):
         self.assertEqual(self.request('/api/mcp/docs?action=submit',headers={'Authorization':'Bearer fixture'})[0],404)
         self.assertEqual(self.request('/api/mcp/docs',headers={'Authorization':'Bearer fixture'},method='POST')[0],405)
 
+    def test_dashboard_search_excludes_system_even_when_client_requests_it(self):
+        payload={'group':'results','action':'search_items','arguments':{'include_system':True,'view':'all'}}
+        self.assertEqual(self.request('/api/search/actions',headers={'Authorization':'Bearer fixture'},method='POST',body=payload)[0],200)
+        self.assertFalse(self.api.history_calls[-1][2]['arguments']['include_system'])
+
     def test_metadata_search_relay_allows_reads_and_rejects_registration_and_adoption(self):
         headers={'Authorization':'Bearer fixture'}
         for action in ('metadata_templates','get_metadata_template','validate_metadata'):

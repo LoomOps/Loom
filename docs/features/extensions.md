@@ -57,3 +57,30 @@ Related blocks: [identity](identity.md).
 
 Acceptance outside these fixtures:
 - The execution-environment owner verifies actual external image dependencies, caches and GPU compatibility.
+
+## System responsibility
+
+`system` is reserved attribution for Loom installation, platform checks and
+operational smoke fixtures. It is not a login principal or a sharing restriction.
+Administrator-authorized ownership changes use the existing ownership journal;
+original software namespaces, revision hashes, accepted Job owners and execution
+permissions remain intact. Switching into or out of System requires installation administrator access.
+Runtime attribution uses `components.assign_owner(kind="runtime", namespace="host")`.
+An explicitly System-owned Component's Profiles inherit its responsibility.
+Standalone Profiles retain separate attribution even when their namespace/ID
+matches a Component. Built-in `cpu.smoke` is a
+System Profile; choosing it never changes a user Job's responsibility automatically.
+Installation smoke explicitly assigns its own records to System. Other
+Built-in templates and software remain distinct from System responsibility.
+
+User-requested Runtime installation, Isaac rendering repairs, research development
+and validation are user work. Zero usage, a failure, a smoke label, or an operational
+output role alone must never classify these resources as System. Preserve unused
+revision history; do not rewrite it to inflate reuse or hide unfinished research.
+
+Dashboard catalog, paging, counts, Activity, queue and browser search exclude System
+records in every view. MCP/API software discovery, exact reads and `jobs.queue` keep
+them available. `results.search_items(include_system=false)` applies the current
+responsibility before pagination, including files inherited from a hidden parent.
+Ownership changes invalidate visibility-bound cursors without changing artifact
+identity. Visibility does not remove resource reservations, execution gates or data.

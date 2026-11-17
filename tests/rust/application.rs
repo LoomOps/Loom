@@ -4256,3 +4256,6 @@ fn nested_consolidation_has_one_logical_activity_and_profile_use() {
 mod metadata_template_tests;
 #[path = "reporting.rs"]
 mod reporting_tests;
+
+#[path = "system_ownership.rs"]
+mod system_ownership_tests;

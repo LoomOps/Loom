@@ -2008,7 +2008,7 @@ Dependency unavailable or outside instance grant.
 
 ## assign_owner
 
-Set the responsible user or built-in attribution for Loom-supplied software. Sharing, namespace, source revisions and Job pins remain unchanged.
+Set the responsible user or built-in attribution for Loom-supplied software. Sharing, namespace, source revisions and Job pins remain unchanged. Reserved system attribution requires installation administrator access for both assignment and restoration. Runtime uses namespace host; software namespaces/pins and execution permissions remain preserved. System resources remain discoverable through MCP and are hidden from Dashboard discovery.
 
 Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation: [rust/crates/core/src/composition.rs#curate_software](../../rust/crates/core/src/composition.rs).
 
@@ -2017,7 +2017,7 @@ Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation:
 | Field | Required | Type / values | Default |
 |---|---|---|---|
 | `id` | yes | `"string"` | `—` |
-| `kind` | yes | `["component", "tool", "profile"]` | `—` |
+| `kind` | yes | `["component", "tool", "profile", "runtime"]` | `—` |
 | `namespace` | yes | `"string"` | `—` |
 | `owner` | yes | `"string"` | `—` |
 
@@ -2035,7 +2035,8 @@ Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation:
       "enum": [
         "component",
         "tool",
-        "profile"
+        "profile",
+        "runtime"
       ]
     },
     "namespace": {
@@ -2043,7 +2044,7 @@ Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation:
       "type": "string"
     },
     "owner": {
-      "description": "Registered responsible user ID or built-in for Loom-supplied software. Does not restrict sharing.",
+      "description": "Registered responsible user ID, built-in or reserved system. System transitions require installation administrator access; original namespace and execution permissions are preserved. Runtime uses namespace host.",
       "type": "string"
     }
   },

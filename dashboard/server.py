@@ -386,6 +386,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 allowed={'results':{'search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file','metadata_templates','get_metadata_template','validate_metadata','report_contracts','get_report_contract','report_definitions','get_report_definition','get_report_evidence','validate_report_contract','read_report'},'jobs':{'log_streams','read_log','search_logs'},'system':{'search_status','dashboard_summary','dashboard_page','dashboard_activity','dashboard_entity'}}
                 if not isinstance(payload,dict) or set(payload)!={'group','action','arguments'} or payload['action'] not in allowed.get(payload['group'],set()) or not isinstance(payload['arguments'],dict):raise ValueError()
             except (ValueError,TypeError):return self.error(400,'invalid_search_action')
+            if payload['group']=='results' and payload['action']=='search_items':payload['arguments']['include_system']=False
             return self.relay('POST','/api/actions',json.dumps(payload).encode())
         if self.path == '/api/scenarios/actions':
             try:

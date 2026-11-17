@@ -433,7 +433,8 @@
         "rust/crates/core/src/runtime.rs",
         "rust/crates/core/src/software.rs",
         "rust/crates/host/src/runtime.rs",
-        "rust/crates/host/src/runtime_files.rs"
+        "rust/crates/host/src/runtime_files.rs",
+        "rust/crates/core/src/system_ownership.rs"
       ],
       "tests": [
         "tests/ops/test_components_platform.py",
@@ -443,7 +444,8 @@
         "tests/ops/test_research_tools.py",
         "tests/ops/test_runtime_catalog.py",
         "tests/ops/test_runtime_hub.py",
-        "tests/rust/application.rs"
+        "tests/rust/application.rs",
+        "tests/rust/system_ownership.rs"
       ],
       "depends_on": [
         "identity"

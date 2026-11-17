@@ -65,11 +65,18 @@ def run(setup, plan, timeout=45):
             definition['implementation']={'language':'rust','entrypoint':'/usr/local/bin/loom-sdk','image':image}
         registered=call(setup,plan,'components','register',{'id':'installation-smoke-'+build,'manifest':definition,'files':{filename:selected}})
         receipt={'build':build,'source_sha256':digest,'kind':registered['profiles'][0]}
+        if filename=='producer.json':receipt['component']={'namespace':registered['owner'],'id':registered['id']}
         write(receipt_path,receipt,uid,gid)
+    if receipt.get('component') and not receipt.get('system_component'):
+        call(setup,plan,'components','assign_owner',{'kind':'component',**receipt['component'],'owner':'system'})
+        receipt['system_component']=True;write(receipt_path,receipt,uid,gid)
     if not receipt.get('job'):
         job=call(setup,plan,'jobs','submit',{'key':'installation-smoke-'+build+'-'+digest[:12],
             'kind':receipt['kind'],'owner':'owner','notify':'owner','params':{},'category':'other','execution_mode':'smoke','presentation':{'scope':'operations','role':'test','label':'Installation smoke'}})
         receipt['job']=job['id'];write(receipt_path,receipt,uid,gid)
+    if filename=='producer.json' and not receipt.get('system_job'):
+        call(setup,plan,'jobs','assign_owner',{'id':receipt['job'],'owner':'system'})
+        receipt['system_job']=True;write(receipt_path,receipt,uid,gid)
     deadline=time.monotonic()+timeout
     while time.monotonic()<deadline:
         job=call(setup,plan,'jobs','get',{'id':receipt['job']})

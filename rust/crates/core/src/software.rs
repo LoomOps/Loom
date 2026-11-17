@@ -391,6 +391,14 @@ impl Application {
     pub fn software_action(&mut self, actor: &Actor, action: &str, args: Value) -> Result<Value> {
         let owner = args["owner"].as_str().unwrap_or(&actor.id).to_string();
         let identity = args["id"].as_str().unwrap_or("").to_string();
+        if owner == "system"
+            && matches!(
+                action,
+                "register" | "register_tool" | "register_profile" | "write"
+            )
+        {
+            crate::system_ownership::require_admin(&self.config, actor)?;
+        }
         match action {
             "list" | "list_tools" => {
                 let table = if action == "list" {

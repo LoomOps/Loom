@@ -491,7 +491,17 @@ impl Application {
         for entity in &mut entities {
             crate::dataset_organization::attach(self, entity)?;
         }
-        let queue = self.queue()?;
+        let mut visible = Vec::with_capacity(entities.len());
+        for entity in entities {
+            if !self.dashboard_entity_is_system(&entity)? {
+                visible.push(entity);
+            }
+        }
+        let entities = visible;
+        if let Some(runtimes) = runtime_catalog["runtimes"].as_array_mut() {
+            runtimes.retain(|r| r["owner_kind"] != "system");
+        }
+        let queue = self.dashboard_queue()?;
         let value = json!({"entities":entities,"research_tasks":self.dashboard_tasks()?,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true,"item_search":true,"metadata_templates":true,"reporting":true},"host":self.dashboard_host()?,"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});
         if all {
             *self
@@ -557,6 +567,7 @@ impl Application {
                 "dependency"
             ]);
         }
+        query["include_system"] = json!(false);
         let page = self.search_items(actor, &query)?;
         let selected = page["items"]
             .as_array()

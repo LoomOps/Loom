@@ -254,6 +254,14 @@ impl Application {
                 curated.get("primary_dependencies")
             )?);
             item["curation"] = curated;
+            if self.owner_projection("runtime", "host", item["id"].as_str().unwrap_or(""))?
+                ["owner_kind"]
+                == "system"
+            {
+                item["owner"] = json!("system");
+                item["owner_kind"] = json!("system");
+                item["owner_profile"] = crate::system_ownership::person();
+            }
         }
         catalog["dependency_catalog"] = dependencies(&catalog);
         Ok(catalog)

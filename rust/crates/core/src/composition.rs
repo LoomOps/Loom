@@ -25,7 +25,14 @@ impl Application {
             )
             .optional()?
             .unwrap_or(namespace.into());
-        let person = if who == "built-in" {
+        let who = if kind == "profile" && namespace == "built-in" && id == "cpu.smoke" {
+            "system".to_string()
+        } else {
+            who
+        };
+        let person = if who == "system" {
+            crate::system_ownership::person()
+        } else if who == "built-in" {
             json!({"id":who,"provider":"builtin","display_name":"Built-in"})
         } else {
             rows(
@@ -38,7 +45,7 @@ impl Application {
             .unwrap_or_else(|| json!({"id":who,"provider":"local","display_name":who}))
         };
         Ok(
-            json!({"namespace":namespace,"owner_name":person["display_name"],"owner_kind":if who=="built-in"{"built-in"}else{"user"},"owner_profile":person}),
+            json!({"namespace":namespace,"owner_name":person["display_name"],"owner_kind":if who=="system"{"system"}else if who=="built-in"{"built-in"}else{"user"},"owner_profile":person}),
         )
     }
     pub fn profile_listing(&self) -> Result<Value> {
@@ -249,7 +256,11 @@ impl Application {
                 kind.clone()
             };
             let owner = self.owner_projection(
-                "profile",
+                if origin["type"] == "component" {
+                    "component"
+                } else {
+                    "profile"
+                },
                 origin["owner"].as_str().unwrap_or("unrecorded"),
                 origin["id"].as_str().unwrap_or(&kind),
             )?;
@@ -410,6 +421,29 @@ impl Application {
             let kind = args["kind"].as_str().unwrap_or("");
             let namespace = args["namespace"].as_str().unwrap_or("");
             let owner = args["owner"].as_str().unwrap_or("");
+            if kind == "runtime" {
+                require(
+                    namespace == "host",
+                    "owner",
+                    "Runtime namespace must be host",
+                    400,
+                )?;
+                require(
+                    self.runtime_inventory()?["runtimes"]
+                        .as_array()
+                        .is_some_and(|v| v.iter().any(|r| r["id"] == id)),
+                    "runtime",
+                    "Runtime not registered in this installation",
+                    404,
+                )?;
+                return self.assign_responsibility(
+                    actor,
+                    "runtime",
+                    &format!("host:{id}"),
+                    owner,
+                    "administrator",
+                );
+            }
             let table = match kind {
                 "component" => "components",
                 "tool" => "tools",
@@ -427,6 +461,7 @@ impl Application {
             )?;
             require(
                 owner == "built-in"
+                    || owner == "system"
                     || self.db.query_row(
                         "SELECT EXISTS(SELECT 1 FROM user_profiles WHERE id=?)",
                         [owner],
@@ -436,6 +471,7 @@ impl Application {
                 "Owner profile not registered",
                 400,
             )?;
+            let system_grant = crate::system_ownership::require_admin(&self.config, actor);
             let tx = self.transaction()?;
             active(&tx)?;
             let key = format!("{namespace}:{id}");
@@ -446,6 +482,9 @@ impl Application {
                     |r| r.get(0),
                 )
                 .optional()?;
+            if owner == "system" || previous.as_deref() == Some("system") {
+                system_grant?;
+            }
             let changed = previous.as_deref() != Some(owner);
             if changed {
                 tx.execute("INSERT INTO ownership_history(kind,id,previous_owner,owner,changed_by,changed) VALUES(?,?,?,?,?,?)",params![kind,key,previous,owner,actor.id,now()])?;
@@ -654,14 +693,23 @@ impl Application {
             )
             .optional()?
             .unwrap_or(fallback.into());
-        let person = rows(
-            &self.db,
-            "SELECT id,provider,login,display_name FROM user_profiles WHERE id=?",
-            &[&owner],
-        )?
-        .into_iter()
-        .next()
-        .unwrap_or_else(|| json!({"id":owner,"provider":"local","display_name":owner}));
+        let owner = if kind == "job" && self.system_job(id)? {
+            "system".to_string()
+        } else {
+            owner
+        };
+        let person = if owner == "system" {
+            crate::system_ownership::person()
+        } else {
+            rows(
+                &self.db,
+                "SELECT id,provider,login,display_name FROM user_profiles WHERE id=?",
+                &[&owner],
+            )?
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| json!({"id":owner,"provider":"local","display_name":owner}))
+        };
         value["recorded_owner"] = json!(fallback);
         value["owner"] = json!(owner);
         value["owner_profile"] = person.clone();
@@ -682,11 +730,12 @@ impl Application {
             |r| r.get(0),
         )?;
         require(
-            known || self.config.actors.iter().any(|a| a.id == owner),
+            owner == "system" || known || self.config.actors.iter().any(|a| a.id == owner),
             "owner",
             "Select a registered responsible user",
             404,
         )?;
+        let system_grant = crate::system_ownership::require_admin(&self.config, actor);
         let tx = self.transaction()?;
         active(&tx)?;
         let previous = tx
@@ -697,6 +746,9 @@ impl Application {
             )
             .optional()?
             .unwrap_or(fallback.into());
+        if owner == "system" || previous == "system" {
+            system_grant?;
+        }
         if previous != owner {
             tx.execute("INSERT INTO item_owners VALUES(?,?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET owner=excluded.owner,updated=excluded.updated,updated_by=excluded.updated_by",params![kind,id,owner,now(),actor.id])?;
             tx.execute("INSERT INTO ownership_history(kind,id,previous_owner,owner,changed_by,changed) VALUES(?,?,?,?,?,?)",params![kind,id,previous,owner,actor.id,now()])?;

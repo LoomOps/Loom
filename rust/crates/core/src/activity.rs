@@ -73,6 +73,10 @@ impl Application {
         let after = clock - 366. * 86400.;
         let mut days = BTreeMap::new();
         // Ordered ranges let us union overlapping Steps per logical Job without loading all Jobs.
+        let system_job = crate::system_ownership::native_sql(
+            "json_object('kind','job','identity',json_object('id',n.id))",
+            "",
+        );
         let sql=format!("{}, execution_ranges AS(
           SELECT s.job,s.attempt,s.started start,COALESCE(s.ended,CASE WHEN s.state='running' THEN :clock END) finish,
             s.ended IS NULL AND s.state='running' live
@@ -99,7 +103,7 @@ impl Application {
         ), normalized AS(SELECT id,
           CASE WHEN typeof(start) IN('integer','real') THEN start/CASE WHEN start>100000000000 THEN 1000. ELSE 1. END ELSE CAST(strftime('%s',start) AS REAL) END start,
           CASE WHEN typeof(finish) IN('integer','real') THEN finish/CASE WHEN finish>100000000000 THEN 1000. ELSE 1. END ELSE CAST(strftime('%s',finish) AS REAL) END finish,live FROM raw)
-        SELECT id,max(start,:after) start,min(finish,:clock) finish,live FROM normalized WHERE start IS NOT NULL AND start<=:clock AND (finish IS NULL OR finish>=:after) ORDER BY id,start",crate::query::CONSOLIDATION_CTE);
+        SELECT n.id,max(start,:after) start,min(finish,:clock) finish,live FROM normalized n WHERE NOT COALESCE(({system_job}),0) AND start IS NOT NULL AND start<=:clock AND (finish IS NULL OR finish>=:after) ORDER BY id,start",crate::query::CONSOLIDATION_CTE);
         let mut q = self.db.prepare(&sql)?;
         let records = q.query_map(
             named_params! {":clock":clock,":after":after,":view":view},
@@ -130,9 +134,13 @@ impl Application {
         if let Some((id, start, end, live)) = current {
             range(&mut days, &id, start, end, live, clock);
         }
-        let sql="WITH stamps AS(
+        let system_entity = crate::system_ownership::native_sql(
+            "json_object('kind','entity','identity',json_object('id',e.id,'revision',e.revision))",
+            "",
+        );
+        let sql=format!("WITH stamps AS(
           SELECT e.id,MIN(v.created) stamp FROM all_entity_revisions e JOIN events v ON v.job=e.job AND v.attempt=json_extract(e.manifest,'$.attempt') AND v.code='complete'
-          WHERE e.kind IN('dataset','model','experiment')
+          WHERE e.kind IN('dataset','model','experiment') AND NOT COALESCE(({system_entity}),0)
           AND (:view='all' OR COALESCE((SELECT json_extract(o.presentation,'$.scope') FROM research_overlays o WHERE o.kind='entity' AND o.id=e.id),json_extract(e.manifest,'$.presentation.scope'),(SELECT json_extract(j.spec,'$.presentation.scope') FROM jobs j WHERE j.id=e.job),'research')=:view)
           AND (:view!='research' OR COALESCE(json_extract(e.manifest,'$.presentation.role'),(SELECT json_extract(j.spec,'$.presentation.role') FROM jobs j WHERE j.id=e.job),'main')='main') GROUP BY e.id
           UNION ALL
@@ -142,8 +150,8 @@ impl Application {
           AND h.rowid=(SELECT max(x.rowid) FROM history_records x WHERE x.source=h.source AND x.id=h.id)
           AND NOT EXISTS(SELECT 1 FROM all_entity_revisions e WHERE e.id=h.id)
         ), normalized AS(SELECT id,CASE WHEN typeof(stamp) IN('integer','real') THEN stamp/CASE WHEN stamp>100000000000 THEN 1000. ELSE 1. END ELSE CAST(strftime('%s',stamp) AS REAL) END stamp FROM stamps)
-        SELECT CAST((stamp+32400.)/86400. AS INTEGER) day,count(DISTINCT id) count FROM normalized WHERE stamp BETWEEN :after AND :clock GROUP BY day";
-        let mut q = self.db.prepare(sql)?;
+        SELECT CAST((stamp+32400.)/86400. AS INTEGER) day,count(DISTINCT id) count FROM normalized WHERE stamp BETWEEN :after AND :clock GROUP BY day");
+        let mut q = self.db.prepare(&sql)?;
         for r in q.query_map(
             named_params! {":after":after,":clock":clock,":view":view},
             |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),

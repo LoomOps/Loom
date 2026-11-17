@@ -153,3 +153,9 @@ parameter/seed/input changes. Register source/build/target receipts, not a mutab
 local executable. Registration does not build, import or install code. Python is
 allowed for a concrete external SDK/library worker stage pinned in the Runtime;
 existing accepted Python revisions remain unchanged. See system.guide authoring.
+
+System responsibility is reserved for Loom's own installation/platform smoke checks.
+User-requested Runtime construction, validation and research diagnostics retain
+user responsibility, including unfinished or unused revisions. MCP discovery can
+return System resources that the Dashboard hides. Do not assign System to suppress
+research failures or genuine development history.

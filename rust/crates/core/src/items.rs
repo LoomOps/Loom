@@ -930,11 +930,9 @@ impl Application {
         )
     }
     pub fn dashboard_summary(&self) -> Result<Value> {
-        let counts = rows(
-            &self.db,
-            "SELECT kind,count(*) AS count FROM catalog_items WHERE deleted=0 GROUP BY kind",
-            &[],
-        )?;
+        let visible =
+            crate::system_ownership::native_sql("json_extract(r.body,'$.native_ref')", "");
+        let counts = rows(&self.db,&format!("SELECT i.kind,count(*) AS count FROM catalog_items i JOIN catalog_revisions r ON r.id=i.current_revision WHERE i.deleted=0 AND NOT COALESCE(({visible}),0) GROUP BY i.kind"),&[])?;
         Ok(
             json!({"schema":"loom-dashboard-summary/v1","counts":counts,"search":self.search_status()?,"capabilities":{"search_items":true,"item_files":true,"logs":true},"observed_at":now()}),
         )

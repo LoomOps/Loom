@@ -1984,7 +1984,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "search_items",
-      "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates.",
+      "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates. include_system defaults to true for API/MCP discovery; false excludes current System responsibility before pagination, including files inherited from a System parent.",
       "errors": [
         "Index unavailable, invalid/expired cursor, changed source/access or unsupported search."
       ],
@@ -2025,6 +2025,10 @@
               "current",
               "all"
             ]
+          },
+          "include_system": {
+            "default": true,
+            "type": "boolean"
           },
           "kinds": {
             "items": {
@@ -2175,6 +2179,10 @@
               "current",
               "all"
             ]
+          },
+          "include_system": {
+            "default": true,
+            "type": "boolean"
           },
           "item_id": {
             "pattern": "^[1-9][0-9]{0,38}$",

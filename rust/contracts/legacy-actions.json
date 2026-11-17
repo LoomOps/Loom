@@ -2377,7 +2377,8 @@
           "enum": [
             "component",
             "tool",
-            "profile"
+            "profile",
+            "runtime"
           ]
         },
         "namespace": {
@@ -2390,7 +2391,7 @@
         },
         "owner": {
           "type": "string",
-          "description": "Registered responsible user ID or built-in for Loom-supplied software. Does not restrict sharing."
+          "description": "Registered responsible user ID, built-in or reserved system. System transitions require installation administrator access; original namespace and execution permissions are preserved. Runtime uses namespace host."
         }
       },
       "required": [

@@ -337,6 +337,7 @@ pub fn actions() -> Vec<Action> {
     for (k, v) in [
         ("history", json!({"enum":["current","all"]})),
         ("origin_type", json!({"type":"string","maxLength":128})),
+        ("include_system", json!({"type":"boolean","default":true})),
         ("native_kind", json!({"type":"string","maxLength":128})),
         ("dependency_ref", json!({"type":"object"})),
         (
