@@ -1,5 +1,6 @@
 """Firefox, retained Dashboard relay and the native Ops process on private fixture roots."""
 import base64,hashlib,json,os,socket,sqlite3,subprocess,tempfile,time,unittest
+from unittest.mock import patch
 from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.error import HTTPError
@@ -41,7 +42,7 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-research-overview [data-research-section]')][0]?.dataset.researchSection==='context'"))
   self.assertIn('train 0 / validation Unrecorded / test N/A',ui.js("return document.querySelector('.pa-research-overview').innerText"))
   self.assertIn('0.2',ui.js("return document.querySelector('[data-research-section=extensions]').textContent"))
-  ui.click('[data-metadata-templates]');ui.wait("return !!document.querySelector('[data-template-id=\"ui.contact\"]')");ui.click('[data-template-id="ui.contact"]')
+  ui.nav('Loom Use');ui.click('[data-metadata-templates]');ui.wait("return !!document.querySelector('[data-template-id=\"ui.contact\"]')");ui.click('[data-template-id="ui.contact"]')
   ui.wait("return !!document.querySelector('[data-template-copy]')")
   self.assertFalse(ui.js("return !!document.querySelector('[data-hub-dialog] img[src=x]')"))
   self.assertIn(definition['label'],ui.js("return document.querySelector('[data-hub-dialog]').textContent"))
@@ -52,7 +53,7 @@ class NativeWorkspaceTests(unittest.TestCase):
     if folder:=os.environ.get('LOOM_TEST_SCREENSHOTS'):
      output=Path(folder);output.mkdir(parents=True,exist_ok=True);ui.top();(output/f'metadata-templates-{width}-{theme}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));ui.frame()
  def test_builtin_reporting_contracts_are_browsable_and_legacy_missing_is_explicit(self):
-  ui=self.ui;ui.nav('Datasets');ui.click('[data-report-contracts]')
+  ui=self.ui;ui.nav('Loom Use');ui.click('[data-report-contracts]')
   ui.wait("return !!document.querySelector('[data-report-contract-id=\"loom.report.policy\"]')")
   ui.click('[data-report-contract-id="loom.report.policy"]')
   ui.wait("return document.querySelector('[data-report-contract-detail]')?.textContent.includes('Policy instructions')")
@@ -66,7 +67,8 @@ class NativeWorkspaceTests(unittest.TestCase):
  def test_verified_report_views_show_exact_instructions_channels_and_separate_phase_curves(self):
   job=self.call('jobs','submit',{'key':'browser-reports','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False}})['id'];identity=job+'.report-policy'
   def field(id,label,pointer,format,**extra):return dict(id=id,label=label,pointer=pointer,format=format,unit='',**extra)
-  source=[('instructions','instructions',{'texts':[{'id':'phase0','phase':'approach','text':'Approach <target> with open gripper.'}]},[field('texts','Instructions','/texts','instructions')]),('validation','learning_series',{'points':[{'step':1,'value':.2,'phase':'approach','split':'validation'},{'step':2,'value':.1,'phase':'approach','split':'validation'},{'step':1,'value':.4,'phase':'carry','split':'validation'},{'step':2,'value':.3,'phase':'carry','split':'validation'}]},[field('points','Validation','/points','series',x_pointer='/step',y_pointer='/value',x_label='Optimizer step',y_label='MSE')]),('errors','action_metrics',{'measurements':[{'channel_index':0,'error':'mse','value':.04,'unit':'rad²','phase':'approach','split':'test','population':10}]},[field('errors','Channel errors','/measurements','table',columns=[{'label':l,'pointer':p,'format':'text'} for l,p in [('Channel','/channel_index'),('Error','/error'),('Value','/value'),('Unit','/unit')]])])]
+  phase='carry <img src=x onerror=window.reportInjected=true>'
+  source=[('instructions','instructions',{'texts':[{'id':'phase0','phase':'approach','text':'Approach <target> with open gripper.'}]},[field('texts','Instructions','/texts','instructions')]),('validation','learning_series',{'points':[{'step':1,'value':.2,'phase':'approach','split':'validation'},{'step':2,'value':.1,'phase':'approach','split':'validation'},{'step':1,'value':.4,'phase':phase,'split':'validation'},{'step':2,'value':.3,'phase':phase,'split':'validation'}]},[field('points','Validation','/points','series',x_pointer='/step',y_pointer='/value',x_label='Optimizer step',y_label='MSE')]),('errors','action_metrics',{'measurements':[{'channel_index':0,'error':'mse','value':.04,'unit':'rad²','phase':'approach','split':'test','population':10}]},[field('errors','Channel errors','/measurements','table',columns=[{'label':l,'pointer':p,'format':'text'} for l,p in [('Channel','/channel_index'),('Error','/error'),('Value','/value'),('Unit','/unit')]])])]
   components=[];reports=[]
   for name,role,data,fields in source:
    raw=json.dumps({'schema':'loom-report/v1','data':data}).encode();file='browser-report-'+name+'.json';(self.native_root/'data'/file).write_bytes(raw);sha=hashlib.sha256(raw).hexdigest();components.append({'ref':file,'size':len(raw),'sha256':sha});reports.append({'requirement_id':name,'label':name,'role':role,'state':'recorded','required':True,'component':file,'sha256':sha,'fields':fields})
@@ -85,8 +87,9 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.assertFalse(ui.js("return !!document.querySelector('[data-report-content] target')"))
   self.assertEqual(ui.js("return document.querySelector('.pa-document-pane.is-active .pa-heading .pa-eyebrow').textContent"),'POLICY')
   ui.click('[data-report-tab=learning]');ui.wait("return document.querySelectorAll('.pa-report-chart polyline').length===2")
-  self.assertTrue(ui.js("return [...document.querySelector('[data-report-filter=phase]').options].some(o=>o.value==='carry')"))
-  ui.js("const s=document.querySelector('[data-report-filter=phase]');s.value='carry';s.dispatchEvent(new Event('change',{bubbles:true}))");ui.wait("return document.querySelectorAll('.pa-report-chart polyline').length===1")
+  self.assertTrue(ui.js("return [...document.querySelector('[data-report-filter=phase]').options].some(o=>o.value===arguments[0])",phase))
+  self.assertFalse(ui.js("return !!document.querySelector('[data-report-content] img')||!!window.reportInjected"))
+  ui.js("const s=document.querySelector('[data-report-filter=phase]');s.value=arguments[0];s.dispatchEvent(new Event('change',{bubbles:true}))",phase);ui.wait("return document.querySelectorAll('.pa-report-chart polyline').length===1")
   ui.click('[data-report-tab=metrics]');ui.wait("return document.querySelector('[data-report-content]')?.textContent.includes('rad²')")
   for width in (1440,500):
    ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
@@ -176,6 +179,24 @@ class NativeWorkspaceTests(unittest.TestCase):
   with urlopen(self.native+'/api/dashboard/bootstrap',timeout=5) as response:bootstrap=json.load(response)
   self.assertTrue(bootstrap['capabilities']['catalog_pages']);self.assertIsInstance(bootstrap['activity']['days'],list)
   self.ui.nav('Profiles');self.ui.wait("return document.querySelector('#pa-content').textContent.includes('browser.profile.r1')")
+
+ def test_unloaded_native_job_link_does_not_depend_on_name_search(self):
+  self.ui.nav('Loom Use')
+  job=self.call('jobs','submit',{'key':'unloaded-job-link','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False}})['id']
+  for _ in range(100):
+   try:self.call('results','resolve_item',{'native_ref':{'kind':'job','identity':{'id':job}}});break
+   except HTTPError:time.sleep(.05)
+  else:self.fail('Job identity was not indexed')
+  original=reference.server.WebHandler.relay
+  def relay(handler,method,path,body=None,*,media=False):
+   args=json.loads(body) if body and path=='/api/actions' else {}
+   if args.get('action')=='search_items' and args.get('arguments',{}).get('text')==job:
+    return handler.error(404,'ID is not a name search term')
+   return original(handler,method,path,body,media=media)
+  with patch.object(reference.server.WebHandler,'relay',relay):
+   self.ui.route(job)
+   self.ui.wait("const h=document.querySelector('.pa-document-pane.is-active h1');return h&&!h.textContent.includes('기록을 찾을 수 없습니다')")
+   self.assertTrue(self.ui.js("return !!document.querySelector('[data-share-route=\"'+arguments[0]+'\"]')",job))
 
  def test_native_machine_and_inspector_use_the_collected_host_sample(self):
   sample={'observed_at':time.time(),'host':{'hostname':'observed-machine','ip':'192.0.2.4','ip_kind':'LAN','os':'Fixture Linux','kernel':'fixture-kernel'},'engine':{'version':'29.9.3'},'containers':[]}
@@ -363,3 +384,45 @@ class NativeWorkspaceTests(unittest.TestCase):
     if not page['items'] and not page.get('partial'):break
     time.sleep(.05)
    self.assertFalse(page['items'])
+ def test_registry_archive_restore_filters_and_preserved_exact_detail(self):
+  self.call('components','register',{'id':'ui-archive','manifest':{'label':'UI archive fixture'},'files':{'main.rs':'fn main() {}'}})
+  ui=self.ui;ui.route('component:owner:ui-archive:r1');ui.wait("return !!document.querySelector('.pa-entity-menu')")
+  ui.click('.pa-entity-menu summary');ui.click('[data-registry-state=archived]')
+  ui.wait("return !!document.querySelector('[data-registry-apply]')")
+  self.assertIn('Definitions, files and Job history are preserved',ui.js("return document.querySelector('[data-hub-dialog]').textContent"))
+  ui.js("document.querySelector('[data-registry-apply] input[name=reason]').value='Mistaken fixture'")
+  ui.click('[data-registry-apply] button');ui.wait("return !document.querySelector('[data-hub-dialog]')")
+  self.assertEqual(self.call('components','get',{'owner':'owner','id':'ui-archive','revision':1})['lifecycle']['state'],'archived')
+  ui.click('[data-command-open]');ui.wait("return !!document.querySelector('[data-item-search-form]')")
+  ui.js("const f=document.querySelector('[data-item-search-form]');f.elements.text.value='UI archive fixture';f.elements.view.value='all';f.elements.kind.value='component'")
+  ui.click('[data-item-search-form] button');ui.wait("return document.querySelector('[data-search-status]')?.textContent==='No results'")
+  ui.click('[data-hub-close]')
+  ui.nav('Runtimes');ui.click('[data-hub-page=components]')
+  ui.js("const s=document.querySelector('[data-research-view]');s.value='all';s.dispatchEvent(new Event('change',{bubbles:true}))")
+  ui.wait("return !!document.querySelector('[data-registry-filter]')")
+  ui.wait("return !document.querySelector('[data-extension-card=\"component:owner:ui-archive:r1\"]')")
+  ui.js("const s=document.querySelector('[data-registry-filter]');s.value='archived';s.dispatchEvent(new Event('change',{bubbles:true}))")
+  ui.wait("return !!document.querySelector('[data-extension-card=\"component:owner:ui-archive:r1\"]')")
+  ui.click('[data-entity="component:owner:ui-archive:r1"]');ui.click('.pa-entity-menu summary');ui.click('[data-registry-state=active]')
+  ui.wait("return !!document.querySelector('[data-registry-apply]')")
+  for width in (1440,500):
+   ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+   for theme in ('light','dark'):
+    ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("const d=document.querySelector('[data-hub-dialog]');return d.scrollWidth<=d.clientWidth+1"))
+  ui.js("document.querySelector('[data-registry-apply] input[name=reason]').value='Restore fixture'");ui.click('[data-registry-apply] button')
+  ui.wait("return !document.querySelector('[data-hub-dialog]')")
+  self.assertEqual(self.call('components','get',{'owner':'owner','id':'ui-archive','revision':1})['lifecycle']['state'],'active')
+ def test_registry_template_batch_requires_explicit_related_selection(self):
+  base=self.call('results','get_metadata_template',{'id':'loom.dataset'})
+  def definition(label,base):return {'kind':'dataset','label':label,'base_ref':{k:base[k] for k in ('id','revision','sha256')},'schema':{'type':'object'},'fields':[]}
+  parent=self.call('results','register_metadata_template',{'id':'ui.parent','definition':definition('Parent template',base),'reason':'fixture','key':'ui-parent'})
+  self.call('results','register_metadata_template',{'id':'ui.child','definition':definition('Child template',parent),'reason':'fixture','key':'ui-child'})
+  ui=self.ui;ui.nav('Loom Use');ui.click('[data-metadata-templates]');ui.wait("return !!document.querySelector('[data-template-id=\"ui.parent\"]')")
+  ui.click('[data-template-id="ui.parent"]');ui.wait("return !!document.querySelector('[data-registry-state=archived]')");ui.click('[data-registry-state=archived]')
+  ui.wait("return document.querySelectorAll('[data-registry-selected]').length>=2")
+  self.assertEqual(ui.js("return [...document.querySelectorAll('[data-registry-selected]')].filter(x=>x.checked).length"),1)
+  ui.click('[data-registry-selected]:not(:checked):not(:disabled)');ui.wait("return document.querySelector('[data-registry-apply] button')?.textContent.includes('2')")
+  ui.js("document.querySelector('[data-registry-apply] input[name=reason]').value='Archive mistaken template family'");ui.click('[data-registry-apply] button');ui.wait("return !document.querySelector('[data-hub-dialog]')")
+  for id in ('ui.parent','ui.child'):self.assertEqual(self.call('results','get_metadata_template',{'id':id})['lifecycle']['state'],'archived')
+  ui.click('[data-metadata-templates]');ui.js("const s=document.querySelector('[data-registry-browser-filter]');s.value='archived';s.dispatchEvent(new Event('change',{bubbles:true}))")
+  ui.wait("return !!document.querySelector('[data-template-id=\"ui.parent\"]') && !!document.querySelector('[data-template-id=\"ui.child\"]')")

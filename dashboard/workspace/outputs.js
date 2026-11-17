@@ -1,21 +1,19 @@
 // One output workspace; typed records and legacy deep links keep their identity.
 const loomOutputPages={datasets:'Datasets',experiments:'Experiments',models:'Policies'};
-function loomIsOutputPage(page){return Object.hasOwn(loomOutputPages,page)||page==='comparison'||page==='scenarios';}
+function loomIsOutputPage(page){return Object.hasOwn(loomOutputPages,page)||page==='scenarios';}
+function loomIsResearchPage(page){return loomIsOutputPage(page)||page==='comparison';}
 function loomOutputTabs(){
- const selected=state.page==='comparison'?'experiments':state.page;
+ const selected=state.page;
  return '<nav class="pa-output-tabs" aria-label="Outputs">'+Object.entries(loomOutputPages).map(([page,label])=>'<button data-output-page="'+page+'" aria-current="'+(selected===page?'page':'false')+'">'+label+'</button>').join('')+'</nav>';
 }
 function loomOutputBreadcrumb(view){
  if(!loomIsOutputPage(view.page))return '작업실 / '+viewTitle(view);
  const label=view.entity||view.model?viewTitle(view):null;
- const section=view.page==='comparison'?'Experiments / Comparison':loomOutputPages[view.page]||'Task';
+ const section=loomOutputPages[view.page]||'Task';
  return '작업실 / Outputs / '+section+(label?' / '+label:'');
 }
 function loomOutputChrome(){
- return '<div class="pa-output-header">'+loomOutputTabs()+(['experiments','comparison'].includes(state.page)&&!state.entity
-  ?'<div class="pa-output-actions">'+(state.page==='comparison'
-   ?'<button class="pa-button" data-output-page="experiments">Results</button>'
-   :'<button class="pa-button" data-output-page="comparison">'+icon('git-compare-arrows')+'Comparison</button>')+'</div>':'')+(catalogData.capabilities?.metadata_templates?'<button class="pa-button" data-metadata-templates>Templates</button>':'')+(catalogData.capabilities?.reporting?'<button class="pa-button" data-report-contracts>Contracts</button>':'')+'</div>';
+ return '<div class="pa-output-header">'+loomOutputTabs()+'</div>';
 }
 function loomOutputNavigate(page){
  if(!loomIsOutputPage(page))return;
@@ -33,7 +31,7 @@ openView=function(view,...args){
  const current=activeTab()?.view;
  const task=view.page==='scenarios'&&view.entity?catEntity(view.entity):null;
  if(task?.loom_scenario)view={...view,researchTask:{id:task.id,revision:task.loom_scenario.revision,label:task.label}};
- if(current&&loomIsOutputPage(current.page)&&loomIsOutputPage(view.page)&&view.researchTask===undefined&&current.researchTask)view={...view,researchTask:current.researchTask};
+ if(current&&loomIsResearchPage(current.page)&&loomIsResearchPage(view.page)&&view.researchTask===undefined&&current.researchTask)view={...view,researchTask:current.researchTask};
  return loomOutputOpenView(view,...args);
 };
 const loomOutputDatasets=datasets;
@@ -58,7 +56,7 @@ comparison=function(){
  const body=loomOutputComparison();
  // A bounded bootstrap is not evidence that a selected result was deleted.
  if(pending.length){state.compareRuns=selected;state.compareBase=base;}
- return loomOutputChrome()+loomTaskToolbar()+body+pages;
+ return body+pages;
 };
 root.addEventListener('click',event=>{
  const button=event.target.closest('[data-output-page]');if(!button)return;
@@ -104,31 +102,4 @@ function loomOutputRank(e){
  return e.properties?.importance==='major'?0:1;
 }
 
-root.addEventListener('click',async event=>{
- if(!event.target.closest('[data-metadata-templates]'))return;
- const dialog=loomHubDialog('Metadata templates','<div data-template-list>…</div><div data-template-details></div>');
- try{
-  const kind=({datasets:'dataset',models:'model',experiments:'experiment'})[state.page];
-  let selection=0,rows=[],offset=0,loading=false;
-  const load=async()=>{
-   if(loading)return;loading=true;
-   try{
-    const page=await loomSearchAction('results','metadata_templates',{...(kind?{kind}:{}),offset,limit:100});
-    if(!dialog.isConnected)return;
-    rows.push(...page.items);offset=page.next_offset;
-    dialog.querySelector('[data-template-list]').innerHTML=catTable(['Template','Kind','Revision'],rows.map(t=>['<button class="pa-button" data-template-id="'+esc(t.id)+'" data-template-revision="'+esc(t.revision)+'">'+esc(t.label)+'</button>',esc(t.output_kind),esc(t.revision)]))+(offset!=null?'<button class="pa-button" data-template-more>More</button>':'');
-   }finally{loading=false;}
-  };
-  dialog.querySelector('[data-template-list]').onclick=async e=>{
-   if(e.target.closest('[data-template-more]')){try{await load();}catch(error){if(dialog.isConnected)dialog.querySelector('[data-hub-result]').textContent=error.message;}return;}
-   const b=e.target.closest('[data-template-id]');if(!b)return;
-   const selected=++selection;
-   try{const t=await loomSearchAction('results','get_metadata_template',{id:b.dataset.templateId,revision:Number(b.dataset.templateRevision)});if(!dialog.isConnected||selected!==selection)return;
-    const target=dialog.querySelector('[data-template-details]'),pin={id:t.id,revision:t.revision,sha256:t.sha256};
-    target.innerHTML='<h3>'+esc(t.label)+'</h3>'+catTable(['Field','Format','Unit'],t.definition.fields.map(f=>[esc(f.label),esc(f.format),esc(f.unit||'—')]))+'<button class="pa-button" data-template-copy>Copy reference</button><details><summary>Schema</summary><pre>'+esc(JSON.stringify(t.definition.schema,null,2))+'</pre></details>';
-    target.querySelector('[data-template-copy]').onclick=()=>parent.postMessage({type:'loom-doc-copy',text:JSON.stringify(pin,null,2)},'*');
-   }catch(error){if(dialog.isConnected&&selected===selection)dialog.querySelector('[data-hub-result]').textContent=error.message;}
-  };
-  await load();
- }catch(error){if(dialog.isConnected)dialog.querySelector('[data-template-list]').textContent=error.message;}
-});
+root.addEventListener('click',event=>{if(event.target.closest('[data-metadata-templates]'))loomRegistryBrowser('metadata_template');});

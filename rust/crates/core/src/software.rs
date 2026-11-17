@@ -422,6 +422,21 @@ impl Application {
                         "user"
                     });
                 }
+                for row in &mut items {
+                    let t = crate::registry_lifecycle::target(
+                        if action == "list" {
+                            "component"
+                        } else {
+                            "tool"
+                        },
+                        row["id"].as_str().unwrap(),
+                        row["revision"].as_i64().unwrap(),
+                        row["owner"].as_str(),
+                    );
+                    row["lifecycle"] = crate::registry_lifecycle::state(&self.db, &t)?;
+                    row["lifecycle"]["builtin"] = json!(row["owner"] == "built-in");
+                }
+                items.retain(|v| crate::registry_lifecycle::visible(&args, &v["lifecycle"]));
                 Ok(json!(items))
             }
             "get" | "get_tool" | "get_profile" => {
@@ -437,6 +452,22 @@ impl Application {
                         row[field] = serde_json::from_str(s)?;
                     }
                 }
+                let t = if action == "get_profile" {
+                    crate::registry_lifecycle::target(
+                        "profile",
+                        row["profile"]["revision"].as_str().unwrap_or(&identity),
+                        0,
+                        None,
+                    )
+                } else {
+                    crate::registry_lifecycle::target(
+                        if action == "get" { "component" } else { "tool" },
+                        &identity,
+                        row["revision"].as_i64().unwrap(),
+                        Some(&owner),
+                    )
+                };
+                row["lifecycle"] = crate::registry_lifecycle::state(&self.db, &t)?;
                 Ok(row)
             }
             "register" | "register_tool" => self.register_source(actor, action, args),
@@ -459,9 +490,17 @@ impl Application {
                 Ok(json!({"owner":owner,"id":identity,"path":args["path"],"bytes":text.len()}))
             }
             "register_profile" => self.register_profile(actor, args),
-            "profiles" => self.profile_listing(),
+            "profiles" => {
+                let mut v = self.profile_listing()?;
+                self.filter_registry(&mut v, &args)?;
+                Ok(v)
+            }
             "runtimes" | "get_runtime" | "dependencies" | "get_dependency" => {
-                self.runtime_query(action, args)
+                let mut v = self.runtime_query(action, args.clone())?;
+                if matches!(action, "runtimes" | "get_runtime") {
+                    self.filter_registry(&mut v, &args)?;
+                }
+                Ok(v)
             }
             "inspect_profile" | "compare_profiles" => self.inspect_profiles(action, args),
             "annotate" | "curate" | "assign_owner" => self.curate_software(actor, action, args),

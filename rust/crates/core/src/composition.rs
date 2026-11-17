@@ -421,6 +421,8 @@ impl Application {
             let kind = args["kind"].as_str().unwrap_or("");
             let namespace = args["namespace"].as_str().unwrap_or("");
             let owner = args["owner"].as_str().unwrap_or("");
+            let current = self.owner_projection(kind, namespace, id)?;
+            require(namespace==actor.id || current["owner_profile"]["id"]==actor.id || crate::system_ownership::require_admin(&self.config,actor).is_ok(),"registry_owner","Only author/current owner or installation administrator may assign registry responsibility",403)?;
             if kind == "runtime" {
                 require(
                     namespace == "host",
@@ -497,6 +499,24 @@ impl Application {
         }
         let kind = args["type"].as_str().unwrap_or("");
         let revision = args["revision"].as_i64().unwrap_or(0);
+        let t = crate::registry_lifecycle::target(kind, id, revision, None);
+        let resource = self.lifecycle_resource(&t)?;
+        if let Some(requested) = args.get("state") {
+            if *requested != resource["lifecycle"]["state"] {
+                require(
+                    resource["builtin"] != true,
+                    "registry_builtin",
+                    "Built-in registrations cannot change lifecycle",
+                    403,
+                )?;
+                require(
+                    self.lifecycle_manage(actor, &t, &resource),
+                    "registry_owner",
+                    "Only owner or installation administrator may change lifecycle",
+                    403,
+                )?;
+            }
+        }
         let mut value = self.curation(kind, id, revision)?;
         if kind == "profile" {
             require(
@@ -556,9 +576,10 @@ impl Application {
                 }
             }
             require(
-                !(value["preferred"] == true && value["state"] == "archived"),
+                !(value["preferred"] == true
+                    && value["state"].as_str().unwrap_or("active") != "active"),
                 "curation",
-                "Archived Profile cannot be preferred",
+                "Only an active Profile can be preferred",
                 400,
             )?;
             if value["preferred"] == true {
@@ -604,9 +625,21 @@ impl Application {
                 }
             }
         }
+        if value["state"].as_str().unwrap_or("active")
+            != resource["lifecycle"]["state"].as_str().unwrap_or("active")
+        {
+            value["lifecycle_reason"] = args["evidence"].clone();
+            value["lifecycle_changed_by"] = json!(actor.id);
+            value["lifecycle_changed_at"] = json!(now());
+        }
         let tx = self.transaction()?;
         active(&tx)?;
         tx.execute("INSERT INTO runtime_curation VALUES(?,?,?,?,?,?) ON CONFLICT(kind,id,revision) DO UPDATE SET value=excluded.value,actor=excluded.actor,updated=excluded.updated",params![kind,id,revision,encode(&value)?,actor.id,now()])?;
+        if value["state"].as_str().unwrap_or("active")
+            != resource["lifecycle"]["state"].as_str().unwrap_or("active")
+        {
+            tx.execute("INSERT INTO registry_lifecycle_events(target,previous,state,reason,actor,recorded) VALUES(?,?,?,?,?,?)",params![encode(&json!(t))?,resource["lifecycle"]["state"].as_str().unwrap_or("active"),value["state"].as_str().unwrap_or("active"),args["evidence"].as_str().unwrap_or("Legacy curate compatibility"),actor.id,now()])?;
+        }
         tx.commit()?;
         Ok(value)
     }
@@ -661,7 +694,7 @@ impl Application {
                             }
                         }
                     }
-                    revisions.push(json!({"revision":revision,"sha256":row["sha256"],"label":manifest.get("label").unwrap_or(&latest["id"]),"description":manifest["description"].as_str().unwrap_or(""),"classification":self.classification(kind,owner,id,revision,&manifest)?,"pinned_jobs":pinned,"invocations":null,"source_pins":manifest.get("source_pins").cloned().unwrap_or(json!({})),"source_pins_recorded":manifest.get("source_pins").is_some(),"profiles":connected,"connected_profiles":connected,"used_by":connected,"origin":manifest["origin"]}));
+                    revisions.push(json!({"revision":revision,"lifecycle":crate::registry_lifecycle::state(&self.db,&crate::registry_lifecycle::target(kind,id,revision,Some(owner)))?,"sha256":row["sha256"],"label":manifest.get("label").unwrap_or(&latest["id"]),"description":manifest["description"].as_str().unwrap_or(""),"classification":self.classification(kind,owner,id,revision,&manifest)?,"pinned_jobs":pinned,"invocations":null,"source_pins":manifest.get("source_pins").cloned().unwrap_or(json!({})),"source_pins_recorded":manifest.get("source_pins").is_some(),"profiles":connected,"connected_profiles":connected,"used_by":connected,"origin":manifest["origin"]}));
                 }
                 let who = self.owner_projection(kind, owner, id)?;
                 let mut entity = json!({"id":format!("{kind}:{owner}:{id}:r{}",latest["revision"]),"kind":kind,"namespace":"loom","label":latest_manifest.get("label").unwrap_or(&latest["id"]),"summary":latest_manifest["description"].as_str().unwrap_or(""),"properties":{"revision":latest["revision"]},"loom_extension":{"owner":owner,"id":id,"revision":latest["revision"],"manifest":latest_manifest,"classification":revisions.first().map(|r|&r["classification"]),"revisions":revisions},"relations":[],"artifacts":[]});

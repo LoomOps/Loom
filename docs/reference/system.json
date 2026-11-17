@@ -372,7 +372,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "dashboard_page",
-      "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both.",
+      "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
       "errors": [
         "Unavailable index/source, incompatible filters or expired cursor."
       ],
@@ -419,6 +419,10 @@
               "all"
             ]
           },
+          "include_archived": {
+            "default": true,
+            "type": "boolean"
+          },
           "include_system": {
             "default": true,
             "type": "boolean"
@@ -429,6 +433,13 @@
             },
             "maxItems": 16,
             "type": "array"
+          },
+          "lifecycle_state": {
+            "enum": [
+              "active",
+              "archived",
+              "deprecated"
+            ]
           },
           "limit": {
             "maximum": 200,

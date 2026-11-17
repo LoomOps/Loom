@@ -46,7 +46,7 @@ pub fn identity() -> Value {
     IDENTITY.get_or_init(|| {
     let guide = guide_revision(DOCUMENTS, PACKAGED, CATALOG, ACTION_DOCS, JOB_CONTRACT);
     let contract = contract_revision(&json!(contracts::actions()), JOB_CONTRACT);
-    json!({"build_id":env!("LOOM_BUILD_ID"),"api_revision":"loom-ops/v52","contract_revision":contract,"guide_revision":guide,"revision":hash(format!("{contract}{guide}")),"client_release":serde_json::from_str::<Value>(include_str!("../../../../loom_use/client-release.json")).expect("client release"),"engine":"rust","source_sha256":env!("LOOM_RUST_SOURCE")})
+    json!({"build_id":env!("LOOM_BUILD_ID"),"api_revision":"loom-ops/v53","contract_revision":contract,"guide_revision":guide,"revision":hash(format!("{contract}{guide}")),"client_release":serde_json::from_str::<Value>(include_str!("../../../../loom_use/client-release.json")).expect("client release"),"engine":"rust","source_sha256":env!("LOOM_RUST_SOURCE")})
     }).clone()
 }
 pub fn manifest() -> Value {
@@ -183,7 +183,7 @@ pub fn reference(actor: &Actor) -> Result<Value> {
         }
     }
     Ok(
-        json!({"revision":"loom-ops/v52","guidance":{"group":"system","action":"guide"},"groups":groups,"transport":{"mcp":"POST /mcp","http":"POST /api/actions","result":"JSON is in result.content[0].text. Version identity is in _meta.loom; do not concatenate text blocks."},"workflow":[{"step":"Inspect profiles","group":"components","action":"profiles","note":"Reuse exact compatible Profiles before authoring."},{"step":"Submit","group":"jobs","action":"submit","note":"One requested outcome; internal Steps or pinned DAG nodes."},{"step":"Inspect","group":"jobs","action":"get","note":"Read current state, independent scheduling facts and actual execution evidence."},{"step":"Consume events","group":"events","action":"list","note":"Use kind=all; ACK only acknowledges receipt."},{"step":"Repair","group":"recovery","action":"claim","note":"Use the current lease and shared three-round budget."}]}),
+        json!({"revision":"loom-ops/v53","guidance":{"group":"system","action":"guide"},"groups":groups,"transport":{"mcp":"POST /mcp","http":"POST /api/actions","result":"JSON is in result.content[0].text. Version identity is in _meta.loom; do not concatenate text blocks."},"workflow":[{"step":"Inspect profiles","group":"components","action":"profiles","note":"Reuse exact compatible Profiles before authoring."},{"step":"Submit","group":"jobs","action":"submit","note":"One requested outcome; internal Steps or pinned DAG nodes."},{"step":"Inspect","group":"jobs","action":"get","note":"Read current state, independent scheduling facts and actual execution evidence."},{"step":"Consume events","group":"events","action":"list","note":"Use kind=all; ACK only acknowledges receipt."},{"step":"Repair","group":"recovery","action":"claim","note":"Use the current lease and shared three-round budget."}]}),
     )
 }
 

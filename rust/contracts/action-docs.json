@@ -25,7 +25,7 @@
   },
   "components.assign_owner": {
     "title": "Attribute shared software",
-    "description": "Set the responsible user or built-in attribution for Loom-supplied software. Sharing, namespace, source revisions and Job pins remain unchanged. Reserved system attribution requires installation administrator access for both assignment and restoration. Runtime uses namespace host; software namespaces/pins and execution permissions remain preserved. System resources remain discoverable through MCP and are hidden from Dashboard discovery.",
+    "description": "Set the responsible user or built-in attribution for Loom-supplied software. Sharing, namespace, source revisions and Job pins remain unchanged. Reserved system attribution requires installation administrator access for both assignment and restoration. Runtime uses namespace host; software namespaces/pins and execution permissions remain preserved. System resources remain discoverable through MCP and are hidden from Dashboard discovery. Changing registry responsibility requires the author/current responsible owner or authenticated installation administrator; attribution cannot be used to acquire lifecycle management rights.",
     "returns": "Attribution · kind, id, namespace, owner_profile, owner_kind, changed",
     "example": {
       "kind": "tool",
@@ -340,7 +340,7 @@
   },
   "components.list": {
     "title": "List components",
-    "description": "Read the latest revision of all components. Set owner to filter the namespace.",
+    "description": "Read the latest revision of all components. Set owner to filter the namespace. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
     "returns": "Component[] · owner (namespace), id, revision, owner_profile, owner_name, owner_kind",
     "example": {},
     "errors": [],
@@ -475,7 +475,7 @@
   },
   "components.profiles": {
     "title": "Available execution profiles",
-    "description": "Read exact Profile combinations, stage environments and observed Job usage. Repeated environment dependencies are a bounded preview (dependency_count, dependencies_complete); use components.get_runtime for the complete inventory. Read scope does not grant execution or registration rights.",
+    "description": "Read exact Profile combinations, stage environments and observed Job usage. Repeated environment dependencies are a bounded preview (dependency_count, dependencies_complete); use components.get_runtime for the complete inventory. Read scope does not grant execution or registration rights. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
     "returns": "Profile[] · kind, revision, params_schema, outputs, limits, usage, combination",
     "example": {},
     "errors": [],
@@ -676,7 +676,7 @@
   },
   "components.curate": {
     "title": "Curate Runtimes workspace metadata",
-    "description": "Set a Profile display name, purpose, preferred/archive state or declared Tool stage roles; set representative dependencies on an exact Runtime. Does not rewrite execution definitions or select a Runtime.",
+    "description": "Set a Profile display name, purpose, preferred/archive state or declared Tool stage roles; set representative dependencies on an exact Runtime. Does not rewrite execution definitions or select a Runtime. Legacy state changes use the same lifecycle overlay, owner/admin authorization, Built-in protection and audit. Prefer inspect_lifecycle/set_lifecycle for an explicit preview and atomic batch.",
     "returns": "Curation receipt",
     "example": {
       "type": "profile",
@@ -748,7 +748,7 @@
   },
   "components.runtimes": {
     "title": "List Runtimes",
-    "description": "Read administrator-granted execution environments, exact dependencies, validation evidence and Profile/Job usage. Legacy entries are not verification evidence.",
+    "description": "Read administrator-granted execution environments, exact dependencies, validation evidence and Profile/Job usage. Legacy entries are not verification evidence. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
     "returns": "Runtime catalog",
     "example": {},
     "errors": [],
@@ -801,7 +801,7 @@
   },
   "components.list_tools": {
     "title": "List research Tools",
-    "description": "List shared reusable software independently of Job Components.",
+    "description": "List shared reusable software independently of Job Components. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
     "returns": "Tool[]",
     "example": {},
     "errors": [],
@@ -908,7 +908,7 @@
   },
   "results.search_items": {
     "title": "Search Items",
-    "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates. include_system defaults to true for API/MCP discovery; false excludes current System responsibility before pagination, including files inherited from a System parent.",
+    "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates. include_system defaults to true for API/MCP discovery; false excludes current System responsibility before pagination, including files inherited from a System parent. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
     "returns": "Search page · items, next_cursor, partial, consistency, warnings",
     "example": {},
     "errors": [
@@ -1247,7 +1247,7 @@
   },
   "system.dashboard_page": {
     "title": "Page Dashboard records",
-    "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both.",
+    "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
     "returns": "Browser catalog page · entities, research_tasks, next_cursor, partial, consistency and shared catalog metadata",
     "example": {
       "kinds": [
@@ -1651,7 +1651,7 @@
   },
   "results.metadata_templates": {
     "title": "List metadata templates",
-    "description": "List current immutable output metadata formats; include_revisions exposes previous revisions.",
+    "description": "List current immutable output metadata formats; include_revisions exposes previous revisions. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
     "returns": "Templates · items, total, next_offset",
     "example": {
       "kind": "dataset"
@@ -1801,7 +1801,7 @@
   },
   "results.report_contracts": {
     "title": "List report contracts",
-    "description": "Page registered immutable reporting templates; default requirements can be adapted with exact evidence before Job submission.",
+    "description": "Page registered immutable reporting templates; default requirements can be adapted with exact evidence before Job submission. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
     "returns": "Exact reporting resource, validated coverage or bounded verified report page",
     "example": {},
     "errors": [
@@ -1863,7 +1863,7 @@
   },
   "results.report_definitions": {
     "title": "List reporting definitions",
-    "description": "Page registered metric, factor and evaluation protocol definitions.",
+    "description": "Page registered metric, factor and evaluation protocol definitions. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
     "returns": "Exact reporting resource, validated coverage or bounded verified report page",
     "example": {},
     "errors": [
@@ -1947,6 +1947,55 @@
     "implementation": {
       "feature": "results",
       "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action"
+    }
+  },
+  "components.inspect_lifecycle": {
+    "title": "Preview registry lifecycle",
+    "description": "Inspect exact registrations, current lifecycle, management rights, registered reverse references and dependencies and recorded Job usage. Returns a digest for atomic apply. Related registrations are never selected automatically. Built-ins are protected; file contents are not scanned.",
+    "returns": "Preview · targets, related, related_count, related_truncated, jobs, job_count, jobs_truncated, desired_state, reference_coverage, cascade, digest",
+    "example": {
+      "targets": [
+        {
+          "kind": "component",
+          "owner": "research",
+          "id": "planner",
+          "revision": 1
+        }
+      ],
+      "state": "archived"
+    },
+    "errors": [
+      "Stale preview or changed references: 409. Missing exact revision: 404. Unauthorized or Built-in: 403."
+    ],
+    "implementation": {
+      "feature": "registry-lifecycle",
+      "entrypoint": "rust/crates/core/src/registry_lifecycle.rs#inspect_lifecycle"
+    }
+  },
+  "components.set_lifecycle": {
+    "title": "Archive or restore registrations",
+    "description": "Set active, deprecated or archived for explicit exact targets after inspect_lifecycle. Only author/current responsible owner or authenticated installation admin may manage; Built-ins are protected. Revalidates the preview and applies the entire batch atomically with audit and idempotent receipt. Preserves files, sealed definitions, accepted pins and running/past Jobs. No automatic cascade or physical deletion.",
+    "returns": "Receipt · state, changed, preserved",
+    "example": {
+      "targets": [
+        {
+          "kind": "component",
+          "owner": "research",
+          "id": "planner",
+          "revision": 1
+        }
+      ],
+      "state": "archived",
+      "reason": "Mistaken registration",
+      "key": "archive-planner-r1",
+      "expected_digest": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "errors": [
+      "Stale preview or changed references: 409. Missing exact revision: 404. Unauthorized or Built-in: 403."
+    ],
+    "implementation": {
+      "feature": "registry-lifecycle",
+      "entrypoint": "rust/crates/core/src/registry_lifecycle.rs#set_lifecycle"
     }
   }
 }

@@ -59,6 +59,15 @@ class ItemImageTests(unittest.TestCase):
   data=self.call('results','read_file',{'file_item_id':file_id});self.assertEqual(base64.b64decode(data['data_base64']),b'{"synthetic":true}\n')
   self.assertEqual(hashlib.sha256(base64.b64decode(data['data_base64'])).hexdigest(),file['sha256'])
   streams=self.call('jobs','log_streams',{'id':job['id']});self.assertTrue(streams['items']);self.assertTrue(self.call('jobs','read_log',{'stream_id':streams['items'][0]['item_id']})['closed'])
+  # The distributed native image includes reversible registry state and its schema.
+  self.call('components','register',{'id':'image-archive','manifest':{'label':'Archive fixture'},'files':{'main.rs':'fn main() {}'}})
+  target={'kind':'component','owner':'owner','id':'image-archive','revision':1}
+  before=self.call('components','get',{'owner':'owner','id':'image-archive','revision':1})
+  preview=self.call('components','inspect_lifecycle',{'targets':[target],'state':'archived'})
+  request={'targets':[target],'state':'archived','reason':'Isolated image acceptance','key':'image-archive','expected_digest':preview['digest']}
+  receipt=self.call('components','set_lifecycle',request)
+  self.assertEqual(receipt,self.call('components','set_lifecycle',request))
+  self.assertFalse(any(v['id']=='image-archive' for v in self.call('components','list',{'include_archived':False})))
   # Current published and optional candidate clients call the actual new APIs.
   import importlib.util
   spec=importlib.util.spec_from_file_location('item_image_client_source',ROOT/'tests/ops/client_source.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
@@ -82,3 +91,8 @@ v=json.loads(r['result']['content'][0]['text']);assert v['item_id']==sys.argv[3]
   self.assertEqual(self.call('jobs','submit',{'key':'image-search','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False}})['id'],job['id'])
   self.assertEqual(len(self.call('jobs','get',{'id':job['id']})['attempts']),1)
   self.assertEqual(sum(e['job']==job['id'] and e['code']=='complete' for e in self.call('events','list',{'kind':'all'})),1)
+  archived=self.call('components','get',{'owner':'owner','id':'image-archive','revision':1})
+  self.assertEqual(archived['lifecycle']['state'],'archived');self.assertEqual(archived['manifest'],before['manifest'])
+  preview=self.call('components','inspect_lifecycle',{'targets':[target],'state':'active'})
+  self.call('components','set_lifecycle',{'targets':[target],'state':'active','reason':'Restore isolated registration','key':'image-restore','expected_digest':preview['digest']})
+  self.assertEqual(self.call('components','get',{'owner':'owner','id':'image-archive','revision':1})['lifecycle']['state'],'active')

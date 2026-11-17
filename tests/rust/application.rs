@@ -4259,3 +4259,42 @@ mod reporting_tests;
 
 #[path = "system_ownership.rs"]
 mod system_ownership_tests;
+
+#[path = "registry_lifecycle.rs"]
+mod registry_lifecycle_tests;
+
+#[test]
+fn image_os_dependencies_do_not_oscillate_between_distinct_runtime_images() {
+    let mut f = Fixture::new();
+    let mut runtimes = vec![];
+    for (id, image, version) in [("ubuntu", "a", "1.3-ubuntu"), ("debian", "b", "1.3-debian")] {
+        let manifest = json!({"runtime":{"image":format!("sha256:{}",image.repeat(64))},"dependencies":[{"name":"zlib","version":version,"scope":"image-os","origin":{"type":"image"}}]});
+        runtimes.push(json!({"id":id,"revision":1,"sha256":hash(crate::compat::seal(&manifest)),"manifest":manifest}));
+    }
+    f.app
+        .observe_runtimes(json!({"status":"ok","complete":true,"runtimes":runtimes}))
+        .unwrap();
+    f.app.index_once().unwrap();
+    let head = f.app.catalog_head().unwrap();
+    for _ in 0..3 {
+        runtimes.reverse();
+        f.app
+            .observe_runtimes(json!({"status":"ok","complete":true,"runtimes":runtimes}))
+            .unwrap();
+        f.app.index_once().unwrap();
+        assert_eq!(f.app.catalog_head().unwrap(), head);
+    }
+    let page = f
+        .call(
+            "results",
+            "search_items",
+            json!({"kinds":["dependency"],"view":"all","role":"all"}),
+        )
+        .unwrap();
+    assert_eq!(page["items"].as_array().unwrap().len(), 2);
+    assert!(page["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|v| v["native_ref"]["identity"]["origin"]["image"].is_string()));
+}

@@ -1590,10 +1590,15 @@ impl Application {
                     v["definition"]["output_kind"] == k || v["definition"]["kind"] == k
                 })
             });
+            builtin.retain(|_| {
+                args["lifecycle_state"]
+                    .as_str()
+                    .is_none_or(|s| s == "active")
+            });
             builtin.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
-            let prefix="WITH ranked AS (SELECT body,json_extract(identity,'$.id') id,json_extract(identity,'$.revision') revision,row_number() OVER(PARTITION BY json_extract(identity,'$.id') ORDER BY json_extract(identity,'$.revision') DESC) rank FROM catalog_sources WHERE kind=? AND json_extract(identity,'$.id') NOT LIKE 'loom.%'), selected AS (SELECT * FROM ranked WHERE (? OR rank=1) AND (? IS NULL OR json_extract(body,'$.definition.output_kind')=? OR json_extract(body,'$.definition.kind')=?)) ";
+            let prefix=format!("WITH ranked AS (SELECT body,json_extract(identity,'$.id') id,json_extract(identity,'$.revision') revision,row_number() OVER(PARTITION BY json_extract(identity,'$.id') ORDER BY json_extract(identity,'$.revision') DESC) rank FROM catalog_sources WHERE kind=? AND json_extract(identity,'$.id') NOT LIKE 'loom.%'), selected AS (SELECT * FROM ranked WHERE (? OR rank=1) AND (? IS NULL OR json_extract(body,'$.definition.output_kind')=? OR json_extract(body,'$.definition.kind')=? ) AND ({}) ) ",crate::registry_lifecycle::listing_clause(&args,&crate::registry_lifecycle::record_state_sql(kind,"ranked.id","ranked.revision")));
             let count: i64 = self.db.query_row(
-                &(prefix.to_owned() + "SELECT count(*) FROM selected"),
+                &(prefix.clone() + "SELECT count(*) FROM selected"),
                 params![kind, history, filter, filter, filter],
                 |r| r.get(0),
             )?;
@@ -1609,7 +1614,7 @@ impl Application {
                 let skip = (offset - builtin.len() as i64).max(0);
                 for row in rows(
                     &self.db,
-                    &(prefix.to_owned()
+                    &(prefix.clone()
                         + "SELECT body FROM selected ORDER BY id,revision DESC LIMIT ? OFFSET ?"),
                     &[
                         &kind, &history, &filter, &filter, &filter, &remaining, &skip,

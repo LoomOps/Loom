@@ -120,3 +120,9 @@ complete measured population. Dashboard uses the same typed descriptors.
 
 Legacy records remain readable. Do not invent old prompts, losses, spatial
 coverage, DoF or lineage to make a template appear complete.
+
+Registry Archive/Restore and deprecation use `components.inspect_lifecycle` followed
+by `components.set_lifecycle`. See the Components guide for exact target selectors,
+authorization and explicit batch selection. These overlays preserve sealed pins and
+files; they are not execution or scientific acceptance gates. Discovery accepts
+`include_archived` / `lifecycle_state`; exact reads remain available.

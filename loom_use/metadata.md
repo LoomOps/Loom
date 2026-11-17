@@ -70,3 +70,9 @@ remain marked legacy until explicitly normalized; merely viewing a record does
 not validate or migrate it. Register a compatible new Profile revision before
 claiming a producer uses the template contract. Existing reconciliation plans
 retain their source adapter and remain subject to their original context checks.
+
+Registry Archive/Restore and deprecation use `components.inspect_lifecycle` followed
+by `components.set_lifecycle`. See the Components guide for exact target selectors,
+authorization and explicit batch selection. These overlays preserve sealed pins and
+files; they are not execution or scientific acceptance gates. Discovery accepts
+`include_archived` / `lifecycle_state`; exact reads remain available.

@@ -125,7 +125,8 @@
         "results",
         "extensions",
         "catalog",
-        "diagnostics"
+        "diagnostics",
+        "registry-lifecycle"
       ],
       "spec": "docs/features/api.md",
       "contracts": [
@@ -694,7 +695,8 @@
         "dashboard/workspace/research-metadata.js",
         "dashboard/workspace/dataset-browser.js",
         "dashboard/workspace/reporting.js",
-        "dashboard/workspace/reporting.css"
+        "dashboard/workspace/reporting.css",
+        "dashboard/workspace/registry-lifecycle.js"
       ],
       "tests": [
         "tests/dashboard/browser/test_workspace.py",
@@ -706,7 +708,8 @@
         "catalog",
         "observations",
         "onboarding",
-        "diagnostics"
+        "diagnostics",
+        "registry-lifecycle"
       ],
       "spec": "docs/features/dashboard.md",
       "contracts": [
@@ -1381,6 +1384,46 @@
             "execution",
             "onboarding",
             "installation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "registry-lifecycle",
+      "summary": "Reversible exact registry archive, restore and deprecation with reference preview",
+      "sources": [
+        "rust/crates/core/src/registry_lifecycle.rs"
+      ],
+      "tests": [
+        "tests/rust/registry_lifecycle.rs"
+      ],
+      "depends_on": [
+        "extensions",
+        "results",
+        "identity"
+      ],
+      "spec": "docs/features/registry-lifecycle.md",
+      "contracts": [
+        "loom_use/components.md"
+      ],
+      "invariants": [
+        "No physical deletion, source mutation, automatic cascade or execution gate. Exact pins and Job history remain valid. Built-ins are protected; changes require owner or authenticated installation administrator."
+      ],
+      "change_rule": "Review registry listings, search paging/cursors, Dashboard relay, server guides and installation schema together.",
+      "live_validation": [
+        "Exercise only isolated fixture registrations; production lifecycle changes require a user request."
+      ],
+      "interfaces": [
+        {
+          "name": "Registry lifecycle",
+          "entrypoint": "rust/crates/core/src/registry_lifecycle.rs#inspect_lifecycle",
+          "accepts": "Exact targets and desired lifecycle state; apply requires reason, key and preview digest",
+          "returns": "Bounded reverse-reference and Job usage preview, or atomic audited receipt",
+          "consumers": [
+            "dashboard",
+            "api",
+            "extensions",
+            "results"
           ]
         }
       ]

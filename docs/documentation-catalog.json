@@ -314,6 +314,12 @@
       "authority": "feature catalog and native implementation"
     },
     {
+      "path": "docs/features/registry-lifecycle.md",
+      "audience": "maintainer",
+      "status": "current",
+      "authority": "feature catalog and native implementation"
+    },
+    {
       "path": "docs/features/results.md",
       "audience": "maintainer",
       "status": "current",

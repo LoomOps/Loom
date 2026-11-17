@@ -291,6 +291,17 @@ class ProxyTest(unittest.TestCase):
         self.assertEqual(self.request(path,method='POST',headers=auth,body=body)[0],200)
         self.assertEqual(self.api.history_calls[-1],('/api/actions',auth['Authorization'],{'group':'jobs',**body}))
 
+    def test_registry_lifecycle_relay_keeps_auth_origin_and_action_allowlist(self):
+        path='/api/runtimes/actions';body={'action':'set_lifecycle','arguments':{'targets':[{'kind':'profile','id':'owner.eval.r1','revision':0}],'state':'archived'}}
+        auth={'Authorization':'Bearer test-credential','Content-Type':'application/json'}
+        self.assertEqual(self.request(path,method='POST',headers={'Content-Type':'application/json'},body=body)[0],401)
+        self.assertEqual(self.request(path,method='POST',headers={**auth,'Origin':'https://other.invalid'},body=body)[0],403)
+        for action in ('inspect_lifecycle','set_lifecycle'):
+            request={**body,'action':action}
+            self.assertEqual(self.request(path,method='POST',headers=auth,body=request)[0],200)
+            self.assertEqual(self.api.history_calls[-1],('/api/actions',auth['Authorization'],{'group':'components',**request}))
+        self.assertEqual(self.request(path,method='POST',headers=auth,body={**body,'action':'delete'})[0],400)
+
     def test_runtime_workspace_actions_are_scoped_and_cannot_submit_jobs(self):
         path='/api/runtimes/actions';body={'action':'inspect_profile','arguments':{'kind':'owner.eval.r1','params':{}}}
         auth={'Authorization':'Bearer test-credential','Content-Type':'application/json'}

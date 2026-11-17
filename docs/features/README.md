@@ -52,6 +52,7 @@ In the native service, execution states and hook transitions are owned by `rust/
 | [recovery](recovery.md) | Recovery leases, retries, events | Queue, external callers |
 | [results](results.md) | Artifacts, indexing, lineage | Dependent Jobs, catalog |
 | [extensions](extensions.md) | Components, Tools, Profiles, Runtimes | Execution, results |
+| [registry-lifecycle](registry-lifecycle.md) | Reversible archive/restore, reference preview and management rights | Registries, Dashboard, API |
 | [catalog](catalog.md) | Queries, original preservation, files | Dashboard, API |
 | [scenarios](scenarios.md) | Versioned task context and exact links | Jobs, catalog, Dashboard |
 | [authoring](authoring.md) | Rust SDK and source/build identities | Components, Tools, Jobs, guides |

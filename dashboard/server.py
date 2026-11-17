@@ -401,7 +401,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 size=int(self.headers.get('Content-Length','0'))
                 if not 0<size<=65536 or self.headers.get_content_type()!='application/json':raise ValueError()
                 payload=json.loads(self.rfile.read(size))
-                if not isinstance(payload,dict) or set(payload)!={'action','arguments'} or payload['action'] not in ('inspect_profile','compare_profiles','curate') or not isinstance(payload['arguments'],dict):raise ValueError()
+                if not isinstance(payload,dict) or set(payload)!={'action','arguments'} or payload['action'] not in ('inspect_profile','compare_profiles','curate','inspect_lifecycle','set_lifecycle') or not isinstance(payload['arguments'],dict):raise ValueError()
             except (ValueError,TypeError):return self.error(400,'invalid_runtime_action')
             return self.relay('POST','/api/actions',json.dumps({'group':'components',**payload}).encode())
         if self.path != '/api/jobs/queue-actions':return self.error(405, 'read_only')

@@ -3,7 +3,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "list",
-      "description": "Read the latest revision of all components. Set owner to filter the namespace.",
+      "description": "Read the latest revision of all components. Set owner to filter the namespace. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
       "errors": [],
       "example": {},
       "group": "components",
@@ -15,6 +15,17 @@
       "schema": {
         "additionalProperties": false,
         "properties": {
+          "include_archived": {
+            "default": true,
+            "type": "boolean"
+          },
+          "lifecycle_state": {
+            "enum": [
+              "active",
+              "archived",
+              "deprecated"
+            ]
+          },
           "owner": {
             "description": "Stable namespace. Register/write/get default to the authenticated principal; list defaults to all shared namespaces. built-in denotes Loom-supplied software, not shared access. Display responsibility is returned in owner_profile; assign_owner changes attribution without moving this namespace.",
             "type": "string"
@@ -172,7 +183,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "profiles",
-      "description": "Read exact Profile combinations, stage environments and observed Job usage. Repeated environment dependencies are a bounded preview (dependency_count, dependencies_complete); use components.get_runtime for the complete inventory. Read scope does not grant execution or registration rights.",
+      "description": "Read exact Profile combinations, stage environments and observed Job usage. Repeated environment dependencies are a bounded preview (dependency_count, dependencies_complete); use components.get_runtime for the complete inventory. Read scope does not grant execution or registration rights. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
       "errors": [],
       "example": {},
       "group": "components",
@@ -183,7 +194,19 @@
       "returns": "Profile[] · kind, revision, params_schema, outputs, limits, usage, combination",
       "schema": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "include_archived": {
+            "default": true,
+            "type": "boolean"
+          },
+          "lifecycle_state": {
+            "enum": [
+              "active",
+              "archived",
+              "deprecated"
+            ]
+          }
+        },
         "required": [],
         "type": "object"
       },
@@ -1484,7 +1507,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "list_tools",
-      "description": "List shared reusable software independently of Job Components.",
+      "description": "List shared reusable software independently of Job Components. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
       "errors": [],
       "example": {},
       "group": "components",
@@ -1496,6 +1519,17 @@
       "schema": {
         "additionalProperties": false,
         "properties": {
+          "include_archived": {
+            "default": true,
+            "type": "boolean"
+          },
+          "lifecycle_state": {
+            "enum": [
+              "active",
+              "archived",
+              "deprecated"
+            ]
+          },
           "owner": {
             "type": "string"
           }
@@ -1622,7 +1656,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "runtimes",
-      "description": "Read administrator-granted execution environments, exact dependencies, validation evidence and Profile/Job usage. Legacy entries are not verification evidence.",
+      "description": "Read administrator-granted execution environments, exact dependencies, validation evidence and Profile/Job usage. Legacy entries are not verification evidence. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
       "errors": [],
       "example": {},
       "group": "components",
@@ -1633,7 +1667,19 @@
       "returns": "Runtime catalog",
       "schema": {
         "additionalProperties": false,
-        "properties": {},
+        "properties": {
+          "include_archived": {
+            "default": true,
+            "type": "boolean"
+          },
+          "lifecycle_state": {
+            "enum": [
+              "active",
+              "archived",
+              "deprecated"
+            ]
+          }
+        },
         "required": [],
         "type": "object"
       },
@@ -1731,7 +1777,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "assign_owner",
-      "description": "Set the responsible user or built-in attribution for Loom-supplied software. Sharing, namespace, source revisions and Job pins remain unchanged. Reserved system attribution requires installation administrator access for both assignment and restoration. Runtime uses namespace host; software namespaces/pins and execution permissions remain preserved. System resources remain discoverable through MCP and are hidden from Dashboard discovery.",
+      "description": "Set the responsible user or built-in attribution for Loom-supplied software. Sharing, namespace, source revisions and Job pins remain unchanged. Reserved system attribution requires installation administrator access for both assignment and restoration. Runtime uses namespace host; software namespaces/pins and execution permissions remain preserved. System resources remain discoverable through MCP and are hidden from Dashboard discovery. Changing registry responsibility requires the author/current responsible owner or authenticated installation administrator; attribution cannot be used to acquire lifecycle management rights.",
       "errors": [
         "Unregistered user, missing extension, read-only scope or maintenance fence."
       ],
@@ -1877,7 +1923,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "curate",
-      "description": "Set a Profile display name, purpose, preferred/archive state or declared Tool stage roles; set representative dependencies on an exact Runtime. Does not rewrite execution definitions or select a Runtime.",
+      "description": "Set a Profile display name, purpose, preferred/archive state or declared Tool stage roles; set representative dependencies on an exact Runtime. Does not rewrite execution definitions or select a Runtime. Legacy state changes use the same lifecycle overlay, owner/admin authorization, Built-in protection and audit. Prefer inspect_lifecycle/set_lifecycle for an explicit preview and atomic batch.",
       "errors": [
         "Submit scope, maintenance fence, exact identity, dependency scope or preference conflict."
       ],
@@ -2136,6 +2182,196 @@
       },
       "scope": "read",
       "title": "Compare exact Profile definitions"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "inspect_lifecycle",
+      "description": "Inspect exact registrations, current lifecycle, management rights, registered reverse references and dependencies and recorded Job usage. Returns a digest for atomic apply. Related registrations are never selected automatically. Built-ins are protected; file contents are not scanned.",
+      "errors": [
+        "Stale preview or changed references: 409. Missing exact revision: 404. Unauthorized or Built-in: 403."
+      ],
+      "example": {
+        "state": "archived",
+        "targets": [
+          {
+            "id": "planner",
+            "kind": "component",
+            "owner": "research",
+            "revision": 1
+          }
+        ]
+      },
+      "group": "components",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/registry_lifecycle.rs#inspect_lifecycle",
+        "feature": "registry-lifecycle"
+      },
+      "returns": "Preview · targets, related, related_count, related_truncated, jobs, job_count, jobs_truncated, desired_state, reference_coverage, cascade, digest",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "enum": [
+              "active",
+              "archived",
+              "deprecated"
+            ]
+          },
+          "targets": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "kind": {
+                  "enum": [
+                    "component",
+                    "tool",
+                    "profile",
+                    "runtime",
+                    "metadata_template",
+                    "report_contract",
+                    "report_definition"
+                  ]
+                },
+                "owner": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "revision": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "revision"
+              ],
+              "type": "object"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "targets",
+          "state"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Preview registry lifecycle"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "set_lifecycle",
+      "description": "Set active, deprecated or archived for explicit exact targets after inspect_lifecycle. Only author/current responsible owner or authenticated installation admin may manage; Built-ins are protected. Revalidates the preview and applies the entire batch atomically with audit and idempotent receipt. Preserves files, sealed definitions, accepted pins and running/past Jobs. No automatic cascade or physical deletion.",
+      "errors": [
+        "Stale preview or changed references: 409. Missing exact revision: 404. Unauthorized or Built-in: 403."
+      ],
+      "example": {
+        "expected_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+        "key": "archive-planner-r1",
+        "reason": "Mistaken registration",
+        "state": "archived",
+        "targets": [
+          {
+            "id": "planner",
+            "kind": "component",
+            "owner": "research",
+            "revision": 1
+          }
+        ]
+      },
+      "group": "components",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/registry_lifecycle.rs#set_lifecycle",
+        "feature": "registry-lifecycle"
+      },
+      "returns": "Receipt · state, changed, preserved",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "active",
+              "archived",
+              "deprecated"
+            ]
+          },
+          "targets": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "kind": {
+                  "enum": [
+                    "component",
+                    "tool",
+                    "profile",
+                    "runtime",
+                    "metadata_template",
+                    "report_contract",
+                    "report_definition"
+                  ]
+                },
+                "owner": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "revision": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "kind",
+                "id",
+                "revision"
+              ],
+              "type": "object"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "targets",
+          "state",
+          "reason",
+          "key",
+          "expected_digest"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Archive or restore registrations"
     },
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",

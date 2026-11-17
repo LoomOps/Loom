@@ -502,7 +502,8 @@ impl Application {
             runtimes.retain(|r| r["owner_kind"] != "system");
         }
         let queue = self.dashboard_queue()?;
-        let value = json!({"entities":entities,"research_tasks":self.dashboard_tasks()?,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true,"item_search":true,"metadata_templates":true,"reporting":true},"host":self.dashboard_host()?,"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});
+        let mut value = json!({"entities":entities,"research_tasks":self.dashboard_tasks()?,"queue":queue,"revision":revision,"sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],"capabilities":{"curate":true,"scenarios":true,"item_search":true,"metadata_templates":true,"reporting":true},"host":self.dashboard_host()?,"job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,"runtime_catalog":runtime_catalog});
+        self.decorate_registry(&mut value)?;
         if all {
             *self
                 .catalog_cache
@@ -517,6 +518,12 @@ impl Application {
         for row in rows(&self.db,"SELECT r.body FROM catalog_items i JOIN catalog_revisions r ON r.id=i.current_revision WHERE i.deleted=0 AND i.kind IN('scenario','job','dataset','model','experiment','artifact','profile','component','tool','runtime','dependency') ORDER BY i.rowid DESC LIMIT 50",&[])? {
             selected.push(serde_json::from_str::<Value>(row["body"].as_str().unwrap_or("{}"))?);
         }
+        selected.retain(|v| {
+            crate::registry_lifecycle::dto_target(v).is_none_or(|t| {
+                crate::registry_lifecycle::state(&self.db, &t)
+                    .is_ok_and(|s| s["state"] != "archived")
+            })
+        });
         let queue = self.queue()?;
         for entry in queue["entries"].as_array().into_iter().flatten().take(200) {
             let id = entry
@@ -568,6 +575,9 @@ impl Application {
             ]);
         }
         query["include_system"] = json!(false);
+        if query.get("include_archived").is_none() {
+            query["include_archived"] = json!(false);
+        }
         let page = self.search_items(actor, &query)?;
         let selected = page["items"]
             .as_array()

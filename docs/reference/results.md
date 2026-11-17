@@ -529,7 +529,7 @@ Unregistered profile or missing artifact.
 
 ## metadata_templates
 
-List current immutable output metadata formats; include_revisions exposes previous revisions.
+List current immutable output metadata formats; include_revisions exposes previous revisions. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.
 
 Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/metadata_templates.rs#metadata_template_action](../../rust/crates/core/src/metadata_templates.rs).
 
@@ -537,8 +537,10 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 
 | Field | Required | Type / values | Default |
 |---|---|---|---|
+| `include_archived` | no | `"boolean"` | `true` |
 | `include_revisions` | no | `"boolean"` | `false` |
 | `kind` | no | `["dataset", "model", "experiment"]` | `—` |
+| `lifecycle_state` | no | `["active", "archived", "deprecated"]` | `—` |
 | `limit` | no | `"integer"` | `—` |
 | `offset` | no | `"integer"` | `—` |
 
@@ -548,6 +550,10 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 {
   "additionalProperties": false,
   "properties": {
+    "include_archived": {
+      "default": true,
+      "type": "boolean"
+    },
     "include_revisions": {
       "default": false,
       "type": "boolean"
@@ -557,6 +563,13 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
         "dataset",
         "model",
         "experiment"
+      ]
+    },
+    "lifecycle_state": {
+      "enum": [
+        "active",
+        "archived",
+        "deprecated"
       ]
     },
     "limit": {
@@ -2644,7 +2657,7 @@ The exact native reference has not been adopted, or its source was deleted.
 
 ## search_items
 
-Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates. include_system defaults to true for API/MCP discovery; false excludes current System responsibility before pagination, including files inherited from a System parent.
+Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates. include_system defaults to true for API/MCP discovery; false excludes current System responsibility before pagination, including files inherited from a System parent. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.
 
 Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/index_store.rs#search_items](../../rust/crates/core/src/index_store.rs).
 
@@ -2658,8 +2671,10 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 | `cursor` | no | `"string"` | `—` |
 | `dependency_ref` | no | `"object"` | `—` |
 | `history` | no | `["current", "all"]` | `—` |
+| `include_archived` | no | `"boolean"` | `true` |
 | `include_system` | no | `"boolean"` | `true` |
 | `kinds` | no | `"array"` | `—` |
+| `lifecycle_state` | no | `["active", "archived", "deprecated"]` | `—` |
 | `limit` | no | `"integer"` | `—` |
 | `native_kind` | no | `"string"` | `—` |
 | `origin_type` | no | `"string"` | `—` |
@@ -2708,6 +2723,10 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
         "all"
       ]
     },
+    "include_archived": {
+      "default": true,
+      "type": "boolean"
+    },
     "include_system": {
       "default": true,
       "type": "boolean"
@@ -2718,6 +2737,13 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
       },
       "maxItems": 16,
       "type": "array"
+    },
+    "lifecycle_state": {
+      "enum": [
+        "active",
+        "archived",
+        "deprecated"
+      ]
     },
     "limit": {
       "maximum": 200,
@@ -2845,9 +2871,11 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 | `cursor` | no | `"string"` | `—` |
 | `dependency_ref` | no | `"object"` | `—` |
 | `history` | no | `["current", "all"]` | `—` |
+| `include_archived` | no | `"boolean"` | `true` |
 | `include_system` | no | `"boolean"` | `true` |
 | `item_id` | yes | `"string"` | `—` |
 | `kinds` | no | `"array"` | `—` |
+| `lifecycle_state` | no | `["active", "archived", "deprecated"]` | `—` |
 | `limit` | no | `"integer"` | `—` |
 | `native_kind` | no | `"string"` | `—` |
 | `origin_type` | no | `"string"` | `—` |
@@ -2897,6 +2925,10 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
         "all"
       ]
     },
+    "include_archived": {
+      "default": true,
+      "type": "boolean"
+    },
     "include_system": {
       "default": true,
       "type": "boolean"
@@ -2911,6 +2943,13 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
       },
       "maxItems": 16,
       "type": "array"
+    },
+    "lifecycle_state": {
+      "enum": [
+        "active",
+        "archived",
+        "deprecated"
+      ]
     },
     "limit": {
       "maximum": 200,
@@ -3218,7 +3257,7 @@ Missing source revision or expired cursor; incoming relations require a source-q
 
 ## report_contracts
 
-Page registered immutable reporting templates; default requirements can be adapted with exact evidence before Job submission.
+Page registered immutable reporting templates; default requirements can be adapted with exact evidence before Job submission. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.
 
 Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reporting.rs#reporting_action](../../rust/crates/core/src/reporting.rs).
 
@@ -3226,8 +3265,10 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 
 | Field | Required | Type / values | Default |
 |---|---|---|---|
+| `include_archived` | no | `"boolean"` | `true` |
 | `include_revisions` | no | `"boolean"` | `—` |
 | `kind` | no | `["dataset", "model", "experiment"]` | `—` |
+| `lifecycle_state` | no | `["active", "archived", "deprecated"]` | `—` |
 | `limit` | no | `"integer"` | `—` |
 | `offset` | no | `"integer"` | `—` |
 
@@ -3237,6 +3278,10 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 {
   "additionalProperties": false,
   "properties": {
+    "include_archived": {
+      "default": true,
+      "type": "boolean"
+    },
     "include_revisions": {
       "type": "boolean"
     },
@@ -3245,6 +3290,13 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
         "dataset",
         "model",
         "experiment"
+      ]
+    },
+    "lifecycle_state": {
+      "enum": [
+        "active",
+        "archived",
+        "deprecated"
       ]
     },
     "limit": {
@@ -3280,7 +3332,7 @@ Missing or changed evidence, invalid coverage, schema/population mismatch, confl
 
 ## report_definitions
 
-Page registered metric, factor and evaluation protocol definitions.
+Page registered metric, factor and evaluation protocol definitions. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.
 
 Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reporting.rs#reporting_action](../../rust/crates/core/src/reporting.rs).
 
@@ -3288,8 +3340,10 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 
 | Field | Required | Type / values | Default |
 |---|---|---|---|
+| `include_archived` | no | `"boolean"` | `true` |
 | `include_revisions` | no | `"boolean"` | `—` |
 | `kind` | no | `["metric", "factor", "protocol"]` | `—` |
+| `lifecycle_state` | no | `["active", "archived", "deprecated"]` | `—` |
 | `limit` | no | `"integer"` | `—` |
 | `offset` | no | `"integer"` | `—` |
 
@@ -3299,6 +3353,10 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
 {
   "additionalProperties": false,
   "properties": {
+    "include_archived": {
+      "default": true,
+      "type": "boolean"
+    },
     "include_revisions": {
       "type": "boolean"
     },
@@ -3307,6 +3365,13 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
         "metric",
         "factor",
         "protocol"
+      ]
+    },
+    "lifecycle_state": {
+      "enum": [
+        "active",
+        "archived",
+        "deprecated"
       ]
     },
     "limit": {

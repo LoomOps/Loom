@@ -31,6 +31,35 @@ pub fn actions() -> Vec<Action> {
         json!({"id":{"type":"string","minLength":1,"maxLength":96},"revision":{"type":"integer","minimum":1},"sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}}),
         &["id", "revision", "sha256"],
     );
+    let registry_target = object(
+        json!({"kind":{"enum":["component","tool","profile","runtime","metadata_template","report_contract","report_definition"]},"id":string,"revision":{"type":"integer","minimum":0},"owner":string}),
+        &["kind", "id", "revision"],
+    );
+    let lifecycle_properties = json!({"targets":{"type":"array","minItems":1,"maxItems":100,"items":registry_target},"state":{"enum":["active","archived","deprecated"]}});
+    let inspect = object(lifecycle_properties.clone(), &["targets", "state"]);
+    let mut apply_properties = lifecycle_properties;
+    apply_properties["reason"] = json!({"type":"string","minLength":1,"maxLength":2000});
+    apply_properties["key"] = string.clone();
+    apply_properties["expected_digest"] = json!({"type":"string","pattern":"^[a-f0-9]{64}$"});
+    for (name, scope, schema) in [
+        ("inspect_lifecycle", "read", inspect),
+        (
+            "set_lifecycle",
+            "submit",
+            object(
+                apply_properties,
+                &["targets", "state", "reason", "key", "expected_digest"],
+            ),
+        ),
+    ] {
+        result.push(Action {
+            group: "components".into(),
+            action: name.into(),
+            operation: format!("components.{name}"),
+            scope: scope.into(),
+            schema,
+        });
+    }
     let metadata_kind = json!({"enum":["dataset","model","experiment"]});
     let definitions = [
         (
@@ -529,6 +558,26 @@ pub fn actions() -> Vec<Action> {
         }
         if entry.group == "jobs" && matches!(entry.action.as_str(), "submit" | "submit_workflow") {
             entry.schema["properties"]["scenario_ref"] = reference.clone();
+        }
+    }
+    for action in &mut result {
+        if matches!(
+            format!("{}.{}", action.group, action.action).as_str(),
+            "components.list"
+                | "components.list_tools"
+                | "components.profiles"
+                | "components.runtimes"
+                | "results.metadata_templates"
+                | "results.report_contracts"
+                | "results.report_definitions"
+                | "results.search_items"
+                | "system.dashboard_page"
+                | "results.item_files"
+        ) {
+            action.schema["properties"]["include_archived"] =
+                json!({"type":"boolean","default":true});
+            action.schema["properties"]["lifecycle_state"] =
+                json!({"enum":["active","archived","deprecated"]});
         }
     }
     result

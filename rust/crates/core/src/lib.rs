@@ -28,6 +28,7 @@ pub mod onboarding;
 pub mod progress;
 pub mod query;
 pub mod reconcile;
+pub mod registry_lifecycle;
 pub mod reporting;
 pub mod research_metadata;
 pub mod results;

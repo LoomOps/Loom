@@ -117,3 +117,5 @@ Re-running capture derives current sources again, not a re-stamped old annotatio
 Projection-version triggers invalidate catalog caches after annotation changes.
 
 Maintenance keys identify both action and arguments; a key cannot replay a different maintenance kind. Component/Tool build File descriptors use the accepted binary locator size and SHA-256. Existing sealed inventories remain immutable; these rules do not silently rewrite prior File identities.
+
+Image-origin Dependency identities include the immutable Runtime image. Repeated observations of distinct base images must not alternate one current package or append redundant catalog changes; prior exact aliases remain preserved.

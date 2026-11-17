@@ -84,3 +84,5 @@ them available. `results.search_items(include_system=false)` applies the current
 responsibility before pagination, including files inherited from a hidden parent.
 Ownership changes invalidate visibility-bound cursors without changing artifact
 identity. Visibility does not remove resource reservations, execution gates or data.
+
+Archive/Restore and deprecation follow [Registry lifecycle](registry-lifecycle.md). Exact pins and source files remain preserved.

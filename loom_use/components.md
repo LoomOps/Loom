@@ -159,3 +159,21 @@ User-requested Runtime construction, validation and research diagnostics retain
 user responsibility, including unfinished or unused revisions. MCP discovery can
 return System resources that the Dashboard hides. Do not assign System to suppress
 research failures or genuine development history.
+
+## Archive and restore
+
+Use `components.inspect_lifecycle` with explicit exact targets and `state`, then
+`components.set_lifecycle` with the returned digest, the same targets/state, a
+reason and unique key. Kinds: component/tool (owner namespace + positive revision),
+profile (exact kind ID + revision 0), runtime, metadata_template, report_contract,
+report_definition (ID + positive revision). Review related registrations and current
+Job usage; select related targets explicitly and inspect that batch again. A stale
+preview requires a fresh inspection, not a blind retry.
+
+Archive hides normal Dashboard discovery. Deprecated is advisory. Both retain
+files, definitions, hashes, accepted pins and Job history. Built-ins cannot change
+lifecycle; only the author/current owner or authenticated installation admin may
+manage user registrations. MCP lists include archived items by default. Prefer
+active resources for new work; an existing explicit pin remains usable. Use
+`include_archived=false` or `lifecycle_state` to filter discovery. There is no
+physical delete, uninstall or automatic cascade.

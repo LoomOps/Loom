@@ -3,6 +3,7 @@ loomRepresentativeOutcome=function(e){const p=e.reporting?.primary_outcome;if(!p
 resultOutcomeRows=loomRepresentativeOutcome;
 // Exact report bindings drive bounded views. Legacy records remain readable.
 const loomReportOverviewBodies=new Map();
+const loomReportLegacyMetrics=new Map();
 const loomReportViews=new Map(),loomReportPages=new Map(),loomReportPending=new Set();
 const loomReportPointer=(value,pointer)=>pointer===''?value:String(pointer||'').split('/').slice(1).reduce((v,k)=>v?.[k.replace(/~1/g,'/').replace(/~0/g,'~')],value);
 function loomReportState(e){if(!loomReportViews.has(e.id))loomReportViews.set(e.id,{tab:'overview',phase:'all',split:'all'});return loomReportViews.get(e.id);}
@@ -67,18 +68,19 @@ function loomReportContent(e){
  }
  const roles={instructions:['instructions'],learning:['learning_series'],metrics:['action_metrics','evaluation_cases'],inputs:['policy_inputs'],protocol:['evaluation_cases'],cases:['evaluation_cases'],distribution:['sdg_conditions','sdg_readback'],quality:['dataset_statistics']};
  const reports=(r?.reports||[]).filter(r=>(roles[tab]||[]).includes(r.role));
- if(!reports.length){const excluded=(r?.exclusions||[]).some(x=>(roles[tab]||[]).includes(x.role));return '<p class="pa-report-missing">'+esc(loomReportTabs(e).find(([id])=>id===tab)?.[1]||tab)+' · '+(excluded?'Not applicable':'Missing')+'</p>';}
+ const legacy=(tab===(e.kind==='dataset'?'quality':'metrics'))?loomReportLegacyMetrics.get(e.id)||'':'';
+ if(!reports.length){const excluded=(r?.exclusions||[]).some(x=>(roles[tab]||[]).includes(x.role));return legacy||'<p class="pa-report-missing">'+esc(loomReportTabs(e).find(([id])=>id===tab)?.[1]||tab)+' · '+(excluded?'Not applicable':'Missing')+'</p>';}
  const loaded=reports.flatMap(r=>(r.fields||[]).flatMap(f=>{const v=loomReportPages.get(loomReportKey(e,r,f))?.value;return Array.isArray(v)?v:[]}));
  const phaseOptions=['all',...[...new Set(loaded.map(r=>r.phase).filter(v=>v!=null).map(String))].filter(v=>v!=='all')];
  const splitOptions=['all',...[...new Set(loaded.map(r=>r.split).filter(v=>v!=null).map(String))].filter(v=>v!=='all')];
- const filters=['learning','metrics','cases','distribution'].includes(tab)?'<div class="pa-report-controls"><label>Phase<select data-report-filter="phase">'+phaseOptions.map(v=>'<option value="'+v+'"'+(state.phase===v?' selected':'')+'>'+(v==='all'?'All phases':'Phase '+v)+'</option>').join('')+'</select></label><label>Split<select data-report-filter="split">'+splitOptions.map(v=>'<option value="'+v+'"'+(state.split===v?' selected':'')+'>'+({all:'All splits'}[v]||v)+'</option>').join('')+'</select></label></div>':'';
+ const filters=['learning','metrics','cases','distribution'].includes(tab)?'<div class="pa-report-controls"><label>Phase<select data-report-filter="phase">'+phaseOptions.map(v=>'<option value="'+esc(v)+'"'+(state.phase===v?' selected':'')+'>'+esc(v==='all'?'All phases':'Phase '+v)+'</option>').join('')+'</select></label><label>Split<select data-report-filter="split">'+splitOptions.map(v=>'<option value="'+esc(v)+'"'+(state.split===v?' selected':'')+'>'+esc(v==='all'?'All splits':v)+'</option>').join('')+'</select></label></div>':'';
  return filters+reports.map(report=>{
   let fields=report.fields||[];
   if(tab==='cases')fields=fields.filter(f=>f.format==='table');
   if(tab==='metrics')fields=fields.filter(f=>f.format!=='table'||report.role==='action_metrics');
   if(tab==='protocol')return loomResearchSection('Protocol',catProperties({Reference:r.contract_ref.id,'Report source':report.component})+catTable(['Accepted input','Record','Revision'],(r.inputs||[]).map(i=>[esc(i.input),esc(i.id),esc(i.revision)]))+'<button class="pa-button" data-report-protocol="'+esc(report.requirement_id)+'">Protocol definition</button><div data-report-protocol-detail></div>');
   return loomResearchSection(report.label,report.state!=='recorded'?'<p class="pa-report-missing">Missing</p>':fields.map(f=>'<div class="pa-report-field"><h3>'+esc(f.label)+'</h3>'+loomReportField(e,report,f)+'</div>').join(''));
- }).join('');
+ }).join('')+(legacy?'<details class="pa-report-legacy"><summary>Recorded metrics</summary>'+legacy+'</details>':'');
 }
 const loomReportPreviousDetail=catalogDetail;
 catalogDetail=function(id){
@@ -86,7 +88,10 @@ catalogDetail=function(id){
  const t=document.createElement('template');t.innerHTML=html;
  if(e.kind==='model'&&(e.reporting||e.metadata?.research?.model?.role==='policy'||['VLA','Policy'].includes(modelFilterMeta(e).role))){const label=t.content.querySelector('.pa-heading .pa-eyebrow');if(label)label.textContent='POLICY';}
  const overview=t.content.querySelector('.pa-research-overview');if(!overview)return t.innerHTML;
- loomReportOverviewBodies.set(e.id,overview.outerHTML);while(loomReportOverviewBodies.size>160)loomReportOverviewBodies.delete(loomReportOverviewBodies.keys().next().value);
+ const metrics=t.content.querySelector('[data-output-metrics]'),toolbar=t.content.querySelector('.pa-metrics-toolbar');
+ loomReportLegacyMetrics.set(e.id,e.metrics?.length?(toolbar?.outerHTML||'')+(metrics?.outerHTML||''):'');
+ metrics?.remove();toolbar?.remove();
+ loomReportOverviewBodies.set(e.id,overview.outerHTML);while(loomReportOverviewBodies.size>160){const id=loomReportOverviewBodies.keys().next().value;loomReportOverviewBodies.delete(id);loomReportLegacyMetrics.delete(id);}
  const view=loomReportState(e);const parent=document.createElement('section');parent.className='pa-report-workspace';parent.dataset.reportOutput=e.id;
  parent.innerHTML='<nav class="pa-report-tabs" aria-label="Output details">'+loomReportTabs(e).map(([id,label])=>'<button data-report-tab="'+id+'" aria-current="'+(view.tab===id?'page':'false')+'">'+label+'</button>').join('')+'</nav><div data-report-content>'+loomReportContent(e)+'</div>';
  overview.replaceWith(parent);return t.innerHTML;
@@ -104,18 +109,4 @@ root.addEventListener('click',async event=>{
 });
 root.addEventListener('change',event=>{const workspace=event.target.closest('[data-report-output]');if(!workspace||!event.target.dataset.reportFilter)return;const e=catEntity(workspace.dataset.reportOutput);loomReportState(e)[event.target.dataset.reportFilter]=event.target.value;render();});
 
-root.addEventListener('click',async event=>{
- if(!event.target.closest('[data-report-contracts]'))return;
- const dialog=loomHubDialog('Report contracts','<div data-report-contract-list></div><div data-report-contract-detail></div>');
- let offset=0,sequence=0;const rows=[];
- async function load(){const page=await loomSearchAction('results','report_contracts',{offset,limit:50});if(!dialog.isConnected)return;rows.push(...page.items);offset=page.next_offset;dialog.querySelector('[data-report-contract-list]').innerHTML=catTable(['Contract','Kind','Origin','Revision'],rows.map(c=>['<button class="pa-button" data-report-contract-id="'+esc(c.id)+'" data-report-contract-revision="'+esc(c.revision)+'">'+esc(c.label)+'</button>',esc(c.output_kind),c.origin==='builtin'?'Built-in':'Registered',esc(c.revision)]))+(offset!=null?'<button class="pa-button" data-report-contract-more>More</button>':'');}
- dialog.addEventListener('click',async event=>{
-  const b=event.target.closest('[data-report-contract-id]');try{
-   if(event.target.closest('[data-report-contract-more]')){await load();return;}if(!b)return;const current=++sequence;
-   const c=await loomSearchAction('results','get_report_contract',{id:b.dataset.reportContractId,revision:Number(b.dataset.reportContractRevision)});if(!dialog.isConnected||current!==sequence)return;
-   const requirements=c.definition.effective_requirements||c.definition.requirements;
-   dialog.querySelector('[data-report-contract-detail]').innerHTML='<h3>'+esc(c.label)+'</h3>'+catTable(['Report','Role','Coverage'],requirements.map(r=>[esc(r.label),esc(r.role),r.required?'Required':'Optional']))+'<details><summary>Definition and extension schema</summary><pre>'+esc(JSON.stringify(c.definition,null,2))+'</pre></details>';
-  }catch(error){if(dialog.isConnected)dialog.querySelector('[data-hub-result]').textContent=error.message;}
- });
- try{await load();}catch(error){if(dialog.isConnected)dialog.querySelector('[data-hub-result]').textContent=error.message;}
-});
+root.addEventListener('click',event=>{if(event.target.closest('[data-report-contracts]'))loomRegistryBrowser('report_contract');});

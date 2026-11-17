@@ -583,10 +583,15 @@ fn listing(db: &Connection, args: &Value) -> Result<Value> {
     let limit = args["limit"].as_u64().unwrap_or(50).clamp(1, 100) as i64;
     let mut builtin = builtins();
     builtin.retain(|v| kind.is_none_or(|k| v["output_kind"] == k));
+    builtin.retain(|_| {
+        args["lifecycle_state"]
+            .as_str()
+            .is_none_or(|s| s == "active")
+    });
     builtin.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
-    let prefix="WITH ranked AS (SELECT body,json_extract(identity,'$.id') id,json_extract(identity,'$.revision') revision,row_number() OVER(PARTITION BY json_extract(identity,'$.id') ORDER BY json_extract(identity,'$.revision') DESC) rank FROM catalog_sources WHERE kind='metadata_template' AND json_extract(identity,'$.id') NOT LIKE 'loom.%'), selected AS (SELECT * FROM ranked WHERE (? OR rank=1) AND (? IS NULL OR json_extract(body,'$.output_kind')=?)) ";
+    let prefix=format!("WITH ranked AS (SELECT body,json_extract(identity,'$.id') id,json_extract(identity,'$.revision') revision,row_number() OVER(PARTITION BY json_extract(identity,'$.id') ORDER BY json_extract(identity,'$.revision') DESC) rank FROM catalog_sources WHERE kind='metadata_template' AND json_extract(identity,'$.id') NOT LIKE 'loom.%'), selected AS (SELECT * FROM ranked WHERE (? OR rank=1) AND (? IS NULL OR json_extract(body,'$.output_kind')=? ) AND ({}) ) ",crate::registry_lifecycle::listing_clause(args,&crate::registry_lifecycle::record_state_sql("metadata_template","ranked.id","ranked.revision")));
     let count: i64 = db.query_row(
-        &(prefix.to_owned() + "SELECT count(*) FROM selected"),
+        &(prefix.clone() + "SELECT count(*) FROM selected"),
         params![history, kind, kind],
         |r| r.get(0),
     )?;
@@ -602,7 +607,7 @@ fn listing(db: &Connection, args: &Value) -> Result<Value> {
         let skip = (offset - builtin.len() as i64).max(0);
         for row in rows(
             db,
-            &(prefix.to_owned()
+            &(prefix.clone()
                 + "SELECT body FROM selected ORDER BY id,revision DESC LIMIT ? OFFSET ?"),
             &[&history, &kind, &kind, &remaining, &skip],
         )? {

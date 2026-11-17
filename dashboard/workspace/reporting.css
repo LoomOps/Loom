@@ -20,6 +20,9 @@
 #pai-studio .pa-report-workspace pre { white-space:pre-wrap; overflow-wrap:anywhere; }
 #pai-studio .pa-report-workspace table { width:100%; table-layout:fixed; }
 #pai-studio .pa-report-workspace td,#pai-studio .pa-report-workspace th { overflow-wrap:anywhere; }
+#pai-studio [data-output-metrics] table { min-width:680px; table-layout:fixed; }
+#pai-studio [data-output-metrics] th:first-child,#pai-studio [data-output-metrics] td:first-child { width:200px; }
+#pai-studio [data-output-metrics] td:nth-child(n+2),#pai-studio [data-output-metrics] th:nth-child(n+2) { white-space:nowrap; font-variant-numeric:tabular-nums; }
 @media (max-width:600px) {
  #pai-studio .pa-report-tabs { gap:0 14px; }
  #pai-studio .pa-report-tabs button { min-height:44px; }

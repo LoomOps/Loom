@@ -1,7 +1,7 @@
 // Bounded per-view transport. Payload trees, software combinations and logs stay lazy.
 const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityView=null;const loomCatalogOpening=new Set();
 const loomCatalogKinds={models:'model',datasets:'dataset',experiments:'experiment',issues:'issue',profiles:'profile',components:'component',tools:'tool',runtimes:'runtime',dependencies:'dependency',scenarios:'scenario',queue:'job',files:'explorer'};
-function loomCatalogQuery(kind){if(kind==='explorer')return {kinds:['dataset','model','experiment','artifact'],view:'all',role:'all',limit:50};const view=kind==='job'?(state.jobHistoryView||catalogData.presentation_view||'research'):catalogData.presentation_view||'research';return {kinds:[kind],view:view==='builtin'?'all':view,role:kind==='job'?'all':['model','dataset','experiment'].includes(kind)?((state.outputPurpose||(view==='research'?'research':'all'))==='research'?'main':'all'):kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(['model','dataset','experiment'].includes(kind)&&state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
+function loomCatalogQuery(kind){if(kind==='explorer')return {kinds:['dataset','model','experiment','artifact'],view:'all',role:'all',limit:50};const view=kind==='job'?(state.jobHistoryView||catalogData.presentation_view||'research'):catalogData.presentation_view||'research';return {...(['profile','component','tool','runtime'].includes(kind)?{...loomRegistryArgs(state.registryFilter||'current'),...(state.registryFilter==='archived'?{history:'all'}:{})}:{}),kinds:[kind],view:view==='builtin'?'all':view,role:kind==='job'?'all':['model','dataset','experiment'].includes(kind)?((state.outputPurpose||(view==='research'?'research':'all'))==='research'?'main':'all'):kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(['model','dataset','experiment'].includes(kind)&&state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 // A bootstrap is a bounded seed, never a replacement for pages from its revision.
 function loomCatalogRefresh(value){
@@ -158,7 +158,10 @@ async function loomCatalogOpen(id,navigate=true){
   if(p.length===3)native={kind:'runtime',identity:{id:p[1],revision:Number(p[2])}};
  } else native={kind:'entity',identity:{id}};
  let hit;
- if(native){try{hit=await loomSearchAction('results','resolve_item',{native_ref:native});}catch{}}
+ // An unloaded plain ID can belong to a Job or Task, whose ID is not a name
+ // search term. Resolve each native authority before falling back to discovery.
+ const candidates=native?[native,...(native.kind==='entity'?[{kind:'job',identity:{id}},{kind:'scenario',identity:{id}}]:[])]:[];
+ for(const candidate of candidates){try{hit=await loomSearchAction('results','resolve_item',{native_ref:candidate});break;}catch{}}
  if(!hit){const name=native?.identity?.id||native?.identity?.kind||id;const page=await loomSearchAction('results','search_items',{text:name,view:'all',role:'all',limit:10});hit=page.items.find(e=>(e.native_ref?.identity?.id===name||e.native_ref?.identity?.kind===name)&&(!native?.identity?.revision||e.native_ref.identity.revision===native.identity.revision));}
  if(!hit)throw Error('Record unavailable');
  const value=await loomSearchAction('system','dashboard_entity',{item_id:hit.item_id,...(hit.revision_id?{revision_id:hit.revision_id}:{})});

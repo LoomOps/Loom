@@ -41,7 +41,9 @@ function loomMcpView() {
       body+='<details class="pa-doc-workflow"><summary>사용 흐름 · 제출 → 상태 → 복구 → 결과</summary><ol>'+docs.workflow.map(step=>'<li><b>'+esc(step.step)+'</b> · <code>'+esc(step.group+'.'+step.action)+'</code><p>'+esc(step.note)+'</p></li>').join('')+'</ol></details>';
     }
   }
-  return heading('RESOURCES','Loom Use','그룹별 사용 명세와 호출 예제')+'<button class="pa-button" type="button" data-loom-mcp-refresh>새로고침</button><span class="pa-doc-copy-status" role="status" aria-live="polite"></span><section class="pa-loom-mcp" aria-label="MCP 사용 명세">'+body+'</section>';
+  const formats=(catalogData.capabilities?.metadata_templates?'<button class="pa-button" data-metadata-templates>Templates</button>':'')
+    +(catalogData.capabilities?.reporting?'<button class="pa-button" data-report-contracts>Contracts</button>':'');
+  return heading('RESOURCES','Loom Use','')+'<div class="pa-doc-toolbar"><button class="pa-button" type="button" data-loom-mcp-refresh>새로고침</button>'+formats+'<span class="pa-doc-copy-status" role="status" aria-live="polite"></span></div><section class="pa-loom-mcp" aria-label="MCP 사용 명세">'+body+'</section>';
 }
 function loomDocRefresh() {
   for (const panel of root.querySelectorAll('.pa-loom-mcp')) {

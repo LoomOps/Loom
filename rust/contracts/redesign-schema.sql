@@ -99,3 +99,6 @@ CREATE TRIGGER IF NOT EXISTS rust_projection_annotations_insert AFTER INSERT ON 
 CREATE TRIGGER IF NOT EXISTS rust_projection_metadata_insert AFTER INSERT ON rust_annotations WHEN NEW.kind='research_metadata' BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; END;
 CREATE TRIGGER IF NOT EXISTS rust_projection_metadata_update AFTER UPDATE ON rust_annotations WHEN NEW.kind='research_metadata' BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; END;
 CREATE TRIGGER IF NOT EXISTS rust_projection_metadata_delete AFTER DELETE ON rust_annotations WHEN OLD.kind='research_metadata' BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; END;
+CREATE TABLE IF NOT EXISTS registry_lifecycle_events(seq INTEGER PRIMARY KEY AUTOINCREMENT,target TEXT NOT NULL,previous TEXT NOT NULL,state TEXT NOT NULL,reason TEXT NOT NULL,actor TEXT NOT NULL,recorded REAL NOT NULL);
+
+CREATE INDEX IF NOT EXISTS registry_lifecycle_target_history ON registry_lifecycle_events(target,seq DESC);

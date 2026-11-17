@@ -1,4 +1,5 @@
 #pai-studio .pa-loom-locations pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+#pai-studio .pa-doc-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:16px; }
 #pai-studio .pa-loom-preview { max-width: 100%; max-height: 60vh; display: block; }
 
 .pa-job-filters { display:flex; flex-wrap:wrap; gap:16px; margin:12px 0; }
@@ -90,3 +91,9 @@
 #pai-studio .pa-dataset-item .pa-entity-facts dd {min-width:0;overflow-wrap:anywhere}
 
 .pa-item-search{min-width:0;max-width:100%;}.pa-item-search form{display:flex;gap:8px;flex-wrap:wrap}.pa-item-search input{min-width:120px;flex:1}.pa-item-search dd{overflow-wrap:anywhere;margin-inline-start:0}.pa-item-search pre{max-height:380px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.pa-search-result{text-align:left;overflow-wrap:anywhere}.pa-item-search [data-search-detail]{max-width:100%;overflow:auto}.pa-item-search table{width:100%;table-layout:fixed}
+
+/* Exact registry selections stay readable in a narrow dialog. */
+.pa-registry-selection{display:grid;gap:10px;margin-block:12px}
+.pa-registry-selection label{display:flex;align-items:flex-start;gap:10px;overflow-wrap:anywhere}
+.pa-registry-selection small{display:block;color:var(--muted)}
+.pa-hub-dialog [data-registry-detail] pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:50vh;overflow:auto}

@@ -1701,7 +1701,7 @@ const done=arguments[arguments.length-1];
             for theme in ('light','dark'):
                 ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
 
-    def test_outputs_subtabs_keep_task_context_and_nested_comparison_selection(self):
+    def test_outputs_subtabs_and_standalone_comparison_keep_task_context_and_selection(self):
         ui=self.ui
         task={'id':'output-task','revision':1,'label':'Assembly'}
         self.api.fixture['catalog']['research_tasks']=[task]
@@ -1715,8 +1715,9 @@ const done=arguments[arguments.length-1];
         ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('outputs-context')")
         ui.nav('Outputs')
         self.assertEqual(ui.js("return [...document.querySelectorAll('#pa-nav button')].filter(e=>e.textContent.trim()==='Outputs').length"),1)
-        self.assertFalse(ui.js("return [...document.querySelectorAll('#pa-nav button')].some(e=>['Datasets','Models','Experiments','Comparison'].includes(e.textContent.trim()))"))
+        self.assertFalse(ui.js("return [...document.querySelectorAll('#pa-nav button')].some(e=>['Datasets','Models','Experiments'].includes(e.textContent.trim()))"))
         self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-output-tabs button')].map(e=>e.textContent)"),['Datasets','Experiments','Policies'])
+        self.assertFalse(ui.js("return !!document.querySelector('.pa-output-header [data-metadata-templates],.pa-output-header [data-report-contracts],[data-output-page=comparison]')"))
         self.assertTrue(ui.js("return new Set([...document.querySelectorAll('.pa-output-tabs button')].map(e=>Math.round(e.getBoundingClientRect().top))).size===1"))
         self.assertTrue(ui.js("const row=document.querySelector('[data-output-id=output-dataset]'),family=row.closest('[data-dataset-family]');return family.open&&family.querySelector(':scope>summary h2').textContent==='Assembly'&&family.querySelector(':scope>summary').getBoundingClientRect().bottom<=row.getBoundingClientRect().top&&!row.querySelector('.pa-output-task')"))
         before=ui.js("return document.querySelectorAll('.pa-document-tabs [role=tab]').length")
@@ -1725,13 +1726,13 @@ const done=arguments[arguments.length-1];
             ui.nav(name)
             self.assertEqual(ui.js("return document.querySelector('[data-research-task]').value"),'output-task:1')
             self.assertEqual(ui.js("return document.querySelectorAll('.pa-document-tabs [role=tab]').length"),before)
-        ui.click('[data-output-page=comparison]');ui.wait("return !!document.querySelector('[data-compare-add]:not(:disabled)')")
-        self.assertTrue(ui.js("return document.querySelector('[data-output-page=experiments]').getAttribute('aria-current')==='page'"))
-        self.assertIn('Outputs / Experiments / Comparison',ui.js("return document.querySelector('#pa-breadcrumb').textContent"))
+        ui.nav('Comparison');ui.wait("return !!document.querySelector('[data-compare-add]:not(:disabled)')")
+        self.assertTrue(ui.js("return document.querySelector('#pa-nav [data-go=comparison]').getAttribute('aria-current')==='page'&&!document.querySelector('.pa-document-pane.is-active .pa-output-header')"))
+        self.assertIn('작업실 / Comparison',ui.js("return document.querySelector('#pa-breadcrumb').textContent"))
         ui.click('[data-compare-add]')
         ui.wait("return !!document.querySelector('[data-compare-remove=output-run]')")
-        ui.click('.pa-output-actions [data-output-page=experiments]')
-        ui.click('[data-output-page=comparison]')
+        ui.nav('Experiments')
+        ui.nav('Comparison')
         ui.wait("return !!document.querySelector('[data-compare-remove=output-run]')")
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
         ui.wait("return !!document.querySelector('[data-compare-remove=output-run]')")
@@ -1740,21 +1741,75 @@ const done=arguments[arguments.length-1];
             for theme in ['light','dark']:
                 ui.click('[data-theme='+theme+']')
                 self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
-                self.assertTrue(ui.js("return new Set([...document.querySelectorAll('.pa-output-tabs button')].map(e=>Math.round(e.getBoundingClientRect().top))).size===1"))
+                self.assertTrue(ui.js("return !!document.querySelector('.cmp-controls')&&!document.querySelector('.pa-document-pane.is-active .pa-output-header')"))
 
     def test_legacy_output_routes_and_confirmed_icons(self):
         ui=self.ui
-        for route,selected in [('outputs','datasets'),('datasets','datasets'),('models','models'),('experiments','experiments'),('comparison','experiments')]:
+        for route,selected in [('outputs','datasets'),('datasets','datasets'),('models','models'),('experiments','experiments')]:
             ui.top();ui.js("location.hash=arguments[0]",'#/views/'+route);ui.frame()
             ui.wait("return document.querySelector('[data-output-page='+arguments[0]+']')?.getAttribute('aria-current')==='page'",selected)
             self.assertTrue(ui.js("return document.querySelector('#pa-nav [data-go=datasets]').getAttribute('aria-current')==='page'"))
             self.assertIn('Outputs',ui.js("return document.querySelector('#pa-breadcrumb').textContent"))
+        ui.top();ui.js("location.hash='#/views/comparison'");ui.frame()
+        ui.wait("return document.querySelector('#pa-nav [data-go=comparison]')?.getAttribute('aria-current')==='page'")
+        self.assertTrue(ui.js("return !!document.querySelector('#pa-nav [data-go=comparison] svg[data-lucide=columns-3]')&&!document.querySelector('.pa-document-pane.is-active .pa-output-tabs')"))
+        self.assertIn('작업실 / Comparison',ui.js("return document.querySelector('#pa-breadcrumb').textContent"))
         ui.nav('Runtimes')
         ui.wait("return !!document.querySelector('#pa-nav [data-go=profiles] svg[data-lucide=server-cog]')")
         self.assertTrue(ui.js("return !!document.querySelector('[data-hub-page=runtimes] svg[data-lucide=server-cog]')"))
         ui.nav('Tools')
         self.assertTrue(ui.js("return !!document.querySelector('[data-hub-page=tools] svg[data-lucide=hammer]')"))
         self.assertTrue(ui.js("return !!document.querySelector('#pa-nav [data-go=issues] svg[data-lucide=wrench]')"))
+
+    def test_legacy_metrics_stay_in_their_tab_and_long_definitions_fit(self):
+        ui=self.ui
+        metric={'id':'contact','label':'contact_impulse_'*30,'kind':'scalar','unit':'N s',
+                'definition':{'predicate':'contact <threshold>'},'aggregation':{'weight':'per case'},
+                'observations':[{'value':0,'dimensions':{'condition':'measured_case_'*40}}]}
+        row={'id':'legacy-tab-metrics','kind':'run','label':'Legacy metric tabs',
+             'properties':{},'metrics':[metric],'relations':[],'artifacts':[]}
+        self.api.fixture['catalog']['entities'].append(row)
+        self.api.fixture['catalog'].setdefault('capabilities',{})['reporting']=True
+        self.api.fixture['catalog']['revision']='legacy-tab-metrics'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('legacy-tab-metrics')")
+        ui.route(row['id'])
+        self.assertFalse(ui.js("return !!document.querySelector('.pa-document-pane.is-active [data-output-metrics]')"))
+        ui.click('[data-report-tab=metrics]')
+        self.assertTrue(ui.js("return !!document.querySelector('[data-report-content] [data-output-metrics]')"))
+        ui.click('[data-metric-view=table]')
+        self.assertIn('contact <threshold>',ui.js("return document.querySelector('[data-output-metrics]').textContent"))
+        self.assertNotIn('[object Object]',ui.js("return document.querySelector('[data-output-metrics]').textContent"))
+        self.assertFalse(ui.js("return !!document.querySelector('[data-output-metrics] threshold')"))
+        for width in (1440,500):
+            ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+            self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
+            self.assertEqual(ui.js("return getComputedStyle(document.querySelector('[data-output-metrics] td:nth-child(3)')).whiteSpace"),'nowrap')
+            if width==500:
+                ui.js("document.querySelector('[data-output-metrics] .pa-table-wrap').scrollIntoView({block:'center'})")
+                ui.wait("const w=document.querySelector('[data-output-metrics] .pa-table-wrap');return w.clientWidth>0&&w.scrollWidth>w.clientWidth")
+        ui.click('[data-report-tab=contract]')
+        self.assertFalse(ui.js("return !!document.querySelector('.pa-document-pane.is-active [data-output-metrics]')"))
+        ui.click('[data-report-tab=metrics]')
+        self.assertIn('0',ui.js("return document.querySelector('[data-output-metrics]').textContent"))
+
+    def test_comparison_starts_with_a_model_that_has_an_evaluation(self):
+        ui=self.ui
+        rows=self.api.fixture['catalog']['entities']
+        base=next(e for e in rows if e['id']=='fixture-model')
+        unused=copy.deepcopy(base);unused.update(id='unused-first-model',label='A model without evaluation')
+        base['label']='Z model with evaluation'
+        rows.insert(0,unused)
+        rows.append({'id':'default-evaluation','kind':'run','label':'Available evaluation','properties':{},
+                     'relations':[{'kind':'evaluated_model','id':'fixture-model'}],
+                     'metrics':[{'id':'score','label':'Score','kind':'scalar','observations':[{'value':0}]}],'artifacts':[]})
+        self.api.fixture['catalog']['revision']='comparison-default'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('comparison-default')")
+        ui.nav('Comparison')
+        self.assertEqual(ui.js("return document.querySelector('[data-compare-model]').value"),'fixture-model')
+        self.assertFalse(ui.js("return document.querySelector('[data-compare-add]').disabled"))
+        self.assertTrue(ui.js("return document.querySelector('.pa-heading').getBoundingClientRect().top<document.querySelector('.pa-task-filter').getBoundingClientRect().top"))
 
     def test_queue_task_badges_are_readable_in_both_themes(self):
         job,record=native('task-contrast-job')
@@ -1832,7 +1887,7 @@ return task.textContent==='Task ·Grasp & Alignment'&&owner?.textContent==='Owne
             ui.click('[data-result-view='+mode+']')
             self.assertIn(label,ui.js("return document.querySelector('.pa-result-flow').textContent"))
             self.assertFalse(ui.js("return !!document.querySelector('#pa-content img')||!!window.outputInjected"))
-        ui.nav('Experiments');ui.click('[data-output-page=comparison]');ui.click('[data-compare-add]')
+        ui.nav('Experiments');ui.nav('Comparison');ui.click('[data-compare-add]')
         ui.wait("return !!document.querySelector('[data-compare-remove=literal-run]')")
         self.assertEqual(ui.js("return document.querySelector('.cmp-table tbody').textContent.split(arguments[0]).length-1",label),2)
         self.assertFalse(ui.js("return !!document.querySelector('#pa-content img')||!!window.outputInjected"))

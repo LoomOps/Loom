@@ -30,6 +30,12 @@ def build(original):
     inner = replace_once(inner, 'aria-label="${title} 도움말"', 'aria-label="${esc(title)} 도움말"')
     inner = replace_once(inner, "heading('JOB',esc(e.label),", "heading('JOB',e.label,")
     inner = replace_once(inner, 'panel(m.label,contents', 'panel(esc(m.label),contents')
+    inner = replace_once(inner, '${ws.panes.reduce((s,p)=>s+p.tabs.length,0)} tabs',
+                         '탭 ${ws.panes.reduce((s,p)=>s+p.tabs.length,0)}개')
+    inner = inner.replace('${esc(m.definition)}', '${esc(catValue(m.definition))}')
+    inner = inner.replace('${esc(m.aggregation)}', '${esc(catValue(m.aggregation))}')
+    inner = replace_once(inner, '<div class="pa-analysis-grid">${(e.metrics||[]).map(m=>catMetric(m,e)).join(\'\')}</div>',
+                         '<div class="pa-analysis-grid" data-output-metrics>${(e.metrics||[]).map(m=>catMetric(m,e)).join(\'\')}</div>')
     # Historical numeric fields are untrusted display values, not HTML.
     for expression in ('m.numerator', 'm.denominator', "m.sample_n??'—'", "m.cohort_n??'—'", 'p.common_n', "rows[0]?.denominator??'—'"):
         inner = inner.replace('${'+expression+'}', '${esc('+expression+')}')
@@ -121,7 +127,15 @@ def build(original):
     if "['tools','Tools','wrench']" not in inner:
         inner=replace_once(inner,"['docker','Docker','boxes']","['tools','Tools','wrench'],['docker','Docker','boxes']")
     inner=replace_once(inner,"['tools','Tools','wrench']","['profiles','Runtimes',loomRuntimeIcon]")
-    inner=replace_once(inner,"['models','Models','box'],['datasets','Datasets','database'],['experiments','Experiments','flask-conical'],['comparison','Comparison','git-compare-arrows']","['datasets','Outputs','archive']")
+    inner=replace_once(inner,"['models','Models','box'],['datasets','Datasets','database'],['experiments','Experiments','flask-conical'],['comparison','Comparison','git-compare-arrows']","['datasets','Outputs','archive'],['comparison','Comparison',loomComparisonIcon]")
+    inner=inner.replace("icon('git-compare-arrows')", "icon(loomComparisonIcon)")
+    inner=inner.replace("heading('ANALYSIS','Comparison','')+controls", "heading('ANALYSIS','Comparison','')+loomTaskToolbar()+controls")
+    inner=replace_once(inner, "(selected.length?'__unlinked__':models[0]?.id)",
+        "comparisonModel(comparisonRuns()[0]||{})?.id||(unlinked?'__unlinked__':models[0]?.id)")
+    # The default selection uses available evaluations, whose unlinked flag is
+    # needed before choosing a model rather than after building the controls.
+    inner=replace_once(inner, " const chosen=state.compareModel", " const unlinked=comparisonRuns().some(e=>!comparisonModel(e));\n const chosen=state.compareModel")
+    inner=replace_once(inner, " const unlinked=comparisonRuns().some(e=>!comparisonModel(e));\n const available=", " const available=")
     inner=replace_once(inner,"dashboard:'queue',explorer:'files',models:'models',datasets:'datasets'","dashboard:'queue',explorer:'files',outputs:'datasets',models:'models',datasets:'datasets'")
     inner=inner.replace("'작업실 / '+viewTitle(state)","loomOutputBreadcrumb(state)")
     inner=replace_once(inner,"catalogData=catTitleSnapshot(e.data.catalog);","catalogData=loomCatalogRefresh(e.data.catalog);")
@@ -137,7 +151,7 @@ def build(original):
     inner=replace_once(inner,"state.page===id?'page':'false'","(state.page===id||id==='profiles'&&loomIsHubPage(state.page)||id==='datasets'&&loomIsOutputPage(state.page))?'page':'false'")
     inner=replace_once(inner,"(navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')","({scenarios:'Tasks',datasets:'Datasets',experiments:'Experiments',models:'Policies',comparison:'Comparison',profiles:'Profiles',components:'Components',tools:'Tools',runtimes:'Runtimes',dependencies:'Dependencies'}[v.page]||navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')")
     marker = "catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');"
-    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "dependencies.js", "scenarios.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js", "search.js", "projection.js", "catalog-pages.js", "outputs.js", "research-metadata.js", "dataset-browser.js", "reporting.js"))
+    inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "dependencies.js", "scenarios.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js", "search.js", "projection.js", "catalog-pages.js", "outputs.js", "research-metadata.js", "dataset-browser.js", "reporting.js", "registry-lifecycle.js"))
     inner = replace_once(inner, marker, inner_additions + "\n" + (HERE.parent/"branding/brand.js").read_text() + "\n" + marker)
     inner = inner.replace("</head>", "<style>" + (HERE / "frame.css").read_text() + (HERE / "reporting.css").read_text() + "</style></head>", 1)
     style = (HERE / "operations-desk.css").read_text() + (HERE.parent/"branding/brand.css").read_text()

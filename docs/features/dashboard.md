@@ -40,7 +40,7 @@ Group counts describe loaded variants; paging does not claim a complete lineage.
 - [dashboard/workspace/extensions.js](../../dashboard/workspace/extensions.js) — integration, packaging or documentation.
 - [dashboard/workspace/frame.css](../../dashboard/workspace/frame.css) — integration, packaging or documentation.
 - [dashboard/workspace/frame.js](../../dashboard/workspace/frame.js) — integration, packaging or documentation.
-- [dashboard/workspace/outputs.js](../../dashboard/workspace/outputs.js) — Outputs navigation and nested Comparison.
+- [dashboard/workspace/outputs.js](../../dashboard/workspace/outputs.js) — Outputs navigation and standalone Comparison.
 - [dashboard/workspace/icons.js](../../dashboard/workspace/icons.js) — integration, packaging or documentation.
 - [dashboard/workspace/job-activity.js](../../dashboard/workspace/job-activity.js) — integration, packaging or documentation.
 - [dashboard/workspace/lazy_logs.py](../../dashboard/workspace/lazy_logs.py) — integration, packaging or documentation.
@@ -88,8 +88,8 @@ scope; current queue occupants remain visible in every presentation view.
 Dashboard history starts its paged Job read when bootstrap data patches the pane,
 without requiring navigation or a filter change. Its pager remains available on
 subsequent background patches and in restored panes.
-An unloaded native output deep link resolves its logical Item alias before text
-search; it does not require the record to be among bootstrap or first-page rows.
+An unloaded native deep link resolves its logical Item alias or exact native
+entity, Job or Task identity before text search; it does not require the record to be among bootstrap or first-page rows.
 Tasks appear as filters and record labels, without a standalone Scenario tab.
 Explorer requests actual storage observations even with the Inspector closed and
 loads registered file records independently of the research pane. Its bounded
@@ -98,9 +98,10 @@ files do not exist.
 
 ## Outputs navigation
 
-The sidebar exposes Outputs with Datasets, Experiments and Models sub-tabs.
-Comparison is reached inside Experiments and retains its selection when moving
-back to results. Task selection carries across output sections and record links.
+The sidebar exposes Outputs with Datasets, Experiments and Policies sub-tabs.
+Comparison is a separate sidebar view with a columns-3 icon. Its selections
+survive navigation back to Outputs. Outputs headers contain only the three sub-tabs;
+Templates and Contracts browsers are available from Loom Use. Task selection carries across output sections and record links.
 Legacy models/datasets/experiments/comparison view URLs and exact record links
 remain valid; /views/outputs opens Datasets and Task entities remain addressable by exact links. This is presentation navigation,
 not a new artifact kind or an automatic merge of scientific records.
@@ -184,8 +185,14 @@ control; it is hidden at idle and respects reduced-motion preferences.
 
 ## Metadata formats
 
-Outputs exposes a bounded template browser only when the server advertises
+Loom Use exposes a bounded template browser only when the server advertises
 metadata_templates. Exact references can be copied for Profile/producer selection.
 Profile details show their frozen formats. Robot context precedes scientific
 sections, which render the same typed template fields as list facts; extension
 fields remain escaped and bounded. Old servers retain their existing UI.
+
+Legacy recorded metrics stay in the Metrics tab (Quality for Datasets), with their
+graph/table control and original definitions intact. They do not repeat below
+unrelated report tabs. Structured metric definitions render as escaped values,
+and long labels wrap without forcing the pane wider. Comparison initially chooses
+a model with an available evaluation; explicit user choices remain unchanged.

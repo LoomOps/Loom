@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0-alpha.37
+
+- Add reversible Archive, Restore and deprecation for exact Component, Tool, Profile, Runtime, metadata Template, report Contract and report Definition registrations. Preview dependencies and Job usage, explicitly select related registrations, and apply an audited atomic batch while preserving source files, accepted pins and execution history. Protect Built-ins and enforce management rights.
+- Filter archived registrations before Dashboard/search pagination, preserve exact reads and revision history, and expose consistent registry filters and lifecycle menus. Update HTTP/MCP schemas, server guides and generated reference.
+- Move Comparison back to the sidebar with a distinct icon. Keep Outputs headers focused on Datasets, Experiments and Policies, and place Template/Contract browsing in Loom Use.
+- Bind image OS package observations to their immutable Runtime image, preventing dependency-version oscillation and unbounded search history growth.
+- Correct long report/metric layouts, escaped scientific selectors, exact unloaded Item navigation and comparison defaults. Preserve source data and existing metadata/reporting contracts.
+
 ## 0.2.0-alpha.36
 
 - Reuse prepared responsibility queries for large Dashboard catalogs and remove a redundant Job ownership lookup.

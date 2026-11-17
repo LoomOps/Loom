@@ -220,3 +220,9 @@ New Jobs also freeze reporting policy when output kinds were formerly dynamic;
 declaring a scientific output only at publication cannot bypass the new boundary.
 Read-only historical results may retain Missing. Contract registration and Metadata
 adoption are separate from scientific verification and do not fabricate measurements.
+
+Registry lifecycle adds a `registry_lifecycle_events` audit table on native schema
+open. Existing `runtime_curation` Profile/Runtime states remain authoritative and
+are not rewritten. New Component/Tool/Template/Contract/Definition lifecycle rows
+use the same overlay table. Upgrade and restore preserve both tables, registry
+source bodies, accepted Job pins and files. No host resource is archived by upgrade.

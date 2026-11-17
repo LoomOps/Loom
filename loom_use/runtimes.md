@@ -191,3 +191,9 @@ It does not install software or repin Profiles/Jobs. Use protected observations 
 adopt the new metadata and item_files/read_file for registered ranges. Runtime and
 Dependency files remain subject to current host grants. A revision without inventory
 is unrecorded, not proof of an empty tree.
+
+Registry Archive/Restore and deprecation use `components.inspect_lifecycle` followed
+by `components.set_lifecycle`. See the Components guide for exact target selectors,
+authorization and explicit batch selection. These overlays preserve sealed pins and
+files; they are not execution or scientific acceptance gates. Discovery accepts
+`include_archived` / `lifecycle_state`; exact reads remain available.

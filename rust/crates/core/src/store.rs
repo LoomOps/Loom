@@ -314,6 +314,8 @@ impl Application {
             ("results", "scenarios" | "get_scenario" | "scenario_graph") => {
                 self.scenario_query(action, args)
             }
+            ("components", "inspect_lifecycle") => self.inspect_lifecycle(actor, &args),
+            ("components", "set_lifecycle") => self.set_lifecycle(actor, args),
             ("components", "scaffold") => crate::software::scaffold(&args),
             ("components", "validate_package") => crate::software::validate_package(&args),
             ("components", _) => self.software_action(actor, action, args),
@@ -324,6 +326,7 @@ impl Application {
             ("system", _) => self.system_action(actor, action, args),
             _ => Err(Error::input("Unknown operation")),
         }?;
+        self.decorate_registry(&mut value)?;
         if group == "jobs" && action == "queue" {
             crate::query::queue_permissions(
                 &mut value,
@@ -478,7 +481,7 @@ pub struct UnitOfWork<'a> {
     catalog: bool,
 }
 impl<'a> UnitOfWork<'a> {
-    fn begin(db: &'a Connection) -> Result<Self> {
+    pub(crate) fn begin(db: &'a Connection) -> Result<Self> {
         let savepoint = if db.is_autocommit() {
             db.execute_batch("BEGIN IMMEDIATE")?;
             None

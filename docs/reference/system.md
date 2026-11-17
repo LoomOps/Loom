@@ -609,7 +609,7 @@ Task missing or owned by another actor.
 
 ## dashboard_page
 
-Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both.
+Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.
 
 Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/catalog.rs#dashboard_page](../../rust/crates/core/src/catalog.rs).
 
@@ -623,8 +623,10 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 | `cursor` | no | `"string"` | `—` |
 | `dependency_ref` | no | `"object"` | `—` |
 | `history` | no | `["current", "all"]` | `—` |
+| `include_archived` | no | `"boolean"` | `true` |
 | `include_system` | no | `"boolean"` | `true` |
 | `kinds` | no | `"array"` | `—` |
+| `lifecycle_state` | no | `["active", "archived", "deprecated"]` | `—` |
 | `limit` | no | `"integer"` | `—` |
 | `native_kind` | no | `"string"` | `—` |
 | `origin_type` | no | `"string"` | `—` |
@@ -673,6 +675,10 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
         "all"
       ]
     },
+    "include_archived": {
+      "default": true,
+      "type": "boolean"
+    },
     "include_system": {
       "default": true,
       "type": "boolean"
@@ -683,6 +689,13 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
       },
       "maxItems": 16,
       "type": "array"
+    },
+    "lifecycle_state": {
+      "enum": [
+        "active",
+        "archived",
+        "deprecated"
+      ]
     },
     "limit": {
       "maximum": 200,

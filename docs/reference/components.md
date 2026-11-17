@@ -25,12 +25,14 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 - [curate](#curate)
 - [inspect_profile](#inspect_profile)
 - [compare_profiles](#compare_profiles)
+- [inspect_lifecycle](#inspect_lifecycle)
+- [set_lifecycle](#set_lifecycle)
 - [scaffold](#scaffold)
 - [validate_package](#validate_package)
 
 ## list
 
-Read the latest revision of all components. Set owner to filter the namespace.
+Read the latest revision of all components. Set owner to filter the namespace. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.
 
 Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [rust/crates/core/src/software.rs#software_action](../../rust/crates/core/src/software.rs).
 
@@ -38,6 +40,8 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 
 | Field | Required | Type / values | Default |
 |---|---|---|---|
+| `include_archived` | no | `"boolean"` | `true` |
+| `lifecycle_state` | no | `["active", "archived", "deprecated"]` | `—` |
 | `owner` | no | `"string"` | `—` |
 
 <details><summary>Exact input JSON Schema</summary>
@@ -46,6 +50,17 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 {
   "additionalProperties": false,
   "properties": {
+    "include_archived": {
+      "default": true,
+      "type": "boolean"
+    },
+    "lifecycle_state": {
+      "enum": [
+        "active",
+        "archived",
+        "deprecated"
+      ]
+    },
     "owner": {
       "description": "Stable namespace. Register/write/get default to the authenticated principal; list defaults to all shared namespaces. built-in denotes Loom-supplied software, not shared access. Display responsibility is returned in owner_profile; assign_owner changes attribution without moving this namespace.",
       "type": "string"
@@ -273,7 +288,7 @@ Invalid identity, unsafe relative path, missing submit scope or inactive install
 
 ## profiles
 
-Read exact Profile combinations, stage environments and observed Job usage. Repeated environment dependencies are a bounded preview (dependency_count, dependencies_complete); use components.get_runtime for the complete inventory. Read scope does not grant execution or registration rights.
+Read exact Profile combinations, stage environments and observed Job usage. Repeated environment dependencies are a bounded preview (dependency_count, dependencies_complete); use components.get_runtime for the complete inventory. Read scope does not grant execution or registration rights. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.
 
 Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [rust/crates/core/src/composition.rs#profile_listing](../../rust/crates/core/src/composition.rs).
 
@@ -281,13 +296,27 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 
 | Field | Required | Type / values | Default |
 |---|---|---|---|
+| `include_archived` | no | `"boolean"` | `true` |
+| `lifecycle_state` | no | `["active", "archived", "deprecated"]` | `—` |
 
 <details><summary>Exact input JSON Schema</summary>
 
 ```json
 {
   "additionalProperties": false,
-  "properties": {},
+  "properties": {
+    "include_archived": {
+      "default": true,
+      "type": "boolean"
+    },
+    "lifecycle_state": {
+      "enum": [
+        "active",
+        "archived",
+        "deprecated"
+      ]
+    }
+  },
   "required": [],
   "type": "object"
 }
@@ -1638,7 +1667,7 @@ Missing Profile revision or read scope.
 
 ## list_tools
 
-List shared reusable software independently of Job Components.
+List shared reusable software independently of Job Components. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.
 
 Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [rust/crates/core/src/software.rs#software_action](../../rust/crates/core/src/software.rs).
 
@@ -1646,6 +1675,8 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 
 | Field | Required | Type / values | Default |
 |---|---|---|---|
+| `include_archived` | no | `"boolean"` | `true` |
+| `lifecycle_state` | no | `["active", "archived", "deprecated"]` | `—` |
 | `owner` | no | `"string"` | `—` |
 
 <details><summary>Exact input JSON Schema</summary>
@@ -1654,6 +1685,17 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 {
   "additionalProperties": false,
   "properties": {
+    "include_archived": {
+      "default": true,
+      "type": "boolean"
+    },
+    "lifecycle_state": {
+      "enum": [
+        "active",
+        "archived",
+        "deprecated"
+      ]
+    },
     "owner": {
       "type": "string"
     }
@@ -1832,7 +1874,7 @@ Invalid source, missing legacy revision or denied submit scope.
 
 ## runtimes
 
-Read administrator-granted execution environments, exact dependencies, validation evidence and Profile/Job usage. Legacy entries are not verification evidence.
+Read administrator-granted execution environments, exact dependencies, validation evidence and Profile/Job usage. Legacy entries are not verification evidence. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.
 
 Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [rust/crates/core/src/software.rs#software_action](../../rust/crates/core/src/software.rs).
 
@@ -1840,13 +1882,27 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 
 | Field | Required | Type / values | Default |
 |---|---|---|---|
+| `include_archived` | no | `"boolean"` | `true` |
+| `lifecycle_state` | no | `["active", "archived", "deprecated"]` | `—` |
 
 <details><summary>Exact input JSON Schema</summary>
 
 ```json
 {
   "additionalProperties": false,
-  "properties": {},
+  "properties": {
+    "include_archived": {
+      "default": true,
+      "type": "boolean"
+    },
+    "lifecycle_state": {
+      "enum": [
+        "active",
+        "archived",
+        "deprecated"
+      ]
+    }
+  },
   "required": [],
   "type": "object"
 }
@@ -2008,7 +2064,7 @@ Dependency unavailable or outside instance grant.
 
 ## assign_owner
 
-Set the responsible user or built-in attribution for Loom-supplied software. Sharing, namespace, source revisions and Job pins remain unchanged. Reserved system attribution requires installation administrator access for both assignment and restoration. Runtime uses namespace host; software namespaces/pins and execution permissions remain preserved. System resources remain discoverable through MCP and are hidden from Dashboard discovery.
+Set the responsible user or built-in attribution for Loom-supplied software. Sharing, namespace, source revisions and Job pins remain unchanged. Reserved system attribution requires installation administrator access for both assignment and restoration. Runtime uses namespace host; software namespaces/pins and execution permissions remain preserved. System resources remain discoverable through MCP and are hidden from Dashboard discovery. Changing registry responsibility requires the author/current responsible owner or authenticated installation administrator; attribution cannot be used to acquire lifecycle management rights.
 
 Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation: [rust/crates/core/src/composition.rs#curate_software](../../rust/crates/core/src/composition.rs).
 
@@ -2195,7 +2251,7 @@ Missing revision, invalid tag, submit scope denied or maintenance fence.
 
 ## curate
 
-Set a Profile display name, purpose, preferred/archive state or declared Tool stage roles; set representative dependencies on an exact Runtime. Does not rewrite execution definitions or select a Runtime.
+Set a Profile display name, purpose, preferred/archive state or declared Tool stage roles; set representative dependencies on an exact Runtime. Does not rewrite execution definitions or select a Runtime. Legacy state changes use the same lifecycle overlay, owner/admin authorization, Built-in protection and audit. Prefer inspect_lifecycle/set_lifecycle for an explicit preview and atomic batch.
 
 Scope: `submit`. Owner: [extensions](../features/extensions.md). Implementation: [rust/crates/core/src/composition.rs#curate_software](../../rust/crates/core/src/composition.rs).
 
@@ -2517,6 +2573,233 @@ Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [
 Changed paths and execution_equal
 
 Unknown Profile.
+
+## inspect_lifecycle
+
+Inspect exact registrations, current lifecycle, management rights, registered reverse references and dependencies and recorded Job usage. Returns a digest for atomic apply. Related registrations are never selected automatically. Built-ins are protected; file contents are not scanned.
+
+Scope: `read`. Owner: [registry-lifecycle](../features/registry-lifecycle.md). Implementation: [rust/crates/core/src/registry_lifecycle.rs#inspect_lifecycle](../../rust/crates/core/src/registry_lifecycle.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `state` | yes | `["active", "archived", "deprecated"]` | `—` |
+| `targets` | yes | `"array"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "state": {
+      "enum": [
+        "active",
+        "archived",
+        "deprecated"
+      ]
+    },
+    "targets": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "component",
+              "tool",
+              "profile",
+              "runtime",
+              "metadata_template",
+              "report_contract",
+              "report_definition"
+            ]
+          },
+          "owner": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "revision"
+        ],
+        "type": "object"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "targets",
+    "state"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "state": "archived",
+  "targets": [
+    {
+      "id": "planner",
+      "kind": "component",
+      "owner": "research",
+      "revision": 1
+    }
+  ]
+}
+```
+
+
+
+### Result and failures
+
+Preview · targets, related, related_count, related_truncated, jobs, job_count, jobs_truncated, desired_state, reference_coverage, cascade, digest
+
+Stale preview or changed references: 409. Missing exact revision: 404. Unauthorized or Built-in: 403.
+
+## set_lifecycle
+
+Set active, deprecated or archived for explicit exact targets after inspect_lifecycle. Only author/current responsible owner or authenticated installation admin may manage; Built-ins are protected. Revalidates the preview and applies the entire batch atomically with audit and idempotent receipt. Preserves files, sealed definitions, accepted pins and running/past Jobs. No automatic cascade or physical deletion.
+
+Scope: `submit`. Owner: [registry-lifecycle](../features/registry-lifecycle.md). Implementation: [rust/crates/core/src/registry_lifecycle.rs#set_lifecycle](../../rust/crates/core/src/registry_lifecycle.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `expected_digest` | yes | `"string"` | `—` |
+| `key` | yes | `"string"` | `—` |
+| `reason` | yes | `"string"` | `—` |
+| `state` | yes | `["active", "archived", "deprecated"]` | `—` |
+| `targets` | yes | `"array"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "expected_digest": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "key": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "reason": {
+      "maxLength": 2000,
+      "minLength": 1,
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "active",
+        "archived",
+        "deprecated"
+      ]
+    },
+    "targets": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "component",
+              "tool",
+              "profile",
+              "runtime",
+              "metadata_template",
+              "report_contract",
+              "report_definition"
+            ]
+          },
+          "owner": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "revision"
+        ],
+        "type": "object"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "targets",
+    "state",
+    "reason",
+    "key",
+    "expected_digest"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "expected_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "key": "archive-planner-r1",
+  "reason": "Mistaken registration",
+  "state": "archived",
+  "targets": [
+    {
+      "id": "planner",
+      "kind": "component",
+      "owner": "research",
+      "revision": 1
+    }
+  ]
+}
+```
+
+
+
+### Result and failures
+
+Receipt · state, changed, preserved
+
+Stale preview or changed references: 409. Missing exact revision: 404. Unauthorized or Built-in: 403.
 
 ## scaffold
 
