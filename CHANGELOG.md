@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.2.0-alpha.39
+## 0.2.0-alpha.40
+
+- Give the 100,000-entry inventory correctness fixture a dedicated 120-second process watchdog on shared CI runners while retaining its full input and growth/chunking assertions. Other native cases retain their 60-second watchdog. Record elapsed time and the chosen budget for each native case.
+- Includes the preparation history, Runtime consumer, Activity, Dataset split and installation smoke corrections described below.
+
+## 0.2.0-alpha.39 (unpublished intermediate)
 
 - Connect preparation and follow-up Job history to its Main outcome while preserving original workflow membership, execution states, Attempts and accepted software pins. Apply workflow presentation overlays consistently and validate partial curation against the merged parent graph.
 - Expose exact Runtime consumers from frozen Job stage pins and started-stage receipts, with source Job/Profile and Main Job navigation.

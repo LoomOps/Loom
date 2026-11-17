@@ -2,14 +2,18 @@
 import argparse,hashlib,json,os,re,subprocess,sys,time
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
+# This 100k-entry correctness fixture is intentionally larger than ordinary rules.
+SCALE_CASE_TIMEOUTS={'inventory_projection_is_chunked_and_core_growth_does_not_follow_file_count':120}
 def declarations(path):
     return re.findall(r'#\[test\]\s*(?:#\[[^\]]*\]\s*)*(?:pub\s+)?fn\s+([A-Za-z_][A-Za-z_0-9]*)',path.read_text())
 def run_case(executable,full,path,timeout=60):
-    case={'name':path.stem+'.Rust.'+full.split('::')[-1],'source':str(path),'status':'failed'}
+    case={'name':path.stem+'.Rust.'+full.split('::')[-1],'source':str(path),'status':'failed','timeout_seconds':timeout}
+    started=time.monotonic()
     try:
         result=subprocess.run([executable,full,'--exact','--nocapture'],capture_output=True,text=True,timeout=timeout)
     except subprocess.TimeoutExpired:
-        return {**case,'detail':f'Native test exceeded {timeout} seconds'}
+        return {**case,'seconds':time.monotonic()-started,'detail':f'Native test exceeded {timeout} seconds'}
+    case['seconds']=time.monotonic()-started
     output=result.stdout+result.stderr
     # libtest returns zero for an ignored test and for a filter that ran nothing.
     if result.returncode==0 and re.search(r'^test result: ok\. 1 passed; 0 failed; 0 ignored;',output,re.M):case['status']='passed'
@@ -35,7 +39,7 @@ def main():
             if not line.endswith(': test'):continue
             full=line.removesuffix(': test');fn=full.split('::')[-1];path=index.get(fn)
             if path is None:errors.append('Unmapped native Rust test: '+full);continue
-            seen.add(fn);cases.append(run_case(executable,full,path.relative_to(ROOT)))
+            seen.add(fn);cases.append(run_case(executable,full,path.relative_to(ROOT),SCALE_CASE_TIMEOUTS.get(fn,60)))
     errors.extend('Rust test was not executed: '+fn for fn in index.keys()-seen)
     report={'tests':len(cases),'successful':not errors and all(c['status']=='passed' for c in cases),'sources':sources,'cases':cases,'errors':errors,'seconds':time.monotonic()-start}
     (a.output/'rust.json').write_text(json.dumps(report,indent=2)+'\n')

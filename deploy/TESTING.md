@@ -80,3 +80,9 @@ Executor create recovery regression injects failure after Docker create/before i
 `docs/features/catalog.json` maps source, contracts and related tests. Packaging detects unregistered files, broken references and duplicate ownership.
 
 Native authentication tests cover trusted ingress, account changes, revocation, fixed expiry, persistent sessions and native network login. Only ingress is mocked; SQLite/HTTP use real implementations. Tailscale installer tests mock CLI/API calls and use temporary instances for approval waits, wrong-tailnet rejection, tag preservation, Serve conflicts, configuration reruns and secret separation. Firefox verifies login, refresh and account-switch UI with local sessions and mocked trusted ingress. Actual Tailscale approval remains separate.
+
+Native test process watchdogs are not throughput assertions. Ordinary cases have
+60 seconds; the 100,000-entry inventory ingestion correctness fixture has 120
+seconds for shared CI runners. Its input size, chunking and bounded Core-growth
+assertions are unchanged. Native reports record elapsed seconds and the selected
+watchdog so a timeout remains distinguishable from a domain assertion failure.
