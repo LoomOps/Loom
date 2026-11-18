@@ -179,7 +179,8 @@
       "sources": [
         "ops/dispatch_control.py",
         "ops/queue_control.py",
-        "rust/crates/core/src/jobs.rs"
+        "rust/crates/core/src/jobs.rs",
+        "rust/crates/core/src/plans.rs"
       ],
       "tests": [
         "tests/ops/test_job_lifecycle.py",

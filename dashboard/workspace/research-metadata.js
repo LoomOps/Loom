@@ -65,7 +65,7 @@ function loomResearchInstruction(e){
  const direct=loomResearchFactMap(e).get('instruction_mode');if(direct)return loomResearchValue(direct);
  const i=loomResearchInputs(e).find(x=>x.kind==='instruction');if(!i)return null;
  if(i.status==='absent')return 'None';if(i.status!=='present')return null;
- let v=i.mode||i.value;if(['사용','used','Present','present','Yes'].includes(v))v=null;return v?({fixed:'Fixed',phase_conditioned:'Phase-conditioned',overall:'Task-level'}[v]||String(v)):'Language-conditioned';
+ let v=i.mode||i.value;if(['사용','used','Present','present','Yes'].includes(v))v=null;return v?({fixed:'Fixed',phase_conditioned:'Subtask-conditioned',overall:'Task-level'}[v]||String(v)):'Language-conditioned';
 }
 function loomResearchCardFacts(e){
  const map=loomResearchFactMap(e),isDataset=e.kind==='dataset',isModel=e.kind==='model';
@@ -134,7 +134,7 @@ function loomResearchSection(title,body){return '<section class="pa-output-secti
 function loomResearchOverview(e){
  const s=loomResearchSummary(e),map=loomResearchFactMap(e),inputs=s.inputs.filter(x=>x.status==='present');
  const order=e.kind==='model'?['context','model','validation','inputs','training','observations','physics','annotations','instructions','extensions']:
-  e.kind==='dataset'?['context','collection','quality','physics','inputs','observations','annotations','extensions']:
+  e.kind==='dataset'?['physics','context','collection','inputs','observations','quality','annotations','extensions']:
   ['context','evaluation','validation','training','scoring','population','model','inputs','physics','annotations','observations','instructions','extensions'];
  let body='<section class="pa-research-overview" aria-label="Research properties">';
  for(const id of order){
@@ -147,13 +147,14 @@ function loomResearchOverview(e){
   const facts=s.facts.filter(f=>f.section===id&&!['observation_schema','count_unit','condition_outcomes'].includes(f.id)&&loomResearchVisibleFact(f)).sort((a,b)=>rank(a)-rank(b)).map(f=>f.id==='count'?{...f,label:({episodes:'Episodes',clips:'Clips',cases:'Cases',snapshots:'Snapshots'})[map.get('count_unit')?.value]||'Count'}:f.id==='bc_ready'?{...f,label:'BC'}:f);
   if(id==='evaluation'&&map.has('condition_outcomes'))body+=loomResearchSection('Condition outcomes',loomResearchConditions(e));
   if(!facts.length)continue;
-  body+=loomResearchSection(loomResearchSections[id],loomResearchFactsHTML(facts)).replace('<section ', '<section data-research-section="'+esc(id)+'" ');
+  const title=e.kind==='dataset'&&id==='physics'&&map.get('environment')?.value==='sim'?'Simulation':loomResearchSections[id];
+  body+=loomResearchSection(title,loomResearchFactsHTML(facts)).replace('<section ', '<section data-research-section="'+esc(id)+'" ');
  }
  const instruction=loomResearchInstruction(e);if(e.kind!=='dataset'&&instruction&&!map.has('instruction_mode'))body+=loomResearchSection('Language conditioning',catProperties({Mode:instruction}));
  if(e.kind==='dataset')body+=loomDatasetParentHTML(e);
  const sourceRows=s.facts.flatMap(f=>(f.evidence||[]).map(ev=>[esc(f.label),esc(ev.source?.ref||'Record metadata'),esc(ev.pointer)]));
  body+='<details class="pa-output-source" data-output-sources><summary>Sources</summary>'+catTable(['Fact','Source','JSON pointer'],sourceRows)
-  +catProperties({Template:e.metadata_status?.template_ref?e.metadata_status.template_ref.id+' · r'+e.metadata_status.template_ref.revision:null,Owner:e.owner_profile?.display_name||e.owner||'—',ID:e.id})
+  +catProperties({Owner:e.owner_profile?.display_name||e.owner||'—',ID:e.id})
   +(s.sources?.some(x=>x.status!=='verified')?'<p class="pa-catalog-warning">Some registered metadata files could not be verified.</p>':'')
   +(e.dataset_mirror_key?'<div class="pa-source-copies">'+loomDatasetMirrors(e).map(copy=>catLink(copy.id,copy.loom_history?.source||copy.id)).join(' · ')+'</div>':'')
   +'<details data-output-record="'+esc(e.id)+'" '+((state.openOutputRecords||[]).includes(e.id)?'open':'')+'><summary>Original record</summary><pre>'+((state.openOutputRecords||[]).includes(e.id)?esc(loomResearchRaw(e)):'')+'</pre></details></details></section>';

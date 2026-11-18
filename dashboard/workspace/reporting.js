@@ -7,7 +7,15 @@ const loomReportLegacyMetrics=new Map();
 const loomReportViews=new Map(),loomReportPages=new Map(),loomReportPending=new Set();
 const loomReportPointer=(value,pointer)=>pointer===''?value:String(pointer||'').split('/').slice(1).reduce((v,k)=>v?.[k.replace(/~1/g,'/').replace(/~0/g,'~')],value);
 function loomReportState(e){if(!loomReportViews.has(e.id))loomReportViews.set(e.id,{tab:'overview',phase:'all',split:'all'});return loomReportViews.get(e.id);}
-function loomReportTabs(e){return e.kind==='dataset'?[['overview','Overview'],['distribution','Distribution'],['quality','Quality'],['related','Related'],['contract','Contract']]:e.kind==='model'?[['overview','Overview'],['instructions','Instructions'],['learning','Learning'],['metrics','Metrics'],['inputs','Inputs'],['contract','Contract']]:[['overview','Overview'],['protocol','Protocol'],['metrics','Metrics'],['cases','Cases'],['inputs','Inputs'],['contract','Contract']];}
+function loomReportTabs(e){
+ if(e.kind==='dataset'){
+  const members=e.reporting?.reports?.some(r=>r.role==='dataset_statistics'&&r.fields?.some(f=>f.id==='members'&&f.format==='table'));
+  const coverage=e.reporting?.reports?.some(r=>['sdg_conditions','sdg_readback','distribution'].includes(r.role));
+  return [['overview','Overview'],...(coverage?[['distribution','Distribution']]:[]),...(members?[['episodes','Episodes']]:[])];
+ }
+ if(e.kind==='model')return [['overview','Overview'],['training','Training']];
+ return [['overview','Overview'],['results','Results'],['cases','Cases']];
+}
 function loomReportIdentity(e){return {id:e.loom_registry?.id||e.id,revision:e.loom_registry?.revision||e.revision||1};}
 function loomReportKey(e,r,f){return JSON.stringify([loomReportIdentity(e),r.requirement_id,r.sha256,f.pointer]);}
 function loomReportRefresh(e){for(const n of root.querySelectorAll('[data-report-output]'))if(n.dataset.reportOutput===e.id){n.querySelector('[data-report-content]').innerHTML=loomReportContent(e);}}
@@ -19,68 +27,213 @@ function loomReportLoad(e,r,f,more=false){
  queueMicrotask(async()=>{
   try{const page=await loomSearchAction('results','read_report',{...loomReportIdentity(e),requirement_id:r.requirement_id,pointer:f.pointer,offset:offset||0,limit:100});
    loomReportPages.set(key,{...page,value:more?[...(cached.value||[]),...(page.value||[])]:page.value});
-  }catch(error){loomReportPages.set(key,{error:error.message||'Report unavailable'});}
+  }catch(error){loomReportPages.set(key,{...cached,error:error.message||'Report unavailable'});}
   finally{loomReportPending.delete(key);while(loomReportPages.size>160)loomReportPages.delete(loomReportPages.keys().next().value);loomReportRefresh(e);}
  });
 }
 function loomReportNumber(v){return typeof v==='number'?v.toLocaleString('en-US',{maximumSignificantDigits:7}):v==null?'Missing':String(v);}
 function loomReportCell(v){return v==null?'Missing':typeof v==='object'?(v.id?String(v.id)+(v.revision?' · r'+v.revision:''):JSON.stringify(v)):loomReportNumber(v);}
-function loomReportChart(rows,f,format){
- const points=rows.map(row=>({x:loomReportPointer(row,f.x_pointer),y:loomReportPointer(row,f.y_pointer),id:row.id??row.step,group:[row.phase??'all',row.split??'all'].join(' · ')})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
+function loomReportChart(rows,f,format,selectedStep,inspectedStep,members){
+ const points=rows.map(row=>({x:loomReportPointer(row,f.x_pointer),y:loomReportPointer(row,f.y_pointer),id:row.id??row.step,group:[row.phase==null||row.phase==='all'?'Overall':'Subtask '+row.phase,row.split].filter(Boolean).join(' · ')})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
  if(!points.length)return '<p class="pa-report-missing">Not measured</p>';
  const xs=points.map(p=>p.x),ys=points.map(p=>p.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),dx=maxX-minX||1,dy=maxY-minY||1;
- const x=v=>52+(v-minX)/dx*500,y=v=>210-(v-minY)/dy*180;
- const groups=[...new Set(points.map(p=>p.group))];if(groups.length>8)return '<p class="pa-report-missing">Choose a phase or split to plot these measurements.</p>';
+ const pairedLength=format==='scatter'&&['mm','cm','m'].includes(f.unit);
+ const scale=Math.min(500/dx,180/dy),xWidth=pairedLength?dx*scale:500,yHeight=pairedLength?dy*scale:180;
+ const x=v=>52+(v-minX)/dx*xWidth,y=v=>210-(v-minY)/dy*yHeight;
+ const groups=[...new Set(points.map(p=>p.group))];if(groups.length>8)return '<p class="pa-report-missing">Choose a subtask or split to plot these measurements.</p>';
  const line=format==='series'?groups.map((g,index)=>'<polyline fill="none" stroke-dasharray="'+(['','6 3','2 3','8 2 2 2'][index%4])+'" points="'+points.filter(p=>p.group===g).sort((a,b)=>a.x-b.x).map(p=>x(p.x)+','+y(p.y)).join(' ')+'"/>').join(''):'';
  const legend=groups.length>1?'<div class="pa-report-series">'+groups.map((g,i)=>'<span><i style="border-bottom-style:'+(['solid','dashed','dotted','dashed'][i%4])+'"></i>'+esc(g)+'</span>').join('')+'</div>':'';
- return '<div class="pa-report-chart">'+legend+'<svg viewBox="0 0 580 260" role="img" aria-label="'+esc(f.label+' · '+points.length+' recorded points')+'"><line class="pa-report-axis" x1="52" y1="210" x2="552" y2="210"/><line class="pa-report-axis" x1="52" y1="30" x2="52" y2="210"/>'+line+points.map(p=>'<circle cx="'+x(p.x)+'" cy="'+y(p.y)+'" r="3"><title>'+esc(p.id+' · '+p.group+' · X '+loomReportNumber(p.x)+' · Y '+loomReportNumber(p.y))+'</title></circle>').join('')+'</svg><div class="pa-report-axes"><span>X · '+esc(f.x_label||'X')+' · '+esc(loomReportNumber(minX))+' – '+esc(loomReportNumber(maxX))+'</span><span>Y · '+esc(f.y_label||'Y')+' · '+esc(loomReportNumber(minY))+' – '+esc(loomReportNumber(maxY))+(f.unit?' '+esc(f.unit):'')+'</span></div></div>';
+ const selected=Number.isFinite(selectedStep)&&selectedStep>=minX&&selectedStep<=maxX;
+ const marker=selected?'<line class="pa-report-checkpoint" x1="'+x(selectedStep)+'" y1="30" x2="'+x(selectedStep)+'" y2="210"/>':'';
+ const dots=points.map(p=>{
+  const title=p.id+' · '+p.group+' · X '+loomReportNumber(p.x)+' · Y '+loomReportNumber(p.y);
+  const dot='<circle cx="'+x(p.x)+'" cy="'+y(p.y)+'" r="'+(p.x===inspectedStep?6:3)+'"><title>'+esc(title)+'</title></circle>';
+  const member=members?.get(p.id);
+  return member?'<a href="#episode" data-report-episode="'+esc(loomReportMemberKey({id:member}))+'" aria-label="'+esc(title)+'">'+dot+'</a>':dot;
+ }).join('');
+ const unit=f.unit?' '+esc(f.unit):'';
+ return '<div class="pa-report-chart">'+legend+'<svg viewBox="0 0 580 260" role="'+(members?.size?'group':'img')+'" aria-label="'+esc(f.label+' · '+points.length+' recorded points')+'"><line class="pa-report-axis" x1="52" y1="210" x2="'+(52+xWidth)+'" y2="210"/><line class="pa-report-axis" x1="52" y1="'+(210-yHeight)+'" x2="52" y2="210"/>'+line+marker+dots+'</svg><div class="pa-report-axes"><span>'+esc(f.x_label||'X')+' · '+esc(loomReportNumber(minX))+' – '+esc(loomReportNumber(maxX))+(pairedLength?unit:'')+'</span><span>'+esc(f.y_label||'Y')+' · '+esc(loomReportNumber(minY))+' – '+esc(loomReportNumber(maxY))+unit+'</span></div></div>';
+}
+function loomReportPageControls(page,r,f,rows,all){
+ const more=page.next_offset!=null?'<button class="pa-button" data-report-more="'+esc(r.requirement_id)+'" data-report-field="'+esc(f.id)+'">More</button>':'';
+ return more||rows!==page.total?'<div class="pa-report-page"><span>'+rows+' shown · '+all+' / '+(page.total??all)+' loaded</span>'+more+'</div>':'';
+}
+function loomReportMember(e,r,f,rows){
+ if(!rows.length)return '<p class="pa-report-missing">No recorded members on this page</p>';
+ const state=loomReportState(e),active=state.member?rows.find(row=>loomReportMemberKey(row)===state.member):rows[0];
+ const placeholder=active?'':'<option disabled selected>Selected record is outside the loaded rows</option>';
+ const options=rows.map(row=>'<option value="'+esc(loomReportMemberKey(row))+'"'+(active===row?' selected':'')+'>'+esc(row.id??row.condition_id)+(row.seed!=null?' · seed '+esc(row.seed):'')+'</option>').join('');
+ const menu='<label>'+ (e.kind==='dataset'?'Episode':'Case')+'<select data-report-filter="member">'+placeholder+options+'</select></label>';
+ if(!active)return menu;
+ const fields=f.columns?.length?f.columns.map(c=>[c.label,loomReportCell(loomReportPointer(active,c.pointer))+(c.unit?' '+c.unit:'')]):[];
+ const nested=Object.entries(active).filter(([,value])=>value&&typeof value==='object');
+ return menu+catProperties(Object.fromEntries(fields))
+  +(nested.length?'<details><summary>Recorded evidence</summary>'+catTable(['Field','Value'],nested.map(([key,value])=>[esc(key),esc(JSON.stringify(value))]))+'</details>':'');
+}
+const loomReportMemberKey=row=>JSON.stringify([row.id??row.condition_id,row.seed]);
+function loomReportConditionMembers(e){
+ if(!loomReportTabs(e).some(([tab])=>tab==='episodes'))return null;
+ const members=new Map();
+ for(const report of e.reporting?.reports||[]){
+  if(report.role!=='sdg_readback')continue;
+  for(const field of report.fields||[]){
+   if(field.id!=='observations')continue;
+   const rows=loomReportPages.get(loomReportKey(e,report,field))?.value;
+   for(const row of rows||[]){
+    if(typeof row.id!=='string'||typeof row.member_id!=='string')continue;
+    if(!members.has(row.id))members.set(row.id,row.member_id);
+    else if(members.get(row.id)!==row.member_id)members.set(row.id,null);
+   }
+  }
+ }
+ return members;
+}
+function loomReportCaseGraph(e){
+ const r=e.reporting,criteria=r?.evaluation_summary?.criteria;
+ const report=r?.reports?.find(report=>report.state==='recorded'&&report.role==='evaluation_cases');
+ const field=report?.fields?.find(f=>f.id==='cases'&&f.format==='table');
+ if(!criteria?.length||!field)return '';
+ const page=loomReportPages.get(loomReportKey(e,report,field));
+ if(!page){loomReportLoad(e,report,field);return '<p class="pa-report-missing">Loading cases…</p>';}
+ if(page.error)return '<p class="pa-catalog-warning">'+esc(page.error)+'</p>';
+ const state=loomReportState(e),index=Number(state.criterion)||0,rule=criteria[index]||criteria[0];
+ const label=r=>r.pointer.split('/').at(-1).replaceAll('_',' ');
+ const points=page.value.flatMap(row=>{
+  const m=loomReportPointer(row,rule.pointer);
+  return m?.unit===rule.unit&&Number.isFinite(m?.value)?[{row,value:m.value}]:[];
+ });
+ const selector='<label>Measurement<select data-report-filter="criterion">'+criteria.map((rule,i)=>'<option value="'+i+'"'+(i===index?' selected':'')+'>'+esc(label(rule)+' · '+rule.unit)+'</option>').join('')+'</select></label>';
+ if(!points.length)return loomResearchSection('Case measurements',selector+'<p class="pa-report-missing">No recorded values on this page</p>'+loomReportPageControls(page,report,field,0,page.value.length));
+ const thresholds=rule.op==='between'?[rule.min,rule.max]:[rule.value];
+ const values=[...points.map(p=>p.value),...thresholds],min=Math.min(...values),max=Math.max(...values);
+ const x=v=>42+(max===min?0.5:(v-min)/(max-min))*483;
+ const markers=thresholds.map(value=>'<line class="pa-report-checkpoint" x1="'+x(value)+'" x2="'+x(value)+'" y1="12" y2="105"/>').join('');
+ const dots=points.map(({row,value},i)=>{
+  const name=row.id+' · '+loomReportNumber(value)+' '+rule.unit;
+  return '<a href="#case" data-report-case="'+esc(loomReportMemberKey(row))+'" aria-label="'+esc(name)+'"><circle cx="'+x(value)+'" cy="'+(18+i%10*8)+'" r="4"><title>'+esc(name)+'</title></circle></a>';
+ }).join('');
+ const chart='<div class="pa-report-chart pa-report-case-chart"><svg viewBox="0 0 565 128" role="group" aria-label="'+esc(label(rule)+' measurements')+'">'+markers+dots+'<line class="pa-report-axis" x1="42" y1="105" x2="525" y2="105"/><text x="42" y="122">'+esc(loomReportNumber(min))+'</text><text x="525" y="122" text-anchor="end">'+esc(loomReportNumber(max)+' '+rule.unit)+'</text></svg></div>';
+ const criterion='<p class="pa-report-note">Protocol threshold · '+esc(({lte:'≤',gte:'≥',between:''})[rule.op]||'')+' '+thresholds.map(loomReportNumber).map(esc).join(' – ')+' '+esc(rule.unit)+'</p>';
+ return loomResearchSection('Case measurements',selector+chart+criterion+loomReportPageControls(page,report,field,points.length,page.value.length));
+}
+function loomReportDistributionChart(rows,f){
+ if(!rows.length)return '<p class="pa-report-missing">Unrecorded</p>';
+ if(f.format==='coverage_matrix'){
+  const columns=[...new Set(rows.map(cell=>cell.column))],labels=[...new Set(rows.map(cell=>cell.row))];
+  const cells=new Map(rows.map(cell=>[JSON.stringify([cell.row,cell.column]),cell]));
+  if(columns.length>12||labels.length>30)return catTable(['Condition','Group','Admitted','Assigned'],rows.map(cell=>[esc(cell.row),esc(cell.column),esc(cell.admitted),esc(cell.assigned)]));
+  return catTable([f.y_label||'Condition',...columns],labels.map(label=>[esc(label),...columns.map(column=>{
+   const c=cells.get(JSON.stringify([label,column]));
+   return c?esc(c.admitted+' / '+c.assigned):'—';
+  })]))+'<p class="pa-report-note">Admitted / assigned · — indicates no recorded cell</p>';
+ }
+ const data=rows.map(row=>({label:loomReportPointer(row,f.x_pointer),value:loomReportPointer(row,f.y_pointer)}));
+ const maximum=Math.max(...data.map(row=>row.value),1);
+ return '<div class="pa-report-bars">'+data.map(row=>'<div><span>'+esc(row.label)+'</span><progress max="'+maximum+'" value="'+row.value+'" aria-label="'+esc(row.label)+'"></progress><strong>'+esc(loomReportNumber(row.value))+(f.unit?' '+esc(f.unit):'')+'</strong></div>').join('')+'</div>';
 }
 function loomReportField(e,r,f){
+ if(f.state==='missing')return '<p class="pa-report-missing">Unrecorded</p>';
  if(f.format==='properties')return catProperties(Object.fromEntries(Object.entries(f.value||{}).map(([k,v])=>[k,loomReportCell(v)])));
- if(!['table','series','scatter','instructions'].includes(f.format))return '<dl class="pa-entity-facts"><div><dt>'+esc(f.label)+'</dt><dd>'+esc(loomReportCell(f.value))+(f.unit?' '+esc(f.unit):'')+'</dd></div></dl>';
+ if(!['table','series','scatter','instructions','bar','coverage_matrix'].includes(f.format))return '<dl class="pa-entity-facts"><div><dt>'+esc(f.label)+'</dt><dd>'+esc(loomReportCell(f.value))+(f.unit?' '+esc(f.unit):'')+'</dd></div></dl>';
  const key=loomReportKey(e,r,f),page=loomReportPages.get(key);if(!page){loomReportLoad(e,r,f);return '<p class="pa-report-missing">Loading…</p>';}
  if(page.error)return '<p class="pa-catalog-warning">'+esc(page.error)+'</p>';
- const state=loomReportState(e),all=Array.isArray(page.value)?page.value:[],rows=all.filter(row=>(state.phase==='all'||String(row.phase)===state.phase)&&(state.split==='all'||row.split===state.split));
+ const state=loomReportState(e),all=Array.isArray(page.value)?page.value:[];
+ const bySeries=f.format==='series';
+ const rows=bySeries?all.filter(row=>(state.phase==='all'||row.phase==null||String(row.phase)===state.phase)&&(state.split==='all'||row.split==null||row.split===state.split)):all;
+ const controls=loomReportPageControls(page,r,f,rows.length,all.length);
+ if(['bar','coverage_matrix'].includes(f.format))return loomReportDistributionChart(rows,f)+controls;
+ if((state.tab==='episodes'||state.tab==='cases')&&f.format==='table')return loomReportMember(e,r,f,rows)+controls;
  let body='';
  if(f.format==='instructions'&&!rows.length)return '<p class="pa-report-missing">'+((r.fields||[]).some(f=>f.id==='mode'&&f.value==='none')?'Not applicable':'Missing')+'</p>';
- if(f.format==='instructions')body=rows.map(row=>'<article class="pa-report-instruction"><h3>'+esc(row.phase!=null?'Phase '+row.phase:row.id)+'</h3><blockquote>'+esc(row.text)+'</blockquote></article>').join('');
+ if(f.format==='instructions')body=rows.map(row=>'<article class="pa-report-instruction"><h3>'+esc(row.phase!=null?'Subtask '+row.phase:row.id)+'</h3><blockquote>'+esc(row.text)+'</blockquote></article>').join('');
  else {
   const columns=f.columns?.length?f.columns:(f.format==='series'?[{label:'Step',pointer:f.x_pointer},{label:'Value',pointer:f.y_pointer}] : [{label:'Record',pointer:'/id'}]);
-  const actualColumns=f.format==='series'?[...columns,{label:'Phase',pointer:'/phase'},{label:'Split',pointer:'/split'}]:columns;
+  const actualColumns=bySeries?[...columns,{label:'Subtask',pointer:'/phase'},{label:'Split',pointer:'/split'}]:columns;
   const table=catTable(actualColumns.map(c=>c.label),rows.map(row=>actualColumns.map(c=>esc(loomReportCell(loomReportPointer(row,c.pointer)))+(c.unit?' '+esc(c.unit):''))));
-  body=(f.format==='series'||f.format==='scatter')?loomReportChart(rows,f,f.format)+'<details><summary>Recorded values</summary>'+table+'</details>':table;
+  const best=bySeries?r.fields?.find(field=>field.id==='selected_step')?.value:undefined;
+  const members=f.format==='scatter'&&r.role==='sdg_conditions'?loomReportConditionMembers(e):null;
+  body=(bySeries||f.format==='scatter')?loomReportChart(rows,f,f.format,best,Number(state.step),members)+'<details><summary>Recorded values</summary>'+table+'</details>':table;
+  if(Number.isFinite(best))body+='<p class="pa-report-selection">Best checkpoint · step '+esc(loomReportNumber(best))+'</p>';
+  if(bySeries&&state.step&&state.step!=='all'){
+   const observations=rows.filter(row=>String(loomReportPointer(row,f.x_pointer))===state.step);
+   if(observations.length)body+=catTable(actualColumns.map(c=>c.label),observations.map(row=>actualColumns.map(c=>esc(loomReportCell(loomReportPointer(row,c.pointer)))+(c.unit?' '+esc(c.unit):''))));
+  }
  }
- return body+'<div class="pa-report-page"><span>'+rows.length+' shown · '+all.length+' / '+(page.total??all.length)+' loaded</span>'+(page.next_offset!=null?'<button class="pa-button" data-report-more="'+esc(r.requirement_id)+'" data-report-field="'+esc(f.id)+'">More</button>':'')+'</div>';
+ return body+controls;
 }
 function loomReportContract(e){
  const v=e.reporting;if(!v)return '<p class="pa-report-missing">Reporting contract · Missing</p>';
  const rows=(v.reports||[]).map(r=>[esc(r.label),esc(r.role),r.required?'Required':'Optional',r.state==='recorded'?'Recorded':'Missing']);
  return catProperties({Contract:v.contract_ref.id,Revision:v.contract_ref.revision,SHA256:v.contract_ref.sha256,Activity:v.activity})+catTable(['Report','Role','Coverage','State'],rows)+(v.adaptations?.length?'<details><summary>Excluded / replaced requirements</summary>'+catTable(['Requirement','Disposition','Reason','Analysis impact'],v.adaptations.map(a=>[esc(a.requirement_id),esc(a.disposition),esc(a.reason),esc(a.analysis_impact)]))+'<pre>'+esc(JSON.stringify(v.adaptations,null,2))+'</pre></details>':'');
 }
-function loomReportContent(e){
- const state=loomReportState(e),tab=state.tab,r=e.reporting;
- if(tab==='contract')return loomReportContract(e);
- if(tab==='related')return loomDatasetParentHTML(e);
- if(tab==='inputs'&&e.kind!=='model')return catTable(['Input','Record','Revision'],(r?.inputs||[]).map(i=>[esc(i.input),'<button class="pa-button" data-report-input="'+esc(i.id)+'" data-report-input-revision="'+esc(i.revision)+'">'+esc(catEntity(i.id)?.label||i.id)+'</button>',esc(i.revision)]));
- if(tab==='overview'){
-  const instructions=(r?.reports||[]).filter(r=>r.role==='instructions'&&r.state==='recorded');
-  return instructions.map(report=>loomResearchSection('Instructions',(report.fields||[]).filter(f=>f.format==='instructions').map(f=>loomReportField(e,report,f)).join(''))).join('')+((r?.reports||[]).some(r=>r.role==='policy_inputs')?loomResearchSection('Action interface',(r.reports.find(r=>r.role==='policy_inputs').fields||[]).filter(f=>['robot_dof','action_dimension'].includes(f.id)).map(f=>loomReportField(e,{},f)).join('')):'')+(loomReportOverviewBodies.get(e.id)||loomResearchOverview(e));
+function loomReportSection(e,report,fields){
+ if(report.state!=='recorded')return loomResearchSection(report.label,'<p class="pa-report-missing">Unrecorded</p>');
+ if(!fields.length)return '';
+ return loomResearchSection(report.label,fields.map(f=>'<div class="pa-report-field"><h3>'+esc(f.label)+'</h3>'+loomReportField(e,report,f)+'</div>').join(''));
+}
+function loomReportOverview(e){
+ const r=e.reporting,reports=r?.reports||[],parts=[loomReportOverviewBodies.get(e.id)||loomResearchOverview(e)];
+ for(const [alias,claim] of Object.entries(e.science?.deliverables||{})){
+  const sections=[];
+  if(claim.sessions?.length){
+   const rows=claim.sessions.map(session=>{
+    const configuration=session.configuration;
+    const exact='<button class="pa-button" data-report-input="'+esc(configuration.id)+'" data-report-input-revision="'+esc(configuration.revision)+'">'+esc(catEntity(configuration.id)?.label||configuration.id)+' · r'+esc(configuration.revision)+'</button>';
+    const readings=catTable(['Field','Measured'],Object.entries(session.readback).map(([field,value])=>[esc(field),esc(loomReportCell(value))]));
+    return [esc(session.id),esc(session.domain==='real'?'Real':'Simulation'),exact,esc(session.member_count),'<details><summary>Readback</summary>'+readings+'</details>'];
+   });
+   sections.push(catTable(['Session','Domain','Setup','Members','Readback'],rows));
+  }
+  if(claim.hypothesis)sections.push(catProperties({Hypothesis:claim.hypothesis.statement,Population:claim.hypothesis.population,
+   Metric:claim.hypothesis.metric,Analysis:claim.hypothesis.analysis,Result:claim.analysis?.summary||'Unrecorded'}));
+  if(sections.length)parts.push(loomResearchSection('Experimental evidence · '+esc(alias),sections.join('')));
  }
- const roles={instructions:['instructions'],learning:['learning_series'],metrics:['action_metrics','evaluation_cases'],inputs:['policy_inputs'],protocol:['evaluation_cases'],cases:['evaluation_cases'],distribution:['sdg_conditions','sdg_readback'],quality:['dataset_statistics']};
- const reports=(r?.reports||[]).filter(r=>(roles[tab]||[]).includes(r.role));
- const legacy=(tab===(e.kind==='dataset'?'quality':'metrics'))?loomReportLegacyMetrics.get(e.id)||'':'';
- if(!reports.length){const excluded=(r?.exclusions||[]).some(x=>(roles[tab]||[]).includes(x.role));return legacy||'<p class="pa-report-missing">'+esc(loomReportTabs(e).find(([id])=>id===tab)?.[1]||tab)+' · '+(excluded?'Not applicable':'Missing')+'</p>';}
- const loaded=reports.flatMap(r=>(r.fields||[]).flatMap(f=>{const v=loomReportPages.get(loomReportKey(e,r,f))?.value;return Array.isArray(v)?v:[]}));
- const phaseOptions=['all',...[...new Set(loaded.map(r=>r.phase).filter(v=>v!=null).map(String))].filter(v=>v!=='all')];
- const splitOptions=['all',...[...new Set(loaded.map(r=>r.split).filter(v=>v!=null).map(String))].filter(v=>v!=='all')];
- const filters=['learning','metrics','cases','distribution'].includes(tab)?'<div class="pa-report-controls"><label>Phase<select data-report-filter="phase">'+phaseOptions.map(v=>'<option value="'+esc(v)+'"'+(state.phase===v?' selected':'')+'>'+esc(v==='all'?'All phases':'Phase '+v)+'</option>').join('')+'</select></label><label>Split<select data-report-filter="split">'+splitOptions.map(v=>'<option value="'+esc(v)+'"'+(state.split===v?' selected':'')+'>'+esc(v==='all'?'All splits':v)+'</option>').join('')+'</select></label></div>':'';
- return filters+reports.map(report=>{
+ if(r?.inputs?.length)parts.push(loomResearchSection('Accepted inputs',catTable(['Input','Record','Revision'],r.inputs.map(i=>[esc(i.input),'<button class="pa-button" data-report-input="'+esc(i.id)+'" data-report-input-revision="'+esc(i.revision)+'">'+esc(catEntity(i.id)?.label||i.id)+'</button>',esc(i.revision)]))));
+ for(const report of reports){
+  const fields=report.fields||[];
+  if(report.role==='policy_inputs')parts.push(loomReportSection(e,report,fields.filter(f=>f.format!=='table')));
+  if(report.role==='instructions')parts.push(loomReportSection(e,report,fields.filter(f=>f.format==='instructions')));
+  if(report.role==='dataset_statistics'){
+   const checks=fields.filter(f=>!['count','splits','members'].includes(f.id));
+   if(checks.length)parts.push(loomReportSection(e,{...report,label:'Collection checks'},checks));
+  }
+  if(report.role==='evaluation_cases'&&report.state==='recorded')parts.push(loomResearchSection('Protocol','<button class="pa-button" data-report-protocol="'+esc(report.requirement_id)+'">Protocol definition</button><div data-report-protocol-detail></div>'));
+ }
+ if(r?.exclusions?.some(x=>x.role==='instructions'))parts.push(loomResearchSection('Instructions','<p class="pa-report-missing">Not applicable</p>'));
+ const template=e.metadata_status?.template_ref||e.metadata?.template_ref,contract=r?.contract_ref;
+ parts.push('<details class="pa-report-contract"><summary>Template · '+esc(template?template.id+' · r'+template.revision:'Unrecorded')+' / Contract · '+esc(contract?contract.id+' · r'+contract.revision:'Unrecorded')+'</summary>'+loomReportContract(e)+'</details>');
+ return parts.join('');
+}
+function loomReportTrainingFilters(e,reports){
+ const state=loomReportState(e);
+ const series=reports.flatMap(r=>(r.fields||[]).filter(f=>f.format==='series').map(f=>({f,rows:loomReportPages.get(loomReportKey(e,r,f))?.value||[]})));
+ const dimensions=[['phase','Subtask','All subtasks',series.flatMap(({rows})=>rows.map(row=>row.phase))],['split','Split','All splits',series.flatMap(({rows})=>rows.map(row=>row.split))],['step','Step','All steps',series.flatMap(({f,rows})=>rows.map(row=>loomReportPointer(row,f.x_pointer)))]];
+ const filters=dimensions.map(([key,label,all,values])=>{
+  const options=[...new Set(values.filter(v=>v!=null).map(String))].filter(v=>v!=='all');
+  if(options.length===0)return '';
+  if(key==='step')options.sort((a,b)=>Number(a)-Number(b));
+  return '<label>'+label+'<select data-report-filter="'+key+'">'+['all',...options].map(v=>'<option value="'+esc(v)+'"'+(state[key]===v?' selected':'')+'>'+esc(v==='all'?all:key==='phase'?'Subtask '+v:v)+'</option>').join('')+'</select></label>';
+ }).join('');
+ return filters?'<div class="pa-report-controls">'+filters+'</div>':'';
+}
+function loomReportContent(e){
+ const {tab}=loomReportState(e),r=e.reporting;
+ if(tab==='overview')return loomReportOverview(e);
+ const roles={training:['learning_series','action_metrics'],results:['evaluation_cases','evaluation_metrics'],cases:['evaluation_cases'],episodes:['dataset_statistics'],distribution:['sdg_conditions','sdg_readback','distribution']};
+ const reports=(r?.reports||[]).filter(report=>roles[tab]?.includes(report.role));
+ const legacy=['training','results'].includes(tab)?loomReportLegacyMetrics.get(e.id)||'':'';
+ const summary=tab==='results'?r?.evaluation_summary:null;
+ const failures=Object.entries(summary?.recorded_failure_subtasks||{});
+ const failureBreakdown=failures.length?loomResearchSection('Recorded failure subtasks',catTable(['Subtask','Valid cases with recorded failure'],failures.map(([name,count])=>[esc(name),esc(count)]))):'';
+ const sections=reports.map(report=>{
   let fields=report.fields||[];
-  if(tab==='cases')fields=fields.filter(f=>f.format==='table');
-  if(tab==='metrics')fields=fields.filter(f=>f.format!=='table'||report.role==='action_metrics');
-  if(tab==='protocol')return loomResearchSection('Protocol',catProperties({Reference:r.contract_ref.id,'Report source':report.component})+catTable(['Accepted input','Record','Revision'],(r.inputs||[]).map(i=>[esc(i.input),esc(i.id),esc(i.revision)]))+'<button class="pa-button" data-report-protocol="'+esc(report.requirement_id)+'">Protocol definition</button><div data-report-protocol-detail></div>');
-  return loomResearchSection(report.label,report.state!=='recorded'?'<p class="pa-report-missing">Missing</p>':fields.map(f=>'<div class="pa-report-field"><h3>'+esc(f.label)+'</h3>'+loomReportField(e,report,f)+'</div>').join(''));
- }).join('')+(legacy?'<details class="pa-report-legacy"><summary>Recorded metrics</summary>'+legacy+'</details>':'');
+  if(tab==='episodes')fields=fields.filter(f=>f.id==='members');
+  if(tab==='cases')fields=fields.filter(f=>f.id==='cases'||f.format==='table');
+  if(tab==='results'&&report.role==='evaluation_cases')fields=fields.filter(f=>f.format!=='table');
+  if(tab==='training'&&report.role==='learning_series')fields=fields.filter(f=>f.id!=='selected_step');
+  return loomReportSection(e,report,fields);
+ }).join('');
+ return (tab==='training'?loomReportTrainingFilters(e,reports):'')+sections+failureBreakdown+(tab==='results'?loomReportCaseGraph(e):'')+(legacy?'<details class="pa-report-legacy" open><summary>Recorded metrics</summary>'+legacy+'</details>':'')+(!sections&&!legacy?'<p class="pa-report-missing">Unrecorded</p>':'');
 }
 const loomReportPreviousDetail=catalogDetail;
 catalogDetail=function(id){
@@ -98,8 +251,9 @@ catalogDetail=function(id){
 };
 root.addEventListener('click',async event=>{
  const workspace=event.target.closest('[data-report-output]'),e=workspace&&catEntity(workspace.dataset.reportOutput);if(!e)return;
+ const point=event.target.closest('[data-report-case],[data-report-episode]');if(point){event.preventDefault();Object.assign(loomReportState(e),{tab:point.dataset.reportCase?'cases':'episodes',member:point.dataset.reportCase||point.dataset.reportEpisode});render();return;}
  const input=event.target.closest('[data-report-input]');if(input){try{const pin=await loomSearchAction('results','resolve_item',{native_ref:{kind:'entity',identity:{id:input.dataset.reportInput,revision:Number(input.dataset.reportInputRevision)}}});const value=await loomSearchAction('system','dashboard_entity',{item_id:pin.item_id,revision_id:pin.revision_id});loomCatalogMerge(value);if(value.entities?.[0])openView(catView(value.entities[0].id));}catch(error){input.textContent=error.message;}return;}
- const tab=event.target.closest('[data-report-tab]');if(tab){Object.assign(loomReportState(e),{tab:tab.dataset.reportTab,phase:'all',split:'all'});render();return;}
+ const tab=event.target.closest('[data-report-tab]');if(tab){loomReportState(e).tab=tab.dataset.reportTab;render();return;}
  const more=event.target.closest('[data-report-more]');if(more){const r=e.reporting.reports.find(r=>r.requirement_id===more.dataset.reportMore),f=r.fields.find(f=>f.id===more.dataset.reportField);loomReportLoad(e,r,f,true);return;}
  const protocol=event.target.closest('[data-report-protocol]');if(protocol){
   protocol.disabled=true;const target=workspace.querySelector('[data-report-protocol-detail]');

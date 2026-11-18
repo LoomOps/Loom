@@ -352,6 +352,8 @@ fn validate_definition(db: &Connection, value: &Value) -> Result<Value> {
                             | "table"
                             | "series"
                             | "scatter"
+                            | "bar"
+                            | "coverage_matrix"
                             | "reference"
                             | "instructions"
                             | "properties"
@@ -364,7 +366,7 @@ fn validate_definition(db: &Connection, value: &Value) -> Result<Value> {
                     .all(|s| s.as_ref().is_none_or(|s| printable(s, 100))),
                 "Invalid chart axis label",
             )?;
-            if matches!(f.format.as_str(), "series" | "scatter") {
+            if matches!(f.format.as_str(), "series" | "scatter" | "bar") {
                 check(
                     [&f.x_pointer, &f.y_pointer].iter().all(|p| {
                         p.as_ref()
@@ -585,7 +587,7 @@ fn definition_resource(db: &Connection, value: &Value) -> Result<Value> {
     Ok(value.clone())
 }
 
-fn effective(contract: &Value) -> Vec<Requirement> {
+pub(crate) fn effective(contract: &Value) -> Vec<Requirement> {
     contract["definition"]["effective_requirements"]
         .as_array()
         .or_else(|| contract["definition"]["requirements"].as_array())
@@ -957,7 +959,7 @@ pub fn validate_declaration(profile: &Value, entity: &Value) -> Result<()> {
     }
     Ok(())
 }
-fn read_json(path: &Path, proof: &storage::VerifiedFile) -> Result<Value> {
+pub(crate) fn read_json(path: &Path, proof: &storage::VerifiedFile) -> Result<Value> {
     check(
         proof.size <= MAX_REPORT as u64,
         "Report exceeds 8 MiB; use bounded report shards",
@@ -1180,7 +1182,7 @@ pub fn validate_reports(
                     fields.push(json!({"id":f.id,"label":f.label,"format":f.format,"pointer":f.pointer,"state":"missing","value":null}));
                     continue;
                 }
-                if ["table", "series", "scatter", "instructions"].contains(&f.format.as_str()) {
+                if ["table", "series", "scatter", "instructions", "bar", "coverage_matrix"].contains(&f.format.as_str()) {
                     check(
                         v.is_array(),
                         "Collection display field must point to an array",
@@ -1200,6 +1202,28 @@ pub fn validate_reports(
                 if matches!(f.format.as_str(), "series" | "scatter") {
                     for row in v.as_array().unwrap() {
                         check([&f.x_pointer,&f.y_pointer].iter().all(|p|row.pointer(p.as_ref().unwrap()).and_then(Value::as_f64).is_some_and(f64::is_finite)),"Chart coordinates must be measured finite values at registered pointers")?;
+                    }
+                }
+                if f.format == "bar" {
+                    for row in v.as_array().unwrap() {
+                        check(
+                            row.pointer(f.x_pointer.as_ref().unwrap()).and_then(Value::as_str).is_some_and(|label| printable(label, 100))
+                                && row.pointer(f.y_pointer.as_ref().unwrap()).and_then(Value::as_f64).is_some_and(|value| value.is_finite() && value >= 0.0),
+                            "Bar charts require labeled nonnegative observations or bins",
+                        )?;
+                    }
+                }
+                if f.format == "coverage_matrix" {
+                    let mut pairs = BTreeSet::new();
+                    for cell in v.as_array().unwrap() {
+                        let row = cell["row"].as_str().filter(|label| printable(label, 100));
+                        let column = cell["column"].as_str().filter(|label| printable(label, 100));
+                        let counts = cell["assigned"].as_u64().zip(cell["admitted"].as_u64());
+                        check(
+                            row.zip(column).is_some_and(|pair| pairs.insert(pair))
+                                && counts.is_some_and(|(assigned, admitted)| admitted <= assigned),
+                            "Coverage cells need unique row/column labels and consistent assigned/admitted counts",
+                        )?;
                     }
                 }
                 fields.push(json!({"id":f.id,"label":f.label,"format":f.format,"unit":f.unit,"pointer":f.pointer,"x_pointer":f.x_pointer,"y_pointer":f.y_pointer,"x_label":f.x_label,"y_label":f.y_label,"columns":f.columns,"value":if v.is_array(){json!({"rows":v.as_array().unwrap().len()})}else{v.clone()}}));
@@ -1295,8 +1319,22 @@ pub fn validate_reports(
         }
     }
     let primary=report_data.get("evaluation_cases").and_then(|a|a.first()).map(|d|json!({"label":"Whole-task success","numerator":d["counts"]["successes"],"denominator":d["counts"]["valid"],"protocol_ref":d["protocol_ref"]}));
+    let evaluation_summary = report_data.get("evaluation_cases").and_then(|data| data.first()).map(|data| {
+        let mut failure_counts = BTreeMap::new();
+        for case in data["cases"].as_array().into_iter().flatten() {
+            if case["valid"] == true && case["outcome"] != "success" {
+                if let Some(stage) = case["failure_stage"].as_str() {
+                    *failure_counts.entry(stage).or_insert(0usize) += 1;
+                }
+            }
+        }
+        let criteria = effective(contract).into_iter().filter(|r| r.role == "evaluation_cases")
+            .find_map(|r| resolve_from_pins(contract, &r, &data["protocol_ref"]).ok())
+            .map(|protocol| protocol["definition"]["predicate"]["all"].clone());
+        json!({"counts":data["counts"],"recorded_failure_subtasks":failure_counts,"criteria":criteria})
+    });
     Ok(Some(
-        json!({"state":"validated","contract_ref":reference(contract),"activity":contract["definition"]["activity"],"reports":reports,"adaptations":contract["definition"]["resolved_adaptations"],"exclusions":contract["definition"]["excluded_requirements"],"inputs":expected_inputs,"primary_outcome":primary}),
+        json!({"state":"validated","contract_ref":reference(contract),"activity":contract["definition"]["activity"],"reports":reports,"adaptations":contract["definition"]["resolved_adaptations"],"exclusions":contract["definition"]["excluded_requirements"],"inputs":expected_inputs,"primary_outcome":primary,"evaluation_summary":evaluation_summary}),
     ))
 }
 

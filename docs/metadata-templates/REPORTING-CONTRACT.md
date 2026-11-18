@@ -103,7 +103,7 @@ new Dataset does not create a new Task or break its parent chain.
 |---|---|---|
 | SDG collection or transformed Dataset | Dataset revision with membership and generation evidence | No |
 | Trained Policy checkpoint | Policy revision with Dataset/checkpoint pins | No |
-| Training/validation loss, selection and optimization report | Attached Policy reports, accessible through Learning/Metrics | No |
+| Training/validation loss, selection and optimization report | Attached Policy reports, accessible through Training | No |
 | One evaluation execution under a frozen protocol | Experiment with exact Policy, cohort and per-case evidence | Yes |
 | Cross-Policy or cross-run comparison | Derived comparison view over exact accepted Experiment revisions | No |
 | Observer weights, runtime setup, smoke or platform acceptance | Owning Tool/Component or operational Job evidence | No |
@@ -255,8 +255,10 @@ bin boundaries/counts, quantile method and source digest. Indexed raw data or
 sealed report files hold the full report; catalog DTOs carry bounded summaries
 and references. Histogram bins never imply a distribution that was not measured.
 
-Dataset views separate Overview, Distribution, Quality and Related. Split and
-signal selectors apply to statistics from the same membership revision.
+Dataset Overview includes collection checks and data lineage. Distribution and
+Episodes are available when the report has their coverage or membership data.
+Policy Overview includes the consumed instructions and exact accepted inputs.
+Training includes the selected checkpoint, validation series and offline metrics.
 
 ### SDG factor coverage
 
@@ -339,9 +341,10 @@ Per-phase success does not replace whole-task success. Planner-assisted hold is
 not evidence of Policy-only hold. Comparative views validate protocol/predicate,
 population, inputs and scope compatibility before calculating a comparison.
 
-Views include Protocol, Metrics, Cases and Inputs. Dataset/Policy links open exact
-revisions. The list's Result, Protocol and Scope fields come from the registered
-definition and frozen execution, rather than arbitrary producer display strings.
+Evaluation Overview includes the protocol and exact Dataset and Policy inputs.
+Results shows verified aggregates and measurements. Cases opens the matching
+case and seed. The list's Result, Protocol and Scope fields come from the
+registered definition and frozen execution.
 
 ### Performance factors and robustness
 
@@ -441,7 +444,7 @@ implicit always-on "legacy" bypass or destructive rewrite of runtime extensions.
 | execution/recovery | Keep computation outcome separate from report acceptance | No accidental retraining after a report/index error |
 | results/publication | Byte/schema/population validation and transactional publication | Missing reports, swapped checkpoints, aggregate/case mismatch, interrupted runs |
 | catalog/index | Bounded report descriptors with exact source and metric references | Large series/files stay paged; no raw-array scalar or free-text inference |
-| Dashboard | Instructions/Learning/Distribution/Protocol/Metrics/Cases/Inputs and effective-contract details | Shared definitions, excluded vs missing vs zero, exact links, theme/narrow layouts |
+| Dashboard | Output-specific Overview, Distribution, Episodes, Training, Results and Cases views | Shared definitions, excluded vs missing vs zero, exact links, theme/narrow layouts |
 | Loom-Use/docs | Assess coverage; reuse, adapt or author/register a contract before creating/submitting software or Jobs | No omitted necessary analysis because a built-in field is absent; no claim of hard enforcement from Skill prose alone |
 | installation | Profile readiness preflight and coordinated strict cutover | Preserve state, credentials, historical records and in-flight Job pins |
 

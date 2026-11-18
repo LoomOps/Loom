@@ -218,7 +218,9 @@ impl Application {
                 let id = args["id"]
                     .as_str()
                     .ok_or_else(|| Error::input("Job ID required"))?;
-                jobs::load(&self.db, id)?;
+                if !self.db.query_row("SELECT EXISTS(SELECT 1 FROM job_workflows WHERE id=?)",[id], |r| r.get::<_,bool>(0))? {
+                    jobs::load(&self.db, id)?;
+                }
                 let annotation = args["annotation_id"]
                     .as_str()
                     .ok_or_else(|| Error::input("Annotation ID required"))?;
@@ -240,15 +242,16 @@ impl Application {
                         |r| r.get(0),
                     )
                     .optional()?;
+                let mut payload = payload;
                 if let Some(old) = old {
-                    require(
-                        serde_json::from_str::<Value>(&old)? == payload,
-                        "annotation",
-                        "Annotation is immutable",
-                        409,
-                    )?;
+                    let stored: Value = serde_json::from_str(&old)?;
+                    if let Some(created) = stored.get("created") {
+                        payload["created"] = created.clone();
+                    }
+                    require(stored == payload, "annotation", "Annotation is immutable",409)?;
                 } else {
                     active(&tx)?;
+                    payload["created"] = json!(now());
                     tx.execute(
                         "INSERT INTO job_annotations VALUES(?,?,?)",
                         params![id, annotation, encode(&payload)?],
@@ -458,6 +461,14 @@ impl Application {
         {
             require(row.spec["profile"]["reporting_policy"]==crate::reporting::POLICY,"report_profile_legacy","New scientific outputs require a frozen reporting contract; declare scientific outputs before submission",409)?;
         }
+        let science_plan = crate::plans::scientific_plan(&self.db, job)?;
+        let missing:bool=self.db.query_row("SELECT EXISTS(SELECT 1 FROM workflow_nodes n JOIN job_workflows w ON w.id=n.root JOIN json_each(w.request,'$.outcome.deliverables') d WHERE n.job=? AND json_extract(d.value,'$.from.node')=n.node AND NOT EXISTS(SELECT 1 FROM json_each(?,'$.entities') e WHERE json_extract(e.value,'$.id')=json_extract(d.value,'$.from.entity') AND json_extract(e.value,'$.kind')=json_extract(d.value,'$.kind')))",params![job,encode(&manifest)?],|r|r.get(0))?;
+        require(
+            !missing,
+            "deliverable",
+            "Result is missing a promised output or its kind differs",
+            409,
+        )?;
         let typed = row.spec["kind"] != "cpu.smoke";
         validate_output_semantics(
             &manifest,
@@ -650,7 +661,7 @@ impl Application {
                                         |reports| {
                                             reports.iter().any(|r| r["component"] == *component)
                                         },
-                                    )
+                                    ) || science_plan.as_ref().is_some_and(|plan| plan.accepts_component(entity, component))
                             })
                         })
                     }),
@@ -713,6 +724,13 @@ impl Application {
                 &relations,
             )? {
                 published["reporting"] = reporting;
+            }
+            if let Some(plan) = &science_plan {
+                if let Some(science) = crate::plans::verify_output_science(
+                    plan, job, attempt, entity, path.parent().unwrap(), &verified_files, &published,
+                )? {
+                    published["science"] = science;
+                }
             }
             prepared.push((
                 identity,

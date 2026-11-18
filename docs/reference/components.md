@@ -1926,7 +1926,7 @@ Shared authentication, schema, scope and handler preconditions still apply.
 
 ## get_runtime
 
-Read one exact immutable Runtime revision and its consumers. Installation/build is an explicit host-administrator workflow. job_usage links frozen stage pins to source Jobs and their Main Job; execution_receipts distinguishes started stages from unexecuted bindings. At most 200 Job rows are returned with jobs_complete.
+Read one exact immutable Runtime revision and its consumers. Installation/build is an explicit host-administrator workflow. In job_usage, execution_owner identifies the scheduling Job and group_root identifies the browsing group. stages lists bindings from the latest matching accepted Profile. execution_receipts identifies the Attempt, started stage and its recorded Profile. A complete page includes started_job_count across distinct execution owners. jobs_complete marks coverage of up to 200 source Jobs.
 
 Scope: `read`. Owner: [extensions](../features/extensions.md). Implementation: [rust/crates/core/src/software.rs#software_action](../../rust/crates/core/src/software.rs).
 

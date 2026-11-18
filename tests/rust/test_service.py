@@ -108,6 +108,31 @@ class RustServiceTests(unittest.TestCase):
   graph=self.call('results','scenario_graph',{'id':s['id']});self.assertEqual(graph['links'][0]['id'],link['id']);self.assertEqual(graph['links'][0]['target'],link['target']);self.assertEqual(len(self.call('results','list',{'view':'all'})),1)
  def test_cancelled_native_process_has_no_published_result(self):
   id=self.submit('cancel',seconds=10);self.wait(id,'running');self.call('jobs','cancel',{'id':id});job=self.wait(id,'cancelled');self.assertFalse((job.get('result') or {}).get('artifact_ready'));self.assertFalse(self.call('results','list',{'view':'all'}))
+ def test_open_plan_mcp_and_concurrent_http_seal_share_one_execution(self):
+  from concurrent.futures import ThreadPoolExecutor
+  slot={'id':'collect','label':'Collect evidence'}
+  args={'key':'collect-once','owner':'owner','notify':'owner','outcome':{'goal':'Publish the observation','deliverables':[{'kind':'artifact','alias':'out','from':{'node':'collect','entity':'observation'}}]},'plan':{'sealed':False,'units':[slot]}}
+  preview={'outcome':args['outcome']}
+  envelope=self.post('/mcp',{'jsonrpc':'2.0','id':8,'method':'tools/call','params':{'name':'jobs','arguments':{'action':'preview_outcome','arguments':preview}}})
+  self.assertEqual(json.loads(envelope['result']['content'][0]['text']),self.call('jobs','preview_outcome',preview))
+  response=self.post('/mcp',{'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':'jobs','arguments':{'action':'create','arguments':args}}})
+  created=json.loads(response['result']['content'][0]['text'])
+  self.assertEqual(created,self.call('jobs','create',args))
+  root=created['id']
+  self.assertEqual(self.call('jobs','queue')['logical_entries'][0]['reason'],'awaiting_plan')
+  slot['execution']={'kind':'cpu.smoke','params':{'seconds':0,'fail':False}}
+  def bind(key):
+   req={'id':root,'key':key,'reason':'Bind Profile','expected_revision':1,'plan':{'sealed':True,'units':[slot]}}
+   try:return self.call('jobs','revise_plan',req)
+   except HTTPError as exc:return exc.code
+  with ThreadPoolExecutor(max_workers=2) as workers:receipts=list(workers.map(bind,['bind-a','bind-b']))
+  self.assertEqual(sum(isinstance(r,dict) for r in receipts),1)
+  self.assertIn(409,receipts)
+  done=self.wait(root)
+  self.assertEqual(len(done['executions']),1)
+  self.assertEqual(len(done['executions'][0]['attempts']),1)
+  self.assertEqual(done['result']['outputs']['out']['id'],'observation')
+  self.assertEqual([(e['job'],e['code']) for e in self.call('events','list',{'kind':'all'})],[(root,'complete')])
  def test_workflow_has_one_public_completion(self):
   spec={'kind':'cpu.smoke','params':{'seconds':0,'fail':False}}
   workflow=self.call('jobs','submit_workflow',{'key':'graph','label':'One outcome','owner':'owner','notify':'owner','nodes':[{'id':'a','label':'first','spec':spec},{'id':'b','label':'second','depends_on':['a'],'spec':spec}],'outputs':{'final':{'node':'b','entity':'observation'}}})

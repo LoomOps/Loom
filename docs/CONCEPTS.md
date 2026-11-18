@@ -4,7 +4,7 @@
 
 A **Task** (Scenario in API action/field names) describes the task and protocol: what is being attempted, under which conditions, and how it is evaluated. It has immutable accepted revisions. Jobs and research records can link to an exact revision. A Scenario is not a scheduler and does not infer relationships from names.
 
-A **Job** is one requested outcome, such as generating a dataset, training a model or evaluating a policy. Its **Profile** selects reusable execution behavior. Cases, shards and batches normally stay inside that Job as **Steps**. A Step is producer-reported progress, not a separate resource allocation or proof of success.
+A **Job** is one requested outcome, such as generating a dataset, training a model or evaluating a policy. Each execution selects a reusable **Profile**. Its Stage runners specify their environments. A workflow can use a different Profile on each Node. Cases, shards and batches normally stay inside that Job as **Steps**. A Step is producer-reported progress, not a separate resource allocation or proof of success.
 
 An **Attempt** is a real execution of a Job. Retrying execution produces another Attempt; repairing result publication must not rerun successful compute. A multi-profile outcome can use one workflow Job with separately scheduled execution nodes. Nodes retain their own Attempts and outputs; the parent does not invent an execution.
 

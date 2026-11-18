@@ -25,6 +25,8 @@ The full transitive package inventory remains in each Runtime's collapsed invent
 Neither this catalog nor membership in an image proves a package was executed.
 Unregistered files in the configured dependency directory are not discovered here.
 
+A Stage pin records the selected environment. A stage-start receipt identifies which bound Stage actually started. Build receipts separately identify the builder used to produce an executable. Reusing that executable in another Runtime preserves both identities.
+
 New recipe dependency entries may optionally declare `catalog: true` and `category`
 (`languages`, `simulation`, `machine-learning`, `gpu`, or `libraries`). Use these for
 major software units; `catalog: false` excludes an inventory entry. Existing recipes
@@ -162,7 +164,7 @@ components.compare_profiles to check whether execution definitions differ. These
 are read-only aids, not new Job gates. Component/Tool stage_requires can select
 stage, name, exact version and optional dependency scope; flat requires retains
 its main-stage semantics. Tool roles curated on a Profile are declarations, not
-proof of calls. Pinned Jobs count distinct started logical Jobs; associations via
+proof of calls. Started Jobs counts distinct execution owners with a recorded Stage start when the full set is available. The detail view retains individual execution receipts. Associations via
 legacy IDs/current observations do not prove a historical exact Runtime revision.
 
 Rust packages select an exact target/libc-compatible Runtime and build receipt.

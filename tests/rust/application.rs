@@ -1290,6 +1290,11 @@ fn runtime_usage_uses_frozen_stage_receipts_even_for_failed_operational_jobs() {
     f.app.db.execute("INSERT INTO stage_runs(job,attempt,stage,state,started) VALUES(?,'attempt-proof','prepare','failed',1)",[&child]).unwrap();
     let catalog = f.call("components", "runtimes", json!({})).unwrap();
     assert_eq!(catalog["runtimes"][0]["executed_jobs"], json!([child]));
+    assert_eq!(catalog["runtimes"][0]["started_job_count"], 1);
+    assert_eq!(
+        catalog["runtimes"][0]["job_usage"][0]["execution_owner"],
+        child
+    );
     assert_eq!(catalog["runtimes"][1]["executed_jobs"], json!([]));
     assert_eq!(
         catalog["runtimes"][0]["job_usage"][0]["execution_receipts"][0]["attempt"],
@@ -1298,6 +1303,44 @@ fn runtime_usage_uses_frozen_stage_receipts_even_for_failed_operational_jobs() {
     let detail = f.call("jobs", "get", json!({"id":child})).unwrap();
     assert_eq!(detail["family"]["root"], main);
     assert_eq!(detail["spec"]["profile"], spec["profile"]);
+    // After recovery changes prepare to revision two, the original start
+    // still belongs exclusively to revision one.
+    f.app
+        .db
+        .execute(
+            "UPDATE job_revisions SET spec=?,created=0 WHERE job=? AND revision=0",
+            rusqlite::params![spec.to_string(), child],
+        )
+        .unwrap();
+    f.app
+        .db
+        .execute(
+            "INSERT INTO attempts VALUES('attempt-proof',?,'failed',1,2)",
+            [&child],
+        )
+        .unwrap();
+    spec["profile"]["prepare"] = spec["profile"]["runtime"].clone();
+    spec["profile"]["sha256"] = json!("replacement-profile");
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET spec=? WHERE id=?",
+            rusqlite::params![spec.to_string(), child],
+        )
+        .unwrap();
+    f.app
+        .db
+        .execute(
+            "INSERT INTO job_revisions VALUES(?,1,?,'recovery',3)",
+            rusqlite::params![child, spec.to_string()],
+        )
+        .unwrap();
+    let catalog = f.app.runtime_inventory().unwrap();
+    assert_eq!(catalog["runtimes"][1]["executed_jobs"], json!([]));
+    assert_eq!(
+        catalog["runtimes"][0]["job_usage"][0]["execution_receipts"][0]["profile_sha256"],
+        "old-profile"
+    );
 }
 #[test]
 fn group_summary_tracks_later_nested_execution_without_rewriting_the_completed_root() {
@@ -1395,7 +1438,7 @@ fn group_summary_tracks_later_nested_execution_without_rewriting_the_completed_r
 }
 
 #[test]
-fn activity_counts_only_the_top_level_across_nested_jobs_and_kst_midnight() {
+fn activity_counts_standalone_jobs_across_kst_midnight_despite_presentation_links() {
     let mut f = Fixture::new();
     let main = f.submit("top-level");
     let child = f.submit("child");
@@ -1416,27 +1459,35 @@ fn activity_counts_only_the_top_level_across_nested_jobs_and_kst_midnight() {
             )
             .unwrap();
     }
+    let history=f.call("jobs","preview_history",json!({"ids":[main,child,grandchild]})).unwrap();
+    assert_eq!(history["changes"],json!([]));
+    assert_eq!(history["records"][1]["authority"],"independent");
+    assert_eq!(history["records"][1]["presentation_parent"],main);
+    assert_eq!(history["records"][1]["review_required"],true);
     let result = f.app.dashboard_activity("all").unwrap();
     let days = result["days"].as_array().unwrap();
     assert_eq!(days.len(), 2);
-    for day in days {
-        assert_eq!(day["job_count"], 1);
-        assert_eq!(day["jobs"][0]["id"], main);
-    }
-    assert_eq!(days[0]["milliseconds"], 20000.);
-    assert_eq!(days[1]["milliseconds"], 30000.);
+    assert!(days.iter().all(|day| day["job_count"] == 2));
+    assert_eq!(days[0]["milliseconds"], 25000.);
+    assert_eq!(days[1]["milliseconds"], 35000.);
 }
 
 #[test]
 fn activity_groups_preparation_by_main_job_and_unions_actual_intervals() {
     let mut f = Fixture::new();
-    let main = f.submit("activity-preparation-main");
-    let child = f.submit("activity-preparation-repair");
+    let plan=f.call("jobs","submit_workflow",json!({"key":"activity-preparation-main","label":"Preparation",
+        "owner":"owner","notify":"owner",
+        "nodes":[{"id":"prepare","label":"Prepare","spec":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}},
+                 {"id":"repair","label":"Repair","spec":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}}],
+        "outputs":{},"presentation":{"scope":"operations","role":"support"}})).unwrap();
+    let main=plan["id"].as_str().unwrap();
+    let prepare=plan["nodes"]["prepare"].as_str().unwrap();
+    let child=plan["nodes"]["repair"].as_str().unwrap();
     let day = ((store::now() + 32400.) / 86400.).floor() - 1.;
     let start = day * 86400. - 32400. + 43200.;
     for (id, a, b) in [
-        (&main, start, start + 20.),
-        (&child, start + 10., start + 40.),
+        (prepare, start, start + 20.),
+        (child, start + 10., start + 40.),
     ] {
         f.app
             .db
@@ -1450,7 +1501,6 @@ fn activity_groups_preparation_by_main_job_and_unions_actual_intervals() {
         .db
         .execute("UPDATE jobs SET state='failed' WHERE id=?", [&child])
         .unwrap();
-    f.call("jobs","curate",json!({"key":"activity-preparation-link","reason":"Same requested preparation","dry_run":false,"changes":[{"kind":"job","id":main,"presentation":{"role":"main"}},{"kind":"job","id":child,"presentation":{"parent_job":main,"role":"support"}}]})).unwrap();
     let all = f.app.dashboard_activity("all").unwrap();
     assert_eq!(all["days"].as_array().unwrap().len(), 1);
     assert_eq!(all["days"][0]["job_count"], 1);
@@ -2876,6 +2926,10 @@ fn relation_pages_preserve_all_edges_without_allocating_child_items() {
         )
         .unwrap();
     assert_eq!(incoming["items"][0]["relation"], "step");
+    assert_eq!(
+        incoming["items"][0]["execution_membership"],
+        json!({"root": root, "node": "step-000"})
+    );
     let page = f
         .call(
             "results",
@@ -4660,4 +4714,259 @@ fn runtime_revision_links_resolve_old_exact_aliases_without_hash_fallback() {
         "ambiguous_reference"
     );
     assert_eq!(f.call("results","resolve_item",json!({"native_ref":{"kind":"runtime","identity":{"id":"sim","revision":1,"sha256":sha1}}})).unwrap()["revision_id"],exact["revision_id"]);
+}
+
+#[test]
+fn executable_outcome_without_deliverables_is_a_main_job() {
+    let mut f = Fixture::new();
+    let open = json!({"owner":"owner","notify":"owner","key":"inspect-sensor","outcome":{"goal":"Verify sensor readiness"},"plan":{"sealed":false,"units":[]}});
+    let created = f.call("jobs", "create", open.clone()).unwrap();
+    let id = &created["id"];
+    assert_eq!(f.call("jobs", "create", open).unwrap(), created);
+    let mut seal = json!({"id":id,"key":"seal","expected_revision":1,"reason":"Run the readiness check","plan":{"sealed":true,"units":[]}});
+    assert_eq!(f.call("jobs", "revise_plan", seal.clone()).unwrap_err().code, "plan_pending");
+    seal["plan"]["units"] = json!([{"id":"check","label":"Check","execution":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}}]);
+    let accepted = f.call("jobs", "revise_plan", seal).unwrap();
+    let node = accepted["nodes"]["check"].as_str().unwrap();
+    f.app.db.execute("UPDATE jobs SET state='complete' WHERE id=?", [node]).unwrap();
+    crate::plans::finish(&f.app.db, id.as_str().unwrap()).unwrap();
+    assert_eq!(f.call("jobs","get",json!({"id":id})).unwrap()["state"], "complete");
+}
+
+#[test]
+fn open_outcome_binds_a_granted_runtime_after_restart_and_publishes_once() {
+    let mut f = Fixture::new();
+    let target = json!({"id":"sim","revision":6});
+    let slot = json!({"id":"evaluate","label":"Evaluate","requires":[{"stage":"runtime","runtime":target}]});
+    let create = json!({"owner":"owner","notify":"owner","key":"evaluate-once","outcome":{"goal":"Publish the evaluation receipt","deliverables":[{"alias":"report","kind":"artifact","from":{"node":"evaluate","entity":"report"}}]},"plan":{"sealed":false,"units":[slot]}});
+    let first = f.call("jobs", "create", create.clone()).unwrap();
+    assert_eq!(f.count("jobs"), 0);
+    let root = &first["id"];
+    assert_eq!(
+        f.app.queue().unwrap()["logical_entries"][0]["reason"],
+        "awaiting_runtime_binding"
+    );
+    assert!(f.app.next_work(&Default::default()).unwrap().is_none());
+    f.app = Application::open(
+        &f.app.local,
+        &f.app.bulk,
+        &f.app.components,
+        f.app.config.clone(),
+    )
+    .unwrap();
+    let downstream=f.call("jobs","submit",json!({"key":"later","owner":"owner","notify":"owner","kind":"cpu.smoke","params":{"seconds":0,"fail":false},"depends_on":[root]})).unwrap();
+    assert!(f.app.next_work(&Default::default()).unwrap().is_none());
+    f.call("jobs", "hold", json!({"id":root})).unwrap();
+    let mut revise = json!({"id":root,"key":"bind","expected_revision":1,"reason":"Verified installation","plan":{"sealed":true,"units":[slot]}});
+    revise["plan"]["units"][0]["execution"] = json!({"kind":"eval.r1","params":{}});
+    assert_eq!(
+        f.call("jobs", "revise_plan", revise.clone())
+            .unwrap_err()
+            .code,
+        "runtime_pending"
+    );
+    let manifest = json!({"runtime":{"image":format!("sha256:{}","f".repeat(64))},"validation":{"status":"passed"}});
+    let sha = hash(compat::seal(&manifest));
+    f.app
+        .observe_runtimes(
+            json!({"runtimes":[{"id":"sim","revision":6,"sha256":sha,"manifest":manifest}]}),
+        )
+        .unwrap();
+    let profile = json!({"schema":"loom-execution/v2","revision":"eval.r1","sha256":"a".repeat(64),"params_schema":{"type":"object"},"runtime":{"executor":"container","lane":"cpu","command":["/bin/true"],"runtime_pin":{"id":"sim","revision":6,"sha256":"wrong"}},"inputs":{},"outputs":{"report":"artifact"},"limits":{"max_attempts":1,"timeout_seconds":30}});
+    f.app
+        .config
+        .profiles
+        .insert("eval.r1".into(), profile.clone());
+    assert_eq!(
+        f.call("jobs", "revise_plan", revise.clone())
+            .unwrap_err()
+            .code,
+        "runtime_pin"
+    );
+    assert_eq!(f.count("workflow_nodes"), 0);
+    let mut profile = profile;
+    profile["runtime"]["runtime_pin"]["sha256"] = json!(sha);
+    f.app.config.profiles.insert("eval.r1".into(), profile);
+    let bound = f.call("jobs", "revise_plan", revise.clone()).unwrap();
+    assert_eq!(&bound["id"], root);
+    assert_eq!(
+        f.call("jobs", "revise_plan", revise.clone()).unwrap(),
+        bound
+    );
+    assert_eq!(f.call("jobs", "create", create).unwrap(), first);
+    let mut stale = revise.clone();
+    stale["key"] = json!("stale");
+    assert_eq!(
+        f.call("jobs", "revise_plan", stale).unwrap_err().code,
+        "plan_revision"
+    );
+    assert!(f.app.next_work(&Default::default()).unwrap().is_none());
+    f.call("jobs", "resume", json!({"id":root})).unwrap();
+    let run = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(bound["nodes"]["evaluate"], run.job);
+    fs::create_dir_all(&run.folder).unwrap();
+    fs::write(run.folder.join("report.txt"), b"measured").unwrap();
+    f.app
+        .stage_returned(&run, 0, json!({"returned":true}))
+        .unwrap();
+    let publish = f.app.next_work(&Default::default()).unwrap().unwrap();
+    f.app.publish_work(&publish,json!({"entities":[{"id":"report","kind":"artifact","path":"report.txt","provenance":{"profile":"eval.r1","producer_sha256":"a".repeat(64)},"relations":[]}],"metrics":[]})).unwrap();
+    let detail = f.call("jobs", "get", json!({"id":root})).unwrap();
+    assert_eq!(detail["state"], "complete");
+    assert_eq!(
+        detail["result"]["outputs"]["report"]["sha256"],
+        hash(b"measured")
+    );
+    assert_eq!(
+        f.app
+            .db
+            .query_row(
+                "SELECT count(*) FROM events WHERE job=? AND code='complete'",
+                [root.as_str().unwrap()],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        f.app.next_work(&Default::default()).unwrap().unwrap().job,
+        downstream["id"]
+    );
+}
+
+#[test]
+fn receipt_only_plans_require_fresh_host_evidence_and_no_synthetic_attempt() {
+    let mut f = Fixture::new();
+    let create = json!({"key":"install","owner":"owner","notify":"owner","outcome":{"goal":"Verify installation","deliverables":[{"kind":"runtime_receipt","alias":"installed","runtime":{"id":"compiler","revision":1}}]},"plan":{"sealed":false,"units":[]}});
+    let root = f.call("jobs", "create", create.clone()).unwrap()["id"].clone();
+    let seal = json!({"id":root,"key":"seal","expected_revision":1,"reason":"Verify receipt","plan":{"sealed":true,"units":[]}});
+    assert_eq!(
+        f.app
+            .execute(
+                &auth::person_actor("other"),
+                "jobs",
+                "revise_plan",
+                seal.clone()
+            )
+            .unwrap_err()
+            .code,
+        "forbidden"
+    );
+    assert_eq!(
+        f.call("jobs", "revise_plan", seal.clone())
+            .unwrap_err()
+            .code,
+        "runtime_pending"
+    );
+    for status in ["failed", "passed"] {
+        let m = json!({"validation":{"status":status}});
+        f.app.observe_runtimes(json!({"runtimes":[{"id":"compiler","revision":1,"sha256":hash(compat::seal(&m)),"manifest":m}]})).unwrap();
+        if status == "failed" {
+            assert_eq!(
+                f.call("jobs", "revise_plan", seal.clone())
+                    .unwrap_err()
+                    .code,
+                "runtime_pending"
+            );
+        }
+    }
+    f.app
+        .db
+        .execute(
+            "UPDATE rust_runtime_observation SET observed=observed-60",
+            [],
+        )
+        .unwrap();
+    assert_eq!(
+        f.call("jobs", "revise_plan", seal.clone())
+            .unwrap_err()
+            .code,
+        "runtime_pending"
+    );
+    f.app
+        .db
+        .execute(
+            "UPDATE rust_runtime_observation SET observed=?",
+            [store::now()],
+        )
+        .unwrap();
+    let receipt = f.call("jobs", "revise_plan", seal.clone()).unwrap();
+    assert_eq!(
+        receipt["receipts"]["installed"]["validation"]["status"],
+        "passed"
+    );
+    assert_eq!(
+        f.call("jobs", "get", json!({"id":root})).unwrap()["state"],
+        "complete"
+    );
+    assert_eq!(f.call("jobs", "revise_plan", seal).unwrap(), receipt);
+    let detail = f.call("jobs", "get", json!({"id":root})).unwrap();
+    assert_eq!(detail["result"]["artifact_ready"], false);
+    assert_eq!(detail["result"]["receipts"], receipt["receipts"]);
+    assert_eq!(f.count("attempts"), 0);
+    assert_eq!(f.count("events"), 1);
+    let mut duplicate = create.clone();
+    duplicate["outcome"]["goal"] = json!("Other");
+    assert_eq!(
+        f.call("jobs", "create", duplicate).unwrap_err().code,
+        "idempotency_conflict"
+    );
+    let mut cancelled = create;
+    cancelled["key"] = json!("cancel-install");
+    let id = f.call("jobs", "create", cancelled).unwrap()["id"].clone();
+    assert_eq!(
+        f.call("jobs", "cancel", json!({"id":id})).unwrap()["state"],
+        "cancelled"
+    );
+    assert_eq!(f.app.queue().unwrap()["logical_entries"], json!([]));
+}
+
+#[test]
+fn open_plan_preserves_done_nodes_and_rejects_cycles_and_broken_publication() {
+    let mut f = Fixture::new();
+    let a = json!({"id":"a","label":"Collect","execution":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}});
+    let create = json!({"owner":"owner","notify":"owner","key":"open-run","outcome":{"goal":"Publish evidence","deliverables":[{"alias":"out","kind":"artifact","from":{"node":"a","entity":"observation"}}]},"plan":{"sealed":false,"units":[a]}});
+    let root = f.call("jobs", "create", create.clone()).unwrap()["id"].clone();
+    let run = f.app.next_work(&Default::default()).unwrap().unwrap();
+    fs::create_dir_all(&run.folder).unwrap();
+    fs::write(run.folder.join("out"), b"ok").unwrap();
+    f.app
+        .stage_returned(&run, 0, json!({"returned":true}))
+        .unwrap();
+    let publish = f.app.next_work(&Default::default()).unwrap().unwrap();
+    let good =
+        json!({"entities":[{"id":"observation","kind":"artifact","path":"out"}],"metrics":[]});
+    let mut bad = good.clone();
+    bad["entities"][0]["id"] = json!("other");
+    assert_eq!(
+        f.app
+            .publish_result(&run.job, &run.attempt, bad, &run.folder)
+            .unwrap_err()
+            .code,
+        "deliverable"
+    );
+    f.app.publish_work(&publish, good).unwrap();
+    assert_eq!(f.count("events"), 0);
+    assert_eq!(
+        f.call("jobs", "get", json!({"id":root})).unwrap()["state"],
+        "blocked"
+    );
+    let seal = json!({"id":root,"key":"seal","expected_revision":1,"reason":"Ready","plan":{"sealed":true,"units":[a]}});
+    let mut changed = seal.clone();
+    changed["plan"]["units"][0]["execution"]["params"]["seconds"] = json!(2);
+    assert_eq!(
+        f.call("jobs", "revise_plan", changed).unwrap_err().code,
+        "plan"
+    );
+    let mut cycle = seal.clone();
+    cycle["plan"]["units"].as_array_mut().unwrap().push(json!({"id":"b","label":"Circular","execution":{"kind":"cpu.smoke","depends_on":[root],"params":{"seconds":0,"fail":false}}}));
+    assert!(f.call("jobs", "revise_plan", cycle).is_err());
+    assert_eq!(f.count("jobs"), 1);
+    f.call("jobs", "revise_plan", seal).unwrap();
+    assert_eq!(
+        f.call("jobs", "get", json!({"id":root})).unwrap()["state"],
+        "complete"
+    );
+    assert_eq!(f.count("attempts"), 1);
+    assert_eq!(f.count("events"), 1);
 }

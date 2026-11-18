@@ -267,7 +267,16 @@ impl Application {
             let left = limit - values.len();
             let last = if lane == 0 { "" } else { after };
             if native["kind"] == "job" {
-                for row in rows(&self.db,"SELECT node,job FROM workflow_nodes WHERE root=? AND node>? ORDER BY node LIMIT ?",&[&id["id"].as_str(),&last,&((left+1)as i64)])?{inverse.push((row["node"].as_str().unwrap_or("").to_string(),edge("step","job",json!({"id":row["job"]}))));}
+                for row in rows(
+                    &self.db,
+                    "SELECT node,job FROM workflow_nodes WHERE root=? AND node>? ORDER BY node LIMIT ?",
+                    &[&id["id"].as_str(), &last, &((left + 1) as i64)],
+                )? {
+                    // Keep the original wire relation for existing Item graph clients.
+                    let mut link = edge("step", "job", json!({"id": row["job"]}));
+                    link["execution_membership"] = json!({"root": id["id"], "node": row["node"]});
+                    inverse.push((row["node"].as_str().unwrap_or("").to_string(), link));
+                }
             } else if let Some(kind) = profile_kind {
                 for row in rows(&self.db,"SELECT id FROM jobs WHERE json_extract(spec,'$.kind')=? AND (? IS NULL OR json_extract(spec,'$.profile.sha256')=?) AND id>? ORDER BY id LIMIT ?",&[&kind,&definition["sha256"].as_str(),&definition["sha256"].as_str(),&last,&((left+1)as i64)])?{inverse.push((row["id"].as_str().unwrap_or("").to_string(),edge("used_by","job",json!({"id":row["id"]}))));}
             } else if native["kind"] == "scenario" {

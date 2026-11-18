@@ -18,5 +18,16 @@ document.addEventListener('keydown',event=>{if(event.key==='Enter'&&event.target
 function loomSearchFileTable(id){const page=loomSearchFilePages.get(id);return(page.items.length?'<h4>Files</h4>'+catTable(['File','Bytes'],page.items.map(f=>[`<button data-search-file="${esc(f.item_id)}">${esc(f.path)}</button>`,esc(f.size??'—')])):'')+(page.cursor?`<button data-search-files-more="${esc(id)}">More files</button>`:'');}
 async function loomSearchMoreFiles(button){const sequence=loomSearchDetailSequence,id=button.dataset.searchFilesMore,page=loomSearchFilePages.get(id);if(!page?.cursor)return;button.disabled=true;try{const result=await loomSearchAction('results','item_files',{item_id:id,revision_id:page.revision,limit:50,cursor:page.cursor});if(sequence!==loomSearchDetailSequence)return;page.items.push(...result.items);page.cursor=result.next_cursor;const target=document.querySelector('[data-search-file-list]');if(target)target.innerHTML=loomSearchFileTable(id);}catch(error){button.textContent=error.message;button.disabled=false;}}
 
-function loomSearchRelationTable(id){const page=loomSearchRelationPages.get(id);return page.items.map(e=>e.item_id?'<button data-search-item="'+esc(e.item_id)+'">'+esc(e.relation)+' · '+esc(e.label||e.native_ref?.identity?.id||e.item_id)+'</button>':'<span>'+esc(e.relation)+' · '+esc(e.native_ref?.identity?.id||e.native_ref?.identity?.kind||'—')+'</span>').join('')+(page.cursor?'<button data-search-relations-more="'+esc(id)+'">More relations</button>':'');}
+function loomSearchRelationTable(id){
+ const page=loomSearchRelationPages.get(id);
+ const rows=page.items.map(edge=>{
+  const node=edge.execution_membership?.node;
+  const legacyNode=edge.relation==='step' && edge.native_ref?.kind==='job';
+  const relation=node||legacyNode?'Node':edge.relation;
+  const label=node||edge.label||edge.native_ref?.identity?.id||edge.item_id||edge.native_ref?.identity?.kind||'—';
+  const text=esc(relation)+' · '+esc(label);
+  return edge.item_id?'<button data-search-item="'+esc(edge.item_id)+'">'+text+'</button>':'<span>'+text+'</span>';
+ });
+ return rows.join('')+(page.cursor?'<button data-search-relations-more="'+esc(id)+'">More relations</button>':'');
+}
 async function loomSearchMoreRelations(button){const sequence=loomSearchDetailSequence,id=button.dataset.searchRelationsMore,page=loomSearchRelationPages.get(id);if(!page?.cursor)return;button.disabled=true;try{const result=await loomSearchAction('results','item_relations',{item_id:id,revision_id:page.revision,cursor:page.cursor});if(sequence!==loomSearchDetailSequence)return;page.items.push(...result.items);page.cursor=result.next_cursor;const target=document.querySelector('[data-search-relations]');if(target)target.innerHTML=loomSearchRelationTable(id);}catch(error){button.textContent=error.message;button.disabled=false;}}

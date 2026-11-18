@@ -51,7 +51,7 @@ class WorkspaceBrowserTests(unittest.TestCase):
         actions['dashboard_page']={'entities':records,'revision':'history-refresh'}
         self.ui.wait('return '+history+"?.querySelectorAll('tbody tr').length===4 && !"+history+".textContent.includes('…')")
 
-    def test_activity_fallback_counts_nested_executions_once_per_main(self):
+    def test_activity_fallback_counts_standalone_jobs_with_presentation_links(self):
         now=time.time();start=now-120;records=[]
         for identity,parent,ranges in [('main',None,[(0,20)]),('child','main',[(10,40)]),('grandchild','child',[(30,60),(70,80)])]:
             item,_=native(identity);item['state']='complete';item['properties']['state']='complete'
@@ -60,8 +60,8 @@ class WorkspaceBrowserTests(unittest.TestCase):
         self.api.fixture['catalog'].update(entities=records,revision='nested-fallback')
         self.ui.top();self.wd('/refresh',{});self.ui.frame()
         day=time.strftime('%Y-%m-%d',time.gmtime(start+9*3600))
-        self.ui.wait("return document.querySelector('[data-activity-day=\"'+arguments[0]+'\"]')?.title.includes('JOB 1개')",day)
-        self.assertIn('1분 10초',self.ui.js("return document.querySelector('[data-activity-day=\"'+arguments[0]+'\"]').title",day))
+        self.ui.wait("return document.querySelector('[data-activity-day=\"'+arguments[0]+'\"]')?.title.includes('JOB 3개')",day)
+        self.assertIn('1분 30초',self.ui.js("return document.querySelector('[data-activity-day=\"'+arguments[0]+'\"]').title",day))
 
     def test_user_preparation_links_runtime_and_activity_across_output_filters(self):
         main,main_record=native('preparation-main')
@@ -74,7 +74,7 @@ class WorkspaceBrowserTests(unittest.TestCase):
         members=[{'id':e['id'],'parent':None if e is main else main['id'],'state':e['state'],'label':e['label'],'runtime_refs':[]} for e in [main,child]]
         main_record['family']={'root':main['id'],'complete':True,'members':members}
         item={'id':'sim','revision':1,'manifest':{'dependencies':[],'runtime':{}},'used_by_profiles':[],
-              'job_usage':[{'id':child['id'],'group_root':main['id'],'profile':'sim-check.r1','stages':['runtime'],'state':'failed'}],
+              'job_usage':[{'id':child['id'],'group_root':main['id'],'profile':'sim-check.r1','stages':['prepare','runtime'],'execution_receipts':[{'attempt':'early','stage':'prepare'}],'state':'failed'}],
               'executed_jobs':[child['id']],'jobs_complete':True}
         runtime={'id':'runtime:sim:1','kind':'runtime','label':'Simulation baseline','properties':{},'loom_runtime':item}
         catalog=self.api.fixture['catalog'];catalog.update(entities=[main,child,runtime],revision='preparation-family-v1',capabilities={'catalog_pages':True})
@@ -114,6 +114,7 @@ class WorkspaceBrowserTests(unittest.TestCase):
         self.ui.route(runtime['id'])
         self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Pinned Job executions')")
         self.ui.click('details.pa-execution-options summary')
+        self.assertEqual(self.ui.js("const row=[...document.querySelectorAll('details tr')].find(r=>r.querySelector('[data-entity=\"'+arguments[0]+'\"]'));return [...row.cells].slice(3,5).map(c=>c.textContent)",child['id']),['prepare · run','prepare'])
         self.assertTrue(self.ui.js("return !!document.querySelector('[data-entity=\"'+arguments[0]+'\"]') && !!document.querySelector('[data-entity=\"'+arguments[1]+'\"]')",child['id'],main['id']))
 
     def test_research_modes_hide_operational_fixtures_but_keep_direct_evidence(self):
@@ -979,6 +980,8 @@ const done=arguments[arguments.length-1];
             entities.append(e);self.api.fixture['jobs'][identity]=r
         entities[0]['loom_workflow']={'workflow':True,'executions':[{'job':'child-node'}]}
         entities[2]['loom_workflow']={'workflow':True,'executions':[{'job':'followup-node'}]}
+        self.api.fixture['jobs']['parent-root'].update(workflow=True,executions=[
+            {'id':'prepare','job':'child-node','label':'Prepare inputs','state':'running','attempts':[]}])
         entities[2]['presentation']['parent_job']='parent-root'
         self.api.fixture['catalog']['entities']=entities
         self.api.fixture['catalog']['queue']={'entries':[{'id':n,'state':'running','position':None,'held':False,'reason':'executing'} for n in ('child-node','followup-node')],
@@ -987,7 +990,10 @@ const done=arguments[arguments.length-1];
         self.ui.wait("return document.querySelector('.pa-current-work-queue tbody')?.children.length===2")
         names=self.ui.js("return [...document.querySelectorAll('.pa-current-work-queue tbody tr')].map(r=>r.querySelector('td').textContent)")
         self.assertTrue(any('parent-root' in n for n in names));self.assertTrue(any('followup-root' in n for n in names))
+        self.assertTrue(all('1 Node' in n and '1 Step' not in n for n in names))
         self.assertFalse(any('child-node' in n or 'followup-node' in n for n in names));self.assertFalse(self.api.actions)
+        self.ui.route('parent-root')
+        self.ui.wait("return [...document.querySelectorAll('#pa-content tr')].some(r=>r.textContent.includes('Prepare inputs') && r.closest('table').querySelector('th')?.textContent==='Node')")
 
     def test_running_recovery_shows_execution_phase_and_historical_pause_is_separate(self):
         f=self.api.fixture;entity,record=native('fixture-running')
@@ -1798,7 +1804,7 @@ const done=arguments[arguments.length-1];
         ui.nav('Outputs')
         self.assertEqual(ui.js("return [...document.querySelectorAll('#pa-nav button')].filter(e=>e.textContent.trim()==='Outputs').length"),1)
         self.assertFalse(ui.js("return [...document.querySelectorAll('#pa-nav button')].some(e=>['Datasets','Models','Experiments'].includes(e.textContent.trim()))"))
-        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-output-tabs button')].map(e=>e.textContent)"),['Datasets','Experiments','Policies'])
+        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-output-tabs button')].map(e=>e.textContent)"),['Datasets','Policies','Experiments'])
         self.assertFalse(ui.js("return !!document.querySelector('.pa-output-header [data-metadata-templates],.pa-output-header [data-report-contracts],[data-output-page=comparison]')"))
         self.assertTrue(ui.js("return new Set([...document.querySelectorAll('.pa-output-tabs button')].map(e=>Math.round(e.getBoundingClientRect().top))).size===1"))
         self.assertTrue(ui.js("const row=document.querySelector('[data-output-id=output-dataset]'),family=row.closest('[data-dataset-family]');return family.open&&family.querySelector(':scope>summary h2').textContent==='Assembly'&&family.querySelector(':scope>summary').getBoundingClientRect().bottom<=row.getBoundingClientRect().top&&!row.querySelector('.pa-output-task')"))
@@ -1857,7 +1863,7 @@ const done=arguments[arguments.length-1];
         ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('legacy-tab-metrics')")
         ui.route(row['id'])
         self.assertFalse(ui.js("return !!document.querySelector('.pa-document-pane.is-active [data-output-metrics]')"))
-        ui.click('[data-report-tab=metrics]')
+        ui.click('[data-report-tab=results]')
         self.assertTrue(ui.js("return !!document.querySelector('[data-report-content] [data-output-metrics]')"))
         ui.click('[data-metric-view=table]')
         self.assertIn('contact <threshold>',ui.js("return document.querySelector('[data-output-metrics]').textContent"))
@@ -1870,9 +1876,9 @@ const done=arguments[arguments.length-1];
             if width==500:
                 ui.js("document.querySelector('[data-output-metrics] .pa-table-wrap').scrollIntoView({block:'center'})")
                 ui.wait("const w=document.querySelector('[data-output-metrics] .pa-table-wrap');return w.clientWidth>0&&w.scrollWidth>w.clientWidth")
-        ui.click('[data-report-tab=contract]')
+        ui.click('[data-report-tab=overview]')
         self.assertFalse(ui.js("return !!document.querySelector('.pa-document-pane.is-active [data-output-metrics]')"))
-        ui.click('[data-report-tab=metrics]')
+        ui.click('[data-report-tab=results]')
         self.assertIn('0',ui.js("return document.querySelector('[data-output-metrics]').textContent"))
 
     def test_comparison_starts_with_a_model_that_has_an_evaluation(self):

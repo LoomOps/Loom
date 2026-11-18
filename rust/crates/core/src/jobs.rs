@@ -86,6 +86,9 @@ pub fn event(db: &Connection, record: &Record, code: &str) -> Result<()> {
         if inserted == 0 {
             return Ok(());
         }
+        if code == "complete" && crate::plans::finish(db, &root)? {
+            return Ok(());
+        }
         if code == "complete" {
             let pending:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM workflow_nodes n JOIN jobs j ON j.id=n.job WHERE n.root=? AND j.state!='complete')",[&root],|r|r.get(0))?;
             if pending {
@@ -103,6 +106,8 @@ pub fn event(db: &Connection, record: &Record, code: &str) -> Result<()> {
             if done {
                 return Ok(());
             }
+        } else if code == "cancelled" && crate::plans::finish(db, &root)? {
+            return Ok(());
         } else if !matches!(code, "failed" | "interrupted" | "result_failed") {
             return Ok(());
         }
@@ -556,61 +561,7 @@ impl Application {
         let mut nodes = serde_json::Map::new();
         for node in order {
             let n = v.nodes.iter().find(|n| n.id == node.as_str()).unwrap();
-            let mut spec = n.spec.clone();
-            require(
-                spec.is_object()
-                    && ["key", "owner", "notify", "presentation", "consolidates"]
-                        .iter()
-                        .all(|k| spec.get(k).is_none()),
-                "workflow",
-                "Execution identity is inherited from logical Job",
-                400,
-            )?;
-            spec["key"] = json!(format!(
-                "workflow-{}",
-                hash(format!("{}:{}:{}", actor.id, v.key, n.id))
-            ));
-            spec["owner"] = json!(v.owner);
-            spec["notify"] = json!(v.notify);
-            spec["presentation"] = json!({"scope":v.presentation.as_ref().map(|p|p.scope.as_str()).unwrap_or("research"),"role":"support","parent_job":root,"label":n.label});
-            if let Some(r) = &v.scenario_ref {
-                spec["scenario_ref"] = json!(r);
-            }
-            let mut dependencies = spec["depends_on"].as_array().cloned().unwrap_or_default();
-            for dependency in &n.depends_on {
-                dependencies.push(
-                    nodes
-                        .get(dependency)
-                        .cloned()
-                        .ok_or_else(|| Error::input("Unknown node dependency"))?,
-                );
-            }
-            spec["depends_on"] = json!(dependencies);
-            if let Some(params) = spec["params"].as_object_mut() {
-                for value in params.values_mut() {
-                    if value.as_object().is_some_and(|o| o.len() == 2)
-                        && value["node"].is_string()
-                        && value["entity"].is_string()
-                    {
-                        let dependency = value["node"].as_str().unwrap();
-                        require(
-                            n.depends_on.iter().any(|d| d == dependency),
-                            "workflow",
-                            "Input node must be a dependency",
-                            400,
-                        )?;
-                        *value = json!({"job":nodes[dependency],"entity":value["entity"]});
-                    }
-                }
-            }
-            let mut frozen = prepare(&tx, &config, &bulk, actor, &spec)?;
-            crate::reporting::validate_new_admission(&frozen)?;
-            frozen["_reporting_required"] = json!(true);
-            let child = insert(&tx, actor, &spec, &frozen)?;
-            tx.execute(
-                "INSERT INTO workflow_nodes VALUES(?,?,?,?)",
-                params![root, n.id, n.label, child],
-            )?;
+            let child = admit_node(&tx, &config, &bulk, actor, &root, &v, n, &nodes)?;
             nodes.insert(n.id.clone(), json!(child));
         }
         for output in v.outputs.values() {
@@ -632,6 +583,9 @@ impl Application {
     }
     pub fn job_action(&mut self, actor: &Actor, action: &str, args: Value) -> Result<Value> {
         match action {
+            "create" | "revise_plan" => self.write_plan(actor, action, args),
+            "preview_history" => self.preview_job_history(&args),
+            "preview_outcome" => crate::plans::preview_outcome(&self.db, &args["outcome"]),
             "submit" => self.submit(actor, args),
             "submit_workflow" => self.submit_workflow(actor, args),
             "get" => self.inspect_job(
@@ -651,6 +605,9 @@ impl Application {
                     [id],
                     |r| r.get(0),
                 )?;
+                if root {
+                    tx.execute("UPDATE job_workflows SET request=json_set(request,'$.cancel_requested',json('true')) WHERE id=? AND json_type(request,'$.plan_revision')='integer' AND state!='complete'",[id])?;
+                }
                 let ids = if root {
                     rows(&tx, "SELECT job FROM workflow_nodes WHERE root=?", &[&id])?
                         .iter()
@@ -678,6 +635,7 @@ impl Application {
                         }
                     }
                 }
+                crate::plans::finish(&tx, id)?;
                 tx.commit()?;
                 self.job_detail(id)
             }
@@ -698,8 +656,13 @@ impl Application {
         require(exists, "job", "Job not found", 404)?;
         let before=json!(rows(&tx,"SELECT id,queue_order,queue_held FROM jobs WHERE state IN ('queued','ready','blocked') ORDER BY COALESCE(queue_order,created),created,id",&[])?);
         let moving=rows(&tx,"SELECT j.id FROM jobs j WHERE (j.id=? OR EXISTS(SELECT 1 FROM workflow_nodes n WHERE n.job=j.id AND n.root=?)) AND j.state IN ('queued','ready','blocked') ORDER BY COALESCE(j.queue_order,j.created),j.created,j.id",&[&id,&id])?.iter().filter_map(|r|r["id"].as_str().map(String::from)).collect::<Vec<_>>();
+        let plan_hold = if action == "hold" || action == "resume" {
+            tx.execute("UPDATE job_workflows SET request=json_set(request,'$.held',json(?)) WHERE id=? AND json_type(request,'$.plan_revision')='integer' AND state NOT IN ('complete','cancelled') AND NOT coalesce(json_extract(request,'$.cancel_requested'),0)",params![if action=="hold" {"true"} else {"false"},id])? > 0
+        } else {
+            false
+        };
         require(
-            !moving.is_empty(),
+            plan_hold || !moving.is_empty(),
             "queue",
             "Job has no waiting execution nodes",
             409,
@@ -782,6 +745,13 @@ impl Application {
         active(&tx)?;
         tx.execute("UPDATE recovery SET state='deferred',token=NULL,updated=? WHERE job=? AND state IN ('waiting','claimed') AND deadline<=?",params![now(),id,now()])?;
         let row = load(&tx, id)?;
+        let closed:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM workflow_nodes n JOIN job_workflows w ON w.id=n.root WHERE n.job=? AND json_type(w.request,'$.plan_revision')='integer' AND (w.state IN ('complete','cancelled') OR json_extract(w.request,'$.cancel_requested')=1))",[id],|r|r.get(0))?;
+        require(
+            !closed,
+            "plan_closed",
+            "Outcome is closing or terminal",
+            409,
+        )?;
         let rec = rows(&tx, "SELECT * FROM recovery WHERE job=?", &[&id])?
             .into_iter()
             .next()
@@ -911,6 +881,9 @@ impl Application {
                         if let Some(flag) = row.spec.get("_reporting_required") {
                             spec["_reporting_required"] = flag.clone();
                         }
+                        if let Some((node,doc))=tx.query_row("SELECT n.node,w.request FROM workflow_nodes n JOIN job_workflows w ON w.id=n.root WHERE n.job=? AND json_type(w.request,'$.plan_revision')='integer'",[id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()?{
+                            crate::plans::check_execution(&serde_json::from_str(&doc)?,&node,&spec)?;
+                        }
                         let cycle: bool = tx.query_row(
                             "WITH RECURSIVE needed(id) AS (SELECT value FROM json_each(?,'$.depends_on') UNION SELECT child.value FROM needed d JOIN jobs j ON j.id=d.id JOIN json_each(j.spec,'$.depends_on') child UNION SELECT n.job FROM needed d JOIN workflow_nodes n ON n.root=d.id) SELECT EXISTS(SELECT 1 FROM needed WHERE id=?)",
                             params![encode(&spec)?,id], |r|r.get(0))?;
@@ -1026,6 +999,11 @@ pub fn readiness(db: &Connection, record: &Record) -> Result<Readiness> {
     };
     for dependency in dependencies.as_array().into_iter().flatten() {
         if let Some(id) = dependency.as_str() {
+            if let Some(state) = db.query_row("SELECT state FROM job_workflows WHERE id=? AND json_type(request,'$.plan_revision')='integer'",[id],|r|r.get::<_,String>(0)).optional()? {
+                r.dependency_pending |= state != "complete";
+                r.dependency_failed |= state == "cancelled";
+                continue;
+            }
             let members = rows(db, "SELECT job FROM workflow_nodes WHERE root=?", &[&id])?;
             if !members.is_empty() {
                 for member in members {
@@ -1082,4 +1060,72 @@ pub fn workflow_ids(db: &Connection, root: &str) -> Result<Value> {
         );
     }
     Ok(json!(ids))
+}
+
+pub(crate) fn admit_node(
+    db: &Connection,
+    config: &Config,
+    bulk: &std::path::Path,
+    actor: &Actor,
+    root: &str,
+    v: &Workflow,
+    n: &contracts::Node,
+    nodes: &serde_json::Map<String, Value>,
+) -> Result<String> {
+    let mut spec = n.spec.clone();
+    require(
+        spec.is_object()
+            && ["key", "owner", "notify", "presentation", "consolidates"]
+                .iter()
+                .all(|k| spec.get(k).is_none()),
+        "workflow",
+        "Execution identity is inherited from logical Job",
+        400,
+    )?;
+    spec["key"] = json!(format!(
+        "workflow-{}",
+        hash(format!("{}:{}:{}", actor.id, v.key, n.id))
+    ));
+    spec["owner"] = json!(v.owner);
+    spec["notify"] = json!(v.notify);
+    spec["presentation"] = json!({"scope":v.presentation.as_ref().map(|p|p.scope.as_str()).unwrap_or("research"),"role":"support","parent_job":root,"label":n.label});
+    if let Some(r) = &v.scenario_ref {
+        spec["scenario_ref"] = json!(r);
+    }
+    let mut dependencies = spec["depends_on"].as_array().cloned().unwrap_or_default();
+    for dependency in &n.depends_on {
+        dependencies.push(
+            nodes
+                .get(dependency)
+                .cloned()
+                .ok_or_else(|| Error::input("Unknown node dependency"))?,
+        );
+    }
+    spec["depends_on"] = json!(dependencies);
+    if let Some(params) = spec["params"].as_object_mut() {
+        for value in params.values_mut() {
+            if value.as_object().is_some_and(|o| o.len() == 2)
+                && value["node"].is_string()
+                && value["entity"].is_string()
+            {
+                let dependency = value["node"].as_str().unwrap();
+                require(
+                    n.depends_on.iter().any(|d| d == dependency),
+                    "workflow",
+                    "Input node must be a dependency",
+                    400,
+                )?;
+                *value = json!({"job":nodes[dependency],"entity":value["entity"]});
+            }
+        }
+    }
+    let mut frozen = prepare(db, config, bulk, actor, &spec)?;
+    crate::reporting::validate_new_admission(&frozen)?;
+    frozen["_reporting_required"] = json!(true);
+    let child = insert(db, actor, &spec, &frozen)?;
+    db.execute(
+        "INSERT INTO workflow_nodes VALUES(?,?,?,?)",
+        params![root, n.id, n.label, child],
+    )?;
+    Ok(child)
 }

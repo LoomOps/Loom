@@ -115,11 +115,26 @@ def inventory(db,config,catalog=None):
     jobs=[]
     import job_work
     links=job_work.completed_links(db)
-    started={r[0] for r in db.execute('SELECT DISTINCT job FROM attempts WHERE started IS NOT NULL')}
+    node_roots=dict(db.execute('SELECT job,root FROM workflow_nodes'))
+    started=[]
+    for row in db.execute("""
+        SELECT s.job,s.stage,COALESCE(h.spec_snapshot,
+            CASE WHEN EXISTS(SELECT 1 FROM job_revisions WHERE job=s.job AND revision>0)
+                 THEN (SELECT r.spec FROM job_revisions r WHERE r.job=s.job AND r.created<=a.started
+                       ORDER BY r.revision DESC LIMIT 1)
+                 ELSE j.spec END) AS spec
+        FROM stage_runs s JOIN jobs j ON j.id=s.job
+        LEFT JOIN attempts a ON a.id=s.attempt AND a.job=s.job
+        LEFT JOIN hooks h ON h.job=s.job AND h.attempt=s.attempt AND h.stage=s.stage
+        WHERE s.started IS NOT NULL"""):
+        if row['spec']:
+            stage='runtime' if row['stage']=='run' else row['stage']
+            runner=json.loads(row['spec']).get('profile',{}).get(stage,{})
+            started.append((row['job'],runner))
     for row in db.execute('SELECT id,spec FROM jobs'):
         spec=json.loads(row['spec']);jobs.append((row['id'],spec.get('profile',{})))
     def exact(runner,item,proof=False):
-        if proof and not runner.get('runtime_pin'):return False
+        if proof and (not runner.get('runtime_pin') or runner['runtime_pin'].get('sha256')!=item['sha256']):return False
         ref=runner.get('runtime_pin') or runner.get('runtime_ref',{})
         return (ref.get('id'),ref.get('revision'))==(item['id'],item['revision']) and (not ref.get('sha256') or ref['sha256']==item['sha256'])
     for item in catalog['runtimes']:
@@ -130,8 +145,9 @@ def inventory(db,config,catalog=None):
         # Retained field means association, never proof that today's observation
         # revision was used in a historical Job.
         item['used_by_jobs']=[identity for identity,profile in jobs if stages(profile)]
-        item['executed_jobs']=sorted({links.get(identity,identity) for identity,profile in jobs if identity in started and any(exact(profile.get(s,{}),item,proof=True) for s in ('runtime','prepare','finalize','on_complete','on_error','on_cancel'))})
-        item['usage_stats']={'configured_profiles':len(item['used_by_profiles']),'associated_records':len(item['used_by_jobs']),'executed_jobs':len(item['executed_jobs']),'basis':'exact_runtime_revision_started_attempts'}
+        item['executed_jobs']=sorted({node_roots.get(links.get(job,job),links.get(job,job))
+            for job,runner in started if exact(runner,item,proof=True)})
+        item['usage_stats']={'configured_profiles':len(item['used_by_profiles']),'associated_records':len(item['used_by_jobs']),'executed_jobs':len(item['executed_jobs']),'basis':'exact_runtime_revision_started_stages'}
     decorate(db,config,catalog)
     import dependency_catalog
     catalog['dependency_catalog']=dependency_catalog.listing(catalog)

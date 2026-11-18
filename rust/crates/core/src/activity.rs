@@ -72,7 +72,7 @@ impl Application {
         let clock = now();
         let after = clock - 366. * 86400.;
         let mut days = BTreeMap::new();
-        // Ordered ranges let us union overlapping Steps per logical Job without loading all Jobs.
+        // Ordered ranges let us union overlapping execution intervals per logical Job without loading all Jobs.
         let system_job = crate::system_ownership::native_sql(
             "json_object('kind','job','identity',json_object('id',n.id))",
             "",
@@ -81,11 +81,7 @@ impl Application {
             "json_object('kind','job','identity',json_object('id',j.id))",
             "",
         );
-        let sql=format!("{}, {}, outcome_paths(id,root) AS (
-          SELECT id,id FROM job_links UNION SELECT p.id,l.parent FROM outcome_paths p JOIN job_links l ON l.id=p.root WHERE l.parent IS NOT NULL
-        ), outcome_roots AS (
-          SELECT p.id,p.root FROM outcome_paths p JOIN job_links l ON l.id=p.root WHERE l.parent IS NULL
-        ), execution_ranges AS(
+        let sql=format!("{}, execution_ranges AS(
           SELECT s.job,s.attempt,s.started start,COALESCE(s.ended,CASE WHEN s.state='running' THEN :clock END) finish,
             s.ended IS NULL AND s.state='running' live
           FROM stage_runs s WHERE s.stage IN('prepare','run')
@@ -96,7 +92,7 @@ impl Application {
           FROM attempts a JOIN jobs j ON j.id=a.job LEFT JOIN rust_attempt_starts s ON s.attempt=a.id
           WHERE NOT EXISTS(SELECT 1 FROM stage_runs stage WHERE stage.job=a.job AND stage.attempt=a.id AND stage.stage IN('prepare','run'))
         ), raw AS(
-          SELECT COALESCE((SELECT root FROM outcome_roots WHERE id=COALESCE((SELECT target FROM consolidation_roots WHERE source=j.id AND source_attempt IS r.attempt ORDER BY target LIMIT 1),w.root,j.id)),COALESCE((SELECT target FROM consolidation_roots WHERE source=j.id AND source_attempt IS r.attempt ORDER BY target LIMIT 1),w.root,j.id)) id,
+          SELECT COALESCE((SELECT target FROM consolidation_roots WHERE source=j.id AND source_attempt IS r.attempt ORDER BY target LIMIT 1),w.root,j.id) id,
             r.start,r.finish,r.live
           FROM execution_ranges r JOIN jobs j ON j.id=r.job LEFT JOIN workflow_nodes w ON w.job=j.id
           WHERE NOT COALESCE(({source_system}),0) AND (:view='all' OR COALESCE((SELECT json_extract(o.presentation,'$.scope') FROM research_overlays o WHERE o.kind='job' AND o.id=j.id),json_extract(j.spec,'$.presentation.scope'),'research')=:view)
@@ -111,7 +107,7 @@ impl Application {
         ), normalized AS(SELECT id,
           CASE WHEN typeof(start) IN('integer','real') THEN start/CASE WHEN start>100000000000 THEN 1000. ELSE 1. END ELSE CAST(strftime('%s',start) AS REAL) END start,
           CASE WHEN typeof(finish) IN('integer','real') THEN finish/CASE WHEN finish>100000000000 THEN 1000. ELSE 1. END ELSE CAST(strftime('%s',finish) AS REAL) END finish,live FROM raw)
-        SELECT n.id,max(start,:after) start,min(finish,:clock) finish,live FROM normalized n WHERE NOT COALESCE(({system_job}),0) AND start IS NOT NULL AND start<=:clock AND (finish IS NULL OR finish>=:after) ORDER BY id,start",crate::query::CONSOLIDATION_CTE,crate::query::JOB_LINKS_CTE);
+        SELECT n.id,max(start,:after) start,min(finish,:clock) finish,live FROM normalized n WHERE NOT COALESCE(({system_job}),0) AND start IS NOT NULL AND start<=:clock AND (finish IS NULL OR finish>=:after) ORDER BY id,start",crate::query::CONSOLIDATION_CTE);
         let mut q = self.db.prepare(&sql)?;
         let records = q.query_map(
             named_params! {":clock":clock,":after":after,":view":view},

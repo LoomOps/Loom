@@ -2407,7 +2407,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "item_relations",
-      "description": "Page exact outgoing declarations and indexed reverse software use. Cursors pin source revision, authority head, actor and index generation; unresolved references remain explicit.",
+      "description": "Page exact outgoing declarations and indexed reverse software use. Workflow member edges retain relation=step and expose execution_membership={root,node}. Cursors pin source revision, authority head, actor and index generation; unresolved references remain explicit.",
       "errors": [
         "Missing source revision or expired cursor; incoming relations require a source-qualified index."
       ],

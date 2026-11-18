@@ -11,7 +11,7 @@ Do not preempt running Jobs. Respect dependencies, allow concurrent preparation 
 | Scheduling decision | `rust/crates/core/src/jobs.rs#readiness` | Job row + DB dependency/recovery/hold state + lane | Eligibility/stage/waiting reason consumed by worker and UI | api, catalog |
 | Queue mutation | `rust/crates/core/src/jobs.rs#job_action` | Waiting Job, actor, relative/absolute placement | Persisted order and change receipt; running Job not preempted | api |
 
-Public actions and input schemas are in the generated [API reference](../reference/README.md). This block owns: `jobs.assign_owner`, `jobs.queue`, `jobs.reorder`, `jobs.hold`, `jobs.resume`, `jobs.list`, `jobs.get`, `jobs.submit`, `jobs.cancel`, `jobs.logs`, `jobs.submit_workflow`, `jobs.curate`.
+Public actions and input schemas are in the generated [API reference](../reference/README.md). This block owns: `jobs.preview_history`, `jobs.preview_outcome`, `jobs.create`, `jobs.revise_plan`, `jobs.assign_owner`, `jobs.queue`, `jobs.reorder`, `jobs.hold`, `jobs.resume`, `jobs.list`, `jobs.get`, `jobs.submit`, `jobs.cancel`, `jobs.logs`, `jobs.submit_workflow`, `jobs.curate`.
 
 ## Sources and contracts
 
@@ -71,3 +71,5 @@ visible; exact Job details retain each original execution state.
 History folding uses the recorded outcome root even when the immediate parent
 was consolidated into a continuation. A filter that excludes the root still
 shows matching children, and explicit source history retains original executions.
+
+Open outcomes retain one workflow ID across plan revisions. Slots without an execution have no queue position or Attempt. See [outcome admission](../../loom_use/workflows.md#accept-an-outcome-before-installation).

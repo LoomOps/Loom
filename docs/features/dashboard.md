@@ -12,6 +12,13 @@ follows explicit exact lineage, retains variant names and overlapping counts, an
 does not infer a data-parent edge from Task names or general consumes relations.
 Group counts describe loaded variants; paging does not claim a complete lineage.
 
+Outputs orders Datasets, Policies and Experiments. Reporting-enabled details use
+Overview with optional Distribution and Episodes for Datasets, Overview and
+Training for Policies, and Overview, Results and Cases for Experiments.
+Exact Template and Contract references live in the Overview footer. Reports
+choose typed series, scatter, bar and coverage-matrix renderers. Distribution
+charts identify their measured or assigned population and preserve paging.
+
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |

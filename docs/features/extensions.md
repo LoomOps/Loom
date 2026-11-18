@@ -89,5 +89,5 @@ Archive/Restore and deprecation follow [Registry lifecycle](registry-lifecycle.m
 
 Runtime consumers come from immutable Job stage pins, including operations and
 failed history, rather than current Profile definitions. Exact stage-start
-receipts distinguish a bound environment from an executed one. Outcome grouping
+receipts identify the Runtime used on each Attempt, including after recovery selects another Profile. The Runtime detail separates pinned and started stages. A workflow contributes one started Job across its Nodes. Partial pages omit the total. Outcome grouping
 adds navigation only and never changes the accepted environment identity.

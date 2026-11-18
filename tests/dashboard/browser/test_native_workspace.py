@@ -31,6 +31,17 @@ class NativeWorkspaceTests(unittest.TestCase):
   with urlopen(Request(self.native+'/api/actions',data=json.dumps({'group':group,'action':action,'arguments':arguments}).encode(),headers={'Content-Type':'application/json'}),timeout=5) as response:return json.load(response)
  def setUp(self):
   self.ui=Workspace(self.wd);self.wd('/window/rect',{'width':1440,'height':1000});self.wd('/url',{'url':self.base});self.ui.top();self.ui.js('localStorage.clear();sessionStorage.clear()');self.wd('/refresh',{});self.ui.connect()
+ def test_open_runtime_slot_is_on_home_without_physical_execution(self):
+  slot={'id':'run','label':'Run','requires':[{'stage':'runtime','runtime':{'id':'simulation','revision':6}}]}
+  created=self.call('jobs','create',{'key':'browser-open','owner':'owner','notify':'owner','outcome':{'goal':'Pending simulation run','deliverables':[{'alias':'out','kind':'artifact','from':{'node':'run','entity':'observation'}}]},'plan':{'sealed':False,'units':[slot]}})
+  try:
+   self.wd('/refresh',{});self.ui.connect()
+   current="[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('현재 큐'))"
+   self.ui.wait('return '+current+"?.textContent.includes('Pending simulation run')")
+   self.assertTrue(self.ui.js('return '+current+"?.textContent.includes('Runtime 연결 대기')"))
+   detail=self.call('jobs','get',{'id':created['id']})
+   self.assertEqual(detail['executions'],[]);self.assertEqual(detail['execution_intervals'],[])
+  finally:self.call('jobs','cancel',{'id':created['id']})
  def test_presentation_parent_keeps_its_status_and_followup_has_own_row(self):
   def submit(key):return self.call('jobs','submit',{'key':key,'kind':'browser.profile.r1','owner':'owner','notify':'owner','params':{}})['id']
   main=submit('group-root');child=submit('group-latest')
@@ -116,22 +127,52 @@ class NativeWorkspaceTests(unittest.TestCase):
   except AssertionError:self.fail(ui.js("return document.querySelector('#pa-content').innerText"))
   self.assertFalse(ui.js("return !!document.querySelector('[data-report-content] target')"))
   self.assertEqual(ui.js("return document.querySelector('.pa-document-pane.is-active .pa-heading .pa-eyebrow').textContent"),'POLICY')
-  ui.click('[data-report-tab=learning]');ui.wait("return document.querySelectorAll('.pa-report-chart polyline').length===2")
+  ui.click('[data-report-tab=training]');ui.wait("return document.querySelectorAll('.pa-report-chart polyline').length===2")
   self.assertTrue(ui.js("return [...document.querySelector('[data-report-filter=phase]').options].some(o=>o.value===arguments[0])",phase))
   self.assertFalse(ui.js("return !!document.querySelector('[data-report-content] img')||!!window.reportInjected"))
   ui.js("const s=document.querySelector('[data-report-filter=phase]');s.value=arguments[0];s.dispatchEvent(new Event('change',{bubbles:true}))",phase);ui.wait("return document.querySelectorAll('.pa-report-chart polyline').length===1")
-  ui.click('[data-report-tab=metrics]');ui.wait("return document.querySelector('[data-report-content]')?.textContent.includes('rad²')")
+  ui.wait("return document.querySelector('[data-report-content]')?.textContent.includes('rad²')")
   for width in (1440,500):
    ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
    self.assertLessEqual(ui.js("return document.querySelector('.pa-report-tabs').getBoundingClientRect().height"),110)
    self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-report-tabs button')].every(b=>b.getBoundingClientRect().width<200)"))
-  ui.click('[data-report-tab=contract]');self.assertIn('browser.fixture',ui.js("return document.querySelector('[data-report-content]').textContent"))
+  ui.click('[data-report-tab=overview]');self.assertIn('browser.fixture',ui.js("return document.querySelector('.pa-report-contract summary').textContent"))
   excluded=json.loads(json.dumps(entity));excluded['id']=job+'.unconditional-policy';excluded['reporting']['reports']=[r for r in reports if r['role']!='instructions'];excluded['reporting']['exclusions']=[{'id':'instructions','role':'instructions','reason':'Verified language-free input interface'}]
   with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:db.execute("INSERT INTO entity_revisions VALUES(?,1,?,'model','owner','owner',?)",(excluded['id'],job,json.dumps(excluded)))
   for _ in range(100):
    try:self.call('results','resolve_item',{'native_ref':{'kind':'entity','identity':{'id':excluded['id'],'revision':1}}});break
    except HTTPError:time.sleep(.05)
-  ui.route(excluded['id']);ui.click('[data-report-tab=instructions]');ui.wait("return document.querySelector('[data-report-content]')?.textContent.includes('Not applicable')")
+  ui.route(excluded['id']);ui.wait("return document.querySelector('[data-report-content]')?.textContent.includes('Not applicable')")
+
+ def test_experiment_result_points_open_the_exact_case_and_seed(self):
+  job=self.call('jobs','submit',{'key':'browser-case-results','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False}})['id']
+  identity=job+'.evaluation'
+  rows=[{'id':'same-reset','seed':seed,'valid':True,'outcome':'policy_failure','failure_stage':'align','measurements':{'distance':{'value':value,'unit':'mm'}}} for seed,value in ((11,7),(12,9))]
+  raw=json.dumps({'data':{'cases':rows}}).encode()
+  name='case-results.json'; (self.native_root/'data'/name).write_bytes(raw)
+  digest=hashlib.sha256(raw).hexdigest()
+  report={'requirement_id':'evaluation','label':'Evaluation cases','role':'evaluation_cases','component':name,'sha256':digest,'state':'recorded','fields':[{'id':'cases','format':'table','label':'Cases','pointer':'/cases','columns':[{'label':'Seed','pointer':'/seed'},{'label':'Outcome','pointer':'/outcome'}]}]}
+  entity={'id':identity,'kind':'experiment','label':'Case evidence fixture','revision':1,'job':job,'components':[{'ref':name,'sha256':digest,'size':len(raw)}],'reporting':{'contract_ref':{'id':'fixture.evaluation','revision':1,'sha256':'f'*64},'reports':[report],'evaluation_summary':{'criteria':[{'pointer':'/measurements/distance','op':'lte','value':5,'unit':'mm'}],'recorded_failure_subtasks':{'align':2}}}}
+  entity['science']={'deliverables':{'evaluation':{'sessions':[
+   {'id':'sim-run','domain':'simulation','configuration':{'id':'sim-setup','revision':1},'member_count':1,'readback':{'physics_step_hz':120}},
+   {'id':'real-run','domain':'real','configuration':{'id':'real-setup','revision':2},'member_count':1,'readback':{'control_hz':30}}]}}}
+  with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:
+   db.execute("UPDATE jobs SET state='complete' WHERE id=?",(job,))
+   db.execute("INSERT INTO entity_revisions VALUES(?,1,?,'experiment','owner','owner',?)",(identity,job,json.dumps(entity)))
+   db.execute("INSERT INTO entity_locations VALUES(?,1,?,'browser-fixture','browser-data',?,'available')",(identity,name,name))
+  for _ in range(100):
+   try:
+    self.call('results','resolve_item',{'native_ref':{'kind':'entity','identity':{'id':identity,'revision':1}}});break
+   except HTTPError:time.sleep(.05)
+  else:self.fail('Evaluation Item was not indexed')
+  ui=self.ui;ui.nav('Experiments');ui.route(identity)
+  ui.wait("return document.querySelector('[data-report-content]')?.textContent.includes('real-setup · r2')")
+  self.assertTrue(ui.js("return document.querySelector('[data-report-content]').textContent.includes('physics_step_hz')"))
+  ui.click('[data-report-tab=results]')
+  ui.wait("return document.querySelectorAll('[data-report-case]').length===2")
+  ui.js("document.querySelectorAll('[data-report-case]')[1].dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true}))")
+  ui.wait("return JSON.parse(document.querySelector('[data-report-filter=member]').value)[1]===12")
+  self.assertTrue(ui.js("return document.querySelector('[data-report-content]').textContent.includes('Recorded evidence')"))
 
  def test_native_scenario_create_revision_and_render_without_injected_markup(self):
   task=self.call('results','register_scenario',{'key':'native-ui-context','definition':{'label':'Native <img src=x onerror=alert(1)>','description':'Fixture context'}})

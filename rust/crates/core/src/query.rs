@@ -57,6 +57,27 @@ impl Application {
             }
         }
     }
+    pub(crate) fn preview_job_history(&self, args: &Value) -> Result<Value> {
+        let mut review=Vec::new();
+        for id in args["ids"].as_array().unwrap() {
+            let key=id.as_str().unwrap();
+            let record=self.job_detail(key)?;
+            let membership=&record["execution_membership"];
+            let target=&record["consolidation"]["consolidated_into"];
+            let presentation=&record["presentation"]["parent_job"];
+            let authority=if record["migration"]["read_only"]==true {"preserved"}
+                else if membership.is_object() {"workflow_node"}
+                else if record["workflow"]==true {"workflow"}
+                else if target.is_string() {"consolidated_source"}
+                else {"independent"};
+            review.push(json!({"id":key,"state":record["state"],"recorded_attempt":record["attempt"],
+                "authority":authority,"execution_membership":membership,
+                "consolidation":record["consolidation"],"presentation_parent":presentation,
+                "source":record["loom_history"],"runtime_pins":crate::runtime::profile_runtime_refs(&record["spec"]["profile"]),
+                "review_required":(authority=="preserved" || authority=="independent") && presentation.is_string()}));
+        }
+        Ok(json!({"records":review,"changes":[]}))
+    }
     pub fn inspect_job(&self, id: &str) -> Result<Value> {
         let mut detail = self.job_detail(id)?;
         let root = self.job_family_root(id)?;
@@ -155,6 +176,11 @@ impl Application {
     pub fn consolidation_target(&self, id: &str) -> Result<Option<String>> {
         Ok(self.db.query_row(&format!("{CONSOLIDATION_CTE} SELECT r.target FROM consolidation_roots r JOIN jobs original ON original.id=r.source WHERE original.id=? AND original.state='complete' AND r.source_attempt IS original.attempt ORDER BY r.target LIMIT 1"),[id],|r|r.get(0)).optional()?)
     }
+    fn job_annotations(&self, id: &str) -> Result<Vec<Value>> {
+        Ok(rows(&self.db, "SELECT payload FROM job_annotations WHERE job=? ORDER BY id", &[&id])?
+            .iter().map(|r|serde_json::from_str(r["payload"].as_str().unwrap_or("{}")))
+            .collect::<std::result::Result<_,_>>()?)
+    }
     pub fn job_detail(&self, id: &str) -> Result<Value> {
         let workflow = rows(&self.db, "SELECT * FROM job_workflows WHERE id=?", &[&id])?
             .into_iter()
@@ -213,7 +239,12 @@ impl Application {
                     }
                 }
             }
-            let state = if states.iter().all(|s| *s == JobState::Complete) {
+            let managed = request["plan_revision"].is_number();
+            let state = if managed && workflow["state"] == "cancelled" {
+                JobState::Cancelled
+            } else if managed && workflow["state"] == "complete"
+                || !managed && states.iter().all(|s| *s == JobState::Complete)
+            {
                 JobState::Complete
             } else if states.contains(&JobState::Running) {
                 JobState::Running
@@ -226,6 +257,8 @@ impl Application {
             } else if states.contains(&JobState::Failed) || states.contains(&JobState::Interrupted)
             {
                 JobState::Failed
+            } else if managed && states.iter().all(|s| *s == JobState::Complete) {
+                JobState::Blocked
             } else if states.iter().all(|s| s.terminal()) {
                 JobState::Cancelled
             } else {
@@ -256,9 +289,14 @@ impl Application {
                         .clone(),
                 );
             }
-            return self.decorate_owner("job",id,workflow["owner"].as_str().unwrap_or(""),
-                json!({"id":id,"workflow":true,"owner":workflow["owner"],"notify":workflow["notify"],"created":workflow["created"],"state":state.as_str(),"status":state.public(),"spec":request,"executions":nodes,"execution_intervals":execution_intervals,"result":{"artifact_ready":state==JobState::Complete,"outputs":outputs},"errors":errors,"presentation":presentation,"scenario_ref":request["scenario_ref"]}),
-            );
+            let mut result = json!({"artifact_ready":state==JobState::Complete && (!managed || !outputs.is_empty()),"outputs":outputs});
+            if managed {
+                result["receipts"] = request["receipts"].clone();
+            }
+            let mut detail = json!({"id":id,"workflow":true,"owner":workflow["owner"],"notify":workflow["notify"],"created":workflow["created"],"state":state.as_str(),"status":state.public(),"spec":request,"executions":nodes,"execution_intervals":execution_intervals,"result":result,"errors":errors,"presentation":presentation,"scenario_ref":request["scenario_ref"]});
+            let annotations=self.job_annotations(id)?;
+            if !annotations.is_empty(){detail["annotations"]=json!(annotations);}
+            return self.decorate_owner("job",id,workflow["owner"].as_str().unwrap_or(""),detail);
         }
         if let Some(record) = self.imported_job(id)? {
             return Ok(record);
@@ -378,14 +416,7 @@ impl Application {
         .next()
         .unwrap_or(Value::Null);
         details = self.decorate_owner("job", id, &row.owner, details)?;
-        let annotations = rows(
-            &self.db,
-            "SELECT payload FROM job_annotations WHERE job=? ORDER BY id",
-            &[&id],
-        )?
-        .iter()
-        .map(|r| serde_json::from_str::<Value>(r["payload"].as_str().unwrap_or("{}")))
-        .collect::<std::result::Result<Vec<_>, _>>()?;
+        let annotations = self.job_annotations(id)?;
         if !annotations.is_empty() {
             details["annotations"] = json!(annotations);
         }
@@ -610,7 +641,7 @@ impl Application {
                 .iter()
                 .filter(|e| e["workflow"] == d["id"])
                 .collect();
-            if children.is_empty() {
+            if children.is_empty() && !d["spec"]["plan_revision"].is_number() {
                 continue;
             }
             d["reason"] = match d["state"].as_str() {
@@ -622,8 +653,29 @@ impl Application {
                     .find(|e| e["eligible"] == true)
                     .or_else(|| children.iter().find(|e| e["position"].is_number()))
                     .map(|e| e["reason"].clone())
-                    .unwrap_or(Value::Null),
+                    .unwrap_or_else(|| {
+                        if d["spec"]["held"] == true {
+                            json!("held")
+                        } else if d["spec"]["plan"]["sealed"] == false {
+                            let slots = d["spec"]["plan"]["units"].as_array().into_iter().flatten();
+                            let runtime_slot = slots
+                                .filter(|s| s.get("execution").is_none())
+                                .any(|s| s["requires"].as_array().is_some_and(|a| !a.is_empty()));
+                            if runtime_slot {
+                                json!("awaiting_runtime_binding")
+                            } else {
+                                json!("awaiting_plan")
+                            }
+                        } else {
+                            json!("awaiting_deliverables")
+                        }
+                    }),
             };
+            if d["spec"]["plan_revision"].is_number() && d["spec"]["cancel_requested"] != true {
+                d["held"] = json!(d["spec"]["held"] == true);
+                d["can_hold"] = json!(d["spec"]["held"] != true);
+                d["can_resume"] = json!(d["spec"]["held"] == true);
+            }
             d["position"] = children
                 .iter()
                 .filter_map(|e| e["position"].as_i64())

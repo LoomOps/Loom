@@ -90,7 +90,8 @@ impl Application {
         )? {
             let id = w["id"].as_str().unwrap_or("");
             let d = self.job_detail(id)?;
-            entities.push(json!({"id":id,"kind":"job","namespace":"loom","label":d["spec"]["label"],"state":d["state"],"created":d["created"],"properties":{"record_role":"loom_job","id":id,"state":d["state"],"status":d["status"],"queued_at":d["created"],"started_at":d["execution_intervals"].as_array().and_then(|a|a.iter().filter_map(|i|i["start"].as_f64()).min_by(f64::total_cmp)),"process_exited_at":if d["state"]=="complete"{d["execution_intervals"].as_array().and_then(|a|a.iter().filter_map(|i|i["end"].as_f64()).max_by(f64::total_cmp))}else{None},"owner":d["owner"],"internal_step_count":d["executions"].as_array().map(|a|a.len()).unwrap_or(0)},"loom_workflow":d,"loom_job":{"id":id},"steps":d["executions"],"execution_intervals":d["execution_intervals"],"presentation":d["presentation"],"scenario_ref":d["scenario_ref"],"relations":[],"artifacts":[]}));
+            let node_count = d["executions"].as_array().map(Vec::len).unwrap_or(0);
+            entities.push(json!({"id":id,"kind":"job","namespace":"loom","label":d["spec"]["label"],"state":d["state"],"created":d["created"],"properties":{"record_role":"loom_job","id":id,"state":d["state"],"status":d["status"],"queued_at":d["created"],"started_at":d["execution_intervals"].as_array().and_then(|a|a.iter().filter_map(|i|i["start"].as_f64()).min_by(f64::total_cmp)),"process_exited_at":if d["state"]=="complete"{d["execution_intervals"].as_array().and_then(|a|a.iter().filter_map(|i|i["end"].as_f64()).max_by(f64::total_cmp))}else{None},"owner":d["owner"],"execution_node_count":node_count,"internal_step_count":node_count},"loom_workflow":d,"loom_job":{"id":id},"steps":d["executions"],"execution_intervals":d["execution_intervals"],"presentation":d["presentation"],"scenario_ref":d["scenario_ref"],"relations":[],"artifacts":[]}));
             if let Some(entity) = entities.last_mut() {
                 for key in ["owner", "owner_name", "owner_profile"] {
                     entity[key] = d[key].clone();
@@ -545,7 +546,11 @@ impl Application {
             })
         });
         let queue = self.queue()?;
-        for entry in queue["entries"].as_array().into_iter().flatten().take(200) {
+        for entry in ["logical_entries", "entries"]
+            .iter()
+            .flat_map(|key| queue[key].as_array().into_iter().flatten())
+            .take(200)
+        {
             let id = entry
                 .get("workflow")
                 .filter(|v| v.is_string())

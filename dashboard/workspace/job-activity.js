@@ -24,7 +24,7 @@ activityRecords=function(entities) {
 };
 const loomActivitySummary=activitySummary;
 activitySummary=function(entities,now=Date.now(),liveThrough=now) {
- const source=catalogData.all_entities||entities,jobs=loomActivityJobs(source),parents=new Map(jobs.map(e=>[e.id,e.group_root!==e.id&&e.group_root||e.properties?.workflow_root||e.presentation?.parent_job]));
+ const source=catalogData.all_entities||entities,jobs=loomActivityJobs(source),parents=new Map(jobs.map(e=>[e.id,e.properties?.workflow_root]));
  for(const e of jobs)for(const n of e.loom_workflow?.executions||[])parents.set(n.job,e.id);
  const root=id=>{const seen=new Set();while(parents.get(id)&&!seen.has(id)){seen.add(id);id=parents.get(id);}return id;};
  const groups=new Map();

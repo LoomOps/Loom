@@ -139,7 +139,7 @@ def entities(c):
             'execution_intervals':w['execution_intervals'],
             'properties':{'record_role':'loom_job','category':w['category'],'state':w['state'],'created_at':w['created'],
                 'started_at':min(starts) if starts else None,'process_exited_at':max(ends) if ends and w['state'] in ('complete','failed','cancelled') else None,
-                'internal_step_count':len(w['executions'])}})
+                'execution_node_count':len(w['executions']),'internal_step_count':len(w['executions'])}})
     return result
 
 

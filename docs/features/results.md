@@ -122,4 +122,7 @@ schemas, exact inputs, populations, SDG membership and evaluation predicates bef
 committing scientific records. A publication error does not restart computation.
 Read APIs verify bytes and page report fields. Built-in and registered formats
 share Item identity, versioned discovery and idempotent registration. Excluded,
-missing and zero remain distinct. See [reporting](../../loom_use/reporting.md).
+missing and zero remain distinct. Distribution renderers consume typed numeric
+points, category counts or precomputed bins, and matrix cells with explicit
+admitted and assigned counts. Evaluation summaries preserve the published case
+population and the pinned criteria. See [reporting](../../loom_use/reporting.md).

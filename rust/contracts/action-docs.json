@@ -785,7 +785,7 @@
   },
   "components.get_runtime": {
     "title": "Runtime revision",
-    "description": "Read one exact immutable Runtime revision and its consumers. Installation/build is an explicit host-administrator workflow. job_usage links frozen stage pins to source Jobs and their Main Job; execution_receipts distinguishes started stages from unexecuted bindings. At most 200 Job rows are returned with jobs_complete.",
+    "description": "Read one exact immutable Runtime revision and its consumers. Installation/build is an explicit host-administrator workflow. In job_usage, execution_owner identifies the scheduling Job and group_root identifies the browsing group. stages lists bindings from the latest matching accepted Profile. execution_receipts identifies the Attempt, started stage and its recorded Profile. A complete page includes started_job_count across distinct execution owners. jobs_complete marks coverage of up to 200 source Jobs.",
     "returns": "Runtime",
     "example": {
       "id": "simulation",
@@ -956,7 +956,7 @@
   },
   "results.item_relations": {
     "title": "Read Item relations",
-    "description": "Page exact outgoing declarations and indexed reverse software use. Cursors pin source revision, authority head, actor and index generation; unresolved references remain explicit.",
+    "description": "Page exact outgoing declarations and indexed reverse software use. Workflow member edges retain relation=step and expose execution_membership={root,node}. Cursors pin source revision, authority head, actor and index generation; unresolved references remain explicit.",
     "returns": "Relation page · items, next_cursor, partial, warnings",
     "example": {
       "item_id": "12345678901234567890",
@@ -1996,6 +1996,129 @@
     "implementation": {
       "feature": "registry-lifecycle",
       "entrypoint": "rust/crates/core/src/registry_lifecycle.rs#set_lifecycle"
+    }
+  },
+  "jobs.preview_history": {
+    "title": "Review accepted and preserved Job links",
+    "description": "Read authority for up to 24 exact Job IDs. Inspect workflow membership separately from a presentation parent, a preserved snapshot, and an exact consolidation. This review never infers Steps or writes Job history.",
+    "returns": "Bounded Job review \u00b7 records, changes",
+    "example": {
+      "ids": [
+        "<job-id>"
+      ]
+    },
+    "errors": [
+      "404 if a selected exact Job is unavailable."
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/query.rs#preview_job_history"
+    }
+  },
+  "jobs.preview_outcome": {
+    "title": "Preview outcome evidence",
+    "description": "Resolve scientific deliverable pins and list applicable reporting requirements before issuing a Job. This call does not allocate work. The same validation runs at creation; node Profile compatibility is checked on binding.",
+    "returns": "Preview \u00b7 mode, per-alias coverage and science_digest",
+    "example": {
+      "outcome": {
+        "goal": "Verify the requested hardware diagnostic"
+      }
+    },
+    "errors": [
+      "400 for inconsistent deliverable or hypothesis aliases.",
+      "409 for mismatched pins, activity, inputs or setup domains."
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/plans.rs#preview_outcome"
+    }
+  },
+  "jobs.create": {
+    "title": "Create an outcome",
+    "description": "Accept a frozen goal with optional typed output or Runtime receipt promises. An outcome without deliverables completes when its sealed executable plan succeeds. Executable units are admitted with their Profile and applicable scientific reporting contract in the same transaction.",
+    "returns": "Outcome receipt · id, revision, sealed, nodes, receipts",
+    "example": {
+      "key": "dataset-generation",
+      "owner": "researcher",
+      "notify": "researcher",
+      "outcome": {
+        "goal": "Publish generated cases",
+        "deliverables": [
+          {
+            "alias": "cases",
+            "kind": "dataset",
+            "from": {
+              "node": "generate",
+              "entity": "cases"
+            }
+          }
+        ]
+      },
+      "plan": {
+        "sealed": false,
+        "units": [
+          {
+            "id": "generate",
+            "label": "Generate",
+            "requires": [
+              {
+                "stage": "runtime",
+                "runtime": {
+                  "id": "simulation",
+                  "revision": 1
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "errors": [
+      "409 on changed replay, incompatible Profile output or unavailable required Runtime."
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/plans.rs#write_plan"
+    }
+  },
+  "jobs.revise_plan": {
+    "title": "Revise an outcome plan",
+    "description": "Submit the full next plan with its expected revision. Retain admitted units and existing prerequisites. Bind an open slot to an installed Profile or append a unit. Seal after all bindings and Runtime receipts resolve. Exact replay returns its original receipt.",
+    "returns": "Outcome receipt · id, revision, sealed, nodes, receipts",
+    "example": {
+      "id": "<outcome-id>",
+      "key": "bind-generator",
+      "expected_revision": 1,
+      "reason": "Generator Profile and Runtime validated",
+      "plan": {
+        "sealed": true,
+        "units": [
+          {
+            "id": "generate",
+            "label": "Generate",
+            "requires": [
+              {
+                "stage": "runtime",
+                "runtime": {
+                  "id": "simulation",
+                  "revision": 1
+                }
+              }
+            ],
+            "execution": {
+              "kind": "generation.r1",
+              "params": {}
+            }
+          }
+        ]
+      }
+    },
+    "errors": [
+      "403 for another principal. 409 on stale revision, changed replay, terminal outcome or unsatisfied prerequisite."
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/plans.rs#write_plan"
     }
   }
 }

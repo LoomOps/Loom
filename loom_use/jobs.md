@@ -1,5 +1,7 @@
 # Jobs and pipelines
 
+For an independently requested execution outcome, read the workflows guide. Use `jobs.create` to obtain its ID before Runtime installation and `jobs.revise_plan` to bind its execution slots. Main Job identity follows what the caller requested. A readiness check can complete by running its sealed plan successfully. Dataset, Policy and Evaluation publications need the applicable reporting contract.
+
 Public status: queued → preparing → ready → running → finalizing → completed. Failures are failed/finalizing_failed; cancellation is cancelled. scheduling/recovery explain waiting and are not execution stages. `jobs.get.status` uses these public values; `state` retains native values such as `complete` and `processing`.
 
 Job Properties include Job Type(category): sdg, data_preparation, fine_tuning, evaluation, pipeline, development or other. Execution Mode is full/pilot/smoke, or null when unrecorded. These labels do not choose execution code; the profile selected by kind defines behavior.

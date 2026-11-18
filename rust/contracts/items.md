@@ -22,6 +22,7 @@ Use `results.get_item` for compact metadata, `results.item_relations` for explic
 context and `results.item_files` for bounded file pages. Relations default to 50/max 200 edges per page. Follow next_cursor with
 identical arguments; source changes expire the cursor. direction=outgoing reads
 declarations; direction=both includes indexed reverse software use.
+Workflow membership edges carry `execution_membership: {root,node}`. Their legacy relation name is `step`. Producer progress is available through `jobs.get.internal_steps`.
 include_support=true includes non-representative Runtime dependencies. Supply `revision_id` when
 following an exact revision. `results.resolve_item` accepts the full typed legacy
 reference, including historical source/kind/id/revision/snapshot. It allocates no

@@ -1,5 +1,5 @@
 // One output workspace; typed records and legacy deep links keep their identity.
-const loomOutputPages={datasets:'Datasets',experiments:'Experiments',models:'Policies'};
+const loomOutputPages={datasets:'Datasets',models:'Policies',experiments:'Experiments'};
 function loomIsOutputPage(page){return Object.hasOwn(loomOutputPages,page)||page==='scenarios';}
 function loomIsResearchPage(page){return loomIsOutputPage(page)||page==='comparison';}
 function loomOutputTabs(){
@@ -42,6 +42,15 @@ const loomOutputExperiments=experiments;
 experiments=function(){return loomOutputChrome()+loomOutputExperiments();};
 const loomOutputDetail=catalogDetail;
 catalogDetail=function(id){return (loomIsOutputPage(state.page)?loomOutputChrome():'')+loomOutputDetail(id);};
+function loomCompareSetups(entity){
+ return Object.values(entity?.science?.deliverables||{}).flatMap(claim=>claim.sessions||[]);
+}
+const loomOutputCompareCompatible=comparisonCompatible;
+comparisonCompatible=function(a,b){
+ if(!loomOutputCompareCompatible(a,b))return false;
+ const keys=e=>[...new Set(loomCompareSetups(e).map(s=>JSON.stringify([s.domain,s.configuration.id,s.configuration.revision,s.configuration.sha256])))].sort();
+ return JSON.stringify(keys(a))===JSON.stringify(keys(b));
+};
 const loomOutputComparison=comparison;
 comparison=function(){
  // Comparison can be entered directly, before either list has been loaded.
@@ -56,7 +65,12 @@ comparison=function(){
  const body=loomOutputComparison();
  // A bounded bootstrap is not evidence that a selected result was deleted.
  if(pending.length){state.compareRuns=selected;state.compareBase=base;}
- return body+pages;
+ const setups=selected.flatMap(id=>{
+  const entity=catEntity(id);
+  return loomCompareSetups(entity).map(s=>[catLink(id),esc(s.id),esc(s.domain==='real'?'Real':'Simulation'),
+   esc(s.configuration.id+' · r'+s.configuration.revision),esc(s.member_count),esc(JSON.stringify(s.readback))]);
+ });
+ return body+(setups.length?panel('Experimental setups',catTable(['Experiment','Session','Domain','Setup','Members','Readback'],setups)):'')+pages;
 };
 root.addEventListener('click',event=>{
  const button=event.target.closest('[data-output-page]');if(!button)return;

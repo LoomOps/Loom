@@ -3181,7 +3181,7 @@ No granted readable copy, pending verification, changed bytes or invalid offset.
 
 ## item_relations
 
-Page exact outgoing declarations and indexed reverse software use. Cursors pin source revision, authority head, actor and index generation; unresolved references remain explicit.
+Page exact outgoing declarations and indexed reverse software use. Workflow member edges retain relation=step and expose execution_membership={root,node}. Cursors pin source revision, authority head, actor and index generation; unresolved references remain explicit.
 
 Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/graph.rs#item_graph](../../rust/crates/core/src/graph.rs).
 

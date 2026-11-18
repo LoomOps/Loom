@@ -55,7 +55,9 @@ against exact frozen ID/revision/SHA and stage-start receipts, including a
 prepare-only failure with a different unstarted run Runtime. Activity unions
 actual intervals within the Main Job and keeps explicit API scope filters;
 Home defaults to all user work independently of scientific Outputs. Browser
-coverage includes initial fetch, refresh retention and source/Main navigation.
+coverage includes initial fetch, refresh retention and source/Main navigation. A recovery that changes the Profile must keep each
+earlier Stage start attached to its original Runtime. In the workflow view count
+Nodes separately from producer Steps and retained source executions.
 
 For grouped Home rows, assert displayed dates and recent member labels after
 a root completed on an earlier day. A visible root ID alone is insufficient.

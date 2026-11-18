@@ -16,6 +16,13 @@
 #pai-studio .pa-report-chart circle { fill:currentColor; }
 #pai-studio .pa-report-chart polyline { stroke:currentColor; stroke-width:2; }
 #pai-studio .pa-report-chart .pa-report-axis { stroke:var(--pa-line); stroke-width:1; }
+#pai-studio .pa-report-chart .pa-report-checkpoint { stroke:var(--pa-accent); stroke-width:1; stroke-dasharray:4 4; }
+#pai-studio .pa-report-contract { margin-top:24px; color:var(--pa-muted); }
+#pai-studio .pa-report-bars { display:grid; gap:8px; }
+#pai-studio .pa-report-bars > div { display:grid; grid-template-columns:minmax(0,1fr) minmax(60px,2fr) auto; gap:10px; align-items:center; }
+#pai-studio .pa-report-bars progress { width:100%; accent-color:var(--pa-accent); }
+#pai-studio .pa-report-field select { max-width:100%; }
+#pai-studio .pa-report-case-chart svg { min-height:0; }
 #pai-studio .pa-report-chart text { fill:var(--pa-muted); font-size:12px; }
 #pai-studio .pa-report-workspace pre { white-space:pre-wrap; overflow-wrap:anywhere; }
 #pai-studio .pa-report-workspace table { width:100%; table-layout:fixed; }

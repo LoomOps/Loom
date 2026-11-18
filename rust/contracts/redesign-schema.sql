@@ -102,3 +102,9 @@ CREATE TRIGGER IF NOT EXISTS rust_projection_metadata_delete AFTER DELETE ON rus
 CREATE TABLE IF NOT EXISTS registry_lifecycle_events(seq INTEGER PRIMARY KEY AUTOINCREMENT,target TEXT NOT NULL,previous TEXT NOT NULL,state TEXT NOT NULL,reason TEXT NOT NULL,actor TEXT NOT NULL,recorded REAL NOT NULL);
 
 CREATE INDEX IF NOT EXISTS registry_lifecycle_target_history ON registry_lifecycle_events(target,seq DESC);
+
+CREATE TABLE IF NOT EXISTS rust_plan_revisions(
+ root TEXT NOT NULL REFERENCES job_workflows(id), revision INTEGER NOT NULL,
+ actor TEXT NOT NULL, key TEXT NOT NULL, request TEXT NOT NULL, response TEXT NOT NULL,
+ recorded REAL NOT NULL, PRIMARY KEY(root,revision), UNIQUE(root,actor,key)
+);

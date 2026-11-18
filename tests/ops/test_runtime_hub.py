@@ -58,7 +58,11 @@ class RuntimeHubTests(fixture.ProfileCatalogFixture):
         with self.assertRaises(ValueError):runtime_catalog.check_requirements(m,p)
         kind=self.register();job=self.submit({**self.spec(),'kind':kind,'params':{}})
         item=self.action('runtimes')['runtimes'][0];self.assertIn(job,item['used_by_jobs']);self.assertEqual(item['executed_jobs'],[])
-        self.claim(job);item=self.action('runtimes')['runtimes'][0];self.assertEqual(item['executed_jobs'],[job])
+        row=self.claim(job)
+        self.assertEqual(self.action('runtimes')['runtimes'][0]['executed_jobs'],[])
+        with ops.db() as db:
+            db.execute("INSERT INTO stage_runs VALUES(?,?,'run',1,2,'returned')",(job,row['attempt']))
+        self.assertEqual(self.action('runtimes')['runtimes'][0]['executed_jobs'],[job])
 
     def test_stage_representatives_are_display_only_and_require_an_exact_inventory(self):
         kind=self.register();before=self.action('get',owner='owner',id='producer')

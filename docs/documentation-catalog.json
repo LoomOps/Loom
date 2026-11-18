@@ -566,6 +566,24 @@
       "authority": "recorded design/audit revision"
     },
     {
+      "path": "docs/jobs/BOUNDARIES.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/metadata-templates/OUTPUT-EVIDENCE.md",
+      "audience": "maintainer",
+      "status": "proposed",
+      "authority": "explicit design proposal; not an installed capability"
+    },
+    {
+      "path": "docs/metadata-templates/OUTPUT-IMPLEMENTATION.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
       "path": "docs/metadata-templates/PLAN.md",
       "audience": "reader",
       "status": "current",

@@ -1,6 +1,6 @@
 # Plan and publish analysis reports
 
-Select reporting coverage before submitting a scientific Job. Metadata templates
+Select reporting coverage before submitting a Job that will publish a scientific output. Metadata templates
 validate catalog fields; report contracts specify the analysis evidence to produce.
 Read the connected server's exact action schemas for the following operations.
 
@@ -85,12 +85,22 @@ additional report requirements/shards for larger analysis.
 
 - Dataset membership IDs, splits, sources and counts must reconcile.
 - SDG target conditions and generation readbacks remain distinct. Account for
-  every condition and exact accepted member/attempt. Episode length does not
-  substitute for object-position coverage.
+  every condition and exact accepted member/attempt. Start from what the dataset
+  varies and show enough coverage to verify the generator's intended range.
+  Bind each view to its factors, units, sampling unit, split, and source. Show
+  assigned, measured and admitted populations with their denominators. Count a
+  shared parent once in a parent distribution. Use joint coverage for interacting
+  conditions and expose uncovered or excluded groups.
+  Custom reports with role `distribution` can provide `scatter` for paired
+  numeric values, `bar` for precomputed bins or category counts, and
+  `coverage_matrix` for crossed factors. A bar uses X/Y pointers to a label and
+  nonnegative value. Matrix rows use `row`, `column`, `assigned`, and
+  `admitted`. Use exact member IDs in the underlying evidence.
 - Instructions record exact consumed text, assignments and coverage. Generator
   prompts and Dataset annotations are different roles.
-- Learning retains measured step/split/phase points, metric pins, schedules and
+- Training retains measured step/split/subtask points, metric pins, schedules and
   interruption reasons. Test cannot select the checkpoint.
+  The current report envelope encodes subtask IDs in the `phase` field.
 - Robot DoF, controlled joint DoF and Action dimension are distinct. Declare
   ordered channel names, meaning, joint identity, units and representation.
   Per-channel MSE uses squared units; MAE/RMSE use original units. Record
@@ -99,6 +109,8 @@ additional report requirements/shards for larger analysis.
   when this analysis is inapplicable. Never pool mixed units into one MSE.
 - Evaluation pins exact inputs/protocol and preserves case/seed validity,
   success/failure, infrastructure counts and measured predicates.
+  State each check's population. Use `evaluation_metrics` for additional
+  typed summaries or plots aligned to the evaluation protocol.
 
 Missing/unmeasured is not zero. A justified exclusion is a coverage decision,
 not a missing measurement. Missing optional reports stay visible. Required report
@@ -126,3 +138,31 @@ by `components.set_lifecycle`. See the Components guide for exact target selecto
 authorization and explicit batch selection. These overlays preserve sealed pins and
 files; they are not execution or scientific acceptance gates. Discovery accepts
 `include_archived` / `lifecycle_state`; exact reads remain available.
+
+
+### Outcome commitments and sessions
+
+When available, use `jobs.preview_outcome` before opening an outcome. The optional
+`outcome.science.deliverables` map binds an existing typed deliverable alias to
+`activity`, `template_ref`, `contract_ref` and optional exact `inputs` and
+`sessions`. For `inputs`, use keys from the Profile and `{id,revision}` pins.
+A hypothesis is optional. When supplied it needs a statement, analysis,
+population, metric and the aliases that must report it.
+
+A planned session carries an ID, `simulation` or `real`, and a configuration
+artifact pin `{id,revision,sha256}`. Register the setup as an artifact with
+`metadata.experimental_setup.domain` and the exact configuration component.
+Keep controller, units, frames and calibration in that configuration file.
+For each alias with a hypothesis or planned sessions, list a JSON evidence file
+among the output components. Bind `metadata.science_evidence[alias]` to its
+`{component,sha256}`. The file uses `loom-science-evidence/v1` with `job`,
+`attempt`, `alias`, and the accepted `science_digest`. Include the accepted
+session IDs, domains and configuration pins, disjoint members and observed readback. Use episode IDs for
+Datasets and exact `{id,seed}` pairs for Evaluation cases. For a hypothesis include `analysis.metric` and `analysis.summary`.
+A negative result can satisfy the contract. Complete ordinary report bindings
+as well.
+
+
+Record a later interpretation with `results.annotate` on the original Job.
+Use a fresh annotation ID and cite the exact Output revision and member IDs.
+An annotation leaves the accepted hypothesis and result evidence intact.

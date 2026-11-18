@@ -60,6 +60,98 @@ pub fn actions() -> Vec<Action> {
             schema,
         });
     }
+    let workflow = &result
+        .iter()
+        .find(|a| a.group == "jobs" && a.action == "submit_workflow")
+        .expect("workflow schema")
+        .schema["properties"];
+    let local = &workflow["nodes"]["items"]["properties"];
+    let runtime = object(
+        json!({"id":string,"revision":{"type":"integer","minimum":1,"maximum":i64::MAX},"sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}}),
+        &["id", "revision"],
+    );
+    let gate = object(
+        json!({"stage":{"enum":["prepare","runtime","finalize","on_complete","on_error","on_cancel"]},"runtime":runtime}),
+        &["stage", "runtime"],
+    );
+    let mut execution = result
+        .iter()
+        .find(|a| a.group == "jobs" && a.action == "submit")
+        .expect("submission schema")
+        .schema
+        .clone();
+    for field in ["key", "owner", "notify", "presentation", "consolidates"] {
+        execution["properties"]
+            .as_object_mut()
+            .unwrap()
+            .remove(field);
+    }
+    execution["required"] = json!(["kind", "params"]);
+    let slot = object(
+        json!({"id":local["id"],"label":local["label"],"depends_on":local["depends_on"],"requires":{"type":"array","maxItems":6,"uniqueItems":true,"items":gate},"execution":execution}),
+        &["id", "label"],
+    );
+    let plan = object(
+        json!({"sealed":{"type":"boolean"},"units":{"type":"array","maxItems":64,"items":slot}}),
+        &["sealed", "units"],
+    );
+    let output = object(
+        json!({"alias":local["id"],"kind":{"enum":["artifact","dataset","model","experiment"]},"from":workflow["outputs"]["additionalProperties"]}),
+        &["alias", "kind", "from"],
+    );
+    let receipt = object(
+        json!({"alias":local["id"],"kind":{"const":"runtime_receipt"},"runtime":runtime}),
+        &["alias", "kind", "runtime"],
+    );
+    let pin = object(
+        json!({"id":string,"revision":{"type":"integer","minimum":1,"maximum":i64::MAX},"sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}}),
+        &["id","revision","sha256"],
+    );
+    let session = object(
+        json!({"id":local["id"],"domain":{"enum":["simulation","real"]},"configuration":pin}),
+        &["id","domain","configuration"],
+    );
+    let expected = object(
+        json!({"activity":string,"template_ref":pin,"contract_ref":pin,
+            "inputs":{"type":"object","maxProperties":64,"additionalProperties":reference},
+            "sessions":{"type":"array","maxItems":64,"items":session}}),
+        &["activity","template_ref","contract_ref"],
+    );
+    let hypothesis = object(
+        json!({"statement":string,"analysis":string,"population":string,"metric":string,
+            "aliases":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":local["id"]}}),
+        &["statement","analysis","population","metric","aliases"],
+    );
+    let science = object(
+        json!({"deliverables":{"type":"object","minProperties":1,"maxProperties":64,"additionalProperties":expected},"hypothesis":hypothesis}),
+        &["deliverables"],
+    );
+    let outcome = object(
+        json!({"goal":workflow["label"],"deliverables":{"type":"array","maxItems":256,"items":{"oneOf":[output,receipt]}},"science":science}),
+        &["goal"],
+    );
+    let create = object(
+        json!({"key":workflow["key"],"owner":string,"notify":string,"presentation":workflow["presentation"],"category":workflow["category"],"scenario_ref":reference,"outcome":outcome,"plan":plan}),
+        &["key", "owner", "notify", "outcome", "plan"],
+    );
+    let revise = object(
+        json!({"id":string,"key":workflow["key"],"expected_revision":{"type":"integer","minimum":1,"maximum":i64::MAX-1},"reason":string,"plan":plan}),
+        &["id", "key", "expected_revision", "reason", "plan"],
+    );
+    let preview = object(json!({"outcome":outcome}), &["outcome"]);
+    let history = object(json!({"ids":{"type":"array","items":string,"minItems":1,"maxItems":24,"uniqueItems":true}}), &["ids"]);
+    for (name, scope, schema) in [
+        ("create", "submit", create), ("revise_plan", "submit", revise),
+        ("preview_outcome", "read", preview), ("preview_history", "read", history),
+    ] {
+        result.push(Action {
+            group: "jobs".into(),
+            action: name.into(),
+            operation: format!("jobs.{name}"),
+            scope: scope.into(),
+            schema,
+        });
+    }
     let metadata_kind = json!({"enum":["dataset","model","experiment"]});
     let definitions = [
         (

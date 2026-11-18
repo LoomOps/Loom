@@ -204,14 +204,20 @@ function loomExecutionProfileDetail(entity){
 
 function loomRuntimeCard(entity){
  const item=entity.loom_runtime,manifest=item.manifest;
- return `<article class="pa-extension-card" data-extension-card="${esc(entity.id)}"><div class="pa-extension-card-head">${loomExtensionBadges(entity,item.revision)}${loomRegistryBadge(entity)}<span>${esc(item.legacy?'Unverified':manifest.reconciliation?'Metadata checked':manifest.validation?.status==='passed'?'Checks passed':'Unverified')}</span></div><h3>${catLink(entity.id,item.curation?.label||entity.label)}</h3><div class="pa-profile-dependencies">${loomHubHighlights({...item,dependencies:manifest.dependencies})}</div><div class="pa-extension-card-facts"><span>Profiles ${catalogData.presentation_view==='research'&&entity.research_context?entity.research_context.profiles.length:(item.used_by_profiles||[]).length}</span>${item.usage_stats?.executed_jobs?`<span>Pinned Jobs ${item.usage_stats.executed_jobs}</span>`:''}</div></article>`;
+ const startedJobs=item.started_job_count ?? item.usage_stats?.executed_jobs;
+ return `<article class="pa-extension-card" data-extension-card="${esc(entity.id)}"><div class="pa-extension-card-head">${loomExtensionBadges(entity,item.revision)}${loomRegistryBadge(entity)}<span>${esc(item.legacy?'Unverified':manifest.reconciliation?'Metadata checked':manifest.validation?.status==='passed'?'Checks passed':'Unverified')}</span></div><h3>${catLink(entity.id,item.curation?.label||entity.label)}</h3><div class="pa-profile-dependencies">${loomHubHighlights({...item,dependencies:manifest.dependencies})}</div><div class="pa-extension-card-facts"><span>Profiles ${catalogData.presentation_view==='research'&&entity.research_context?entity.research_context.profiles.length:(item.used_by_profiles||[]).length}</span>${startedJobs?`<span>Started Jobs ${startedJobs}</span>`:''}</div></article>`;
 }
 function loomRuntimeDetail(entity){
  const item=entity.loom_runtime,manifest=item.manifest,policy=manifest.runtime||{},filter=state.inventoryOrigin||'managed',query=(state.inventoryQuery||'').toLowerCase();
  const deps=(manifest.dependencies||[]).filter(d=>(filter==='all'||loomHubOrigin(d)===filter)&&[d.name,d.version,d.scope].join(' ').toLowerCase().includes(query));
  const dependencies=catTable(['Package','Version','Scope','Origin'],deps.map(d=>[esc(d.name),esc(d.version),esc(d.scope||'—'),esc(loomHubOrigin(d))]));
  const profiles=(item.used_by_profiles||[]).map(p=>`<div class="pa-row">${catLink('profile:'+p.kind,loomProfileName(catEntity('profile:'+p.kind)?.loom_execution_profile||{kind:p.kind,label:p.kind}))}<span>${esc(p.stages.join(', '))}</span></div>`).join('')||'<p class="pa-empty">No linked profiles</p>';
- const jobs=item.job_usage?catTable(['Execution','Main Job','Profile','Stage','State'],item.job_usage.map(j=>[loomJobInventoryLink(j.id),loomJobInventoryLink(j.group_root),catLink('profile:'+j.profile,j.profile),esc(j.stages.join(' · ')),esc(j.state)]))+(item.jobs_complete===false?'<p class="pa-subtle">Showing 200 records</p>':''):(item.executed_jobs||[]).map(loomJobInventoryLink).join(' · ')||'—';
+ const jobs=item.job_usage?catTable(['Execution','Job group','Profile','Pinned stages','Started stages','State'],item.job_usage.map(j=>{
+   const started=[...new Set((j.execution_receipts||[]).map(receipt=>receipt.stage))];
+   const stages=values=>values.map(stage=>stage==='runtime'?'run':stage).join(' · ')||'—';
+   return [loomJobInventoryLink(j.id),loomJobInventoryLink(j.group_root),catLink('profile:'+j.profile,j.profile),
+    esc(stages(j.stages)),esc(stages(started)),esc(j.state)];
+ }))+(item.jobs_complete===false?'<p class="pa-subtle">Showing 200 records</p>':''):(item.executed_jobs||[]).map(loomJobInventoryLink).join(' · ')||'—';
  const versions=loomExtensionRows().filter(e=>e.kind==='runtime'&&e.loom_runtime.id===item.id);
  return loomHubTabs()+heading('RUNTIME',item.curation?.label||entity.label,'','<button class="pa-button" data-extension-home>Runtimes</button>')+catStatus()
   +`<div class="pa-hub-actions">${catalogData.capabilities?.curate&&item.revision?'<button class="pa-button" data-hub-edit>Edit</button>':''}</div>`

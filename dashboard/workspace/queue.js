@@ -5,7 +5,7 @@ const loomQueueEntries = () => [...(catalogData.queue?.entries||[]),...(catalogD
 const loomQueueEntry = id => loomQueueEntries().find(row => row.id === id);
 function loomQueueReason(row) {
   if(row.reason==='executing')return row.state==='preparing'?'준비 중':'실행 중';
-  return ({queue_paused:'운영자가 큐를 일시 중단함',ready:'실행 가능',held:'보류됨',executing:'실행 중',finalizing:'결과 처리 중',dependencies:'선행 결과 대기',
+  return ({awaiting_runtime_binding:'Runtime 연결 대기',awaiting_plan:'실행 계획 확정 대기',awaiting_deliverables:'산출물 검증 대기',queue_paused:'운영자가 큐를 일시 중단함',ready:'실행 가능',held:'보류됨',executing:'실행 중',finalizing:'결과 처리 중',dependencies:'선행 결과 대기',
     resource_busy:'실행 슬롯 대기',retry_delay:'재시도 대기',recovery_reservation:'앞선 Job 복구 대기',recovery_waiting:'복구 응답 대기',
     recovery_claimed:'복구 진행 중',recovery_deferred:'복구 보류',recovery_exhausted:'복구 횟수 소진',recovery_required:'내부 실행 복구 필요'})[row.reason] || row.reason;
 }
@@ -64,7 +64,7 @@ workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
   const tasks=loomTaskLabels(entity);
   if(current && q){
-    if(entity.loom_queue_shared)row[0]='<div class="pa-queue-name">'+esc(q.id)+'<small>'+esc(q.owner)+' · 공유 큐</small></div>';
+    if(entity.loom_queue_shared)row[0]='<div class="pa-queue-name">'+esc(q.spec?.label||q.id)+'<small>'+esc(q.owner)+' · 공유 큐</small></div>';
     row[0]+='<small class="pa-queue-position">'+loomQueuePosition(q)+'</small>'+loomQueueControls(q.id);
   }
   const owner=entity.owner_profile?.display_name || entity.properties?.owner_name || q?.owner_profile?.display_name || entity.owner || entity.properties?.owner;

@@ -23,6 +23,23 @@ progress is producer-reported display evidence, never a resource-return,
 execution-success or artifact-validation gate. A failed or unreadable report
 must not change Job execution state.
 
+## Accept an outcome before installation
+
+Discover `jobs.create` and `jobs.revise_plan` on the connected server. Create one Main Job per independent requested outcome. Put prerequisite work in that Job's units. Provide a stable key, owner, notify target and goal. Declare typed deliverables for promised artifacts or Runtime verification. Each artifact alias names its producing slot, entity and kind. A `runtime_receipt` alias names a host Runtime ID and revision. If execution success is the acceptance condition, omit `outcome.deliverables` or supply an empty array. A sealed plan must have executable work or a verified Runtime receipt. For an immediately runnable plan, submit all units with `sealed:true`.
+
+If installation is pending, submit `sealed:false`. Declare the waiting slot's ID, label, dependencies and required Stage Runtime id/revision; omit its `execution`. Other bound units can run. Keep the returned root ID. The waiting slot has no Attempt, resource reservation or active time.
+
+For a bounded history review use `jobs.preview_history` when advertised. Match
+exact Jobs and Attempts before proposing consolidation. A presentation parent
+is navigation evidence; an accepted workflow Node determines execution
+ownership. Leave ambiguous or preserved records in review.
+
+For a scientific outcome, call `jobs.preview_outcome` with the draft outcome before creation. Use `outcome.science.deliverables` to pin a template and report contract per alias. Keep the accepted Job ID and `science_digest`. Revisions bind execution to the existing contract. An exploratory outcome can omit the hypothesis. See [Reporting](reporting.md) for publication evidence.
+
+After authorized host installation and Profile registration, read `jobs.get.spec.plan` and `plan_revision`. Submit the full next plan to `jobs.revise_plan` using that ID, expected_revision, a fresh operation key and a reason. Supply the slot's `execution.kind` (exact Profile revision) and params. The server compares each required Runtime with the granted host observation, passed validation and frozen Stage pin. Sealing a receipt-only outcome verifies its installation receipt without dispatching a process.
+
+On an uncertain response replay the identical request and key. On revision conflict read the current plan before making a new change. Failure to admit a binding leaves the prior revision usable. Keep admitted units and their dependencies. Completion requires all owned executions and promised outputs. Find published files through the output alias and installation receipts in `jobs.get.result.receipts`.
+
 ## Consolidate earlier fragmented execution
 
 Existing Job/Attempt history and output provenance are immutable evidence. Do
@@ -53,13 +70,15 @@ correct a consolidated Job's display. Missing receipts remain explicitly unknown
 
 ## Pinned execution graphs and research presentation
 
-When a requested outcome requires multiple Profiles or CPU/GPU stages, use
+For a fully specified graph without an outcome acceptance contract, use
 `jobs.submit_workflow` after reading its live schema. Submit `nodes` with unique
 IDs, labels, pinned Profile specs and `depends_on` node IDs. Internal inputs use
 `{"node":"producer","entity":"output"}` and must name a declared predecessor.
 `outputs` maps public aliases to exact node/entity references. A later consumer
 may use `{"job":"<main-id>","entity":"<alias>"}`; submission resolves it to the
 original verified producer, preserving lineage and dependency checks.
+
+Select a Profile for each node. Its configured Stage runners determine their environments. A change of Runtime between prepare and run is part of that Profile. A producer Step reports progress within the execution and has no Runtime selector.
 
 The complete graph is accepted atomically or rejected without orphan executions.
 Replay its exact key/request after uncertainty. Each node uses the ordinary

@@ -247,6 +247,25 @@ fn report_publication_is_atomic_hash_bound_and_readable_with_bounded_pages() {
 }
 
 #[test]
+fn distribution_matrix_requires_consistent_cells() {
+    let mut fixture = Fixture::new();
+    let base = builtin(&mut fixture, "loom.report.dataset");
+    let contract = registered(&mut fixture, "fixture.coverage", json!({
+        "label":"Crossed coverage","output_kind":"dataset","activity":"dataset_import",
+        "base_ref":reporting::reference(&base),"adaptations":[],
+        "requirements":[{"id":"coverage","role":"distribution","label":"Coverage","definitions":[],
+            "schema":{"type":"object","required":["cells"],"properties":{"cells":{"type":"array"}}},
+            "fields":[{"id":"matrix","label":"Entry by posture","pointer":"/cells","format":"coverage_matrix"}]}]
+    }));
+    let (job, folder, manifest) = fixture_report(&mut fixture, &contract, &[
+        ("membership", data()),
+        ("coverage", json!({"cells":[{"row":"entry1","column":"posture0","assigned":2,"admitted":3}]}))
+    ]);
+    assert!(fixture.app.publish_result(&job, "report-attempt", manifest, &folder).is_err());
+    assert_eq!(fixture.count("entity_revisions"), 0);
+}
+
+#[test]
 fn report_expectations_bind_accepted_targets_and_inventory_keeps_reports_searchable() {
     let mut f = Fixture::new();
     let contract = builtin(&mut f, "loom.report.dataset");
@@ -544,4 +563,64 @@ fn evaluation_reports_recompute_predicate_and_do_not_accept_a_training_or_compar
         )
         .unwrap();
     assert_eq!(e["reporting"]["primary_outcome"]["numerator"], 1);
+}
+
+#[test]
+fn outcome_preview_and_publication_bind_hypothesis_and_verified_setup_sessions() {
+    let mut f = Fixture::new();
+    let contract = builtin(&mut f, "loom.report.dataset");
+    let template = f.call("results","get_metadata_template",json!({"id":"loom.dataset","revision":1})).unwrap();
+    let pin = json!({"id":"setup","revision":1,"sha256":"a".repeat(64)});
+    let setup=json!({"id":"setup","kind":"artifact","components":[{"ref":"setup.json","sha256":pin["sha256"]}],
+        "metadata":{"experimental_setup":{"domain":"simulation"}}});
+    f.app.db.execute("INSERT INTO asset_revisions VALUES('setup',1,NULL,'artifact','owner','owner',?)",[setup.to_string()]).unwrap();
+    let mut request=json!({"key":"science-preview","owner":"owner","notify":"owner","outcome":{"goal":"Collect a demonstrated cohort",
+        "deliverables":[{"alias":"dataset","kind":"dataset","from":{"node":"record","entity":"data"}}],
+        "science":{"deliverables":{"dataset":{"activity":"dataset_import","template_ref":crate::metadata_templates::reference(&template),
+            "contract_ref":reporting::reference(&contract),"sessions":[{"id":"sim1","domain":"simulation","configuration":pin}]}}}},
+        "plan":{"sealed":false,"units":[{"id":"record","label":"Record"}]}});
+    let preview=f.call("jobs","preview_outcome",json!({"outcome":request["outcome"]})).unwrap();
+    assert_eq!(preview["mode"],"exploratory");
+    assert_eq!(preview["coverage"]["dataset"]["requirements"][0]["id"],"membership");
+    assert_eq!(f.count("job_workflows"),0);
+    let mut wrong=request["outcome"].clone();
+    wrong["science"]["deliverables"]["dataset"]["sessions"][0]["domain"]=json!("real");
+    assert!(f.call("jobs","preview_outcome",json!({"outcome":wrong})).is_err());
+    request["outcome"]["science"]["hypothesis"]=json!({"statement":"Cohort reaches the target","analysis":"Compare recorded cases","population":"Accepted members","metric":"coverage","aliases":["dataset"]});
+    let preview=f.call("jobs","preview_outcome",json!({"outcome":request["outcome"]})).unwrap();
+    let opened=f.call("jobs","create",request.clone()).unwrap();
+    assert_eq!(opened["science_digest"],preview["science_digest"]);
+    request["outcome"]["science"]["hypothesis"]["metric"]=json!("changed");
+    assert_eq!(f.call("jobs","create",request).unwrap_err().code,"idempotency_conflict");
+
+    // Reuse the existing report-publication fixture to simulate the accepted
+    // producer after its execution has returned.
+    let (job,folder,mut manifest)=fixture_report(&mut f,&contract,&[("membership",data())]);
+    f.app.db.execute("INSERT INTO workflow_nodes VALUES(?,'record','Record',?)",
+        rusqlite::params![opened["id"].as_str(),job]).unwrap();
+    assert!(f.app.publish_result(&job,"report-attempt",manifest.clone(),&folder).is_err());
+    let mut evidence=json!({"schema":"loom-science-evidence/v1","job":job,"attempt":"wrong",
+        "alias":"dataset","science_digest":opened["science_digest"],
+        "analysis":{"metric":"coverage","summary":"Target was not reached"},
+        "sessions":[{"id":"sim1","domain":"simulation","configuration":pin,"members":["e1"],"readback":{"physics_step_hz":120}}]});
+    assert_eq!(f.count("entity_revisions"),0);
+    manifest["entities"][0]["components"].as_array_mut().unwrap().push(json!("science.json"));
+    for valid in [false,true] {
+        if valid { evidence["attempt"]=json!("report-attempt"); }
+        let bytes=serde_json::to_vec(&evidence).unwrap();
+        fs::write(folder.join("science.json"),&bytes).unwrap();
+        manifest["entities"][0]["metadata"]["science_evidence"]["dataset"]=json!({"component":"science.json","sha256":hash(bytes)});
+        let publication=f.app.publish_result(&job,"report-attempt",manifest.clone(),&folder);
+        if valid { publication.unwrap(); } else { assert_eq!(publication.unwrap_err().code,"science"); }
+    }
+    let result=f.call("results","get",json!({"id":format!("{job}.data"),"revision":1})).unwrap();
+    let note=json!({"id":opened["id"],"annotation_id":"later-analysis","reason":"Interpret the first cohort",
+        "evidence":{"output":{"id":format!("{job}.data"),"revision":1},"members":["e1"]}});
+    let first=f.call("results","annotate",note.clone()).unwrap();
+    assert_eq!(f.call("results","annotate",note).unwrap(),first);
+    let accepted=f.call("jobs","get",json!({"id":opened["id"]})).unwrap();
+    assert_eq!(accepted["annotations"][0],first);
+    assert_eq!(accepted["spec"]["science_digest"],opened["science_digest"]);
+    assert_eq!(result["science"]["digest"],opened["science_digest"]);
+    assert_eq!(result["science"]["deliverables"]["dataset"]["sessions"][0]["readback"]["physics_step_hz"],120);
 }
