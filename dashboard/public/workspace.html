@@ -4683,7 +4683,6 @@ workRow=function(entity,current){
     const latest=group.latest_job,failed=(group.states.failed||0)+(group.states.interrupted||0)+(group.states.result_failed||0);
     row[0]+=&#x27;&lt;small class=&quot;pa-job-group&quot; data-job-group=&quot;&#x27;+esc(entity.id)+&#x27;&quot;&gt;&#x27;+group.execution_count+&#x27; executions&#x27;+(failed?&#x27; · Failed &#x27;+failed:&#x27;&#x27;)+&#x27;&lt;/small&gt;&#x27;
       +(latest?.id?&#x27;&lt;small class=&quot;pa-job-latest&quot;&gt;Latest · &#x27;+catLink(latest.id,latest.label||latest.id)+&#x27; · &#x27;+esc(latest.state)+&#x27;&lt;/small&gt;&#x27;:&#x27;&#x27;);
-    if(group.active_state)row[0]+=&#x27;&lt;small class=&quot;pa-job-root-state&quot;&gt;Root · &#x27;+esc(entity.properties?.state||entity.state)+&#x27;&lt;/small&gt;&#x27;;
   }
   const tasks=loomTaskLabels(entity);
   if(current &amp;&amp; q){
@@ -4702,7 +4701,6 @@ queueState=function(entity){
  if(active){const grouped=loomQueueStateBefore({properties:{state:active}});return {raw:active,info:[grouped.info[0],&#x27;Group · &#x27;+grouped.info[1],grouped.info[2],false]};}
  if(q?.held)return {raw:base.raw,info:[&#x27;paused&#x27;,q.state===&#x27;preparing&#x27;?&#x27;Preparing · Hold requested&#x27;:&#x27;Held&#x27;,&#x27;Ⅱ&#x27;,false]};
  if(q &amp;&amp; [&#x27;failed&#x27;,&#x27;interrupted&#x27;].includes(q.state))return {raw:q.state,info:[&#x27;recovery&#x27;,loomQueueReason(q),&#x27;!&#x27;,false]};
- if(loomJobGroup(entity))return {...base,info:[base.info[0],&#x27;Root · &#x27;+base.info[1],base.info[2],base.info[3]]};
  return base;
 };
 const loomQueuePanelBefore=loomJobPanel;

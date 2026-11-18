@@ -44,7 +44,8 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.wd('/refresh',{});self.ui.connect()
   current="[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('현재 큐'))"
   self.ui.wait('return '+current+"?.textContent.includes('Group · Running')")
-  self.assertTrue(self.ui.js('return '+current+"?.textContent.includes('Recent follow-up')&&"+current+"?.textContent.includes('Root · complete')"))
+  self.assertTrue(self.ui.js('return '+current+"?.textContent.includes('Recent follow-up')"))
+  self.assertFalse(self.ui.js('return '+current+"?.textContent.includes('Root ·')"))
   self.assertEqual(self.ui.js('return '+current+"?.querySelectorAll('tbody tr').length"),1)
   self.assertEqual(self.call('jobs','get',{'id':main})['state'],'complete')
   self.ui.route(main);self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Related Jobs')")
@@ -58,7 +59,8 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.ui.wait('return '+history+"?.textContent.includes('Recent follow-up')")
   row='[...('+history+").querySelectorAll('tbody tr')].find(r=>r.querySelector('[data-job-group=\\\"'+arguments[0]+'\\\"]'))"
   self.assertTrue(self.ui.js('return '+row+"?.textContent.includes('Failed 1')",main))
-  self.assertTrue(self.ui.js('return '+row+"?.textContent.includes('Root · Completed')",main))
+  self.assertTrue(self.ui.js('return '+row+"?.textContent.includes('Completed')",main))
+  self.assertFalse(self.ui.js('return '+row+"?.textContent.includes('Root ·')",main))
   times=self.ui.js('return [...('+row+").querySelectorAll('time')].map(e=>e.dateTime)",main)
   self.assertIn(time.strftime('%Y-%m-%d',time.gmtime(clock+20)),times[-1])
   self.assertEqual(self.call('jobs','get',{'id':main})['state'],'complete')

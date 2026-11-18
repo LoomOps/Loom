@@ -62,8 +62,9 @@ and reports the latest member and active phase. A partial summary is explicit;
 the UI must not treat it as a complete family. Home sorts a completed group by
 its latest activity and shows current group occupancy while a follow-up runs.
 The original root's state, timeline, scheduler graph and Runtime pins stay intact.
-The terminal badge says `Root` so a completed pilot cannot imply that all later
-work succeeded; current group occupancy and the latest member have separate labels.
+Home status labels omit internal root terminology and the duplicate original-state
+note. Current group occupancy, the latest member and failed execution counts stay
+visible; exact Job details retain each original execution state.
 History folding uses the recorded outcome root even when the immediate parent
 was consolidated into a continuation. A filter that excludes the root still
 shows matching children, and explicit source history retains original executions.

@@ -72,7 +72,6 @@ workRow=function(entity,current){
     const latest=group.latest_job,failed=(group.states.failed||0)+(group.states.interrupted||0)+(group.states.result_failed||0);
     row[0]+='<small class="pa-job-group" data-job-group="'+esc(entity.id)+'">'+group.execution_count+' executions'+(failed?' · Failed '+failed:'')+'</small>'
       +(latest?.id?'<small class="pa-job-latest">Latest · '+catLink(latest.id,latest.label||latest.id)+' · '+esc(latest.state)+'</small>':'');
-    if(group.active_state)row[0]+='<small class="pa-job-root-state">Root · '+esc(entity.properties?.state||entity.state)+'</small>';
   }
   const tasks=loomTaskLabels(entity);
   if(current && q){
@@ -91,7 +90,6 @@ queueState=function(entity){
  if(active){const grouped=loomQueueStateBefore({properties:{state:active}});return {raw:active,info:[grouped.info[0],'Group · '+grouped.info[1],grouped.info[2],false]};}
  if(q?.held)return {raw:base.raw,info:['paused',q.state==='preparing'?'Preparing · Hold requested':'Held','Ⅱ',false]};
  if(q && ['failed','interrupted'].includes(q.state))return {raw:q.state,info:['recovery',loomQueueReason(q),'!',false]};
- if(loomJobGroup(entity))return {...base,info:[base.info[0],'Root · '+base.info[1],base.info[2],base.info[3]]};
  return base;
 };
 const loomQueuePanelBefore=loomJobPanel;
