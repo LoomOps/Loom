@@ -10,8 +10,11 @@ COPY loom_use/ loom_use/
 COPY ops/build-info.json ops/build-info.json
 ENV LOOM_BUILD_INFO=ops/build-info.json
 COPY LICENSE THIRD_PARTY_NOTICES.md ./
+# Copied workspace files can be older than binaries from another checkout in the shared cache.
 RUN --mount=type=cache,id=loom-registry-rust-1.100.0,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=loom-target-rust-1.100.0-bookworm-${TARGETARCH}-release,target=/src/target,sharing=locked \
+    find rust loom_use -type f -exec touch {} + && \
+    touch Cargo.toml Cargo.lock ops/build-info.json && \
     cargo build --release --locked --workspace && \
     mkdir /native-bin /native-licenses && \
     cp target/release/loom-ops target/release/loom-host target/release/loom-sdk target/release/loom-migrate /native-bin/ && \

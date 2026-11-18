@@ -1,6 +1,7 @@
 """Opt-in immutable native image acceptance on disposable CPU-only roots."""
 import base64,hashlib,json,os,re,socket,subprocess,sys,tempfile,time,unittest,uuid
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.request import Request,urlopen
 ROOT=Path(__file__).resolve().parents[2]
 IMAGE=os.environ.get('LOOM_ITEM_IMAGE_ID','')
@@ -34,6 +35,28 @@ class ItemImageTests(unittest.TestCase):
   with urlopen(Request(self.url+path,headers={'Authorization':'Bearer '+self.token}),timeout=10) as response:return json.load(response)
  def call(self,group,action,args):
   with urlopen(Request(self.url+'/api/actions',data=json.dumps({'group':group,'action':action,'arguments':args}).encode(),headers={'Content-Type':'application/json','Authorization':'Bearer '+self.token}),timeout=10) as response:return json.load(response)
+ def test_image_executes_the_advertised_planned_job_contract(self):
+  outcome={'goal':'Verify the packaged planned Job path'}
+  preview=self.call('jobs','preview_outcome',{'outcome':outcome})
+  self.assertEqual(preview['mode'],'exploratory')
+  unit={'id':'verify','label':'Verify','execution':{'kind':'cpu.smoke','params':{'seconds':0,'fail':False}}}
+  plan={'sealed':True,'units':[unit]}
+  made=self.call('jobs','create',{'key':'image-planned','owner':'owner','notify':'owner','outcome':outcome,'plan':plan})
+  history=self.call('jobs','preview_history',{'ids':[made['id']]})
+  self.assertEqual(history['records'][0]['authority'],'workflow')
+  extra={**unit,'id':'extra'}
+  with self.assertRaises(HTTPError) as conflict:
+   self.call('jobs','revise_plan',{'id':made['id'],'key':'image-extend','expected_revision':made['revision'],'reason':'Verify sealing','plan':{'sealed':True,'units':[unit,extra]}})
+  self.assertEqual(conflict.exception.code,409)
+  with conflict.exception as response:
+   self.assertEqual(json.load(response)['code'],'plan')
+  for _ in range(150):
+   record=self.call('jobs','get',{'id':made['id']})
+   if record['state']=='complete':break
+   time.sleep(.05)
+  self.assertEqual(record['state'],'complete')
+  self.assertEqual(len(record['executions']),1)
+
  def test_readonly_native_image_search_rebuild_and_packaged_clients_preserve_execution(self):
   absent=subprocess.run(['docker','exec',self.container,'sh','-c','command -v python3 || command -v python'],capture_output=True,text=True,timeout=10)
   self.assertNotEqual(absent.returncode,0);self.assertEqual(self.get('/api/status')['engine'],'rust')
