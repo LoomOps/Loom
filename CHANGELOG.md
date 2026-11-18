@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0-alpha.46
+
+- Discover grouped Job parents once per catalog read and avoid recursive family aggregation for unrelated singleton Jobs. Preserve real group summaries and keep large catalog reads separate from the mutation lane.
+- Includes the Inspector placeholder removal and incremental release snapshot fixes from alpha.44/45.
+
 ## 0.2.0-alpha.45
 
 - Preserve source modification times when preparing immutable release snapshots, allowing Cargo to reuse unchanged native components across image builds. Keep generated release identities explicit and existing numbered artifacts unchanged.

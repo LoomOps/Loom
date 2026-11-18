@@ -1,4 +1,5 @@
 //! Browser DTOs preserve native/historical identity and truthful time provenance.
+use crate::query::JOB_LINKS_CTE;
 use crate::{jobs, store::*, Error, Result};
 use rusqlite::OptionalExtension;
 use serde_json::{json, Value};
@@ -97,12 +98,23 @@ impl Application {
             }
             ids.insert(id.to_string());
         }
+        // Discover actual groups once. Running the recursive family query for
+        // every unrelated Job makes a flat catalog quadratic in its Job count.
+        let parents_with_children: std::collections::BTreeSet<String> = rows(
+            &self.db,
+            &format!("WITH {JOB_LINKS_CTE} SELECT DISTINCT parent FROM job_links WHERE parent IS NOT NULL"),
+            &[],
+        )?.into_iter().filter_map(|r| r["parent"].as_str().map(String::from)).collect();
         for entity in &mut entities {
             let id = entity["id"].as_str().unwrap_or("").to_string();
             let root = self.job_family_root(&id)?;
             entity["group_root"] = json!(root);
             if root == id {
-                entity["group_summary"] = self.job_group_summary(&id)?;
+                entity["group_summary"] = if parents_with_children.contains(&id) {
+                    self.job_group_summary(&id)?
+                } else {
+                    Value::Null
+                };
             }
         }
         for row in rows(

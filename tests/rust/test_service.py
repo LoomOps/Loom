@@ -213,6 +213,7 @@ r=t.rpc({'jsonrpc':'2.0','id':4,'method':'tools/call','params':{'name':'system',
   with sqlite3.connect(self.root/'state/ops.sqlite3',timeout=10) as db:db.executemany("INSERT INTO jobs(id,submitter,idem,spec,owner,notify,state,created,cancel) VALUES(?,'owner',?,?,'owner','owner','cancelled',1,1)",[(f'synthetic-{i}',f'synthetic-{i}',json.dumps(spec)) for i in range(5000)])
   with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
    pending=pool.submit(self.get,'/api/dashboard/catalog',timeout=60);time.sleep(.1);started=time.monotonic();self.call('jobs','cancel',{'id':id});elapsed=time.monotonic()-started;self.assertLess(elapsed,2.0);catalog=pending.result(timeout=60);self.assertGreaterEqual(len(catalog['entities']),5001)
+  self.assertTrue(all(e.get('group_summary') is None for e in catalog['entities'] if e['kind']=='job' and e['id'].startswith('synthetic-')))
   self.wait(id,'cancelled')
 
  def test_dashboard_navigation_burst_keeps_catalog_and_inspector_available(self):

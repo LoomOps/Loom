@@ -140,3 +140,5 @@ existing immutable alias for that revision; reject conflicting aliases and keep
 explicit-hash mismatch or missing revision failures. Never substitute the newest
 Runtime. Exact Dashboard projection must use the resolved revision, including
 older granted environments referenced by recorded Jobs.
+
+Native catalog reads discover Job group parents once and aggregate only roots with actual children. Singleton Jobs retain a null group summary; their presence must not cause one full family scan per record. The 5,001-item read fixture preserves the independent two-second mutation-lane assertion.
