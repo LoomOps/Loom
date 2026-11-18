@@ -28,7 +28,7 @@ activitySummary=function(entities,now=Date.now(),liveThrough=now) {
  for(const e of jobs)for(const n of e.loom_workflow?.executions||[])parents.set(n.job,e.id);
  const root=id=>{const seen=new Set();while(parents.get(id)&&!seen.has(id)){seen.add(id);id=parents.get(id);}return id;};
  const groups=new Map();
- for(const e of jobs){const id=root(e.id),known=groups.get(id),intervals=loomGroupWorkIntervals(e);if(known){known.execution_intervals.push(...intervals);if(['running','preparing'].includes(queueState(e).raw))known.properties.state=queueState(e).raw;}else groups.set(id,{...e,id,properties:{...e.properties,record_role:'work'},execution_intervals:[...intervals]});}
+ for(const e of jobs){const id=root(e.id),known=groups.get(id),intervals=workIntervals(e);if(known){known.execution_intervals.push(...intervals);if(['running','preparing'].includes(queueState(e).raw))known.properties.state=queueState(e).raw;}else groups.set(id,{...e,id,properties:{...e.properties,record_role:'work'},execution_intervals:[...intervals]});}
  const work=[...groups.values()];
  // The original interval union and KST day splitting remain authoritative.
  return loomActivitySummary([...source.filter(e=>!['work','loom_job'].includes(e.properties?.record_role)),...work],now,liveThrough);

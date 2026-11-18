@@ -123,46 +123,6 @@ function loomJobClass(entity) {
   const p = entity.properties || {}, c = loomJobContract();
   return {category:p.category_recorded===false?'미기록':c.categories[p.category] || '미기록', mode:c.execution_modes[p.execution_mode] || '미기록'};
 }
-function loomFilteredWorkItems() {
-  const items=workItems(),known=new Set(items.map(e=>e.id));
-  if(state.jobSourceHistory)items.push(...(catalogData.all_entities||[]).filter(e=>e.kind==='job'&&!known.has(e.id)&&e.properties?.consolidated_into&&known.has(e.properties.consolidated_into)));
-  const matching=items.filter(e => ((state.jobHistoryView||'all')==='all'
-      || ((state.jobHistoryView||'all')==='operations'?e.presentation?.scope==='operations':e.presentation?.scope!=='operations'))
-    && (!state.jobCategory || (e.properties?.category || 'other') === state.jobCategory)
-    && (!state.jobExecutionMode || e.properties?.execution_mode === state.jobExecutionMode)
-    && (state.jobSourceHistory || !e.properties?.consolidated_into));
-  const parents=new Set(matching.map(e=>e.id));
-  // A continuation's immediate parent may already be folded into another
-  // execution. Use the authoritative outcome root when it matches the current
-  // filters; otherwise keep matching children visible independently.
-  return matching.filter(e=>state.jobSourceHistory || ![e.group_root!==e.id&&e.group_root,e.presentation?.parent_job].some(id=>id&&parents.has(id)));
-}
-function loomJobFilters() {
-  const c = loomJobContract();
-  const scope=state.jobHistoryView||'all';
-  return '<div class="pa-filter" aria-label="History scope">'+[['all','All'],['research','Research'],['operations','Operations']]
-    .map(([value,label])=>'<button class="pa-pill '+(scope===value?'active':'')+'" aria-pressed="'+(scope===value)+'" data-job-history-view="'+value+'">'+label+'</button>').join('')+'</div>'
-    +'<div class="pa-job-filters">' + [['jobCategory','Job Type',c.categories],['jobExecutionMode','Execution Mode',c.execution_modes]]
-    .map(([key,label,choices]) => '<label>'+label+' <select data-job-filter="'+key+'" aria-label="'+label+'"><option value="">전체</option>'
-      + Object.entries(choices).map(([value,name]) => '<option value="'+esc(value)+'"'+(state[key]===value?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select></label>').join('')+'<label><input type="checkbox" data-job-filter="jobSourceHistory"'+(state.jobSourceHistory?' checked':'')+'> 선행·원본 실행 표시</label></div>';
-}
-root.addEventListener('click',event=>{
-  const button=event.target.closest('[data-job-history-view]');if(!button)return;
-  const pane=ws.panes.find(p=>p.id===button.closest('[data-pane]')?.dataset.pane);if(!pane)return;
-  const view=activeTab(pane).view;view.jobHistoryView=button.dataset.jobHistoryView;view.queueHistoryLimits={};
-  render();persist();
-});
-root.addEventListener('change', event => {
-  const field = event.target.closest('[data-job-filter]');
-  if (!field) return;
-  const pane = ws.panes.find(p => p.id === field.closest('[data-pane]')?.dataset.pane);
-  if (!pane) return;
-  const view = activeTab(pane).view;
-  view[field.dataset.jobFilter] = field.type==='checkbox' ? field.checked : field.value;
-  view.queueHistoryLimits = {};
-  render();persist();
-});
-
 // The existing queue and terminal-history views consume both record families.
 workItems = function() {
   return catKind('job').filter(entity => entity.properties?.record_role === 'work'
@@ -179,8 +139,6 @@ workRow = function(entity, current) {
     row[0] = '<div class="pa-queue-name">' + catLink(entity.id) + '<small>'
       + summary + '</small></div>';
   }
-  const kind = loomJobClass(entity);
-  row[0] += '<small class="pa-job-classification">'+esc(kind.category)+(kind.mode==='미기록'?'':' ('+esc(kind.mode)+')')+'</small>';
   return row;
 };
 
@@ -299,11 +257,14 @@ function loomDetailHeading(html, id) {
     const owner = entity?.owner_profile || {};
     const ownerRow = '<div><dt>Owner</dt><dd title="'+esc(owner.login || '')+'">'+esc(owner.display_name || entity?.properties?.owner_name || entity?.owner || 'Unassigned')+'</dd></div>';
     if (entity?.kind === 'job') {
+      const hasOutput=entity.properties?.has_catalog_output;
+      const outputStatus=typeof hasOutput==='boolean'?(hasOutput?'Yes':'No'):'Unrecorded';
       const properties = document.createElement('div');
       properties.innerHTML = panel('Job Properties', '<dl class="pa-job-properties">'
         + ownerRow + '<div><dt>Status</dt><dd>' + queueBadge(entity) + '</dd></div>'
         + '<div><dt>Task level</dt><dd>' + workVerificationCell(entity) + '</dd></div>'
         + (entity?.properties?.output_storage ? '<div><dt>Output Storage</dt><dd>'+esc(entity.properties.output_storage)+'</dd></div>' : '')
+        + '<div><dt>Has Output</dt><dd>' + outputStatus + '</dd></div>'
         + '<div><dt>Job Type</dt><dd>' + esc(loomJobClass(entity).category) + '</dd></div>'
         + '<div><dt title="Full: main run; Pilot: reduced trial; Smoke: startup check">Execution Mode</dt><dd>' + esc(loomJobClass(entity).mode) + '</dd></div></dl>');
       title.after(...properties.children);

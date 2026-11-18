@@ -1,14 +1,6 @@
 // Queue controls use the same server snapshot and eligibility as dispatch.
 let loomQueueBusy = false;
 let loomQueueNotice = '';
-const loomJobGroup=e=>state.page==='queue'&&!state.entity&&e.group_summary?.complete?e.group_summary:null;
-const loomGroupQueueTimes=queueTimes;
-queueTimes=function(e){const original=loomGroupQueueTimes(e),g=loomJobGroup(e);return g?{...original,started:queueMillis(g.first_started),ended:queueMillis(g.last_ended),exited:queueMillis(g.last_ended),activity:queueMillis(g.last_activity)}:original;};
-const loomGroupWorkIntervals=workIntervals;
-workIntervals=function(e){return loomJobGroup(e)?.execution_intervals||loomGroupWorkIntervals(e);};
-// Current occupancy follows the group's live physical work. The root's own
-// completion remains unchanged in its exact detail and the group row's note.
-function loomCurrentWorkItems(rows){const roots=new Set(rows.filter(e=>loomJobGroup(e)?.active_state).map(e=>e.id));return rows.filter(e=>!e.group_root||e.group_root===e.id||!roots.has(e.group_root));}
 const loomQueueEntries = () => [...(catalogData.queue?.entries||[]),...(catalogData.queue?.logical_entries||[])];
 const loomQueueEntry = id => loomQueueEntries().find(row => row.id === id);
 function loomQueueReason(row) {
@@ -41,7 +33,7 @@ function loomQueueControls(id) {
     +(row.can_reorder && choices.length?'<label>기준 Job <select data-queue-reference aria-label="기준 Job">'+choices.map(r=>'<option value="'+esc(r.id)+'">'+esc('#'+r.position+' · '+(r.owner_profile?.display_name || r.owner)+' · '+r.id)+'</option>').join('')+'</select></label>'+button('reorder','앞에 배치','before')+button('reorder','뒤에 배치','after'):'')
     +'</div></details>';
 }
-workItems=function(){
+workItems=function(pageIds=null){
   // Resource occupancy and execution history are independent of catalog view.
   const items=(catalogData.all_entities||catalogData.entities).filter(e=>e.kind==='job'&&!e.loom_registry
     && ['work','loom_job'].includes(e.properties?.record_role));
@@ -49,6 +41,7 @@ workItems=function(){
   // Prefer its queue projection; both exact source records remain addressable.
   const logical=new Map();
   for(const e of items){
+    if(pageIds&&!pageIds.has(e.id))continue;
     const key=e.properties?.record_role==='work'&&['queue','catalog'].includes(e.loom_history?.source)?'historical-work:'+e.loom_history.id:e.id;
     if(!logical.has(key)||e.loom_history?.source==='queue')logical.set(key,e);
   }
@@ -57,7 +50,9 @@ workItems=function(){
   // Only authoritative workflow membership collapses execution nodes. A
   // presentation parent may group a separate follow-up; it must not hide it.
   const nodes=new Set(items.flatMap(e=>(e.loom_workflow?.executions||[]).map(n=>n.job)));
-  return displayed.filter(e=>!nodes.has(e.id)&&!e.properties?.consolidated_into).concat(loomQueueEntries().filter(r=>!known.has(r.id)).map(r=>({id:r.id,label:r.id,kind:'job',loom_queue_shared:true,presentation:r.presentation,
+  const jobs=displayed.filter(e=>!nodes.has(e.id)&&!e.properties?.workflow_root&&!e.properties?.consolidated_into);
+  if(pageIds)return jobs;
+  return jobs.concat(loomQueueEntries().filter(r=>!known.has(r.id)&&(!r.workflow||r.workflow===r.id)).map(r=>({id:r.id,label:r.id,kind:'job',loom_queue_shared:true,presentation:r.presentation,
     properties:{record_role:'loom_job',state:r.state,owner:r.owner}})));
 };
 function loomQueueCompare(a,b) {
@@ -67,12 +62,6 @@ function loomQueueCompare(a,b) {
 const loomQueueWorkRow=workRow;
 workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
-  const group=loomJobGroup(entity);
-  if(group){
-    const latest=group.latest_job,failed=(group.states.failed||0)+(group.states.interrupted||0)+(group.states.result_failed||0);
-    row[0]+='<small class="pa-job-group" data-job-group="'+esc(entity.id)+'">'+group.execution_count+' executions'+(failed?' · Failed '+failed:'')+'</small>'
-      +(latest?.id?'<small class="pa-job-latest">Latest · '+catLink(latest.id,latest.label||latest.id)+' · '+esc(latest.state)+'</small>':'');
-  }
   const tasks=loomTaskLabels(entity);
   if(current && q){
     if(entity.loom_queue_shared)row[0]='<div class="pa-queue-name">'+esc(q.id)+'<small>'+esc(q.owner)+' · 공유 큐</small></div>';
@@ -86,8 +75,6 @@ workRow=function(entity,current){
 const loomQueueStateBefore=queueState;
 queueState=function(entity){
  const q=loomQueueEntry(entity.id),base=loomQueueStateBefore(entity);
- const active=loomJobGroup(entity)?.active_state;
- if(active){const grouped=loomQueueStateBefore({properties:{state:active}});return {raw:active,info:[grouped.info[0],'Group · '+grouped.info[1],grouped.info[2],false]};}
  if(q?.held)return {raw:base.raw,info:['paused',q.state==='preparing'?'Preparing · Hold requested':'Held','Ⅱ',false]};
  if(q && ['failed','interrupted'].includes(q.state))return {raw:q.state,info:['recovery',loomQueueReason(q),'!',false]};
  return base;
@@ -120,23 +107,3 @@ window.addEventListener('message',event=>{
  loomQueueNotice=error===403?'이 Job을 변경할 권한이 없습니다.':error?'변경을 확인하지 못했습니다. 큐를 새로고침해 주세요.':data?.changed?'큐 변경 완료':data?.reason==='not_waiting'?'이미 실행되었거나 대기 상태가 아닙니다.':'이미 요청한 상태입니다.';
  loomEntityReads.clear();scheduleCatalogRender();
 });
-
-function loomDevelopmentJob(e){
- // Queue grouping must not depend on which output pages happen to be cached.
- return e.properties?.category==='development'||e.properties?.purpose==='engineering'||e.presentation?.role==='support';
-}
-const loomDevelopmentWorkRow=workRow;
-workRow=function(e,current){const row=loomDevelopmentWorkRow(e,current);if(loomDevelopmentJob(e))row[0]='<small class="pa-job-development">Development / Supporting</small>'+row[0];return row;};
-const loomDevelopmentQueue=queue;
-queue=function(){
- const t=document.createElement('template');t.innerHTML=loomDevelopmentQueue();
- const p=[...t.content.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('현재 큐'));
- const table=p?.querySelector('table');if(!table)return t.innerHTML;
- const support=[...table.querySelectorAll('tbody>tr')].filter(tr=>tr.querySelector('.pa-job-development'));
- if(!support.length)return t.innerHTML;
- const clone=table.cloneNode(true);clone.querySelector('tbody').replaceChildren(...support);
- const section=document.createElement('div');section.innerHTML=panel('Development / Supporting · '+support.length,'<div class="pa-table-wrap"></div>');section.querySelector('.pa-table-wrap').append(clone);p.after(...section.children);
- const remaining=table.querySelectorAll('tbody>tr').length;p.querySelector('h2').textContent='현재 큐 · '+remaining;
- if(!remaining)table.parentElement.innerHTML='<div class="pa-empty">—</div>';
- return t.innerHTML;
-};

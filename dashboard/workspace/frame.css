@@ -2,11 +2,6 @@
 #pai-studio .pa-doc-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:16px; }
 #pai-studio .pa-loom-preview { max-width: 100%; max-height: 60vh; display: block; }
 
-.pa-job-filters { display:flex; flex-wrap:wrap; gap:16px; margin:12px 0; }
-.pa-job-filters label { display:flex; align-items:center; gap:8px; font-size:12px; }
-.pa-job-filters select { font:inherit; color:inherit; background:var(--surface,transparent); border:1px solid var(--line,#ccd2df); border-radius:6px; padding:6px 8px; }
-.pa-job-classification { display:block; margin-top:4px; opacity:.75; font-size:11px; }
-
 /* MCP reference keeps the existing workspace typography and theme tokens. */
 #pai-studio .pa-loom-mcp { margin-top:16px; }
 #pai-studio .pa-doc-status,#pai-studio .pa-doc-title { display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap; }

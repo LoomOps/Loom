@@ -83,11 +83,10 @@ Acceptance outside these fixtures:
 
 A bootstrap is only a seed. Same-revision refresh preserves loaded list pages and
 parent-side detail identities. A new revision invalidates page cursors and pending
-responses before the visible list reloads. Research history uses its selected
-scope; current queue occupants remain visible in every presentation view.
-Dashboard history starts its paged Job read when bootstrap data patches the pane,
-without requiring navigation or a filter change. Its pager remains available on
-subsequent background patches and in restored panes.
+responses before the visible list reloads. Dashboard history starts its paged Job
+read when bootstrap data patches the pane. It waits for the first complete Job
+page and keeps the previous page during refresh or partial reads. The queue
+shows current user-owned Jobs independently of history pagination.
 An unloaded native deep link resolves its logical Item alias or exact native
 entity, Job or Task identity before text search; it does not require the record to be among bootstrap or first-page rows.
 Tasks appear as filters and record labels, without a standalone Scenario tab.
@@ -126,9 +125,8 @@ available below. Dataset role labels remain source metadata, not browse headings
 Output purpose filters separate Research and Development using declared roles,
 engineering classifications and explicit Observer model roles. Main outputs sort
 before supporting records. Observer weights remain Models; executable code uses
-Tools or lifecycle Components. Development Jobs use category `development` and
-normal resource admission; their current queue rows have a separate panel without
-hiding resource occupants. Historical Jobs are not rewritten to invent a category.
+Tools or lifecycle Components. Job Type and Execution Mode remain in Job detail.
+Historical Jobs retain their recorded metadata.
 
 A list emphasizes one unambiguous declared primary metric, one exact sole outcome
 highlight, or one sole metric. Multiple primaries/populations have no synthesized
@@ -197,11 +195,19 @@ unrelated report tabs. Structured metric definitions render as escaped values,
 and long labels wrap without forcing the pane wider. Comparison initially chooses
 a model with an available evaluation; explicit user choices remain unchanged.
 
-Home Activity and the default terminal Job history include user work across
-Research and Operations. Scientific Outputs filters do not hide Runtime
-preparation or diagnostics from them. Explicit history scope filters remain.
-Scope-qualified Activity survives bootstraps until a replacement arrives;
-responses from older revisions cannot overwrite the current observation.
+The current queue, terminal history and Home Activity include user work across
+Research and Operations without a Job scope selector. System ownership identifies
+platform work excluded from the Dashboard. Operations records the purpose of work
+regardless of ownership. Terminal history gives independently submitted Jobs
+their own rows. Workflow Nodes and consolidated sources remain in their owning
+Job's detail. Presentation-only parent links preserve discoverability in detail.
+
+Job Properties shows Has Output for the publication of a dataset, model or
+experiment. Workflow outputs are checked through their published aliases. Logs,
+generic artifacts and Runtime receipts do not qualify. Historical records
+without publication evidence show Unrecorded. The property does not determine
+execution ownership, publication requirements or Job completion.
+Activity responses from older revisions cannot overwrite the current observation.
 
 An asynchronous bootstrap refresh must renew Activity for its new revision even
 when no full render occurs. Keep one in-flight request per revision/view, ignore

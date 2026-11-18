@@ -15,7 +15,7 @@ function loomCatalogActivity(){
  });
 }
 const loomCatalogKinds={models:'model',datasets:'dataset',experiments:'experiment',issues:'issue',profiles:'profile',components:'component',tools:'tool',runtimes:'runtime',dependencies:'dependency',scenarios:'scenario',queue:'job',files:'explorer'};
-function loomCatalogQuery(kind){if(kind==='explorer')return {kinds:['dataset','model','experiment','artifact'],view:'all',role:'all',limit:50};const view=kind==='job'?(state.jobHistoryView||'all'):catalogData.presentation_view||'research';return {...(['profile','component','tool','runtime'].includes(kind)?{...loomRegistryArgs(state.registryFilter||'current'),...(state.registryFilter==='archived'?{history:'all'}:{})}:{}),kinds:[kind],view:view==='builtin'?'all':view,role:kind==='job'?'all':['model','dataset','experiment'].includes(kind)?((state.outputPurpose||(view==='research'?'research':'all'))==='research'?'main':'all'):kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(['model','dataset','experiment'].includes(kind)&&state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
+function loomCatalogQuery(kind){if(kind==='job')return {kinds:['job'],view:'all',role:'all',limit:50};if(kind==='explorer')return {kinds:['dataset','model','experiment','artifact'],view:'all',role:'all',limit:50};const view=catalogData.presentation_view||'research';return {...(['profile','component','tool','runtime'].includes(kind)?{...loomRegistryArgs(state.registryFilter||'current'),...(state.registryFilter==='archived'?{history:'all'}:{})}:{}),kinds:[kind],view:view==='builtin'?'all':view,role:['model','dataset','experiment'].includes(kind)?((state.outputPurpose||(view==='research'?'research':'all'))==='research'?'main':'all'):kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(['model','dataset','experiment'].includes(kind)&&state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 // A bootstrap is a bounded seed, never a replacement for pages from its revision.
 function loomCatalogRefresh(value){
@@ -24,7 +24,7 @@ function loomCatalogRefresh(value){
  const open=new Set(ws.panes.map(p=>activeTab(p).view.entity).filter(Boolean));
  if(changed){
   // A revision invalidates cursors, not the last complete visible list.
-  for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],desired:Math.min(4000,page.ids?.length||page.query.limit||50),loaded:false,busy:false,cursor:null,error:null});
+  for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],committed:page.committed,desired:Math.min(4000,page.ids?.length||page.query.limit||50),loaded:false,busy:false,cursor:null,error:null});
   loomScenarioGraphs.clear();loomCatalogRevision=value.revision;loomActivityView=null;
   for(const id of open)queueMicrotask(async()=>{
    if(!catalogData.capabilities?.catalog_pages||loomCatalogOpening.has(id))return;
@@ -85,12 +85,17 @@ async function loomCatalogLoad(kind,more=false,query=loomCatalogQuery(kind)){
   }while(!more&&cursor&&entities.length<desired&&!result.partial&&entities.length<4000);
   // Commit a whole replacement, including previously loaded pages, in one paint.
   const ids=[...new Set(entities.map(e=>e.id))];
-  page.ids=more?[...new Set([...page.ids,...ids])]:result.partial&&page.ids.length>ids.length?page.ids:ids;
-  loomCatalogMerge({...result,entities});
-  page.cursor=cursor;page.loaded=true;page.partial=result.partial;
-  if(result.partial&&!more&&(page.retries||0)<4){
+  if(kind!=='job'||!result.partial){
+   page.ids=more?[...new Set([...page.ids,...ids])]:result.partial&&page.ids.length>ids.length?page.ids:ids;
+   loomCatalogMerge({...result,entities});
+   page.cursor=cursor;page.committed=true;
+  }
+  page.loaded=true;page.partial=result.partial;
+  if(result.partial&&(!more||kind==='job')&&(page.retries||0)<4){
    page.retries=(page.retries||0)+1;
-   setTimeout(()=>{if(loomCatalogPages.get(key)===page){page.loaded=false;loomCatalogLoad(kind,false,page.query);}},500*page.retries);
+   setTimeout(()=>{if(loomCatalogPages.get(key)===page){page.loaded=false;loomCatalogLoad(kind,more,page.query);}},500*page.retries);
+  }else if(kind==='job'&&result.partial){
+   page.error='종료 이력을 불러오지 못했습니다.';
   }
  }catch(error){
   page.error=error.message;
@@ -105,7 +110,8 @@ function loomCatalogPager(kind){
  if(!catalogData.capabilities?.catalog_pages)return '';
  const query=loomCatalogQuery(kind),key=JSON.stringify(query),page=loomCatalogPages.get(key);
  if(!page?.loaded&&!page?.busy&&!page?.error)queueMicrotask(()=>loomCatalogLoad(kind,false,query));
- return '<div class="pa-catalog-pagination" role="status">'+(page?.error?esc(page.error)+' <button data-catalog-more="'+esc(kind)+'">Retry</button>':page?.busy?'…':page?.cursor?'<button data-catalog-more="'+esc(kind)+'">More</button>':'')+'</div>';
+ const pending=page?.busy||kind==='job'&&(!page?.loaded||page.partial);
+ return '<div class="pa-catalog-pagination" role="status">'+(page?.error?esc(page.error)+' <button data-catalog-more="'+esc(kind)+'">Retry</button>':pending?'…':page?.cursor?'<button data-catalog-more="'+esc(kind)+'">More</button>':'')+'</div>';
 }
 const loomPagedCatalogList=catalogList;
 catalogList=function(kind){return loomPagedCatalogList(kind)+loomCatalogPager(kind);};
@@ -122,13 +128,9 @@ const loomPagedDependencies=loomDependenciesView;
 loomDependenciesView=function(){return loomPagedDependencies()+loomCatalogPager('dependency');};
 const loomPagedScenarios=loomScenarioView;
 loomScenarioView=function(){return loomPagedScenarios()+loomCatalogPager('scenario');};
-// Bootstrap arrival patches pane contents without calling the navigation render.
-// Queue demand must therefore originate in the view, like the other paged lists.
-const loomPagedQueue=queue;
-queue=function(){return loomPagedQueue()+loomCatalogPager('job');};
 const loomPagedRender=render;
 render=function(){
- if(loomCatalogRevision!==catalogData.revision){for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],desired:Math.min(4000,page.ids?.length||50),loaded:false,busy:false,cursor:null});loomCatalogRevision=catalogData.revision;loomActivityView=null;}
+ if(loomCatalogRevision!==catalogData.revision){for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],committed:page.committed,desired:Math.min(4000,page.ids?.length||50),loaded:false,busy:false,cursor:null});loomCatalogRevision=catalogData.revision;loomActivityView=null;}
  loomPagedRender();
  const kind=loomCatalogKinds[state.page];
  if(kind&&!state.entity)loomCatalogPager(kind);

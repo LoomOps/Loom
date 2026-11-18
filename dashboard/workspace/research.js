@@ -3,7 +3,9 @@ const loomResearchRender=render;
 render=function(){
  loomResearchRender();
  const bar=root.querySelector('#pa-breadcrumb');
- if(bar&&!root.querySelector('[data-research-view]')){
+ const existing=root.querySelector('[data-research-view]');
+ if(['queue','activity'].includes(state.page)){existing?.remove();return;}
+ if(bar&&!existing){
   const select=document.createElement('select');select.dataset.researchView='';select.setAttribute('aria-label','Catalog view');
   for(const [value,label] of [['research','Research'],['operations','Operations'],['builtin','Built-in'],['all','All']]){
    const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option);
@@ -26,7 +28,7 @@ loomJobPanel=function(job,entry){
  const family=record?.family;
  if(family){
   const members=(family.members||[]).filter(m=>m.id!==job.id);
-  if(family.root!==job.id)result=panel('Main Job',catLink(family.root))+result;
+  if(family.root!==job.id)result=panel('Related Job',catLink(family.root))+result;
   if(members.length)result+=panel('Related Jobs',catTable(['Job','Parent','State','Runtime'],members.map(m=>[
    catLink(m.id,m.label||m.id),m.parent?catLink(m.parent):'—',esc(m.state),
    (m.runtime_refs||[]).map(r=>catLink('runtime:'+r.id+':'+r.revision,r.id+' · r'+r.revision)).join(' · ')||'—'

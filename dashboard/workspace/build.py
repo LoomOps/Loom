@@ -9,7 +9,7 @@ import re
 from lazy_logs import patch_logs
 
 HERE = Path(__file__).resolve().parent
-SHA = "81edb77dad1269315cbff745751b380d46f2d8ef0a3aa4f3045e8189c696a946"
+SHA = "a40bec12f62ca9ec01b0fd0039e306be939ae38cca6513b74a13817f6361e426"
 
 
 def replace_once(value, old, new):
@@ -86,19 +86,7 @@ def build(original):
  }
  const keepOpen=keyed&&current.nodeName==='DETAILS';""")
 
-    inner = replace_once(inner, 'const ended=rows.filter(e=>queueState(e).info[3]).sort((a,b)=>(queueTimes(b).ended??queueTimes(b).exited??0)',
-                         'const ended=loomFilteredWorkItems().filter(e=>queueState(e).info[3]).sort((a,b)=>(queueTimes(b).ended??queueTimes(b).exited??0)')
-    inner=inner.replace('(queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).ended??queueTimes(a).exited??0)', '(queueTimes(b).activity??queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).activity??queueTimes(a).ended??queueTimes(a).exited??0)')
-    inner = replace_once(inner, "current=rows.filter(e=>!queueState(e).info[3]).sort((a,b)=>(queueTimes(b).created??0)-(queueTimes(a).created??0))", "current=loomCurrentWorkItems(rows).filter(e=>!e.migration?.read_only&&!queueState(e).info[3]).sort(loomQueueCompare)")
-    inner = replace_once(inner, '+panel(`종료 이력 · ${historyFilter', '+loomHistoricalWorkPanel(rows)+panel(`종료 이력 · ${historyFilter')
-    inner = inner.replace('n:rows.filter(e=>queueState(e).info[0]===key).length', 'n:rows.filter(e=>!e.migration?.read_only&&queueState(e).info[0]===key).length')
     inner = replace_once(inner, '${typeLabel[x.e.kind]}</span>', '${typeLabel[x.e.kind]}${x.e.loom_registry?\' · 등록\':\'\'}</span>')
-    inner = replace_once(inner, 'summary+`<div class="pa-queue-caption">사용자 목표', 'summary+loomQueueFeedback()+`<div class="pa-queue-caption">사용자 목표')
-    inner = replace_once(inner, '}`,historyFilters+(shown.length?', '}`,loomJobFilters()+historyFilters+(shown.length?')
-    inner = replace_once(inner, '+loomHistoricalWorkPanel(rows)+panel(`종료 이력', '+loomTimingNotice(rows)+loomHistoricalWorkPanel(rows)+panel(`종료 이력')
-    inner = replace_once(inner, 'table(shown,false)',
-        'table(shown.slice(0,state.queueHistoryLimits?.[historyFilter]||10),false)+loomHistoryMore(shown.length,historyFilter)')
-    inner = replace_once(inner, '+workLogCard(rows);', ';')
     inner = replace_once(inner,
         "if(v.page!=='queue'||v.entity)openView({page:'queue',workLogId:id,openWorkGroups:[id]});else{v.workLogId=id;v.openWorkGroups=[...new Set([...(v.openWorkGroups||[]),id])];render();persist();}",
         "openView({page:'queue',entity:id});")

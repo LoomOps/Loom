@@ -256,11 +256,6 @@ function loomTailscaleIcon(){return `&lt;svg class=&quot;pa-tailscale-symbol&quo
 #pai-studio .pa-doc-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:16px; }
 #pai-studio .pa-loom-preview { max-width: 100%; max-height: 60vh; display: block; }
 
-.pa-job-filters { display:flex; flex-wrap:wrap; gap:16px; margin:12px 0; }
-.pa-job-filters label { display:flex; align-items:center; gap:8px; font-size:12px; }
-.pa-job-filters select { font:inherit; color:inherit; background:var(--surface,transparent); border:1px solid var(--line,#ccd2df); border-radius:6px; padding:6px 8px; }
-.pa-job-classification { display:block; margin-top:4px; opacity:.75; font-size:11px; }
-
 /* MCP reference keeps the existing workspace typography and theme tokens. */
 #pai-studio .pa-loom-mcp { margin-top:16px; }
 #pai-studio .pa-doc-status,#pai-studio .pa-doc-title { display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap; }
@@ -2334,7 +2329,7 @@ queue=function(){
  const rows=catKind(&#x27;job&#x27;),current=rows.filter(e=&gt;!queueState(e).info[3]).sort((a,b)=&gt;(queueTimes(b).created??-1)-(queueTimes(a).created??-1)||a.id.localeCompare(b.id));
  const ended=rows.filter(e=&gt;queueState(e).info[3]).sort((a,b)=&gt;(queueTimes(b).ended??queueTimes(b).created??-1)-(queueTimes(a).ended??queueTimes(a).created??-1)||a.id.localeCompare(b.id));
  const filter=state.queueHistoryFilter||&#x27;all&#x27;,shown=ended.filter(e=&gt;filter===&#x27;all&#x27;||queueState(e).info[0]===filter);
- const counts=[[&#x27;running&#x27;,&#x27;실행 중&#x27;],[&#x27;waiting&#x27;,&#x27;대기&#x27;],[&#x27;blocked&#x27;,&#x27;보류&#x27;],[&#x27;complete&#x27;,&#x27;Complete&#x27;],[&#x27;failed&#x27;,&#x27;Failed&#x27;],[&#x27;cancelled&#x27;,&#x27;Cancelled / Skipped&#x27;],[&#x27;unknown&#x27;,&#x27;미확인&#x27;]].map(([key,label])=&gt;({key,label,n:rows.filter(e=&gt;!e.migration?.read_only&amp;&amp;queueState(e).info[0]===key).length}));
+ const counts=[[&#x27;running&#x27;,&#x27;실행 중&#x27;],[&#x27;waiting&#x27;,&#x27;대기&#x27;],[&#x27;blocked&#x27;,&#x27;보류&#x27;],[&#x27;complete&#x27;,&#x27;Complete&#x27;],[&#x27;failed&#x27;,&#x27;Failed&#x27;],[&#x27;cancelled&#x27;,&#x27;Cancelled / Skipped&#x27;],[&#x27;unknown&#x27;,&#x27;미확인&#x27;]].map(([key,label])=&gt;({key,label,n:rows.filter(e=&gt;queueState(e).info[0]===key).length}));
  const summary=`&lt;div class=&quot;pa-queue-counts&quot;&gt;${counts.filter(x=&gt;x.n||[&#x27;running&#x27;,&#x27;waiting&#x27;,&#x27;complete&#x27;,&#x27;failed&#x27;].includes(x.key)).map(x=&gt;`&lt;div class=&quot;pa-queue-count pa-job-${x.key}&quot;&gt;&lt;span&gt;${x.label}&lt;/span&gt;&lt;strong&gt;${x.n}&lt;/strong&gt;&lt;/div&gt;`).join(&#x27;&#x27;)}&lt;/div&gt;`;
  const filters=`&lt;div class=&quot;pa-filter&quot; aria-label=&quot;종료 이력 필터&quot;&gt;${[[&#x27;all&#x27;,&#x27;전체&#x27;],[&#x27;complete&#x27;,&#x27;Complete&#x27;],[&#x27;failed&#x27;,&#x27;Failed&#x27;],[&#x27;cancelled&#x27;,&#x27;Cancelled / Skipped&#x27;]].map(([v,l])=&gt;`&lt;button class=&quot;pa-pill ${filter===v?&#x27;active&#x27;:&#x27;&#x27;}&quot; aria-pressed=&quot;${filter===v}&quot; data-queue-history=&quot;${v}&quot;&gt;${l}&lt;/button&gt;`).join(&#x27;&#x27;)}&lt;/div&gt;`;
  const table=items=&gt;`&lt;div class=&quot;pa-queue-table&quot;&gt;${catTable([&#x27;작업&#x27;,&#x27;상태&#x27;,&#x27;등록 시각&#x27;,&#x27;실행 시작&#x27;,&#x27;실행 종료&#x27;,&#x27;실행 시간&#x27;],items.map(queueRow))}&lt;/div&gt;`;
@@ -2741,14 +2736,17 @@ function workLogCard(items){
  return panel(&#x27;Execution log&#x27;,`&lt;div class=&quot;pa-work-log-controls&quot;&gt;&lt;label&gt;Job &lt;select data-work-log-filter&gt;&lt;option value=&quot;all&quot;&gt;All Jobs&lt;/option&gt;${items.map(e=&gt;`&lt;option value=&quot;${esc(e.id)}&quot; ${selected===e.id?&#x27;selected&#x27;:&#x27;&#x27;}&gt;${esc(e.label)}&lt;/option&gt;`).join(&#x27;&#x27;)}&lt;/select&gt;&lt;/label&gt;${filters}&lt;/div&gt;${chosen.map(e=&gt;`&lt;details class=&quot;pa-work-log-group&quot; data-work-group=&quot;${esc(e.id)}&quot; ${state.openWorkGroups?.includes(e.id)?&#x27;open&#x27;:&#x27;&#x27;}&gt;&lt;summary&gt;${esc(e.label)} &lt;span&gt;${workSteps(e).length} Steps&lt;/span&gt;&lt;/summary&gt;${state.openWorkGroups?.includes(e.id)?workStepLog(e):&#x27;&#x27;}&lt;/details&gt;`).join(&#x27;&#x27;)||&#x27;&lt;div class=&quot;pa-empty&quot;&gt;등록된 실행 기록이 없습니다.&lt;/div&gt;&#x27;}`);
 }
 queue=function(){
- const rows=workItems(),current=loomCurrentWorkItems(rows).filter(e=&gt;!e.migration?.read_only&amp;&amp;!queueState(e).info[3]).sort(loomQueueCompare);
- const ended=loomFilteredWorkItems().filter(e=&gt;queueState(e).info[3]).sort((a,b)=&gt;(queueTimes(b).activity??queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).activity??queueTimes(a).ended??queueTimes(a).exited??0));
- const historyFilter=state.queueHistoryFilter||&#x27;all&#x27;,shown=ended.filter(e=&gt;historyFilter===&#x27;all&#x27;||queueState(e).info[0]===historyFilter);
- const historyFilters=`&lt;div class=&quot;pa-filter&quot; aria-label=&quot;종료 이력 상태 필터&quot;&gt;${[[&#x27;all&#x27;,&#x27;All&#x27;],[&#x27;complete&#x27;,&#x27;Complete&#x27;],[&#x27;failed&#x27;,&#x27;Failed&#x27;],[&#x27;cancelled&#x27;,&#x27;Cancelled&#x27;]].map(([value,label])=&gt;{const count=value===&#x27;all&#x27;?ended.length:ended.filter(e=&gt;queueState(e).info[0]===value).length;return `&lt;button class=&quot;pa-pill ${historyFilter===value?&#x27;active&#x27;:&#x27;&#x27;}&quot; aria-pressed=&quot;${historyFilter===value}&quot; data-queue-history=&quot;${value}&quot;&gt;${label} · ${count}&lt;/button&gt;`;}).join(&#x27;&#x27;)}&lt;/div&gt;`;
-  const counts=[[&#x27;running&#x27;,&#x27;Running&#x27;],[&#x27;ready&#x27;,&#x27;Ready&#x27;],[&#x27;waiting&#x27;,&#x27;Wait&#x27;],[&#x27;paused&#x27;,&#x27;Paused&#x27;],[&#x27;blocked&#x27;,&#x27;Blocked&#x27;],[&#x27;complete&#x27;,&#x27;Complete&#x27;],[&#x27;failed&#x27;,&#x27;Failed&#x27;]].map(([key,label])=&gt;({key,label,n:rows.filter(e=&gt;!e.migration?.read_only&amp;&amp;queueState(e).info[0]===key).length}));
+ const rows=workItems(),current=rows.filter(e=&gt;!e.migration?.read_only&amp;&amp;!queueState(e).info[3]).sort(loomQueueCompare);
+ const ended=loomHistoryRows();
+ const counts=[[&#x27;running&#x27;,&#x27;Running&#x27;],[&#x27;ready&#x27;,&#x27;Ready&#x27;],[&#x27;waiting&#x27;,&#x27;Wait&#x27;],[&#x27;paused&#x27;,&#x27;Paused&#x27;],[&#x27;blocked&#x27;,&#x27;Blocked&#x27;],[&#x27;complete&#x27;,&#x27;Complete&#x27;],[&#x27;failed&#x27;,&#x27;Failed&#x27;]].map(([key,label])=&gt;({key,label,n:(ended||[]).concat(current).filter(e=&gt;queueState(e).info[0]===key).length}));
  const summary=`&lt;div class=&quot;pa-queue-counts&quot;&gt;${counts.filter(x=&gt;x.n).map(x=&gt;`&lt;div class=&quot;pa-queue-count pa-job-${x.key}&quot;&gt;&lt;span&gt;${x.label}&lt;/span&gt;&lt;strong&gt;${x.n}&lt;/strong&gt;&lt;/div&gt;`).join(&#x27;&#x27;)}&lt;/div&gt;`;
  const table=(items,isCurrent)=&gt;`&lt;div class=&quot;pa-queue-table${isCurrent?&#x27; pa-current-work-queue&#x27;:&#x27;&#x27;}&quot;&gt;${catTable(isCurrent?[&#x27;Job&#x27;,&#x27;상태&#x27;,&#x27;Task Level&#x27;,&#x27;실행 시간&#x27;,&#x27;남은 예상 시간&#x27;,&#x27;시작 예정&#x27;,&#x27;완료 예정&#x27;]:[&#x27;Job&#x27;,&#x27;상태&#x27;,&#x27;Task Level&#x27;,&#x27;실행 시작&#x27;,&#x27;실행 종료&#x27;,&#x27;실행 시간&#x27;],items.map(e=&gt;workRow(e,isCurrent)))}&lt;/div&gt;`;
- return heading(&#x27;WORKSPACE&#x27;,&#x27;Dashboard&#x27;,&#x27;&#x27;)+catStatus()+resourcePanel()+summary+loomQueueFeedback()+`&lt;div class=&quot;pa-queue-caption&quot;&gt;사용자 목표 기준 · KST · 대기 제외 · Job 내부 중복 실행시간 제외&lt;/div&gt;`+panel(`현재 큐 · ${current.length}`,current.length?table(current,true):&#x27;&lt;div class=&quot;pa-empty&quot;&gt;현재 등록된 Job이 없습니다.&lt;/div&gt;&#x27;)+loomTimingNotice(rows)+loomHistoricalWorkPanel(rows)+panel(`종료 이력 · ${historyFilter===&#x27;all&#x27;?ended.length:shown.length+&#x27; / &#x27;+ended.length}`,loomJobFilters()+historyFilters+(shown.length?table(shown.slice(0,state.queueHistoryLimits?.[historyFilter]||10),false)+loomHistoryMore(shown.length,historyFilter):`&lt;div class=&quot;pa-empty&quot;&gt;${ended.length?&#x27;해당 상태의 종료 이력이 없습니다.&#x27;:&#x27;종료된 Job이 없습니다.&#x27;}&lt;/div&gt;`));
+ const history=ended?.length?table(ended.slice(0,state.queueHistoryLimits?.all||10),false)+loomHistoryMore(ended.length)
+   :ended?&#x27;&lt;div class=&quot;pa-empty&quot;&gt;종료된 Job이 없습니다.&lt;/div&gt;&#x27;:&#x27;&#x27;;
+ return heading(&#x27;WORKSPACE&#x27;,&#x27;Dashboard&#x27;,&#x27;&#x27;)+catStatus()+resourcePanel()+summary+loomQueueFeedback()
+   +`&lt;div class=&quot;pa-queue-caption&quot;&gt;사용자 목표 기준 · KST · 대기 제외 · Job 내부 중복 실행시간 제외&lt;/div&gt;`
+   +panel(`현재 큐 · ${current.length}`,current.length?table(current,true):&#x27;&lt;div class=&quot;pa-empty&quot;&gt;현재 등록된 Job이 없습니다.&lt;/div&gt;&#x27;)
+   +loomTimingNotice(rows)+loomHistoricalWorkPanel(rows)+panel(&#x27;종료 이력&#x27;+(ended?&#x27; · &#x27;+ended.length:&#x27;&#x27;),history+loomCatalogPager(&#x27;job&#x27;));
 };
 const detailBeforeWork=catalogDetail;
 catalogDetail=function(id){const e=catEntity(id),derived=workStepRecord(id);if(derived){const parent=catEntity(derived.parent_work_id);return heading(&#x27;STEP&#x27;,derived.label,&#x27;&#x27;)+catStatus()+panel(&#x27;Job&#x27;,catLink(parent.id,parent.label))+panel(&#x27;Execution log&#x27;,workStepLog({...parent,steps:[derived.step]},false));}if(e?.properties?.record_role!==&#x27;work&#x27;)return detailBeforeWork(id);return heading(&#x27;JOB&#x27;,e.label,&#x27;&#x27;,`&lt;div class=&quot;pa-job-header-meta&quot; aria-label=&quot;Job 상태 및 Task level&quot;&gt;&lt;div class=&quot;pa-job-header-field&quot;&gt;&lt;span class=&quot;pa-job-header-label&quot;&gt;Status&lt;/span&gt;${queueBadge(e)}&lt;/div&gt;&lt;div class=&quot;pa-job-header-field&quot;&gt;&lt;span class=&quot;pa-job-header-label&quot;&gt;Task level&lt;/span&gt;${workVerificationCell(e)}&lt;/div&gt;&lt;/div&gt;`)+catStatus()+(workReason(e)?`&lt;p class=&quot;pa-job-detail-reason&quot;&gt;${esc(workReason(e))}&lt;/p&gt;`:&#x27;&#x27;)+panel(&#x27;Execution log&#x27;,workStepLog(e));};
@@ -3541,42 +3539,29 @@ catHostLabel = function(host, showStatus=false) {
 };
 catHostRefresh();
 
-function loomHistoryMore(total, filter) {
-  const limit = state.queueHistoryLimits?.[filter] || 10;
-  if (total &lt;= 10) return &#x27;&#x27;;
+function loomHistoryRows() {
+  const page=loomCatalogPages.get(loomCatalogPageKey(&#x27;job&#x27;));
+  if(catalogData.capabilities?.catalog_pages &amp;&amp; !page?.committed)return null;
+  const ids=catalogData.capabilities?.catalog_pages?new Set(page.ids):null;
+  return workItems(ids).filter(item=&gt;queueState(item).info[3])
+    .sort((a,b)=&gt;(queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).ended??queueTimes(a).exited??0));
+}
+function loomHistoryMore(total) {
+  const limit=state.queueHistoryLimits?.all||10;
+  if(total&lt;=10)return &#x27;&#x27;;
   return &#x27;&lt;div class=&quot;pa-history-more&quot;&gt;&#x27;
-    + (limit &lt; total ? &#x27;&lt;button class=&quot;pa-button&quot; data-history-more=&quot;&#x27;+esc(filter)+&#x27;&quot;&gt;더보기 · &#x27;+Math.min(limit,total)+&#x27; / &#x27;+total+&#x27;&lt;/button&gt;&#x27; : &#x27;&#x27;)
-    + (limit &gt; 10 ? &#x27;&lt;button class=&quot;pa-button&quot; data-history-collapse=&quot;&#x27;+esc(filter)+&#x27;&quot;&gt;접기&lt;/button&gt;&#x27; : &#x27;&#x27;) + &#x27;&lt;/div&gt;&#x27;;
+    +(limit&lt;total?&#x27;&lt;button class=&quot;pa-button&quot; data-history-more&gt;더보기 · &#x27;+limit+&#x27; / &#x27;+total+&#x27;&lt;/button&gt;&#x27;:&#x27;&#x27;)
+    +(limit&gt;10?&#x27;&lt;button class=&quot;pa-button&quot; data-history-collapse&gt;접기&lt;/button&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
 }
 root.addEventListener(&#x27;click&#x27;, event =&gt; {
-  const button = event.target.closest(&#x27;[data-history-more],[data-history-collapse]&#x27;);
-  if (!button) return;
-  const pane = ws.panes.find(p =&gt; p.id === button.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);
-  if (!pane) return;
-  const view = activeTab(pane).view;
-  const key = button.dataset.historyMore ?? button.dataset.historyCollapse;
-  view.queueHistoryLimits = {...view.queueHistoryLimits,
-    [key]: button.hasAttribute(&#x27;data-history-collapse&#x27;) ? 10 : (view.queueHistoryLimits?.[key] || 10) + 10};
-  const panel = button.closest(&#x27;.pa-panel&#x27;);
-  const previous = state;
-  state = view;
-  try {
-    const rows = loomFilteredWorkItems().filter(item =&gt; queueState(item).info[3])
-      .sort((a,b)=&gt;(queueTimes(b).activity??queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).activity??queueTimes(a).ended??queueTimes(a).exited??0))
-      .filter(item=&gt;key===&#x27;all&#x27;||queueState(item).info[0]===key);
-    const tbody = panel.querySelector(&#x27;tbody&#x27;);
-    tbody.innerHTML = rows.slice(0,view.queueHistoryLimits[key])
-      .map(item=&gt;&#x27;&lt;tr&gt;&#x27;+workRow(item,false).map(cell=&gt;&#x27;&lt;td&gt;&#x27;+cell+&#x27;&lt;/td&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/tr&gt;&#x27;).join(&#x27;&#x27;);
-    for (const link of tbody.querySelectorAll(&#x27;button[data-entity]&#x27;)) {
-      const more = document.createElement(&#x27;button&#x27;);
-      more.className=&#x27;pa-entity-more&#x27;;more.dataset.entityOptions=&#x27;true&#x27;;more._target=link;
-      more.setAttribute(&#x27;aria-label&#x27;,link.textContent.trim()+&#x27; 열기 옵션&#x27;);more.textContent=&#x27;⋯&#x27;;
-      link.insertAdjacentElement(&#x27;afterend&#x27;,more);
-    }
-    panel.querySelector(&#x27;.pa-history-more&#x27;).outerHTML = loomHistoryMore(rows.length,key);
-    panel.querySelector(&#x27;[data-history-more],[data-history-collapse]&#x27;)?.focus({preventScroll:true});
-    if(globalThis.lucide)loomCreateIcons({attrs:{width:16,height:16}});
-  } finally { state = previous; }
+  const button=event.target.closest(&#x27;[data-history-more],[data-history-collapse]&#x27;);
+  if(!button)return;
+  const pane=ws.panes.find(p=&gt;p.id===button.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);
+  if(!pane)return;
+  const view=activeTab(pane).view;
+  view.queueHistoryLimits={all:button.hasAttribute(&#x27;data-history-collapse&#x27;)?10:(view.queueHistoryLimits?.all||10)+10};
+  refreshCatalogPanes();
+  root.querySelector(&#x27;[data-pane=&quot;&#x27;+CSS.escape(pane.id)+&#x27;&quot;] :is([data-history-more],[data-history-collapse])&#x27;)?.focus({preventScroll:true});
   persist();
 });
 
@@ -4332,46 +4317,6 @@ function loomJobClass(entity) {
   const p = entity.properties || {}, c = loomJobContract();
   return {category:p.category_recorded===false?&#x27;미기록&#x27;:c.categories[p.category] || &#x27;미기록&#x27;, mode:c.execution_modes[p.execution_mode] || &#x27;미기록&#x27;};
 }
-function loomFilteredWorkItems() {
-  const items=workItems(),known=new Set(items.map(e=&gt;e.id));
-  if(state.jobSourceHistory)items.push(...(catalogData.all_entities||[]).filter(e=&gt;e.kind===&#x27;job&#x27;&amp;&amp;!known.has(e.id)&amp;&amp;e.properties?.consolidated_into&amp;&amp;known.has(e.properties.consolidated_into)));
-  const matching=items.filter(e =&gt; ((state.jobHistoryView||&#x27;all&#x27;)===&#x27;all&#x27;
-      || ((state.jobHistoryView||&#x27;all&#x27;)===&#x27;operations&#x27;?e.presentation?.scope===&#x27;operations&#x27;:e.presentation?.scope!==&#x27;operations&#x27;))
-    &amp;&amp; (!state.jobCategory || (e.properties?.category || &#x27;other&#x27;) === state.jobCategory)
-    &amp;&amp; (!state.jobExecutionMode || e.properties?.execution_mode === state.jobExecutionMode)
-    &amp;&amp; (state.jobSourceHistory || !e.properties?.consolidated_into));
-  const parents=new Set(matching.map(e=&gt;e.id));
-  // A continuation&#x27;s immediate parent may already be folded into another
-  // execution. Use the authoritative outcome root when it matches the current
-  // filters; otherwise keep matching children visible independently.
-  return matching.filter(e=&gt;state.jobSourceHistory || ![e.group_root!==e.id&amp;&amp;e.group_root,e.presentation?.parent_job].some(id=&gt;id&amp;&amp;parents.has(id)));
-}
-function loomJobFilters() {
-  const c = loomJobContract();
-  const scope=state.jobHistoryView||&#x27;all&#x27;;
-  return &#x27;&lt;div class=&quot;pa-filter&quot; aria-label=&quot;History scope&quot;&gt;&#x27;+[[&#x27;all&#x27;,&#x27;All&#x27;],[&#x27;research&#x27;,&#x27;Research&#x27;],[&#x27;operations&#x27;,&#x27;Operations&#x27;]]
-    .map(([value,label])=&gt;&#x27;&lt;button class=&quot;pa-pill &#x27;+(scope===value?&#x27;active&#x27;:&#x27;&#x27;)+&#x27;&quot; aria-pressed=&quot;&#x27;+(scope===value)+&#x27;&quot; data-job-history-view=&quot;&#x27;+value+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;
-    +&#x27;&lt;div class=&quot;pa-job-filters&quot;&gt;&#x27; + [[&#x27;jobCategory&#x27;,&#x27;Job Type&#x27;,c.categories],[&#x27;jobExecutionMode&#x27;,&#x27;Execution Mode&#x27;,c.execution_modes]]
-    .map(([key,label,choices]) =&gt; &#x27;&lt;label&gt;&#x27;+label+&#x27; &lt;select data-job-filter=&quot;&#x27;+key+&#x27;&quot; aria-label=&quot;&#x27;+label+&#x27;&quot;&gt;&lt;option value=&quot;&quot;&gt;전체&lt;/option&gt;&#x27;
-      + Object.entries(choices).map(([value,name]) =&gt; &#x27;&lt;option value=&quot;&#x27;+esc(value)+&#x27;&quot;&#x27;+(state[key]===value?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+esc(name)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;label&gt;&lt;input type=&quot;checkbox&quot; data-job-filter=&quot;jobSourceHistory&quot;&#x27;+(state.jobSourceHistory?&#x27; checked&#x27;:&#x27;&#x27;)+&#x27;&gt; 선행·원본 실행 표시&lt;/label&gt;&lt;/div&gt;&#x27;;
-}
-root.addEventListener(&#x27;click&#x27;,event=&gt;{
-  const button=event.target.closest(&#x27;[data-job-history-view]&#x27;);if(!button)return;
-  const pane=ws.panes.find(p=&gt;p.id===button.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);if(!pane)return;
-  const view=activeTab(pane).view;view.jobHistoryView=button.dataset.jobHistoryView;view.queueHistoryLimits={};
-  render();persist();
-});
-root.addEventListener(&#x27;change&#x27;, event =&gt; {
-  const field = event.target.closest(&#x27;[data-job-filter]&#x27;);
-  if (!field) return;
-  const pane = ws.panes.find(p =&gt; p.id === field.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);
-  if (!pane) return;
-  const view = activeTab(pane).view;
-  view[field.dataset.jobFilter] = field.type===&#x27;checkbox&#x27; ? field.checked : field.value;
-  view.queueHistoryLimits = {};
-  render();persist();
-});
-
 // The existing queue and terminal-history views consume both record families.
 workItems = function() {
   return catKind(&#x27;job&#x27;).filter(entity =&gt; entity.properties?.record_role === &#x27;work&#x27;
@@ -4388,8 +4333,6 @@ workRow = function(entity, current) {
     row[0] = &#x27;&lt;div class=&quot;pa-queue-name&quot;&gt;&#x27; + catLink(entity.id) + &#x27;&lt;small&gt;&#x27;
       + summary + &#x27;&lt;/small&gt;&lt;/div&gt;&#x27;;
   }
-  const kind = loomJobClass(entity);
-  row[0] += &#x27;&lt;small class=&quot;pa-job-classification&quot;&gt;&#x27;+esc(kind.category)+(kind.mode===&#x27;미기록&#x27;?&#x27;&#x27;:&#x27; (&#x27;+esc(kind.mode)+&#x27;)&#x27;)+&#x27;&lt;/small&gt;&#x27;;
   return row;
 };
 
@@ -4508,11 +4451,14 @@ function loomDetailHeading(html, id) {
     const owner = entity?.owner_profile || {};
     const ownerRow = &#x27;&lt;div&gt;&lt;dt&gt;Owner&lt;/dt&gt;&lt;dd title=&quot;&#x27;+esc(owner.login || &#x27;&#x27;)+&#x27;&quot;&gt;&#x27;+esc(owner.display_name || entity?.properties?.owner_name || entity?.owner || &#x27;Unassigned&#x27;)+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;;
     if (entity?.kind === &#x27;job&#x27;) {
+      const hasOutput=entity.properties?.has_catalog_output;
+      const outputStatus=typeof hasOutput===&#x27;boolean&#x27;?(hasOutput?&#x27;Yes&#x27;:&#x27;No&#x27;):&#x27;Unrecorded&#x27;;
       const properties = document.createElement(&#x27;div&#x27;);
       properties.innerHTML = panel(&#x27;Job Properties&#x27;, &#x27;&lt;dl class=&quot;pa-job-properties&quot;&gt;&#x27;
         + ownerRow + &#x27;&lt;div&gt;&lt;dt&gt;Status&lt;/dt&gt;&lt;dd&gt;&#x27; + queueBadge(entity) + &#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;
         + &#x27;&lt;div&gt;&lt;dt&gt;Task level&lt;/dt&gt;&lt;dd&gt;&#x27; + workVerificationCell(entity) + &#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;
         + (entity?.properties?.output_storage ? &#x27;&lt;div&gt;&lt;dt&gt;Output Storage&lt;/dt&gt;&lt;dd&gt;&#x27;+esc(entity.properties.output_storage)+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27; : &#x27;&#x27;)
+        + &#x27;&lt;div&gt;&lt;dt&gt;Has Output&lt;/dt&gt;&lt;dd&gt;&#x27; + outputStatus + &#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;
         + &#x27;&lt;div&gt;&lt;dt&gt;Job Type&lt;/dt&gt;&lt;dd&gt;&#x27; + esc(loomJobClass(entity).category) + &#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;
         + &#x27;&lt;div&gt;&lt;dt title=&quot;Full: main run; Pilot: reduced trial; Smoke: startup check&quot;&gt;Execution Mode&lt;/dt&gt;&lt;dd&gt;&#x27; + esc(loomJobClass(entity).mode) + &#x27;&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&#x27;);
       title.after(...properties.children);
@@ -4612,14 +4558,6 @@ queueState=function(entity){
 // Queue controls use the same server snapshot and eligibility as dispatch.
 let loomQueueBusy = false;
 let loomQueueNotice = &#x27;&#x27;;
-const loomJobGroup=e=&gt;state.page===&#x27;queue&#x27;&amp;&amp;!state.entity&amp;&amp;e.group_summary?.complete?e.group_summary:null;
-const loomGroupQueueTimes=queueTimes;
-queueTimes=function(e){const original=loomGroupQueueTimes(e),g=loomJobGroup(e);return g?{...original,started:queueMillis(g.first_started),ended:queueMillis(g.last_ended),exited:queueMillis(g.last_ended),activity:queueMillis(g.last_activity)}:original;};
-const loomGroupWorkIntervals=workIntervals;
-workIntervals=function(e){return loomJobGroup(e)?.execution_intervals||loomGroupWorkIntervals(e);};
-// Current occupancy follows the group&#x27;s live physical work. The root&#x27;s own
-// completion remains unchanged in its exact detail and the group row&#x27;s note.
-function loomCurrentWorkItems(rows){const roots=new Set(rows.filter(e=&gt;loomJobGroup(e)?.active_state).map(e=&gt;e.id));return rows.filter(e=&gt;!e.group_root||e.group_root===e.id||!roots.has(e.group_root));}
 const loomQueueEntries = () =&gt; [...(catalogData.queue?.entries||[]),...(catalogData.queue?.logical_entries||[])];
 const loomQueueEntry = id =&gt; loomQueueEntries().find(row =&gt; row.id === id);
 function loomQueueReason(row) {
@@ -4652,7 +4590,7 @@ function loomQueueControls(id) {
     +(row.can_reorder &amp;&amp; choices.length?&#x27;&lt;label&gt;기준 Job &lt;select data-queue-reference aria-label=&quot;기준 Job&quot;&gt;&#x27;+choices.map(r=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(r.id)+&#x27;&quot;&gt;&#x27;+esc(&#x27;#&#x27;+r.position+&#x27; · &#x27;+(r.owner_profile?.display_name || r.owner)+&#x27; · &#x27;+r.id)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;+button(&#x27;reorder&#x27;,&#x27;앞에 배치&#x27;,&#x27;before&#x27;)+button(&#x27;reorder&#x27;,&#x27;뒤에 배치&#x27;,&#x27;after&#x27;):&#x27;&#x27;)
     +&#x27;&lt;/div&gt;&lt;/details&gt;&#x27;;
 }
-workItems=function(){
+workItems=function(pageIds=null){
   // Resource occupancy and execution history are independent of catalog view.
   const items=(catalogData.all_entities||catalogData.entities).filter(e=&gt;e.kind===&#x27;job&#x27;&amp;&amp;!e.loom_registry
     &amp;&amp; [&#x27;work&#x27;,&#x27;loom_job&#x27;].includes(e.properties?.record_role));
@@ -4660,6 +4598,7 @@ workItems=function(){
   // Prefer its queue projection; both exact source records remain addressable.
   const logical=new Map();
   for(const e of items){
+    if(pageIds&amp;&amp;!pageIds.has(e.id))continue;
     const key=e.properties?.record_role===&#x27;work&#x27;&amp;&amp;[&#x27;queue&#x27;,&#x27;catalog&#x27;].includes(e.loom_history?.source)?&#x27;historical-work:&#x27;+e.loom_history.id:e.id;
     if(!logical.has(key)||e.loom_history?.source===&#x27;queue&#x27;)logical.set(key,e);
   }
@@ -4668,7 +4607,9 @@ workItems=function(){
   // Only authoritative workflow membership collapses execution nodes. A
   // presentation parent may group a separate follow-up; it must not hide it.
   const nodes=new Set(items.flatMap(e=&gt;(e.loom_workflow?.executions||[]).map(n=&gt;n.job)));
-  return displayed.filter(e=&gt;!nodes.has(e.id)&amp;&amp;!e.properties?.consolidated_into).concat(loomQueueEntries().filter(r=&gt;!known.has(r.id)).map(r=&gt;({id:r.id,label:r.id,kind:&#x27;job&#x27;,loom_queue_shared:true,presentation:r.presentation,
+  const jobs=displayed.filter(e=&gt;!nodes.has(e.id)&amp;&amp;!e.properties?.workflow_root&amp;&amp;!e.properties?.consolidated_into);
+  if(pageIds)return jobs;
+  return jobs.concat(loomQueueEntries().filter(r=&gt;!known.has(r.id)&amp;&amp;(!r.workflow||r.workflow===r.id)).map(r=&gt;({id:r.id,label:r.id,kind:&#x27;job&#x27;,loom_queue_shared:true,presentation:r.presentation,
     properties:{record_role:&#x27;loom_job&#x27;,state:r.state,owner:r.owner}})));
 };
 function loomQueueCompare(a,b) {
@@ -4678,12 +4619,6 @@ function loomQueueCompare(a,b) {
 const loomQueueWorkRow=workRow;
 workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
-  const group=loomJobGroup(entity);
-  if(group){
-    const latest=group.latest_job,failed=(group.states.failed||0)+(group.states.interrupted||0)+(group.states.result_failed||0);
-    row[0]+=&#x27;&lt;small class=&quot;pa-job-group&quot; data-job-group=&quot;&#x27;+esc(entity.id)+&#x27;&quot;&gt;&#x27;+group.execution_count+&#x27; executions&#x27;+(failed?&#x27; · Failed &#x27;+failed:&#x27;&#x27;)+&#x27;&lt;/small&gt;&#x27;
-      +(latest?.id?&#x27;&lt;small class=&quot;pa-job-latest&quot;&gt;Latest · &#x27;+catLink(latest.id,latest.label||latest.id)+&#x27; · &#x27;+esc(latest.state)+&#x27;&lt;/small&gt;&#x27;:&#x27;&#x27;);
-  }
   const tasks=loomTaskLabels(entity);
   if(current &amp;&amp; q){
     if(entity.loom_queue_shared)row[0]=&#x27;&lt;div class=&quot;pa-queue-name&quot;&gt;&#x27;+esc(q.id)+&#x27;&lt;small&gt;&#x27;+esc(q.owner)+&#x27; · 공유 큐&lt;/small&gt;&lt;/div&gt;&#x27;;
@@ -4697,8 +4632,6 @@ workRow=function(entity,current){
 const loomQueueStateBefore=queueState;
 queueState=function(entity){
  const q=loomQueueEntry(entity.id),base=loomQueueStateBefore(entity);
- const active=loomJobGroup(entity)?.active_state;
- if(active){const grouped=loomQueueStateBefore({properties:{state:active}});return {raw:active,info:[grouped.info[0],&#x27;Group · &#x27;+grouped.info[1],grouped.info[2],false]};}
  if(q?.held)return {raw:base.raw,info:[&#x27;paused&#x27;,q.state===&#x27;preparing&#x27;?&#x27;Preparing · Hold requested&#x27;:&#x27;Held&#x27;,&#x27;Ⅱ&#x27;,false]};
  if(q &amp;&amp; [&#x27;failed&#x27;,&#x27;interrupted&#x27;].includes(q.state))return {raw:q.state,info:[&#x27;recovery&#x27;,loomQueueReason(q),&#x27;!&#x27;,false]};
  return base;
@@ -4732,32 +4665,14 @@ window.addEventListener(&#x27;message&#x27;,event=&gt;{
  loomEntityReads.clear();scheduleCatalogRender();
 });
 
-function loomDevelopmentJob(e){
- // Queue grouping must not depend on which output pages happen to be cached.
- return e.properties?.category===&#x27;development&#x27;||e.properties?.purpose===&#x27;engineering&#x27;||e.presentation?.role===&#x27;support&#x27;;
-}
-const loomDevelopmentWorkRow=workRow;
-workRow=function(e,current){const row=loomDevelopmentWorkRow(e,current);if(loomDevelopmentJob(e))row[0]=&#x27;&lt;small class=&quot;pa-job-development&quot;&gt;Development / Supporting&lt;/small&gt;&#x27;+row[0];return row;};
-const loomDevelopmentQueue=queue;
-queue=function(){
- const t=document.createElement(&#x27;template&#x27;);t.innerHTML=loomDevelopmentQueue();
- const p=[...t.content.querySelectorAll(&#x27;.pa-panel&#x27;)].find(p=&gt;p.querySelector(&#x27;h2&#x27;)?.textContent.startsWith(&#x27;현재 큐&#x27;));
- const table=p?.querySelector(&#x27;table&#x27;);if(!table)return t.innerHTML;
- const support=[...table.querySelectorAll(&#x27;tbody&gt;tr&#x27;)].filter(tr=&gt;tr.querySelector(&#x27;.pa-job-development&#x27;));
- if(!support.length)return t.innerHTML;
- const clone=table.cloneNode(true);clone.querySelector(&#x27;tbody&#x27;).replaceChildren(...support);
- const section=document.createElement(&#x27;div&#x27;);section.innerHTML=panel(&#x27;Development / Supporting · &#x27;+support.length,&#x27;&lt;div class=&quot;pa-table-wrap&quot;&gt;&lt;/div&gt;&#x27;);section.querySelector(&#x27;.pa-table-wrap&#x27;).append(clone);p.after(...section.children);
- const remaining=table.querySelectorAll(&#x27;tbody&gt;tr&#x27;).length;p.querySelector(&#x27;h2&#x27;).textContent=&#x27;현재 큐 · &#x27;+remaining;
- if(!remaining)table.parentElement.innerHTML=&#x27;&lt;div class=&quot;pa-empty&quot;&gt;—&lt;/div&gt;&#x27;;
- return t.innerHTML;
-};
-
 // Display modes share server-computed presentation; direct evidence stays readable.
 const loomResearchRender=render;
 render=function(){
  loomResearchRender();
  const bar=root.querySelector(&#x27;#pa-breadcrumb&#x27;);
- if(bar&amp;&amp;!root.querySelector(&#x27;[data-research-view]&#x27;)){
+ const existing=root.querySelector(&#x27;[data-research-view]&#x27;);
+ if([&#x27;queue&#x27;,&#x27;activity&#x27;].includes(state.page)){existing?.remove();return;}
+ if(bar&amp;&amp;!existing){
   const select=document.createElement(&#x27;select&#x27;);select.dataset.researchView=&#x27;&#x27;;select.setAttribute(&#x27;aria-label&#x27;,&#x27;Catalog view&#x27;);
   for(const [value,label] of [[&#x27;research&#x27;,&#x27;Research&#x27;],[&#x27;operations&#x27;,&#x27;Operations&#x27;],[&#x27;builtin&#x27;,&#x27;Built-in&#x27;],[&#x27;all&#x27;,&#x27;All&#x27;]]){
    const option=document.createElement(&#x27;option&#x27;);option.value=value;option.textContent=label;select.append(option);
@@ -4780,7 +4695,7 @@ loomJobPanel=function(job,entry){
  const family=record?.family;
  if(family){
   const members=(family.members||[]).filter(m=&gt;m.id!==job.id);
-  if(family.root!==job.id)result=panel(&#x27;Main Job&#x27;,catLink(family.root))+result;
+  if(family.root!==job.id)result=panel(&#x27;Related Job&#x27;,catLink(family.root))+result;
   if(members.length)result+=panel(&#x27;Related Jobs&#x27;,catTable([&#x27;Job&#x27;,&#x27;Parent&#x27;,&#x27;State&#x27;,&#x27;Runtime&#x27;],members.map(m=&gt;[
    catLink(m.id,m.label||m.id),m.parent?catLink(m.parent):&#x27;—&#x27;,esc(m.state),
    (m.runtime_refs||[]).map(r=&gt;catLink(&#x27;runtime:&#x27;+r.id+&#x27;:&#x27;+r.revision,r.id+&#x27; · r&#x27;+r.revision)).join(&#x27; · &#x27;)||&#x27;—&#x27;
@@ -4821,7 +4736,7 @@ activitySummary=function(entities,now=Date.now(),liveThrough=now) {
  for(const e of jobs)for(const n of e.loom_workflow?.executions||[])parents.set(n.job,e.id);
  const root=id=&gt;{const seen=new Set();while(parents.get(id)&amp;&amp;!seen.has(id)){seen.add(id);id=parents.get(id);}return id;};
  const groups=new Map();
- for(const e of jobs){const id=root(e.id),known=groups.get(id),intervals=loomGroupWorkIntervals(e);if(known){known.execution_intervals.push(...intervals);if([&#x27;running&#x27;,&#x27;preparing&#x27;].includes(queueState(e).raw))known.properties.state=queueState(e).raw;}else groups.set(id,{...e,id,properties:{...e.properties,record_role:&#x27;work&#x27;},execution_intervals:[...intervals]});}
+ for(const e of jobs){const id=root(e.id),known=groups.get(id),intervals=workIntervals(e);if(known){known.execution_intervals.push(...intervals);if([&#x27;running&#x27;,&#x27;preparing&#x27;].includes(queueState(e).raw))known.properties.state=queueState(e).raw;}else groups.set(id,{...e,id,properties:{...e.properties,record_role:&#x27;work&#x27;},execution_intervals:[...intervals]});}
  const work=[...groups.values()];
  // The original interval union and KST day splitting remain authoritative.
  return loomActivitySummary([...source.filter(e=&gt;![&#x27;work&#x27;,&#x27;loom_job&#x27;].includes(e.properties?.record_role)),...work],now,liveThrough);
@@ -5270,7 +5185,7 @@ function loomCatalogActivity(){
  });
 }
 const loomCatalogKinds={models:&#x27;model&#x27;,datasets:&#x27;dataset&#x27;,experiments:&#x27;experiment&#x27;,issues:&#x27;issue&#x27;,profiles:&#x27;profile&#x27;,components:&#x27;component&#x27;,tools:&#x27;tool&#x27;,runtimes:&#x27;runtime&#x27;,dependencies:&#x27;dependency&#x27;,scenarios:&#x27;scenario&#x27;,queue:&#x27;job&#x27;,files:&#x27;explorer&#x27;};
-function loomCatalogQuery(kind){if(kind===&#x27;explorer&#x27;)return {kinds:[&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};const view=kind===&#x27;job&#x27;?(state.jobHistoryView||&#x27;all&#x27;):catalogData.presentation_view||&#x27;research&#x27;;return {...([&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;].includes(kind)?{...loomRegistryArgs(state.registryFilter||&#x27;current&#x27;),...(state.registryFilter===&#x27;archived&#x27;?{history:&#x27;all&#x27;}:{})}:{}),kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:kind===&#x27;job&#x27;?&#x27;all&#x27;:[&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)?((state.outputPurpose||(view===&#x27;research&#x27;?&#x27;research&#x27;:&#x27;all&#x27;))===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;):kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...([&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)&amp;&amp;state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
+function loomCatalogQuery(kind){if(kind===&#x27;job&#x27;)return {kinds:[&#x27;job&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};if(kind===&#x27;explorer&#x27;)return {kinds:[&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};const view=catalogData.presentation_view||&#x27;research&#x27;;return {...([&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;].includes(kind)?{...loomRegistryArgs(state.registryFilter||&#x27;current&#x27;),...(state.registryFilter===&#x27;archived&#x27;?{history:&#x27;all&#x27;}:{})}:{}),kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:[&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)?((state.outputPurpose||(view===&#x27;research&#x27;?&#x27;research&#x27;:&#x27;all&#x27;))===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;):kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...([&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)&amp;&amp;state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 // A bootstrap is a bounded seed, never a replacement for pages from its revision.
 function loomCatalogRefresh(value){
@@ -5279,7 +5194,7 @@ function loomCatalogRefresh(value){
  const open=new Set(ws.panes.map(p=&gt;activeTab(p).view.entity).filter(Boolean));
  if(changed){
   // A revision invalidates cursors, not the last complete visible list.
-  for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],desired:Math.min(4000,page.ids?.length||page.query.limit||50),loaded:false,busy:false,cursor:null,error:null});
+  for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],committed:page.committed,desired:Math.min(4000,page.ids?.length||page.query.limit||50),loaded:false,busy:false,cursor:null,error:null});
   loomScenarioGraphs.clear();loomCatalogRevision=value.revision;loomActivityView=null;
   for(const id of open)queueMicrotask(async()=&gt;{
    if(!catalogData.capabilities?.catalog_pages||loomCatalogOpening.has(id))return;
@@ -5340,12 +5255,17 @@ async function loomCatalogLoad(kind,more=false,query=loomCatalogQuery(kind)){
   }while(!more&amp;&amp;cursor&amp;&amp;entities.length&lt;desired&amp;&amp;!result.partial&amp;&amp;entities.length&lt;4000);
   // Commit a whole replacement, including previously loaded pages, in one paint.
   const ids=[...new Set(entities.map(e=&gt;e.id))];
-  page.ids=more?[...new Set([...page.ids,...ids])]:result.partial&amp;&amp;page.ids.length&gt;ids.length?page.ids:ids;
-  loomCatalogMerge({...result,entities});
-  page.cursor=cursor;page.loaded=true;page.partial=result.partial;
-  if(result.partial&amp;&amp;!more&amp;&amp;(page.retries||0)&lt;4){
+  if(kind!==&#x27;job&#x27;||!result.partial){
+   page.ids=more?[...new Set([...page.ids,...ids])]:result.partial&amp;&amp;page.ids.length&gt;ids.length?page.ids:ids;
+   loomCatalogMerge({...result,entities});
+   page.cursor=cursor;page.committed=true;
+  }
+  page.loaded=true;page.partial=result.partial;
+  if(result.partial&amp;&amp;(!more||kind===&#x27;job&#x27;)&amp;&amp;(page.retries||0)&lt;4){
    page.retries=(page.retries||0)+1;
-   setTimeout(()=&gt;{if(loomCatalogPages.get(key)===page){page.loaded=false;loomCatalogLoad(kind,false,page.query);}},500*page.retries);
+   setTimeout(()=&gt;{if(loomCatalogPages.get(key)===page){page.loaded=false;loomCatalogLoad(kind,more,page.query);}},500*page.retries);
+  }else if(kind===&#x27;job&#x27;&amp;&amp;result.partial){
+   page.error=&#x27;종료 이력을 불러오지 못했습니다.&#x27;;
   }
  }catch(error){
   page.error=error.message;
@@ -5360,7 +5280,8 @@ function loomCatalogPager(kind){
  if(!catalogData.capabilities?.catalog_pages)return &#x27;&#x27;;
  const query=loomCatalogQuery(kind),key=JSON.stringify(query),page=loomCatalogPages.get(key);
  if(!page?.loaded&amp;&amp;!page?.busy&amp;&amp;!page?.error)queueMicrotask(()=&gt;loomCatalogLoad(kind,false,query));
- return &#x27;&lt;div class=&quot;pa-catalog-pagination&quot; role=&quot;status&quot;&gt;&#x27;+(page?.error?esc(page.error)+&#x27; &lt;button data-catalog-more=&quot;&#x27;+esc(kind)+&#x27;&quot;&gt;Retry&lt;/button&gt;&#x27;:page?.busy?&#x27;…&#x27;:page?.cursor?&#x27;&lt;button data-catalog-more=&quot;&#x27;+esc(kind)+&#x27;&quot;&gt;More&lt;/button&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
+ const pending=page?.busy||kind===&#x27;job&#x27;&amp;&amp;(!page?.loaded||page.partial);
+ return &#x27;&lt;div class=&quot;pa-catalog-pagination&quot; role=&quot;status&quot;&gt;&#x27;+(page?.error?esc(page.error)+&#x27; &lt;button data-catalog-more=&quot;&#x27;+esc(kind)+&#x27;&quot;&gt;Retry&lt;/button&gt;&#x27;:pending?&#x27;…&#x27;:page?.cursor?&#x27;&lt;button data-catalog-more=&quot;&#x27;+esc(kind)+&#x27;&quot;&gt;More&lt;/button&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
 }
 const loomPagedCatalogList=catalogList;
 catalogList=function(kind){return loomPagedCatalogList(kind)+loomCatalogPager(kind);};
@@ -5377,13 +5298,9 @@ const loomPagedDependencies=loomDependenciesView;
 loomDependenciesView=function(){return loomPagedDependencies()+loomCatalogPager(&#x27;dependency&#x27;);};
 const loomPagedScenarios=loomScenarioView;
 loomScenarioView=function(){return loomPagedScenarios()+loomCatalogPager(&#x27;scenario&#x27;);};
-// Bootstrap arrival patches pane contents without calling the navigation render.
-// Queue demand must therefore originate in the view, like the other paged lists.
-const loomPagedQueue=queue;
-queue=function(){return loomPagedQueue()+loomCatalogPager(&#x27;job&#x27;);};
 const loomPagedRender=render;
 render=function(){
- if(loomCatalogRevision!==catalogData.revision){for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],desired:Math.min(4000,page.ids?.length||50),loaded:false,busy:false,cursor:null});loomCatalogRevision=catalogData.revision;loomActivityView=null;}
+ if(loomCatalogRevision!==catalogData.revision){for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],committed:page.committed,desired:Math.min(4000,page.ids?.length||50),loaded:false,busy:false,cursor:null});loomCatalogRevision=catalogData.revision;loomActivityView=null;}
  loomPagedRender();
  const kind=loomCatalogKinds[state.page];
  if(kind&amp;&amp;!state.entity)loomCatalogPager(kind);

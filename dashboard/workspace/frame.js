@@ -206,42 +206,29 @@ catHostLabel = function(host, showStatus=false) {
 };
 catHostRefresh();
 
-function loomHistoryMore(total, filter) {
-  const limit = state.queueHistoryLimits?.[filter] || 10;
-  if (total <= 10) return '';
+function loomHistoryRows() {
+  const page=loomCatalogPages.get(loomCatalogPageKey('job'));
+  if(catalogData.capabilities?.catalog_pages && !page?.committed)return null;
+  const ids=catalogData.capabilities?.catalog_pages?new Set(page.ids):null;
+  return workItems(ids).filter(item=>queueState(item).info[3])
+    .sort((a,b)=>(queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).ended??queueTimes(a).exited??0));
+}
+function loomHistoryMore(total) {
+  const limit=state.queueHistoryLimits?.all||10;
+  if(total<=10)return '';
   return '<div class="pa-history-more">'
-    + (limit < total ? '<button class="pa-button" data-history-more="'+esc(filter)+'">더보기 · '+Math.min(limit,total)+' / '+total+'</button>' : '')
-    + (limit > 10 ? '<button class="pa-button" data-history-collapse="'+esc(filter)+'">접기</button>' : '') + '</div>';
+    +(limit<total?'<button class="pa-button" data-history-more>더보기 · '+limit+' / '+total+'</button>':'')
+    +(limit>10?'<button class="pa-button" data-history-collapse>접기</button>':'')+'</div>';
 }
 root.addEventListener('click', event => {
-  const button = event.target.closest('[data-history-more],[data-history-collapse]');
-  if (!button) return;
-  const pane = ws.panes.find(p => p.id === button.closest('[data-pane]')?.dataset.pane);
-  if (!pane) return;
-  const view = activeTab(pane).view;
-  const key = button.dataset.historyMore ?? button.dataset.historyCollapse;
-  view.queueHistoryLimits = {...view.queueHistoryLimits,
-    [key]: button.hasAttribute('data-history-collapse') ? 10 : (view.queueHistoryLimits?.[key] || 10) + 10};
-  const panel = button.closest('.pa-panel');
-  const previous = state;
-  state = view;
-  try {
-    const rows = loomFilteredWorkItems().filter(item => queueState(item).info[3])
-      .sort((a,b)=>(queueTimes(b).activity??queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).activity??queueTimes(a).ended??queueTimes(a).exited??0))
-      .filter(item=>key==='all'||queueState(item).info[0]===key);
-    const tbody = panel.querySelector('tbody');
-    tbody.innerHTML = rows.slice(0,view.queueHistoryLimits[key])
-      .map(item=>'<tr>'+workRow(item,false).map(cell=>'<td>'+cell+'</td>').join('')+'</tr>').join('');
-    for (const link of tbody.querySelectorAll('button[data-entity]')) {
-      const more = document.createElement('button');
-      more.className='pa-entity-more';more.dataset.entityOptions='true';more._target=link;
-      more.setAttribute('aria-label',link.textContent.trim()+' 열기 옵션');more.textContent='⋯';
-      link.insertAdjacentElement('afterend',more);
-    }
-    panel.querySelector('.pa-history-more').outerHTML = loomHistoryMore(rows.length,key);
-    panel.querySelector('[data-history-more],[data-history-collapse]')?.focus({preventScroll:true});
-    if(globalThis.lucide)loomCreateIcons({attrs:{width:16,height:16}});
-  } finally { state = previous; }
+  const button=event.target.closest('[data-history-more],[data-history-collapse]');
+  if(!button)return;
+  const pane=ws.panes.find(p=>p.id===button.closest('[data-pane]')?.dataset.pane);
+  if(!pane)return;
+  const view=activeTab(pane).view;
+  view.queueHistoryLimits={all:button.hasAttribute('data-history-collapse')?10:(view.queueHistoryLimits?.all||10)+10};
+  refreshCatalogPanes();
+  root.querySelector('[data-pane="'+CSS.escape(pane.id)+'"] :is([data-history-more],[data-history-collapse])')?.focus({preventScroll:true});
   persist();
 });
 

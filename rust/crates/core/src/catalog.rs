@@ -3,6 +3,12 @@ use crate::query::JOB_LINKS_CTE;
 use crate::{jobs, store::*, Error, Result};
 use rusqlite::OptionalExtension;
 use serde_json::{json, Value};
+// The Outputs workspace contains typed results. Execution artifacts such as logs
+// and smoke receipts are evidence even when they were published successfully.
+fn is_catalog_output(result: &Value) -> bool {
+    matches!(result["kind"].as_str(), Some("dataset" | "model" | "experiment"))
+}
+
 impl Application {
     pub fn dashboard_revision(&self) -> Result<String> {
         let version: i64 = self.db.query_row(
@@ -77,6 +83,11 @@ impl Application {
                 .optional()?;
             entities.push(json!({"id":id,"kind":"job","namespace":"loom","label":d["presentation"]["label"].as_str().unwrap_or(spec["kind"].as_str().unwrap_or(id)),"state":d["state"],"created":d["created"],"attempt":d["attempt"],"properties":{"id":id,"state":d["state"],"status":d["status"],"created":d["created"],"attempt":d["attempt"],"owner":d["owner"],"record_role":"loom_job","category":d["category"],"execution_mode":d["execution_mode"],"queued_at":d["created"],"started_at":d["work_timeline"].get("started").or_else(||d["timeline"].get("started")).unwrap_or(&started),"process_exited_at":d["work_timeline"].get("ended").or_else(||d["timeline"].get("ended")).unwrap_or(&ended),"artifact_ready":d["result"]["artifact_ready"],"recovery":d["recovery"],"output_storage":spec["output_storage"],"consolidated_into":d["consolidation"]["consolidated_into"],"internal_step_count":d["internal_steps"]["steps"].as_array().map(|a|a.len()).unwrap_or(0),"workflow_root":root},"attempts":attempts,"internal_steps":d["internal_steps"],"execution_intervals":d["execution_intervals"],"loom_job":{"id":id},"presentation":d["presentation"],"scenario_ref":d["scenario_ref"],"relations":[],"artifacts":[]}));
             if let Some(entity) = entities.last_mut() {
+                entity["properties"]["has_catalog_output"] = json!(d["result"]["entities"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(is_catalog_output));
                 for key in ["owner", "owner_name", "owner_profile"] {
                     entity[key] = d[key].clone();
                 }
@@ -92,6 +103,11 @@ impl Application {
             let d = self.job_detail(id)?;
             entities.push(json!({"id":id,"kind":"job","namespace":"loom","label":d["spec"]["label"],"state":d["state"],"created":d["created"],"properties":{"record_role":"loom_job","id":id,"state":d["state"],"status":d["status"],"queued_at":d["created"],"started_at":d["execution_intervals"].as_array().and_then(|a|a.iter().filter_map(|i|i["start"].as_f64()).min_by(f64::total_cmp)),"process_exited_at":if d["state"]=="complete"{d["execution_intervals"].as_array().and_then(|a|a.iter().filter_map(|i|i["end"].as_f64()).max_by(f64::total_cmp))}else{None},"owner":d["owner"],"internal_step_count":d["executions"].as_array().map(|a|a.len()).unwrap_or(0)},"loom_workflow":d,"loom_job":{"id":id},"steps":d["executions"],"execution_intervals":d["execution_intervals"],"presentation":d["presentation"],"scenario_ref":d["scenario_ref"],"relations":[],"artifacts":[]}));
             if let Some(entity) = entities.last_mut() {
+                entity["properties"]["has_catalog_output"] = json!(d["result"]["outputs"]
+                    .as_object()
+                    .into_iter()
+                    .flat_map(|outputs| outputs.values())
+                    .any(is_catalog_output));
                 for key in ["owner", "owner_name", "owner_profile"] {
                     entity[key] = d[key].clone();
                 }
@@ -562,7 +578,8 @@ impl Application {
         }
         let mut catalog = self.dashboard_catalog_selected(Some(&selected))?;
         catalog["summary"] = self.dashboard_summary()?;
-        catalog["activity"] = self.dashboard_activity("research")?;
+        catalog["activity"] = self.dashboard_activity("all")?;
+        catalog["activity"]["view"] = json!("all");
         catalog["capabilities"]["catalog_pages"] = json!(true);
         catalog["initial_page_complete"] = json!(false);
         Ok(catalog)

@@ -1,15 +1,15 @@
 # Research / Operations, queue visibility and history
 
-Status: redesigned cross-cutting behavior. Phases D1/D4/D5/D6. The reference
-includes the queue/history correction `07c90e4`; this is source behavior, not a
-claim that any installation has received it.
+Status: redesigned cross-cutting behavior. Phases D1/D4/D5/D6. This document
+specifies source behavior.
 
 ## Independent dimensions
 
 | Fact | Meaning | Must not determine |
 |---|---|---|
 | scope: research / operations | Declared purpose | Eligibility, access, resource occupancy |
-| role: main / support / test | Presentation/result role | Real workflow membership or scientific acceptance |
+| role: main / support / test | Presentation/result metadata | Real workflow membership, scientific acceptance or output availability |
+| System ownership | Explicit attribution to the platform | Work purpose or execution authority |
 | execution membership | Durable Job-plan node edge | Inferred parentage from a text label |
 | consolidated source | Explicit verified preserved execution reference | Rewritten original Attempts/times |
 | category/mode | SDG/evaluation/etc. and full/pilot/smoke | Owner permission or whether it is research |
@@ -29,18 +29,22 @@ fold real internal nodes but shows counts, actual resource occupancy and expanda
 state. A standalone predecessor remains its own real Job unless it was submitted
 as an explicit internal execution. Do not retrospectively hide it as a stage.
 
-The fact that a row is minor to research browsing is insufficient to hide a GPU
-occupant. Global Research/Operations/All catalog filters and terminal-history
-filters do not filter current occupancy. Foreign-scope privacy remains respected;
-show only the authorized/minimal shared occupancy surface already allowed.
+The queue lists all user work without purpose or role filters. The server omits
+Jobs explicitly attributed to System from Dashboard lists. Foreign-scope privacy
+remains respected; show only the authorized shared occupancy surface.
 
 ## Terminal history and work units
 
-Default All; provide independent scope, status, category and mode controls. Research
-views may offer curated main outputs, but complete authorized source/operations
-history remains drillable. Only authoritative workflow membership folds a node;
-presentation.parent_job is a reference, not execution identity. Consolidated-source
-rows are opt-in in summary lists without duplicating their parent summary.
+List user Jobs in one terminal history. Each independently submitted Job retains
+its own status and timestamps. An actual workflow Node is visible under its
+workflow, and consolidated sources remain inspectable in detail. A presentation
+parent is a navigation reference. Render the first complete Job page and retain
+the previous page during refresh.
+
+Job Properties shows Has Output when a dataset, policy (model) or experiment has
+been published, including published workflow aliases. Generic evidence artifacts
+and Runtime receipts do not qualify. The property does not affect issuance or
+completion.
 
 One requested outcome is one Job. Batches/vectorization/parallel workers stay in
 that plan; output/time limits do not justify a top-level Job per batch by default.
@@ -66,12 +70,13 @@ changing an annotation does not change accepted execution/ownership.
 
 | Case | Trigger | Required result |
 |---|---|---|
-| VIS-01 | Operations or minor support Job holds a resource | Visible in current queue regardless of history/catalog filter |
+| VIS-01 | User Operations or supporting Job holds a resource | Visible in the current queue |
 | VIS-02 | Main/follow-up has presentation parent but no membership | Remains individually visible; actual nodes fold only by edge |
 | VIS-03 | Thirteen prior executions consolidated | Honest source Steps/Attempts/times; no invented single Attempt |
-| VIS-04 | Platform smoke plus requested research smoke | Different declared purpose; no name heuristic |
+| VIS-04 | System-owned smoke plus user-requested smoke | Only the user Job appears on the Dashboard; both remain recorded |
 | VIS-05 | Profile reused over retries and many internal nodes | Count actual distinct logical Job use with exact pin evidence |
-| VIS-06 | History filters changed | Independent filters affect only terminal history, default All |
+| VIS-06 | Initial and partial history pages return different subsets | Show complete page results and retain the last complete view during refresh |
+| VIS-07 | Job publishes a typed result or a generic receipt | Only the typed result sets Has Output to Yes |
 
 Tests must include real service projections and Firefox; a pure filter unit test
 cannot prove the active queue includes records removed earlier in a catalog path.
