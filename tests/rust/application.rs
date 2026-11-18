@@ -1459,11 +1459,17 @@ fn activity_counts_standalone_jobs_across_kst_midnight_despite_presentation_link
             )
             .unwrap();
     }
-    let history=f.call("jobs","preview_history",json!({"ids":[main,child,grandchild]})).unwrap();
-    assert_eq!(history["changes"],json!([]));
-    assert_eq!(history["records"][1]["authority"],"independent");
-    assert_eq!(history["records"][1]["presentation_parent"],main);
-    assert_eq!(history["records"][1]["review_required"],true);
+    let history = f
+        .call(
+            "jobs",
+            "preview_history",
+            json!({"ids":[main,child,grandchild]}),
+        )
+        .unwrap();
+    assert_eq!(history["changes"], json!([]));
+    assert_eq!(history["records"][1]["authority"], "independent");
+    assert_eq!(history["records"][1]["presentation_parent"], main);
+    assert_eq!(history["records"][1]["review_required"], true);
     let result = f.app.dashboard_activity("all").unwrap();
     let days = result["days"].as_array().unwrap();
     assert_eq!(days.len(), 2);
@@ -1480,9 +1486,9 @@ fn activity_groups_preparation_by_main_job_and_unions_actual_intervals() {
         "nodes":[{"id":"prepare","label":"Prepare","spec":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}},
                  {"id":"repair","label":"Repair","spec":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}}],
         "outputs":{},"presentation":{"scope":"operations","role":"support"}})).unwrap();
-    let main=plan["id"].as_str().unwrap();
-    let prepare=plan["nodes"]["prepare"].as_str().unwrap();
-    let child=plan["nodes"]["repair"].as_str().unwrap();
+    let main = plan["id"].as_str().unwrap();
+    let prepare = plan["nodes"]["prepare"].as_str().unwrap();
+    let child = plan["nodes"]["repair"].as_str().unwrap();
     let day = ((store::now() + 32400.) / 86400.).floor() - 1.;
     let start = day * 86400. - 32400. + 43200.;
     for (id, a, b) in [
@@ -4724,13 +4730,24 @@ fn executable_outcome_without_deliverables_is_a_main_job() {
     let id = &created["id"];
     assert_eq!(f.call("jobs", "create", open).unwrap(), created);
     let mut seal = json!({"id":id,"key":"seal","expected_revision":1,"reason":"Run the readiness check","plan":{"sealed":true,"units":[]}});
-    assert_eq!(f.call("jobs", "revise_plan", seal.clone()).unwrap_err().code, "plan_pending");
+    assert_eq!(
+        f.call("jobs", "revise_plan", seal.clone())
+            .unwrap_err()
+            .code,
+        "plan_pending"
+    );
     seal["plan"]["units"] = json!([{"id":"check","label":"Check","execution":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}}]);
     let accepted = f.call("jobs", "revise_plan", seal).unwrap();
     let node = accepted["nodes"]["check"].as_str().unwrap();
-    f.app.db.execute("UPDATE jobs SET state='complete' WHERE id=?", [node]).unwrap();
+    f.app
+        .db
+        .execute("UPDATE jobs SET state='complete' WHERE id=?", [node])
+        .unwrap();
     crate::plans::finish(&f.app.db, id.as_str().unwrap()).unwrap();
-    assert_eq!(f.call("jobs","get",json!({"id":id})).unwrap()["state"], "complete");
+    assert_eq!(
+        f.call("jobs", "get", json!({"id":id})).unwrap()["state"],
+        "complete"
+    );
 }
 
 #[test]
@@ -4933,9 +4950,15 @@ fn sealed_outcome_rejects_an_added_unit_before_execution() {
         "params":{"seconds":0,"fail":false}}});
     let extension = json!({"key":"extend","id":receipt["id"],"expected_revision":1,
         "reason":"Add another check","plan":{"sealed":true,"units":[unit,extra]}});
-    assert_eq!(fixture.call("jobs","revise_plan",extension).unwrap_err().code,"plan");
-    assert_eq!(fixture.count("jobs"),1);
-    assert_eq!(fixture.call("jobs","create",request).unwrap(),receipt);
+    assert_eq!(
+        fixture
+            .call("jobs", "revise_plan", extension)
+            .unwrap_err()
+            .code,
+        "plan"
+    );
+    assert_eq!(fixture.count("jobs"), 1);
+    assert_eq!(fixture.call("jobs", "create", request).unwrap(), receipt);
 }
 
 #[test]

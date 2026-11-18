@@ -1182,7 +1182,16 @@ pub fn validate_reports(
                     fields.push(json!({"id":f.id,"label":f.label,"format":f.format,"pointer":f.pointer,"state":"missing","value":null}));
                     continue;
                 }
-                if ["table", "series", "scatter", "instructions", "bar", "coverage_matrix"].contains(&f.format.as_str()) {
+                if [
+                    "table",
+                    "series",
+                    "scatter",
+                    "instructions",
+                    "bar",
+                    "coverage_matrix",
+                ]
+                .contains(&f.format.as_str())
+                {
                     check(
                         v.is_array(),
                         "Collection display field must point to an array",
@@ -1207,8 +1216,13 @@ pub fn validate_reports(
                 if f.format == "bar" {
                     for row in v.as_array().unwrap() {
                         check(
-                            row.pointer(f.x_pointer.as_ref().unwrap()).and_then(Value::as_str).is_some_and(|label| printable(label, 100))
-                                && row.pointer(f.y_pointer.as_ref().unwrap()).and_then(Value::as_f64).is_some_and(|value| value.is_finite() && value >= 0.0),
+                            row.pointer(f.x_pointer.as_ref().unwrap())
+                                .and_then(Value::as_str)
+                                .is_some_and(|label| printable(label, 100))
+                                && row
+                                    .pointer(f.y_pointer.as_ref().unwrap())
+                                    .and_then(Value::as_f64)
+                                    .is_some_and(|value| value.is_finite() && value >= 0.0),
                             "Bar charts require labeled nonnegative observations or bins",
                         )?;
                     }
@@ -1217,7 +1231,9 @@ pub fn validate_reports(
                     let mut pairs = BTreeSet::new();
                     for cell in v.as_array().unwrap() {
                         let row = cell["row"].as_str().filter(|label| printable(label, 100));
-                        let column = cell["column"].as_str().filter(|label| printable(label, 100));
+                        let column = cell["column"]
+                            .as_str()
+                            .filter(|label| printable(label, 100));
                         let counts = cell["assigned"].as_u64().zip(cell["admitted"].as_u64());
                         check(
                             row.zip(column).is_some_and(|pair| pairs.insert(pair))

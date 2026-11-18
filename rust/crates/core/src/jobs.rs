@@ -86,7 +86,7 @@ pub fn event(db: &Connection, record: &Record, code: &str) -> Result<()> {
         if inserted == 0 {
             return Ok(());
         }
-        if code == "complete" && crate::plans::finish(db, &root)? {
+        if matches!(code, "complete" | "cancelled") && crate::plans::finish(db, &root)? {
             return Ok(());
         }
         if code == "complete" {
@@ -106,8 +106,6 @@ pub fn event(db: &Connection, record: &Record, code: &str) -> Result<()> {
             if done {
                 return Ok(());
             }
-        } else if code == "cancelled" && crate::plans::finish(db, &root)? {
-            return Ok(());
         } else if !matches!(code, "failed" | "interrupted" | "result_failed") {
             return Ok(());
         }
@@ -561,7 +559,7 @@ impl Application {
         let mut nodes = serde_json::Map::new();
         for node in order {
             let n = v.nodes.iter().find(|n| n.id == node.as_str()).unwrap();
-            let child = admit_node(&tx, &config, &bulk, actor, &root, &v, n, &nodes)?;
+            let child = admit_node(&tx, (&config, &bulk), actor, &root, &v, n, &nodes)?;
             nodes.insert(n.id.clone(), json!(child));
         }
         for output in v.outputs.values() {
@@ -1064,8 +1062,7 @@ pub fn workflow_ids(db: &Connection, root: &str) -> Result<Value> {
 
 pub(crate) fn admit_node(
     db: &Connection,
-    config: &Config,
-    bulk: &std::path::Path,
+    (config, bulk): (&Config, &std::path::Path),
     actor: &Actor,
     root: &str,
     v: &Workflow,

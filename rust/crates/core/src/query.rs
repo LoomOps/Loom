@@ -58,18 +58,24 @@ impl Application {
         }
     }
     pub(crate) fn preview_job_history(&self, args: &Value) -> Result<Value> {
-        let mut review=Vec::new();
+        let mut review = Vec::new();
         for id in args["ids"].as_array().unwrap() {
-            let key=id.as_str().unwrap();
-            let record=self.job_detail(key)?;
-            let membership=&record["execution_membership"];
-            let target=&record["consolidation"]["consolidated_into"];
-            let presentation=&record["presentation"]["parent_job"];
-            let authority=if record["migration"]["read_only"]==true {"preserved"}
-                else if membership.is_object() {"workflow_node"}
-                else if record["workflow"]==true {"workflow"}
-                else if target.is_string() {"consolidated_source"}
-                else {"independent"};
+            let key = id.as_str().unwrap();
+            let record = self.job_detail(key)?;
+            let membership = &record["execution_membership"];
+            let target = &record["consolidation"]["consolidated_into"];
+            let presentation = &record["presentation"]["parent_job"];
+            let authority = if record["migration"]["read_only"] == true {
+                "preserved"
+            } else if membership.is_object() {
+                "workflow_node"
+            } else if record["workflow"] == true {
+                "workflow"
+            } else if target.is_string() {
+                "consolidated_source"
+            } else {
+                "independent"
+            };
             review.push(json!({"id":key,"state":record["state"],"recorded_attempt":record["attempt"],
                 "authority":authority,"execution_membership":membership,
                 "consolidation":record["consolidation"],"presentation_parent":presentation,
@@ -177,9 +183,14 @@ impl Application {
         Ok(self.db.query_row(&format!("{CONSOLIDATION_CTE} SELECT r.target FROM consolidation_roots r JOIN jobs original ON original.id=r.source WHERE original.id=? AND original.state='complete' AND r.source_attempt IS original.attempt ORDER BY r.target LIMIT 1"),[id],|r|r.get(0)).optional()?)
     }
     fn job_annotations(&self, id: &str) -> Result<Vec<Value>> {
-        Ok(rows(&self.db, "SELECT payload FROM job_annotations WHERE job=? ORDER BY id", &[&id])?
-            .iter().map(|r|serde_json::from_str(r["payload"].as_str().unwrap_or("{}")))
-            .collect::<std::result::Result<_,_>>()?)
+        Ok(rows(
+            &self.db,
+            "SELECT payload FROM job_annotations WHERE job=? ORDER BY id",
+            &[&id],
+        )?
+        .iter()
+        .map(|r| serde_json::from_str(r["payload"].as_str().unwrap_or("{}")))
+        .collect::<std::result::Result<_, _>>()?)
     }
     pub fn job_detail(&self, id: &str) -> Result<Value> {
         let workflow = rows(&self.db, "SELECT * FROM job_workflows WHERE id=?", &[&id])?
@@ -294,9 +305,16 @@ impl Application {
                 result["receipts"] = request["receipts"].clone();
             }
             let mut detail = json!({"id":id,"workflow":true,"owner":workflow["owner"],"notify":workflow["notify"],"created":workflow["created"],"state":state.as_str(),"status":state.public(),"spec":request,"executions":nodes,"execution_intervals":execution_intervals,"result":result,"errors":errors,"presentation":presentation,"scenario_ref":request["scenario_ref"]});
-            let annotations=self.job_annotations(id)?;
-            if !annotations.is_empty(){detail["annotations"]=json!(annotations);}
-            return self.decorate_owner("job",id,workflow["owner"].as_str().unwrap_or(""),detail);
+            let annotations = self.job_annotations(id)?;
+            if !annotations.is_empty() {
+                detail["annotations"] = json!(annotations);
+            }
+            return self.decorate_owner(
+                "job",
+                id,
+                workflow["owner"].as_str().unwrap_or(""),
+                detail,
+            );
         }
         if let Some(record) = self.imported_job(id)? {
             return Ok(record);

@@ -218,7 +218,11 @@ impl Application {
                 let id = args["id"]
                     .as_str()
                     .ok_or_else(|| Error::input("Job ID required"))?;
-                if !self.db.query_row("SELECT EXISTS(SELECT 1 FROM job_workflows WHERE id=?)",[id], |r| r.get::<_,bool>(0))? {
+                if !self.db.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM job_workflows WHERE id=?)",
+                    [id],
+                    |r| r.get::<_, bool>(0),
+                )? {
                     jobs::load(&self.db, id)?;
                 }
                 let annotation = args["annotation_id"]
@@ -248,7 +252,12 @@ impl Application {
                     if let Some(created) = stored.get("created") {
                         payload["created"] = created.clone();
                     }
-                    require(stored == payload, "annotation", "Annotation is immutable",409)?;
+                    require(
+                        stored == payload,
+                        "annotation",
+                        "Annotation is immutable",
+                        409,
+                    )?;
                 } else {
                     active(&tx)?;
                     payload["created"] = json!(now());
@@ -661,7 +670,10 @@ impl Application {
                                         |reports| {
                                             reports.iter().any(|r| r["component"] == *component)
                                         },
-                                    ) || science_plan.as_ref().is_some_and(|plan| plan.accepts_component(entity, component))
+                                    )
+                                    || science_plan.as_ref().is_some_and(|plan| {
+                                        plan.accepts_component(entity, component)
+                                    })
                             })
                         })
                     }),
@@ -727,7 +739,13 @@ impl Application {
             }
             if let Some(plan) = &science_plan {
                 if let Some(science) = crate::plans::verify_output_science(
-                    plan, job, attempt, entity, path.parent().unwrap(), &verified_files, &published,
+                    plan,
+                    job,
+                    attempt,
+                    entity,
+                    path.parent().unwrap(),
+                    &verified_files,
+                    &published,
                 )? {
                     published["science"] = science;
                 }

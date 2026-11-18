@@ -761,7 +761,8 @@ impl Application {
                 );
             }
             doc["stage_receipts"][name] = json!(gates);
-            let child = jobs::admit_node(&tx, &config, &bulk, actor, &root, &workflow, &n, &nodes)?;
+            let child =
+                jobs::admit_node(&tx, (&config, &bulk), actor, &root, &workflow, &n, &nodes)?;
             let frozen = jobs::load(&tx, &child)?;
             check_execution(&doc, name, &frozen.spec)?;
             let cycle:bool=tx.query_row("WITH RECURSIVE deps(id) AS (SELECT value FROM json_each(?,'$.depends_on') UNION SELECT d.value FROM deps JOIN jobs j ON j.id=deps.id JOIN json_each(j.spec,'$.depends_on') d UNION SELECT n.job FROM deps JOIN workflow_nodes n ON n.root=deps.id) SELECT EXISTS(SELECT 1 FROM deps WHERE id IN (?,?))",params![encode(&frozen.spec)?,root,child],|r|r.get(0))?;

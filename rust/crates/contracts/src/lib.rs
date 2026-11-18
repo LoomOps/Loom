@@ -105,22 +105,22 @@ pub fn actions() -> Vec<Action> {
     );
     let pin = object(
         json!({"id":string,"revision":{"type":"integer","minimum":1,"maximum":i64::MAX},"sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}}),
-        &["id","revision","sha256"],
+        &["id", "revision", "sha256"],
     );
     let session = object(
         json!({"id":local["id"],"domain":{"enum":["simulation","real"]},"configuration":pin}),
-        &["id","domain","configuration"],
+        &["id", "domain", "configuration"],
     );
     let expected = object(
         json!({"activity":string,"template_ref":pin,"contract_ref":pin,
             "inputs":{"type":"object","maxProperties":64,"additionalProperties":reference},
             "sessions":{"type":"array","maxItems":64,"items":session}}),
-        &["activity","template_ref","contract_ref"],
+        &["activity", "template_ref", "contract_ref"],
     );
     let hypothesis = object(
         json!({"statement":string,"analysis":string,"population":string,"metric":string,
             "aliases":{"type":"array","minItems":1,"maxItems":64,"uniqueItems":true,"items":local["id"]}}),
-        &["statement","analysis","population","metric","aliases"],
+        &["statement", "analysis", "population", "metric", "aliases"],
     );
     let science = object(
         json!({"deliverables":{"type":"object","minProperties":1,"maxProperties":64,"additionalProperties":expected},"hypothesis":hypothesis}),
@@ -139,10 +139,15 @@ pub fn actions() -> Vec<Action> {
         &["id", "key", "expected_revision", "reason", "plan"],
     );
     let preview = object(json!({"outcome":outcome}), &["outcome"]);
-    let history = object(json!({"ids":{"type":"array","items":string,"minItems":1,"maxItems":24,"uniqueItems":true}}), &["ids"]);
+    let history = object(
+        json!({"ids":{"type":"array","items":string,"minItems":1,"maxItems":24,"uniqueItems":true}}),
+        &["ids"],
+    );
     for (name, scope, schema) in [
-        ("create", "submit", create), ("revise_plan", "submit", revise),
-        ("preview_outcome", "read", preview), ("preview_history", "read", history),
+        ("create", "submit", create),
+        ("revise_plan", "submit", revise),
+        ("preview_outcome", "read", preview),
+        ("preview_history", "read", history),
     ] {
         result.push(Action {
             group: "jobs".into(),
