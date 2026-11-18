@@ -202,11 +202,6 @@ regardless of ownership. Terminal history gives independently submitted Jobs
 their own rows. Workflow Nodes and consolidated sources remain in their owning
 Job's detail. Presentation-only parent links preserve discoverability in detail.
 
-Job Properties shows Has Output for the publication of a dataset, model or
-experiment. Workflow outputs are checked through their published aliases. Logs,
-generic artifacts and Runtime receipts do not qualify. Historical records
-without publication evidence show Unrecorded. The property does not determine
-execution ownership, publication requirements or Job completion.
 Activity responses from older revisions cannot overwrite the current observation.
 
 An asynchronous bootstrap refresh must renew Activity for its new revision even

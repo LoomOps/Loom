@@ -4451,14 +4451,11 @@ function loomDetailHeading(html, id) {
     const owner = entity?.owner_profile || {};
     const ownerRow = &#x27;&lt;div&gt;&lt;dt&gt;Owner&lt;/dt&gt;&lt;dd title=&quot;&#x27;+esc(owner.login || &#x27;&#x27;)+&#x27;&quot;&gt;&#x27;+esc(owner.display_name || entity?.properties?.owner_name || entity?.owner || &#x27;Unassigned&#x27;)+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;;
     if (entity?.kind === &#x27;job&#x27;) {
-      const hasOutput=entity.properties?.has_catalog_output;
-      const outputStatus=typeof hasOutput===&#x27;boolean&#x27;?(hasOutput?&#x27;Yes&#x27;:&#x27;No&#x27;):&#x27;Unrecorded&#x27;;
       const properties = document.createElement(&#x27;div&#x27;);
       properties.innerHTML = panel(&#x27;Job Properties&#x27;, &#x27;&lt;dl class=&quot;pa-job-properties&quot;&gt;&#x27;
         + ownerRow + &#x27;&lt;div&gt;&lt;dt&gt;Status&lt;/dt&gt;&lt;dd&gt;&#x27; + queueBadge(entity) + &#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;
         + &#x27;&lt;div&gt;&lt;dt&gt;Task level&lt;/dt&gt;&lt;dd&gt;&#x27; + workVerificationCell(entity) + &#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;
         + (entity?.properties?.output_storage ? &#x27;&lt;div&gt;&lt;dt&gt;Output Storage&lt;/dt&gt;&lt;dd&gt;&#x27;+esc(entity.properties.output_storage)+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27; : &#x27;&#x27;)
-        + &#x27;&lt;div&gt;&lt;dt&gt;Has Output&lt;/dt&gt;&lt;dd&gt;&#x27; + outputStatus + &#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;
         + &#x27;&lt;div&gt;&lt;dt&gt;Job Type&lt;/dt&gt;&lt;dd&gt;&#x27; + esc(loomJobClass(entity).category) + &#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;
         + &#x27;&lt;div&gt;&lt;dt title=&quot;Full: main run; Pilot: reduced trial; Smoke: startup check&quot;&gt;Execution Mode&lt;/dt&gt;&lt;dd&gt;&#x27; + esc(loomJobClass(entity).mode) + &#x27;&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&#x27;);
       title.after(...properties.children);

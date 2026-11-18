@@ -31,7 +31,6 @@ class WorkspaceBrowserTests(unittest.TestCase):
         for root, child in zip(records[:2],records[2:]):
             child['presentation'].update(parent_job=root['id'],role='support')
             child['group_root']=root['id']
-        records[1]['properties']['has_catalog_output']=True
         catalog=self.api.fixture['catalog']
         catalog.update(entities=records[2:],revision='history-boot',capabilities={'catalog_pages':True})
         actions=self.api.fixture['search_actions']={
@@ -847,24 +846,13 @@ const done=arguments[arguments.length-1];
 
     def test_job_classification_is_available_in_detail(self):
         ui=self.ui
-        live=next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-live')
-        live['properties']['has_catalog_output']=False
-        self.api.fixture['catalog']['revision']='output-property-absent'
-        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
         self.assertFalse(ui.js("return !!document.querySelector('[data-job-filter],.pa-job-classification')"))
         ui.route('fixture-live')
         ui.wait("return document.querySelector('.pa-job-properties')?.textContent.includes('Fine-tuning')")
         self.assertTrue(ui.js("return document.querySelector('.pa-job-properties').textContent.includes('Fixture Owner')"))
         self.assertTrue(ui.js("return document.querySelector('.pa-job-properties').textContent.includes('Job Type') && document.querySelector('.pa-job-properties').textContent.includes('Execution Mode') && document.querySelector('.pa-job-properties').closest('.pa-panel').textContent.includes('Job Properties')"))
         self.assertTrue(ui.js("return document.querySelector('.pa-job-properties').textContent.includes('Pilot-test')"))
-        output="return [...document.querySelectorAll('.pa-job-properties dt')].find(e=>e.textContent==='Has Output')?.nextElementSibling.textContent"
-        ui.wait(output+"==='No'")
-        live['properties']['has_catalog_output']=True
-        self.api.fixture['catalog']['revision']='output-property-published'
-        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
-        ui.wait(output+"==='Yes'")
-        ui.route('fixture-imported')
-        ui.wait(output+"==='Unrecorded'")
+        self.assertFalse(ui.js("return document.querySelector('.pa-job-properties').textContent.includes('Has Output')"))
 
     def test_canonical_job_keeps_source_history_and_displays_internal_steps(self):
         f=self.api.fixture

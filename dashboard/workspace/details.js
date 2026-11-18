@@ -257,14 +257,11 @@ function loomDetailHeading(html, id) {
     const owner = entity?.owner_profile || {};
     const ownerRow = '<div><dt>Owner</dt><dd title="'+esc(owner.login || '')+'">'+esc(owner.display_name || entity?.properties?.owner_name || entity?.owner || 'Unassigned')+'</dd></div>';
     if (entity?.kind === 'job') {
-      const hasOutput=entity.properties?.has_catalog_output;
-      const outputStatus=typeof hasOutput==='boolean'?(hasOutput?'Yes':'No'):'Unrecorded';
       const properties = document.createElement('div');
       properties.innerHTML = panel('Job Properties', '<dl class="pa-job-properties">'
         + ownerRow + '<div><dt>Status</dt><dd>' + queueBadge(entity) + '</dd></div>'
         + '<div><dt>Task level</dt><dd>' + workVerificationCell(entity) + '</dd></div>'
         + (entity?.properties?.output_storage ? '<div><dt>Output Storage</dt><dd>'+esc(entity.properties.output_storage)+'</dd></div>' : '')
-        + '<div><dt>Has Output</dt><dd>' + outputStatus + '</dd></div>'
         + '<div><dt>Job Type</dt><dd>' + esc(loomJobClass(entity).category) + '</dd></div>'
         + '<div><dt title="Full: main run; Pilot: reduced trial; Smoke: startup check">Execution Mode</dt><dd>' + esc(loomJobClass(entity).mode) + '</dd></div></dl>');
       title.after(...properties.children);

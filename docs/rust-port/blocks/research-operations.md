@@ -8,7 +8,7 @@ specifies source behavior.
 | Fact | Meaning | Must not determine |
 |---|---|---|
 | scope: research / operations | Declared purpose | Eligibility, access, resource occupancy |
-| role: main / support / test | Presentation/result metadata | Real workflow membership, scientific acceptance or output availability |
+| role: main / support / test | Presentation/result metadata | Real workflow membership, scientific acceptance |
 | System ownership | Explicit attribution to the platform | Work purpose or execution authority |
 | execution membership | Durable Job-plan node edge | Inferred parentage from a text label |
 | consolidated source | Explicit verified preserved execution reference | Rewritten original Attempts/times |
@@ -41,11 +41,6 @@ workflow, and consolidated sources remain inspectable in detail. A presentation
 parent is a navigation reference. Render the first complete Job page and retain
 the previous page during refresh.
 
-Job Properties shows Has Output when a dataset, policy (model) or experiment has
-been published, including published workflow aliases. Generic evidence artifacts
-and Runtime receipts do not qualify. The property does not affect issuance or
-completion.
-
 One requested outcome is one Job. Batches/vectorization/parallel workers stay in
 that plan; output/time limits do not justify a top-level Job per batch by default.
 Independent requested outcomes can be separate Jobs. Already fragmented work keeps
@@ -76,7 +71,6 @@ changing an annotation does not change accepted execution/ownership.
 | VIS-04 | System-owned smoke plus user-requested smoke | Only the user Job appears on the Dashboard; both remain recorded |
 | VIS-05 | Profile reused over retries and many internal nodes | Count actual distinct logical Job use with exact pin evidence |
 | VIS-06 | Initial and partial history pages return different subsets | Show complete page results and retain the last complete view during refresh |
-| VIS-07 | Job publishes a typed result or a generic receipt | Only the typed result sets Has Output to Yes |
 
 Tests must include real service projections and Firefox; a pure filter unit test
 cannot prove the active queue includes records removed earlier in a catalog path.

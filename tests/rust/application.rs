@@ -503,36 +503,6 @@ fn dataset_organization_declarations_reject_ambiguous_or_unbounded_paths() {
 }
 
 #[test]
-fn dashboard_output_property_uses_published_workflow_aliases() {
-    let mut f = Fixture::new();
-    let root = f.call("jobs", "submit_workflow", json!({
-        "key":"workflow-output-property",
-        "label":"Workflow output",
-        "owner":"owner",
-        "notify":"owner",
-        "nodes":[{"id":"one","label":"Produce","spec":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}}],
-        "outputs":{"published":{"node":"one","entity":"observation"}}
-    })).unwrap()["id"].as_str().unwrap().to_string();
-    let child: String = f.app.db.query_row(
-        "SELECT job FROM workflow_nodes WHERE root=?", [&root], |r| r.get(0),
-    ).unwrap();
-    for (kind, expected) in [("artifact", false), ("dataset", true)] {
-        let result = json!({
-            "artifact_ready": true,
-            "entities": [{"id":"observation","kind":kind},{"id":"unbound","kind":"model"}]
-        });
-        f.app.db.execute(
-            "UPDATE jobs SET state='complete',result=? WHERE id=?",
-            rusqlite::params![result.to_string(), child],
-        ).unwrap();
-        let catalog = f.app.dashboard_catalog().unwrap();
-        let parent = catalog["entities"].as_array().unwrap().iter()
-            .find(|e| e["id"] == root).unwrap();
-        assert_eq!(parent["properties"]["has_catalog_output"], expected);
-    }
-}
-
-#[test]
 fn native_dataset_publication_resolves_only_declared_data_parent_inputs() {
     let mut f = Fixture::new();
     let parent =
@@ -582,15 +552,9 @@ fn native_dataset_publication_resolves_only_declared_data_parent_inputs() {
             .code,
         "organization_task"
     );
-    let has_output = |catalog: Value| {
-        catalog["entities"].as_array().unwrap().iter()
-            .find(|item| item["id"] == job).unwrap()["properties"]["has_catalog_output"].clone()
-    };
-    assert_eq!(has_output(f.app.dashboard_catalog().unwrap()), false);
     f.app
         .publish_result(&job, "fixture-attempt", manifest, &folder)
         .unwrap();
-    assert_eq!(has_output(f.app.dashboard_catalog().unwrap()), true);
     let result = f
         .call(
             "results",
