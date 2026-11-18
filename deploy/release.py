@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 from zoneinfo import ZoneInfo
 import snapshot
@@ -28,7 +29,7 @@ def prepare(version,destination):
     for path in files:
         output=source/path.relative_to(ROOT);output.parent.mkdir(parents=True,exist_ok=True)
         if path.is_symlink():output.symlink_to(os.readlink(path))
-        else:output.write_bytes(path.read_bytes());output.chmod(path.stat().st_mode & 0o777)
+        else:shutil.copy2(path,output)
     for component in ('ops','dashboard'):
         local=snapshot.component_files(component,files,hashes)
         (source/component/'build-info.json').write_text(json.dumps({**info,'component':component,'files':local},indent=2)+'\n')

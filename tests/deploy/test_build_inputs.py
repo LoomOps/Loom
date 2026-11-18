@@ -61,3 +61,22 @@ class BuildInputTests(unittest.TestCase):
             index=runner.test_index(root/'lib.rs')
             self.assertEqual(set(index),{'left::same_name','right::same_name'})
             self.assertNotEqual(index['left::same_name'],index['right::same_name'])
+
+    def test_release_capture_preserves_source_mtimes_without_changing_originals(self):
+        release=module('deploy/release.py','isolated_release_capture')
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)/'source';root.mkdir()
+            for name in ('ops','dashboard'):
+                (root/name).mkdir();(root/name/'source.py').write_text('# immutable source\n')
+            (root/'deploy/migrations').mkdir(parents=True)
+            (root/'deploy/migrations/catalog.json').write_text('{"minimum_version":"0.1.0-alpha.1"}')
+            (root/'docs').mkdir();(root/'docs/UPGRADE.md').write_text('# Upgrade\n')
+            source=root/'ops/source.py'
+            import os
+            os.utime(source,ns=(1700000000000000000,1700000000000000000))
+            stamp=source.stat().st_mtime_ns
+            with patch.object(release,'ROOT',root),patch.object(release.snapshot,'ROOT',root):
+                target,_=release.prepare('0.2.0-alpha.45',Path(directory)/'releases')
+            self.assertEqual((target/'source/ops/source.py').stat().st_mtime_ns,stamp)
+            self.assertEqual(source.stat().st_mtime_ns,stamp)
+            self.assertEqual((target/'source/ops/source.py').read_bytes(),source.read_bytes())

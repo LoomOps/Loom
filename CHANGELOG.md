@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0-alpha.45
+
+- Preserve source modification times when preparing immutable release snapshots, allowing Cargo to reuse unchanged native components across image builds. Keep generated release identities explicit and existing numbered artifacts unchanged.
+- Includes the Inspector placeholder removal, incremental build boundaries and Main Job/Activity corrections from alpha.44.
+
 ## 0.2.0-alpha.44
 
 - Omit unavailable GPU identity and storage mount text in Inspector instead of displaying a pending-measurement placeholder. Preserve numeric readings, missing/stale indicators and real mount warnings.
