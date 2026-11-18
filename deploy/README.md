@@ -81,7 +81,9 @@ external output storage and system units together, after actual executions retur
 - `test.sh --browser`: isolated regression tests.
 
 Build tools escalate for protected `/loom/builds` paths when needed, then assign new
-snapshots to loom. Existing numbered snapshots/images are never overwritten.
+snapshots to loom. Dev snapshot numbers are local to each output directory. Use the
+image references recorded in the snapshot manifest. Their unique tags let builds
+from different output directories coexist on the same Docker daemon.
 Images contain code; state/credentials/data are external. Existing dev live-source
 updates do not restart active Jobs. Select a new `build.env` and recreate the intended
 instance only after executions/callbacks and executor tickets have returned.

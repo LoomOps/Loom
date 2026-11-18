@@ -11,6 +11,7 @@ import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import subprocess
 import tarfile
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,9 +61,11 @@ def capture(destination, instance=None):
         hashes = {str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
         digest = hashlib.sha256(json.dumps(hashes,sort_keys=True).encode()).hexdigest()
         commit = subprocess.run(['git','-C',str(ROOT),'rev-parse','HEAD'],capture_output=True,text=True)
+        # Numbering is local to the destination; Docker tags share one namespace.
+        tag = f'{build_id}-{uuid4().hex}'
         info = {'build_id':build_id, 'channel':'dev-build', 'created_at':now.isoformat(),
                 'source_sha256':digest, 'git_commit':commit.stdout.strip() if commit.returncode==0 else None,
-                'images':{'ops':'loom-ops:'+build_id,'dashboard':'loom-dashboard:'+build_id}}
+                'images':{'ops':'loom-ops:'+tag,'dashboard':'loom-dashboard:'+tag}}
         generated = {}
         for component in ('ops','dashboard'):
             local = component_files(component,files,hashes)

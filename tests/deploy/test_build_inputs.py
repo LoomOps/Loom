@@ -1,4 +1,5 @@
 """Build inputs, inert entry points and target-qualified test selection."""
+from datetime import datetime
 import importlib.util
 import json
 from pathlib import Path
@@ -36,6 +37,17 @@ class BuildInputTests(unittest.TestCase):
                 embedded=json.load(archive.extractfile('ops/build-info.json'))
             self.assertEqual(embedded['build_id'],info['build_id'])
             self.assertIn('source.py',embedded['files'])
+
+    def test_independent_snapshot_destinations_do_not_share_docker_tags(self):
+        snapshot=module('deploy/snapshot.py','isolated_snapshot_tags')
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            with patch.object(snapshot,'ROOT',root),patch.object(snapshot,'datetime') as clock:
+                clock.now.return_value=datetime.fromisoformat('2026-11-18T12:00:00+09:00')
+                first=snapshot.capture(root/'first')
+                second=snapshot.capture(root/'second')
+            self.assertEqual(first['build_id'],second['build_id'])
+            self.assertTrue(set(first['images'].values()).isdisjoint(second['images'].values()))
 
     def test_dashboard_noop_preserves_mtime_and_failed_publication_keeps_previous_bytes(self):
         sys.path.insert(0,str(ROOT/'dashboard/workspace'))
