@@ -21,6 +21,26 @@ from verify_browser import request,FIREFOX
 from verify_workspace import Workspace
 
 class WorkspaceBrowserTests(unittest.TestCase):
+    def test_outcome_group_folds_followup_after_its_consolidated_parent(self):
+        main,_=native('outcome-main');old,_=native('outcome-original');follow,_=native('outcome-continuation')
+        for item in [main,old,follow]:
+            item['state']='complete';item['properties'].update(state='complete',category='sdg' if item is main else 'development')
+            item['presentation']={'scope':'research','role':'main' if item is main else 'support'}
+            item['group_root']=main['id']
+        old['presentation']['parent_job']=main['id'];old['properties']['consolidated_into']=follow['id']
+        follow['presentation']['parent_job']=old['id']
+        self.api.fixture['catalog'].update(entities=[main,old,follow],revision='consolidated-outcome')
+        self.ui.top();self.wd('/refresh',{});self.ui.connect()
+        history="[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))"
+        self.ui.wait('return '+history+"?.querySelectorAll('tbody tr').length===1")
+        self.assertTrue(self.ui.js('return !!'+history+"?.querySelector('[data-entity=\"'+arguments[0]+'\"]')",main['id']))
+        # A narrower filter excludes the root, so the matching continuation
+        # remains discoverable. Explicit source history retains both originals.
+        self.ui.js("const e=document.querySelector('[data-job-filter=jobCategory]');e.value='development';e.dispatchEvent(new Event('change',{bubbles:true}))")
+        self.ui.wait('return !!'+history+"?.querySelector('[data-entity=\"'+arguments[0]+'\"]')",follow['id'])
+        self.ui.click('[data-job-filter=jobSourceHistory]')
+        self.ui.wait('return '+history+"?.querySelectorAll('tbody tr').length===2")
+
     def test_activity_fallback_counts_nested_executions_once_per_main(self):
         now=time.time();start=now-120;records=[]
         for identity,parent,ranges in [('main',None,[(0,20)]),('child','main',[(10,40)]),('grandchild','child',[(30,60),(70,80)])]:

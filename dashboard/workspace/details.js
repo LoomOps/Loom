@@ -132,7 +132,10 @@ function loomFilteredWorkItems() {
     && (!state.jobExecutionMode || e.properties?.execution_mode === state.jobExecutionMode)
     && (state.jobSourceHistory || !e.properties?.consolidated_into));
   const parents=new Set(matching.map(e=>e.id));
-  return matching.filter(e=>state.jobSourceHistory || !e.presentation?.parent_job || !parents.has(e.presentation.parent_job));
+  // A continuation's immediate parent may already be folded into another
+  // execution. Use the authoritative outcome root when it matches the current
+  // filters; otherwise keep matching children visible independently.
+  return matching.filter(e=>state.jobSourceHistory || ![e.group_root!==e.id&&e.group_root,e.presentation?.parent_job].some(id=>id&&parents.has(id)));
 }
 function loomJobFilters() {
   const c = loomJobContract();
