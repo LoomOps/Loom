@@ -1180,6 +1180,16 @@ fn preparation_family_preserves_workflow_states_pins_and_execution_membership() 
         .call("results", "resolve_item", json!({"native_ref":native}))
         .is_err());
     let node = original["executions"][0]["job"].clone();
+    let membership = f.call("jobs", "get", json!({"id":node})).unwrap();
+    assert_eq!(
+        membership["execution_membership"],
+        json!({"root":repair,"node":"render"})
+    );
+    let independent = f.submit("independent-followup");
+    f.call("jobs","curate",json!({"key":"independent-parent","reason":"Same outcome, independent execution","dry_run":false,"changes":[{"kind":"job","id":independent,"presentation":{"parent_job":main,"role":"support"}}]})).unwrap();
+    let standalone = f.call("jobs", "get", json!({"id":independent})).unwrap();
+    assert!(standalone.get("execution_membership").unwrap().is_null());
+    assert_eq!(standalone["presentation"]["parent_job"], main);
     let changes = json!([{"kind":"job","id":main,"presentation":{"scope":"operations","role":"main"}},{"kind":"job","id":repair,"presentation":{"scope":"operations","role":"support","parent_job":main}}]);
     let args = json!({"key":"link-preparation","reason":"Same requested pipeline","dry_run":false,"changes":changes});
     let receipt = f.call("jobs", "curate", args.clone()).unwrap();
@@ -1215,7 +1225,7 @@ fn preparation_family_preserves_workflow_states_pins_and_execution_membership() 
     assert_eq!(detail["executions"], original["executions"]);
     assert_eq!(detail["presentation"]["parent_job"], main);
     assert_eq!(detail["family"]["root"], main);
-    assert_eq!(detail["family"]["total"], 4);
+    assert_eq!(detail["family"]["total"], 5);
     assert!(detail["family"]["members"]
         .as_array()
         .unwrap()
@@ -1234,7 +1244,7 @@ fn preparation_family_preserves_workflow_states_pins_and_execution_membership() 
         f.call("jobs", "get", json!({"id":node})).unwrap()["family"]["root"],
         repair
     );
-    assert_eq!(f.count("jobs"), 2);
+    assert_eq!(f.count("jobs"), 3);
     assert_eq!(f.count("attempts"), 0);
 }
 

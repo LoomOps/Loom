@@ -55,6 +55,9 @@ overlays apply to exact reads as well as the catalog. Partial presentation edits
 must validate cycles against the merged existing hierarchy; explicit null clears
 a presentation parent, while real workflow membership remains authoritative.
 Neither grouping nor a failed follow-up rewrites the original root's state.
+Physical `jobs.get` records expose `execution_membership` as `{root,node}` only
+for actual workflow nodes, or null for independent Jobs. Consumers must use this
+authority rather than treating `presentation.parent_job` as execution membership.
 
 Root catalog rows expose `group_summary` and each member exposes `group_root`.
 The bounded summary counts physical executions once, unions recorded intervals,

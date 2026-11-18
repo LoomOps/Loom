@@ -369,6 +369,14 @@ impl Application {
             &[&id],
         )?;
         let mut details = json!({"id":id,"submitter":row.submitter,"owner":row.owner,"notify":row.notify,"state":row.aggregate.state.as_str(),"status":row.aggregate.state.public(),"attempt":row.aggregate.fence.attempt.as_ref().map(|a|a.as_str()),"created":row.created,"spec":spec,"result":result,"previous_result":previous,"attempts":attempts,"stages":stages,"execution_intervals":timing,"recovery":recovery,"presentation":presentation,"category":row.spec.get("category").unwrap_or(&json!("other")),"execution_mode":row.spec["execution_mode"],"scenario_ref":row.spec["scenario_ref"],"scheduling":{"eligible":scheduling.reason().is_none(),"waiting_reason":scheduling.reason(),"dependency_failed":scheduling.dependency_failed},"cancel":row.aggregate.cancel_requested,"queue_history":queue_history,"internal_steps":internal_steps});
+        details["execution_membership"] = rows(
+            &self.db,
+            "SELECT root,node FROM workflow_nodes WHERE job=?",
+            &[&id],
+        )?
+        .into_iter()
+        .next()
+        .unwrap_or(Value::Null);
         details = self.decorate_owner("job", id, &row.owner, details)?;
         let annotations = rows(
             &self.db,

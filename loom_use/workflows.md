@@ -121,6 +121,9 @@ exposes this hierarchy, including failed Jobs and real workflow execution nodes;
 `relation` distinguishes presentation from scheduler membership. Up to 200
 members are returned with `total`/`complete`; exact Job reads remain available.
 Grouping never changes completion, cancels descendants or proves Runtime reuse.
+On physical Job reads, `execution_membership` identifies actual workflow nodes;
+null means an independent execution even if it has a presentation parent. Do not
+rebind workflow nodes or infer execution ownership from a browsing group.
 Do not submit a dummy Job for CPU-only planning or code review; associate that
 evidence with the existing task/outcome and reusable software instead.
 
