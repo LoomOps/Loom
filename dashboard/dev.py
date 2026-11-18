@@ -31,11 +31,9 @@ def main():
         while not stopping:
             current = signature([*ROOT.joinpath('workspace').glob('*'), *ROOT.joinpath('branding').glob('*'), ROOT/'theme/theme.js'])
             if current != last and not gateway:
-                staged = ROOT / 'public/workspace.pending.html'
+                output = ROOT / 'public/workspace.html'
                 result = subprocess.run([sys.executable, '-B', str(ROOT/'workspace/build.py'),
-                    str(ROOT/'workspace/template.html'), '--output', str(staged)])
-                if result.returncode == 0:
-                    os.replace(staged, ROOT/'public/workspace.html')
+                    str(ROOT/'workspace/template.html'), '--output', str(output)])
                 last = current
             version = signature([ROOT/'server.py',ROOT/'sso.py',ROOT/'admission.py',ROOT/'sharing.py',ROOT/'admission_http.py',ROOT/'gateway.py'])
             if process is None or version != server_version:

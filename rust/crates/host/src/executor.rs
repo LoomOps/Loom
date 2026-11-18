@@ -1,4 +1,4 @@
-use loom_core::{
+use loom_primitives::{
     compat,
     error::require,
     store::{hash, rows},
@@ -65,7 +65,7 @@ pub trait Docker: Send + Sync {
     }
     fn capture_logs(&self, container: &str, path: &Path) -> Result<()> {
         let text = self.call(&strings(&["logs", container]))?;
-        loom_core::storage::atomic(path, text.as_bytes(), 0o600)
+        loom_primitives::storage::atomic(path, text.as_bytes(), 0o600)
     }
 }
 pub struct DockerCli;
@@ -1159,10 +1159,10 @@ impl<D: Docker> Executor<D> {
             self.docker
                 .capture_logs(row["container"].as_str().unwrap_or(""), &path)?;
             if row["state"] == "returned" {
-                loom_core::storage::atomic(&sealed, b"returned", 0o600)?;
+                loom_primitives::storage::atomic(&sealed, b"returned", 0o600)?;
             }
         }
-        let mut file = loom_core::storage::open_regular(&path)?;
+        let mut file = loom_primitives::storage::open_regular(&path)?;
         let total = file.metadata()?.len();
         let limit = args["limit"]
             .as_u64()

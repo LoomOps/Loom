@@ -7,20 +7,7 @@ use std::path::{Path, PathBuf};
 pub fn root(app: &Application) -> PathBuf {
     app.local.join("file-sources")
 }
-pub fn bounded(path: &Path, max: usize) -> Result<Vec<u8>> {
-    use std::io::Read;
-    let mut bytes = vec![];
-    storage::open_regular(path)?
-        .take(max as u64 + 1)
-        .read_to_end(&mut bytes)?;
-    require(
-        bytes.len() <= max,
-        "inventory",
-        "Inventory metadata exceeds bound",
-        413,
-    )?;
-    Ok(bytes)
-}
+pub use loom_primitives::file_set::bounded;
 fn key(value: &Value) -> Result<&str> {
     let value = value
         .as_str()

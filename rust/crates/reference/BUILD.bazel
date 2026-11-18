@@ -1,0 +1,8 @@
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary")
+load("@crates//:defs.bzl", "all_crate_deps", "aliases")
+load("@rules_rust//cargo:defs.bzl", "cargo_build_script")
+package(default_visibility = ["//visibility:public"])
+exports_files(["Cargo.toml"])
+filegroup(name = "sources", srcs = glob(["src/**", "Cargo.toml"]) + glob(["build.rs"], allow_empty = True))
+cargo_build_script(name = "build_script", srcs = ["build.rs"], crate_name = "build_script_build", edition = "2021", deps = all_crate_deps(build = True), data = ["//:native_sources"], build_script_env = {"LOOM_DECLARED_BUILD_INPUTS": "1"})
+rust_library(name = "reference", crate_name = "loom_reference", srcs = glob(["src/**/*.rs"], exclude = ["src/main.rs"]), edition = "2021", version = "0.1.0", aliases = aliases(), deps = ["//rust/crates/primitives:primitives" , ":build_script"] + all_crate_deps(normal = True), compile_data = ["//loom_use:sources", "//rust:templates", "//rust:contracts", "//rust/crates/sdk:sources"])

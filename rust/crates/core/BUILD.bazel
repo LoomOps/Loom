@@ -1,0 +1,8 @@
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_test")
+load("@crates//:defs.bzl", "all_crate_deps", "aliases")
+package(default_visibility = ["//visibility:public"])
+exports_files(["Cargo.toml"])
+filegroup(name = "sources", srcs = glob(["src/**", "Cargo.toml"]) + glob(["build.rs"], allow_empty = True))
+rust_library(name = "core", crate_name = "loom_core", srcs = glob(["src/**/*.rs"], exclude = ["src/main.rs"]), edition = "2021", version = "0.2.0", aliases = aliases(), deps = ["//rust/crates/domain:domain", "//rust/crates/primitives:primitives", "//rust/crates/contracts:contracts"] + all_crate_deps(normal = True), compile_data = ["//rust:contracts", "//rust:templates", "//rust/crates/sdk:sources"])
+
+rust_test(name = "core_test", crate_name = "loom_core", crate_root = "src/lib.rs", srcs = glob(["src/**/*.rs"], exclude = ["src/main.rs"]) + ["//tests/rust:application.rs", "//tests/rust:codec.rs", "//tests/rust:documentation.rs", "//tests/rust:metadata_templates.rs", "//tests/rust:reporting.rs", "//tests/rust:system_ownership.rs", "//tests/rust:registry_lifecycle.rs"], edition = "2021", version = "0.2.0", aliases = aliases(), deps = ["//rust/crates/reference:reference", "//rust/crates/domain:domain", "//rust/crates/primitives:primitives", "//rust/crates/contracts:contracts"] + all_crate_deps(normal = True), args = ["--skip", "inventory_projection_is_chunked_and_core_growth_does_not_follow_file_count"], timeout = "long", compile_data = ["//tests/rust:fixtures", "//rust:contracts", "//rust:templates", "//rust/crates/sdk:sources"])

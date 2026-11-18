@@ -95,9 +95,13 @@ async fn request(
 }
 #[tokio::main]
 async fn main() -> Result<()> {
+    loom_core::onboarding::install(loom_reference::assets());
     let args: Vec<_> = std::env::args().collect();
     if args.iter().any(|a| a == "--version") {
-        println!("loom-ops {}", env!("CARGO_PKG_VERSION"));
+        println!(
+            "loom-ops {}",
+            loom_core::onboarding::assets().release_version
+        );
         return Ok(());
     }
     if args.iter().any(|a| a == "--guide-bundle") {

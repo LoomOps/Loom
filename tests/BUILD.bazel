@@ -1,0 +1,3 @@
+package(default_visibility = ["//visibility:public"])
+test_suite(name = "developer", tests = ["//rust/crates/domain:domain_test", "//rust/crates/core:core_test", "//rust/crates/host:host_test", "//rust/crates/ops:ops_test", "//rust/crates/sdk:sdk_test", "//tests/build:native_http"])
+test_suite(name = "release", tests = [":developer", "//tests/build:native_read_scale", "//tests/build:scale"])

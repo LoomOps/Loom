@@ -2,6 +2,8 @@
 import argparse
 import hashlib
 import html
+import os
+import tempfile
 from pathlib import Path
 import re
 from lazy_logs import patch_logs
@@ -86,7 +88,8 @@ def build(original):
 
     inner = replace_once(inner, 'const ended=rows.filter(e=>queueState(e).info[3]).sort((a,b)=>(queueTimes(b).ended??queueTimes(b).exited??0)',
                          'const ended=loomFilteredWorkItems().filter(e=>queueState(e).info[3]).sort((a,b)=>(queueTimes(b).ended??queueTimes(b).exited??0)')
-    inner = replace_once(inner, "current=rows.filter(e=>!queueState(e).info[3]).sort((a,b)=>(queueTimes(b).created??0)-(queueTimes(a).created??0))", "current=rows.filter(e=>!e.migration?.read_only&&!queueState(e).info[3]).sort(loomQueueCompare)")
+    inner=inner.replace('(queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).ended??queueTimes(a).exited??0)', '(queueTimes(b).activity??queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).activity??queueTimes(a).ended??queueTimes(a).exited??0)')
+    inner = replace_once(inner, "current=rows.filter(e=>!queueState(e).info[3]).sort((a,b)=>(queueTimes(b).created??0)-(queueTimes(a).created??0))", "current=loomCurrentWorkItems(rows).filter(e=>!e.migration?.read_only&&!queueState(e).info[3]).sort(loomQueueCompare)")
     inner = replace_once(inner, '+panel(`종료 이력 · ${historyFilter', '+loomHistoricalWorkPanel(rows)+panel(`종료 이력 · ${historyFilter')
     inner = inner.replace('n:rows.filter(e=>queueState(e).info[0]===key).length', 'n:rows.filter(e=>!e.migration?.read_only&&queueState(e).info[0]===key).length')
     inner = replace_once(inner, '${typeLabel[x.e.kind]}</span>', '${typeLabel[x.e.kind]}${x.e.loom_registry?\' · 등록\':\'\'}</span>')
@@ -103,6 +106,12 @@ def build(original):
     inner = inner.replace("'등록된 작업의 예약 없음'", "'현재 할당 없음'")
     inner = replace_once(inner, "resCard(v.path,s.storage,", "resCard(v.path,{...s.storage,status:v.status||s.storage?.status},")
     inner = inner.replace("[{path:'data/0'},{path:'data/1'}]", "[{path:'Storage'}]")
+    # Missing identity/location fields are omitted, not pending measurements.
+    inner = replace_once(inner, "<p>${esc(v?.name||'계측 대기')}</p>",
+                         "${v?.name?`<p>${esc(v.name)}</p>`:''}")
+    inner = replace_once(inner, "<p>${esc(v.mount||'계측 대기')}${v.bulk_mount_present===false?' · 별도 마운트 미확인':''}</p>",
+                         "${v.mount||v.bulk_mount_present===false?`<p>${[v.mount,v.bulk_mount_present===false?'별도 마운트 미확인':null].filter(Boolean).map(esc).join(' · ')}</p>`:''}")
+
     inner = inner.replace("s?.status==='stale'?'이전 값':'수집 불가'", "s?.status==='stale'?'이전 값':s?.status==='warming'?'샘플 준비 중':'수집 불가'")
     inner = replace_once(inner, '<!-- LOOM_BRAND_LOGO -->', (HERE.parent/'branding/logo.svg').read_text().strip())
     inner = replace_once(inner, "const mode=['light','dark','system'].includes(ws.theme)?ws.theme:'system';", "const mode=window.loomThemePreference||'system';")
@@ -184,9 +193,41 @@ def build(original):
     return outer
 
 
+def inputs():
+    """File-set membership is an input, including newly added source assets."""
+    files={p for p in HERE.iterdir() if p.is_file() and p.suffix in {'.py','.js','.css','.html'}}
+    for directory in ('branding','theme'):
+        files.update(p for p in (HERE.parent/directory).rglob('*') if p.is_file())
+    return sorted(files)
+
+
+def write_output(path, content):
+    """Publish complete bytes once; preserve the previous output on failure/no-op."""
+    path=Path(path);data=content.encode()
+    if path.exists() and path.read_bytes()==data:return False
+    path.parent.mkdir(parents=True,exist_ok=True)
+    mode=path.stat().st_mode & 0o777 if path.exists() else 0o644
+    fd,name=tempfile.mkstemp(prefix='.'+path.name+'-',dir=path.parent)
+    try:
+        with os.fdopen(fd,'wb') as stream:stream.write(data);stream.flush();os.fsync(stream.fileno())
+        os.chmod(name,mode);os.replace(name,path)
+    finally:
+        if os.path.exists(name):os.unlink(name)
+    return True
+
+
 if __name__ == "__main__":
     cli = argparse.ArgumentParser(description=__doc__)
-    cli.add_argument("original", type=Path)
+    cli.add_argument("original", type=Path, nargs="?", default=HERE / "template.html")
+    cli.add_argument("--inputs", action="store_true", help="Print declared generator input paths")
+    cli.add_argument("--check", action="store_true", help="Check the generated output without rewriting it")
     cli.add_argument("--output", type=Path, default=HERE.parent / "public" / "workspace.html")
     args = cli.parse_args()
-    args.output.write_text(build(args.original))
+    if args.inputs:
+        import json
+        print(json.dumps([str(p.relative_to(HERE.parent.parent)) for p in inputs()]))
+    elif args.check:
+        if not args.output.is_file() or args.output.read_bytes()!=build(args.original).encode():
+            raise SystemExit("Generated dashboard is stale")
+    else:
+        write_output(args.output,build(args.original))

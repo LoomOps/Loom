@@ -1,0 +1,6 @@
+load("@rules_python//python:defs.bzl", "py_library")
+package(default_visibility = ["//visibility:public"])
+exports_files(glob(["*.rs", "fixtures/**"]))
+py_library(name = "binary_paths", srcs = ["native_binaries.py"], imports = ["."])
+py_library(name = "http_fixture", srcs = ["test_service.py"], imports = ["."], deps = [":binary_paths"])
+filegroup(name = "fixtures", srcs = glob(["fixtures/**"]))

@@ -19,8 +19,9 @@ Run from the repository root. The Python environment requires `jsonschema==4.23.
 ```bash
 python3 tests/run.py
 python3 tests/run.py --browser --output /tmp/loom-tests
-# Run one suite:
-python3 tests/suite.py tests/deploy /tmp/loom-packaging.json
+# Run one suite/file or one native package:
+python3 tests/run.py --suite packaging --python-pattern test_build_inputs.py
+python3 tests/run.py --suite native --rust-package loom-host
 ```
 
 Set browser paths through `LOOM_TEST_FIREFOX` and `LOOM_TEST_GECKODRIVER`. `deploy/test.sh` is a compatibility wrapper. Each suite runs in a separate process to isolate product modules with matching names; use `run.py` for the full run.
@@ -36,3 +37,5 @@ CPU containers. Docker skips cannot count as feature readiness. `--reference-onl
 explicitly omits native acceptance. `LOOM_USE_CANDIDATE` may select a separate
 candidate client checkout in addition to the independently pinned published client.
 No operational instance, GPU Job or installed Skill is changed by this runner.
+
+The [incremental build guide](../docs/BUILD.md) describes the pinned native graph, independent scale target, input/output boundaries and uncached local acceptance.

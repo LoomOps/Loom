@@ -25,6 +25,8 @@ LOOM_TEST_GECKODRIVER=/path/to/geckodriver \
 
 Missing executables are failures when `--browser` was requested. Runs omitting browser checks report `browser_requested=false`.
 
+For selected suite/package/file checks and the native cached graph, see [incremental builds](../docs/BUILD.md). Selected runs do not establish full candidate readiness.
+
 ## Coverage
 
 | Suite or contract | Behavior covered |

@@ -8,7 +8,7 @@ license-file = "../../../LICENSE"
 
 [dependencies]
 base64.workspace = true
-loom-core = { path = "../core" }
+loom-primitives = { path = "../primitives" }
 loom-domain = { path = "../domain" }
 serde.workspace = true
 serde_json.workspace = true

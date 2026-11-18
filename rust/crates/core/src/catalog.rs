@@ -97,6 +97,14 @@ impl Application {
             }
             ids.insert(id.to_string());
         }
+        for entity in &mut entities {
+            let id = entity["id"].as_str().unwrap_or("").to_string();
+            let root = self.job_family_root(&id)?;
+            entity["group_root"] = json!(root);
+            if root == id {
+                entity["group_summary"] = self.job_group_summary(&id)?;
+            }
+        }
         for row in rows(
             &self.db,
             "SELECT * FROM all_entity_revisions e WHERE ? OR EXISTS(SELECT 1 FROM json_each(?) x WHERE json_extract(x.value,'$.native_ref.kind')='entity' AND json_extract(x.value,'$.native_ref.identity.id')=e.id AND json_extract(x.value,'$.native_ref.identity.revision')=e.revision) ORDER BY id,revision",

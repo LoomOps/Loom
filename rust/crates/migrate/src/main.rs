@@ -133,6 +133,7 @@ fn app_connection(state: &Path) -> Result<Connection> {
     connect(&state.join("ops.sqlite3"))
 }
 fn main() -> Result<()> {
+    loom_core::onboarding::install(loom_reference::assets());
     let args: Vec<_> = std::env::args().collect();
     let arg = |key: &str| -> Result<&str> {
         args.iter()
@@ -142,7 +143,10 @@ fn main() -> Result<()> {
             .ok_or_else(|| Error::input(format!("{key} required")))
     };
     if args.get(1).map(String::as_str) == Some("--version") {
-        println!("loom-migrate {}", env!("CARGO_PKG_VERSION"));
+        println!(
+            "loom-migrate {}",
+            loom_core::onboarding::assets().release_version
+        );
         return Ok(());
     }
     let state = Path::new(arg("--state")?);

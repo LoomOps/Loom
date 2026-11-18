@@ -118,7 +118,7 @@ Shared authentication, schema, scope and handler preconditions still apply.
 
 ## get
 
-Read state, Attempts, internal_steps, consolidation provenance, work_timeline from original execution receipts, waiting reasons, recovery, callbacks and artifacts. Consolidated work elapsed time includes sources; Attempts retain continuation runtime timestamps. family adds bounded Main Job, prerequisite/follow-up and real execution-node navigation with original states and Runtime pins; presentation grouping does not change execution membership or completion.
+Read state, Attempts, internal_steps, consolidation provenance, work_timeline from original execution receipts, waiting reasons, recovery, callbacks and artifacts. Consolidated work elapsed time includes sources; Attempts retain continuation runtime timestamps. family adds bounded Main Job, prerequisite/follow-up and real execution-node navigation with original states and Runtime pins; presentation grouping does not change execution membership or completion. family.summary is a bounded read-only aggregate of physical executions, recent activity and active state; original root state and timestamps remain unchanged.
 
 Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/query.rs#inspect_job](../../rust/crates/core/src/query.rs).
 

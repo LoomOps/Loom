@@ -1,9 +1,9 @@
 [workspace]
-members = ["rust/crates/domain", "rust/crates/core", "rust/crates/sdk", "rust/crates/host", "rust/crates/ops", "rust/crates/migrate"]
+members = ["rust/crates/contracts", "rust/crates/reference", "rust/crates/primitives", "rust/crates/domain", "rust/crates/core", "rust/crates/sdk", "rust/crates/host", "rust/crates/ops", "rust/crates/migrate"]
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0-alpha.43"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.100"
 publish = false

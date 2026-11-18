@@ -171,7 +171,7 @@ impl Application {
             v.as_object_mut().unwrap().remove("last_job");
         }
         Ok(
-            json!({"schema":"loom-activity/v1","days":days.values().collect::<Vec<_>>(),"through":clock,"timezone":"Asia/Seoul","window_days":366,"detail_limit":50,"basis":"actual execution intervals and recorded eligible asset registration; unknown time stays unknown"}),
+            json!({"schema":"loom-activity/v1","days":days.values().collect::<Vec<_>>(),"through":clock,"timezone":"Asia/Seoul","window_days":366,"detail_limit":50,"job_count_basis":"distinct top-level Job per KST day; descendants and Attempts are not additional Jobs","basis":"actual execution intervals and recorded eligible asset registration; unknown time stays unknown"}),
         )
     }
 }

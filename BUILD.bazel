@@ -1,0 +1,3 @@
+package(default_visibility = ["//visibility:public"])
+exports_files(["Cargo.toml", "Cargo.lock", "LICENSE", "THIRD_PARTY_NOTICES.md"])
+filegroup(name = "native_sources", srcs = ["Cargo.toml", "Cargo.lock", "//loom_use:sources", "//rust:release.json", "//rust:contracts", "//rust:templates"] + ["//rust/crates/" + name + ":sources" for name in ["domain", "primitives", "contracts", "core", "host", "ops", "reference", "sdk"]])

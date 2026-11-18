@@ -51,3 +51,5 @@ Native tool-call success and tool-error replies retain operation JSON/error in t
 first content block and append a short version footer. `_meta.loom` and HTTP
 `X-Loom-Revision` carry the full identities. The immutable binary identity is
 computed once per process; ordinary responses do not rehash all guide/schema text.
+
+Immutable guide/template payloads and release identity live in `loom-reference`; executable composition installs `ReferenceAssets` before serving. Core retains scoped serving, schema/guide hashing and bundle assembly. Guidance changes invalidate that payload and its binary consumers without recompiling transactional Core/Host.

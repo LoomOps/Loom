@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use sha2::Sha256;
 use std::{
     fs,
-    os::unix::fs::{DirBuilderExt, OpenOptionsExt},
+    os::unix::fs::OpenOptionsExt,
     path::{Path, PathBuf},
 };
 pub const SCHEMA:&str="CREATE TABLE IF NOT EXISTS meta(id INTEGER PRIMARY KEY CHECK(id=1),generation TEXT NOT NULL,origin BLOB NOT NULL,checkpoint INTEGER NOT NULL DEFAULT 0,schema INTEGER NOT NULL DEFAULT 1,version INTEGER NOT NULL DEFAULT 0,chunk INTEGER NOT NULL DEFAULT 0,verification_after BLOB); CREATE TABLE IF NOT EXISTS docs(rowid INTEGER PRIMARY KEY,id BLOB NOT NULL,revision BLOB,kind TEXT NOT NULL,parent BLOB,label TEXT NOT NULL,text TEXT NOT NULL,recorded REAL NOT NULL,scope TEXT NOT NULL,role TEXT NOT NULL,valid_from INTEGER NOT NULL,valid_to INTEGER,body TEXT NOT NULL,UNIQUE(id,valid_from)); CREATE INDEX IF NOT EXISTS docs_identity ON docs(id,valid_from,valid_to); CREATE INDEX IF NOT EXISTS docs_page ON docs(kind,scope,role,recorded,id); CREATE INDEX IF NOT EXISTS docs_parent ON docs(parent,valid_from,valid_to); CREATE VIRTUAL TABLE IF NOT EXISTS terms USING fts5(text,content='docs',content_rowid='rowid',tokenize='unicode61'); CREATE VIRTUAL TABLE IF NOT EXISTS grams USING fts5(text,content='docs',content_rowid='rowid',tokenize='trigram'); CREATE TRIGGER IF NOT EXISTS docs_terms AFTER INSERT ON docs BEGIN INSERT INTO terms(rowid,text) VALUES(new.rowid,new.text); INSERT INTO grams(rowid,text) VALUES(new.rowid,new.text); END; CREATE TRIGGER IF NOT EXISTS docs_delete AFTER DELETE ON docs BEGIN INSERT INTO terms(terms,rowid,text) VALUES('delete',old.rowid,old.text); INSERT INTO grams(grams,rowid,text) VALUES('delete',old.rowid,old.text); END; CREATE TABLE IF NOT EXISTS projection_versions(version INTEGER PRIMARY KEY,created REAL NOT NULL); CREATE TABLE IF NOT EXISTS projection_retention(id INTEGER PRIMARY KEY,min_version INTEGER NOT NULL); INSERT OR IGNORE INTO projection_retention VALUES(1,0); CREATE TABLE IF NOT EXISTS log_sources(stream BLOB,generation TEXT,offset INTEGER NOT NULL,stamp TEXT NOT NULL,PRIMARY KEY(stream,generation));";
@@ -147,39 +147,7 @@ pub fn validate_layout(app: &Application) -> Result<()> {
         409,
     )
 }
-pub fn secure_dir(path: &Path) -> Result<()> {
-    require(
-        path.is_absolute(),
-        "catalog_path",
-        "An absolute catalog directory is required",
-        400,
-    )?;
-    let mut check = PathBuf::from("/");
-    for c in path.components() {
-        check.push(c);
-        if let Ok(m) = check.symlink_metadata() {
-            require(
-                !m.file_type().is_symlink(),
-                "catalog_path",
-                "Catalog directory redirected",
-                409,
-            )?;
-        }
-    }
-    if !path.exists() {
-        fs::DirBuilder::new()
-            .recursive(true)
-            .mode(0o700)
-            .create(path)?;
-    }
-    require(
-        path.canonicalize()? == path,
-        "catalog_path",
-        "Catalog directory redirected",
-        409,
-    )?;
-    Ok(())
-}
+pub use loom_primitives::index_store::secure_dir;
 pub struct IndexWriter {
     pub db: Connection,
     pub path: PathBuf,

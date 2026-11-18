@@ -1,0 +1,20 @@
+module(name = "loom", version = "0.2.0")
+
+bazel_dep(name = "rules_rust", version = "0.75.0")
+bazel_dep(name = "rules_python", version = "2.5.1")
+
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(edition = "2021", versions = ["1.100.0"])
+use_repo(rust, "rust_toolchains")
+register_toolchains("@rust_toolchains//:all")
+
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+crate.from_cargo(name = "crates", cargo_lockfile = "//:Cargo.lock", manifests = ["//:Cargo.toml"])
+use_repo(crate, "crates")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.12")
+use_repo(python, "python_3_12")
+
+client = use_extension("//build_support:client.bzl", "client")
+use_repo(client, "loom_use_client")

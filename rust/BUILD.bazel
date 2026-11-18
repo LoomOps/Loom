@@ -1,0 +1,4 @@
+package(default_visibility = ["//visibility:public"])
+filegroup(name = "contracts", srcs = glob(["contracts/**"]))
+filegroup(name = "templates", srcs = glob(["templates/**"]))
+exports_files(["release.json"])

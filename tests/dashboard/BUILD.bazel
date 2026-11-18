@@ -1,0 +1,3 @@
+load("@rules_python//python:defs.bzl", "py_library")
+package(default_visibility = ["//visibility:public"])
+py_library(name = "browser_fixtures", srcs = ["mock_ops.py", "verify_browser.py", "verify_workspace.py", "browser/test_workspace.py", "browser/test_native_workspace.py"], imports = [".", "browser", "../rust"], deps = ["//dashboard:relay", "//tests/rust:binary_paths"], data = ["//ops:job_contract.py"])

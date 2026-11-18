@@ -45,3 +45,5 @@ Register each new feature's unique ID, owned files, inputs/outputs, dependencies
 
 Acceptance outside these fixtures:
 - Passing all tests does not prove successful authentication with actual external services.
+
+Selected suites/Cargo packages/qualified test filters record incomplete scope explicitly. Native report v2 keeps legacy feature case labels and adds target-qualified identities. The native Bazel graph reuses test results against declared inputs; feature impact remains a review relation. See [incremental builds](../BUILD.md).

@@ -21,6 +21,18 @@ from verify_browser import request,FIREFOX
 from verify_workspace import Workspace
 
 class WorkspaceBrowserTests(unittest.TestCase):
+    def test_activity_fallback_counts_nested_executions_once_per_main(self):
+        now=time.time();start=now-120;records=[]
+        for identity,parent,ranges in [('main',None,[(0,20)]),('child','main',[(10,40)]),('grandchild','child',[(30,60),(70,80)])]:
+            item,_=native(identity);item['state']='complete';item['properties']['state']='complete'
+            item['presentation']={'scope':'research','role':'main' if parent is None else 'support','parent_job':parent,'visible':parent is None}
+            item['execution_intervals']=[{'start':start+a,'end':start+b} for a,b in ranges];records.append(item)
+        self.api.fixture['catalog'].update(entities=records,revision='nested-fallback')
+        self.ui.top();self.wd('/refresh',{});self.ui.frame()
+        day=time.strftime('%Y-%m-%d',time.gmtime(start+9*3600))
+        self.ui.wait("return document.querySelector('[data-activity-day=\"'+arguments[0]+'\"]')?.title.includes('JOB 1개')",day)
+        self.assertIn('1분 10초',self.ui.js("return document.querySelector('[data-activity-day=\"'+arguments[0]+'\"]').title",day))
+
     def test_user_preparation_links_runtime_and_activity_across_output_filters(self):
         main,main_record=native('preparation-main')
         child,child_record=native('preparation-repair')
@@ -97,6 +109,9 @@ class WorkspaceBrowserTests(unittest.TestCase):
         binary=Path(os.environ.get('LOOM_TEST_FIREFOX',str(FIREFOX/'firefox')))
         gecko=Path(os.environ.get('LOOM_TEST_GECKODRIVER',str(FIREFOX/'geckodriver')))
         if not binary.is_file() or not gecko.is_file():raise RuntimeError('Firefox/geckodriver missing; set LOOM_TEST_FIREFOX and LOOM_TEST_GECKODRIVER')
+        if os.environ.get('LOOM_TEST_WORKSPACE'):
+            public=patch.object(server,'PUBLIC',Path(os.environ['LOOM_TEST_WORKSPACE']).resolve().parent)
+            public.start();cls.addClassCleanup(public.stop)
         cls.api=make_mock();cls.web=server.make_server('127.0.0.1',0,'http://127.0.0.1:'+str(cls.api.server_port));cls.web.development=True
         for service in [cls.api,cls.web]:
             thread=Thread(target=service.serve_forever,kwargs={'poll_interval':.02},daemon=True);thread.start()
@@ -1071,6 +1086,10 @@ const done=arguments[arguments.length-1];
         self.api.errors.clear()
         ui.wait("return !document.querySelector('[data-resource-panel]').textContent.includes('연결 끊김')")
         self.assertFalse(any(method=='POST' and path not in ['/api/history/get','/mcp'] for method,path in self.api.calls))
+        self.api.fixture['resources']['sections']['storage']['data'][0].pop('mount')
+        ui.wait("return !document.querySelector('[data-resource-panel]').textContent.includes('/loom/data/0')")
+        self.assertFalse(ui.js("return document.querySelector('[data-resource-panel]').textContent.includes('계측 대기')"))
+        self.assertTrue(ui.js("return document.querySelector('[data-resource-panel]').textContent.includes('20 / 100 GiB')"))
 
     def test_queue_order_hold_resume_and_error_keep_controls_scoped(self):
         ui=self.ui

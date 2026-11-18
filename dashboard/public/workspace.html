@@ -2397,8 +2397,8 @@ function resourceContents(){
  const s=resourceData?.sections||{},c=s.cpu?.data,m=s.memory?.data,g=s.gpus?.data,disks=s.storage?.data,l=s.leases?.data;
  const cpu=resCard(&#x27;CPU&#x27;,s.cpu,`&lt;strong&gt;${resNum(c?.utilization_percent)}&lt;small&gt; %&lt;/small&gt;&lt;/strong&gt;${resBar(c?.utilization_percent)}&lt;p&gt;${c?.utilization_percent==null?&#x27;다음 샘플에서 사용률 계산&#x27;:`${resNum(c.sample_window_s)}초 구간 사용률`} · ${resNum(c?.logical_cpus,0)} threads&lt;/p&gt;&lt;p&gt;Load 1m ${resNum(c?.load_1m)}&lt;/p&gt;`, `&lt;div class=&quot;pa-resource-thermal&quot;&gt;&lt;span aria-label=&quot;CPU 온도&quot;&gt;${resNum(c?.temperature_C)} °C&lt;/span&gt;&lt;/div&gt;`);
  const ram=resCard(&#x27;메모리&#x27;,s.memory,`&lt;strong&gt;${resGiB(m?.used_bytes)}&lt;small&gt; / ${resGiB(m?.total_bytes)} GiB&lt;/small&gt;&lt;/strong&gt;${resBar(m?.total_bytes?100*m.used_bytes/m.total_bytes:null)}&lt;p&gt;사용 가능 ${resGiB(m?.available_bytes)} GiB · Swap ${resGiB(m?.swap_used_bytes)} GiB&lt;/p&gt;`);
- const gpu=(g?.length?g:[null]).map(v=&gt;resCard(v?`GPU ${v.index}`:&#x27;GPU&#x27;,s.gpus,`&lt;strong&gt;${resNum(v?.utilization_percent)}&lt;small&gt; %&lt;/small&gt;&lt;/strong&gt;${resBar(v?.utilization_percent)}&lt;p&gt;${esc(v?.name||&#x27;계측 대기&#x27;)}&lt;/p&gt;&lt;p&gt;VRAM ${resNum(v?.used_MiB/1024,2)} / ${resNum(v?.total_MiB/1024)} GiB&lt;/p&gt;` ,`&lt;div class=&quot;pa-resource-thermal&quot;&gt;&lt;span&gt;${resNum(v?.temperature_C)} °C&lt;/span&gt;&lt;span aria-hidden=&quot;true&quot;&gt;·&lt;/span&gt;&lt;span aria-label=&quot;GPU 보드 전력&quot;&gt;${resNum(v?.power_W)} W&lt;/span&gt;&lt;/div&gt;`)).join(&#x27;&#x27;);
- const storage=(disks?.length?disks:[{path:&#x27;Storage&#x27;}]).map(v=&gt;resCard(v.path,{...s.storage,status:v.status||s.storage?.status},`&lt;strong&gt;${resGiB(v.used_bytes)}&lt;small&gt; / ${resGiB(v.total_bytes)} GiB&lt;/small&gt;&lt;/strong&gt;${resBar(v.total_bytes?100*v.used_bytes/v.total_bytes:null)}&lt;p&gt;사용량 · ${resNum(v.total_bytes?100*v.used_bytes/v.total_bytes:null)}%&lt;/p&gt;&lt;p&gt;${esc(v.mount||&#x27;계측 대기&#x27;)}${v.bulk_mount_present===false?&#x27; · 별도 마운트 미확인&#x27;:&#x27;&#x27;}&lt;/p&gt;`)).join(&#x27;&#x27;);
+ const gpu=(g?.length?g:[null]).map(v=&gt;resCard(v?`GPU ${v.index}`:&#x27;GPU&#x27;,s.gpus,`&lt;strong&gt;${resNum(v?.utilization_percent)}&lt;small&gt; %&lt;/small&gt;&lt;/strong&gt;${resBar(v?.utilization_percent)}${v?.name?`&lt;p&gt;${esc(v.name)}&lt;/p&gt;`:&#x27;&#x27;}&lt;p&gt;VRAM ${resNum(v?.used_MiB/1024,2)} / ${resNum(v?.total_MiB/1024)} GiB&lt;/p&gt;` ,`&lt;div class=&quot;pa-resource-thermal&quot;&gt;&lt;span&gt;${resNum(v?.temperature_C)} °C&lt;/span&gt;&lt;span aria-hidden=&quot;true&quot;&gt;·&lt;/span&gt;&lt;span aria-label=&quot;GPU 보드 전력&quot;&gt;${resNum(v?.power_W)} W&lt;/span&gt;&lt;/div&gt;`)).join(&#x27;&#x27;);
+ const storage=(disks?.length?disks:[{path:&#x27;Storage&#x27;}]).map(v=&gt;resCard(v.path,{...s.storage,status:v.status||s.storage?.status},`&lt;strong&gt;${resGiB(v.used_bytes)}&lt;small&gt; / ${resGiB(v.total_bytes)} GiB&lt;/small&gt;&lt;/strong&gt;${resBar(v.total_bytes?100*v.used_bytes/v.total_bytes:null)}&lt;p&gt;사용량 · ${resNum(v.total_bytes?100*v.used_bytes/v.total_bytes:null)}%&lt;/p&gt;${v.mount||v.bulk_mount_present===false?`&lt;p&gt;${[v.mount,v.bulk_mount_present===false?&#x27;별도 마운트 미확인&#x27;:null].filter(Boolean).map(esc).join(&#x27; · &#x27;)}&lt;/p&gt;`:&#x27;&#x27;}`)).join(&#x27;&#x27;);
  const reservations=l?(l.registered.length?l.registered.map(x=&gt;`${catLink(x.job_id,x.label)} &lt;small&gt;${esc(x.resource)} × ${esc(x.units)}&lt;/small&gt;`).join(&#x27; · &#x27;):&#x27;현재 할당 없음&#x27;):&#x27;예약 상태 미확인&#x27;;
  return `&lt;div class=&quot;pa-resource-heading&quot;&gt;&lt;div&gt;&lt;b&gt;Inspector&lt;/b&gt;${catHostLabel(resourceData?.host||catalogData.host)}&lt;/div&gt;&lt;small&gt;${resourceError?&#x27;연결 끊김 · 마지막 계측 유지&#x27;:resourceData?&#x27;2초 갱신&#x27;:&#x27;연결 중&#x27;} · ${resourceData?resTime(resourceData.observed_at):&#x27;—&#x27;}&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;pa-resource-grid&quot;&gt;${cpu+ram+gpu+storage}&lt;/div&gt;&lt;div class=&quot;pa-resource-reservations&quot;&gt;&lt;b&gt;이 환경의 실행 슬롯&lt;/b&gt; ${reservations}${l?` · 대기 ${l.queued_jobs}건 · 조회 권한 내 작업`:&#x27;&#x27;}${l?.unregistered_reservations?` · 미등록 예약 ${l.unregistered_reservations}건`:&#x27;&#x27;} ${resStatus(s.leases)}&lt;/div&gt;`;
 }
@@ -2741,8 +2741,8 @@ function workLogCard(items){
  return panel(&#x27;Execution log&#x27;,`&lt;div class=&quot;pa-work-log-controls&quot;&gt;&lt;label&gt;Job &lt;select data-work-log-filter&gt;&lt;option value=&quot;all&quot;&gt;All Jobs&lt;/option&gt;${items.map(e=&gt;`&lt;option value=&quot;${esc(e.id)}&quot; ${selected===e.id?&#x27;selected&#x27;:&#x27;&#x27;}&gt;${esc(e.label)}&lt;/option&gt;`).join(&#x27;&#x27;)}&lt;/select&gt;&lt;/label&gt;${filters}&lt;/div&gt;${chosen.map(e=&gt;`&lt;details class=&quot;pa-work-log-group&quot; data-work-group=&quot;${esc(e.id)}&quot; ${state.openWorkGroups?.includes(e.id)?&#x27;open&#x27;:&#x27;&#x27;}&gt;&lt;summary&gt;${esc(e.label)} &lt;span&gt;${workSteps(e).length} Steps&lt;/span&gt;&lt;/summary&gt;${state.openWorkGroups?.includes(e.id)?workStepLog(e):&#x27;&#x27;}&lt;/details&gt;`).join(&#x27;&#x27;)||&#x27;&lt;div class=&quot;pa-empty&quot;&gt;등록된 실행 기록이 없습니다.&lt;/div&gt;&#x27;}`);
 }
 queue=function(){
- const rows=workItems(),current=rows.filter(e=&gt;!e.migration?.read_only&amp;&amp;!queueState(e).info[3]).sort(loomQueueCompare);
- const ended=loomFilteredWorkItems().filter(e=&gt;queueState(e).info[3]).sort((a,b)=&gt;(queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).ended??queueTimes(a).exited??0));
+ const rows=workItems(),current=loomCurrentWorkItems(rows).filter(e=&gt;!e.migration?.read_only&amp;&amp;!queueState(e).info[3]).sort(loomQueueCompare);
+ const ended=loomFilteredWorkItems().filter(e=&gt;queueState(e).info[3]).sort((a,b)=&gt;(queueTimes(b).activity??queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).activity??queueTimes(a).ended??queueTimes(a).exited??0));
  const historyFilter=state.queueHistoryFilter||&#x27;all&#x27;,shown=ended.filter(e=&gt;historyFilter===&#x27;all&#x27;||queueState(e).info[0]===historyFilter);
  const historyFilters=`&lt;div class=&quot;pa-filter&quot; aria-label=&quot;종료 이력 상태 필터&quot;&gt;${[[&#x27;all&#x27;,&#x27;All&#x27;],[&#x27;complete&#x27;,&#x27;Complete&#x27;],[&#x27;failed&#x27;,&#x27;Failed&#x27;],[&#x27;cancelled&#x27;,&#x27;Cancelled&#x27;]].map(([value,label])=&gt;{const count=value===&#x27;all&#x27;?ended.length:ended.filter(e=&gt;queueState(e).info[0]===value).length;return `&lt;button class=&quot;pa-pill ${historyFilter===value?&#x27;active&#x27;:&#x27;&#x27;}&quot; aria-pressed=&quot;${historyFilter===value}&quot; data-queue-history=&quot;${value}&quot;&gt;${label} · ${count}&lt;/button&gt;`;}).join(&#x27;&#x27;)}&lt;/div&gt;`;
   const counts=[[&#x27;running&#x27;,&#x27;Running&#x27;],[&#x27;ready&#x27;,&#x27;Ready&#x27;],[&#x27;waiting&#x27;,&#x27;Wait&#x27;],[&#x27;paused&#x27;,&#x27;Paused&#x27;],[&#x27;blocked&#x27;,&#x27;Blocked&#x27;],[&#x27;complete&#x27;,&#x27;Complete&#x27;],[&#x27;failed&#x27;,&#x27;Failed&#x27;]].map(([key,label])=&gt;({key,label,n:rows.filter(e=&gt;!e.migration?.read_only&amp;&amp;queueState(e).info[0]===key).length}));
@@ -3562,7 +3562,7 @@ root.addEventListener(&#x27;click&#x27;, event =&gt; {
   state = view;
   try {
     const rows = loomFilteredWorkItems().filter(item =&gt; queueState(item).info[3])
-      .sort((a,b)=&gt;(queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).ended??queueTimes(a).exited??0))
+      .sort((a,b)=&gt;(queueTimes(b).activity??queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).activity??queueTimes(a).ended??queueTimes(a).exited??0))
       .filter(item=&gt;key===&#x27;all&#x27;||queueState(item).info[0]===key);
     const tbody = panel.querySelector(&#x27;tbody&#x27;);
     tbody.innerHTML = rows.slice(0,view.queueHistoryLimits[key])
@@ -4609,6 +4609,14 @@ queueState=function(entity){
 // Queue controls use the same server snapshot and eligibility as dispatch.
 let loomQueueBusy = false;
 let loomQueueNotice = &#x27;&#x27;;
+const loomJobGroup=e=&gt;state.page===&#x27;queue&#x27;&amp;&amp;!state.entity&amp;&amp;e.group_summary?.complete?e.group_summary:null;
+const loomGroupQueueTimes=queueTimes;
+queueTimes=function(e){const original=loomGroupQueueTimes(e),g=loomJobGroup(e);return g?{...original,started:queueMillis(g.first_started),ended:queueMillis(g.last_ended),exited:queueMillis(g.last_ended),activity:queueMillis(g.last_activity)}:original;};
+const loomGroupWorkIntervals=workIntervals;
+workIntervals=function(e){return loomJobGroup(e)?.execution_intervals||loomGroupWorkIntervals(e);};
+// Current occupancy follows the group&#x27;s live physical work. The root&#x27;s own
+// completion remains unchanged in its exact detail and the group row&#x27;s note.
+function loomCurrentWorkItems(rows){const roots=new Set(rows.filter(e=&gt;loomJobGroup(e)?.active_state).map(e=&gt;e.id));return rows.filter(e=&gt;!e.group_root||e.group_root===e.id||!roots.has(e.group_root));}
 const loomQueueEntries = () =&gt; [...(catalogData.queue?.entries||[]),...(catalogData.queue?.logical_entries||[])];
 const loomQueueEntry = id =&gt; loomQueueEntries().find(row =&gt; row.id === id);
 function loomQueueReason(row) {
@@ -4667,6 +4675,13 @@ function loomQueueCompare(a,b) {
 const loomQueueWorkRow=workRow;
 workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
+  const group=loomJobGroup(entity);
+  if(group){
+    const latest=group.latest_job,failed=(group.states.failed||0)+(group.states.interrupted||0)+(group.states.result_failed||0);
+    row[0]+=&#x27;&lt;small class=&quot;pa-job-group&quot; data-job-group=&quot;&#x27;+esc(entity.id)+&#x27;&quot;&gt;&#x27;+group.execution_count+&#x27; executions&#x27;+(failed?&#x27; · Failed &#x27;+failed:&#x27;&#x27;)+&#x27;&lt;/small&gt;&#x27;
+      +(latest?.id?&#x27;&lt;small class=&quot;pa-job-latest&quot;&gt;Latest · &#x27;+catLink(latest.id,latest.label||latest.id)+&#x27; · &#x27;+esc(latest.state)+&#x27;&lt;/small&gt;&#x27;:&#x27;&#x27;);
+    if(group.active_state)row[0]+=&#x27;&lt;small class=&quot;pa-job-root-state&quot;&gt;Root · &#x27;+esc(entity.properties?.state||entity.state)+&#x27;&lt;/small&gt;&#x27;;
+  }
   const tasks=loomTaskLabels(entity);
   if(current &amp;&amp; q){
     if(entity.loom_queue_shared)row[0]=&#x27;&lt;div class=&quot;pa-queue-name&quot;&gt;&#x27;+esc(q.id)+&#x27;&lt;small&gt;&#x27;+esc(q.owner)+&#x27; · 공유 큐&lt;/small&gt;&lt;/div&gt;&#x27;;
@@ -4680,8 +4695,11 @@ workRow=function(entity,current){
 const loomQueueStateBefore=queueState;
 queueState=function(entity){
  const q=loomQueueEntry(entity.id),base=loomQueueStateBefore(entity);
+ const active=loomJobGroup(entity)?.active_state;
+ if(active){const grouped=loomQueueStateBefore({properties:{state:active}});return {raw:active,info:[grouped.info[0],&#x27;Group · &#x27;+grouped.info[1],grouped.info[2],false]};}
  if(q?.held)return {raw:base.raw,info:[&#x27;paused&#x27;,q.state===&#x27;preparing&#x27;?&#x27;Preparing · Hold requested&#x27;:&#x27;Held&#x27;,&#x27;Ⅱ&#x27;,false]};
  if(q &amp;&amp; [&#x27;failed&#x27;,&#x27;interrupted&#x27;].includes(q.state))return {raw:q.state,info:[&#x27;recovery&#x27;,loomQueueReason(q),&#x27;!&#x27;,false]};
+ if(loomJobGroup(entity))return {...base,info:[base.info[0],&#x27;Root · &#x27;+base.info[1],base.info[2],base.info[3]]};
  return base;
 };
 const loomQueuePanelBefore=loomJobPanel;
@@ -4798,9 +4816,14 @@ activityRecords=function(entities) {
 };
 const loomActivitySummary=activitySummary;
 activitySummary=function(entities,now=Date.now(),liveThrough=now) {
- const work=loomActivityJobs(entities).map(e=&gt;({...e,properties:{...e.properties,record_role:&#x27;work&#x27;}}));
+ const source=catalogData.all_entities||entities,jobs=loomActivityJobs(source),parents=new Map(jobs.map(e=&gt;[e.id,e.group_root!==e.id&amp;&amp;e.group_root||e.properties?.workflow_root||e.presentation?.parent_job]));
+ for(const e of jobs)for(const n of e.loom_workflow?.executions||[])parents.set(n.job,e.id);
+ const root=id=&gt;{const seen=new Set();while(parents.get(id)&amp;&amp;!seen.has(id)){seen.add(id);id=parents.get(id);}return id;};
+ const groups=new Map();
+ for(const e of jobs){const id=root(e.id),known=groups.get(id),intervals=loomGroupWorkIntervals(e);if(known){known.execution_intervals.push(...intervals);if([&#x27;running&#x27;,&#x27;preparing&#x27;].includes(queueState(e).raw))known.properties.state=queueState(e).raw;}else groups.set(id,{...e,id,properties:{...e.properties,record_role:&#x27;work&#x27;},execution_intervals:[...intervals]});}
+ const work=[...groups.values()];
  // The original interval union and KST day splitting remain authoritative.
- return loomActivitySummary([...entities.filter(e=&gt;![&#x27;work&#x27;,&#x27;loom_job&#x27;].includes(e.properties?.record_role)),...work],now,liveThrough);
+ return loomActivitySummary([...source.filter(e=&gt;![&#x27;work&#x27;,&#x27;loom_job&#x27;].includes(e.properties?.record_role)),...work],now,liveThrough);
 };
 
 const loomTextTypes = new Set([&#x27;text/markdown&#x27;,&#x27;text/plain&#x27;,&#x27;application/json&#x27;,&#x27;application/x-ndjson&#x27;]);

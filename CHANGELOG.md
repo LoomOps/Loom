@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0-alpha.44
+
+- Omit unavailable GPU identity and storage mount text in Inspector instead of displaying a pending-measurement placeholder. Preserve numeric readings, missing/stale indicators and real mount warnings.
+- Isolate native contracts, secure host primitives and reference/build assets. Add pinned Bookworm incremental builds, scoped verification and source-verified native kit reuse; retain the protected operational update path.
+- Keep Main Jobs visible through related execution activity, show root/group status separately, and count related Activity intervals once per logical Main Job. Publish API v56 and matching guidance.
+
 ## 0.2.0-alpha.43
 
 - Resolve unloaded Runtime ID/revision links to one exact immutable alias, including older revisions used by recorded Jobs. Reject conflicting aliases or explicit SHA mismatch; never substitute the latest Runtime.

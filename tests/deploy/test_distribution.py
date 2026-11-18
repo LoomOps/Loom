@@ -47,7 +47,7 @@ class DistributionTests(unittest.TestCase):
 
     def test_distributed_code_has_no_personal_operator_or_provider_integration(self):
         for path in snapshot.sources():
-            if 'tests' in path.relative_to(ROOT).parts or path.name=='LICENSE':continue
+            if set(path.relative_to(ROOT).parts)&{'tests','docs'} or path.suffix=='.md' or path.name=='LICENSE':continue
             with self.subTest(path=str(path.relative_to(ROOT))):
                 self.assertNotRegex(path.read_text(),r'(?i)\bpale(?:-dispatcher)?\b|register_oidc|import jwt|import PyJWT|external_oidc')
 

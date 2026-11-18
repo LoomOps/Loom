@@ -22,3 +22,5 @@ baseline.json
 .DS_Store
 
 /target/
+
+/bazel-*

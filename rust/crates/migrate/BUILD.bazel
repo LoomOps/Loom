@@ -1,0 +1,5 @@
+load("@rules_rust//rust:defs.bzl", "rust_binary")
+load("@crates//:defs.bzl", "all_crate_deps", "aliases")
+package(default_visibility = ["//visibility:public"])
+exports_files(["Cargo.toml"])
+rust_binary(name = "loom-migrate", crate_name = "loom_migrate", srcs = ["src/main.rs"], edition = "2021", version = "0.2.0", aliases = aliases(), deps = ["//rust/crates/core:core", "//rust/crates/host:host", "//rust/crates/reference:reference"] + all_crate_deps(normal = True))

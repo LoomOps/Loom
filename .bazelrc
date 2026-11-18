@@ -1,0 +1,8 @@
+common --enable_bzlmod
+build --color=no
+build --curses=no
+build --show_timestamps
+build --incompatible_strict_action_env
+# Live/Docker acceptance is explicit and must never be satisfied by cached success.
+test --test_output=errors
+build --incompatible_default_to_explicit_init_py

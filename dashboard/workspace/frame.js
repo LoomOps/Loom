@@ -227,7 +227,7 @@ root.addEventListener('click', event => {
   state = view;
   try {
     const rows = loomFilteredWorkItems().filter(item => queueState(item).info[3])
-      .sort((a,b)=>(queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).ended??queueTimes(a).exited??0))
+      .sort((a,b)=>(queueTimes(b).activity??queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).activity??queueTimes(a).ended??queueTimes(a).exited??0))
       .filter(item=>key==='all'||queueState(item).info[0]===key);
     const tbody = panel.querySelector('tbody');
     tbody.innerHTML = rows.slice(0,view.queueHistoryLimits[key])

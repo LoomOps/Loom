@@ -1,6 +1,6 @@
 //! Granted log reads run independently of the Executor authority mutex.
 use crate::executor::Docker;
-use loom_core::{error::require, storage, store::hash, Error, Result};
+use loom_primitives::{error::require, storage, store::hash, Error, Result};
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
@@ -229,7 +229,7 @@ impl<D: Docker> LogRead<D> {
         let generation_id = uuid::Uuid::parse_str(generation)
             .map_err(|_| Error::input("Invalid source generation"))?;
         let directory = self.root.join("logs");
-        loom_core::index_store::secure_dir(&directory)?;
+        loom_primitives::index_store::secure_dir(&directory)?;
         let path = directory.join(format!("{}.log", hash(&self.ticket)));
         let pointer = path.with_extension("source.json");
         let mut current: Value = fs::read(&pointer)
@@ -266,7 +266,7 @@ impl<D: Docker> LogRead<D> {
     }
     pub fn read(self, args: &Value) -> Result<Value> {
         let directory = self.root.join("logs");
-        loom_core::index_store::secure_dir(&directory)?;
+        loom_primitives::index_store::secure_dir(&directory)?;
         let path = directory.join(format!("{}.log", hash(&self.ticket)));
         let current: Value = fs::read(path.with_extension("source.json"))
             .ok()

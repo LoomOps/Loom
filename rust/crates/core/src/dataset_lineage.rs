@@ -7,16 +7,7 @@ use rusqlite::params;
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 
-pub const TRANSFORMS: &[&str] = &[
-    "subset",
-    "condition_selection",
-    "includes",
-    "relabel",
-    "resample",
-    "sensor_rerender",
-    "augment",
-    "merge",
-];
+pub use loom_contracts::TRANSFORMS;
 
 pub fn validate_transform(value: &Value) -> Result<()> {
     require(

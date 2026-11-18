@@ -325,7 +325,7 @@ impl Application {
                     "2025-06-18"
                 };
                 Ok(
-                    json!({"protocolVersion":version,"capabilities":{"tools":{}},"serverInfo":{"name":"loom-ops","title":"Loom Use","version":env!("CARGO_PKG_VERSION")},"instructions":onboarding::MCP_INSTRUCTIONS}),
+                    json!({"protocolVersion":version,"capabilities":{"tools":{}},"serverInfo":{"name":"loom-ops","title":"Loom Use","version":crate::onboarding::assets().release_version},"instructions":onboarding::MCP_INSTRUCTIONS}),
                 )
             }
             "ping" => Ok(json!({})),

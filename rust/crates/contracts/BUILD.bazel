@@ -1,0 +1,6 @@
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary")
+load("@crates//:defs.bzl", "all_crate_deps", "aliases")
+package(default_visibility = ["//visibility:public"])
+exports_files(["Cargo.toml"])
+filegroup(name = "sources", srcs = glob(["src/**", "Cargo.toml"]) + glob(["build.rs"], allow_empty = True))
+rust_library(name = "contracts", crate_name = "loom_contracts", srcs = glob(["src/**/*.rs"], exclude = ["src/main.rs"]), edition = "2021", version = "0.1.0", aliases = aliases(), deps = ["//rust/crates/primitives:primitives"] + all_crate_deps(normal = True), compile_data = ["//rust:contracts"])

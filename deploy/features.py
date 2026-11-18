@@ -8,17 +8,17 @@ import hashlib
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
-CODE_ROOTS=['ops','dashboard','executor','deploy','loom_use','integrations','tests','rust']
+CODE_ROOTS=['ops','dashboard','executor','deploy','loom_use','integrations','tests','rust','build_support']
 
 
 def candidates(root):
-    for name in ('Cargo.toml','Cargo.lock','rust-toolchain.toml'):
+    for name in ('Cargo.toml','Cargo.lock','rust-toolchain.toml','.bazelrc','.bazelversion','MODULE.bazel','MODULE.bazel.lock','BUILD.bazel'):
         if (root/name).is_file():yield name
     for name in CODE_ROOTS:
         for path in (root/name).rglob('*'):
             rel=path.relative_to(root)
             if not path.is_file() or set(rel.parts)&{'evidence','__pycache__'}:continue
-            if (path.suffix in ('.py','.js','.sh','.yaml','.css','.html','.json','.service','.rs','.sql','.toml') and path.name not in ('build-info.json','workspace.html')) or path.name in ('.dockerignore','requirements.txt') or path.name.startswith('Dockerfile'):
+            if (path.suffix in ('.py','.js','.sh','.yaml','.css','.html','.json','.service','.rs','.sql','.toml','.bzl') and path.name not in ('build-info.json','workspace.html')) or path.name in ('.dockerignore','requirements.txt','BUILD.bazel') or path.name.startswith('Dockerfile'):
                 yield str(rel)
 
 

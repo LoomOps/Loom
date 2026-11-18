@@ -72,8 +72,85 @@ impl Application {
             let child = self.job_detail(member["id"].as_str().unwrap())?;
             related.push(json!({"id":member["id"],"parent":member["parent"],"relation":if member["execution_node"]==1 {"execution_node"} else {"presentation"},"label":child["presentation"].get("label").or_else(||child["spec"].get("label")).or_else(||child["spec"].get("kind")),"state":child["state"],"attempt":child["attempt"],"profile":child["spec"]["profile"].get("sha256"),"runtime_refs":crate::runtime::profile_runtime_refs(&child["spec"]["profile"])}));
         }
-        detail["family"] = json!({"root":root,"parent":self.job_parent(id)?,"authority":"presentation_and_workflow_membership","execution_unchanged":true,"total":total,"complete":total<=200,"members":related});
+        detail["family"] = json!({"root":root,"parent":self.job_parent(id)?,"authority":"presentation_and_workflow_membership","execution_unchanged":true,"total":total,"complete":total<=200,"members":related,"summary":self.job_group_summary(&root)?});
         Ok(detail)
+    }
+    // A browsing group is not a new execution. Aggregate physical receipts once;
+    // workflow wrappers retain their original state and never add execution time.
+    pub(crate) fn job_group_summary(&self, root: &str) -> Result<Value> {
+        let members = rows(&self.db, &format!("WITH RECURSIVE {JOB_LINKS_CTE}, family(id) AS (SELECT ? UNION SELECT l.id FROM job_links l JOIN family f ON l.parent=f.id) SELECT j.id,(SELECT count(*) FROM family) members FROM family f JOIN jobs j ON j.id=f.id ORDER BY j.id LIMIT 201"), &[&root])?;
+        if members.is_empty() || members[0]["members"].as_u64().unwrap_or(0) <= 1 {
+            return Ok(Value::Null);
+        }
+        let mut intervals = vec![];
+        let mut open = vec![];
+        let mut states = std::collections::BTreeMap::<String, usize>::new();
+        let mut latest = Value::Null;
+        let mut latest_time = f64::NEG_INFINITY;
+        let mut unknown = false;
+        for member in members.iter().take(200) {
+            let id = member["id"].as_str().unwrap();
+            if self.system_job(id)? {
+                continue;
+            }
+            let d = self.job_detail(id)?;
+            let state = d["state"].as_str().unwrap_or("unknown");
+            *states.entry(state.into()).or_default() += 1;
+            let mut started: Option<f64> = None;
+            let mut ended: Option<f64> = None;
+            let mut observed: Option<f64> = None;
+            for i in d["execution_intervals"].as_array().into_iter().flatten() {
+                let Some(a) = i["start"].as_f64() else {
+                    continue;
+                };
+                started = Some(started.map_or(a, |v| v.min(a)));
+                observed = Some(observed.map_or(a, |v| v.max(a)));
+                if let Some(b) = i["end"].as_f64() {
+                    intervals.push((a, b));
+                    ended = Some(ended.map_or(b, |v| v.max(b)));
+                    observed = Some(observed.unwrap().max(b));
+                } else if matches!(state, "running" | "preparing") {
+                    open.push(json!({"start":a,"end":null}));
+                } else {
+                    unknown = true;
+                    open.push(json!({"start":a,"end":null,"unknown_exit":true}));
+                }
+            }
+            let time = observed.unwrap_or_else(|| d["created"].as_f64().unwrap_or(0.));
+            if time > latest_time {
+                latest_time = time;
+                latest = json!({"id":id,"label":d["presentation"].get("label").or_else(||d["spec"].get("label")).or_else(||d["spec"].get("kind")),"state":state,"started":started,"ended":ended});
+            }
+        }
+        if states.is_empty() {
+            return Ok(Value::Null);
+        }
+        let mut ranges: Vec<Value> = union_intervals(&intervals)?
+            .iter()
+            .map(|(a, b)| json!({"start":a,"end":b}))
+            .collect();
+        ranges.extend(open);
+        let first = ranges
+            .iter()
+            .filter_map(|v| v["start"].as_f64())
+            .min_by(f64::total_cmp);
+        let last = ranges
+            .iter()
+            .filter_map(|v| v["end"].as_f64())
+            .max_by(f64::total_cmp);
+        let active = [
+            "running",
+            "processing",
+            "preparing",
+            "ready",
+            "queued",
+            "blocked",
+        ]
+        .into_iter()
+        .find(|s| states.get(*s).copied().unwrap_or(0) > 0);
+        Ok(
+            json!({"root":root,"complete":members.len()<=200,"member_count":members[0]["members"],"execution_count":states.values().sum::<usize>(),"states":states,"active_state":active,"first_started":first,"last_ended":if active.is_some()||unknown{None}else{last},"last_activity":latest_time,"latest_job":latest,"execution_intervals":ranges,"unknown_time":unknown,"execution_unchanged":true}),
+        )
     }
     pub fn consolidation_target(&self, id: &str) -> Result<Option<String>> {
         Ok(self.db.query_row(&format!("{CONSOLIDATION_CTE} SELECT r.target FROM consolidation_roots r JOIN jobs original ON original.id=r.source WHERE original.id=? AND original.state='complete' AND r.source_attempt IS original.attempt ORDER BY r.target LIMIT 1"),[id],|r|r.get(0)).optional()?)

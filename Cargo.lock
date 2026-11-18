@@ -921,14 +921,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d15f86d12da44cd8d4ec3c73984537eb7f4cadcb9776a575a0a8a05ca11005c"
 
 [[package]]
+name = "loom-contracts"
+version = "0.1.0"
+dependencies = [
+ "jsonschema",
+ "loom-primitives",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "loom-core"
-version = "0.2.0-alpha.43"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "hmac",
  "jsonschema",
  "libc",
+ "loom-contracts",
  "loom-domain",
+ "loom-primitives",
+ "loom-reference",
  "rusqlite",
  "serde",
  "serde_json",
@@ -939,16 +952,16 @@ dependencies = [
 
 [[package]]
 name = "loom-domain"
-version = "0.2.0-alpha.43"
+version = "0.2.0"
 
 [[package]]
 name = "loom-host"
-version = "0.2.0-alpha.43"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "libc",
- "loom-core",
  "loom-domain",
+ "loom-primitives",
  "rusqlite",
  "serde",
  "serde_json",
@@ -958,11 +971,12 @@ dependencies = [
 
 [[package]]
 name = "loom-migrate"
-version = "0.2.0-alpha.43"
+version = "0.2.0"
 dependencies = [
  "libc",
  "loom-core",
  "loom-host",
+ "loom-reference",
  "rusqlite",
  "serde_json",
  "sha2",
@@ -970,7 +984,7 @@ dependencies = [
 
 [[package]]
 name = "loom-ops"
-version = "0.2.0-alpha.43"
+version = "0.2.0"
 dependencies = [
  "axum",
  "axum-server",
@@ -979,6 +993,7 @@ dependencies = [
  "loom-core",
  "loom-domain",
  "loom-host",
+ "loom-reference",
  "reqwest",
  "rusqlite",
  "rustls",
@@ -990,8 +1005,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "loom-primitives"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "loom-domain",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2",
+ "uuid",
+]
+
+[[package]]
+name = "loom-reference"
+version = "0.1.0"
+dependencies = [
+ "loom-primitives",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "loom-sdk"
-version = "0.2.0-alpha.43"
+version = "0.2.0"
 dependencies = [
  "libc",
  "serde",

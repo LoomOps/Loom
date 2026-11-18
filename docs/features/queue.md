@@ -55,3 +55,12 @@ overlays apply to exact reads as well as the catalog. Partial presentation edits
 must validate cycles against the merged existing hierarchy; explicit null clears
 a presentation parent, while real workflow membership remains authoritative.
 Neither grouping nor a failed follow-up rewrites the original root's state.
+
+Root catalog rows expose `group_summary` and each member exposes `group_root`.
+The bounded summary counts physical executions once, unions recorded intervals,
+and reports the latest member and active phase. A partial summary is explicit;
+the UI must not treat it as a complete family. Home sorts a completed group by
+its latest activity and shows current group occupancy while a follow-up runs.
+The original root's state, timeline, scheduler graph and Runtime pins stay intact.
+The terminal badge says `Root` so a completed pilot cannot imply that all later
+work succeeded; current group occupancy and the latest member have separate labels.

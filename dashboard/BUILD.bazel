@@ -1,0 +1,8 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+package(default_visibility = ["//visibility:public"])
+filegroup(name = "assets", srcs = glob(["branding/**", "theme/**"]))
+py_library(name = "relay", srcs = glob(["*.py"], exclude = ["dev.py"]), imports = ["."])
+py_binary(name = "workspace_builder", srcs = ["workspace/build.py", "workspace/lazy_logs.py"], main = "workspace/build.py", imports = ["workspace"], data = [":assets", ":workspace_sources"])
+filegroup(name = "workspace_sources", srcs = glob(["workspace/**"], exclude = ["workspace/**/__pycache__/**"]))
+genrule(name = "workspace", srcs = ["workspace/template.html", ":workspace_sources", ":assets"], tools = [":workspace_builder"], outs = ["generated/workspace.html"], cmd = "$(location :workspace_builder) $(location workspace/template.html) --output $@")
+exports_files(["workspace/template.html", "public/workspace.html"])

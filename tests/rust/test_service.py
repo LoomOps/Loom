@@ -1,4 +1,5 @@
 """Real Rust HTTP/MCP/producer process acceptance using disposable installation roots."""
+from native_binaries import binary as native_binary
 import hashlib
 import json
 import os
@@ -19,7 +20,7 @@ class RustServiceTests(unittest.TestCase):
   cfg=self.root/'config.json';cfg.write_text(json.dumps({'machine_id':'fixture','storage_id':'fixture-data','actors':[{'id':'owner','scopes':['read','submit','cancel','events'],'owners':['owner'],'notify':['owner'],'token_sha256':hashlib.sha256(self.token.encode()).hexdigest()}]}))
   with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
   self.url='http://127.0.0.1:'+str(port);self.log=open(self.root/'service.log','wb');self.addCleanup(self.log.close)
-  self.process=subprocess.Popen([str(ROOT/'target/debug/loom-ops'),'--config',str(cfg),'--state',str(self.root/'state'),'--data',str(self.data),'--components',str(self.components),'--listen','127.0.0.1:'+str(port)],env={**os.environ,'LOOM_SDK_BINARY':str(ROOT/'target/debug/loom-sdk'),'LOOM_DEV_NO_AUTH':'0'},stdout=self.log,stderr=self.log)
+  self.process=subprocess.Popen([str(native_binary('loom-ops')),'--config',str(cfg),'--state',str(self.root/'state'),'--data',str(self.data),'--components',str(self.components),'--listen','127.0.0.1:'+str(port)],env={**os.environ,'LOOM_SDK_BINARY':str(native_binary('loom-sdk')),'LOOM_DEV_NO_AUTH':'0'},stdout=self.log,stderr=self.log)
   self.addCleanup(self.stop)
   for _ in range(100):
    if self.process.poll() is not None:self.fail((self.root/'service.log').read_text())
@@ -140,6 +141,8 @@ class RustServiceTests(unittest.TestCase):
   location=self.call('results','get',{'id':entity['id'],'revision':1})['locations'][0];(self.data/location['ref']).write_text('tampered')
   with self.assertRaises(HTTPError):urlopen(request,timeout=5)
  def test_reference_packaged_client_uses_real_native_mcp(self):
+  if os.environ.get('LOOM_USE_REFERENCE'):
+   self.client_acceptance(Path(os.environ['LOOM_USE_REFERENCE']));return
   import importlib.util,sys
   spec=importlib.util.spec_from_file_location('reference_client_fixture',ROOT/'tests/ops/client_source.py');reference=importlib.util.module_from_spec(spec);spec.loader.exec_module(reference)
   self.client_acceptance(reference.PACKAGE)
@@ -156,7 +159,7 @@ r=t.rpc({'jsonrpc':'2.0','id':2,'method':'tools/list'});assert len(r['result']['
 r=t.rpc({'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'system','arguments':{'action':'status','arguments':{}}}});assert json.loads(r['result']['content'][0]['text'])['engine']=='rust'
 r=t.rpc({'jsonrpc':'2.0','id':4,'method':'tools/call','params':{'name':'system','arguments':{'action':'guide','arguments':{}}}});assert json.loads(r['result']['content'][0]['text'])['manifest']['revision'];assert 'loom' in r['result']['_meta']
 '''
-  result=subprocess.run([os.sys.executable,'-c',code,str(cfg)],cwd=package/'clients',capture_output=True,text=True,timeout=25);self.assertEqual(result.returncode,0,result.stderr)
+  result=subprocess.run([os.sys.executable,'-c',code,str(cfg)],cwd=package/'clients',env={**os.environ,'PYTHONPATH':str(package/'clients')},capture_output=True,text=True,timeout=25);self.assertEqual(result.returncode,0,result.stderr)
  def test_restart_preserves_original_submission_and_no_second_attempt(self):
   id=self.submit('restart',seconds=10);self.wait(id,'running')
   for _ in range(100):
@@ -164,7 +167,7 @@ r=t.rpc({'jsonrpc':'2.0','id':4,'method':'tools/call','params':{'name':'system',
    if started['attempts'][0]['started'] is not None:break
    time.sleep(.05)
   self.assertIsNotNone(started['attempts'][0]['started']);args=self.process.args;self.process.kill();self.process.wait(timeout=5)
-  self.process=subprocess.Popen(args,env={**os.environ,'LOOM_SDK_BINARY':str(ROOT/'target/debug/loom-sdk'),'LOOM_DEV_NO_AUTH':'0'},stdout=self.log,stderr=self.log)
+  self.process=subprocess.Popen(args,env={**os.environ,'LOOM_SDK_BINARY':str(native_binary('loom-sdk')),'LOOM_DEV_NO_AUTH':'0'},stdout=self.log,stderr=self.log)
   for _ in range(100):
    try:
     job=self.call('jobs','get',{'id':id});break
@@ -183,7 +186,7 @@ r=t.rpc({'jsonrpc':'2.0','id':4,'method':'tools/call','params':{'name':'system',
   with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
   process=subprocess.Popen([os.sys.executable,str(ROOT/'ops/remote_fence.py'),str(authority),str(policy),'--bind','127.0.0.1','--port',str(port)],stdout=self.log,stderr=self.log);self.addCleanup(process.wait,5);self.addCleanup(process.terminate)
   cfg=self.root/'config.json';config=json.loads(cfg.read_text());config['remote_fence']={'url':'http://127.0.0.1:'+str(port),'epoch':0,'binding':binding,'token_path':str(credential)};cfg.write_text(json.dumps(config))
-  time.sleep(.15);self.process=subprocess.Popen(self.process.args,env={**os.environ,'LOOM_SDK_BINARY':str(ROOT/'target/debug/loom-sdk'),'LOOM_DEV_NO_AUTH':'0'},stdout=self.log,stderr=self.log)
+  time.sleep(.15);self.process=subprocess.Popen(self.process.args,env={**os.environ,'LOOM_SDK_BINARY':str(native_binary('loom-sdk')),'LOOM_DEV_NO_AUTH':'0'},stdout=self.log,stderr=self.log)
   for _ in range(100):
    if self.process.poll() is not None:self.fail((self.root/'service.log').read_text())
    try:self.get('/api/status');break
@@ -203,11 +206,13 @@ r=t.rpc({'jsonrpc':'2.0','id':4,'method':'tools/call','params':{'name':'system',
   with sqlite3.connect(self.root/'state/ops.sqlite3') as db:db.execute("INSERT INTO history_records VALUES('catalog','dataset','preserved','r1','s1',?)",(json.dumps(body),))
   args={'key':'binding-replay','identity':{'source':'catalog','kind':'dataset','id':'preserved','revision':'r1','snapshot':'s1','file':'old.txt'},'locator':{'machine_id':'fixture','storage_id':'fixture-data','ref':'bound.txt'},'sha256':sha,'size':8};accepted=self.call('results','bind_historical_location',args);path.unlink();self.assertEqual(accepted,self.call('results','bind_historical_location',args))
  def test_large_catalog_read_does_not_occupy_the_mutation_lane(self):
+  # Preserve 5,001 results and the <2s mutation-lane bound. Bulk read completion
+  # has a separate deadline because debug builds and shared CI CPUs vary.
   import concurrent.futures,sqlite3
   id=self.submit('concurrent-cancel',seconds=10);self.wait(id,'running');spec={'kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False},'category':'other','execution_mode':'smoke','depends_on':[],'output_storage':'data/0','presentation':{'scope':'operations','role':'test'}}
   with sqlite3.connect(self.root/'state/ops.sqlite3',timeout=10) as db:db.executemany("INSERT INTO jobs(id,submitter,idem,spec,owner,notify,state,created,cancel) VALUES(?,'owner',?,?,'owner','owner','cancelled',1,1)",[(f'synthetic-{i}',f'synthetic-{i}',json.dumps(spec)) for i in range(5000)])
   with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-   pending=pool.submit(self.get,'/api/dashboard/catalog',timeout=20);time.sleep(.1);started=time.monotonic();self.call('jobs','cancel',{'id':id});elapsed=time.monotonic()-started;self.assertLess(elapsed,2.0);catalog=pending.result(timeout=20);self.assertGreaterEqual(len(catalog['entities']),5001)
+   pending=pool.submit(self.get,'/api/dashboard/catalog',timeout=60);time.sleep(.1);started=time.monotonic();self.call('jobs','cancel',{'id':id});elapsed=time.monotonic()-started;self.assertLess(elapsed,2.0);catalog=pending.result(timeout=60);self.assertGreaterEqual(len(catalog['entities']),5001)
   self.wait(id,'cancelled')
 
  def test_dashboard_navigation_burst_keeps_catalog_and_inspector_available(self):

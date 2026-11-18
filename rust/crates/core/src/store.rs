@@ -3,7 +3,6 @@ use crate::{auth::Actor, error::require, Error, Result};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
     fs,
@@ -28,21 +27,7 @@ impl Config {
         Ok(serde_json::from_slice(&fs::read(path)?)?)
     }
 }
-pub fn now() -> f64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs_f64()
-}
-pub fn hash(bytes: impl AsRef<[u8]>) -> String {
-    format!("{:x}", Sha256::digest(bytes.as_ref()))
-}
-pub fn id() -> String {
-    uuid::Uuid::new_v4().simple().to_string()
-}
-pub fn encode(v: &Value) -> Result<String> {
-    Ok(serde_json::to_string(v)?)
-}
+pub use loom_primitives::store::{encode, hash, id, json_row, now, rows};
 pub struct Application {
     pub(crate) db: Connection,
     pub config: Config,
@@ -346,7 +331,7 @@ impl Application {
             self.db
                 .query_row("SELECT mode FROM node_control WHERE id=1", [], |r| r.get(0))?;
         Ok(
-            json!({"service":"Loom Ops","build":{"build_id":env!("LOOM_BUILD_ID"),"image_build_id":env!("LOOM_BUILD_ID"),"source_modified":false,"source_kind":"immutable_rust_binary","git_commit":env!("LOOM_GIT_COMMIT")},"storage_id":self.config.storage_id,"inventory":self.config.extra.get("inventory").cloned().unwrap_or(serde_json::json!({})),"engine":"rust","build_id":env!("LOOM_BUILD_ID"),"image_build_id":env!("LOOM_BUILD_ID"),"git_commit":env!("LOOM_GIT_COMMIT"),"source_modified":false,"source_kind":"immutable_rust_binary","api_revision":crate::onboarding::identity()["api_revision"],"machine_id":self.config.machine_id,"admission":{"mode":mode},"source":env!("LOOM_RUST_SOURCE"),"version":env!("CARGO_PKG_VERSION"),"authoring":{"default_language":"rust","python":"external SDK integration","sdk":"loom-producer/v1"}}),
+            json!({"service":"Loom Ops","build":{"build_id":crate::onboarding::assets().build_id,"image_build_id":crate::onboarding::assets().build_id,"source_modified":false,"source_kind":"immutable_rust_binary","git_commit":crate::onboarding::assets().git_commit},"storage_id":self.config.storage_id,"inventory":self.config.extra.get("inventory").cloned().unwrap_or(serde_json::json!({})),"engine":"rust","build_id":crate::onboarding::assets().build_id,"image_build_id":crate::onboarding::assets().build_id,"git_commit":crate::onboarding::assets().git_commit,"source_modified":false,"source_kind":"immutable_rust_binary","api_revision":crate::onboarding::identity()["api_revision"],"machine_id":self.config.machine_id,"admission":{"mode":mode},"source":crate::onboarding::assets().source_sha256,"version":crate::onboarding::assets().release_version,"authoring":{"default_language":"rust","python":"external SDK integration","sdk":"loom-producer/v1"}}),
         )
     }
 }
@@ -418,29 +403,6 @@ pub fn receipt(
     )?;
     Ok(())
 }
-pub fn json_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
-    let mut result = serde_json::Map::new();
-    for i in 0..row.as_ref().column_count() {
-        let key = row.as_ref().column_name(i)?;
-        let v = match row.get_ref(i)? {
-            rusqlite::types::ValueRef::Null => Value::Null,
-            rusqlite::types::ValueRef::Integer(n) => json!(n),
-            rusqlite::types::ValueRef::Real(n) => json!(n),
-            rusqlite::types::ValueRef::Text(t) => Value::String(String::from_utf8_lossy(t).into()),
-            _ => Value::Null,
-        };
-        result.insert(key.into(), v);
-    }
-    Ok(Value::Object(result))
-}
-pub fn rows(db: &Connection, sql: &str, args: &[&dyn rusqlite::ToSql]) -> Result<Vec<Value>> {
-    let mut stmt = db.prepare(sql)?;
-    let items = stmt
-        .query_map(args, json_row)?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-    Ok(items)
-}
-
 /// Cross-language lock shared with the legacy worker, migrator and source activation.
 pub struct WriterLock(std::fs::File);
 impl WriterLock {

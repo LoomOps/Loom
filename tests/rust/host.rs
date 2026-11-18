@@ -1,5 +1,5 @@
-use loom_core::{Error, Result};
 use loom_host::executor::{Config, Docker, Executor};
+use loom_primitives::{Error, Result};
 use serde_json::{json, Value};
 use std::{
     path::PathBuf,
@@ -328,7 +328,7 @@ fn runtime_file_inventory_is_scoped_budgeted_and_checks_current_grants() {
             &json!({"entry_key":"python/a.txt","limit":10}),
         )
         .unwrap();
-    assert_eq!(bytes["sha256"], loom_core::store::hash("first"));
+    assert_eq!(bytes["sha256"], loom_primitives::store::hash("first"));
     assert!(loom_host::runtime_files::grant(&f.root, &config, "two", &next).is_err());
     std::fs::write(dependency.join("python/a.txt"), "mutated").unwrap();
     assert_eq!(

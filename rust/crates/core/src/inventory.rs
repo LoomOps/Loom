@@ -744,19 +744,7 @@ impl Application {
     }
 }
 
-pub fn file_stamp(m: &fs::Metadata) -> String {
-    use std::os::unix::fs::MetadataExt;
-    format!(
-        "{}:{}:{}:{}:{}:{}:{}",
-        m.dev(),
-        m.ino(),
-        m.len(),
-        m.mtime(),
-        m.mtime_nsec(),
-        m.ctime(),
-        m.ctime_nsec()
-    )
-}
+pub use loom_primitives::inventory::file_stamp;
 pub(crate) fn open_copies<'a>(
     app: &'a Application,
     entry: &'a Value,

@@ -123,3 +123,7 @@ members are returned with `total`/`complete`; exact Job reads remain available.
 Grouping never changes completion, cancels descendants or proves Runtime reuse.
 Do not submit a dummy Job for CPU-only planning or code review; associate that
 evidence with the existing task/outcome and reusable software instead.
+
+Home group summaries describe related execution activity, not a reopened root
+execution. Use each member's exact state and receipts for completion claims;
+`family.summary` is bounded and reports whether its coverage is complete.

@@ -33,11 +33,11 @@ class Result(unittest.TextTestResult):
         self.records[test.id()]['seconds']=time.monotonic()-self.started[test.id()];super().stopTest(test)
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('directory',type=Path);p.add_argument('report',type=Path);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('directory',type=Path);p.add_argument('report',type=Path);p.add_argument('--pattern',default='test_*.py');a=p.parse_args()
     root=Path(__file__).resolve().parents[1]
     component=a.directory.resolve().relative_to(root/'tests').parts[0]
     sys.path[:0]=[str(a.directory.resolve()),str(root/component)]
-    suite=unittest.defaultTestLoader.discover(str(a.directory),pattern='test_*.py')
+    suite=unittest.defaultTestLoader.discover(str(a.directory),pattern=a.pattern)
     catalog=json.loads((root/'docs/features/catalog.json').read_text())
     refs={p for f in catalog['features'] for p in f['sources']+f['tests']+f['contracts']+[f['spec']]}
     tracked=[root/p for p in sorted(refs)]

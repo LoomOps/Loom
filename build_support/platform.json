@@ -1,0 +1,7 @@
+{
+  "schema": "loom-build-platform/v1",
+  "platform": "linux-x86_64-bookworm",
+  "builder": "rust:1.100.0-bookworm@sha256:ade39a710ef85f3506cffcfec3e8a24ba090badef1dff2fb798f71d878833fea",
+  "bazel_version": "9.3.2",
+  "bazel_sha256": "2e14c55c298752d71e8a0bbd762665ffce5966c9ad00ec5d1a8b82a58e7bfa06"
+}

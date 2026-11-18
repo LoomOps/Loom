@@ -1,28 +1,38 @@
 //! Live instructions and exact manifest hashes are served from the selected binary.
 use crate::{auth::Actor, contracts, error::require, store::hash, Error, Result};
+pub use loom_primitives::reference::ReferenceAssets;
 use serde_json::{json, Value};
-include!(concat!(env!("OUT_DIR"), "/guides.rs"));
-pub const MCP_INSTRUCTIONS: &str = "Call system.status to confirm the target and system.guide for task routes. Load the relevant guide and system.describe action schema. Keep accepted Job IDs and pins.";
-const PACKAGED: &[(&str, &str)] = &[
-    ("mcp-instructions.txt", MCP_INSTRUCTIONS),
-    ("LICENSE", include_str!("../../../../loom_use/LICENSE")),
-    (
-        "THIRD_PARTY_NOTICES.md",
-        include_str!("../../../../loom_use/THIRD_PARTY_NOTICES.md"),
-    ),
-    ("README.md", include_str!("../../../../loom_use/README.md")),
-    (
-        "client-release.json",
-        include_str!("../../../../loom_use/client-release.json"),
-    ),
-    (
-        "skills/loom-use/SKILL.md",
-        include_str!("../../../../loom_use/skills/loom-use/SKILL.md"),
-    ),
-];
-const CATALOG: &str = include_str!("../../../../loom_use/catalog.json");
-const ACTION_DOCS: &str = include_str!("../../../contracts/action-docs.json");
-const JOB_CONTRACT: &str = include_str!("../../../contracts/job-contract.json");
+static ASSETS: std::sync::OnceLock<&'static ReferenceAssets> = std::sync::OnceLock::new();
+/// Install once before serving requests; mutable reference payloads are not supported.
+pub fn install(assets: &'static ReferenceAssets) {
+    let current = ASSETS.get_or_init(|| assets);
+    assert!(
+        std::ptr::eq(*current, assets),
+        "Reference assets already installed"
+    );
+}
+pub fn assets() -> &'static ReferenceAssets {
+    #[cfg(test)]
+    {
+        ASSETS.get_or_init(loom_reference::assets)
+    }
+    #[cfg(not(test))]
+    ASSETS
+        .get()
+        .expect("Executable must install reference assets before serving")
+}
+pub use loom_primitives::reference::MCP_INSTRUCTIONS;
+#[cfg(test)]
+use loom_reference::{ACTION_DOCS, CATALOG, DOCUMENTS, JOB_CONTRACT, PACKAGED};
+
+pub fn template(name: &str) -> &'static str {
+    assets()
+        .templates
+        .iter()
+        .find(|(key, _)| *key == name)
+        .expect("Packaged authoring template")
+        .1
+}
 
 fn guide_revision(
     documents: &[(&str, &str, &str)],
@@ -44,9 +54,9 @@ fn contract_revision(actions: &Value, job_contract: &str) -> String {
 pub fn identity() -> Value {
     static IDENTITY: std::sync::OnceLock<Value> = std::sync::OnceLock::new();
     IDENTITY.get_or_init(|| {
-    let guide = guide_revision(DOCUMENTS, PACKAGED, CATALOG, ACTION_DOCS, JOB_CONTRACT);
-    let contract = contract_revision(&json!(contracts::actions()), JOB_CONTRACT);
-    json!({"build_id":env!("LOOM_BUILD_ID"),"api_revision":"loom-ops/v55","contract_revision":contract,"guide_revision":guide,"revision":hash(format!("{contract}{guide}")),"client_release":serde_json::from_str::<Value>(include_str!("../../../../loom_use/client-release.json")).expect("client release"),"engine":"rust","source_sha256":env!("LOOM_RUST_SOURCE")})
+    let guide = guide_revision(assets().documents, assets().packaged, assets().catalog, assets().action_docs, assets().job_contract);
+    let contract = contract_revision(&json!(contracts::actions()), assets().job_contract);
+    json!({"version":assets().release_version,"build_id":assets().build_id,"api_revision":"loom-ops/v56","contract_revision":contract,"guide_revision":guide,"revision":hash(format!("{contract}{guide}")),"client_release":serde_json::from_str::<Value>(assets().client_release).expect("client release"),"engine":"rust","source_sha256":assets().source_sha256})
     }).clone()
 }
 pub fn manifest() -> Value {
@@ -71,14 +81,15 @@ pub fn read(args: &Value) -> Result<Value> {
         return Ok(json!({"manifest":manifest,"not_modified":true}));
     }
     if let Some(id) = args["id"].as_str() {
-        let (_, title, text) = DOCUMENTS
+        let (_, title, text) = assets()
+            .documents
             .iter()
             .find(|(name, _, _)| *name == id)
             .ok_or_else(|| Error::new("guide", "Unknown guide", 404))?;
         return Ok(json!({"manifest":manifest,"id":id,"title":title,"content":text}));
     }
     Ok(
-        json!({"manifest":manifest,"documents":serde_json::from_str::<Value>(CATALOG)?["documents"].as_array().unwrap().iter().map(|d|json!({"id":d["id"],"title":d["title"],"path":format!("{}.md",d["id"].as_str().unwrap()),"type":d["type"],"summary":d["summary"]})).collect::<Vec<_>>()}),
+        json!({"manifest":manifest,"documents":serde_json::from_str::<Value>(assets().catalog)?["documents"].as_array().unwrap().iter().map(|d|json!({"id":d["id"],"title":d["title"],"path":format!("{}.md",d["id"].as_str().unwrap()),"type":d["type"],"summary":d["summary"]})).collect::<Vec<_>>()}),
     )
 }
 pub fn tools(actor: &Actor) -> Value {
@@ -98,12 +109,12 @@ pub fn bundle(actor: &Actor) -> Result<Vec<u8>> {
     let mut zip = zip::ZipWriter::new(buffer);
     let options =
         zip::write::FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-    for (id, _, text) in DOCUMENTS {
+    for (id, _, text) in assets().documents {
         zip.start_file(format!("{id}.md"), options)
             .map_err(|_| Error::new("bundle", "Cannot encode guides", 503))?;
         zip.write_all(text.as_bytes())?;
     }
-    for &(name, content) in PACKAGED {
+    for &(name, content) in assets().packaged {
         zip.start_file(name, options)
             .map_err(|_| Error::new("bundle", "Cannot encode packaged guide", 503))?;
         zip.write_all(content.as_bytes())?;
@@ -114,7 +125,7 @@ pub fn bundle(actor: &Actor) -> Result<Vec<u8>> {
         ("mcp-reference.json", reference(actor)?),
         (
             "job-contract.json",
-            serde_json::from_str(include_str!("../../../contracts/job-contract.json"))?,
+            serde_json::from_str(assets().job_contract)?,
         ),
     ] {
         zip.start_file(name, options)
@@ -136,8 +147,7 @@ pub fn bundle(actor: &Actor) -> Result<Vec<u8>> {
 pub fn describe(actor: &Actor, group: &str, name: &str) -> Result<Value> {
     let action = contracts::action(group, name)?;
     actor.require(&action.scope)?;
-    let documents: Value =
-        serde_json::from_str(include_str!("../../../contracts/action-docs.json"))?;
+    let documents: Value = serde_json::from_str(assets().action_docs)?;
     let mut description = documents
         .get(format!("{group}.{name}"))
         .cloned()
@@ -183,7 +193,7 @@ pub fn reference(actor: &Actor) -> Result<Value> {
         }
     }
     Ok(
-        json!({"revision":"loom-ops/v55","guidance":{"group":"system","action":"guide"},"groups":groups,"transport":{"mcp":"POST /mcp","http":"POST /api/actions","result":"JSON is in result.content[0].text. Version identity is in _meta.loom; do not concatenate text blocks."},"workflow":[{"step":"Inspect profiles","group":"components","action":"profiles","note":"Reuse exact compatible Profiles before authoring."},{"step":"Submit","group":"jobs","action":"submit","note":"One requested outcome; internal Steps or pinned DAG nodes."},{"step":"Inspect","group":"jobs","action":"get","note":"Read current state, independent scheduling facts and actual execution evidence."},{"step":"Consume events","group":"events","action":"list","note":"Use kind=all; ACK only acknowledges receipt."},{"step":"Repair","group":"recovery","action":"claim","note":"Use the current lease and shared three-round budget."}]}),
+        json!({"revision":"loom-ops/v56","guidance":{"group":"system","action":"guide"},"groups":groups,"transport":{"mcp":"POST /mcp","http":"POST /api/actions","result":"JSON is in result.content[0].text. Version identity is in _meta.loom; do not concatenate text blocks."},"workflow":[{"step":"Inspect profiles","group":"components","action":"profiles","note":"Reuse exact compatible Profiles before authoring."},{"step":"Submit","group":"jobs","action":"submit","note":"One requested outcome; internal Steps or pinned DAG nodes."},{"step":"Inspect","group":"jobs","action":"get","note":"Read current state, independent scheduling facts and actual execution evidence."},{"step":"Consume events","group":"events","action":"list","note":"Use kind=all; ACK only acknowledges receipt."},{"step":"Repair","group":"recovery","action":"claim","note":"Use the current lease and shared three-round budget."}]}),
     )
 }
 

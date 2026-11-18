@@ -73,7 +73,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "get",
-      "description": "Read state, Attempts, internal_steps, consolidation provenance, work_timeline from original execution receipts, waiting reasons, recovery, callbacks and artifacts. Consolidated work elapsed time includes sources; Attempts retain continuation runtime timestamps. family adds bounded Main Job, prerequisite/follow-up and real execution-node navigation with original states and Runtime pins; presentation grouping does not change execution membership or completion.",
+      "description": "Read state, Attempts, internal_steps, consolidation provenance, work_timeline from original execution receipts, waiting reasons, recovery, callbacks and artifacts. Consolidated work elapsed time includes sources; Attempts retain continuation runtime timestamps. family adds bounded Main Job, prerequisite/follow-up and real execution-node navigation with original states and Runtime pins; presentation grouping does not change execution membership or completion. family.summary is a bounded read-only aggregate of physical executions, recent activity and active state; original root state and timestamps remain unchanged.",
       "errors": [
         "The ID does not exist."
       ],

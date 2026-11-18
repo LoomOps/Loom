@@ -1,6 +1,6 @@
 //! Bounded observations are evidence with source/time, never execution-return authority.
 use crate::executor::{Docker, DockerCli};
-use loom_core::{store::now, Result};
+use loom_primitives::{store::now, Result};
 use serde_json::{json, Value};
 pub fn collect() -> Result<Value> {
     let cpu = std::fs::read_to_string("/proc/stat")?

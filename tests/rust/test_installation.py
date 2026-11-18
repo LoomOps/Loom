@@ -1,4 +1,5 @@
 """Real native migration of disposable legacy databases; no system service actions."""
+from native_binaries import binary as native_binary
 import hashlib,json,os,sqlite3,subprocess,tempfile,unittest
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
@@ -12,7 +13,7 @@ class NativeMigrationTests(unittest.TestCase):
  def rows(self):
   with sqlite3.connect(self.db) as db:return {n:db.execute('SELECT * FROM "'+n+'" ORDER BY rowid').fetchall() for n, in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
  def invoke(self,phase,*more,ok=True):
-  result=subprocess.run([str(ROOT/'target/debug/loom-migrate'),phase,'--state',str(self.state),*map(str,more)],capture_output=True,text=True,timeout=20)
+  result=subprocess.run([str(native_binary('loom-migrate')),phase,'--state',str(self.state),*map(str,more)],capture_output=True,text=True,timeout=20)
   self.assertEqual(result.returncode==0,ok,result.stderr);return json.loads(result.stdout) if ok else result
  def apply(self):return self.invoke('apply','--config',self.cfg,'--data',self.data,'--components',self.components,'--backup',self.backup,'--executor-root',self.root/'stopped-executor')
  def test_native_cutover_preserves_every_legacy_table_and_can_rollback(self):

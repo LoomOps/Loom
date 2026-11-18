@@ -92,7 +92,6 @@
         "rust/contracts/job-contract.json",
         "rust/contracts/legacy-actions.json",
         "rust/crates/core/Cargo.toml",
-        "rust/crates/core/build.rs",
         "rust/crates/core/src/compat.rs",
         "rust/crates/core/src/contracts.rs",
         "rust/crates/core/src/error.rs",
@@ -102,7 +101,12 @@
         "rust/crates/ops/Cargo.toml",
         "rust/crates/ops/src/lib.rs",
         "rust/crates/ops/src/main.rs",
-        "rust/crates/ops/src/worker.rs"
+        "rust/crates/ops/src/worker.rs",
+        "rust/crates/primitives/src/compat.rs",
+        "rust/crates/primitives/src/lib.rs",
+        "rust/crates/primitives/src/error.rs",
+        "rust/crates/primitives/src/store.rs",
+        "rust/crates/contracts/src/lib.rs"
       ],
       "tests": [
         "tests/ops/test_api_contract.py",
@@ -247,7 +251,8 @@
         "rust/crates/host/src/main.rs",
         "rust/crates/host/src/wire.rs",
         "rust/crates/host/src/logs.rs",
-        "rust/crates/ops/src/log_collector.rs"
+        "rust/crates/ops/src/log_collector.rs",
+        "rust/crates/primitives/src/reference.rs"
       ],
       "tests": [
         "tests/ops/test_executor_boundary.py",
@@ -368,7 +373,9 @@
         "rust/crates/core/src/metadata_templates.rs",
         "rust/contracts/metadata-templates.json",
         "rust/crates/core/src/reporting.rs",
-        "rust/contracts/reporting.json"
+        "rust/contracts/reporting.json",
+        "rust/crates/primitives/src/storage.rs",
+        "rust/crates/primitives/src/file_set.rs"
       ],
       "tests": [
         "tests/ops/test_installation_smoke.py",
@@ -435,7 +442,8 @@
         "rust/crates/core/src/software.rs",
         "rust/crates/host/src/runtime.rs",
         "rust/crates/host/src/runtime_files.rs",
-        "rust/crates/core/src/system_ownership.rs"
+        "rust/crates/core/src/system_ownership.rs",
+        "rust/crates/primitives/src/runtime.rs"
       ],
       "tests": [
         "tests/ops/test_components_platform.py",
@@ -547,7 +555,10 @@
         "rust/crates/ops/src/catalog_maintenance.rs",
         "rust/crates/core/src/activity.rs",
         "rust/crates/core/src/research_metadata.rs",
-        "rust/contracts/research-summary.schema.json"
+        "rust/contracts/research-summary.schema.json",
+        "rust/crates/primitives/src/items.rs",
+        "rust/crates/primitives/src/index_store.rs",
+        "rust/crates/primitives/src/inventory.rs"
       ],
       "tests": [
         "tests/ops/test_dashboard_resources.py",
@@ -654,7 +665,7 @@
     },
     {
       "id": "dashboard",
-      "summary": "Dashboard HTTP relay·workspace UI",
+      "summary": "Dashboard HTTP relay\u00b7workspace UI",
       "sources": [
         "dashboard/.dockerignore",
         "dashboard/Dockerfile",
@@ -758,7 +769,8 @@
         "rust/crates/core/src/onboarding.rs",
         "tests/ops/client_source.py",
         "loom_use/catalog.json",
-        "loom_use/reporting.md"
+        "loom_use/reporting.md",
+        "rust/crates/reference/src/lib.rs"
       ],
       "tests": [
         "tests/deploy/test_client_release.py",
@@ -1013,7 +1025,35 @@
         "deploy/migrations/item_index.py",
         "deploy/migrations/reconciliation.py",
         "rust/contracts/reconcile-schema.sql",
-        "deploy/migrations/browser_relay_routes.py"
+        "deploy/migrations/browser_relay_routes.py",
+        "rust/crates/primitives/Cargo.toml",
+        "rust/crates/primitives/BUILD.bazel",
+        "rust/crates/reference/build.rs",
+        "rust/crates/reference/Cargo.toml",
+        "rust/crates/reference/BUILD.bazel",
+        "rust/crates/contracts/Cargo.toml",
+        "rust/crates/contracts/BUILD.bazel",
+        ".bazelrc",
+        ".bazelversion",
+        "MODULE.bazel",
+        "MODULE.bazel.lock",
+        "BUILD.bazel",
+        "rust/BUILD.bazel",
+        "loom_use/BUILD.bazel",
+        "tests/rust/BUILD.bazel",
+        "rust/crates/sdk/BUILD.bazel",
+        "rust/crates/ops/BUILD.bazel",
+        "rust/crates/migrate/BUILD.bazel",
+        "rust/crates/core/BUILD.bazel",
+        "rust/crates/domain/BUILD.bazel",
+        "rust/crates/host/BUILD.bazel",
+        "build_support/BUILD.bazel",
+        "build_support/client.bzl",
+        "build_support/platform.json",
+        "dashboard/BUILD.bazel",
+        "ops/BUILD.bazel",
+        "deploy/bazel.py",
+        "rust/release.json"
       ],
       "tests": [
         "tests/deploy/test_boot_readiness.py",
@@ -1147,14 +1187,25 @@
         "tests/rust/run.py",
         "tests/suite.py",
         "rust/crates/core/examples/catalog_scale.rs",
-        "deploy/documentation.py"
+        "deploy/documentation.py",
+        "tests/build/scale.py",
+        "tests/build/BUILD.bazel",
+        "tests/build/native_http.py",
+        "tests/build/native_image.py",
+        "tests/build/native_browser.py",
+        "tests/rust/native_binaries.py",
+        "tests/BUILD.bazel",
+        "tests/dashboard/BUILD.bazel",
+        "docs/BUILD.md",
+        ".github/workflows/incremental.yml"
       ],
       "tests": [
         "tests/deploy/test_distribution.py",
         "tests/deploy/test_features.py",
         "tests/rust/application.rs",
         "tests/rust/test_item_image.py",
-        "tests/deploy/test_documentation.py"
+        "tests/deploy/test_documentation.py",
+        "tests/deploy/test_build_inputs.py"
       ],
       "depends_on": [],
       "spec": "docs/features/testing.md",

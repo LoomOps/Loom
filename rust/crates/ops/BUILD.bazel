@@ -1,0 +1,9 @@
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_binary", "rust_test")
+load("@crates//:defs.bzl", "all_crate_deps", "aliases")
+package(default_visibility = ["//visibility:public"])
+exports_files(["Cargo.toml"])
+filegroup(name = "sources", srcs = glob(["src/**", "Cargo.toml"]) + glob(["build.rs"], allow_empty = True))
+rust_library(name = "ops", crate_name = "loom_ops", srcs = glob(["src/**/*.rs"], exclude = ["src/main.rs"]), edition = "2021", version = "0.2.0", aliases = aliases(), deps = ["//rust/crates/core:core", "//rust/crates/host:host", "//rust/crates/domain:domain", "//rust/crates/reference:reference"] + all_crate_deps(normal = True), compile_data = [])
+rust_binary(name = "loom-ops", crate_name = "loom_ops", srcs = ["src/main.rs"], edition = "2021", version = "0.2.0", aliases = aliases(), deps = [":ops"] + ["//rust/crates/core:core", "//rust/crates/host:host", "//rust/crates/domain:domain", "//rust/crates/reference:reference"] + all_crate_deps(normal = True))
+
+rust_test(name = "ops_test", crate_name = "loom_ops", crate_root = "src/lib.rs", srcs = glob(["src/**/*.rs"], exclude = ["src/main.rs"]) + ["//tests/rust:updates.rs", "//tests/rust:read_admission.rs", "//tests/rust:worker.rs"], edition = "2021", version = "0.2.0", aliases = aliases(), deps = ["//rust/crates/core:core", "//rust/crates/host:host", "//rust/crates/domain:domain", "//rust/crates/reference:reference"] + all_crate_deps(normal = True), compile_data = [])

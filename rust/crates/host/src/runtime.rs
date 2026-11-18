@@ -1,6 +1,6 @@
 //! One administrator-owned Runtime catalog, independent of the Job DB.
 use crate::executor::Config;
-use loom_core::{
+use loom_primitives::{
     compat,
     error::require,
     store::{hash, now, rows},
@@ -185,7 +185,7 @@ pub fn register(
         "Runtime requires explicit successful execution validation",
         409,
     )?;
-    loom_core::runtime::primary(&manifest, manifest.get("primary_dependencies"))?;
+    loom_primitives::runtime::primary(&manifest, manifest.get("primary_dependencies"))?;
     for instance in instances {
         let cfg = &config.instances[instance];
         let dependency = cfg

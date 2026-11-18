@@ -1,0 +1,36 @@
+name: Native incremental graph
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: Native candidate scope (retained suites run in Checks)
+        type: choice
+        options: [developer, release]
+        default: developer
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: target/build-cache/bookworm
+          key: native-bookworm-${{ runner.arch }}-${{ hashFiles('build_support/platform.json', 'MODULE.bazel', 'MODULE.bazel.lock', 'Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            native-bookworm-${{ runner.arch }}-${{ hashFiles('build_support/platform.json', 'MODULE.bazel', 'MODULE.bazel.lock', 'Cargo.lock') }}-
+      - name: Test exact native inputs
+        env:
+          NATIVE_SCOPE: ${{ inputs.scope }}
+        run: python3 deploy/bazel.py test "//tests:$NATIVE_SCOPE" //dashboard:workspace --build_event_json_file=/cache/logs/native.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-build-events
+          path: |
+            target/build-cache/bookworm/logs
+            target/build-cache/bookworm/native/platform.json

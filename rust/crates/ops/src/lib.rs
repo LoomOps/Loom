@@ -66,6 +66,7 @@ pub struct Service {
 }
 impl Service {
     pub fn start(mut application: Application) -> Self {
+        loom_core::onboarding::install(loom_reference::assets());
         let config = application.config.clone();
         let local = application.local.clone();
         let bulk = application.bulk.clone();

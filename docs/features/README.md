@@ -17,7 +17,7 @@ python3 deploy/features.py impact ops/job_contract.py --transitive
 bash deploy/test.sh --browser
 ```
 
-`check` detects missing references, duplicate ownership, invalid feature relationships and unregistered new source/tests. Tests also validate JSON Schema. `impact` includes direct consumers by default; `--transitive` includes indirect consumers. The list defines review scope, not mandatory edits.
+`check` detects missing references, duplicate ownership, invalid feature relationships and unregistered new source/tests. Tests also validate JSON Schema. `impact` includes direct consumers by default; `--transitive` includes indirect consumers. The list defines review scope, not mandatory edits or an execution DAG. Select affected checks with the [incremental build tools](../BUILD.md); complete candidate acceptance remains separate.
 
 ## Relationships
 

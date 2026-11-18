@@ -917,18 +917,18 @@ pub fn scaffold(args: &Value) -> Result<Value> {
     let template = args["template"].as_str().unwrap_or("tool");
     let cargo=format!("[package]\nname = \"{name}\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\nloom-sdk = {{ path = \"sdk/loom-sdk\" }}\n");
     let source = if template == "hybrid" {
-        include_str!("../../../templates/hybrid.rs")
+        crate::onboarding::template("hybrid.rs")
     } else {
-        include_str!("../../../templates/runner.rs")
+        crate::onboarding::template("runner.rs")
     };
     let profile = json!({"params_schema":{"type":"object","additionalProperties":false},"runtime":{"executor":"container","lane":"cpu","runtime_ref":{"id":"select-runtime","revision":1},"command":["@producer"]},"inputs":{},"outputs":{"receipt":"artifact"},"limits":{"timeout_seconds":120,"max_attempts":1}});
     let mut manifest = json!({"implementation":{"language":if template=="hybrid"{"hybrid"}else{"rust"},"python_integrations":if template=="hybrid"{json!([{"stage":"run","package":"replace-with-external-sdk","reason":"replace-with-concrete-integration"}])}else{json!([])}}});
     if template != "tool" {
         manifest["profiles"] = json!({"runner":profile});
     }
-    let mut files = json!({"Cargo.toml":cargo,"src/main.rs":source,"sdk/loom-sdk/Cargo.toml":include_str!("../../../templates/sdk-Cargo.toml"),"sdk/loom-sdk/src/lib.rs":include_str!("../../sdk/src/lib.rs")});
+    let mut files = json!({"Cargo.toml":cargo,"src/main.rs":source,"sdk/loom-sdk/Cargo.toml":crate::onboarding::template("sdk-Cargo.toml"),"sdk/loom-sdk/src/lib.rs":crate::onboarding::template("sdk.rs")});
     if template == "hybrid" {
-        files["worker.py"] = json!(include_str!("../../../templates/worker.py"));
+        files["worker.py"] = json!(crate::onboarding::template("worker.py"));
     }
     Ok(
         json!({"template":template,"language":"rust","producer_protocol":"loom-producer/v1","files":files,"manifest":manifest,"draft_profile":profile,"build_executed":false}),

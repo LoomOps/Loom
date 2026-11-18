@@ -1,5 +1,6 @@
 """Capture a numbered, immutable internal code snapshot; no service restart."""
 import argparse
+import io
 from datetime import datetime
 import fcntl
 import hashlib
@@ -8,7 +9,6 @@ from pathlib import Path
 import os
 import sys
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from host_identity import admin_reexec_for,build_owner
 import subprocess
 import tarfile
 from zoneinfo import ZoneInfo
@@ -18,7 +18,7 @@ EXCLUDED = {'evidence', '__pycache__', '.git', 'node_modules', 'secrets'}
 
 
 def sources():
-    for top in ('ops', 'dashboard', 'components', 'deploy', 'loom_use', 'docs', 'executor', 'tests', 'rust'):
+    for top in ('ops', 'dashboard', 'components', 'deploy', 'loom_use', 'docs', 'executor', 'tests', 'rust', 'build_support'):
         for path in sorted((ROOT/top).rglob('*')):
             if EXCLUDED.intersection(path.relative_to(ROOT).parts):
                 continue
@@ -31,7 +31,7 @@ def sources():
                     raise ValueError(f'Source link leaves the checkout: {path.relative_to(ROOT)}')
             if path.is_file():
                 yield path
-    for name in ('LICENSE','THIRD_PARTY_NOTICES.md','AGENTS.md','README.md','CHANGELOG.md','INSTALL.md','.dockerignore','Cargo.toml','Cargo.lock','rust-toolchain.toml'):
+    for name in ('LICENSE','THIRD_PARTY_NOTICES.md','AGENTS.md','README.md','CHANGELOG.md','INSTALL.md','.dockerignore','Cargo.toml','Cargo.lock','rust-toolchain.toml','BUILD.bazel','MODULE.bazel','MODULE.bazel.lock','.bazelrc','.bazelversion'):
         if (ROOT/name).is_file():yield ROOT/name
 
 
@@ -45,7 +45,7 @@ def component_files(component,files,hashes):
     return local
 
 
-def capture(destination, instance):
+def capture(destination, instance=None):
     destination.mkdir(parents=True, exist_ok=True)
     with (destination/'.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -63,28 +63,39 @@ def capture(destination, instance):
         info = {'build_id':build_id, 'channel':'dev-build', 'created_at':now.isoformat(),
                 'source_sha256':digest, 'git_commit':commit.stdout.strip() if commit.returncode==0 else None,
                 'images':{'ops':'loom-ops:'+build_id,'dashboard':'loom-dashboard:'+build_id}}
+        generated = {}
         for component in ('ops','dashboard'):
             local = component_files(component,files,hashes)
-            (ROOT/component/'build-info.json').write_text(json.dumps({**info,'component':component,'files':local},indent=2)+'\n')
+            generated[component+'/build-info.json'] = (json.dumps({**info,'component':component,'files':local},indent=2)+'\n').encode()
         (target/'manifest.json').write_text(json.dumps({**info,'files':hashes},indent=2)+'\n')
         with tarfile.open(target/'source.tar.gz','w:gz',dereference=False) as archive:
-            for path in files+[ROOT/'ops/build-info.json',ROOT/'dashboard/build-info.json']:
+            for path in files:
                 archive.add(path,arcname=str(path.relative_to(ROOT)),recursive=False)
-        (instance/'build.env').write_text(f'LOOM_BUILD_ID={build_id}\nLOOM_OPS_IMAGE=loom-ops:{build_id}\nLOOM_DASHBOARD_IMAGE=loom-dashboard:{build_id}\n')
-        info_file=instance/'build.env'
-        owner=(instance/'compose.env').stat()
-        os.chown(info_file,owner.st_uid,owner.st_gid)
-        build_owner(target)
-        print(json.dumps({**info,'snapshot':str(target)},indent=2))
+            for name,content in generated.items():
+                entry=tarfile.TarInfo(name);entry.size=len(content);entry.mode=0o644
+                archive.addfile(entry,io.BytesIO(content))
+        result={**info,'snapshot':str(target)}
+        if instance is not None:select(result,instance)
+        return result
+
+
+def select(info,instance):
+    """Explicit development alias selection, separate from artifact capture."""
+    from host_identity import build_owner
+    instance=Path(instance)
+    owner=(instance/'compose.env').stat()
+    path=instance/'build.env'
+    path.write_text(f"LOOM_BUILD_ID={info['build_id']}\nLOOM_OPS_IMAGE={info['images']['ops']}\nLOOM_DASHBOARD_IMAGE={info['images']['dashboard']}\n")
+    os.chown(path,owner.st_uid,owner.st_gid)
+    build_owner(Path(info['snapshot']))
 
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--destination',type=Path,default=Path('/loom/builds/dev-build'))
-    parser.add_argument('--instance',type=Path,default=Path('/loom/ops/dev-build'))
+    parser.add_argument('--destination',type=Path,default=ROOT/'target/dev-builds')
+    parser.add_argument('--instance',type=Path,help='Explicit dev instance alias selection; artifact capture alone is inert')
     args=parser.parse_args()
-    admin_reexec_for(args.destination)
-    capture(args.destination,args.instance)
+    print(json.dumps(capture(args.destination,args.instance),indent=2))
 
 
 def git_revision(root):

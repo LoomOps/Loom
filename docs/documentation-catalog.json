@@ -122,6 +122,12 @@
       "authority": "current implementation and linked task reference"
     },
     {
+      "path": "docs/BUILD.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
       "path": "docs/CLEANUP.md",
       "audience": "reader",
       "status": "current",
@@ -204,6 +210,36 @@
       "audience": "reader",
       "status": "current",
       "authority": "current implementation and linked task reference"
+    },
+    {
+      "path": "docs/build-system/ARCHITECTURE.md",
+      "audience": "maintainer",
+      "status": "proposed",
+      "authority": "explicit design proposal; not an installed capability"
+    },
+    {
+      "path": "docs/build-system/AUDIT.md",
+      "audience": "maintainer",
+      "status": "proposed",
+      "authority": "explicit design proposal; not an installed capability"
+    },
+    {
+      "path": "docs/build-system/IMPLEMENTATION.md",
+      "audience": "maintainer",
+      "status": "proposed",
+      "authority": "explicit design proposal; not an installed capability"
+    },
+    {
+      "path": "docs/build-system/PLAN.md",
+      "audience": "maintainer",
+      "status": "proposed",
+      "authority": "explicit design proposal; not an installed capability"
+    },
+    {
+      "path": "docs/build-system/VERIFICATION.md",
+      "audience": "maintainer",
+      "status": "proposed",
+      "authority": "explicit design proposal; not an installed capability"
     },
     {
       "path": "docs/features/README.md",
@@ -977,7 +1013,19 @@
       "path": "rust/crates/core/src/onboarding.rs",
       "audience": "agent",
       "status": "current",
-      "authority": "compiled guide/reference distribution"
+      "authority": "scoped guide/reference serving"
+    },
+    {
+      "path": "rust/crates/primitives/src/reference.rs",
+      "audience": "agent",
+      "status": "current",
+      "authority": "shared MCP entry instructions"
+    },
+    {
+      "path": "rust/crates/reference/src/lib.rs",
+      "audience": "agent",
+      "status": "current",
+      "authority": "compiled guide/template payload"
     }
   ]
 }

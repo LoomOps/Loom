@@ -23,7 +23,7 @@ Public actions and input schemas are in the generated [API reference](../referen
 - [rust/contracts/job-contract.json](../../rust/contracts/job-contract.json) — native implementation / contract.
 - [rust/contracts/legacy-actions.json](../../rust/contracts/legacy-actions.json) — native implementation / contract.
 - [rust/crates/core/Cargo.toml](../../rust/crates/core/Cargo.toml) — native implementation / contract.
-- [rust/crates/core/build.rs](../../rust/crates/core/build.rs) — native implementation / contract.
+- [rust/crates/reference/build.rs](../../rust/crates/reference/build.rs) — native implementation / contract.
 - [rust/crates/core/src/compat.rs](../../rust/crates/core/src/compat.rs) — native implementation / contract.
 - [rust/crates/core/src/contracts.rs](../../rust/crates/core/src/contracts.rs) — native implementation / contract.
 - [rust/crates/core/src/error.rs](../../rust/crates/core/src/error.rs) — native implementation / contract.
@@ -62,3 +62,5 @@ Native read admission permits four active readers and two heavy catalog/file/log
 readers. At most 32 read requests may execute or wait, with one three-second
 slot-acquisition deadline. Queued heavy reads do not hold general slots needed
 by status or Inspector telemetry. Cancelled waiters release their admission.
+
+The action/DTO authority is `rust/crates/contracts/src/lib.rs`. The Core `contracts` module is a stable facade; handlers and transactions remain in Core. Shared lineage transform vocabulary has one authority in the contracts crate.

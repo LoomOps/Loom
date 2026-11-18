@@ -24,7 +24,12 @@ activityRecords=function(entities) {
 };
 const loomActivitySummary=activitySummary;
 activitySummary=function(entities,now=Date.now(),liveThrough=now) {
- const work=loomActivityJobs(entities).map(e=>({...e,properties:{...e.properties,record_role:'work'}}));
+ const source=catalogData.all_entities||entities,jobs=loomActivityJobs(source),parents=new Map(jobs.map(e=>[e.id,e.group_root!==e.id&&e.group_root||e.properties?.workflow_root||e.presentation?.parent_job]));
+ for(const e of jobs)for(const n of e.loom_workflow?.executions||[])parents.set(n.job,e.id);
+ const root=id=>{const seen=new Set();while(parents.get(id)&&!seen.has(id)){seen.add(id);id=parents.get(id);}return id;};
+ const groups=new Map();
+ for(const e of jobs){const id=root(e.id),known=groups.get(id),intervals=loomGroupWorkIntervals(e);if(known){known.execution_intervals.push(...intervals);if(['running','preparing'].includes(queueState(e).raw))known.properties.state=queueState(e).raw;}else groups.set(id,{...e,id,properties:{...e.properties,record_role:'work'},execution_intervals:[...intervals]});}
+ const work=[...groups.values()];
  // The original interval union and KST day splitting remain authoritative.
- return loomActivitySummary([...entities.filter(e=>!['work','loom_job'].includes(e.properties?.record_role)),...work],now,liveThrough);
+ return loomActivitySummary([...source.filter(e=>!['work','loom_job'].includes(e.properties?.record_role)),...work],now,liveThrough);
 };

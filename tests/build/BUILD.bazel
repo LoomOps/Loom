@@ -1,0 +1,8 @@
+load("@rules_python//python:defs.bzl", "py_test", "py_binary")
+package(default_visibility = ["//visibility:public"])
+py_test(name = "native_http", srcs = ["native_http.py"], deps = ["//tests/rust:http_fixture"], data = ["//rust/crates/ops:loom-ops", "//rust/crates/sdk:loom-sdk", "@loom_use_client//:sources", "@loom_use_client//:VERSION"], args = ["$(location //rust/crates/ops:loom-ops)", "$(location //rust/crates/sdk:loom-sdk)", "$(location @loom_use_client//:VERSION)"], timeout = "long")
+py_test(name = "native_browser", srcs = ["native_browser.py"], deps = ["//tests/dashboard:browser_fixtures"], data = ["//rust/crates/ops:loom-ops", "//rust/crates/sdk:loom-sdk", "//dashboard:workspace"], args = ["$(location //rust/crates/ops:loom-ops)", "$(location //rust/crates/sdk:loom-sdk)", "$(location //dashboard:workspace)"], tags = ["local", "no-cache", "manual"], timeout = "long")
+py_binary(name = "image_acceptance", srcs = ["native_image.py"], main = "native_image.py")
+py_test(name = "scale", srcs = ["scale.py"], data = ["//rust/crates/core:core_test"], args = ["$(location //rust/crates/core:core_test)"], tags = ["manual"], timeout = "long")
+
+py_test(name = "native_read_scale", main = "native_http.py", srcs = ["native_http.py"], deps = ["//tests/rust:http_fixture"], data = ["//rust/crates/ops:loom-ops", "//rust/crates/sdk:loom-sdk", "@loom_use_client//:sources", "@loom_use_client//:VERSION"], args = ["$(location //rust/crates/ops:loom-ops)", "$(location //rust/crates/sdk:loom-sdk)", "$(location @loom_use_client//:VERSION)", "scale"], tags = ["manual", "exclusive"], timeout = "long")

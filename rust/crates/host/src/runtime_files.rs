@@ -1,7 +1,7 @@
 //! Explicit administrator inventories under the configured dependency directory.
 //! Runtime file pages/ranges are instance-granted capabilities, never host paths from callers.
 use crate::{executor::Config, runtime};
-use loom_core::{
+use loom_primitives::{
     error::require,
     file_set, storage,
     store::{hash, now},
@@ -66,7 +66,7 @@ pub fn register_inventory(
         + Duration::from_secs(request["max_seconds"].as_u64().unwrap_or(30).clamp(1, 3600));
     let folder = uuid::Uuid::now_v7().to_string();
     let directory = root.join("runtime-files").join(&folder);
-    loom_core::index_store::secure_dir(&directory)?;
+    loom_primitives::index_store::secure_dir(&directory)?;
     let mut entries = 0u64;
     let mut bytes = 0u64;
     let mut skipped = 0u64;
@@ -108,13 +108,14 @@ pub fn register_inventory(
             400,
         )?;
         if scope["dependency"].is_object() {
-            let expected = loom_core::items::dependency_ref(&runtime, &scope["dependency"]);
+            let expected = loom_primitives::items::dependency_ref(&runtime, &scope["dependency"]);
             require(
                 runtime["manifest"]["dependencies"]
                     .as_array()
                     .is_some_and(|deps| {
-                        deps.iter()
-                            .any(|d| loom_core::items::dependency_ref(&runtime, d) == expected)
+                        deps.iter().any(|d| {
+                            loom_primitives::items::dependency_ref(&runtime, d) == expected
+                        })
                     }),
                 "dependency_scope",
                 "Inventory dependency is not declared by the exact Runtime",
@@ -327,7 +328,7 @@ impl Capability {
                     e.as_object_mut().unwrap().remove("proof");
                     if e["dependency"].is_object() {
                         e["dependency_ref"] =
-                            loom_core::items::dependency_ref(&self.runtime, &e["dependency"]);
+                            loom_primitives::items::dependency_ref(&self.runtime, &e["dependency"]);
                     }
                     e.as_object_mut().unwrap().remove("dependency");
                     e["copies"] = json!([{"type":"runtime","runtime_ref":self.runtime["runtime_ref"],"entry_key":e["entry_key"],"inventory_sha256":self.runtime["manifest"]["file_inventory"]["sha256"]}]);
@@ -375,7 +376,7 @@ impl Capability {
         proof.revalidate()?;
         let mut file = storage::open_registered(&self.base, key)?;
         proof.revalidate_open(&file)?;
-        let before = loom_core::inventory::file_stamp(&file.metadata()?);
+        let before = loom_primitives::inventory::file_stamp(&file.metadata()?);
         let offset = args["offset"]
             .as_str()
             .unwrap_or("0")
@@ -389,7 +390,7 @@ impl Capability {
             .take(limit.min(proof.size - offset))
             .read_to_end(&mut data)?;
         require(
-            before == loom_core::inventory::file_stamp(&file.metadata()?),
+            before == loom_primitives::inventory::file_stamp(&file.metadata()?),
             "content_changed",
             "Runtime bytes changed during range read",
             409,

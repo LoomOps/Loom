@@ -1290,6 +1290,134 @@ fn runtime_usage_uses_frozen_stage_receipts_even_for_failed_operational_jobs() {
     assert_eq!(detail["spec"]["profile"], spec["profile"]);
 }
 #[test]
+fn group_summary_tracks_later_nested_execution_without_rewriting_the_completed_root() {
+    let mut f = Fixture::new();
+    let main = f.submit("group-original");
+    let workflow = f.call("jobs","submit_workflow",json!({"key":"group-followup","label":"Later repair","owner":"owner","notify":"owner","nodes":[{"id":"one","label":"Later execution","spec":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}}],"outputs":{}})).unwrap()["id"].as_str().unwrap().to_string();
+    let child: String = f
+        .app
+        .db
+        .query_row(
+            "SELECT job FROM workflow_nodes WHERE root=?",
+            [&workflow],
+            |r| r.get(0),
+        )
+        .unwrap();
+    f.call("jobs","curate",json!({"key":"group-link","reason":"Same outcome","dry_run":false,"changes":[{"kind":"job","id":workflow,"presentation":{"parent_job":main}}]})).unwrap();
+    let clock = store::now() - 1000.;
+    for (id, start, end) in [
+        (&main, clock - 86400., clock - 86390.),
+        (&child, clock, clock + 20.),
+    ] {
+        f.app
+            .db
+            .execute("UPDATE jobs SET state='complete' WHERE id=?", [id])
+            .unwrap();
+        f.app
+            .db
+            .execute(
+                "INSERT INTO stage_runs VALUES(?,'receipt','run',?,?,'returned')",
+                rusqlite::params![id, start, end],
+            )
+            .unwrap();
+    }
+    let before = f.app.job_detail(&main).unwrap();
+    let group = f.call("jobs", "get", json!({"id":main})).unwrap()["family"]["summary"].clone();
+    assert_eq!(group["execution_count"], 2); // The workflow wrapper adds no Job/time.
+    assert_eq!(group["member_count"], 3);
+    assert_eq!(group["latest_job"]["id"], child);
+    assert_eq!(group["first_started"], clock - 86400.);
+    assert_eq!(group["last_ended"], clock + 20.);
+    assert_eq!(group["states"]["complete"], 2);
+    f.app.index_once().unwrap();
+    let page = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"kinds":["job"],"view":"all","role":"all","limit":50}),
+        )
+        .unwrap();
+    let row = page["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == main)
+        .unwrap();
+    assert_eq!(row["group_summary"], group);
+    assert_eq!(row["state"], "complete");
+    f.app
+        .db
+        .execute("UPDATE jobs SET state='running' WHERE id=?", [&child])
+        .unwrap();
+    f.app
+        .db
+        .execute(
+            "UPDATE stage_runs SET ended=NULL,state='running' WHERE job=?",
+            [&child],
+        )
+        .unwrap();
+    let running = f.app.job_group_summary(&main).unwrap();
+    assert_eq!(running["active_state"], "running");
+    assert!(running["last_ended"].is_null());
+    let after = f.app.job_detail(&main).unwrap();
+    for field in [
+        "state",
+        "spec",
+        "created",
+        "attempts",
+        "stages",
+        "execution_intervals",
+    ] {
+        assert_eq!(
+            after[field], before[field],
+            "Original root field changed: {field}"
+        );
+    }
+    // Unknown exits remain visible rather than silently losing their start.
+    f.app
+        .db
+        .execute("UPDATE jobs SET state='failed' WHERE id=?", [&child])
+        .unwrap();
+    let failed = f.app.job_group_summary(&main).unwrap();
+    assert_eq!(failed["states"]["failed"], 1);
+    assert_eq!(failed["unknown_time"], true);
+    assert_eq!(f.count("attempts"), 0);
+}
+
+#[test]
+fn activity_counts_only_the_top_level_across_nested_jobs_and_kst_midnight() {
+    let mut f = Fixture::new();
+    let main = f.submit("top-level");
+    let child = f.submit("child");
+    let grandchild = f.submit("grandchild");
+    f.call("jobs","curate",json!({"key":"nested-activity","reason":"Same outcome","dry_run":false,"changes":[{"kind":"job","id":child,"presentation":{"parent_job":main}},{"kind":"job","id":grandchild,"presentation":{"parent_job":child}}]})).unwrap();
+    let midnight = (((store::now() + 32400.) / 86400.).floor() - 1.) * 86400. - 32400.;
+    for (id, attempt, start, end) in [
+        (&main, "a", midnight - 20., midnight - 5.),
+        (&child, "b", midnight - 10., midnight + 10.),
+        (&grandchild, "c", midnight + 5., midnight + 20.),
+        (&grandchild, "d", midnight + 30., midnight + 40.),
+    ] {
+        f.app
+            .db
+            .execute(
+                "INSERT INTO stage_runs VALUES(?,?,'run',?,?,'returned')",
+                rusqlite::params![id, attempt, start, end],
+            )
+            .unwrap();
+    }
+    let result = f.app.dashboard_activity("all").unwrap();
+    let days = result["days"].as_array().unwrap();
+    assert_eq!(days.len(), 2);
+    for day in days {
+        assert_eq!(day["job_count"], 1);
+        assert_eq!(day["jobs"][0]["id"], main);
+    }
+    assert_eq!(days[0]["milliseconds"], 20000.);
+    assert_eq!(days[1]["milliseconds"], 30000.);
+}
+
+#[test]
 fn activity_groups_preparation_by_main_job_and_unions_actual_intervals() {
     let mut f = Fixture::new();
     let main = f.submit("activity-preparation-main");

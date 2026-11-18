@@ -5,6 +5,9 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from urllib.error import HTTPError
 from urllib.request import Request,urlopen
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/"rust"))
+from native_binaries import binary as native_binary
 import test_workspace as reference
 from verify_workspace import Workspace
 ROOT=Path(__file__).resolve().parents[3]
@@ -15,7 +18,7 @@ class NativeWorkspaceTests(unittest.TestCase):
   temp=tempfile.TemporaryDirectory(prefix='loom-native-browser-');cls.addClassCleanup(temp.cleanup);root=Path(temp.name);data=root/'data';data.mkdir();(data/'.loom-storage.json').write_text('{"storage_id":"browser-data"}');components=root/'components';components.mkdir();cfg=root/'config.json';cfg.write_text(json.dumps({'machine_id':'browser-fixture','storage_id':'browser-data','profiles':{'browser.profile.r1':{'schema':'loom-execution/v2','revision':'browser.profile.r1','sha256':'a'*64,'params_schema':{'type':'object'},'runtime':{'executor':'container','runtime_id':'cpu','command':['/bin/true']},'inputs':{},'outputs':None,'limits':{'timeout_seconds':30,'max_attempts':1}}},'actors':[{'id':'owner','scopes':['read','submit','cancel','events'],'owners':['owner'],'notify':['owner']}]}))
   with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
   cls.native='http://127.0.0.1:'+str(port);log=open(root/'ops.log','wb');cls.addClassCleanup(log.close)
-  process=subprocess.Popen([str(ROOT/'target/debug/loom-ops'),'--config',str(cfg),'--state',str(root/'state'),'--data',str(data),'--components',str(components),'--listen','127.0.0.1:'+str(port)],env={**os.environ,'LOOM_DEV_NO_AUTH':'1','LOOM_SDK_BINARY':str(ROOT/'target/debug/loom-sdk')},stdout=log,stderr=log)
+  process=subprocess.Popen([str(native_binary('loom-ops')),'--config',str(cfg),'--state',str(root/'state'),'--data',str(data),'--components',str(components),'--listen','127.0.0.1:'+str(port)],env={**os.environ,'LOOM_DEV_NO_AUTH':'1','LOOM_SDK_BINARY':str(native_binary('loom-sdk'))},stdout=log,stderr=log)
   cls.addClassCleanup(process.wait,10);cls.addClassCleanup(process.terminate)
   for _ in range(100):
    try:
@@ -28,6 +31,43 @@ class NativeWorkspaceTests(unittest.TestCase):
   with urlopen(Request(self.native+'/api/actions',data=json.dumps({'group':group,'action':action,'arguments':arguments}).encode(),headers={'Content-Type':'application/json'}),timeout=5) as response:return json.load(response)
  def setUp(self):
   self.ui=Workspace(self.wd);self.wd('/window/rect',{'width':1440,'height':1000});self.wd('/url',{'url':self.base});self.ui.top();self.ui.js('localStorage.clear();sessionStorage.clear()');self.wd('/refresh',{});self.ui.connect()
+ def test_recent_group_execution_stays_visible_after_the_original_root_completed(self):
+  def submit(key):return self.call('jobs','submit',{'key':key,'kind':'browser.profile.r1','owner':'owner','notify':'owner','params':{}})['id']
+  main=submit('group-root');child=submit('group-latest')
+  self.call('jobs','curate',{'key':'group-ui-link','reason':'Same requested outcome','dry_run':False,'changes':[{'kind':'job','id':main,'presentation':{'label':'Original completed pilot'}},{'kind':'job','id':child,'presentation':{'label':'Recent follow-up','parent_job':main,'role':'support'}}]})
+  clock=time.time()-120
+  with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:
+   db.execute("UPDATE jobs SET state='complete' WHERE id=?",(main,))
+   db.execute("UPDATE jobs SET state='running' WHERE id=?",(child,))
+   db.execute("INSERT INTO stage_runs VALUES(?,'old','run',?,?,'returned')",(main,clock-86400,clock-86390))
+   db.execute("INSERT INTO stage_runs VALUES(?,'new','run',?,NULL,'running')",(child,clock))
+  self.wd('/refresh',{});self.ui.connect()
+  current="[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('현재 큐'))"
+  self.ui.wait('return '+current+"?.textContent.includes('Group · Running')")
+  self.assertTrue(self.ui.js('return '+current+"?.textContent.includes('Recent follow-up')&&"+current+"?.textContent.includes('Root · complete')"))
+  self.assertEqual(self.ui.js('return '+current+"?.querySelectorAll('tbody tr').length"),1)
+  self.assertEqual(self.call('jobs','get',{'id':main})['state'],'complete')
+  self.ui.route(main);self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Related Jobs')")
+  self.assertFalse(self.ui.js("return !!document.querySelector('[data-job-group]')"))
+  self.ui.nav('Dashboard')
+  with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:
+   db.execute("UPDATE jobs SET state='failed' WHERE id=?",(child,))
+   db.execute("UPDATE stage_runs SET ended=?,state='returned' WHERE job=?",(clock+20,child))
+  self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+  history="[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))"
+  self.ui.wait('return '+history+"?.textContent.includes('Recent follow-up')")
+  row='[...('+history+").querySelectorAll('tbody tr')].find(r=>r.querySelector('[data-job-group=\\\"'+arguments[0]+'\\\"]'))"
+  self.assertTrue(self.ui.js('return '+row+"?.textContent.includes('Failed 1')",main))
+  self.assertTrue(self.ui.js('return '+row+"?.textContent.includes('Root · Completed')",main))
+  times=self.ui.js('return [...('+row+").querySelectorAll('time')].map(e=>e.dateTime)",main)
+  self.assertIn(time.strftime('%Y-%m-%d',time.gmtime(clock+20)),times[-1])
+  self.assertEqual(self.call('jobs','get',{'id':main})['state'],'complete')
+  for width in (1440,500):
+   self.ui.top();self.wd('/window/rect',{'width':width,'height':1000});self.ui.frame()
+   for theme in ('light','dark'):
+    self.ui.click('[data-theme='+theme+']');self.ui.js("document.querySelector('[data-job-group]')?.scrollIntoView({block:'center'})");self.assertTrue(self.ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
+    if folder:=os.environ.get('LOOM_TEST_SCREENSHOTS'):
+     path=Path(folder);path.mkdir(parents=True,exist_ok=True);self.ui.top();(path/f'job-group-{width}-{theme}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));self.ui.frame()
  def test_metadata_template_browser_and_typed_robot_properties(self):
   base=self.call('results','get_metadata_template',{'id':'loom.dataset','revision':1});base_ref={k:base[k] for k in ('id','revision','sha256')}
   definition={'label':'Contact <img src=x onerror=alert(1)>','kind':'dataset','base_ref':base_ref,'schema':{'type':'object','properties':{'extensions':{'type':'object','properties':{'friction':{'type':'number'}}}}},'fields':[{'id':'friction','label':'Friction','pointer':'/extensions/friction','section':'extensions','format':'number'}]}

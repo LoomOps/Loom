@@ -1,4 +1,5 @@
 """Compile the actual API drafts and execute their producer protocol. No scientific output."""
+from native_binaries import binary as native_binary
 import hashlib,json,os,subprocess,unittest
 from pathlib import Path
 import test_service as services
@@ -24,7 +25,7 @@ class NativeAuthoringTests(unittest.TestCase):
     output=self.root/('output-'+template);output.mkdir();request=self.root/('request-'+template+'.json');request.write_text(json.dumps({'job':'fixture','attempt':'actual','stage':'run','output_dir':str(output),'component_path':str(source),'params':{},'profile':{'revision':'fixture.r1','sha256':'a'*64}}))
     result=subprocess.run([str(target/'debug'/('fixture-'+template)),str(request)],cwd=source,capture_output=True,text=True,timeout=10);self.assertEqual(result.returncode,0,result.stderr);manifest=json.loads((output/'result.json').read_text());self.assertEqual(len(manifest['entities']),1);self.assertTrue((output/manifest['entities'][0]['path']).is_file())
  def test_release_built_installation_producer_requires_actual_prepare_receipt(self):
-  output=self.root/'installation-output';output.mkdir();request=self.root/'installation-request.json';definition={'job':'fixture','attempt':'one','stage':'run','output_dir':str(output),'params':{},'profile':{'revision':'fixture.r1','sha256':'a'*64}};request.write_text(json.dumps(definition));binary=ROOT/'target/debug/loom-sdk'
+  output=self.root/'installation-output';output.mkdir();request=self.root/'installation-request.json';definition={'job':'fixture','attempt':'one','stage':'run','output_dir':str(output),'params':{},'profile':{'revision':'fixture.r1','sha256':'a'*64}};request.write_text(json.dumps(definition));binary=native_binary('loom-sdk')
   missing=subprocess.run([str(binary),'--installation',str(request)],capture_output=True,text=True,timeout=5);self.assertNotEqual(missing.returncode,0);self.assertFalse((output/'result.json').exists())
   for stage in ('prepare','run'):
    definition['stage']=stage;request.write_text(json.dumps(definition));result=subprocess.run([str(binary),'--installation',str(request)],capture_output=True,text=True,timeout=5);self.assertEqual(result.returncode,0,result.stderr)

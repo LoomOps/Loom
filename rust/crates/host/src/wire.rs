@@ -1,6 +1,6 @@
 //! Compatible private HTTP-over-Unix framing with bounded bodies and peer credentials.
 use crate::executor::{Docker, Executor};
-use loom_core::{error::require, Error, Result};
+use loom_primitives::{error::require, Error, Result};
 use serde_json::{json, Value};
 use std::{
     io::{Read, Write},
@@ -19,7 +19,7 @@ pub fn call(socket: &Path, credential: &Path, action: &str, body: &Value) -> Res
         "Invalid host action",
         400,
     )?;
-    let credential = loom_core::file_set::bounded(credential, 4096)?;
+    let credential = loom_primitives::file_set::bounded(credential, 4096)?;
     let token = std::str::from_utf8(&credential)
         .map_err(|_| Error::input("Invalid executor credential encoding"))?
         .trim();
