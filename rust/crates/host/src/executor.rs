@@ -227,6 +227,26 @@ fn mount_text(value: &str) -> Result<()> {
         400,
     )
 }
+fn legacy_data_alias(
+    cfg: &Instance,
+    approved: &[Value],
+    mount: &Value,
+    source: &Path,
+    target: &Path,
+) -> bool {
+    let Ok(relative) = target.strip_prefix("/loom/data") else {
+        return false;
+    };
+    let Some(std::path::Component::Normal(namespace)) = relative.components().next() else {
+        return false;
+    };
+    // Numbered stores are reserved for per-Job storage grants. An existing
+    // administrator policy may mirror only its exact, read-only legacy bind.
+    !namespace.as_encoded_bytes().iter().all(u8::is_ascii_digit)
+        && source == cfg.data.join(relative)
+        && mount["readonly"] == true
+        && approved.contains(mount)
+}
 fn inside(root: &Path, value: &str) -> Result<PathBuf> {
     mount_text(value)?;
     let root = root.canonicalize()?;
@@ -670,7 +690,7 @@ impl<D: Docker> Executor<D> {
                 return Ok(json!({"busy":true}));
             }
         }
-        let runtime = if let Some(pin) = &request.runtime_ref {
+        let (runtime, legacy_policy) = if let Some(pin) = &request.runtime_ref {
             require(
                 pin["sha256"].is_string(),
                 "runtime",
@@ -679,7 +699,12 @@ impl<D: Docker> Executor<D> {
             )?;
             let item = crate::runtime::detail(&self.root, instance, pin)?;
             crate::runtime::verify_inventory(&item["manifest"])?;
-            item["manifest"]["runtime"].clone()
+            (
+                item["manifest"]["runtime"].clone(),
+                item["manifest"]["reconciliation"]["runtime_id"]
+                    .as_str()
+                    .map(str::to_owned),
+            )
         } else if request.image.is_some() {
             let r = self.declared(&value, &cfg.declared_runtime)?;
             require(
@@ -688,7 +713,7 @@ impl<D: Docker> Executor<D> {
                 "Execution requires pinned image",
                 409,
             )?;
-            r
+            (r, None)
         } else {
             let id = request
                 .runtime_id
@@ -700,11 +725,13 @@ impl<D: Docker> Executor<D> {
                 "Runtime outside instance grant",
                 403,
             )?;
-            self.config
+            let policy = self
+                .config
                 .runtimes
                 .get(id)
                 .cloned()
-                .ok_or_else(|| Error::input("Unknown runtime"))?
+                .ok_or_else(|| Error::input("Unknown runtime"))?;
+            (policy, Some(id.to_owned()))
         };
         require(
             matches!(
@@ -857,6 +884,12 @@ impl<D: Docker> Executor<D> {
             ]));
         }
         let mut destinations = std::collections::BTreeSet::new();
+        let approved_legacy_mounts = legacy_policy
+            .filter(|id| cfg.runtimes.contains(id))
+            .and_then(|id| self.config.runtimes.get(&id))
+            .and_then(|policy| policy["mounts"].as_array())
+            .map(Vec::as_slice)
+            .unwrap_or_default();
         for mount in runtime["mounts"].as_array().into_iter().flatten() {
             let source = mount["source"]
                 .as_str()
@@ -875,7 +908,7 @@ impl<D: Docker> Executor<D> {
                     && t.components()
                         .skip(1)
                         .all(|c| matches!(c, std::path::Component::Normal(_)))
-                    && ![
+                    && (![
                         "/work",
                         "/inputs",
                         "/component",
@@ -885,6 +918,7 @@ impl<D: Docker> Executor<D> {
                     ]
                     .iter()
                     .any(|prefix| t.starts_with(prefix))
+                        || legacy_data_alias(&cfg, approved_legacy_mounts, mount, p, t))
                     && destinations.insert(target),
                 "mount",
                 "Runtime mount redirected or conflicts with execution mounts",

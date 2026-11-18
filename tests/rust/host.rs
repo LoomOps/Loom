@@ -250,6 +250,72 @@ fn bind_option_injection_is_rejected_before_docker_create() {
     assert_eq!(f.fake.0.lock().unwrap().creates, 0);
 }
 #[test]
+fn inventory_runtime_legacy_data_alias_requires_exact_readonly_host_policy() {
+    for (target, relative, readonly, approved, expected) in [
+        (
+            "/loom/data/legacy/artifacts",
+            "legacy/artifacts",
+            true,
+            true,
+            true,
+        ),
+        (
+            "/loom/data/legacy/artifacts",
+            "legacy/artifacts",
+            true,
+            false,
+            false,
+        ),
+        (
+            "/loom/data/legacy/artifacts",
+            "legacy/artifacts",
+            false,
+            true,
+            false,
+        ),
+        ("/loom/data/legacy/artifacts", "other", true, true, false),
+        ("/loom/data/0", "0", true, true, false),
+        ("/loom/data/1/nested", "1/nested", true, true, false),
+        ("/loom/data", "", true, true, false),
+        ("/loom", "", true, true, false),
+    ] {
+        let mut f = Fixture::new();
+        let source = f.root.join("data").join(relative);
+        std::fs::create_dir_all(&source).unwrap();
+        let mount = json!({"source":source,"target":target,"readonly":readonly});
+        let mut runtime = f.executor.config.runtimes["cpu"].clone();
+        runtime["mounts"] = json!([mount]);
+        let config = &mut f.executor.config;
+        config
+            .instances
+            .get_mut("one")
+            .unwrap()
+            .extra
+            .insert("dependencies".into(), json!(f.root.join("data")));
+        if approved {
+            config.runtimes.insert("cpu".into(), runtime.clone());
+        }
+        let pin = loom_host::runtime::register(
+            &f.root,
+            config,
+            "inventory-cpu",
+            json!({"runtime":runtime,"reconciliation":{"runtime_id":"cpu"},"validation":{"status":"passed"}}),
+            &["one".into()],
+        ).unwrap();
+        let mut request = f.request();
+        request.as_object_mut().unwrap().remove("runtime_id");
+        request["runtime_ref"] =
+            json!({"id":pin["id"],"revision":pin["revision"],"sha256":pin["sha256"]});
+        let result = f.executor.handle("one", "start", request);
+        if expected {
+            assert_eq!(result.unwrap()["state"], "running");
+        } else {
+            assert_eq!(result.unwrap_err().code, "mount", "{target}");
+        }
+        assert_eq!(f.fake.0.lock().unwrap().creates, usize::from(expected));
+    }
+}
+#[test]
 fn peer_uid_and_token_must_both_match() {
     let f = Fixture::new();
     assert_eq!(

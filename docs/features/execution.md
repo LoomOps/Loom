@@ -4,6 +4,11 @@
 
 Loom executes Jobs. Release resources based on executor-ticket, container and process return evidence. Never pass platform secrets or Docker sockets into Jobs.
 
+An exact read-only legacy Runtime bind may mirror a path from the instance's
+primary store under a nonnumbered `/loom/data` child if the current host
+administrator policy still declares that exact bind. Numbered store mounts
+remain reserved for individual Job grants.
+
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
