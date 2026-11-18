@@ -70,10 +70,17 @@ class FeatureCatalogTests(unittest.TestCase):
         self.assertFalse(block['passed']);self.assertTrue(block['suite_errors'])
 
     def test_all_current_sources_tests_and_links_have_a_feature(self):
-        import jsonschema
-        c=features.load();schema=json.loads((ROOT/'docs/features/catalog.schema.json').read_text())
-        jsonschema.Draft202012Validator(schema).validate(c)
-        self.assertEqual(features.check(c),[])
+        self.assertEqual(features.check(features.load()),[])
+
+    def test_audit_excludes_a_same_named_case_from_a_different_source(self):
+        import tempfile
+        path='tests/ops/test_ssh_info.py'
+        name=sorted(features.test_cases(ROOT/path))[0]
+        with tempfile.TemporaryDirectory() as folder:
+            report={'successful':True,'cases':[{'name':name,'source':'tests/ops/wrong.py','status':'passed'}]}
+            (Path(folder)/'ops.json').write_text(json.dumps(report))
+            block=next(b for b in features.audit(features.load(),folder)['blocks'] if b['id']=='ssh')
+            self.assertIn(name,block['missing'])
 
     def test_invalid_dependency_duplicate_ownership_and_missing_file_fail(self):
         c=features.load();c['features'][0]['depends_on'].append('nonexistent')

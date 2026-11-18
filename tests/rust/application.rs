@@ -4922,6 +4922,23 @@ fn receipt_only_plans_require_fresh_host_evidence_and_no_synthetic_attempt() {
 }
 
 #[test]
+fn sealed_outcome_rejects_an_added_unit_before_execution() {
+    let mut fixture = Fixture::new();
+    let unit = json!({"id":"first","label":"First","execution":{"kind":"cpu.smoke",
+        "params":{"seconds":0,"fail":false}}});
+    let request = json!({"key":"sealed-before-run","owner":"owner","notify":"owner",
+        "outcome":{"goal":"One readiness check"},"plan":{"sealed":true,"units":[unit]}});
+    let receipt = fixture.call("jobs", "create", request.clone()).unwrap();
+    let extra = json!({"id":"extra","label":"Extra","execution":{"kind":"cpu.smoke",
+        "params":{"seconds":0,"fail":false}}});
+    let extension = json!({"key":"extend","id":receipt["id"],"expected_revision":1,
+        "reason":"Add another check","plan":{"sealed":true,"units":[unit,extra]}});
+    assert_eq!(fixture.call("jobs","revise_plan",extension).unwrap_err().code,"plan");
+    assert_eq!(fixture.count("jobs"),1);
+    assert_eq!(fixture.call("jobs","create",request).unwrap(),receipt);
+}
+
+#[test]
 fn open_plan_preserves_done_nodes_and_rejects_cycles_and_broken_publication() {
     let mut f = Fixture::new();
     let a = json!({"id":"a","label":"Collect","execution":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}});

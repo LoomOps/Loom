@@ -388,9 +388,9 @@ fn runtime_receipt(db: &Connection, target: &Value) -> Result<Value> {
 
 fn validate_revision(old: &Value, next: &Value, bound: &Map<String, Value>) -> Result<()> {
     require(
-        old["sealed"] != true || next["sealed"] == true,
+        old["sealed"] != true || old == next,
         "plan",
-        "A sealed plan must stay sealed",
+        "A sealed plan cannot change its execution graph",
         409,
     )?;
     let updated = units(next);

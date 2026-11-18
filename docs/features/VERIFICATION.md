@@ -47,20 +47,18 @@ Installation uses actual doctor results and the selected step's exit criteria. O
 
 Historical release-specific notes are preserved in [VERIFICATION-HISTORY.md](VERIFICATION-HISTORY.md); they are not another current checklist.
 
-For preparation/follow-up grouping, exercise merged curation, workflow exact
-reads, parent removal, cycle rejection and immutable workflow membership. Retain
-failed history and all Attempt/Profile/Runtime pins; presentation controls must
-not operate on descendants as if they were execution nodes. Check Runtime usage
-against exact frozen ID/revision/SHA and stage-start receipts, including a
-prepare-only failure with a different unstarted run Runtime. Activity unions
-actual intervals within the Main Job and keeps explicit API scope filters;
-Home defaults to all user work independently of scientific Outputs. Browser
-coverage includes initial fetch, refresh retention and source/Main navigation. A recovery that changes the Profile must keep each
-earlier Stage start attached to its original Runtime. In the workflow view count
-Nodes separately from producer Steps and retained source executions.
+For Job ownership, exercise presentation links, parent removal, cycle rejection
+and immutable Node membership. A presentation parent cannot transfer controls,
+execution times or ownership. Verify independent Job rows on the first load and
+after a partial refresh. True workflow Nodes and accepted source Attempts stay
+under the owning Job. Activity unions overlapping intervals by that owner and
+KST day; presentation-only relations leave both Jobs in the count. Verify
+started Runtime pins on recovered Attempts and distinguish execution Nodes from
+producer Steps.
 
-For grouped Home rows, assert displayed dates and recent member labels after
-a root completed on an earlier day. A visible root ID alone is insufficient.
-Exercise active follow-up to failed/complete transitions, refresh, exact root
-state preservation and narrow layouts. Count nested Jobs/retries once per root
-per KST day, including midnight crossings; retain real interval unions.
+Check an open plan before and after Runtime binding, exact replay, sealed-plan
+immutability, publication evidence failures and finalization retry. For
+scientific outputs, verify that prospective pins and optional hypotheses stay
+fixed, report evidence belongs to the accepted Job and Attempt, and Sim/Real
+sessions use exact setup pins and case/seed identities. Historical fixtures
+remain read-only during inspection.

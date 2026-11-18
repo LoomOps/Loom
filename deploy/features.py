@@ -1,10 +1,10 @@
 """Check feature ownership and show change impact. Development only, no runtime hooks."""
 import argparse
 import ast
-import fnmatch
 import re
 import json
 import hashlib
+from collections import defaultdict
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -33,8 +33,9 @@ def load(root=ROOT):
     return json.loads((root/'docs/features/catalog.json').read_text())
 
 
-def check(catalog,root=ROOT):
+def check(catalog,root=ROOT,discovered=None):
     errors=[]
+    if discovered is None:discovered={}
     import jsonschema
     try:jsonschema.Draft202012Validator(json.loads((root/'docs/features/catalog.schema.json').read_text())).validate(catalog)
     except jsonschema.ValidationError as e:return ['Invalid feature schema: '+e.message]
@@ -67,7 +68,8 @@ def check(catalog,root=ROOT):
         for p in f.get('tests',[]):
             test_owners.setdefault(p,[]).append(f['id'])
             try:
-                if not test_cases(root/p):errors.append(f"{f['id']}: no discoverable tests in {p}")
+                if p not in discovered:discovered[p]=test_cases(root/p)
+                if not discovered[p]:errors.append(f"{f['id']}: no discoverable tests in {p}")
             except (OSError,SyntaxError):errors.append(f"{f['id']}: invalid test source {p}")
         if not f.get('tests') or not f.get('invariants') or not f.get('live_validation'):errors.append(f"{f['id']}: missing behavior/test boundary")
     for p,owners in source_owners.items():
@@ -97,34 +99,43 @@ def impact(paths,catalog,transitive=False):
 
 def audit(catalog,evidence,root=ROOT):
     """Map actual suite results to every block. Missing/skipped tests are not passes."""
-    errors=check(catalog,root)
+    discovered={}
+    errors=check(catalog,root,discovered)
     if errors:return {'valid':False,'errors':errors,'blocks':[]}
     reports={}
+    indexed=defaultdict(list)
     for name in ('ops','dashboard','packaging','browser','rust','native'):
         p=Path(evidence)/(name+'.json')
-        if p.is_file():reports[name]=json.loads(p.read_text())
+        if not p.is_file():continue
+        report=reports[name]=json.loads(p.read_text())
+        for case in report.get('cases',[]):
+            # Old Python reports carry a discovery module. New reports and
+            # Rust carry an exact path, so another file cannot satisfy a case.
+            source=case.get('source') or case['name'].split('.',1)[0]
+            indexed[name,source].append(case)
+    refs={p for f in catalog['features'] for p in f['sources']+f['tests']+f['contracts']+[f['spec']]}
+    fingerprints={p:hashlib.sha256((root/p).read_bytes()).hexdigest() for p in refs}
     blocks=[]
     for feature in catalog['features']:
-        missing=[];cases=[];stale=[];suite_errors=set()
+        missing=[];cases=[];stale=set();suite_errors=set();suites=set()
         for path in feature['tests']:
             parts=Path(path).parts
             suite='rust' if Path(path).suffix=='.rs' else 'native' if parts[1]=='rust' else 'browser' if 'browser' in parts else 'packaging' if parts[1]=='deploy' else parts[1]
+            suites.add(suite)
+            found=indexed[suite,path]+indexed[suite,Path(path).stem]
+            if not found:missing.append(path)
+            missing.extend(sorted(discovered[path]-{c['name'] for c in found}))
+            cases.extend(found)
+        refs=set(feature['sources']+feature['tests']+feature['contracts']+[feature['spec']])
+        for suite in suites:
             report=reports.get(suite,{})
             if report.get('successful') is not True:suite_errors.add(suite)
-            found=[c for c in report.get('cases',[]) if c['name'].startswith(Path(path).stem+'.')]
-            expected=test_cases(root/path)
-            actual={c['name'] for c in found}
-            if not found:missing.append(path)
-            missing.extend(sorted(expected-actual))
-            cases.extend(found)
             recorded=report.get('sources',{})
-            for source in set(feature['sources']+feature['tests']+feature['contracts']+[feature['spec']]):
-                if recorded.get(source)!=hashlib.sha256((root/source).read_bytes()).hexdigest():stale.append(source)
+            stale.update(p for p in refs if recorded.get(p)!=fingerprints[p])
         failures=[c['name'] for c in cases if c['status']!='passed']
         blocks.append({'id':feature['id'],'passed':not(missing or failures or stale or suite_errors),'tests':len(cases),
-                       'missing':missing,'not_passed':failures,'stale_or_unrecorded':sorted(set(stale)),
-                       'suite_errors':sorted(suite_errors),
-                       'live_validation':feature['live_validation']})
+                       'missing':missing,'not_passed':failures,'stale_or_unrecorded':sorted(stale),
+                       'suite_errors':sorted(suite_errors),'live_validation':feature['live_validation']})
     return {'valid':all(b['passed'] for b in blocks),'errors':[],'blocks':blocks,
             'scope':'Recorded automated checks only; listed live boundaries remain separate.'}
 

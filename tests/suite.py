@@ -2,20 +2,27 @@
 import argparse
 import json
 import hashlib
+import inspect
 from pathlib import Path
 import sys
 import time
 import unittest
 import xml.etree.ElementTree as ET
 
+ROOT=Path(__file__).resolve().parents[1]
+
 class Result(unittest.TextTestResult):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs);self.records={};self.started={}
     def startTest(self,test):
         super().startTest(test);self.started[test.id()]=time.monotonic()
+        source=inspect.getsourcefile(type(test))
+        path=Path(source).resolve() if source else None
         self.records[test.id()]={'name':test.id(),'status':'passed'}
+        if path and path.is_relative_to(ROOT):
+            self.records[test.id()]['source']=path.relative_to(ROOT).as_posix()
     def record(self,test,status,detail=''):
-        self.records[test.id()]={'name':test.id(),'status':status,'detail':detail}
+        self.records.setdefault(test.id(),{'name':test.id()}).update(status=status,detail=detail)
     def addFailure(self,test,err):
         super().addFailure(test,err);self.record(test,'failed',self._exc_info_to_string(err,test))
     def addError(self,test,err):
@@ -28,13 +35,17 @@ class Result(unittest.TextTestResult):
         super().addUnexpectedSuccess(test);self.record(test,'unexpected_success','Unexpected success of an expected-failure test')
     def addSubTest(self,test,subtest,err):
         super().addSubTest(test,subtest,err)
-        if err:self.record(subtest,'failed',self._exc_info_to_string(err,test));self.record(test,'failed','Subtest failed')
+        if err:
+            self.record(subtest,'failed',self._exc_info_to_string(err,test))
+            source=self.records.get(test.id(),{}).get('source')
+            if source:self.records[subtest.id()]['source']=source
+            self.record(test,'failed','Subtest failed')
     def stopTest(self,test):
         self.records[test.id()]['seconds']=time.monotonic()-self.started[test.id()];super().stopTest(test)
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('directory',type=Path);p.add_argument('report',type=Path);p.add_argument('--pattern',default='test_*.py');a=p.parse_args()
-    root=Path(__file__).resolve().parents[1]
+    root=ROOT
     component=a.directory.resolve().relative_to(root/'tests').parts[0]
     sys.path[:0]=[str(a.directory.resolve()),str(root/component)]
     suite=unittest.defaultTestLoader.discover(str(a.directory),pattern=a.pattern)

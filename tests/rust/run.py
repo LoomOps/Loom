@@ -58,7 +58,7 @@ def main():
     executables={v['executable']:v for v in artifacts if v.get('reason')=='compiler-artifact' and v.get('profile',{}).get('test') and v.get('executable')}
     errors=[];cases=[];omitted=[]
     for executable,artifact in sorted(executables.items()):
-        target=artifact['target'];index=test_index(Path(target['src_path']));seen=set()
+        target=artifact['target'];index=test_index(Path(target['src_path']).resolve());seen=set()
         listing=subprocess.run([executable,'--list','--format','terse'],capture_output=True,text=True,timeout=30)
         if listing.returncode:errors.append('Rust test listing failed: '+target['name']);continue
         for line in listing.stdout.splitlines():
