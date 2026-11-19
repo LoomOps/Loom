@@ -141,6 +141,7 @@ impl Application {
             let mut entity: Value = serde_json::from_str(row["manifest"].as_str().unwrap_or("{}"))?;
             let id = row["id"].as_str().unwrap_or("");
             entity["kind"] = row["kind"].clone();
+            self.attach_evaluation_group(&mut entity)?;
             entity["namespace"] = json!("loom");
             if entity.get("label").is_none() {
                 entity["label"] = json!(id);
@@ -593,12 +594,27 @@ impl Application {
                 .as_str()
                 .or_else(|| entity["id"].as_str())
                 .unwrap_or("");
-            if let Some(review) = self.work_review(id)? {
+            if let Some(mut review) = self.work_review(id)? {
+                if review["entry_type"] == "job"
+                    && entity["properties"]["state"] == "complete"
+                    && entity["properties"]["execution_mode"] == "pilot"
+                    && self.db.query_row(
+                        "SELECT EXISTS(
+                            SELECT 1 FROM all_entity_revisions e JOIN reviewed_outputs o
+                              ON o.id=e.id AND o.kind=e.kind AND o.revision=CAST(e.revision AS TEXT)
+                            WHERE e.job=? AND o.source='entity' AND o.snapshot='' AND o.catalog_class='regular'
+                         )",
+                        [id],
+                        |r| r.get::<_, bool>(0),
+                    )?
+                {
+                    review["has_regular_output"] = json!(true);
+                }
                 entity["entry_type"] = review["entry_type"].clone();
-                entity["reviewed_work"] = review.clone();
                 if review["entry_type"] == "unit" {
                     entity["unit"] = json!({"job_id":review["job_id"]});
                 }
+                entity["reviewed_work"] = review;
             }
         }
 

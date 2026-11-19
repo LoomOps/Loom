@@ -4,6 +4,8 @@
 
 Bind one Job's deliverable to `outcome.deliverables[0].from:{unit,entity}`. The Unit name is local to the plan. Its pinned Profile declares that entity and kind. Use `jobs.preview_outcome` to inspect optional scientific commitments using the preview action schema. Attach a hypothesis when the request defines one.
 
+To evaluate additional checkpoints for an existing Regular Experiment, submit a new Job with `outcome.deliverables[0].supplements:{id,revision}` targeting its current revision. Bind the same exact Policy, Dataset and evaluation inputs. Produce only the new checkpoint cases under the same protocol and seed/reset cohort. See [checkpoint supplements](reporting.md#checkpoint-supplements).
+
 `plan.units` defines each Unit's local `id`, label, optional phase and prerequisite Unit names. Bound slots specify `execution.kind` and `execution.params`. Local inputs use `{unit,entity}` and name a declared prerequisite. A downstream Job consumes an accepted upstream result via `{job,entity}`, where `entity` is the producer Job's deliverable alias. An exact artifact reference can instead pin a published revision directly.
 
 Use a sealed plan when all bindings are ready. When a Runtime is pending, reserve the same outcome with `sealed:false` and an unbound slot. Use `jobs.revise_research` with the exact Job ID, expected revision and preserved accepted slots to bind it. An unbound slot has no execution or Attempt.

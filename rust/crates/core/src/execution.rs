@@ -568,10 +568,11 @@ impl Application {
                     .and_then(|r| r["entities"].as_array())
                     .and_then(|a| a.iter().find(|e| e["id"] == entity))
                     .ok_or_else(|| Error::input("Upstream output not found"))?;
-                let identity = json!({"id":format!("{upstream}.{entity}"),"revision":1});
+                let identity =
+                    crate::results::output_identity(&upstream, &entity, output.get("registry_ref"));
                 let registered: bool = self.db.query_row(
-                    "SELECT EXISTS(SELECT 1 FROM all_entity_revisions WHERE id=? AND revision=1)",
-                    [identity["id"].as_str().unwrap()],
+                    "SELECT EXISTS(SELECT 1 FROM all_entity_revisions WHERE id=? AND revision=?)",
+                    rusqlite::params![identity["id"].as_str(), identity["revision"].as_i64()],
                     |r| r.get(0),
                 )?;
                 if registered || item["member"].is_string() {

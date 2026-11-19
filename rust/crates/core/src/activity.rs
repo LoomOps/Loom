@@ -92,14 +92,16 @@ impl Application {
           FROM attempts a JOIN jobs j ON j.id=a.job LEFT JOIN rust_attempt_starts s ON s.attempt=a.id
           WHERE NOT EXISTS(SELECT 1 FROM stage_runs stage WHERE stage.job=a.job AND stage.attempt=a.id AND stage.stage IN('prepare','run'))
         ), raw AS(
-          SELECT COALESCE((SELECT target FROM consolidation_roots WHERE source=j.id AND source_attempt IS r.attempt ORDER BY target LIMIT 1),u.job_id,j.id) id,
+          SELECT COALESCE((SELECT target FROM consolidation_roots WHERE source=j.id AND source_attempt IS r.attempt ORDER BY target LIMIT 1),u.job_id,v.job_id,j.id) id,
             r.start,r.finish,r.live
           FROM execution_ranges r JOIN jobs j ON j.id=r.job LEFT JOIN execution_memberships w ON w.job=j.id LEFT JOIN execution_units u ON u.id=j.id
+          LEFT JOIN reviewed_work v ON v.id=j.id AND v.entry_type='unit' AND u.id IS NULL
           WHERE NOT COALESCE(({source_system}),0) AND (:view='all' OR COALESCE((SELECT json_extract(o.presentation,'$.scope') FROM research_overlays o WHERE o.kind='job' AND o.id=j.id),json_extract(j.spec,'$.presentation.scope'),'research')=:view)
           AND (:view!='research' OR COALESCE(json_extract(j.spec,'$.presentation.role'),'main')='main' OR w.root IS NOT NULL)
           UNION ALL
-          SELECT h.id,json_extract(i.value,'$.start'),json_extract(i.value,'$.end'),0
-          FROM history_records h,json_each(h.body,'$.entity.execution_intervals') i
+          SELECT COALESCE(v.job_id,h.id),json_extract(i.value,'$.start'),json_extract(i.value,'$.end'),0
+          FROM history_records h LEFT JOIN reviewed_work v ON v.id=h.id AND v.entry_type='unit'
+          JOIN json_each(h.body,'$.entity.execution_intervals') i
           WHERE (:view='all' OR COALESCE(json_extract(h.body,'$.entity.presentation.scope'),'research')=:view)
           AND (:view!='research' OR COALESCE(json_extract(h.body,'$.entity.presentation.role'),'main')='main')
           AND h.kind='job_view' AND h.source IN('queue','loom-ops') AND h.rowid=(SELECT max(x.rowid) FROM history_records x WHERE x.id=h.id AND x.kind=h.kind AND x.source IN('queue','loom-ops'))
@@ -167,7 +169,7 @@ impl Application {
             v.as_object_mut().unwrap().remove("last_job");
         }
         Ok(
-            json!({"schema":"loom-activity/v1","days":days.values().collect::<Vec<_>>(),"through":clock,"timezone":"Asia/Seoul","window_days":366,"detail_limit":50,"job_count_basis":"distinct scheduled Job per KST day; repeated Attempts count once","basis":"actual execution intervals and recorded eligible asset registration; unknown time stays unknown"}),
+            json!({"schema":"loom-activity/v1","days":days.values().collect::<Vec<_>>(),"through":clock,"timezone":"Asia/Seoul","window_days":366,"detail_limit":50,"job_count_basis":"distinct Job or standalone Unit per KST day; attached Units and repeated Attempts roll up to their Job or Unit","basis":"actual execution intervals and recorded eligible asset registration; unknown time stays unknown"}),
         )
     }
 }

@@ -96,6 +96,18 @@ cases by update and checkpoint digest. Matched reset identities and a frozen
 selection rule control the representative score. Each checkpoint retains its
 own denominator. The case report and ordinary Activity preserve execution totals.
 
+Research Experiment deliverables can pin `supplements: {id, revision}`.
+Publication creates the next immutable revision under the same ID after
+verifying equal input pins, protocol, selection and reset cohort and disjoint
+checkpoint steps. The Unit's result links its output alias to the new exact
+registry revision. Revalidation inside the publication transaction rejects
+concurrent supersession. Case reads assemble bounded pages from each original
+SHA-256 verified report. Batch metadata stays in provenance.
+
+`results.group_evaluations` records a comparison group for independent
+Experiments and Policies with a verified compatible evaluation context.
+Grouping changes catalog presentation. Source outputs and scores remain exact.
+
 ## Metadata templates
 
 `metadata_templates.rs` owns shared immutable formats in `catalog_sources`, exact

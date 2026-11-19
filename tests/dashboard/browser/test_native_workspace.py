@@ -69,6 +69,77 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.ui.wait("return !"+contents+".includes('Class regular')")
   self.assertIn('Class reference',self.ui.js('return '+contents))
 
+ def test_standalone_unit_is_labeled_in_queue_and_terminal_history(self):
+  db_path=self.native_root/'state/ops.sqlite3'
+  def set_paused(paused):
+   with sqlite3.connect(db_path,timeout=10) as db:
+    db.execute("UPDATE dispatch_control SET paused=? WHERE id=1",(paused,))
+  set_paused(1)
+  self.addCleanup(set_paused,0)
+  spec={'kind':'browser.profile.r1','owner':'owner','notify':'owner','params':{}}
+  unit=self.call('units','submit',spec|{'key':'standalone-label','presentation':{'label':'Standalone label fixture'}})['id']
+  job=self.call('jobs','submit',spec|{'key':'reviewed-label','presentation':{'label':'Reviewed research fixture'}})['id']
+  research=self.call('jobs','submit_research',{'key':'unit-with-job-label','owner':'owner','notify':'owner',
+   'outcome':{'goal':'Research label fixture','deliverables':[{'alias':'out','kind':'dataset','from':{'unit':'generate','entity':'dataset'}}]},
+   'plan':{'sealed':False,'units':[{'id':'check','label':'Attached label fixture','execution':{'kind':spec['kind'],'params':{}}},
+     {'id':'generate','label':'Generate','depends_on':['check']}]}})
+  attached=research['units']['check']
+  self.addCleanup(self.call,'jobs','cancel',{'id':research['id']})
+  def remove_fixture():
+   with sqlite3.connect(db_path,timeout=10) as db:
+    db.execute("DELETE FROM reviewed_outputs WHERE id='browser-reviewed-publication'")
+    db.execute("DELETE FROM entity_revisions WHERE id='browser-reviewed-publication'")
+    db.execute("DELETE FROM reviewed_work WHERE id=?",(job,))
+  self.addCleanup(remove_fixture)
+  self.wd('/refresh',{});self.ui.connect()
+  panel="[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('Unit Queue'))"
+  queue_row=panel+"""?.querySelector('[data-entity="'+arguments[0]+'"]')?.closest('tr')"""
+  self.ui.wait('return '+queue_row+"?.querySelector('[data-work-type=unit]')?.textContent==='Standalone Unit'",unit)
+  self.assertTrue(self.ui.wait('return !!'+queue_row,attached))
+  self.assertIsNone(self.ui.js('return '+queue_row+".querySelector('[data-work-type]')?.textContent",attached))
+  with sqlite3.connect(db_path,timeout=10) as db:
+   db.execute("UPDATE jobs SET state='complete' WHERE id IN (?,?)",(unit,job))
+   db.execute("UPDATE jobs SET spec=json_set(spec,'$.execution_mode','pilot') WHERE id=?",(job,))
+   db.execute("INSERT INTO reviewed_work VALUES(?,'job',NULL,1,'Full research protocol')",(job,))
+   db.execute("INSERT INTO entity_revisions VALUES('browser-reviewed-publication',1,?,'model','owner','owner','{}')",(job,))
+   db.execute("INSERT INTO reviewed_outputs VALUES('entity','model','browser-reviewed-publication','1','','regular','Published full result')")
+  self.wd('/refresh',{});self.ui.connect()
+  history="[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))"
+  row=history+"""?.querySelector('[data-entity="'+arguments[0]+'"]')?.closest('tr')"""
+  for entry,kind,label in ((job,'job','Job'),(unit,'unit','Standalone Unit')):
+   self.ui.wait('return '+row+"?.querySelector('[data-work-type="+kind+"]')?.textContent==="+json.dumps(label),entry)
+  self.assertNotIn('Pilot',self.ui.js('return '+row+'.textContent',job))
+  self.assertEqual(self.call('jobs','get',{'id':job})['spec']['execution_mode'],'pilot')
+
+ def test_experiment_groups_and_previous_revision_keep_the_latest_list_record(self):
+  db_path=self.native_root/'state/ops.sqlite3'
+  outputs=['browser-canonical-experiment','browser-comparison-experiment']
+  def remove_fixture():
+   with sqlite3.connect(db_path,timeout=10) as db:
+    for id in outputs:
+     db.execute("DELETE FROM entity_revisions WHERE id=?",(id,))
+     db.execute("DELETE FROM rust_annotations WHERE kind='evaluation_group_experiment' AND id=?",(id,))
+  self.addCleanup(remove_fixture)
+  job=self.call('jobs','submit',{'kind':'browser.profile.r1','owner':'owner','notify':'owner','params':{},'key':'experiment-group-fixture'})['id']
+  with sqlite3.connect(db_path,timeout=10) as db:
+   db.execute("UPDATE jobs SET state='complete' WHERE id=?",(job,))
+   group={'id':'browser-group','label':'Matched evaluation family'}
+   for id,label,revision in ((outputs[0],'Original evaluation',1),(outputs[0],'Extended evaluation',2),(outputs[1],'Independent evaluation',1)):
+    manifest={'id':id,'revision':revision,'label':label,'kind':'experiment','job':job,'catalog_class':'regular',
+     'reporting':{'state':'validated','activity':'evaluation','reports':[]}}
+    if revision==2:manifest['supplement']={'base':{'id':id,'revision':1}}
+    db.execute("INSERT INTO entity_revisions VALUES(?,?,?,'experiment','owner','owner',?)",(id,revision,job,json.dumps(manifest)))
+    db.execute("INSERT OR IGNORE INTO rust_annotations VALUES('evaluation_group_experiment',?,?,?)",(id,json.dumps(group),time.time()))
+  self.ui.nav('Experiments')
+  self.ui.wait("return document.querySelector('[data-evaluation-group=browser-group]')?.textContent.includes('Independent evaluation')")
+  self.ui.route(outputs[0])
+  self.ui.wait("return document.querySelector('h1')?.textContent.includes('Extended evaluation')")
+  self.ui.click('[data-report-exact]')
+  self.ui.wait("return [...document.querySelectorAll('h1')].some(h=>h.textContent.includes('Original evaluation'))")
+  self.ui.nav('Experiments')
+  self.ui.wait("return document.querySelector('[data-evaluation-group=browser-group]')?.textContent.includes('Extended evaluation')")
+  self.assertFalse(self.ui.js("return document.querySelector('[data-evaluation-group=browser-group]').textContent.includes('Original evaluation')"))
+
  def test_presentation_parent_keeps_its_status_and_followup_has_own_row(self):
   def set_dispatch_paused(paused):
    with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:

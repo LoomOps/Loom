@@ -203,6 +203,13 @@ activitySummary=function(entities,clock=Date.now(),through=clock){
 };
 async function loomCatalogOpen(id,navigate=true){
  const tabKeyBefore=activeTab().id,known=catEntity(id);
+ const exact=/^revision:([0-9]+):([0-9]+)$/.exec(id);
+ if(exact){
+  const value=await loomSearchAction('system','dashboard_entity',{item_id:exact[1],revision_id:exact[2],records_only:true});
+  loomCatalogMerge({...value,entities:value.entities.map(e=>({...e,id,catalog_exact:true}))});
+  if(navigate&&activeTab().id===tabKeyBefore&&catEntity(id))openView(catView(id));
+  catalogRefreshViews();return;
+ }
  if(known?.item_id){
   const value=await loomSearchAction('system','dashboard_entity',{item_id:known.item_id,...(known.item_revision_id&&known.kind!=='scenario'?{revision_id:known.item_revision_id}:{})});
   loomCatalogMerge(value);if(navigate&&activeTab().id===tabKeyBefore)openView(catView(id));catalogRefreshViews();return;

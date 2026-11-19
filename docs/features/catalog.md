@@ -3,7 +3,7 @@
 ## Boundary
 
 Distinguish historical originals from current display overlays. Never assume missing files are valid artifacts.
-Common IDs are decimal strings. Native identities and historical snapshots remain exact; derived search never owns Job transitions. File identity survives index deletion in authoritative sealed manifests. Relation pages continue into incoming edges when the last outgoing edge fills a page exactly. Activity uses accepted prepare/run stage intervals; Attempt elapsed time is a compatibility fallback only when stage receipts are absent.
+Common IDs are decimal strings. Native identities and historical snapshots remain exact; derived search never owns Job transitions. File identity survives index deletion in authoritative sealed manifests. Relation pages continue into incoming edges when the last outgoing edge fills a page exactly. Activity uses accepted prepare/run stage intervals and falls back to Attempt elapsed time when stage receipts are absent. Intervals from attached Units, including reviewed historical membership, count toward their Job. A standalone Unit counts once per active day.
 
 ## Interfaces
 

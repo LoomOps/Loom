@@ -12,6 +12,7 @@ pub mod dataset_organization;
 pub mod diagnostics;
 pub mod error;
 pub mod execution;
+mod experiment_supplements;
 pub mod file_set;
 pub mod graph;
 pub mod history;

@@ -1923,7 +1923,7 @@
   },
   "results.read_report": {
     "title": "Read verified report fields",
-    "description": "Read a report bound to an exact output revision and requirement. JSON pointers select a field; arrays are paged. Bytes are SHA-256 verified and responses are bounded to 256 KiB.",
+    "description": "Read a report bound to an exact output revision and requirement. JSON pointers select a field; arrays are paged. Checkpoint supplements assemble case evidence from SHA-256 verified source revisions. Responses are bounded to 256 KiB.",
     "returns": "Exact reporting resource, validated coverage or bounded verified report page",
     "example": {
       "id": "<job>.data",
@@ -1938,6 +1938,26 @@
     "implementation": {
       "feature": "results",
       "entrypoint": "rust/crates/core/src/reporting.rs#reporting_action"
+    }
+  },
+  "results.group_evaluations": {
+    "title": "Group comparable evaluations and their Policies",
+    "description": "Group current Regular Experiments for browsing by verified protocol, evaluation inputs and seed/reset cohort. Preserve independent scores, execution records, and exact Experiment and Policy revisions.",
+    "returns": "Group ID, display label and exact Experiment and Policy references.",
+    "example": {
+      "key": "square-evaluation-family",
+      "label": "Square · BC-RNN",
+      "experiments": [
+        {"id": "short.evaluation", "revision": 1},
+        {"id": "long.evaluation", "revision": 1}
+      ]
+    },
+    "errors": [
+      "Different protocol, inputs or cohort, incomplete evidence, stale revision, existing group or denied ownership."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/experiment_supplements.rs#group_evaluations"
     }
   },
   "results.get_report_evidence": {
@@ -2127,7 +2147,7 @@
   },
   "jobs.submit_research": {
     "title": "Submit a research Job",
-    "description": "Admit one research output and its scheduled Units without Job nesting.",
+    "description": "Admit one research output and its scheduled Units without Job nesting. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision.",
     "returns": "Returns the accepted Job ID, plan revision, sealed flag and map of Unit names to independently readable execution IDs.",
     "example": {
       "key": "generate-paired",

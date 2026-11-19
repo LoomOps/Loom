@@ -25,8 +25,16 @@ fn fixture_report(
     contract: &Value,
     payloads: &[(&str, Value)],
 ) -> (String, std::path::PathBuf, Value) {
-    let job = f.submit("report-publication");
-    let folder = f.app.bulk.join("report-publication");
+    fixture_report_for(f, "report-publication", contract, payloads)
+}
+fn fixture_report_for(
+    f: &mut Fixture,
+    key: &str,
+    contract: &Value,
+    payloads: &[(&str, Value)],
+) -> (String, std::path::PathBuf, Value) {
+    let job = f.submit(key);
+    let folder = f.app.bulk.join(key);
     fs::create_dir(&folder).unwrap();
     fs::write(folder.join("data.json"), "{}").unwrap();
     let kind = contract["definition"]["output_kind"].as_str().unwrap();
@@ -661,6 +669,218 @@ fn checkpoint_evaluation_keeps_paired_cases_and_a_separate_representative_score(
         assert_eq!(group["checkpoints"][1]["successes"], 1);
         assert_eq!(group["checkpoints"][1]["valid"], 1);
     }
+}
+
+#[test]
+fn checkpoint_supplement_preserves_exact_sources_and_recomputes_the_series() {
+    let mut f = Fixture::new();
+    let template = builtin(&mut f, "loom.report.checkpoint_evaluation");
+    let metric = f
+        .call(
+            "results",
+            "get_report_definition",
+            json!({"id":"loom.metric.success","revision":1}),
+        )
+        .unwrap();
+    let protocol=f.call("results","register_report_definition",json!({"id":"fixture.supplement_protocol","key":"supplement-protocol","reason":"Test matched evaluation",
+        "definition":{"kind":"protocol","label":"Goal reached","mode":"closed_loop","environment":"sim","controller":"policy",
+        "scope":{"evaluator":{"kind":"producer"},"phases":[{"id":"reach","controller":"policy"}],"gt_access":{"policy":false,"planner":false,"scoring":true},"policy_active_during_hold":null,"physics_hz":60,"control_hz":30,"goal_frame":"world XY"},
+        "primary_metric_ref":reporting::reference(&metric),"predicate":{"all":[{"pointer":"/measurements/distance","op":"lte","value":5,"unit":"mm"}]}}})).unwrap();
+    let mut definition = template["definition"].clone();
+    definition["requirements"][0]["definitions"]
+        .as_array_mut()
+        .unwrap()
+        .push(reporting::reference(&protocol));
+    let contract = registered(&mut f, "fixture.supplement", definition);
+    let upstream = f.submit("evaluation-inputs");
+    for (id, kind) in [
+        ("cohort", "dataset"),
+        ("policy-a", "model"),
+        ("policy-b", "model"),
+    ] {
+        let body = json!({"id":id,"revision":1,"kind":kind,"components":[]});
+        f.app
+            .db
+            .execute(
+                "INSERT INTO entity_revisions VALUES(?,1,?,?,'owner','owner',?)",
+                rusqlite::params![id, upstream, kind, body.to_string()],
+            )
+            .unwrap();
+    }
+    let run = |f: &mut Fixture,
+               key: &str,
+               step: u64,
+               sha: &str,
+               reset: &str,
+               policy: &str,
+               success: bool,
+               select: bool| {
+        let params = json!({"dataset":{"artifact":{"id":"cohort","revision":1}},"policy":{"artifact":{"id":policy,"revision":1}}});
+        let inputs = crate::results::input_relations(&f.app.db, &params).unwrap();
+        let row = json!({"id":format!("step-{step}"),"seed":1,"valid":true,"outcome":if success {"success"}else{"failure"},"failure_stage":null,
+            "factors":{"update":step,"checkpoint_sha256":sha.repeat(64),"reset_state_sha256":reset.repeat(64)},
+            "measurements":{"distance":{"value":if success {3}else{9},"unit":"mm"}}});
+        let mut data = json!({"inputs":inputs,"protocol_ref":reporting::reference(&protocol),"cases":[row],
+            "counts":{"planned":1,"executed":1,"unexecuted":0,"valid":1,"successes":u8::from(success),"infra":0,"invalid":0}});
+        if select {
+            data["checkpoint_selection"] =
+                json!({"split":"development","rule":"best_success_rate","selected_step":null});
+        }
+        let batch = fixture_report_for(f, key, &contract, &[("evaluation", data)]);
+        f.app
+            .db
+            .execute(
+                "UPDATE jobs SET spec=json_set(spec,'$.params',json(?)) WHERE id=?",
+                rusqlite::params![params.to_string(), batch.0],
+            )
+            .unwrap();
+        batch
+    };
+    let (first, folder, manifest) = run(
+        &mut f,
+        "original-evaluation",
+        10,
+        "a",
+        "c",
+        "policy-a",
+        false,
+        true,
+    );
+    f.app
+        .publish_result(&first, "report-attempt", manifest, &folder)
+        .unwrap();
+    let id = format!("{first}.data");
+    f.app.db.execute("INSERT INTO reviewed_outputs VALUES('entity','experiment',?,'1','','regular','Reviewed publication')",[&id]).unwrap();
+    let original = f
+        .call("results", "get", json!({"id":id,"revision":1}))
+        .unwrap();
+    assert_eq!(original["catalog_class"], "regular");
+    let admission=f.call("jobs","submit_research",json!({"key":"accept-supplement","owner":"owner","notify":"owner",
+        "outcome":{"goal":"Evaluate more checkpoints","deliverables":[{"alias":"evaluation","kind":"experiment","from":{"unit":"evaluate","entity":"data"},"supplements":{"id":id,"revision":1}}]},
+        "plan":{"sealed":false,"units":[{"id":"evaluate","label":"Evaluate"}]}})).unwrap();
+    let root = admission["id"].as_str().unwrap();
+    let (unit, folder, manifest) = run(
+        &mut f,
+        "supplement-evaluation",
+        20,
+        "b",
+        "c",
+        "policy-a",
+        true,
+        true,
+    );
+    f.app
+        .db
+        .execute(
+            "INSERT INTO execution_units VALUES(?,?,'evaluate','Evaluate','run')",
+            rusqlite::params![unit, root],
+        )
+        .unwrap();
+    let outcome = f
+        .app
+        .publish_result(&unit, "report-attempt", manifest, &folder)
+        .unwrap();
+    let exact = json!({"id":id,"revision":2});
+    assert_eq!(outcome["entities"][0]["registry_ref"], exact);
+    let latest = f.call("results", "get", exact.clone()).unwrap();
+    assert_eq!(latest["reporting"]["checkpoint_sweep"]["selected_step"], 20);
+    assert_eq!(
+        latest["reporting"]["evaluation_summary"]["counts"]["valid"],
+        2
+    );
+    assert_eq!(latest["producer"]["job_id"], root);
+    assert_eq!(
+        f.call("results", "get", json!({"id":id,"revision":1}))
+            .unwrap(),
+        original
+    );
+    let read=f.call("results","read_report",json!({"id":id,"revision":2,"requirement_id":"evaluation","pointer":"/cases","offset":1,"limit":1})).unwrap();
+    assert_eq!(read["verification"], "source_sha256_verified");
+    assert_eq!(read["total"], 2);
+    assert_eq!(read["value"][0]["factors"]["update"], 20);
+    assert_eq!(
+        crate::results::input_relations(
+            &f.app.db,
+            &json!({"evaluation":{"job":unit,"entity":"data"}})
+        )
+        .unwrap()[0]["id"],
+        id
+    );
+    assert!(crate::experiment_supplements::target(
+        &f.app.db,
+        &json!({"id":id,"revision":1}),
+        "owner"
+    )
+    .is_err());
+    let (wrong, wrong_folder, wrong_manifest) = run(
+        &mut f,
+        "mismatched-reset",
+        30,
+        "d",
+        "e",
+        "policy-a",
+        true,
+        true,
+    );
+    let next=f.call("jobs","submit_research",json!({"key":"accept-invalid-batch","owner":"owner","notify":"owner",
+        "outcome":{"goal":"Evaluate another checkpoint","deliverables":[{"alias":"evaluation","kind":"experiment","from":{"unit":"evaluate","entity":"data"},"supplements":exact}]},
+        "plan":{"sealed":false,"units":[{"id":"evaluate","label":"Evaluate"}]}})).unwrap();
+    f.app
+        .db
+        .execute(
+            "INSERT INTO execution_units VALUES(?,?,'evaluate','Evaluate','run')",
+            rusqlite::params![wrong, next["id"].as_str()],
+        )
+        .unwrap();
+    let rejected = f
+        .app
+        .publish_result(&wrong, "report-attempt", wrong_manifest, &wrong_folder)
+        .unwrap_err();
+    assert_eq!(rejected.status, 409);
+    assert_eq!(f.call("results", "get", exact.clone()).unwrap(), latest);
+    let conflicting = run(
+        &mut f,
+        "other-policy-evaluation",
+        20,
+        "d",
+        "c",
+        "policy-b",
+        true,
+        true,
+    );
+    let other = format!("{}.data", conflicting.0);
+    f.app
+        .publish_result(
+            &conflicting.0,
+            "report-attempt",
+            conflicting.2,
+            &conflicting.1,
+        )
+        .unwrap();
+    f.app.db.execute("INSERT INTO reviewed_outputs VALUES('entity','experiment',?,'1','','regular','Reviewed publication')",[&other]).unwrap();
+    let args = json!({"key":"matched-comparison","label":"Checkpoint study","experiments":[exact,{"id":other,"revision":1}]});
+    let group = f
+        .call("results", "group_evaluations", args.clone())
+        .unwrap();
+    assert_eq!(group, f.call("results", "group_evaluations", args).unwrap());
+    assert_eq!(group["policies"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        f.call("results", "get", json!({"id":id,"revision":2}))
+            .unwrap()["evaluation_group"],
+        group
+    );
+    for _ in 0..8 {
+        f.app.index_once().unwrap();
+    }
+    let page=f.call("system","dashboard_page",json!({"kinds":["experiment"],"catalog_classes":["regular"],"view":"all","role":"all","records_only":true})).unwrap();
+    let listed: Vec<_> = page["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|e| e["id"] == id)
+        .collect();
+    assert_eq!(listed.len(), 1, "{page}");
+    assert_eq!(listed[0]["revision"], 2);
 }
 
 #[test]

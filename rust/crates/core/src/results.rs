@@ -66,6 +66,23 @@ pub(crate) fn verify_historical_binding_target(
     )
 }
 impl Application {
+    pub(crate) fn reviewed_output_class(
+        &self,
+        source: &str,
+        kind: &str,
+        id: &str,
+        revision: &str,
+        snapshot: &str,
+    ) -> Result<Option<String>> {
+        if !review_tables(&self.db)? {
+            return Ok(None);
+        }
+        Ok(self.db.query_row(
+            "SELECT catalog_class FROM reviewed_outputs WHERE source=? AND kind=? AND id=? AND revision=? AND snapshot=?",
+            params![source,kind,id,revision,snapshot],
+            |r|r.get(0),
+        ).optional()?)
+    }
     // Display names are current curation, never a rewrite of an accepted source.
     pub(crate) fn output_label(&self, kind: &str, id: &str, recorded: &Value) -> Result<Value> {
         let overlay: Option<String> = self
@@ -107,6 +124,7 @@ impl Application {
             return self.metadata_template_action(actor, action, args);
         }
         match action {
+            "group_evaluations" => self.group_evaluations(actor, args),
             "list" => self.results_listing(&args),
             "get" => {
                 let id = args["id"]
@@ -119,6 +137,16 @@ impl Application {
                     |r| r.get(0),
                 )?;
                 let mut value: Value = serde_json::from_str(&text)?;
+                if let Some(class) = self.reviewed_output_class(
+                    "entity",
+                    value["kind"].as_str().unwrap_or(""),
+                    id,
+                    &rev.to_string(),
+                    "",
+                )? {
+                    value["catalog_class"] = json!(class);
+                }
+                self.attach_evaluation_group(&mut value)?;
                 let display_label = self.output_label("entity", id, &value["label"])?;
                 if display_label.is_string() {
                     value["label"] = display_label;
@@ -639,7 +667,8 @@ impl Application {
                 relations.push(json!({"kind":relation["kind"],"id":format!("{job}.{}",relation["entity_id"].as_str().unwrap_or("")),"revision":1}));
             }
             relations.extend(input_relations(&self.db, &row.spec["params"])?);
-            let identity = format!("{job}.{entity_id}");
+            let mut identity = format!("{job}.{entity_id}");
+            let mut supplement = None;
             for lineage in entity["lineage"].as_array().into_iter().flatten() {
                 let input = lineage["input"].as_str().unwrap_or("");
                 let matches = relations
@@ -697,6 +726,7 @@ impl Application {
                     {
                         regular = true;
                         alias = promise["alias"].clone();
+                        supplement = promise.get("supplements").cloned();
                     }
                 }
                 published["producer"] = json!({"unit_id":job,"job_id":unit["job_id"],"attempt_id":attempt,"alias":alias});
@@ -796,6 +826,16 @@ impl Application {
                     published["science"] = science;
                 }
             }
+            if let Some(base) = &supplement {
+                self.prepare_experiment_supplement(
+                    base,
+                    &row.owner,
+                    &mut published,
+                    path.parent().unwrap(),
+                    &verified_files,
+                )?;
+                identity = published["id"].as_str().unwrap().into();
+            }
             prepared.push((
                 identity,
                 kind.to_string(),
@@ -816,6 +856,24 @@ impl Application {
                 "Outputs differ from pinned Profile",
                 409,
             )?;
+        }
+        // Intra-result links name a producer's local output alias. Resolve that
+        // alias to its exact registry revision even when it supplements an Experiment.
+        if let Some((pos, (identity, _, revision, ..))) = prepared
+            .iter()
+            .enumerate()
+            .find(|(_, (_, _, r, ..))| r["supplement"]["base"].is_object())
+        {
+            let local = format!("{job}.{}", entities[pos]["id"].as_str().unwrap());
+            let pin = (identity.clone(), revision["revision"].clone());
+            for (_, _, record, ..) in &mut prepared {
+                for relation in record["relations"].as_array_mut().into_iter().flatten() {
+                    if relation["id"] == local {
+                        relation["id"] = json!(pin.0);
+                        relation["revision"] = pin.1.clone();
+                    }
+                }
+            }
         }
         let machine = self.config.machine_id.clone();
         let tx = self.transaction()?;
@@ -868,11 +926,17 @@ impl Application {
             409,
         )?;
         let mut outputs = vec![];
-        for (identity, kind, record, reference, locations, sha, size) in prepared {
+        for ((identity, kind, record, reference, locations, sha, size), entity) in
+            prepared.into_iter().zip(entities)
+        {
+            let revision = record["revision"].as_i64().unwrap();
+            if let Some(base) = record.pointer("/supplement/base") {
+                crate::experiment_supplements::target(&tx, base, &row.owner)?;
+            }
             let old: Option<String> = tx
                 .query_row(
-                    "SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=1",
-                    [&identity],
+                    "SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=?",
+                    params![identity, revision],
                     |r| r.get(0),
                 )
                 .optional()?;
@@ -885,9 +949,10 @@ impl Application {
                 )?;
             } else {
                 tx.execute(
-                    "INSERT INTO entity_revisions VALUES(?,1,?,?,?,?,?)",
+                    "INSERT INTO entity_revisions VALUES(?,?,?,?,?,?,?)",
                     params![
                         identity,
+                        revision,
                         job,
                         kind,
                         row.owner,
@@ -897,12 +962,16 @@ impl Application {
                 )?;
                 for (component, reference) in &locations {
                     tx.execute(
-                        "INSERT INTO entity_locations VALUES(?,1,?,?,?,?,'available')",
-                        params![identity, component, machine, store, reference],
+                        "INSERT INTO entity_locations VALUES(?,?,?,?,?,?,'available')",
+                        params![identity, revision, component, machine, store, reference],
                     )?;
                 }
             }
-            outputs.push(json!({"id":identity.strip_prefix(&format!("{job}.")).unwrap_or(&identity),"kind":kind,"sha256":sha,"size":size,"locator":{"machine_id":machine,"storage_id":store,"ref":reference}}));
+            let mut output = json!({"id":entity["id"],"kind":kind,"sha256":sha,"size":size,"locator":{"machine_id":machine,"storage_id":store,"ref":reference}});
+            if revision > 1 {
+                output["registry_ref"] = json!({"id":identity,"revision":revision});
+            }
+            outputs.push(output);
         }
         let result = json!({"artifact_ready":true,"entities":outputs,"metrics":manifest.get("metrics").cloned().unwrap_or(json!([])),"execution":current.result.as_ref().and_then(|r|r.get("execution")).cloned().unwrap_or(json!({"process_group_returned":true})),"process_group_returned":true});
         jobs::transition(&tx, &current, Event::Publish)?;
@@ -1233,7 +1302,14 @@ pub(crate) fn input_relations(db: &Connection, params: &Value) -> Result<Vec<Val
                 (upstream.into(), output.into())
             };
             let upstream_row = jobs::load(db, &upstream)?;
-            relations.push(json!({"kind":"consumes","input":input,"id":format!("{upstream}.{output}"),"revision":1,"attempt":upstream_row.aggregate.fence.attempt.as_ref().map(|s|s.as_str())}));
+            let registered = upstream_row
+                .result
+                .as_ref()
+                .and_then(|r| r["entities"].as_array())
+                .and_then(|e| e.iter().find(|r| r["id"] == output))
+                .and_then(|e| e.get("registry_ref"));
+            let identity = output_identity(&upstream, &output, registered);
+            relations.push(json!({"kind":"consumes","input":input,"id":identity["id"],"revision":identity["revision"],"attempt":upstream_row.aggregate.fence.attempt.as_ref().map(|s|s.as_str())}));
         } else if value["artifact"].is_object() {
             relations.push(json!({"kind":"consumes","input":input,"id":value["artifact"]["id"],"revision":value["artifact"]["revision"],"member":value["member"]}));
         } else if value["ref"].is_string() && value["sha256"].is_string() {
@@ -1242,4 +1318,10 @@ pub(crate) fn input_relations(db: &Connection, params: &Value) -> Result<Vec<Val
     }
 
     Ok(relations)
+}
+
+pub(crate) fn output_identity(job: &str, output: &str, registry_ref: Option<&Value>) -> Value {
+    registry_ref
+        .cloned()
+        .unwrap_or_else(|| json!({"id":format!("{job}.{output}"),"revision":1}))
 }

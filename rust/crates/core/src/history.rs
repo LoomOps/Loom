@@ -69,6 +69,15 @@ impl Application {
     pub fn history_record(&self, args: &Value) -> Result<Value> {
         let mut record=rows(&self.db,"SELECT * FROM history_records WHERE source=? AND kind=? AND id=? AND revision=? AND (? IS NULL OR snapshot=?) ORDER BY rowid DESC LIMIT 1",&[&args["source"].as_str(),&args["kind"].as_str(),&args["id"].as_str(),&args["revision"].as_str(),&args["snapshot"].as_str(),&args["snapshot"].as_str()])?.into_iter().next().ok_or_else(||crate::Error::new("history","Historical identity not found",404))?;
         record["body"] = serde_json::from_str(record["body"].as_str().unwrap_or("{}"))?;
+        if let Some(class) = self.reviewed_output_class(
+            record["source"].as_str().unwrap_or(""),
+            record["kind"].as_str().unwrap_or(""),
+            record["id"].as_str().unwrap_or(""),
+            record["revision"].as_str().unwrap_or(""),
+            record["snapshot"].as_str().unwrap_or(""),
+        )? {
+            record["catalog_class"] = json!(class);
+        }
         let mut bindings=rows(&self.db,"SELECT identity,locator,sha256,size,created,created_by FROM historical_bindings WHERE json_extract(identity,'$.source')=? AND json_extract(identity,'$.kind')=? AND json_extract(identity,'$.id')=? AND json_extract(identity,'$.revision')=? AND json_extract(identity,'$.snapshot')=?",&[&record["source"].as_str(),&record["kind"].as_str(),&record["id"].as_str(),&record["revision"].as_str(),&record["snapshot"].as_str()])?;
         for binding in &mut bindings {
             for key in ["identity", "locator"] {

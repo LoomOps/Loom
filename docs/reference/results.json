@@ -329,6 +329,82 @@
     },
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "group_evaluations",
+      "description": "Group current Regular Experiments for browsing by verified protocol, evaluation inputs and seed/reset cohort. Preserve independent scores, execution records, and exact Experiment and Policy revisions.",
+      "errors": [
+        "Different protocol, inputs or cohort, incomplete evidence, stale revision, existing group or denied ownership."
+      ],
+      "example": {
+        "experiments": [
+          {
+            "id": "short.evaluation",
+            "revision": 1
+          },
+          {
+            "id": "long.evaluation",
+            "revision": 1
+          }
+        ],
+        "key": "square-evaluation-family",
+        "label": "Square · BC-RNN"
+      },
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/experiment_supplements.rs#group_evaluations",
+        "feature": "results"
+      },
+      "returns": "Group ID, display label and exact Experiment and Policy references.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "experiments": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "revision": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "id",
+                "revision"
+              ],
+              "type": "object"
+            },
+            "maxItems": 16,
+            "minItems": 2,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 160,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "experiments"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Group comparable evaluations and their Policies"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "metadata_templates",
       "description": "List current immutable output metadata formats; include_revisions exposes previous revisions. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
       "errors": [
@@ -2877,7 +2953,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "read_report",
-      "description": "Read a report bound to an exact output revision and requirement. JSON pointers select a field; arrays are paged. Bytes are SHA-256 verified and responses are bounded to 256 KiB.",
+      "description": "Read a report bound to an exact output revision and requirement. JSON pointers select a field; arrays are paged. Checkpoint supplements assemble case evidence from SHA-256 verified source revisions. Responses are bounded to 256 KiB.",
       "errors": [
         "Missing or changed evidence, invalid coverage, schema/population mismatch, conflicting revision/key, denied scope, or unavailable report bytes."
       ],

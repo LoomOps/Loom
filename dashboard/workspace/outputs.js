@@ -38,6 +38,18 @@ const loomOutputDatasets=datasets;
 datasets=function(){return loomOutputChrome()+loomOutputDatasets();};
 const loomOutputModels=modelList;
 modelList=function(){return loomOutputChrome()+loomOutputModels().replace(/>Models</g,'>Policies<');};
+function loomGroupedOutputs(items, renderItem) {
+ const groups=new Map(),ordered=[];
+ for(const item of items){
+  const group=item.evaluation_group;
+  if(!group?.id){ordered.push([item]);continue;}
+  if(!groups.has(group.id)){groups.set(group.id,[]);ordered.push(groups.get(group.id));}
+  groups.get(group.id).push(item);
+ }
+ return ordered.map(rows=>rows.length===1?renderItem(rows[0]):
+  '<section class="pa-evaluation-group" data-evaluation-group="'+esc(rows[0].evaluation_group.id)+'"><h3>'+
+  esc(rows[0].evaluation_group.label)+'</h3>'+rows.map(renderItem).join('')+'</section>').join('');
+}
 experiments=function(){
  const discarded=state.resultDispositionFilter==='discarded';
  const all=[...catKind('experiment',true),...catKind('run',true)];
@@ -45,7 +57,7 @@ experiments=function(){
  const filters='<section class="pa-model-filters" aria-label="Experiment filters"><div class="pa-model-filter-top"><div class="pa-model-role-group" role="group" aria-label="Record status">'
   +[['current','Current',false],['discarded','Discarded',true]].map(([value,label,isDiscarded])=>'<button class="pa-pill '+(discarded===isDiscarded?'active':'')+'" data-result-disposition-filter="'+value+'" aria-pressed="'+(discarded===isDiscarded)+'">'+label+'<span>'+all.filter(e=>catIsDiscarded(e)===isDiscarded).length+'</span></button>').join('')+'</div></div></section>';
  return loomOutputChrome()+loomTaskToolbar()+heading('CATALOG','Experiments','')+catStatus()+filters
-  +panel(rows.length+' / '+all.length+'개 실험','<div>'+ (rows.map(e=>resultCard(e)+(discarded?resultDispositionPanel(e):'')).join('')||'<div class="pa-empty">표시할 실험이 없습니다.</div>')+'</div>')+loomCatalogPager('experiment');
+  +panel(rows.length+' / '+all.length+'개 실험','<div>'+ (loomGroupedOutputs(rows,e=>resultCard(e)+(discarded?resultDispositionPanel(e):''))||'<div class="pa-empty">표시할 실험이 없습니다.</div>')+'</div>')+loomCatalogPager('experiment');
 };
 const loomOutputDetail=catalogDetail;
 catalogDetail=function(id){return (loomIsOutputPage(state.page)?loomOutputChrome():'')+loomOutputDetail(id);};
@@ -99,7 +111,7 @@ catKind=function(kind,discarded=false){
  if(catalogData.capabilities?.job_units){
   const classes=loomOutputClasses(),page=loomCatalogPages.get(loomCatalogPageKey(kind));
   const ids=page?.committed?new Set(page.ids):null;
-  return loomTaskItems((catalogData.all_entities||catalogData.entities).filter(e=>e.kind===kind&&(discarded||!catIsDiscarded(e))
+  return loomTaskItems((catalogData.all_entities||catalogData.entities).filter(e=>e.kind===kind&&!e.catalog_exact&&(discarded||!catIsDiscarded(e))
    &&(!ids||ids.has(e.id))&&classes.includes(e.catalog_class||(loomOutputDevelopment(e)?'reference':'regular'))),kind);
  }
  const view=catalogData.presentation_view||'all';

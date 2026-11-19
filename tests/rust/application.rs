@@ -1713,6 +1713,60 @@ fn activity_counts_scheduled_jobs_and_unions_overlapping_intervals() {
     );
 }
 #[test]
+fn activity_unions_reviewed_units_with_their_job_and_counts_standalone_work_once() {
+    let mut f = Fixture::new();
+    let job = f.submit("reviewed-research");
+    let unit = f.submit("reviewed-preparation");
+    let standalone = f.submit("reviewed-standalone");
+    let imported = "preserved-preparation";
+    let start = ((store::now() + 32400.) / 86400.).floor() * 86400. - 32400. - 43200.;
+    for (id, parent) in [
+        (&*unit, Some(&*job)),
+        (imported, Some(&*job)),
+        (&*standalone, None),
+    ] {
+        f.app
+            .db
+            .execute(
+                "INSERT INTO reviewed_work VALUES(?,'unit',?,?,'Verified historical relationship')",
+                rusqlite::params![id, parent, parent.is_none()],
+            )
+            .unwrap();
+    }
+    for (id, offset, end) in [(&job, 10., 30.), (&unit, 0., 20.), (&standalone, 0., 5.)] {
+        f.app
+            .db
+            .execute(
+                "INSERT INTO stage_runs VALUES(?,'proof','run',?,?,'returned')",
+                rusqlite::params![id, start + offset, start + end],
+            )
+            .unwrap();
+    }
+    let preserved = json!({"entity":{"execution_intervals":[{"start":start+25.,"end":start+40.}]}});
+    f.app
+        .db
+        .execute(
+            "INSERT INTO history_records VALUES('queue','job_view',?,'1','snapshot',?)",
+            rusqlite::params![imported, preserved.to_string()],
+        )
+        .unwrap();
+    let activity = f.app.dashboard_activity("all").unwrap();
+    let day = &activity["days"][0];
+    assert_eq!(day["job_count"], 2);
+    assert_eq!(day["milliseconds"], 45000.);
+    let ids: std::collections::BTreeSet<_> = day["jobs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|entry| entry["id"].as_str())
+        .collect();
+    assert_eq!(
+        ids,
+        [job.as_str(), standalone.as_str()].into_iter().collect()
+    );
+}
+
+#[test]
 fn delivery_versions_replay_and_recipient_grants_are_preserved() {
     let mut f = Fixture::new();
     let (id, work) = fail_execution(&mut f, "delivery");

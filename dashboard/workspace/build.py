@@ -139,6 +139,8 @@ def build(original):
     inner=replace_once(inner,"  patchResourceNode(body,next,true);","  loomPreserveViewport(body,()=>patchResourceNode(body,next,true));")
     inner=replace_once(inner," if(n.dataset.modelFilter)return"," if(n.dataset.outputId)return 'output:'+n.dataset.outputId;\n if(n.dataset.datasetFilter)return 'dataset-filter:'+n.dataset.datasetFilter;\n if(n.dataset.modelFilter)return")
     inner=replace_once(inner,"function modelFilterSelect(key,label,entries,value){","function modelFilterSelect(key,label,entries,value,attribute='data-model-filter'){")
+    inner=replace_once(inner,"shown.map(e=>catListRow(e).replace('<article ',\x60<article data-model-entry=\"\x24{esc(e.id)}\" \x60)).join('')",
+                         "loomGroupedOutputs(shown,e=>catListRow(e).replace('<article ',\x60<article data-model-entry=\"\x24{esc(e.id)}\" \x60))")
     inner=replace_once(inner,'<select data-model-filter="${key}" aria-label="${esc(label)} 필터">','<select ${attribute}="${esc(key)}" aria-label="${esc(label)} 필터">')
 
     inner=replace_once(inner,"const interested=!!root.querySelector('[data-resource-panel]');","const interested=!!root.querySelector('[data-resource-panel],.pa-finder,.pa-sidebar-bottom');")

@@ -242,6 +242,13 @@ function loomReportOverview(e){
    Metric:claim.hypothesis.metric,Analysis:claim.hypothesis.analysis,Result:claim.analysis?.summary||'Unrecorded'}));
   if(sections.length)parts.push(loomResearchSection('Experimental evidence · '+esc(alias),sections.join('')));
  }
+ if(e.supplement?.base){
+  const base=e.supplement.base,job=e.producer?.job_id;
+  parts.push(loomResearchSection('Evaluation history',catTable(['Revision','Publication','Job'],[
+   [esc(loomReportIdentity(e).revision),'Checkpoint supplement',job?catLink(job):'—'],
+   [esc(base.revision),'<button class="pa-button" data-report-input="'+esc(base.id)+'" data-report-input-revision="'+esc(base.revision)+'" data-report-exact>Previous revision</button>','—']
+  ])));
+ }
  if(r?.inputs?.length)parts.push(loomResearchSection('Accepted inputs',catTable(['Input','Record','Revision'],r.inputs.map(i=>[esc(i.input),'<button class="pa-button" data-report-input="'+esc(i.id)+'" data-report-input-revision="'+esc(i.revision)+'">'+esc(catEntity(i.id)?.label||i.id)+'</button>',esc(i.revision)]))));
  for(const report of reports){
   const fields=report.fields||[];
@@ -315,7 +322,7 @@ catalogDetail=function(id){
 root.addEventListener('click',async event=>{
  const workspace=event.target.closest('[data-report-output]'),e=workspace&&catEntity(workspace.dataset.reportOutput);if(!e)return;
  const point=event.target.closest('[data-report-case],[data-report-episode]');if(point){event.preventDefault();Object.assign(loomReportState(e),{tab:point.dataset.reportCase?'cases':'episodes',member:point.dataset.reportCase||point.dataset.reportEpisode});render();return;}
- const input=event.target.closest('[data-report-input]');if(input){try{const pin=await loomSearchAction('results','resolve_item',{native_ref:{kind:'entity',identity:{id:input.dataset.reportInput,revision:Number(input.dataset.reportInputRevision)}}});const value=await loomSearchAction('system','dashboard_entity',{item_id:pin.item_id,revision_id:pin.revision_id});loomCatalogMerge(value);if(value.entities?.[0])openView(catView(value.entities[0].id));}catch(error){input.textContent=error.message;}return;}
+ const input=event.target.closest('[data-report-input]');if(input){try{const pin=await loomSearchAction('results','resolve_item',{native_ref:{kind:'entity',identity:{id:input.dataset.reportInput,revision:Number(input.dataset.reportInputRevision)}}});if(input.hasAttribute('data-report-exact')){await loomCatalogOpen('revision:'+pin.item_id+':'+pin.revision_id);return;}const value=await loomSearchAction('system','dashboard_entity',{item_id:pin.item_id,revision_id:pin.revision_id});loomCatalogMerge(value);if(value.entities?.[0])openView(catView(value.entities[0].id));}catch(error){input.textContent=error.message;}return;}
  const tab=event.target.closest('[data-report-tab]');if(tab){loomReportState(e).tab=tab.dataset.reportTab;render();return;}
  const more=event.target.closest('[data-report-more]');if(more){const r=e.reporting.reports.find(r=>r.requirement_id===more.dataset.reportMore),f=r.fields.find(f=>f.id===more.dataset.reportField);loomReportLoad(e,r,f,true);return;}
  const protocol=event.target.closest('[data-report-protocol]');if(protocol){

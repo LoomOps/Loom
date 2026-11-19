@@ -2541,7 +2541,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "submit_research",
-      "description": "Admit one research output and its scheduled Units without Job nesting.",
+      "description": "Admit one research output and its scheduled Units without Job nesting. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision.",
       "errors": [
         "Invalid inputs, pinned software, resource request or insufficient scope."
       ],
@@ -2641,6 +2641,25 @@
                         "model",
                         "experiment"
                       ]
+                    },
+                    "supplements": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "maxLength": 2048,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "revision": {
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision"
+                      ],
+                      "type": "object"
                     }
                   },
                   "required": [

@@ -374,6 +374,7 @@
         "rust/crates/core/src/metadata_templates.rs",
         "rust/contracts/metadata-templates.json",
         "rust/crates/core/src/reporting.rs",
+        "rust/crates/core/src/experiment_supplements.rs",
         "rust/contracts/reporting.json",
         "rust/crates/primitives/src/storage.rs",
         "rust/crates/primitives/src/file_set.rs"

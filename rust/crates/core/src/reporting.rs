@@ -1411,7 +1411,7 @@ struct CheckpointCases {
     successes: u64,
 }
 
-fn checkpoint_evaluation(data: &Value, legacy_non_test: bool) -> Option<Value> {
+pub(crate) fn checkpoint_evaluation(data: &Value, legacy_non_test: bool) -> Option<Value> {
     let mut groups = BTreeMap::<u64, CheckpointCases>::new();
     for row in data["cases"].as_array()? {
         let factors = &row["factors"];
@@ -1433,7 +1433,7 @@ fn checkpoint_evaluation(data: &Value, legacy_non_test: bool) -> Option<Value> {
         group.valid += u64::from(row["valid"] == true);
         group.successes += u64::from(row["valid"] == true && row["outcome"] == "success");
     }
-    if groups.len() < 2
+    if groups.is_empty()
         || groups
             .values()
             .map(|g| &g.sha256)
@@ -1989,7 +1989,12 @@ impl Application {
             "Report was not recorded",
             404,
         )?;
-        let payload = self.read_bound_report(id, revision, report)?;
+        let merged = crate::experiment_supplements::is_series_report(&entity, report);
+        let payload = if merged {
+            self.evaluation_series_payload(&entity)?
+        } else {
+            self.read_bound_report(id, revision, report)?
+        };
         let pointer = args["pointer"].as_str().unwrap_or("");
         let mut value = payload["data"]
             .pointer(pointer)
@@ -2013,11 +2018,16 @@ impl Application {
             413,
         )?;
         Ok(
-            json!({"id":id,"revision":revision,"report":report,"pointer":pointer,"value":value,"total":total,"next_offset":total.filter(|n|offset.saturating_add(limit)<*n).map(|_|offset+limit),"verification":"sha256_verified"}),
+            json!({"id":id,"revision":revision,"report":report,"pointer":pointer,"value":value,"total":total,"next_offset":total.filter(|n|offset.saturating_add(limit)<*n).map(|_|offset+limit),"verification":if merged {"source_sha256_verified"} else {"sha256_verified"}}),
         )
     }
 
-    fn read_bound_report(&self, id: &str, revision: u64, report: &Value) -> Result<Value> {
+    pub(crate) fn read_bound_report(
+        &self,
+        id: &str,
+        revision: u64,
+        report: &Value,
+    ) -> Result<Value> {
         let locations=rows(&self.db,"SELECT storage_id,ref FROM all_entity_locations WHERE id=? AND revision=? AND component=? AND status='available' ORDER BY storage_id,ref",&[&id,&(revision as i64),&report["component"].as_str()])?;
         let mut data = None;
         let mut last_error = None;

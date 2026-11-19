@@ -147,6 +147,10 @@
 #pai-studio .pa-job-properties dd{margin:0;min-height:32px;display:flex;align-items:center}
 
 /* Queue actions remain inline with their Job, sharing both color themes. */
+#pai-studio .pa-work-type{display:inline-block;margin-inline-end:8px;padding:1px 7px;border:1px solid var(--pa-line);border-radius:5px;background:var(--pa-paper);color:var(--pa-ink);font-size:12px;font-weight:650;line-height:1.45;white-space:nowrap;vertical-align:1px}
+#pai-studio .pa-work-type[data-work-type="job"]{background:var(--pa-tint);color:var(--pa-selected-text)}
+#pai-studio .pa-evaluation-group{padding:12px;margin:8px 0 14px;border:1px solid var(--pa-line);border-radius:var(--pa-radius)}
+#pai-studio .pa-evaluation-group>h3{margin:0 0 10px;font-size:14px;font-weight:650}
 .pa-queue-position{display:block;margin-top:5px;color:var(--muted)}
 .pa-queue-control{margin-top:8px;max-width:390px}
 .pa-queue-control summary{cursor:pointer;font-size:12px}

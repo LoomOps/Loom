@@ -215,8 +215,12 @@ a model with an available evaluation; explicit user choices remain unchanged.
 The current queue, terminal history and Home Activity include user work across
 Research and Operations without a Job scope selector. System ownership identifies
 platform work excluded from the Dashboard. Operations records the purpose of work
-regardless of ownership. Terminal history gives independently submitted Jobs
-their own rows. Previously grouped executions retain their own rows. Completed consolidation sources are visible through their continuation. Presentation-only parent links preserve discoverability in detail.
+regardless of ownership. Terminal history labels verified Job and Standalone Unit
+rows beside their titles. The Unit Queue also labels standalone Units and links
+Job-owned Units to their Job. Completed consolidation sources are visible through
+their continuation. Presentation-only parent links preserve discoverability in
+detail. A completed, reviewed legacy Job with a verified Regular publication
+keeps its recorded mode in the exact record and omits a stale Pilot label in history.
 
 Activity responses from older revisions cannot overwrite the current observation.
 

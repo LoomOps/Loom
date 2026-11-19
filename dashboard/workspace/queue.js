@@ -62,11 +62,16 @@ function loomQueueCompare(a,b) {
   const rank=id=>{const r=loomQueueEntry(id);return r?(r.position??0):Number.MAX_SAFE_INTEGER;};
   return rank(a.id)-rank(b.id) || (queueTimes(b).created??0)-(queueTimes(a).created??0);
 }
+function loomWorkTypeBadge(type, jobId) {
+  if(type==='job')return '<span class="pa-work-type" data-work-type="job">Job</span>';
+  if(type==='unit'&&!jobId)return '<span class="pa-work-type" data-work-type="unit">Standalone Unit</span>';
+  return '';
+}
 const loomQueueWorkRow=workRow;
 workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
   if(catalogData.capabilities?.job_units){
-    if(!current)row[0]='<small class="pa-queue-owner">'+(entity.entry_type==='unit'?'Unit':'Job')+'</small>'+row[0];
+    if(!current)row[0]=row[0].replace('<div class="pa-queue-name">','<div class="pa-queue-name">'+loomWorkTypeBadge(entity.entry_type,entity.unit?.job_id));
     if(entity.entry_type)row[0]=row[0].replace(/(\d+) Steps/,(_,n)=>entity.entry_type==='unit'?(Number(n)?n+' observed units':''):n+' Units');
   }
   const tasks=loomTaskLabels(entity);
@@ -75,7 +80,7 @@ workRow=function(entity,current){
     row[0]+='<small class="pa-queue-position">'+loomQueuePosition(q)+'</small>'+loomQueueControls(q.id);
   }
   const mode=entity.properties?.execution_mode;
-  if(mode)row[0]+='<small class="pa-queue-owner">'+esc(loomJobContract().execution_modes?.[mode]||mode)+'</small>';
+  if(mode&&!(mode==='pilot'&&entity.reviewed_work?.has_regular_output))row[0]+='<small class="pa-queue-owner">'+esc(loomJobContract().execution_modes?.[mode]||mode)+'</small>';
   const owner=entity.owner_profile?.display_name || entity.properties?.owner_name || q?.owner_profile?.display_name || entity.owner || entity.properties?.owner;
   if(tasks)row[0]+='<div class="pa-queue-tasks"><span>Task ·</span><span>'+tasks+'</span></div>';
   if(owner)row[0]+='<small class="pa-queue-owner">Owner · '+esc(owner)+'</small>';
@@ -106,7 +111,7 @@ function loomCurrentQueuePanel(rows,table){
   const jobs=(queue?.job_entries||[]).map(record).sort(loomQueueCompare),units=queue?.unit_entries||[];
   const body=units.map(unit=>{
    const active=(unit.progress?.steps||[]).filter(step=>step.state==='running').map(step=>esc(step.label)).join(' · ');
-   const label=catLink(unit.id,unit.unit?.label||unit.label)+loomQueueControls(unit.id);
+   const label=loomWorkTypeBadge('unit',unit.job_id)+catLink(unit.id,unit.unit?.label||unit.label)+loomQueueControls(unit.id);
    const gpu=unit.gpu_access?.mode ? 'GPU · '+esc(unit.gpu_access.mode) : unit.lane==='gpu'?'GPU':'CPU';
    return [label,unit.job_id?catLink(unit.job_id):'—',queueBadge(record(unit)),gpu,active||esc(loomQueueReason(unit))];
   });

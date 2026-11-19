@@ -14,6 +14,7 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 - [history](#history)
 - [historical](#historical)
 - [assign_owner](#assign_owner)
+- [group_evaluations](#group_evaluations)
 - [metadata_templates](#metadata_templates)
 - [get_metadata_template](#get_metadata_template)
 - [register_metadata_template](#register_metadata_template)
@@ -526,6 +527,100 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 Item · id, owner, owner_profile
 
 Unregistered profile or missing artifact.
+
+## group_evaluations
+
+Group current Regular Experiments for browsing by verified protocol, evaluation inputs and seed/reset cohort. Preserve independent scores, execution records, and exact Experiment and Policy revisions.
+
+Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/experiment_supplements.rs#group_evaluations](../../rust/crates/core/src/experiment_supplements.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `experiments` | yes | `"array"` | `—` |
+| `key` | yes | `"string"` | `—` |
+| `label` | yes | `"string"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "experiments": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "revision"
+        ],
+        "type": "object"
+      },
+      "maxItems": 16,
+      "minItems": 2,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "key": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "label": {
+      "maxLength": 160,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "key",
+    "label",
+    "experiments"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "experiments": [
+    {
+      "id": "short.evaluation",
+      "revision": 1
+    },
+    {
+      "id": "long.evaluation",
+      "revision": 1
+    }
+  ],
+  "key": "square-evaluation-family",
+  "label": "Square · BC-RNN"
+}
+```
+
+
+
+### Result and failures
+
+Group ID, display label and exact Experiment and Policy references.
+
+Different protocol, inputs or cohort, incomplete evidence, stale revision, existing group or denied ownership.
 
 ## metadata_templates
 
@@ -3823,7 +3918,7 @@ Missing or changed evidence, invalid coverage, schema/population mismatch, confl
 
 ## read_report
 
-Read a report bound to an exact output revision and requirement. JSON pointers select a field; arrays are paged. Bytes are SHA-256 verified and responses are bounded to 256 KiB.
+Read a report bound to an exact output revision and requirement. JSON pointers select a field; arrays are paged. Checkpoint supplements assemble case evidence from SHA-256 verified source revisions. Responses are bounded to 256 KiB.
 
 Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reporting.rs#reporting_action](../../rust/crates/core/src/reporting.rs).
 

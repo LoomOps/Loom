@@ -23,6 +23,17 @@ pub fn actions() -> Vec<Action> {
         json!({"id":string,"revision":{"type":"integer","minimum":1}}),
         &["id", "revision"],
     );
+    result.push(Action {
+        group: "results".into(),
+        action: "group_evaluations".into(),
+        operation: "results.group_evaluations".into(),
+        scope: "submit".into(),
+        schema: object(
+            json!({"key":string,"label":{"type":"string","minLength":1,"maxLength":160},
+                "experiments":{"type":"array","minItems":2,"maxItems":16,"uniqueItems":true,"items":reference}}),
+            &["key","label","experiments"],
+        ),
+    });
     let target = object(
         json!({"kind":{"enum":["job","entity","historical","component","tool","profile","runtime","protocol_artifact"]},"identity":{"type":"object"}}),
         &["kind", "identity"],
@@ -177,7 +188,8 @@ pub fn actions() -> Vec<Action> {
     research_create["properties"]["outcome"]["properties"]["deliverables"] = json!({
         "type":"array","minItems":1,"maxItems":1,
         "items":object(json!({"alias":local["id"],"kind":{"enum":["dataset","model","experiment"]},
-            "from":object(json!({"unit":local["id"],"entity":local["id"]}),&["unit","entity"])}), &["alias","kind","from"])
+            "from":object(json!({"unit":local["id"],"entity":local["id"]}),&["unit","entity"]),
+            "supplements":reference}), &["alias","kind","from"])
     });
     research_create["properties"]["outcome"]["required"] = json!(["goal", "deliverables"]);
     let mut preview_outcome = outcome.clone();

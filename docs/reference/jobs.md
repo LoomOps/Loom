@@ -2846,7 +2846,7 @@ Reservation receipt · id, revision, sealed, execution_job, receipts and science
 
 ## submit_research
 
-Admit one research output and its scheduled Units without Job nesting.
+Admit one research output and its scheduled Units without Job nesting. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/plans.rs#write_research_plan](../../rust/crates/core/src/plans.rs).
 
@@ -2925,6 +2925,25 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
                   "model",
                   "experiment"
                 ]
+              },
+              "supplements": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "maxLength": 2048,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "revision": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "id",
+                  "revision"
+                ],
+                "type": "object"
               }
             },
             "required": [

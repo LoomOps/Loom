@@ -821,6 +821,22 @@ impl Application {
                 crate::system_ownership::require_admin(&config, actor)?;
             }
             let mut doc = json!({"key":key,"label":raw["outcome"]["goal"],"owner":raw["owner"],"notify":raw["notify"],"outcome":raw["outcome"],"outputs":{},"stage_receipts":{},"receipts":{}});
+            if research {
+                let output = &doc["outcome"]["deliverables"][0];
+                if let Some(target) = output.get("supplements") {
+                    require(
+                        output["kind"] == "experiment",
+                        "supplement_kind",
+                        "Only a checkpoint Experiment can be supplemented",
+                        400,
+                    )?;
+                    crate::experiment_supplements::target(
+                        &tx,
+                        target,
+                        raw["owner"].as_str().unwrap(),
+                    )?;
+                }
+            }
             if !raw["outcome"]["science"].is_null() {
                 doc["science_digest"] =
                     preview_outcome(&tx, &raw["outcome"])?["science_digest"].clone();

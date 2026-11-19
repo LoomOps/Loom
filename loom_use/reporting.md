@@ -70,6 +70,25 @@ The Catalog shows the selected or unique best result with its own denominator.
 A tie has no single best headline. Compare different Policies or protocols through
 separately accepted Experiments.
 
+### Checkpoint supplements
+
+Pin the current Regular Experiment in the Job deliverable's `supplements`
+field. Keep all exact evaluation inputs and run each additional checkpoint on
+the same complete valid seed/reset cohort under the same protocol. Keep
+case IDs unique across batches. If the batch contract requires a selection,
+repeat the accepted rule. An evaluation contract with no selection field can
+carry additional evidence for an already recorded rule. For a legacy report with an explicitly
+recorded split, supply the intended rule in the supplementary batch.
+
+Publication creates the next revision of the same Experiment. Its checkpoint
+table, counts and selection use evidence from all accepted batches. The Job
+retains its own Unit, Attempt and exact `registry_ref`. A stale Experiment
+revision or a changed cohort leaves the original Experiment readable.
+
+Use `results.group_evaluations` to browse independent training runs together
+when their evaluation protocol, non-Policy inputs and reset cohort match. The
+group preserves each Policy and Experiment and each measured result.
+
 Use `reporting.expectations` to freeze values or bind report fields to Job context.
 It maps a contract selector to requirement IDs and arrays of
 `{pointer, value}` or `{pointer, context_pointer}`. For example, bind membership
