@@ -6013,7 +6013,6 @@ catalogDetail=function(id){
  title.insertAdjacentHTML(&#x27;afterend&#x27;,loomResearchOverviewCard(loomResearchOverviewContent(e)));
  t.content.querySelector(&#x27;[data-output-sources]&#x27;)?.insertAdjacentHTML(&#x27;beforeend&#x27;,sources.join(&#x27;&#x27;));
  for(const node of t.content.querySelectorAll(&#x27;.pa-analysis-grid&#x27;))if(!node.textContent.trim())node.remove();
- if(e.kind===&#x27;dataset&#x27;)title.insertAdjacentHTML(&#x27;beforebegin&#x27;,loomTaskProperty(e));
  if(e.kind===&#x27;dataset&#x27;&amp;&amp;loomDatasetImported(e))title.querySelector(&#x27;.pa-eyebrow&#x27;)?.insertAdjacentHTML(&#x27;beforeend&#x27;,loomDatasetOriginBadge(e));
  const primary=[&#x27;run&#x27;,&#x27;experiment&#x27;].includes(e.kind)&amp;&amp;!catalogData.capabilities?.reporting?loomRepresentativeOutcome(e):[];
  if(primary.length)title.insertAdjacentHTML(&#x27;afterend&#x27;,loomResearchSection(&#x27;Outcome&#x27;,catTable([&#x27;Metric&#x27;,&#x27;Value&#x27;,&#x27;Population&#x27;],primary.map(m=&gt;[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||&#x27;—&#x27;)]))));
@@ -7474,8 +7473,8 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 }
 #pai-studio .pa-dataset-name{display:flex;align-items:flex-start;gap:6px;min-width:0}
 #pai-studio .pa-dataset-name [data-entity]{white-space:normal;overflow-wrap:anywhere;text-align:left}
-#pai-studio .pa-heading .pa-eyebrow:has(&gt;.pa-dataset-origin){display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
-#pai-studio .pa-heading .pa-eyebrow&gt;.pa-dataset-origin{font:inherit;letter-spacing:inherit;text-transform:inherit}
+#pai-studio .pa-heading .pa-eyebrow:has(&gt;.pa-dataset-origin){display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;text-transform:uppercase}
+#pai-studio .pa-heading .pa-eyebrow&gt;.pa-dataset-origin{font:inherit;letter-spacing:inherit;color:inherit}
 #pai-studio .pa-dataset-origin{display:inline-block;padding:1px 6px;border:1px solid var(--pa-line);border-radius:4px;font-size:11px;color:var(--pa-muted)}
 #pai-studio .pa-dataset-parent{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;margin:8px 0}
 #pai-studio .pa-dataset-parent&gt;small{flex-basis:100%;color:var(--pa-muted);overflow-wrap:anywhere}

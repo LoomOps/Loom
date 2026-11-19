@@ -2021,8 +2021,11 @@ const done=arguments[arguments.length-1];
     def test_catalog_marks_imports_and_only_headlines_one_checkpoint(self):
         ui=self.ui;catalog=self.api.fixture['catalog']
         catalog['capabilities']={'reporting':True}
+        task={'id':'square-task','revision':1,'label':'Square'}
+        catalog['research_tasks']=[task]
         shared={'properties':{},'metrics':[],'relations':[],'artifacts':[]}
-        dataset={**shared,'id':'imported-dataset','kind':'dataset','label':'Public demonstrations','reporting':{'activity':'dataset_import','contract_ref':{'id':'loom.report.dataset','revision':1},'reports':[]}}
+        dataset={**shared,'id':'imported-dataset','kind':'dataset','label':'Public demonstrations','task_refs':[task],
+                 'reporting':{'activity':'dataset_import','contract_ref':{'id':'loom.report.dataset','revision':1},'reports':[]}}
         dataset['research_summary']={'schema':'loom-research-summary/v1','facts':[{'id':'bc_ready','section':'quality','label':'BC ready','status':'recorded','value':True}], 'inputs':[], 'sources':[]}
         evaluation={**shared,'id':'checkpoint-evaluation','kind':'experiment','label':'Matched resets',
                     'reporting':{'state':'validated','primary_outcome':{'label':'Pooled','numerator':23,'denominator':40},'reports':[],
@@ -2036,10 +2039,12 @@ const done=arguments[arguments.length-1];
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('checkpoint-catalog')")
         ui.nav('Catalog');ui.wait("return !!document.querySelector('[data-output-id=imported-dataset]')")
         self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=imported-dataset] dt')].map(n=>n.textContent)"),['Episodes','Split'])
+        self.assertTrue(ui.js("return !!document.querySelector('[data-research-task=square-task]')"))
         ui.route('imported-dataset')
         ui.wait("return !!document.querySelector('.pa-heading .pa-dataset-origin')")
+        self.assertFalse(ui.js("return !!document.querySelector('.pa-document-pane.is-active .pa-output-task')"))
         self.assertTrue(ui.js("""const badge=document.querySelector('.pa-heading .pa-dataset-origin'),a=getComputedStyle(badge),b=getComputedStyle(badge.parentElement);
-            return ['fontFamily','fontWeight','fontSize','letterSpacing'].every(k=>a[k]===b[k])"""))
+            return a.textTransform==='uppercase'&&['fontFamily','fontWeight','fontSize','letterSpacing','color'].every(k=>a[k]===b[k])"""))
         ui.nav('Experiments');ui.wait("return !!document.querySelector('[data-output-id=checkpoint-evaluation] [data-research-fact=result]')")
         facts=ui.js("return [...document.querySelectorAll('[data-output-id=checkpoint-evaluation] .pa-scientific-facts > div')].map(n=>[n.firstElementChild.textContent,n.lastElementChild.textContent])")
         self.assertEqual(facts,[['Dataset','Missing'],['Policy','Missing'],['Result','16 / 20 (80%)'],['Checkpoint','step 10,000']])
