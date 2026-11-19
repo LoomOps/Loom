@@ -171,16 +171,20 @@ class RustServiceTests(unittest.TestCase):
   def examples(guide):
    content=self.call('system','guide',{'id':guide})['content']
    return [json.loads(block.split("```",1)[0]) for block in content.split("```json\n")[1:]]
+  observed=self.wait(self.submit('walkthrough-existing-job'))
   status_request=next(e for e in examples('job-cases') if e.get('method')=='tools/call')
+  status_request['params']['arguments']['arguments']['id']=observed['id']
   reply=self.post('/mcp',status_request)['result']
   self.assertFalse(reply.get('isError',False),reply)
-  self.assertEqual(json.loads(reply['content'][0]['text'])['machine_id'],'fixture')
-  self.assertFalse(self.call('jobs','list',{'view':'all'}))
+  self.assertEqual(json.loads(reply['content'][0]['text'])['id'],observed['id'])
+  before_jobs=self.call('jobs','list',{'view':'all'})
 
   catalog=examples('catalog-cases')
   template=self.post('/api/actions',next(e for e in catalog if e['action']=='get_metadata_template'))
   plan=next(e for e in catalog if e['action']=='reconcile_plan')
   definition=plan['arguments']['proposal']['operations'][0]['definition']
+  task=self.call('results','register_scenario',{'key':'walkthrough-task','definition':{'label':'Grasp'}})
+  definition['scenario_ref']={'id':task['id'],'revision':task['revision']}
   archive=self.data/definition['primary']['ref']
   archive.parent.mkdir()
   demo=archive.parent/'benchmark.json'
@@ -232,7 +236,7 @@ class RustServiceTests(unittest.TestCase):
   self.assertIsNotNone(digest)
   derived=self.call('results','get',child_ref['identity'])
   self.assertEqual(derived['dataset_lineage']['parents'][0]['parent'],parent_ref)
-  self.assertFalse(self.call('jobs','list',{'view':'all'}))
+  self.assertEqual(self.call('jobs','list',{'view':'all'}),before_jobs)
 
 
  def test_scenario_job_pin_and_reuse_are_real_api_operations(self):
