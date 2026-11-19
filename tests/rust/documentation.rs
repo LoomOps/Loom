@@ -110,6 +110,55 @@ fn guide_catalog_routes_exactly_to_compiled_content_and_revision_cache() {
 }
 
 #[test]
+fn worked_entry_guides_use_supported_actions_and_exact_producer_outputs() {
+    let mut chain = Vec::new();
+    for id in [
+        "job-cases",
+        "job-intake-cases",
+        "job-control-cases",
+        "catalog-cases",
+    ] {
+        let doc = read(&json!({"id":id})).unwrap();
+        for block in doc["content"].as_str().unwrap().split("```json\n").skip(1) {
+            let example: Value = serde_json::from_str(block.split("```").next().unwrap()).unwrap();
+            let (group, name, arguments) = if example["method"] == "tools/call" {
+                let params = &example["params"];
+                (
+                    &params["name"],
+                    &params["arguments"]["action"],
+                    &params["arguments"]["arguments"],
+                )
+            } else {
+                (&example["group"], &example["action"], &example["arguments"])
+            };
+            let action =
+                contracts::action(group.as_str().unwrap(), name.as_str().unwrap()).unwrap();
+            contracts::validate(&action.schema, arguments)
+                .unwrap_or_else(|err| panic!("{id} {group}.{name}: {err:?}"));
+            if group == "jobs"
+                && name == "submit_research"
+                && arguments["key"]
+                    .as_str()
+                    .is_some_and(|key| key.starts_with("grasp-v3-"))
+            {
+                chain.push(arguments.clone());
+            }
+        }
+    }
+    assert_eq!(chain.len(), 3);
+    for (i, input) in ["dataset", "policy"].iter().enumerate() {
+        let execution = &chain[i + 1]["plan"]["units"][0]["execution"];
+        let binding = &execution["params"][*input];
+        assert!(binding["entity"].is_string());
+        assert_eq!(
+            binding["entity"],
+            chain[i]["outcome"]["deliverables"][0]["alias"]
+        );
+        assert_eq!(binding["job"], execution["depends_on"][0]);
+    }
+}
+
+#[test]
 fn contract_identity_tracks_action_and_job_contract_changes_separately_from_guides() {
     let actions = json!(contracts::actions());
     let baseline = contract_revision(&actions, JOB_CONTRACT);

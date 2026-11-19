@@ -172,7 +172,7 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
             });
             let root: Option<String> = if topic == "jobs" {
                 db.query_row(
-                    "SELECT root FROM workflow_nodes WHERE job=?",
+                    "SELECT root FROM execution_memberships WHERE job=?",
                     [row["id"].as_str()],
                     |r| r.get(0),
                 )
@@ -301,6 +301,29 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
     if topic == "execution_profiles" {
         body["profile_kind"] = definition["revision"].clone();
         body["profile_sha256"] = definition["sha256"].clone();
+    }
+    if matches!(
+        body["kind"].as_str(),
+        Some("dataset" | "model" | "experiment" | "run")
+    ) {
+        let explicit = [
+            definition["catalog_class"].as_str(),
+            definition["original"]["catalog_class"].as_str(),
+        ]
+        .into_iter()
+        .flatten()
+        .find(|class| matches!(*class, "regular" | "reference"));
+        if let Some(class) = explicit {
+            body["catalog_class"] = json!(class);
+        } else if let Some(job) = body["job"].as_str() {
+            let is_probe: Option<bool> = db.query_row(
+                "SELECT COALESCE(json_extract(spec,'$.execution_mode') IN('pilot','smoke'),0) FROM jobs WHERE id=?",
+                [job], |r| r.get(0)
+            ).optional()?;
+            if is_probe == Some(true) {
+                body["catalog_class"] = json!("reference");
+            }
+        }
     }
     if body.get("origin_type").is_none() {
         body["origin_type"] = json!(if native_kind == "historical" {
@@ -681,6 +704,29 @@ impl Application {
         };
         let text = body.ok_or_else(|| Error::new("unknown_item", "Item not found", 404))?;
         let mut value: Value = serde_json::from_str(&text)?;
+        if crate::store::review_tables(&self.db)?
+            && matches!(
+                value["kind"].as_str(),
+                Some("dataset" | "model" | "experiment" | "run")
+            )
+        {
+            let identity = &value["native_ref"]["identity"];
+            let source = identity["source"].as_str().unwrap_or("entity");
+            let kind = identity["kind"].as_str().or_else(|| value["kind"].as_str());
+            let revision = identity["revision"]
+                .as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| identity["revision"].to_string());
+            let reviewed: Option<(String, String)> = self.db.query_row(
+                "SELECT catalog_class,reason FROM reviewed_outputs WHERE source=? AND kind=? AND id=? AND revision=? AND snapshot=?",
+                params![source,kind,identity["id"].as_str(),revision,identity["snapshot"].as_str().unwrap_or("")],
+                |row| Ok((row.get(0)?,row.get(1)?)),
+            ).optional()?;
+            if let Some((class, reason)) = reviewed {
+                value["catalog_class"] = json!(class);
+                value["classification_reason"] = json!(reason);
+            }
+        }
         let native = &value["native_ref"];
         if matches!(native["kind"].as_str(), Some("entity" | "historical")) {
             let kind = if native["kind"] == "entity" {
@@ -986,7 +1032,7 @@ impl Application {
     pub fn dashboard_summary(&self) -> Result<Value> {
         let visible =
             crate::system_ownership::native_sql("json_extract(r.body,'$.native_ref')", "");
-        let counts = rows(&self.db,&format!("SELECT i.kind,count(*) AS count FROM catalog_items i JOIN catalog_revisions r ON r.id=i.current_revision WHERE i.deleted=0 AND NOT COALESCE(({visible}),0) GROUP BY i.kind"),&[])?;
+        let counts = rows(&self.db,&format!("SELECT i.kind,count(*) AS count FROM catalog_items i JOIN catalog_revisions r ON r.id=i.current_revision WHERE i.deleted=0 AND NOT COALESCE(({visible}),0) AND (i.kind!='job' OR NOT EXISTS(SELECT 1 FROM execution_memberships n WHERE n.root=json_extract(r.body,'$.native_ref.identity.id'))) GROUP BY i.kind"),&[])?;
         Ok(
             json!({"schema":"loom-dashboard-summary/v1","counts":counts,"search":self.search_status()?,"capabilities":{"search_items":true,"item_files":true,"logs":true},"observed_at":now()}),
         )

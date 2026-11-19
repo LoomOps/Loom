@@ -1,5 +1,7 @@
 # Components, Tools, Profiles and dependencies
 
+Before registering or publishing an entry, select its identity and relationships using [catalog request walkthroughs](catalog-cases.md).
+
 The Dashboard Runtimes workspace contains Profiles, Components, Tools and Runtimes views. Open a Profile to inspect its exact combination and follow links from a
 Runtime back to consuming Profiles. The same combination is returned by
 `components.profiles`; read-only clients can discover it without execution rights.
@@ -133,7 +135,7 @@ parameter schema, exact Runtime availability and declared dependency requirement
 It reports expected and observed versions, ambiguity and evidence scope; it does
 not execute imports, reserve resources or establish GPU/scientific acceptance.
 The returned draft is partial: fill required Job responsibility, notification,
-category/mode and key fields using system.describe jobs.submit. Dashboard Prepare
+category/mode and key fields using system.describe for units.submit or jobs.submit_research. Dashboard Prepare
 Job checks parameters and copies an MCP request; no Job is enqueued automatically.
 Compare exact definitions with components.compare_profiles before creating a new
 revision. Changed paths exclude display metadata and never disclose env values.

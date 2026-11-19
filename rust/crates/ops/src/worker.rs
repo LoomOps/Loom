@@ -67,7 +67,7 @@ pub async fn run(service: Service, config: Config, bulk: PathBuf, components: Pa
         if service.stopping.load(Ordering::Acquire) && tasks.is_empty() {
             break;
         }
-        if !service.stopping.load(Ordering::Acquire) && tasks.len() < 2 {
+        if !service.stopping.load(Ordering::Acquire) && tasks.len() < 4 {
             match service.next(exclude.clone()).await {
                 Ok(Some(work)) => {
                     exclude.insert(work.effect.clone());
@@ -359,6 +359,9 @@ async fn perform_inner(
             json!({"id":pin["id"],"revision":pin["revision"],"sha256":pin["sha256"]});
         payload.as_object_mut().unwrap().remove("runtime_id");
         request["runtime"] = pin.clone();
+    }
+    if work.stage == "run" && work.spec["gpu_access"].is_object() {
+        payload["gpu_access"] = work.spec["gpu_access"].clone();
     }
     let payload = if already_sent {
         let frozen: Value = serde_json::from_slice(&tokio::fs::read(&marker).await?)?;

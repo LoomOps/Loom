@@ -902,7 +902,7 @@ pub fn validate_plan(db: &Connection, spec: &Value) -> Result<()> {
                 let request: Value = serde_json::from_str(&body)?;
                 let alias = &request["outputs"][&output];
                 upstream = db.query_row(
-                    "SELECT job FROM workflow_nodes WHERE root=? AND node=?",
+                    "SELECT job FROM execution_memberships WHERE root=? AND node=?",
                     params![job, alias["node"].as_str()],
                     |r| r.get(0),
                 )?;

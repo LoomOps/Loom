@@ -60,6 +60,15 @@ pub fn actions() -> Vec<Action> {
             schema,
         });
     }
+    let pilot = object(
+        json!({"preflight_for":string,"reduced_scope":string}),
+        &["preflight_for", "reduced_scope"],
+    );
+    result
+        .iter_mut()
+        .find(|a| a.group == "jobs" && a.action == "submit")
+        .unwrap()
+        .schema["properties"]["pilot"] = pilot;
     let workflow = &result
         .iter()
         .find(|a| a.group == "jobs" && a.action == "submit_workflow")
@@ -130,15 +139,59 @@ pub fn actions() -> Vec<Action> {
         json!({"goal":workflow["label"],"deliverables":{"type":"array","maxItems":256,"items":{"oneOf":[output,receipt]}},"science":science}),
         &["goal"],
     );
-    let create = object(
+    let mut create = object(
         json!({"key":workflow["key"],"owner":string,"notify":string,"presentation":workflow["presentation"],"category":workflow["category"],"scenario_ref":reference,"outcome":outcome,"plan":plan}),
         &["key", "owner", "notify", "outcome", "plan"],
     );
-    let revise = object(
+    let mut revise = object(
         json!({"id":string,"key":workflow["key"],"expected_revision":{"type":"integer","minimum":1,"maximum":i64::MAX-1},"reason":string,"plan":plan}),
         &["id", "key", "expected_revision", "reason", "plan"],
     );
-    let preview = object(json!({"outcome":outcome}), &["outcome"]);
+    let mut direct_outcome = outcome.clone();
+    direct_outcome["properties"]["deliverables"]["items"] = object(
+        json!({"alias":local["id"],"entity":local["id"],"kind":output["properties"]["kind"]}),
+        &["alias", "entity", "kind"],
+    );
+    // An unbound reservation has one optional execution; historical plans retain their wire format.
+    let run = object(
+        json!({"label":local["label"],"requires":slot["properties"]["requires"],"execution":execution}),
+        &["label"],
+    );
+    let single = object(json!({"sealed":{"type":"boolean"},"run":run}), &["sealed"]);
+    create["properties"]["plan"] = json!({"oneOf":[plan,single]});
+    revise["properties"]["plan"] = create["properties"]["plan"].clone();
+    let gpu_access = object(
+        json!({"mode":{"enum":["shared","exclusive"]},"memory_mib":{"type":"integer","minimum":1},"devices":{"type":"array","maxItems":8,"uniqueItems":true,"items":string}}),
+        &["mode"],
+    );
+    let mut research_slot = slot.clone();
+    research_slot["properties"]["phase"] = json!({"enum":["prepare","run","finalize"]});
+    research_slot["properties"]["execution"]["properties"]["gpu_access"] = gpu_access.clone();
+    let mut research_create = create.clone();
+    research_create["properties"]["plan"] = object(
+        json!({"sealed":{"type":"boolean"},"units":{"type":"array","minItems":1,"maxItems":64,"items":research_slot}}),
+        &["sealed", "units"],
+    );
+    let mut research_revise = revise.clone();
+    research_revise["properties"]["plan"] = research_create["properties"]["plan"].clone();
+    research_create["properties"]["outcome"]["properties"]["deliverables"] = json!({
+        "type":"array","minItems":1,"maxItems":1,
+        "items":object(json!({"alias":local["id"],"kind":{"enum":["dataset","model","experiment"]},
+            "from":object(json!({"unit":local["id"],"entity":local["id"]}),&["unit","entity"])}), &["alias","kind","from"])
+    });
+    research_create["properties"]["outcome"]["required"] = json!(["goal", "deliverables"]);
+    let mut preview_outcome = outcome.clone();
+    preview_outcome["properties"]["deliverables"]["items"]["oneOf"]
+        .as_array_mut()
+        .unwrap()
+        .push(direct_outcome["properties"]["deliverables"]["items"].clone());
+    create["properties"]["outcome"] = preview_outcome.clone();
+    let preview = object(json!({"outcome":preview_outcome}), &["outcome"]);
+    result
+        .iter_mut()
+        .find(|a| a.group == "jobs" && a.action == "submit")
+        .unwrap()
+        .schema["properties"]["outcome"] = direct_outcome;
     let history = object(
         json!({"ids":{"type":"array","items":string,"minItems":1,"maxItems":24,"uniqueItems":true}}),
         &["ids"],
@@ -146,6 +199,8 @@ pub fn actions() -> Vec<Action> {
     for (name, scope, schema) in [
         ("create", "submit", create),
         ("revise_plan", "submit", revise),
+        ("submit_research", "submit", research_create),
+        ("revise_research", "submit", research_revise),
         ("preview_outcome", "read", preview),
         ("preview_history", "read", history),
     ] {
@@ -156,6 +211,36 @@ pub fn actions() -> Vec<Action> {
             scope: scope.into(),
             schema,
         });
+    }
+    let mut unit_submit = result
+        .iter()
+        .find(|a| a.group == "jobs" && a.action == "submit")
+        .unwrap()
+        .schema
+        .clone();
+    unit_submit["properties"]["gpu_access"] = gpu_access;
+    for field in ["consolidates", "outcome"] {
+        unit_submit["properties"]
+            .as_object_mut()
+            .unwrap()
+            .remove(field);
+    }
+    result.push(Action {
+        group: "units".into(),
+        action: "submit".into(),
+        operation: "units.submit".into(),
+        scope: "submit".into(),
+        schema: unit_submit,
+    });
+    for name in ["get", "hold", "resume", "cancel", "reorder"] {
+        let mut action = result
+            .iter()
+            .find(|a| a.group == "jobs" && a.action == name)
+            .unwrap()
+            .clone();
+        action.group = "units".into();
+        action.operation = format!("units.{name}");
+        result.push(action);
     }
     let metadata_kind = json!({"enum":["dataset","model","experiment"]});
     let definitions = [
@@ -481,6 +566,7 @@ pub fn actions() -> Vec<Action> {
     ] {
         search["properties"][k] = v;
     }
+    search["properties"]["catalog_classes"] = json!({"type":"array","maxItems":2,"uniqueItems":true,"items":{"enum":["regular","reference"]}});
     let mut page = search.clone();
     page["properties"]["records_only"] = json!({"type":"boolean"});
     let mut files = search.clone();
@@ -773,6 +859,12 @@ impl Default for Presentation {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Submit {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gpu_access: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pilot: Option<Value>,
     pub key: String,
     pub kind: String,
     pub owner: String,

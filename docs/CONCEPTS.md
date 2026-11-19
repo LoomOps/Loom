@@ -4,9 +4,11 @@
 
 A **Task** (Scenario in API action/field names) describes the task and protocol: what is being attempted, under which conditions, and how it is evaluated. It has immutable accepted revisions. Jobs and research records can link to an exact revision. A Scenario is not a scheduler and does not infer relationships from names.
 
-A **Job** is one requested outcome, such as generating a dataset, training a model or evaluating a policy. Each execution selects a reusable **Profile**. Its Stage runners specify their environments. A workflow can use a different Profile on each Node. Cases, shards and batches normally stay inside that Job as **Steps**. A Step is producer-reported progress, not a separate resource allocation or proof of success.
+A **Job** accepts one independent Regular Dataset, Policy or Experiment. Units within a Job may have different pinned Profiles, dependencies and resource claims. Separate Jobs consume exact upstream outputs; Task association groups related outcomes.
 
-An **Attempt** is a real execution of a Job. Retrying execution produces another Attempt; repairing result publication must not rerun successful compute. A multi-profile outcome can use one workflow Job with separately scheduled execution nodes. Nodes retain their own Attempts and outputs; the parent does not invent an execution.
+A **Unit** is a scheduled execution. It can belong to one Job or be standalone for preparation, software development, Pilot or maintenance. An observed Unit represents progress within the scheduled execution. A **Stage** is the engine lifecycle of a scheduled Unit, including prepare, run and finalize.
+
+An **Attempt** records one try of a scheduled Unit. Recovery can create another Attempt while retaining the accepted Job and Unit. Publication repair preserves the original Attempt. **Pilot** is a deliberately reduced preflight for an identified full run.
 
 `jobs.get.state` is the native state. `status` is the public presentation (`processing` maps to `finalizing`, `complete` to `completed`, `result_failed` to `finalizing_failed`). Scheduling explains eligibility and waiting. Recovery records the repair lease and round; `recovery.state=executing` can coexist with `status=running`. Event acknowledgment records delivery, not repair ownership or resource return.
 
@@ -32,7 +34,7 @@ Common **Item** IDs connect these objects for discovery. **File** Items identify
 
 Search is a projection and can lag. An empty partial search does not prove absence. Exact native reads and accepted artifact inputs remain separate from search. Reconciliation plans explicit adoptions, imports or matching copy bindings; it does not guess scientific meaning, rebuild an entire filesystem or fabricate an execution.
 
-Research/Operations and main/support/test describe presentation. The current queue shows actual resource consumers regardless of these labels. Filters can reduce catalog noise without erasing execution history.
+Regular and Reference classify scientific catalog records. The default Outputs view shows Regular records. The Job and Unit queues expose scheduling and resource occupancy independently of the catalog selection.
 
 See [task guides](../loom_use/entry.md), [API reference](reference/README.md) and [implementation ownership](IMPLEMENTATION.md).
 

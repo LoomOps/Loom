@@ -115,8 +115,9 @@ function loomSoftwareView(kind){
  const notice=runtimeStatus?.status==='unavailable'?'<p class="pa-subtle" role="status">Runtime 목록을 조회할 수 없습니다.</p>':'';
  const attempts=runtimeStatus?.installations||[];
  const installations=attempts.length&&['all','runtime'].includes(kind)?panel('Runtime 설치 기록',catTable(['Runtime','상태','설치 위치'],attempts.map(a=>[esc(a.runtime),esc(a.state+(a.container_returned===false?' · 컨테이너 반환 미확정':'')),`<code>${esc(a.path||a.id)}</code>`]))+(runtimeStatus.installations_truncated?'<p class="pa-subtle">최근 100건 표시</p>':'')):'';
+ const status=cards?'':loomRegistryListStatus(kind);
  return loomHubTabs()+heading('RUNTIMES',loomExtensionTypes[kind].label+'s','')+catStatus()+notice
-  +'<section class="pa-panel">'+filters+tagFilter+`<div class="pa-extension-results" role="status">${shown.length} / ${rows.length}</div><div class="pa-extension-grid">${cards||'<div class="pa-extension-empty">'+empty+'</div>'}</div>`+'</section>'+installations;
+  +'<section class="pa-panel">'+filters+tagFilter+(status||`<div class="pa-extension-results" role="status">${shown.length} / ${rows.length}</div><div class="pa-extension-grid">${cards||'<div class="pa-extension-empty">'+empty+'</div>'}</div>`)+'</section>'+installations;
 }
 function loomExtensionOpenLink(entity,revision,label){
  return `<button class="pa-link" data-extension-open="${esc(entity.id)}" data-extension-revision="${esc(revision)}">${esc(label||entity.label)} ↗</button>`;
@@ -175,7 +176,7 @@ function loomProfilesView(){
    return `<article class="pa-profile-choice" data-extension-card="${esc(e.id)}"><div class="pa-profile-choice-title"><h3>${catLink(e.id,loomProfileName(p))}</h3>${loomHubProfilePicker(p)}${loomRegistryBadge(e)}<div class="pa-profile-purposes">${loomProfilePurpose(p)}</div></div>${loomHubIO(p)}<div class="pa-hub-combination"><div><small>Component</small>${p.component?loomExtensionOpenLink({id:p.component.entity},p.component.revision,p.component.classification?.label||p.component.id):'—'}</div><div><small>Tools</small><span>${p.tools.map(t=>loomExtensionToolLink(t)).join(' · ')||'—'}</span></div><div><small>Runtimes</small><span>${envs.map(loomProfileEnvironment).join(' · ')}</span></div></div><footer><span>${jobs} ${jobs===1?'Job':'Jobs'}${loomProfileUsage(p)?.reuses?' · Reused '+loomProfileUsage(p).reuses:''}</span>${p.last_execution?`<span>${esc(p.last_execution.state)} · ${esc(new Date(p.last_execution.started*1000).toLocaleDateString())}</span>`:''}<div class="pa-extension-card-head">${loomExtensionByline(e)}</div></footer></article>`;
   }).join('')}</div></section>`;
  }).join('');
- return loomHubTabs()+heading('RUNTIMES','Profiles','')+catStatus()+toolbar+(groups||'<div class="pa-extension-empty">No matching profiles</div>');
+ return loomHubTabs()+heading('RUNTIMES','Profiles','')+catStatus()+toolbar+(groups||loomRegistryListStatus('profile')||'<div class="pa-extension-empty">No matching profiles</div>');
 }
 
 function loomExecutionProfileDetail(entity){
@@ -308,8 +309,13 @@ root.addEventListener('click',async event=>{
  const button=event.target.closest('[data-profile-prepare],[data-profile-compare],[data-hub-edit]');if(!button)return;
  loomExtensionView(button);const entity=catEntity(state.entity),p=entity?.loom_execution_profile;
  if(button.hasAttribute('data-profile-prepare')&&p){
-  const dialog=loomHubDialog('Prepare Job',`<form data-profile-draft><div class="pa-hub-fields">${['key','owner','notify'].map(k=>`<label>${k}<input name="${k}" required autocomplete="off"></label>`).join('')}<label>Category<select name="category" required><option value="">Select category</option>${Object.entries(loomProfileUsageLabels().categories).map(([k,v])=>`<option value="${k}" ${(p.usage?.categories||p.observed_usage?.categories||[])[0]===k?'selected':''}>${esc(v)}</option>`).join('')}</select></label><label>Mode<select name="mode" required><option value="">Select mode</option>${Object.entries(loomProfileUsageLabels().modes).map(([k,v])=>`<option value="${k}" ${(p.usage?.execution_modes||p.observed_usage?.execution_modes||[])[0]===k?'selected':''}>${esc(v)}</option>`).join('')}</select></label></div><label>Parameters<textarea name="params" rows="8">${esc(JSON.stringify(p.defaults||{},null,2))}</textarea></label><details><summary>Input schema</summary><pre>${esc(JSON.stringify(p.params_schema||{},null,2))}</pre></details><button class="pa-button" type="submit">Check</button><button class="pa-button" type="button" data-draft-copy disabled>Copy MCP request</button></form><pre data-profile-checks></pre>`);
+  const dialog=loomHubDialog('Prepare Job',`<form data-profile-draft><div class="pa-hub-fields">${['key','owner','notify'].map(k=>`<label>${k}<input name="${k}" required autocomplete="off"></label>`).join('')}<label>Category<select name="category" required><option value="">Select category</option>${Object.entries(loomProfileUsageLabels().categories).map(([k,v])=>`<option value="${k}" ${(p.usage?.categories||p.observed_usage?.categories||[])[0]===k?'selected':''}>${esc(v)}</option>`).join('')}</select></label><label>Mode<select name="mode" required><option value="">Select mode</option>${Object.entries(loomProfileUsageLabels().modes).map(([k,v])=>`<option value="${k}" >${esc(v)}</option>`).join('')}</select></label><label hidden data-pilot-field>Planned full run<input name="preflight_for" maxlength="2048"></label><label hidden data-pilot-field>Reduced scope<input name="reduced_scope" maxlength="2048"></label></div><label>Parameters<textarea name="params" rows="8">${esc(JSON.stringify(p.defaults||{},null,2))}</textarea></label><details><summary>Input schema</summary><pre>${esc(JSON.stringify(p.params_schema||{},null,2))}</pre></details><button class="pa-button" type="submit">Check</button><button class="pa-button" type="button" data-draft-copy disabled>Copy MCP request</button></form><pre data-profile-checks></pre>`);
   let checked=null;const form=dialog.querySelector('form'),copy=dialog.querySelector('[data-draft-copy]'),status=dialog.querySelector('[data-hub-result]');
+  form.elements.mode.addEventListener('change',()=>{
+   for(const label of form.querySelectorAll('[data-pilot-field]')){
+    label.hidden=form.elements.mode.value!=='pilot';label.querySelector('input').required=!label.hidden;
+   }
+  });
   form.addEventListener('input',()=>{checked=null;copy.disabled=true;});form.onsubmit=async ev=>{
    ev.preventDefault();checked=null;copy.disabled=true;
    try{
@@ -317,7 +323,7 @@ root.addEventListener('click',async event=>{
     dialog.querySelector('[data-profile-checks]').textContent=result.checks.map(x=>[x.stage,x.software,x.name,x.version?x.version+' → '+(x.actual_versions||[]).join(', '):null,x.status].filter(Boolean).join(' · ')).join('\n');
     status.textContent=result.params.status==='valid'?'Parameters valid':result.params.message||'Parameters not checked';
     if(result.params.status==='valid'){
-     checked={jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'jobs',arguments:{action:'submit',arguments:{...result.draft,key:form.elements.key.value,owner:form.elements.owner.value,notify:form.elements.notify.value,category:form.elements.category.value,execution_mode:form.elements.mode.value}}}};copy.disabled=false;
+     checked={jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'jobs',arguments:{action:'submit',arguments:{...result.draft,key:form.elements.key.value,owner:form.elements.owner.value,notify:form.elements.notify.value,category:form.elements.category.value,execution_mode:form.elements.mode.value,...(form.elements.mode.value==='pilot'?{pilot:{preflight_for:form.elements.preflight_for.value.trim(),reduced_scope:form.elements.reduced_scope.value.trim()}}:{})}}}};copy.disabled=false;
     }
    }catch(error){status.textContent=error.message;}
   };

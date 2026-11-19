@@ -526,6 +526,7 @@
 #pai-studio .pa-output-task{grid-column:1/-1;display:flex;align-items:baseline;gap:8px;max-width:100%;font-size:12px;color:var(--pa-muted);margin-top:8px}
 #pai-studio .pa-output-task .pa-task-label{display:inline;border:0;padding:0;margin:0;font-size:12px;font-weight:400;background:none;color:var(--pa-blue)}
 
+#pai-studio .pa-catalog-pagination:empty{display:none}
 #pai-studio .pa-catalog-pagination{min-height:40px;display:flex;align-items:center;gap:8px}
 
 #pai-studio .pa-queue-tasks{display:flex;align-items:baseline;gap:6px;margin-top:8px;font-size:12px;line-height:1.5;color:var(--pa-muted)}
@@ -554,6 +555,9 @@
 #pai-studio .pa-footer span:empty:not([data-index-state]){display:none}
 #pai-studio .pa-footer [data-index-state]{display:inline-block;width:10px;height:10px;flex:0 0 10px;border:1.5px solid var(--pa-line);border-top-color:var(--pa-muted);border-radius:50%;animation:loom-index-spin 1s linear infinite}
 #pai-studio .pa-footer [data-index-state][hidden]{display:none}
+#pai-studio .pa-registry-status{display:grid;place-content:center;justify-items:center;gap:.65rem;min-height:clamp(9rem,32vh,22rem);color:var(--pa-muted)}
+#pai-studio .pa-registry-status i{width:1.25rem;height:1.25rem;border:2px solid var(--pa-line);border-top-color:currentColor;border-radius:50%;animation:loom-index-spin 1s linear infinite}
+@media(prefers-reduced-motion:reduce){#pai-studio .pa-registry-status i{animation:none}}
 @keyframes loom-index-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){#pai-studio .pa-footer [data-index-state]{animation:none;border-top-color:var(--pa-accent)}}
 
@@ -598,9 +602,11 @@
 #pai-studio .pa-dataset-name>div{min-width:0}
 #pai-studio .pa-dataset-name [data-entity]{white-space:normal;overflow-wrap:anywhere;text-align:left}
 #pai-studio .pa-dataset-relation{margin-top:4px;overflow-wrap:anywhere}
-#pai-studio .pa-dataset-bc{display:inline-block;margin-top:6px;padding:1px 6px;border-radius:4px;font-size:11px;background:var(--pa-tint);color:var(--pa-ink)}
+#pai-studio .pa-dataset-title-line,#pai-studio .pa-heading .pa-eyebrow:has(>.pa-dataset-origin){display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+#pai-studio .pa-heading .pa-eyebrow>.pa-dataset-origin{font:inherit;letter-spacing:inherit;text-transform:inherit}
+#pai-studio .pa-dataset-bc{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;background:var(--pa-tint);color:var(--pa-ink)}
 #pai-studio .pa-dataset-bc.is-not-ready{border:1px solid var(--pa-line);font-weight:500}
-#pai-studio .pa-dataset-origin{display:inline-block;margin-inline-start:8px;padding:1px 6px;border:1px solid var(--pa-line);border-radius:4px;font-size:11px;color:var(--pa-muted)}
+#pai-studio .pa-dataset-origin{display:inline-block;padding:1px 6px;border:1px solid var(--pa-line);border-radius:4px;font-size:11px;color:var(--pa-muted)}
 #pai-studio .pa-dataset-expander{display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--pa-muted);padding:2px;flex:0 0 18px;width:18px}
 #pai-studio .pa-dataset-expander svg{width:14px;height:14px}
 @container pane (max-width:540px){

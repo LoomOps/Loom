@@ -50,7 +50,10 @@ dashboardActivity=function(){
  return loomHomeActivityPanel();
 };
 const loomCatalogKinds={models:'model',datasets:'dataset',experiments:'experiment',issues:'issue',profiles:'profile',components:'component',tools:'tool',runtimes:'runtime',dependencies:'dependency',scenarios:'scenario',queue:'job',files:'explorer'};
-function loomCatalogQuery(kind){if(kind==='job')return {kinds:['job'],view:'all',role:'all',limit:50};if(kind==='explorer')return {kinds:['dataset','model','experiment','artifact'],view:'all',role:'all',limit:50};const view=catalogData.presentation_view||'research';return {...(['profile','component','tool','runtime'].includes(kind)?{...loomRegistryArgs(state.registryFilter||'current'),...(state.registryFilter==='archived'?{history:'all'}:{})}:{}),kinds:[kind],view:view==='builtin'?'all':view,role:['model','dataset','experiment'].includes(kind)?((state.outputPurpose||(view==='research'?'research':'all'))==='research'?'main':'all'):kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(['model','dataset','experiment'].includes(kind)&&state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
+function loomCatalogQuery(kind){
+ if(catalogData.capabilities?.job_units&&['dataset','model','experiment'].includes(kind)){
+  return {kinds:[kind],view:'all',role:'all',limit:50,catalog_classes:loomOutputClasses(),...(state.researchTask?{task_id:state.researchTask.id}:{})};
+ }if(kind==='job')return {kinds:['job'],view:'all',role:'all',limit:50};if(kind==='explorer')return {kinds:['dataset','model','experiment','artifact'],view:'all',role:'all',limit:50};const view=catalogData.presentation_view||'all';return {...(['profile','component','tool','runtime'].includes(kind)?{...loomRegistryArgs(state.registryFilter||'current'),...(state.registryFilter==='archived'?{history:'all'}:{})}:{}),kinds:[kind],view:view==='builtin'?'all':view,role:['model','dataset','experiment'].includes(kind)?((state.outputPurpose||(view==='research'?'research':'all'))==='research'?'main':'all'):kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(['model','dataset','experiment'].includes(kind)&&state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 // A bootstrap is a bounded seed, never a replacement for pages from its revision.
 function loomCatalogRefresh(value){
@@ -78,7 +81,7 @@ function loomCatalogRefresh(value){
  const old=changed?previous.filter(e=>retained.has(e.id)||catalogData.capabilities?.catalog_pages&&['model','dataset','run','experiment'].includes(e.kind)):previous;
  const records=new Map(old.map(e=>[e.id,e]));
  for(const e of value.all_entities||value.entities){const old=records.get(e.id);records.set(e.id,old?.kind==='scenario'&&old.loom_scenario.revision>e.loom_scenario?.revision?old:loomCatalogRetainResearch(old,e,!changed));}
- loomPresentationView=value.presentation_view||catalogData.presentation_view||'research';
+ loomPresentationView=value.presentation_view||catalogData.presentation_view||'all';
  queueMicrotask(loomLoadHomeData);
  const activity=catalogData.activity?.view==='all'?catalogData.activity:value.activity;
  return catTitleSnapshot(loomCatalogProjection({...value,queue:value.queue||catalogData.queue,runtime_catalog:value.runtime_catalog||catalogData.runtime_catalog,activity,entities:[...records.values()]}));
@@ -94,7 +97,7 @@ function loomCatalogRetainResearch(previous,incoming,sameRevision){
 }
 function loomCatalogMerge(value){
  const existing=new Map((catalogData.all_entities||catalogData.entities).map(e=>[e.id,e]));
- loomPresentationView=catalogData.presentation_view||'research';
+ loomPresentationView=catalogData.presentation_view||'all';
  const incoming=loomCatalogProjection(value);
  for(const e of incoming.all_entities||incoming.entities){const old=existing.get(e.id);existing.set(e.id,old?.kind==='scenario'&&old.loom_scenario.revision>e.loom_scenario?.revision?old:e);}
  // Old list pages can be refetched; keep the current record and recent browsing bounded.
@@ -104,7 +107,7 @@ function loomCatalogMerge(value){
  catalogData={...catalogData,entities:selected,all_entities:entities};
 }
 async function loomCatalogLoad(kind,more=false,query=loomCatalogQuery(kind)){
- if(!catalogData.capabilities?.catalog_pages)return;
+ if(!catalogData.capabilities?.catalog_pages||query.catalog_classes?.length===0)return;
  const key=JSON.stringify(query);
  let page=loomCatalogPages.get(key);
  if(page?.busy||page?.loaded&&!more||more&&!page?.cursor)return;
@@ -130,8 +133,9 @@ async function loomCatalogLoad(kind,more=false,query=loomCatalogQuery(kind)){
   if(result.partial&&(!more||kind==='job')&&(page.retries||0)<4){
    page.retries=(page.retries||0)+1;
    setTimeout(()=>{if(loomCatalogPages.get(key)===page){page.loaded=false;loomCatalogLoad(kind,more,page.query);}},500*page.retries);
-  }else if(kind==='job'&&result.partial){
-   page.error='종료 이력을 불러오지 못했습니다.';
+  }else if(result.partial){
+   page.indexRetryExhausted=true;
+   if(kind==='job')page.error='종료 이력을 불러오지 못했습니다.';
   }
  }catch(error){
   page.error=error.message;
@@ -142,26 +146,36 @@ async function loomCatalogLoad(kind,more=false,query=loomCatalogQuery(kind)){
   },250*2**(page.failures-1));}
  }finally{page.busy=false;if(loomCatalogPages.get(key)===page)catalogRefreshViews();}
 }
-function loomCatalogPager(kind){
+function loomRegistryListStatus(kind){
+ if(!catalogData.capabilities?.catalog_pages)return '';
+ const page=loomCatalogPages.get(loomCatalogPageKey(kind));
+ if(page?.loaded&&!page.partial&&!page.error)return '';
+ const stalled=page?.partial&&page.indexRetryExhausted&&!page.busy;
+ const label=page?.error|| (page?.partial?'Indexing…':'Loading…');
+ const retry=page?.error||stalled;
+ return '<div class="pa-registry-status" role="status">'+(retry?'':'<i aria-hidden="true"></i>')+esc(label)+(retry?' <button data-catalog-restart data-catalog-more="'+esc(kind)+'">Retry</button>':'')+'</div>';
+}
+function loomCatalogPager(kind,label="More",inlineStatus=false){
  if(!catalogData.capabilities?.catalog_pages)return '';
  const query=loomCatalogQuery(kind),key=JSON.stringify(query),page=loomCatalogPages.get(key);
  if(!page?.loaded&&!page?.busy&&!page?.error)queueMicrotask(()=>loomCatalogLoad(kind,false,query));
+ if(inlineStatus)return '';
  const pending=page?.busy||kind==='job'&&(!page?.loaded||page.partial);
- return '<div class="pa-catalog-pagination" role="status">'+(page?.error?esc(page.error)+' <button data-catalog-more="'+esc(kind)+'">Retry</button>':pending?'…':page?.cursor?'<button data-catalog-more="'+esc(kind)+'">More</button>':'')+'</div>';
+ return '<div class="pa-catalog-pagination" role="status">'+(page?.error?esc(page.error)+' <button data-catalog-more="'+esc(kind)+'">Retry</button>':pending?'…':page?.cursor?'<button data-catalog-more="'+esc(kind)+'">'+esc(label)+'</button>':'')+'</div>';
 }
 const loomPagedCatalogList=catalogList;
 catalogList=function(kind){return loomPagedCatalogList(kind)+loomCatalogPager(kind);};
 // Models and Experiments use their own filter layouts rather than catalogList.
 const loomPagedModels=modelList;
-modelList=function(){return loomPagedModels()+loomCatalogPager('model');};
+modelList=function(){return loomPagedModels()+loomCatalogPager('model','Load more policies');};
 const loomPagedExperiments=experiments;
-experiments=function(){return loomPagedExperiments()+loomCatalogPager('experiment');};
+experiments=function(){return loomPagedExperiments()+loomCatalogPager('experiment','Load more experiments');};
 const loomPagedSoftware=loomSoftwareView;
-loomSoftwareView=function(kind){return loomPagedSoftware(kind)+loomCatalogPager(kind);};
+loomSoftwareView=function(kind){const html=loomPagedSoftware(kind);return html+loomCatalogPager(kind,'More',html.includes('class="pa-registry-status"'));};
 const loomPagedProfiles=loomProfilesView;
-loomProfilesView=function(){return loomPagedProfiles()+loomCatalogPager('profile');};
+loomProfilesView=function(){const html=loomPagedProfiles();return html+loomCatalogPager('profile','More',html.includes('class="pa-registry-status"'));};
 const loomPagedDependencies=loomDependenciesView;
-loomDependenciesView=function(){return loomPagedDependencies()+loomCatalogPager('dependency');};
+loomDependenciesView=function(){const html=loomPagedDependencies();return html+loomCatalogPager('dependency','More',html.includes('class="pa-registry-status"'));};
 const loomPagedScenarios=loomScenarioView;
 loomScenarioView=function(){return loomPagedScenarios()+loomCatalogPager('scenario');};
 const loomPagedRender=render;
@@ -175,7 +189,7 @@ render=function(){
  }
  loomLoadHomeData();
 };
-document.addEventListener('click',event=>{const b=event.target.closest('[data-catalog-more]');if(!b)return;event.preventDefault();const pane=b.closest('[data-pane]');if(pane)ws.active=pane.dataset.pane;state=activeTab().view;const kind=b.dataset.catalogMore,page=loomCatalogPages.get(loomCatalogPageKey(kind));if(page?.error){page.loaded=false;page.error=null;}loomCatalogLoad(kind,!!page?.cursor);});
+document.addEventListener('click',event=>{const b=event.target.closest('[data-catalog-more]');if(!b)return;event.preventDefault();const pane=b.closest('[data-pane]');if(pane)ws.active=pane.dataset.pane;state=activeTab().view;const kind=b.dataset.catalogMore,page=loomCatalogPages.get(loomCatalogPageKey(kind));if(page?.error||page?.partial){page.loaded=false;page.error=null;page.failures=0;page.retries=0;page.indexRetryExhausted=false;}loomCatalogLoad(kind,!!page?.cursor&&!b.hasAttribute('data-catalog-restart'));});
 const loomPagedActivitySummary=activitySummary;
 activitySummary=function(entities,clock=Date.now(),through=clock){
  if(!catalogData.activity?.days)return loomPagedActivitySummary(entities,clock,through);

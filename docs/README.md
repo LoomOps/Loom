@@ -21,6 +21,6 @@ For a connected installation, `system.guide` supplies that binary's task guides 
 
 The [scientific Output and Experimental Setup proposal](metadata-templates/OUTPUT-EVIDENCE.md) defines analysis coverage, evidence ownership and Sim–Real comparison.
 
-The [Job boundary proposal](jobs/BOUNDARIES.md) defines the requested outcome, its schedulable Nodes, producer-reported Steps, software pins, deliverables and the migration from current Job families. It is a design for review.
+The [Job and Unit design](jobs/JOB-UNIT-DESIGN.md) is the proposed plan for independent research outcomes, two queue views, GPU access and catalog classes. The [current Job boundaries](jobs/BOUNDARIES.md) describe the existing execution contract and its historical terminology.
 
 [Rust redesign](rust-port/README.md) and [Item index design](item-index/README.md) retain the plans, decisions and implementation ledgers used to build the native service. The implementation is present in `rust/`. Planning language in a historical document is not a current installation or agent instruction. Use the current reference and feature catalog for changes; use the design records to understand the rationale.

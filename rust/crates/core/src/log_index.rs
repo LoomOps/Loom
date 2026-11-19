@@ -108,7 +108,7 @@ impl Application {
         require(self.db.query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=?) OR EXISTS(SELECT 1 FROM job_workflows WHERE id=?)",params![job,job],|r|r.get(0))?,"job","Job not found",404)?;
         let limit = args["limit"].as_u64().unwrap_or(50).clamp(1, 200) as i64;
         let after = args["after"].as_str().unwrap_or("");
-        let rows=rows(&self.db,"SELECT r.body FROM catalog_items i JOIN catalog_revisions r ON i.current_revision=r.id WHERE i.kind='log_stream' AND i.deleted=0 AND (json_extract(r.body,'$.job')=? OR EXISTS(SELECT 1 FROM workflow_nodes n WHERE n.root=? AND n.job=json_extract(r.body,'$.job'))) AND (?='' OR json_extract(r.body,'$.attempt')=?) AND (?='' OR json_extract(r.body,'$.stage')=?) AND hex(i.id)>? ORDER BY i.id LIMIT ?",&[&job,&job,&args["attempt"].as_str().unwrap_or(""),&args["attempt"].as_str().unwrap_or(""),&args["stage"].as_str().unwrap_or(""),&args["stage"].as_str().unwrap_or(""),&after,&(limit+1)])?;
+        let rows=rows(&self.db,"SELECT r.body FROM catalog_items i JOIN catalog_revisions r ON i.current_revision=r.id WHERE i.kind='log_stream' AND i.deleted=0 AND (json_extract(r.body,'$.job')=? OR EXISTS(SELECT 1 FROM execution_memberships n WHERE n.root=? AND n.job=json_extract(r.body,'$.job'))) AND (?='' OR json_extract(r.body,'$.attempt')=?) AND (?='' OR json_extract(r.body,'$.stage')=?) AND hex(i.id)>? ORDER BY i.id LIMIT ?",&[&job,&job,&args["attempt"].as_str().unwrap_or(""),&args["attempt"].as_str().unwrap_or(""),&args["stage"].as_str().unwrap_or(""),&args["stage"].as_str().unwrap_or(""),&after,&(limit+1)])?;
         let more = rows.len() > limit as usize;
         let mut streams = vec![];
         for row in rows.into_iter().take(limit as usize) {

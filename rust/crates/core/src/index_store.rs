@@ -550,6 +550,14 @@ impl Application {
             checkpoint =
                 db.query_row("SELECT checkpoint FROM meta WHERE id=1", [], |r| r.get(0))?;
         }
+        let review_generation: i64 = if review_tables(&self.db)? {
+            self.db
+                .query_row("SELECT version FROM reviewed_clock WHERE id=1", [], |row| {
+                    row.get(0)
+                })?
+        } else {
+            0
+        };
         let ownership_head = if args["include_system"] == false {
             hash(encode(&json!(crate::store::rows(
                 &self.db,
@@ -573,7 +581,7 @@ impl Application {
         };
         let mut query = args.clone();
         query.as_object_mut().unwrap().remove("cursor");
-        let query_hash = hash(encode(&query)?);
+        let query_hash = hash(encode(&json!([query, review_generation]))?);
         let (key, access) = context(self, actor)?;
         let c = args["cursor"]
             .as_str()
@@ -695,6 +703,23 @@ impl Application {
         } else {
             "authority.entity_revisions"
         };
+        let member_rows = if job_unit_tables(&self.db)? {
+            "NOT EXISTS(SELECT 1 FROM authority.execution_units u WHERE u.id=json_extract(docs.body,'$.native_ref.identity.id') AND u.job_id IS NOT NULL)"
+        } else {
+            "1"
+        };
+        let review_available = review_tables(&self.db)?;
+        let job_id = "json_extract(docs.body,'$.native_ref.identity.id')";
+        let work_visibility = if review_available {
+            format!("(SELECT r.visible FROM authority.reviewed_work r WHERE r.id={job_id})")
+        } else {
+            "NULL".into()
+        };
+        let job_rows = if args["_dashboard_job_rows"] == true {
+            format!("(kind!='job' OR ({member_rows} AND COALESCE({work_visibility},NOT EXISTS(SELECT 1 FROM authority.workflow_nodes n WHERE n.root={job_id}))))")
+        } else {
+            "1".into()
+        };
         let native_current=format!("(?18=1 OR ?20='historical' OR COALESCE(json_extract(body,'$.native_ref.kind'),'')!='historical' OR NOT ((json_extract(body,'$.native_ref.identity.kind')='job_view' AND (EXISTS(SELECT 1 FROM authority.jobs j WHERE j.id=json_extract(docs.body,'$.native_ref.identity.id')) OR EXISTS(SELECT 1 FROM authority.job_workflows w WHERE w.id=json_extract(docs.body,'$.native_ref.identity.id')))) OR (json_extract(body,'$.native_ref.identity.kind') IN('dataset','model','experiment','run','artifact') AND EXISTS(SELECT 1 FROM {entities} e WHERE e.id=json_extract(docs.body,'$.native_ref.identity.id')))))");
         // Qualify the outer document inside correlated ownership/lifecycle queries.
         // Only file pages need to resolve a parent at the cursor's watermark.
@@ -715,7 +740,36 @@ impl Application {
             args,
             &crate::registry_lifecycle::native_state_sql(native_source, "authority."),
         );
-        let sql=format!("SELECT id,body,recorded,{scope} AS effective_scope,{role_field} AS effective_role,{tier} AS match_tier,COALESCE(hex(revision),'') AS revision_key FROM docs WHERE (?8!='' OR {native_current}) AND valid_from<=?1 AND ((?18=0 AND (valid_to IS NULL OR valid_to>?1)) OR (?18=1 AND NOT EXISTS(SELECT 1 FROM docs newer WHERE newer.id=docs.id AND newer.revision=docs.revision AND newer.valid_from>docs.valid_from AND newer.valid_from<=?1))) AND ({system_clause}) AND ({lifecycle_clause}) AND ({text_clause}) AND ({kind_clause}) AND ({view_clause}) AND ({role_clause}) AND (?5='all' OR COALESCE(json_extract(body,'$.archived'),0)=0) AND (?7 IS NULL OR parent=?7) AND (?8='' OR (json_extract(body,'$.scenario_ref.id')=?8 AND (?9 IS NULL OR json_extract(body,'$.scenario_ref.revision')=?9)) OR EXISTS(SELECT 1 FROM authority.scenario_links sl WHERE sl.scenario_id=?8 AND (?9 IS NULL OR sl.revision=?9) AND sl.superseded_by IS NULL AND (CASE WHEN sl.target_kind='protocol_artifact' THEN 'entity' ELSE sl.target_kind END)=json_extract(docs.body,'$.native_ref.kind') AND NOT EXISTS(SELECT 1 FROM json_each(sl.target) field WHERE json_extract(docs.body,'$.native_ref.identity.'||field.key) IS NOT field.value))) AND (?13='' OR json_extract(body,'$.owner_revision_id')=?13 OR json_extract(body,'$.revision_id')=?13) AND (kind!='file' OR ?18=1 OR ?13!='' OR EXISTS(SELECT 1 FROM docs owner WHERE owner.id=docs.parent AND owner.valid_from<=?1 AND (owner.valid_to IS NULL OR owner.valid_to>?1) AND json_extract(owner.body,'$.revision_id')=json_extract(docs.body,'$.owner_revision_id'))) AND (?14='' OR json_extract(body,'$.category')=?14) AND ((?15 IS NULL AND ?16 IS NULL) OR json_type(body,'$.recorded_at') IN('integer','real')) AND (?15 IS NULL OR recorded>=?15) AND (?16 IS NULL OR recorded<=?16) AND (?17='' OR json_extract(body,'$.availability')=?17) AND (?8!='' OR ?18=1 OR COALESCE(json_extract(body,'$.native_ref.kind'),'')!='historical' OR NOT EXISTS(SELECT 1 FROM docs h WHERE json_extract(h.body,'$.native_ref.kind')='historical' AND json_extract(h.body,'$.native_ref.identity.source')=json_extract(docs.body,'$.native_ref.identity.source') AND json_extract(h.body,'$.native_ref.identity.kind')=json_extract(docs.body,'$.native_ref.identity.kind') AND json_extract(h.body,'$.native_ref.identity.id')=json_extract(docs.body,'$.native_ref.identity.id') AND json_extract(h.body,'$.source_order')>json_extract(docs.body,'$.source_order') AND h.valid_from<=?1 AND (h.valid_to IS NULL OR h.valid_to>?1))) AND (?19='' OR json_extract(body,'$.origin_type')=?19) AND (?20='' OR json_extract(body,'$.native_ref.kind')=?20) AND (?23='' OR json_extract(body,'$.dependency_ref')=?23) AND (?24 IS NULL OR id IN (SELECT e.source FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE a.item=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25)) OR id IN(SELECT a.item FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE e.source=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25))) AND (?10 IS NULL OR match_tier>?21 OR (match_tier=?21 AND (recorded<?10 OR (recorded=?10 AND (id>?11 OR (id=?11 AND revision_key>?22)))))) ORDER BY match_tier,recorded DESC,id,revision_key LIMIT ?12");
+        // Class is evaluated before pagination. Legacy presentation is a fallback
+        // until an operator records an explicit class for the exact revision.
+        let reviewed_class = if review_available {
+            "(SELECT r.catalog_class FROM authority.reviewed_outputs r
+              WHERE r.id=json_extract(docs.body,'$.native_ref.identity.id')
+                AND r.source=COALESCE(json_extract(docs.body,'$.native_ref.identity.source'),'entity')
+                AND r.kind=COALESCE(json_extract(docs.body,'$.native_ref.identity.kind'),docs.kind)
+                AND r.revision=CAST(json_extract(docs.body,'$.native_ref.identity.revision') AS TEXT)
+                AND r.snapshot=COALESCE(json_extract(docs.body,'$.native_ref.identity.snapshot'),''))"
+        } else {
+            "NULL"
+        };
+        let class = format!("COALESCE({reviewed_class},json_extract(docs.body,'$.catalog_class'),CASE WHEN EXISTS(SELECT 1 FROM authority.jobs j WHERE j.id=json_extract(docs.body,'$.job') AND json_extract(j.spec,'$.execution_mode') IN('pilot','smoke')) THEN 'reference' WHEN {scope}='research' AND {role_field}='main' THEN 'regular' ELSE 'reference' END)");
+        let class_filter = if args["catalog_classes"].is_array() {
+            let allowed = args["catalog_classes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter_map(|v| match v.as_str() {
+                    Some("regular") => Some("'regular'"),
+                    Some("reference") => Some("'reference'"),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            format!("{class} IN ({allowed})")
+        } else {
+            "1".into()
+        };
+        let sql=format!("SELECT id,body,recorded,{class} AS catalog_class,{scope} AS effective_scope,{role_field} AS effective_role,{tier} AS match_tier,COALESCE(hex(revision),'') AS revision_key FROM docs WHERE ({job_rows}) AND ({class_filter}) AND (?8!='' OR {native_current}) AND valid_from<=?1 AND ((?18=0 AND (valid_to IS NULL OR valid_to>?1)) OR (?18=1 AND NOT EXISTS(SELECT 1 FROM docs newer WHERE newer.id=docs.id AND newer.revision=docs.revision AND newer.valid_from>docs.valid_from AND newer.valid_from<=?1))) AND ({system_clause}) AND ({lifecycle_clause}) AND ({text_clause}) AND ({kind_clause}) AND ({view_clause}) AND ({role_clause}) AND (?5='all' OR COALESCE(json_extract(body,'$.archived'),0)=0) AND (?7 IS NULL OR parent=?7) AND (?8='' OR (json_extract(body,'$.scenario_ref.id')=?8 AND (?9 IS NULL OR json_extract(body,'$.scenario_ref.revision')=?9)) OR EXISTS(SELECT 1 FROM authority.scenario_links sl WHERE sl.scenario_id=?8 AND (?9 IS NULL OR sl.revision=?9) AND sl.superseded_by IS NULL AND (CASE WHEN sl.target_kind='protocol_artifact' THEN 'entity' ELSE sl.target_kind END)=json_extract(docs.body,'$.native_ref.kind') AND NOT EXISTS(SELECT 1 FROM json_each(sl.target) field WHERE json_extract(docs.body,'$.native_ref.identity.'||field.key) IS NOT field.value))) AND (?13='' OR json_extract(body,'$.owner_revision_id')=?13 OR json_extract(body,'$.revision_id')=?13) AND (kind!='file' OR ?18=1 OR ?13!='' OR EXISTS(SELECT 1 FROM docs owner WHERE owner.id=docs.parent AND owner.valid_from<=?1 AND (owner.valid_to IS NULL OR owner.valid_to>?1) AND json_extract(owner.body,'$.revision_id')=json_extract(docs.body,'$.owner_revision_id'))) AND (?14='' OR json_extract(body,'$.category')=?14) AND ((?15 IS NULL AND ?16 IS NULL) OR json_type(body,'$.recorded_at') IN('integer','real')) AND (?15 IS NULL OR recorded>=?15) AND (?16 IS NULL OR recorded<=?16) AND (?17='' OR json_extract(body,'$.availability')=?17) AND (?8!='' OR ?18=1 OR COALESCE(json_extract(body,'$.native_ref.kind'),'')!='historical' OR NOT EXISTS(SELECT 1 FROM docs h WHERE json_extract(h.body,'$.native_ref.kind')='historical' AND json_extract(h.body,'$.native_ref.identity.source')=json_extract(docs.body,'$.native_ref.identity.source') AND json_extract(h.body,'$.native_ref.identity.kind')=json_extract(docs.body,'$.native_ref.identity.kind') AND json_extract(h.body,'$.native_ref.identity.id')=json_extract(docs.body,'$.native_ref.identity.id') AND json_extract(h.body,'$.source_order')>json_extract(docs.body,'$.source_order') AND h.valid_from<=?1 AND (h.valid_to IS NULL OR h.valid_to>?1))) AND (?19='' OR json_extract(body,'$.origin_type')=?19) AND (?20='' OR json_extract(body,'$.native_ref.kind')=?20) AND (?23='' OR json_extract(body,'$.dependency_ref')=?23) AND (?24 IS NULL OR id IN (SELECT e.source FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE a.item=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25)) OR id IN(SELECT a.item FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE e.source=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25))) AND (?10 IS NULL OR match_tier>?21 OR (match_tier=?21 AND (recorded<?10 OR (recorded=?10 AND (id>?11 OR (id=?11 AND revision_key>?22)))))) ORDER BY match_tier,recorded DESC,id,revision_key LIMIT ?12");
         let mut q = db.prepare(&sql)?;
         let rows = q
             .query_map(
@@ -759,8 +813,9 @@ impl Application {
                         r.get::<_, f64>(2)?,
                         r.get::<_, String>(3)?,
                         r.get::<_, String>(4)?,
-                        r.get::<_, i64>(5)?,
-                        r.get::<_, String>(6)?,
+                        r.get::<_, String>(5)?,
+                        r.get::<_, i64>(6)?,
+                        r.get::<_, String>(7)?,
                     ))
                 },
             )?
@@ -775,10 +830,16 @@ impl Application {
         let mut bytes = 1024;
         let mut last = None;
 
-        for (id, body, time, scope, role, tier, revision_key) in rows {
+        for (id, body, time, class, scope, role, tier, revision_key) in rows {
             let mut value: Value = serde_json::from_str(&body)?;
             value["scope"] = json!(scope);
             value["role"] = json!(role);
+            if matches!(
+                value["kind"].as_str(),
+                Some("dataset" | "model" | "experiment" | "run")
+            ) {
+                value["catalog_class"] = json!(class);
+            }
             let allowed:bool=self.db.query_row("SELECT EXISTS(SELECT 1 FROM catalog_items WHERE id=? AND deleted=0) AND (? IS NULL OR EXISTS(SELECT 1 FROM catalog_manifests WHERE revision=?))",params![if value["kind"]=="file"{items::parse(&value["parent_item_id"])?}else{id.clone()},value["owner_revision_id"].as_str(),value["owner_revision_id"].as_str().map(|s|items::parse(&json!(s))).transpose()?.unwrap_or_default()],|r|r.get(0))?;
             require(
                 allowed,

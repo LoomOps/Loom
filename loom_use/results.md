@@ -1,6 +1,8 @@
 # Publish and reconnect results
 
-A producer writes files and `result.json` under `request.output_dir`. The Profile declares output and metadata contracts. Inspect `system.contract` and the actual Profile before writing a manifest; generic success does not supply domain metadata.
+Before registering or publishing an entry, select its identity and relationships using [catalog request walkthroughs](catalog-cases.md).
+
+Regular is the Job’s accepted Dataset, Policy or Experiment. Standalone Units may publish Reference evidence. The requested scientific outcome determines the Dataset, Policy or Experiment that the Job should publish. A separate publication instruction is unnecessary for those deliverables. Compare completed Experiments by exact revision. Keep infrastructure checks and software validation in the producing Unit or software revision. Choose the Profile, template and report contract when planning the work. A producer writes files and `result.json` under `request.output_dir`. The Profile declares output and metadata contracts. Inspect `system.contract` and the actual Profile before writing a manifest; generic success does not supply domain metadata.
 
 Execution return, result publication and event ACK are separate facts. Use `jobs.get` for the Attempt and result state, `results.list/get` for native entities and locations, and `events.list(kind=all)` for notifications. A result-indexing error uses `results.reindex` after repairing publication; it must not rerun successful training.
 

@@ -1,7 +1,10 @@
 // Include executable Jobs without counting consolidated source executions twice.
+function loomJobWrapper(entity) {
+ return entity.entry_type!=='job' && (entity.properties?.execution_node_count ?? entity.loom_workflow?.executions?.length ?? 0)>0;
+}
 function loomActivityJobs(entities) {
  return entities.filter(e=>['work','loom_job'].includes(e.properties?.record_role)
-   && !e.loom_registry && !e.properties?.consolidated_into);
+   && !loomJobWrapper(e) && !e.unit?.job_id && !e.loom_registry && !e.properties?.consolidated_into);
 }
 const loomActivityCreatedTime=activityCreatedTime;
 activityCreatedTime=function(entity) {
@@ -24,12 +27,8 @@ activityRecords=function(entities) {
 };
 const loomActivitySummary=activitySummary;
 activitySummary=function(entities,now=Date.now(),liveThrough=now) {
- const source=catalogData.all_entities||entities,jobs=loomActivityJobs(source),parents=new Map(jobs.map(e=>[e.id,e.properties?.workflow_root]));
- for(const e of jobs)for(const n of e.loom_workflow?.executions||[])parents.set(n.job,e.id);
- const root=id=>{const seen=new Set();while(parents.get(id)&&!seen.has(id)){seen.add(id);id=parents.get(id);}return id;};
- const groups=new Map();
- for(const e of jobs){const id=root(e.id),known=groups.get(id),intervals=workIntervals(e);if(known){known.execution_intervals.push(...intervals);if(['running','preparing'].includes(queueState(e).raw))known.properties.state=queueState(e).raw;}else groups.set(id,{...e,id,properties:{...e.properties,record_role:'work'},execution_intervals:[...intervals]});}
- const work=[...groups.values()];
+ const source=catalogData.all_entities||entities;
+ const work=loomActivityJobs(source).map(e=>({...e,properties:{...e.properties,record_role:'work'},execution_intervals:workIntervals(e)}));
  // The original interval union and KST day splitting remain authoritative.
  return loomActivitySummary([...source.filter(e=>!['work','loom_job'].includes(e.properties?.record_role)),...work],now,liveThrough);
 };

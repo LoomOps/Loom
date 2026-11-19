@@ -17,11 +17,11 @@ An Imported badge follows the accepted import activity or a registered import so
 individual rows with their Task and known parent, so collapsed branches cannot
 hide results. Clearing filters restores the previous lineage tree state.
 
-The Catalog orders Datasets, Policies and Experiments. Reporting-enabled details use
+The Dashboard catalog view initially selects All. The Catalog orders Datasets, Policies and Experiments. Reporting-enabled details use
 Overview with optional Distribution and Episodes for Datasets, Overview and
 Training for Policies, and Overview, Results and Cases for Experiments.
-Overview sections group related facts in the same responsive cards,
-including records without a reporting contract. Policy training groups charts in
+Each Overview presents its metadata sections together in one standard panel,
+including records without a reporting contract. Episode and Case selectors load additional members in place. Policy training groups charts in
 panels. Equivalent summary and
 report values are shown once. Base model shows the recorded name or identifier
 without its digest. The original value stays in Sources. Exact metric definitions
@@ -99,7 +99,7 @@ Acceptance outside these fixtures:
 
 ## Bounded catalogs and refresh
 
-The browser opens an authenticated shell before fetching any Jobs, Activity, registered files or runtime inventory. Visible Home panes request queue occupants, paged history and Activity independently. Job details also request the current queue for controls. The legacy bootstrap remains available to older clients. Same-revision refresh preserves loaded list pages and
+The browser opens an authenticated shell before fetching any Jobs, Activity, registered files or runtime inventory. Visible Home panes request queue occupants, paged history and Activity independently. Job details also request the current queue for controls. The legacy bootstrap remains available to older clients. Same-revision refresh preserves loaded list pages and Empty Runtime hub lists show a centered loading status while fetching, an indexing status on a partial index response, and the empty result only after completion. Already visible cards stay available during refresh.
 parent-side detail identities. A new revision invalidates page cursors and pending
 responses before the visible list reloads. Dashboard history starts its paged Job
 read when bootstrap data patches the pane. It waits for the first complete Job
@@ -142,8 +142,7 @@ available below. Dataset role labels remain source metadata, not browse headings
 
 Output purpose filters separate Research and Development using declared roles,
 engineering classifications and explicit Observer model roles. Main outputs sort
-before supporting records. Observer weights remain Models; executable code uses
-Tools or lifecycle Components. Job Type and Execution Mode remain in Job detail.
+before supporting records. Historical Observer model records retain their role. New Observer evidence belongs to the Job or reusable Tool or Component. Job Type and Execution Mode remain in Job detail.
 Historical Jobs retain their recorded metadata.
 
 A list emphasizes one unambiguous declared primary metric, one exact sole outcome
@@ -217,8 +216,7 @@ The current queue, terminal history and Home Activity include user work across
 Research and Operations without a Job scope selector. System ownership identifies
 platform work excluded from the Dashboard. Operations records the purpose of work
 regardless of ownership. Terminal history gives independently submitted Jobs
-their own rows. Workflow Nodes and consolidated sources remain in their owning
-Job's detail. Presentation-only parent links preserve discoverability in detail.
+their own rows. Previously grouped executions retain their own rows. Completed consolidation sources are visible through their continuation. Presentation-only parent links preserve discoverability in detail.
 
 Activity responses from older revisions cannot overwrite the current observation.
 

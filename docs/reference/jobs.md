@@ -1,6 +1,6 @@
 # jobs
 
-Job execution and shared queue
+Research Job admission and history
 
 The examples are argument shapes, not live instructions. Replace symbolic identities and hashes with discovered exact records and satisfy the handler preconditions before a mutation. Nested schema constraints are retained below; response notes are descriptive, not a formal response schema.
 
@@ -20,6 +20,8 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 - [assign_owner](#assign_owner)
 - [create](#create)
 - [revise_plan](#revise_plan)
+- [submit_research](#submit_research)
+- [revise_research](#revise_research)
 - [preview_outcome](#preview_outcome)
 - [preview_history](#preview_history)
 - [prune_logs](#prune_logs)
@@ -29,7 +31,7 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 
 ## list
 
-List logical Jobs in reverse registration order. include_consolidated=true also returns preserved constituent Jobs.
+List scheduled Jobs, including each execution previously submitted in a workflow. Populated group receipts remain available by exact ID. Unbound reservations remain visible.
 
 Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/query.rs#job_list](../../rust/crates/core/src/query.rs).
 
@@ -169,7 +171,7 @@ The ID does not exist.
 
 ## submit
 
-Pin a registered profile and parameters and enter the queue. category does not select the executor. One requested outcome is one Job; batch/vectorized work runs internally. Explicit consolidates reuses completed producer Jobs without rewriting them.
+Queue one independently scheduled Job. Submit intake, training and evaluation separately; pass exact producer IDs to dependent Jobs. Optional outcome pins direct deliverables and scientific reporting. Pilot requires pilot.preflight_for and pilot.reduced_scope.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/jobs.rs#submit](../../rust/crates/core/src/jobs.rs).
 
@@ -185,9 +187,11 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 | `key` | yes | `"string"` | `—` |
 | `kind` | yes | `"string"` | `—` |
 | `notify` | yes | `"string"` | `—` |
+| `outcome` | no | `"object"` | `—` |
 | `output_storage` | no | `"string"` | `"data/0"` |
 | `owner` | yes | `"string"` | `—` |
 | `params` | yes | `"object"` | `—` |
+| `pilot` | no | `"object"` | `—` |
 | `presentation` | no | `"object"` | `—` |
 | `queue_position` | no | `["tail", "next"]` | `"tail"` |
 | `scenario_ref` | no | `"object"` | `—` |
@@ -284,6 +288,247 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
     "notify": {
       "type": "string"
     },
+    "outcome": {
+      "additionalProperties": false,
+      "properties": {
+        "deliverables": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "alias": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              "entity": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "artifact",
+                  "dataset",
+                  "model",
+                  "experiment"
+                ]
+              }
+            },
+            "required": [
+              "alias",
+              "entity",
+              "kind"
+            ],
+            "type": "object"
+          },
+          "maxItems": 256,
+          "type": "array"
+        },
+        "goal": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "science": {
+          "additionalProperties": false,
+          "properties": {
+            "deliverables": {
+              "additionalProperties": {
+                "additionalProperties": false,
+                "properties": {
+                  "activity": {
+                    "maxLength": 2048,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "contract_ref": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "maxLength": 2048,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "revision": {
+                        "maximum": 9223372036854775807,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "sha256": {
+                        "pattern": "^[a-f0-9]{64}$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "revision",
+                      "sha256"
+                    ],
+                    "type": "object"
+                  },
+                  "inputs": {
+                    "additionalProperties": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "maxLength": 2048,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "revision": {
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision"
+                      ],
+                      "type": "object"
+                    },
+                    "maxProperties": 64,
+                    "type": "object"
+                  },
+                  "sessions": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "configuration": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "maxLength": 2048,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "revision": {
+                              "maximum": 9223372036854775807,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "sha256": {
+                              "pattern": "^[a-f0-9]{64}$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "sha256"
+                          ],
+                          "type": "object"
+                        },
+                        "domain": {
+                          "enum": [
+                            "simulation",
+                            "real"
+                          ]
+                        },
+                        "id": {
+                          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "domain",
+                        "configuration"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
+                  },
+                  "template_ref": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "maxLength": 2048,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "revision": {
+                        "maximum": 9223372036854775807,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "sha256": {
+                        "pattern": "^[a-f0-9]{64}$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "revision",
+                      "sha256"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "activity",
+                  "template_ref",
+                  "contract_ref"
+                ],
+                "type": "object"
+              },
+              "maxProperties": 64,
+              "minProperties": 1,
+              "type": "object"
+            },
+            "hypothesis": {
+              "additionalProperties": false,
+              "properties": {
+                "aliases": {
+                  "items": {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                    "type": "string"
+                  },
+                  "maxItems": 64,
+                  "minItems": 1,
+                  "type": "array",
+                  "uniqueItems": true
+                },
+                "analysis": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "metric": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "population": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "statement": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "statement",
+                "analysis",
+                "population",
+                "metric",
+                "aliases"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "deliverables"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "goal"
+      ],
+      "type": "object"
+    },
     "output_storage": {
       "default": "data/0",
       "description": "Registered output store from system.status.data_stores. Defaults to data/0; frozen per Job.",
@@ -294,6 +539,26 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
       "type": "string"
     },
     "params": {
+      "type": "object"
+    },
+    "pilot": {
+      "additionalProperties": false,
+      "properties": {
+        "preflight_for": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reduced_scope": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "preflight_for",
+        "reduced_scope"
+      ],
       "type": "object"
     },
     "presentation": {
@@ -411,7 +676,7 @@ Unregistered profile, parameter schema mismatch, denied input access or stopped 
 
 ## submit_workflow
 
-Atomically submit pinned internal execution nodes with node dependencies and output aliases. Each node uses the ordinary scheduler and verified artifacts. Replay the exact request key after an uncertain response.
+Existing keys replay their original receipts. New graph submissions return separate_jobs (409). Use jobs.submit with Job dependencies.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/jobs.rs#submit_workflow](../../rust/crates/core/src/jobs.rs).
 
@@ -633,7 +898,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 
 Logical Job ID and node execution IDs
 
-Unknown/cyclic node dependency, conflicting key, invalid Profile or output alias. All nodes roll back on rejection.
+409 separate_jobs for a new request; 409 idempotency_conflict when the original key is reused with a different request.
 
 ## curate
 
@@ -1010,9 +1275,9 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 
 ### Result and failures
 
-Receipt · changed, state, held, position
+Updated shared queue with physical entries and logical entries
 
-Permission denied, invalid position or reference no longer waiting. If execution was claimed first, changed=false.
+Permission denied, invalid position or reference no longer waiting. A target with no waiting execution returns a queue conflict (409).
 
 ## hold
 
@@ -1062,9 +1327,9 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 
 ### Result and failures
 
-Receipt · changed, state, held, position
+Updated shared queue with physical entries and logical entries
 
-Permission denied. If the main run already started, changed=false.
+Permission denied. A physical Job with no waiting or preparing stage returns a queue conflict (409).
 
 ## resume
 
@@ -1114,7 +1379,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 
 ### Result and failures
 
-Receipt · changed, state, held, position
+Updated shared queue with physical entries and logical entries
 
 Permission denied. Releasing a failed Job's hold does not rerun its failed execution.
 
@@ -1173,7 +1438,7 @@ Unregistered profile or missing Job.
 
 ## create
 
-Accept a frozen goal with optional typed output or Runtime receipt promises. An outcome without deliverables completes when its sealed executable plan succeeds. Executable units are admitted with their Profile and applicable scientific reporting contract in the same transaction.
+Reserve one execution or verify Runtime receipts. Use plan.run for a pending or bound execution and directly name its output entities. Use jobs.submit for runnable Jobs.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/plans.rs#write_plan](../../rust/crates/core/src/plans.rs).
 
@@ -1186,7 +1451,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 | `notify` | yes | `"string"` | `—` |
 | `outcome` | yes | `"object"` | `—` |
 | `owner` | yes | `"string"` | `—` |
-| `plan` | yes | `"object"` | `—` |
+| `plan` | yes | `"see schema"` | `—` |
 | `presentation` | no | `"object"` | `—` |
 | `scenario_ref` | no | `"object"` | `—` |
 
@@ -1302,6 +1567,33 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
                   "alias",
                   "kind",
                   "runtime"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "alias": {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                    "type": "string"
+                  },
+                  "entity": {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "enum": [
+                      "artifact",
+                      "dataset",
+                      "model",
+                      "experiment"
+                    ]
+                  }
+                },
+                "required": [
+                  "alias",
+                  "entity",
+                  "kind"
                 ],
                 "type": "object"
               }
@@ -1523,6 +1815,1343 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
       "type": "string"
     },
     "plan": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "sealed": {
+              "type": "boolean"
+            },
+            "units": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "depends_on": {
+                    "items": {
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                      "type": "string"
+                    },
+                    "maxItems": 64,
+                    "type": "array",
+                    "uniqueItems": true
+                  },
+                  "execution": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "category": {
+                        "default": "other",
+                        "description": "Job purpose; does not select an execution runner.",
+                        "enum": [
+                          "sdg",
+                          "data_preparation",
+                          "fine_tuning",
+                          "evaluation",
+                          "pipeline",
+                          "development",
+                          "other"
+                        ],
+                        "type": "string"
+                      },
+                      "depends_on": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "execution": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "max_attempts": {
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "retry_backoff_seconds": {
+                            "maximum": 86400,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "retry_on": {
+                            "items": {
+                              "enum": [
+                                "exit_nonzero",
+                                "timeout",
+                                "launch_failed",
+                                "interrupted"
+                              ],
+                              "type": "string"
+                            },
+                            "type": "array",
+                            "uniqueItems": true
+                          },
+                          "timeout_seconds": {
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "execution_mode": {
+                        "default": null,
+                        "description": "Full run, reduced pilot, or short smoke check. Null means unrecorded.",
+                        "enum": [
+                          "full",
+                          "pilot",
+                          "smoke",
+                          null
+                        ],
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "output_storage": {
+                        "default": "data/0",
+                        "description": "Registered output store from system.status.data_stores. Defaults to data/0; frozen per Job.",
+                        "pattern": "^data/[0-9]+$",
+                        "type": "string"
+                      },
+                      "params": {
+                        "type": "object"
+                      },
+                      "pilot": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "preflight_for": {
+                            "maxLength": 2048,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "reduced_scope": {
+                            "maxLength": 2048,
+                            "minLength": 1,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "preflight_for",
+                          "reduced_scope"
+                        ],
+                        "type": "object"
+                      },
+                      "queue_position": {
+                        "default": "tail",
+                        "enum": [
+                          "tail",
+                          "next"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "params"
+                    ],
+                    "type": "object"
+                  },
+                  "id": {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                    "type": "string"
+                  },
+                  "label": {
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "requires": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "runtime": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "maxLength": 2048,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "revision": {
+                              "maximum": 9223372036854775807,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "sha256": {
+                              "pattern": "^[a-f0-9]{64}$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision"
+                          ],
+                          "type": "object"
+                        },
+                        "stage": {
+                          "enum": [
+                            "prepare",
+                            "runtime",
+                            "finalize",
+                            "on_complete",
+                            "on_error",
+                            "on_cancel"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "stage",
+                        "runtime"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 6,
+                    "type": "array",
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "id",
+                  "label"
+                ],
+                "type": "object"
+              },
+              "maxItems": 64,
+              "type": "array"
+            }
+          },
+          "required": [
+            "sealed",
+            "units"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "additionalProperties": false,
+              "properties": {
+                "execution": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "category": {
+                      "default": "other",
+                      "description": "Job purpose; does not select an execution runner.",
+                      "enum": [
+                        "sdg",
+                        "data_preparation",
+                        "fine_tuning",
+                        "evaluation",
+                        "pipeline",
+                        "development",
+                        "other"
+                      ],
+                      "type": "string"
+                    },
+                    "depends_on": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "execution": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "max_attempts": {
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "retry_backoff_seconds": {
+                          "maximum": 86400,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "retry_on": {
+                          "items": {
+                            "enum": [
+                              "exit_nonzero",
+                              "timeout",
+                              "launch_failed",
+                              "interrupted"
+                            ],
+                            "type": "string"
+                          },
+                          "type": "array",
+                          "uniqueItems": true
+                        },
+                        "timeout_seconds": {
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "execution_mode": {
+                      "default": null,
+                      "description": "Full run, reduced pilot, or short smoke check. Null means unrecorded.",
+                      "enum": [
+                        "full",
+                        "pilot",
+                        "smoke",
+                        null
+                      ],
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "output_storage": {
+                      "default": "data/0",
+                      "description": "Registered output store from system.status.data_stores. Defaults to data/0; frozen per Job.",
+                      "pattern": "^data/[0-9]+$",
+                      "type": "string"
+                    },
+                    "params": {
+                      "type": "object"
+                    },
+                    "pilot": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "preflight_for": {
+                          "maxLength": 2048,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "reduced_scope": {
+                          "maxLength": 2048,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "preflight_for",
+                        "reduced_scope"
+                      ],
+                      "type": "object"
+                    },
+                    "queue_position": {
+                      "default": "tail",
+                      "enum": [
+                        "tail",
+                        "next"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "params"
+                  ],
+                  "type": "object"
+                },
+                "label": {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "requires": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "runtime": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "maxLength": 2048,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "revision": {
+                            "maximum": 9223372036854775807,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "sha256": {
+                            "pattern": "^[a-f0-9]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "revision"
+                        ],
+                        "type": "object"
+                      },
+                      "stage": {
+                        "enum": [
+                          "prepare",
+                          "runtime",
+                          "finalize",
+                          "on_complete",
+                          "on_error",
+                          "on_cancel"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "stage",
+                      "runtime"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 6,
+                  "type": "array",
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "label"
+              ],
+              "type": "object"
+            },
+            "sealed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "sealed"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "presentation": {
+      "additionalProperties": false,
+      "properties": {
+        "experiment": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "output_roles": {
+          "additionalProperties": {
+            "enum": [
+              "main",
+              "support",
+              "test"
+            ]
+          },
+          "maxProperties": 256,
+          "type": "object"
+        },
+        "parent_job": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "request_ref": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "main",
+            "support",
+            "test"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "research",
+            "operations"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "scenario_ref": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "key",
+    "owner",
+    "notify",
+    "outcome",
+    "plan"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "key": "dataset-generation",
+  "notify": "researcher",
+  "outcome": {
+    "deliverables": [
+      {
+        "alias": "cases",
+        "entity": "cases",
+        "kind": "dataset"
+      }
+    ],
+    "goal": "Publish generated cases"
+  },
+  "owner": "researcher",
+  "plan": {
+    "run": {
+      "label": "Generate",
+      "requires": [
+        {
+          "runtime": {
+            "id": "simulation",
+            "revision": 1
+          },
+          "stage": "runtime"
+        }
+      ]
+    },
+    "sealed": false
+  }
+}
+```
+
+
+
+### Result and failures
+
+Reservation receipt · id, revision, sealed, execution_job, receipts and science_digest. Exact historical requests retain their response format.
+
+409 on changed replay, incompatible Profile output or unavailable required Runtime.
+
+## revise_plan
+
+Bind or seal the reserved execution on its existing ID. Replay an exact revision request with the same key. Additional scheduled work requires a separate Job.
+
+Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/plans.rs#write_plan](../../rust/crates/core/src/plans.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `expected_revision` | yes | `"integer"` | `—` |
+| `id` | yes | `"string"` | `—` |
+| `key` | yes | `"string"` | `—` |
+| `plan` | yes | `"see schema"` | `—` |
+| `reason` | yes | `"string"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "expected_revision": {
+      "maximum": 9223372036854775806,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "id": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "key": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "plan": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "sealed": {
+              "type": "boolean"
+            },
+            "units": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "depends_on": {
+                    "items": {
+                      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                      "type": "string"
+                    },
+                    "maxItems": 64,
+                    "type": "array",
+                    "uniqueItems": true
+                  },
+                  "execution": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "category": {
+                        "default": "other",
+                        "description": "Job purpose; does not select an execution runner.",
+                        "enum": [
+                          "sdg",
+                          "data_preparation",
+                          "fine_tuning",
+                          "evaluation",
+                          "pipeline",
+                          "development",
+                          "other"
+                        ],
+                        "type": "string"
+                      },
+                      "depends_on": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "execution": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "max_attempts": {
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "retry_backoff_seconds": {
+                            "maximum": 86400,
+                            "minimum": 0,
+                            "type": "integer"
+                          },
+                          "retry_on": {
+                            "items": {
+                              "enum": [
+                                "exit_nonzero",
+                                "timeout",
+                                "launch_failed",
+                                "interrupted"
+                              ],
+                              "type": "string"
+                            },
+                            "type": "array",
+                            "uniqueItems": true
+                          },
+                          "timeout_seconds": {
+                            "minimum": 1,
+                            "type": "integer"
+                          }
+                        },
+                        "type": "object"
+                      },
+                      "execution_mode": {
+                        "default": null,
+                        "description": "Full run, reduced pilot, or short smoke check. Null means unrecorded.",
+                        "enum": [
+                          "full",
+                          "pilot",
+                          "smoke",
+                          null
+                        ],
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "output_storage": {
+                        "default": "data/0",
+                        "description": "Registered output store from system.status.data_stores. Defaults to data/0; frozen per Job.",
+                        "pattern": "^data/[0-9]+$",
+                        "type": "string"
+                      },
+                      "params": {
+                        "type": "object"
+                      },
+                      "pilot": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "preflight_for": {
+                            "maxLength": 2048,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "reduced_scope": {
+                            "maxLength": 2048,
+                            "minLength": 1,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "preflight_for",
+                          "reduced_scope"
+                        ],
+                        "type": "object"
+                      },
+                      "queue_position": {
+                        "default": "tail",
+                        "enum": [
+                          "tail",
+                          "next"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "params"
+                    ],
+                    "type": "object"
+                  },
+                  "id": {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                    "type": "string"
+                  },
+                  "label": {
+                    "maxLength": 200,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "requires": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "runtime": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "maxLength": 2048,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "revision": {
+                              "maximum": 9223372036854775807,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "sha256": {
+                              "pattern": "^[a-f0-9]{64}$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision"
+                          ],
+                          "type": "object"
+                        },
+                        "stage": {
+                          "enum": [
+                            "prepare",
+                            "runtime",
+                            "finalize",
+                            "on_complete",
+                            "on_error",
+                            "on_cancel"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "stage",
+                        "runtime"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 6,
+                    "type": "array",
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "id",
+                  "label"
+                ],
+                "type": "object"
+              },
+              "maxItems": 64,
+              "type": "array"
+            }
+          },
+          "required": [
+            "sealed",
+            "units"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "run": {
+              "additionalProperties": false,
+              "properties": {
+                "execution": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "category": {
+                      "default": "other",
+                      "description": "Job purpose; does not select an execution runner.",
+                      "enum": [
+                        "sdg",
+                        "data_preparation",
+                        "fine_tuning",
+                        "evaluation",
+                        "pipeline",
+                        "development",
+                        "other"
+                      ],
+                      "type": "string"
+                    },
+                    "depends_on": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "execution": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "max_attempts": {
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "retry_backoff_seconds": {
+                          "maximum": 86400,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "retry_on": {
+                          "items": {
+                            "enum": [
+                              "exit_nonzero",
+                              "timeout",
+                              "launch_failed",
+                              "interrupted"
+                            ],
+                            "type": "string"
+                          },
+                          "type": "array",
+                          "uniqueItems": true
+                        },
+                        "timeout_seconds": {
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "execution_mode": {
+                      "default": null,
+                      "description": "Full run, reduced pilot, or short smoke check. Null means unrecorded.",
+                      "enum": [
+                        "full",
+                        "pilot",
+                        "smoke",
+                        null
+                      ],
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "output_storage": {
+                      "default": "data/0",
+                      "description": "Registered output store from system.status.data_stores. Defaults to data/0; frozen per Job.",
+                      "pattern": "^data/[0-9]+$",
+                      "type": "string"
+                    },
+                    "params": {
+                      "type": "object"
+                    },
+                    "pilot": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "preflight_for": {
+                          "maxLength": 2048,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "reduced_scope": {
+                          "maxLength": 2048,
+                          "minLength": 1,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "preflight_for",
+                        "reduced_scope"
+                      ],
+                      "type": "object"
+                    },
+                    "queue_position": {
+                      "default": "tail",
+                      "enum": [
+                        "tail",
+                        "next"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "params"
+                  ],
+                  "type": "object"
+                },
+                "label": {
+                  "maxLength": 200,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "requires": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "runtime": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "maxLength": 2048,
+                            "minLength": 1,
+                            "type": "string"
+                          },
+                          "revision": {
+                            "maximum": 9223372036854775807,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "sha256": {
+                            "pattern": "^[a-f0-9]{64}$",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "revision"
+                        ],
+                        "type": "object"
+                      },
+                      "stage": {
+                        "enum": [
+                          "prepare",
+                          "runtime",
+                          "finalize",
+                          "on_complete",
+                          "on_error",
+                          "on_cancel"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "stage",
+                      "runtime"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 6,
+                  "type": "array",
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "label"
+              ],
+              "type": "object"
+            },
+            "sealed": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "sealed"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "reason": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "key",
+    "expected_revision",
+    "reason",
+    "plan"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "expected_revision": 1,
+  "id": "<outcome-id>",
+  "key": "bind-generator",
+  "plan": {
+    "run": {
+      "execution": {
+        "kind": "generation.r1",
+        "params": {}
+      },
+      "label": "Generate",
+      "requires": [
+        {
+          "runtime": {
+            "id": "simulation",
+            "revision": 1
+          },
+          "stage": "runtime"
+        }
+      ]
+    },
+    "sealed": true
+  },
+  "reason": "Generator Profile and Runtime validated"
+}
+```
+
+
+
+### Result and failures
+
+Reservation receipt · id, revision, sealed, execution_job, receipts and science_digest. Exact historical requests retain their response format.
+
+403 for another principal. 409 on stale revision, changed replay, terminal outcome or unsatisfied prerequisite.
+
+## submit_research
+
+Admit one research output and its scheduled Units without Job nesting.
+
+Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/plans.rs#write_research_plan](../../rust/crates/core/src/plans.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `category` | no | `["sdg", "data_preparation", "fine_tuning", "evaluation", "pipeline", "development", "other"]` | `—` |
+| `key` | yes | `"string"` | `—` |
+| `notify` | yes | `"string"` | `—` |
+| `outcome` | yes | `"object"` | `—` |
+| `owner` | yes | `"string"` | `—` |
+| `plan` | yes | `"object"` | `—` |
+| `presentation` | no | `"object"` | `—` |
+| `scenario_ref` | no | `"object"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "category": {
+      "enum": [
+        "sdg",
+        "data_preparation",
+        "fine_tuning",
+        "evaluation",
+        "pipeline",
+        "development",
+        "other"
+      ]
+    },
+    "key": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    },
+    "notify": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "outcome": {
+      "additionalProperties": false,
+      "properties": {
+        "deliverables": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "alias": {
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                "type": "string"
+              },
+              "from": {
+                "additionalProperties": false,
+                "properties": {
+                  "entity": {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                    "type": "string"
+                  },
+                  "unit": {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "unit",
+                  "entity"
+                ],
+                "type": "object"
+              },
+              "kind": {
+                "enum": [
+                  "dataset",
+                  "model",
+                  "experiment"
+                ]
+              }
+            },
+            "required": [
+              "alias",
+              "kind",
+              "from"
+            ],
+            "type": "object"
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "type": "array"
+        },
+        "goal": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "science": {
+          "additionalProperties": false,
+          "properties": {
+            "deliverables": {
+              "additionalProperties": {
+                "additionalProperties": false,
+                "properties": {
+                  "activity": {
+                    "maxLength": 2048,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "contract_ref": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "maxLength": 2048,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "revision": {
+                        "maximum": 9223372036854775807,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "sha256": {
+                        "pattern": "^[a-f0-9]{64}$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "revision",
+                      "sha256"
+                    ],
+                    "type": "object"
+                  },
+                  "inputs": {
+                    "additionalProperties": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "id": {
+                          "maxLength": 2048,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "revision": {
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "revision"
+                      ],
+                      "type": "object"
+                    },
+                    "maxProperties": 64,
+                    "type": "object"
+                  },
+                  "sessions": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "configuration": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "id": {
+                              "maxLength": 2048,
+                              "minLength": 1,
+                              "type": "string"
+                            },
+                            "revision": {
+                              "maximum": 9223372036854775807,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "sha256": {
+                              "pattern": "^[a-f0-9]{64}$",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "revision",
+                            "sha256"
+                          ],
+                          "type": "object"
+                        },
+                        "domain": {
+                          "enum": [
+                            "simulation",
+                            "real"
+                          ]
+                        },
+                        "id": {
+                          "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "domain",
+                        "configuration"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 64,
+                    "type": "array"
+                  },
+                  "template_ref": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "maxLength": 2048,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "revision": {
+                        "maximum": 9223372036854775807,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "sha256": {
+                        "pattern": "^[a-f0-9]{64}$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "revision",
+                      "sha256"
+                    ],
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "activity",
+                  "template_ref",
+                  "contract_ref"
+                ],
+                "type": "object"
+              },
+              "maxProperties": 64,
+              "minProperties": 1,
+              "type": "object"
+            },
+            "hypothesis": {
+              "additionalProperties": false,
+              "properties": {
+                "aliases": {
+                  "items": {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                    "type": "string"
+                  },
+                  "maxItems": 64,
+                  "minItems": 1,
+                  "type": "array",
+                  "uniqueItems": true
+                },
+                "analysis": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "metric": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "population": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "statement": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "statement",
+                "analysis",
+                "population",
+                "metric",
+                "aliases"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "deliverables"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "goal",
+        "deliverables"
+      ],
+      "type": "object"
+    },
+    "owner": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "plan": {
       "additionalProperties": false,
       "properties": {
         "sealed": {
@@ -1610,6 +3239,35 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
                       "null"
                     ]
                   },
+                  "gpu_access": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "devices": {
+                        "items": {
+                          "maxLength": 2048,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "maxItems": 8,
+                        "type": "array",
+                        "uniqueItems": true
+                      },
+                      "memory_mib": {
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "mode": {
+                        "enum": [
+                          "shared",
+                          "exclusive"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "mode"
+                    ],
+                    "type": "object"
+                  },
                   "kind": {
                     "type": "string"
                   },
@@ -1620,6 +3278,26 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
                     "type": "string"
                   },
                   "params": {
+                    "type": "object"
+                  },
+                  "pilot": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "preflight_for": {
+                        "maxLength": 2048,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "reduced_scope": {
+                        "maxLength": 2048,
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "preflight_for",
+                      "reduced_scope"
+                    ],
                     "type": "object"
                   },
                   "queue_position": {
@@ -1645,6 +3323,13 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
                 "maxLength": 200,
                 "minLength": 1,
                 "type": "string"
+              },
+              "phase": {
+                "enum": [
+                  "prepare",
+                  "run",
+                  "finalize"
+                ]
               },
               "requires": {
                 "items": {
@@ -1703,6 +3388,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
             "type": "object"
           },
           "maxItems": 64,
+          "minItems": 1,
           "type": "array"
         }
       },
@@ -1799,37 +3485,32 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 
 ```json
 {
-  "key": "dataset-generation",
-  "notify": "researcher",
+  "key": "generate-paired",
+  "notify": "owner",
   "outcome": {
     "deliverables": [
       {
-        "alias": "cases",
+        "alias": "dataset",
         "from": {
-          "entity": "cases",
-          "node": "generate"
+          "entity": "dataset",
+          "unit": "generate"
         },
         "kind": "dataset"
       }
     ],
-    "goal": "Publish generated cases"
+    "goal": "Publish the final Dataset"
   },
-  "owner": "researcher",
+  "owner": "owner",
   "plan": {
-    "sealed": false,
+    "sealed": true,
     "units": [
       {
+        "execution": {
+          "kind": "owner.collect.r1",
+          "params": {}
+        },
         "id": "generate",
-        "label": "Generate",
-        "requires": [
-          {
-            "runtime": {
-              "id": "simulation",
-              "revision": 1
-            },
-            "stage": "runtime"
-          }
-        ]
+        "label": "Generate"
       }
     ]
   }
@@ -1840,15 +3521,15 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 
 ### Result and failures
 
-Outcome receipt · id, revision, sealed, nodes, receipts
+Returns the accepted Job ID, plan revision, sealed flag and map of Unit names to independently readable execution IDs.
 
-409 on changed replay, incompatible Profile output or unavailable required Runtime.
+Invalid inputs, pinned software, resource request or insufficient scope.
 
-## revise_plan
+## revise_research
 
-Submit the full next plan with its expected revision. Retain admitted units and existing prerequisites. Bind an open slot to an installed Profile or append a unit. Seal after all bindings and Runtime receipts resolve. Exact replay returns its original receipt.
+Bind or add Units within the original accepted research outcome.
 
-Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/plans.rs#write_plan](../../rust/crates/core/src/plans.rs).
+Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/plans.rs#write_research_plan](../../rust/crates/core/src/plans.rs).
 
 ### Inputs
 
@@ -1969,6 +3650,35 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
                       "null"
                     ]
                   },
+                  "gpu_access": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "devices": {
+                        "items": {
+                          "maxLength": 2048,
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "maxItems": 8,
+                        "type": "array",
+                        "uniqueItems": true
+                      },
+                      "memory_mib": {
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "mode": {
+                        "enum": [
+                          "shared",
+                          "exclusive"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "mode"
+                    ],
+                    "type": "object"
+                  },
                   "kind": {
                     "type": "string"
                   },
@@ -1979,6 +3689,26 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
                     "type": "string"
                   },
                   "params": {
+                    "type": "object"
+                  },
+                  "pilot": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "preflight_for": {
+                        "maxLength": 2048,
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "reduced_scope": {
+                        "maxLength": 2048,
+                        "minLength": 1,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "preflight_for",
+                      "reduced_scope"
+                    ],
                     "type": "object"
                   },
                   "queue_position": {
@@ -2004,6 +3734,13 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
                 "maxLength": 200,
                 "minLength": 1,
                 "type": "string"
+              },
+              "phase": {
+                "enum": [
+                  "prepare",
+                  "run",
+                  "finalize"
+                ]
               },
               "requires": {
                 "items": {
@@ -2062,6 +3799,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
             "type": "object"
           },
           "maxItems": 64,
+          "minItems": 1,
           "type": "array"
         }
       },
@@ -2095,31 +3833,22 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 ```json
 {
   "expected_revision": 1,
-  "id": "<outcome-id>",
+  "id": "<job-id>",
   "key": "bind-generator",
   "plan": {
     "sealed": true,
     "units": [
       {
         "execution": {
-          "kind": "generation.r1",
+          "kind": "owner.collect.r1",
           "params": {}
         },
         "id": "generate",
-        "label": "Generate",
-        "requires": [
-          {
-            "runtime": {
-              "id": "simulation",
-              "revision": 1
-            },
-            "stage": "runtime"
-          }
-        ]
+        "label": "Generate"
       }
     ]
   },
-  "reason": "Generator Profile and Runtime validated"
+  "reason": "Verified Runtime"
 }
 ```
 
@@ -2127,13 +3856,13 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 
 ### Result and failures
 
-Outcome receipt · id, revision, sealed, nodes, receipts
+Accepted identity and execution details
 
-403 for another principal. 409 on stale revision, changed replay, terminal outcome or unsatisfied prerequisite.
+Invalid inputs, pinned software, resource request or insufficient scope.
 
 ## preview_outcome
 
-Resolve scientific deliverable pins and list applicable reporting requirements before issuing a Job. This call does not allocate work. The same validation runs at creation; node Profile compatibility is checked on binding.
+Check output kinds, reporting pins, setup and optional hypothesis before submission. Direct Job deliverables identify the output entity.
 
 Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/plans.rs#preview_outcome](../../rust/crates/core/src/plans.rs).
 
@@ -2234,6 +3963,33 @@ Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crate
                   "alias",
                   "kind",
                   "runtime"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "alias": {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                    "type": "string"
+                  },
+                  "entity": {
+                    "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
+                    "type": "string"
+                  },
+                  "kind": {
+                    "enum": [
+                      "artifact",
+                      "dataset",
+                      "model",
+                      "experiment"
+                    ]
+                  }
+                },
+                "required": [
+                  "alias",
+                  "entity",
+                  "kind"
                 ],
                 "type": "object"
               }

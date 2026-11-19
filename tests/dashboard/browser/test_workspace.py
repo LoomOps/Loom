@@ -123,7 +123,7 @@ class WorkspaceBrowserTests(unittest.TestCase):
             'presentation':{'scope':'operations','role':'test','visible':False}}
         self.api.fixture['catalog']['entities'].append(model)
         self.ui.top();self.wd('/refresh',{});self.ui.connect();self.ui.nav('Models')
-        self.assertNotIn(model['label'],self.ui.js("return document.querySelector('#pa-content').innerText"))
+        self.ui.wait("return document.querySelector('[data-research-view]')?.value==='all' && document.querySelector('#pa-content').innerText.includes(arguments[0])",model['label'])
         self.ui.js("const e=document.querySelector('[data-research-view]');e.value='operations';e.dispatchEvent(new Event('change',{bubbles:true}))")
         self.ui.wait("return document.querySelector('#pa-content').innerText.includes(arguments[0])",model['label'])
         self.ui.js("const e=document.querySelector('[data-research-view]');e.value='research';e.dispatchEvent(new Event('change',{bubbles:true}))")
@@ -526,7 +526,8 @@ const done=arguments[arguments.length-1];
         ui=self.ui;ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
         ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('dataset-list-fixed')")
         ui.nav('Datasets')
-        ui.wait("return document.querySelectorAll('.pa-dataset-row').length===3");ui.click('[data-output-purpose=all]');ui.wait("return document.querySelectorAll('.pa-dataset-row').length===4")
+        ui.wait("return document.querySelectorAll('.pa-dataset-row').length===4")
+        ui.click('[data-output-purpose=research]');ui.wait("return document.querySelectorAll('.pa-dataset-row').length===3");ui.click('[data-output-purpose=all]');ui.wait("return document.querySelectorAll('.pa-dataset-row').length===4")
         self.assertFalse(ui.js("return !!document.querySelector('[data-dataset-family=unassigned]')"))
         text=ui.js("return ['rich','legacy','annotated','conditions'].map(id=>document.querySelector('[data-output-id=dataset-'+id+']').innerText)")
         self.assertIn('RGB · State · Action',text[0]);self.assertIn('82,714',text[0])
@@ -987,7 +988,7 @@ const done=arguments[arguments.length-1];
                     output=Path(folder);output.mkdir(parents=True,exist_ok=True);ui.top();(output/f'queue-history-{theme}-{width}.png').write_bytes(base64.b64decode(self.wd('/screenshot')));ui.frame()
         self.assertFalse(self.api.actions)
 
-    def test_workflow_nodes_stay_grouped_but_parented_followup_remains_visible(self):
+    def test_scheduled_jobs_remain_visible_across_legacy_group_and_followup(self):
         entities=[]
         for identity in ('parent-root','child-node','followup-root','followup-node'):
             e,r=native(identity);e['state']=e['properties']['state']=r['state']='running'
@@ -1004,11 +1005,10 @@ const done=arguments[arguments.length-1];
         self.ui.top();self.wd('/refresh',{});self.ui.connect()
         self.ui.wait("return document.querySelector('.pa-current-work-queue tbody')?.children.length===2")
         names=self.ui.js("return [...document.querySelectorAll('.pa-current-work-queue tbody tr')].map(r=>r.querySelector('td').textContent)")
-        self.assertTrue(any('parent-root' in n for n in names));self.assertTrue(any('followup-root' in n for n in names))
-        self.assertTrue(all('1 Node' in n and '1 Step' not in n for n in names))
-        self.assertFalse(any('child-node' in n or 'followup-node' in n for n in names));self.assertFalse(self.api.actions)
+        self.assertTrue(any('child-node' in n for n in names));self.assertTrue(any('followup-node' in n for n in names))
+        self.assertFalse(any('parent-root' in n or 'followup-root' in n for n in names));self.assertFalse(self.api.actions)
         self.ui.route('parent-root')
-        self.ui.wait("return [...document.querySelectorAll('#pa-content tr')].some(r=>r.textContent.includes('Prepare inputs') && r.closest('table').querySelector('th')?.textContent==='Node')")
+        self.ui.wait("return [...document.querySelectorAll('#pa-content tr')].some(r=>r.textContent.includes('Prepare inputs') && r.closest('table').querySelector('th')?.textContent==='Job')")
 
     def test_running_recovery_shows_execution_phase_and_historical_pause_is_separate(self):
         f=self.api.fixture;entity,record=native('fixture-running')
@@ -1539,6 +1539,7 @@ const done=arguments[arguments.length-1];
         self.assertFalse(ui.js("return [...document.querySelectorAll('#pa-nav button')].some(e=>['Profiles','Components','Tools'].includes(e.textContent.trim()))"))
         ui.click('[data-entity="profile:'+kind+'"]');ui.click('[data-profile-prepare]')
         ui.js("for(const name of ['key','owner','notify']){const e=document.querySelector('[data-profile-draft] [name='+name+']');e.value=name==='key'?'evaluation-test':'owner';e.dispatchEvent(new Event('input',{bubbles:true}));}")
+        ui.js("const f=document.querySelector('[data-profile-draft]');f.elements.mode.value='pilot';f.elements.mode.dispatchEvent(new Event('change',{bubbles:true}));f.elements.preflight_for.value='full evaluation';f.elements.reduced_scope.value='two episodes'")
         ui.click('[data-profile-draft] button[type=submit]')
         try:ui.wait("return !document.querySelector('[data-draft-copy]').disabled")
         except AssertionError:
@@ -1547,7 +1548,7 @@ const done=arguments[arguments.length-1];
         ui.top();ui.js("window.hubCopied=null;Object.defineProperty(navigator,'clipboard',{value:{writeText:async()=>{}},configurable:true});window.addEventListener('message',e=>{if(e.data?.type==='loom-doc-copy')window.hubCopied=e.data.text})");ui.frame()
         ui.click('[data-draft-copy]');ui.top();ui.wait("return window.hubCopied!==null")
         copied=__import__('json').loads(ui.js("return window.hubCopied"));self.assertEqual(copied['jsonrpc'],'2.0');self.assertEqual(copied['method'],'tools/call')
-        self.assertEqual(copied['params']['name'],'jobs');self.assertEqual(copied['params']['arguments']['arguments']['params'],{'episodes':2});ui.frame()
+        self.assertEqual(copied['params']['arguments']['arguments']['pilot'],{'preflight_for':'full evaluation','reduced_scope':'two episodes'});self.assertEqual(copied['params']['name'],'jobs');self.assertEqual(copied['params']['arguments']['arguments']['params'],{'episodes':2});ui.frame()
 
         ui.js("const e=document.querySelector('[name=params]');e.value='{}';e.dispatchEvent(new Event('input',{bubbles:true}))")
         self.assertTrue(ui.js("return document.querySelector('[data-draft-copy]').disabled"))
@@ -1657,7 +1658,8 @@ const done=arguments[arguments.length-1];
         ui.wait("return !!document.querySelector('.pa-current-work-queue [data-entity=fixture-development]')")
         self.assertFalse(ui.js("return [...document.querySelectorAll('.pa-panel h2')].some(e=>e.textContent.includes('Development / Supporting'))"))
         self.assertTrue(ui.js("return !!document.querySelector('.pa-current-work-queue [data-entity=\"work:fixture-10\"]')"))
-        ui.nav('Models');self.assertFalse(ui.js("return !!document.querySelector('[data-output-id=observer-weight-fixture]')"))
+        ui.nav('Models');ui.wait("return !!document.querySelector('[data-output-id=observer-weight-fixture]')")
+        ui.click('[data-output-purpose=research]');self.assertFalse(ui.js("return !!document.querySelector('[data-output-id=observer-weight-fixture]')"))
         ui.click('[data-output-purpose=development]');ui.wait("return !!document.querySelector('[data-output-id=observer-weight-fixture]')")
         ui.click('[data-output-id=observer-weight-fixture] [data-entity=observer-weight-fixture]');ui.wait("return document.querySelector('h1').textContent==='Geometry weights'")
         self.assertIn('Model typeObserver',ui.js("return document.querySelector('#pa-content').textContent"))
@@ -1718,7 +1720,8 @@ const done=arguments[arguments.length-1];
                 ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
                 self.assertTrue(ui.js("""const cards=document.querySelector('.pa-research-overview.pa-output-overview-cards');
                     const sections=[...cards.querySelectorAll(':scope > .pa-output-section')];
-                    return getComputedStyle(cards).display==='grid' && sections.length>=2 && sections.every(s=>getComputedStyle(s).borderTopStyle==='solid');
+                    const next=cards.parentElement.querySelector(':scope > .pa-panel:not(.pa-research-overview)');
+                    return (!next || Math.abs(next.clientWidth-cards.clientWidth)<2) && getComputedStyle(cards).display==='grid' && sections.length>=2 && cards.matches('.pa-panel') && sections.every(s=>getComputedStyle(s).borderLeftStyle==='none');
                 """))
 
     def test_dataset_families_subgroups_and_deep_lineage_keep_expansion_state(self):
@@ -1750,6 +1753,30 @@ const done=arguments[arguments.length-1];
             ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
             for theme in ['light','dark']:
                 ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
+
+    def test_runtime_empty_state_waits_for_page_and_distinguishes_indexing(self):
+        ui = self.ui
+        ui.nav('Runtimes')
+        page = {'entities': [], 'partial': True, 'next_cursor': None}
+        self.api.fixture['search_actions'] = {'dashboard_page': page}
+        catalog = self.api.fixture['catalog']
+        catalog.update(revision='cold-runtime-list', capabilities={'catalog_pages': True})
+        release = Event()
+        send = self.api.RequestHandlerClass.send_json
+        def delay(handler, value, status=200):
+            if value is page:
+                release.wait(timeout=8)
+            return send(handler, value, status)
+        with patch.object(self.api.RequestHandlerClass, 'send_json', delay):
+            ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+            try:
+                ui.wait("return document.querySelector('.pa-registry-status')?.textContent==='Loading…'")
+                self.assertFalse(ui.js("return !!document.querySelector('.pa-extension-empty')"))
+            finally:
+                release.set()
+            ui.wait("return document.querySelector('.pa-registry-status')?.textContent==='Indexing…'")
+            page['partial'] = False
+            ui.wait("return !document.querySelector('.pa-registry-status')&&!!document.querySelector('.pa-extension-empty')")
 
     def test_indexing_is_only_a_footer_spinner_and_clears_at_idle(self):
         ui=self.ui
@@ -1809,7 +1836,7 @@ const done=arguments[arguments.length-1];
             ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
             for theme in ('light','dark'):
                 ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
-                self.assertTrue(ui.js("const input=document.querySelector('.pa-research-input-panel').getBoundingClientRect(),overview=document.querySelector('.pa-research-overview').getBoundingClientRect();return Math.abs(input.width-overview.width)<2"))
+                self.assertTrue(ui.js("const input=document.querySelector('.pa-research-input-panel').getBoundingClientRect(),overview=document.querySelector('.pa-research-overview'),style=getComputedStyle(overview);return Math.abs(input.width-(overview.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight)))<2"))
 
     def test_metadata_only_same_revision_refresh_preserves_verified_research_facts(self):
         ui=self.ui;model=next(e for e in self.api.fixture['catalog']['entities'] if e['id']=='fixture-model');model['properties']={}
@@ -1907,6 +1934,7 @@ const done=arguments[arguments.length-1];
         catalog['capabilities']={'reporting':True}
         shared={'properties':{},'metrics':[],'relations':[],'artifacts':[]}
         dataset={**shared,'id':'imported-dataset','kind':'dataset','label':'Public demonstrations','reporting':{'activity':'dataset_import','contract_ref':{'id':'loom.report.dataset','revision':1},'reports':[]}}
+        dataset['research_summary']={'schema':'loom-research-summary/v1','facts':[{'id':'bc_ready','section':'quality','label':'BC ready','status':'recorded','value':True}], 'inputs':[], 'sources':[]}
         evaluation={**shared,'id':'checkpoint-evaluation','kind':'experiment','label':'Matched resets',
                     'reporting':{'state':'validated','primary_outcome':{'label':'Pooled','numerator':23,'denominator':40},'reports':[],
                                  'contract_ref':{'id':'loom.report.checkpoint_evaluation','revision':1},
@@ -1917,6 +1945,12 @@ const done=arguments[arguments.length-1];
         ui.nav('Catalog');ui.wait("return document.querySelector('[data-output-id=imported-dataset] .pa-dataset-origin')?.textContent==='Imported'")
         ui.js("const f=document.querySelector('[data-dataset-filter=origin]');f.value='Imported';f.dispatchEvent(new Event('change',{bubbles:true}))")
         self.assertEqual(ui.js("return document.querySelectorAll('.pa-dataset-row').length"),1)
+        self.assertTrue(ui.js("""const badge=document.querySelector('.pa-dataset-row .pa-dataset-origin'),bc=badge.nextElementSibling;
+            return bc.textContent==='BC ready' && bc.getBoundingClientRect().left-badge.getBoundingClientRect().right>=6"""))
+        ui.route('imported-dataset')
+        ui.wait("return !!document.querySelector('.pa-heading .pa-dataset-origin')")
+        self.assertTrue(ui.js("""const badge=document.querySelector('.pa-heading .pa-dataset-origin'),a=getComputedStyle(badge),b=getComputedStyle(badge.parentElement);
+            return ['fontFamily','fontWeight','fontSize','letterSpacing'].every(k=>a[k]===b[k])"""))
         ui.nav('Experiments');ui.wait("return !!document.querySelector('[data-output-id=checkpoint-evaluation] .pa-result-score')")
         score=ui.js("return document.querySelector('[data-output-id=checkpoint-evaluation] .pa-result-score').innerText")
         for value in ['Best observed','10,000','80.0%']:self.assertIn(value,score)

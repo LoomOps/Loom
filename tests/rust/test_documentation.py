@@ -23,7 +23,7 @@ class DocumentationWorkflowTests(unittest.TestCase):
   action=self.call('system','describe',{'group':'jobs','action':'submit'})
   self.assertEqual(next(a for a in group['actions'] if a['action']=='submit'),action)
   self.assertTrue(self.call('system','guide',{'known_revision':index['manifest']['revision']})['not_modified'])
- def test_first_job_tutorial_runs_and_replay_preserves_one_execution(self):
+ def test_first_unit_tutorial_runs_and_replay_preserves_one_execution(self):
   text=self.call('system','guide',{'id':'quickstart'})['content']
   request=json.loads(re.search(r'```json\n(.*?)\n```',text,re.S)[1])
   arguments=request['params']['arguments']['arguments'];arguments['owner']='owner';arguments['notify']='owner'
@@ -32,7 +32,8 @@ class DocumentationWorkflowTests(unittest.TestCase):
   job=json.loads(result['content'][0]['text']);done=self.wait(job['id'])
   replay=self.post('/mcp',request)['result'];self.assertEqual(json.loads(replay['content'][0]['text'])['id'],job['id'])
   self.assertEqual(done['status'],'completed');self.assertEqual(len(done['attempts']),1)
-  self.assertEqual(len(self.call('jobs','list',{'view':'all'})),1)
+  self.assertEqual(self.call('units','get',{'id':job['id']})['entry_type'],'unit')
+  self.assertEqual(self.call('jobs','list',{'view':'all'}),[])
   self.assertTrue(done['result']['artifact_ready'])
   arguments['params']['seconds']=1
   conflict=self.post('/mcp',request)['result'];self.assertTrue(conflict['isError'])

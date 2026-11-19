@@ -5,6 +5,63 @@ use serde_json::{json, Value};
 use std::fs;
 
 #[test]
+fn exhausted_research_unit_keeps_one_failed_job_and_releases_waiting_units() {
+    let mut f = Fixture::new();
+    let run = json!({"kind":"cpu.smoke","params":{"seconds":0,"fail":true}});
+    let job = f.call("jobs", "submit_research", json!({"key":"typed-exhausted","owner":"owner","notify":"owner",
+        "outcome":{"goal":"Dataset preparation","deliverables":[{"alias":"dataset","kind":"dataset","from":{"unit":"generate","entity":"dataset"}}]},
+        "plan":{"sealed":false,"units":[{"id":"check","label":"Check","execution":run},
+            {"id":"confirm","label":"Confirm","depends_on":["check"],"execution":run},
+            {"id":"generate","label":"Generate","depends_on":["confirm"]}]}})).unwrap();
+    let unit = job["units"]["check"].as_str().unwrap();
+    let work = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(work.job, unit);
+    f.app
+        .db
+        .execute(
+            "INSERT INTO recovery(job,state,rounds,updated) VALUES(?,'executing',3,0)",
+            [unit],
+        )
+        .unwrap();
+    f.app
+        .stage_returned(&work, 1, json!({"returned":true}))
+        .unwrap();
+    let failed = f.call("jobs", "get", json!({"id":job["id"]})).unwrap();
+    assert_eq!(failed["state"], "failed");
+    assert_eq!(
+        f.call("units", "get", json!({"id":job["units"]["confirm"]}))
+            .unwrap()["state"],
+        "cancelled"
+    );
+    assert_eq!(f.app.queue().unwrap()["job_entries"], json!([]));
+    assert_eq!(f.count("events"), 1);
+}
+
+#[test]
+fn first_typed_submission_fences_old_writer_and_preserves_exact_reads() {
+    let mut f = Fixture::new();
+    let legacy = f.submit("legacy-before-units");
+    let accepted = f.call("units", "submit", json!({"key":"first-typed","kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false}})).unwrap();
+    let unit = accepted["id"].as_str().unwrap();
+    let (local, bulk, components, config) =
+        (&f.app.local, &f.app.bulk, &f.app.components, &f.app.config);
+    let older_writer = Application::open_schema(local, bulk, components, config.clone(), 7);
+    assert_eq!(older_writer.err().unwrap().code, "schema");
+    let writer = Application::open(local, bulk, components, config.clone()).unwrap();
+    let reader = Application::open_read_only(local, bulk, components, config.clone()).unwrap();
+    for app in [&writer, &reader] {
+        assert_eq!(app.inspect_job(unit).unwrap()["entry_type"], "unit");
+        assert_eq!(app.inspect_job(&legacy).unwrap()["id"], legacy);
+        assert_eq!(
+            app.db
+                .query_row("PRAGMA integrity_check", [], |r| r.get::<_, String>(0))
+                .unwrap(),
+            "ok"
+        );
+    }
+}
+
+#[test]
 fn local_source_registration_rejects_special_and_oversized_files_before_publication() {
     use std::os::unix::ffi::OsStrExt;
     let mut f = Fixture::new();
@@ -65,7 +122,7 @@ fn recovery_recomputes_inferred_dependencies_and_preserves_graph_and_store_ident
         .stage_returned(&work, 1, json!({"returned":true}))
         .unwrap();
     let downstream=f.call("jobs","submit",json!({"key":"downstream","kind":"cpu.smoke","owner":"owner","notify":"owner","depends_on":[target],"params":{"seconds":0,"fail":false}})).unwrap()["id"].clone();
-    let workflow=f.call("jobs","submit_workflow",json!({"key":"downstream-graph","label":"Dependent graph","owner":"owner","notify":"owner","nodes":[{"id":"one","label":"Dependent","spec":{"kind":"cpu.smoke","depends_on":[target],"params":{"seconds":0,"fail":false}}}],"outputs":{}})).unwrap()["id"].clone();
+    let workflow=f.legacy_workflow(json!({"key":"downstream-graph","label":"Dependent graph","owner":"owner","notify":"owner","nodes":[{"id":"one","label":"Dependent","spec":{"kind":"cpu.smoke","depends_on":[target],"params":{"seconds":0,"fail":false}}}],"outputs":{}})).unwrap()["id"].clone();
     let lease = f.call("recovery", "claim", json!({"id":target})).unwrap()["lease"].clone();
     for dependency in [json!(target), downstream, workflow] {
         let error=f.call("recovery","resume",json!({"id":target,"lease":lease,"patch":{"params":{"data":{"job":dependency,"entity":"data"}}}})).unwrap_err();
@@ -713,6 +770,109 @@ fn obsolete_captured_observer_aliases_cannot_return_when_source_file_is_missing(
         .unwrap()
         .is_empty());
 }
+#[test]
+fn twelve_existing_jobs_remain_individually_pageable_and_new_graphs_are_refused() {
+    let mut f = Fixture::new();
+    let units:Vec<_>=(0..12).map(|i|json!({"id":format!("j{i}"),"label":format!("Run {i}"),
+        "spec":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false},"execution_mode":if i<2 {"full"}else{"pilot"}}})).collect();
+    let raw = json!({"key":"prior-series","label":"Research series","owner":"owner","notify":"owner","nodes":units,"outputs":{}});
+    assert_eq!(
+        f.call("jobs", "submit_workflow", raw.clone())
+            .unwrap_err()
+            .code,
+        "separate_jobs"
+    );
+    let old = f.legacy_workflow(raw.clone()).unwrap();
+    assert_eq!(f.call("jobs", "submit_workflow", raw).unwrap(), old);
+    let mut ids = std::collections::BTreeSet::new();
+    for offset in [0, 5, 10] {
+        let page = f
+            .call("jobs", "list", json!({"limit":5,"offset":offset}))
+            .unwrap();
+        for job in page.as_array().unwrap() {
+            assert!(ids.insert(job["id"].as_str().unwrap().to_owned()));
+        }
+    }
+    assert_eq!(ids.len(), 12);
+    assert!(!ids.contains(old["id"].as_str().unwrap()));
+    let pilots = f
+        .call("jobs", "list", json!({"execution_mode":"pilot"}))
+        .unwrap();
+    assert_eq!(pilots.as_array().unwrap().len(), 10);
+    for _ in 0..8 {
+        f.app.index_once().unwrap();
+    }
+    let mut cursor = Value::Null;
+    let mut page_ids = std::collections::BTreeSet::new();
+    loop {
+        let mut args =
+            json!({"kinds":["job"],"role":"all","view":"all","limit":5,"records_only":true});
+        if !cursor.is_null() {
+            args["cursor"] = cursor;
+        }
+        let page = f.call("system", "dashboard_page", args).unwrap();
+        for job in page["entities"].as_array().unwrap() {
+            assert!(page_ids.insert(job["id"].as_str().unwrap().to_owned()));
+        }
+        cursor = page["next_cursor"].clone();
+        if cursor.is_null() {
+            break;
+        }
+    }
+    assert_eq!(page_ids, ids);
+    let occupancy = f.app.dashboard_occupancy(&f.actor).unwrap();
+    assert_eq!(occupancy["entities"].as_array().unwrap().len(), 12);
+    assert!(occupancy["queue"]["logical_entries"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+}
+#[test]
+fn direct_pilot_and_output_belong_to_the_execution_and_reservation_binds_just_one_job() {
+    let mut f = Fixture::new();
+    let mut raw = json!({"key":"preflight","owner":"owner","notify":"owner","kind":"cpu.smoke","params":{"seconds":0,"fail":false},
+        "execution_mode":"pilot","outcome":{"goal":"Validate publication","deliverables":[{"alias":"receipt","kind":"artifact","entity":"observation"}]}});
+    assert_eq!(
+        f.call("jobs", "submit", raw.clone()).unwrap_err().code,
+        "pilot_scope"
+    );
+    raw["pilot"] = json!({"preflight_for":"full collection","reduced_scope":"one episode"});
+    let mut invalid = raw.clone();
+    invalid["outcome"]["deliverables"][0]["entity"] = json!("absent");
+    assert_eq!(
+        f.call("jobs", "submit", invalid).unwrap_err().code,
+        "deliverable"
+    );
+    let job = f.call("jobs", "submit", raw.clone()).unwrap();
+    assert_eq!(job, f.call("jobs", "submit", raw.clone()).unwrap());
+    let detail = f.call("jobs", "get", job.clone()).unwrap();
+    assert_eq!(detail["spec"]["outcome"], raw["outcome"]);
+    assert_eq!(f.count("job_workflows"), 0);
+    raw["pilot"]["reduced_scope"] = json!("two episodes");
+    assert_eq!(
+        f.call("jobs", "submit", raw).unwrap_err().code,
+        "idempotency_conflict"
+    );
+    let open = json!({"key":"reserve","owner":"owner","notify":"owner","outcome":{"goal":"Check the pending Runtime",
+        "deliverables":[{"alias":"receipt","kind":"artifact","entity":"observation"}]},"plan":{"sealed":false,"run":{"label":"Check Runtime"}}});
+    let mut multiple = open.clone();
+    multiple["plan"] =
+        json!({"sealed":false,"units":[{"id":"a","label":"A"},{"id":"b","label":"B"}]});
+    multiple["outcome"] = json!({"goal":"Multiple runs"});
+    assert_eq!(
+        f.call("jobs", "create", multiple).unwrap_err().code,
+        "separate_jobs"
+    );
+    let reserved = f.call("jobs", "create", open.clone()).unwrap();
+    assert_eq!(reserved, f.call("jobs", "create", open).unwrap());
+    assert!(reserved["execution_job"].is_null());
+    let bind = json!({"id":reserved["id"],"key":"bind","expected_revision":1,"reason":"Ready","plan":
+        {"sealed":true,"run":{"label":"Check Runtime","execution":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}}}});
+    let receipt = f.call("jobs", "revise_plan", bind.clone()).unwrap();
+    assert!(receipt["execution_job"].is_string());
+    assert_eq!(receipt, f.call("jobs", "revise_plan", bind).unwrap());
+    assert_eq!(f.count("jobs"), 2);
+}
 struct Fixture {
     app: Application,
     root: std::path::PathBuf,
@@ -741,6 +901,32 @@ impl Fixture {
     }
     fn call(&mut self, group: &str, action: &str, args: Value) -> Result<Value> {
         self.app.execute(&self.actor.clone(), group, action, args)
+    }
+    // Reconstruct pre-upgrade fixtures for compatibility reads, hold, recovery and callbacks.
+    fn legacy_workflow(&mut self, raw: Value) -> Result<Value> {
+        let request: contracts::Workflow = serde_json::from_value(raw.clone())?;
+        let root = uuid::Uuid::new_v4().simple().to_string();
+        let config = self.app.config.clone();
+        let bulk = self.app.bulk.clone();
+        let tx = self.app.transaction()?;
+        tx.execute("INSERT INTO job_workflows(id,submitter,key,request,owner,notify,created,state) VALUES(?,?,?,?,?,?,?,'queued')",
+            rusqlite::params![root,self.actor.id,request.key,crate::compat::dump(&raw),request.owner,request.notify,store::now()])?;
+        let mut jobs = serde_json::Map::new();
+        for unit in &request.nodes {
+            let job = crate::jobs::admit_node(
+                &tx,
+                (&config, &bulk),
+                &self.actor,
+                &root,
+                &request,
+                unit,
+                &jobs,
+                None,
+            )?;
+            jobs.insert(unit.id.clone(), json!(job));
+        }
+        tx.commit()?;
+        Ok(json!({"id":root,"nodes":jobs}))
     }
     fn submit(&mut self, key: &str) -> String {
         self.call("jobs","submit",json!({"key":key,"kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false}})).unwrap()["id"].as_str().unwrap().into()
@@ -1164,8 +1350,8 @@ fn research_curation_rejects_cycles_and_unknown_items_atomically() {
 fn preparation_family_preserves_workflow_states_pins_and_execution_membership() {
     let mut f = Fixture::new();
     let spec = json!({"kind":"cpu.smoke","params":{"seconds":0,"fail":false}});
-    let main=f.call("jobs","submit_workflow",json!({"key":"preparation-root","label":"Requested preparation","owner":"owner","notify":"owner","nodes":[{"id":"pilot","label":"Pilot","spec":spec}],"outputs":{},"presentation":{"scope":"operations","role":"test"}})).unwrap()["id"].clone();
-    let repair=f.call("jobs","submit_workflow",json!({"key":"preparation-repair","label":"Render repair","owner":"owner","notify":"owner","nodes":[{"id":"render","label":"Render","spec":spec}],"outputs":{}})).unwrap()["id"].clone();
+    let main=f.legacy_workflow(json!({"key":"preparation-root","label":"Requested preparation","owner":"owner","notify":"owner","nodes":[{"id":"pilot","label":"Pilot","spec":spec}],"outputs":{},"presentation":{"scope":"operations","role":"test"}})).unwrap()["id"].clone();
+    let repair=f.legacy_workflow(json!({"key":"preparation-repair","label":"Render repair","owner":"owner","notify":"owner","nodes":[{"id":"render","label":"Render","spec":spec}],"outputs":{}})).unwrap()["id"].clone();
     let original = f.call("jobs", "get", json!({"id":repair})).unwrap();
     for _ in 0..8 {
         f.app.index_once().unwrap();
@@ -1209,12 +1395,12 @@ fn preparation_family_preserves_workflow_states_pins_and_execution_membership() 
             json!({"kinds":["job"],"view":"all","role":"all","limit":100}),
         )
         .unwrap();
-    assert!(page["entities"]
+    assert!(!page["entities"]
         .as_array()
         .unwrap()
         .iter()
         .any(|e| e["id"] == main));
-    assert!(page["entities"]
+    assert!(!page["entities"]
         .as_array()
         .unwrap()
         .iter()
@@ -1346,7 +1532,7 @@ fn runtime_usage_uses_frozen_stage_receipts_even_for_failed_operational_jobs() {
 fn group_summary_tracks_later_nested_execution_without_rewriting_the_completed_root() {
     let mut f = Fixture::new();
     let main = f.submit("group-original");
-    let workflow = f.call("jobs","submit_workflow",json!({"key":"group-followup","label":"Later repair","owner":"owner","notify":"owner","nodes":[{"id":"one","label":"Later execution","spec":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}}],"outputs":{}})).unwrap()["id"].as_str().unwrap().to_string();
+    let workflow = f.legacy_workflow(json!({"key":"group-followup","label":"Later repair","owner":"owner","notify":"owner","nodes":[{"id":"one","label":"Later execution","spec":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}}],"outputs":{}})).unwrap()["id"].as_str().unwrap().to_string();
     let child: String = f
         .app
         .db
@@ -1479,14 +1665,13 @@ fn activity_counts_standalone_jobs_across_kst_midnight_despite_presentation_link
 }
 
 #[test]
-fn activity_groups_preparation_by_main_job_and_unions_actual_intervals() {
+fn activity_counts_scheduled_jobs_and_unions_overlapping_intervals() {
     let mut f = Fixture::new();
-    let plan=f.call("jobs","submit_workflow",json!({"key":"activity-preparation-main","label":"Preparation",
+    let plan=f.legacy_workflow(json!({"key":"activity-preparation-main","label":"Preparation",
         "owner":"owner","notify":"owner",
         "nodes":[{"id":"prepare","label":"Prepare","spec":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}},
                  {"id":"repair","label":"Repair","spec":{"kind":"cpu.smoke","params":{"seconds":0,"fail":false}}}],
         "outputs":{},"presentation":{"scope":"operations","role":"support"}})).unwrap();
-    let main = plan["id"].as_str().unwrap();
     let prepare = plan["nodes"]["prepare"].as_str().unwrap();
     let child = plan["nodes"]["repair"].as_str().unwrap();
     let day = ((store::now() + 32400.) / 86400.).floor() - 1.;
@@ -1509,9 +1694,15 @@ fn activity_groups_preparation_by_main_job_and_unions_actual_intervals() {
         .unwrap();
     let all = f.app.dashboard_activity("all").unwrap();
     assert_eq!(all["days"].as_array().unwrap().len(), 1);
-    assert_eq!(all["days"][0]["job_count"], 1);
-    assert_eq!(all["days"][0]["jobs"][0]["id"], main);
-    assert_eq!(all["days"][0]["milliseconds"], 40000.);
+    assert_eq!(all["days"][0]["job_count"], 2);
+    for id in [prepare, child] {
+        assert!(all["days"][0]["jobs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|j| j["id"] == id));
+    }
+    assert_eq!(all["days"][0]["milliseconds"], 50000.);
     assert_eq!(
         f.call("jobs", "get", json!({"id":child})).unwrap()["state"],
         "failed"
@@ -1572,7 +1763,7 @@ fn recovery_patches_accumulate_without_changing_original_idempotency() {
 fn workflow_hold_and_resume_apply_only_to_real_waiting_members() {
     let mut f = Fixture::new();
     let spec = json!({"kind":"cpu.smoke","params":{"seconds":0,"fail":false}});
-    let w=f.call("jobs","submit_workflow",json!({"key":"hold-plan","label":"Outcome","owner":"owner","notify":"owner","nodes":[{"id":"a","label":"First","spec":spec},{"id":"b","label":"Second","depends_on":["a"],"spec":spec}],"outputs":{"out":{"node":"b","entity":"observation"}}})).unwrap();
+    let w=f.legacy_workflow(json!({"key":"hold-plan","label":"Outcome","owner":"owner","notify":"owner","nodes":[{"id":"a","label":"First","spec":spec},{"id":"b","label":"Second","depends_on":["a"],"spec":spec}],"outputs":{"out":{"node":"b","entity":"observation"}}})).unwrap();
     f.call(
         "jobs",
         "hold",
@@ -1586,7 +1777,87 @@ fn workflow_hold_and_resume_apply_only_to_real_waiting_members() {
         json!({"id":w["id"],"reason":"Operator resume"}),
     )
     .unwrap();
-    assert!(f.app.next_work(&Default::default()).unwrap().is_some());
+    let first = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(first.job, w["nodes"]["a"]);
+    f.call("jobs", "hold", json!({"id":w["id"]})).unwrap();
+    fs::create_dir_all(&first.folder).unwrap();
+    fs::write(first.folder.join("manifest.txt"), b"verified batch").unwrap();
+    f.app
+        .stage_returned(&first, 0, json!({"returned":true}))
+        .unwrap();
+    let publication = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert!(publication.publication);
+    f.app.publish_work(&publication, json!({"entities":[{"id":"observation","kind":"artifact","path":"manifest.txt"}],"metrics":[]})).unwrap();
+    assert!(f.app.next_work(&Default::default()).unwrap().is_none());
+    f.call("jobs", "resume", json!({"id":w["id"]})).unwrap();
+    let second = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(second.job, w["nodes"]["b"]);
+    let completed = f.call("jobs", "get", json!({"id":first.job})).unwrap();
+    assert_eq!(completed["state"], "complete");
+    assert_eq!(completed["attempts"].as_array().unwrap().len(), 1);
+}
+#[test]
+fn workflow_held_during_cpu_preparation_waits_before_gpu_run() {
+    let mut f = Fixture::new();
+    let profile = json!({"schema":"loom-execution/v2","revision":"staged.r1","sha256":"b".repeat(64),
+        "params_schema":{"type":"object"},"prepare":{"runtime_id":"prepare","lane":"cpu","depends_on":[],"inputs":[],"command":["/bin/true"]},
+        "runtime":{"executor":"container","runtime_id":"train","lane":"gpu","command":["/bin/true"]},
+        "inputs":{},"outputs":null,"limits":{"max_attempts":1,"timeout_seconds":30}});
+    f.app.config.profiles.insert("staged.r1".into(), profile);
+    let root = f.legacy_workflow(json!({"key":"stage-hold","label":"Generation","owner":"owner","notify":"owner",
+        "nodes":[{"id":"batch","label":"Batch","spec":{"kind":"staged.r1","params":{}}}],"outputs":{}})).unwrap();
+    let prepare = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(prepare.stage, "prepare");
+    let queue = f.call("jobs", "hold", json!({"id":root["id"]})).unwrap();
+    let member = queue["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == prepare.job)
+        .unwrap();
+    assert_eq!(
+        (&member["stage"], &member["lane"]),
+        (&json!("prepare"), &json!("cpu"))
+    );
+    assert_eq!(member["can_resume"], true);
+    assert_eq!(member["can_reorder"], false);
+    f.app
+        .stage_returned(&prepare, 0, json!({"returned":true}))
+        .unwrap();
+    let mut reopened = Application::open(
+        &f.app.local,
+        &f.app.bulk,
+        &f.app.components,
+        f.app.config.clone(),
+    )
+    .unwrap();
+    assert!(reopened.next_work(&Default::default()).unwrap().is_none());
+    reopened
+        .execute(&f.actor, "jobs", "resume", json!({"id":root["id"]}))
+        .unwrap();
+    let run = reopened.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(run.stage, "run");
+    assert_eq!(run.attempt, prepare.attempt);
+
+    let downstream = reopened
+        .execute(
+            &f.actor,
+            "jobs",
+            "submit",
+            json!({
+                "key":"overlapped", "kind":"staged.r1", "owner":"owner", "notify":"owner",
+                "params":{}, "depends_on":[run.job]
+            }),
+        )
+        .unwrap();
+    let in_flight = [run.effect.clone()].into_iter().collect();
+    let next_prepare = reopened.next_work(&in_flight).unwrap().unwrap();
+    assert_eq!(next_prepare.job, downstream["id"]);
+    assert_eq!(next_prepare.stage, "prepare");
+    reopened
+        .stage_returned(&next_prepare, 0, json!({"returned": true}))
+        .unwrap();
+    assert!(reopened.next_work(&in_flight).unwrap().is_none());
 }
 #[test]
 fn reserved_attempt_does_not_claim_an_actual_process_start() {
@@ -1712,7 +1983,7 @@ fn job_history_filters_keep_classification_when_a_curation_overlay_exists() {
 fn multiple_failed_workflow_nodes_emit_one_public_failure() {
     let mut f = Fixture::new();
     let spec = json!({"kind":"cpu.smoke","params":{"seconds":0,"fail":true}});
-    let root=f.call("jobs","submit_workflow",json!({"key":"failed-plan","label":"One outcome","owner":"owner","notify":"owner","nodes":[{"id":"a","label":"A","spec":spec},{"id":"b","label":"B","spec":spec}],"outputs":{"out":{"node":"b","entity":"observation"}}})).unwrap();
+    let root=f.legacy_workflow(json!({"key":"failed-plan","label":"One outcome","owner":"owner","notify":"owner","nodes":[{"id":"a","label":"A","spec":spec},{"id":"b","label":"B","spec":spec}],"outputs":{"out":{"node":"b","entity":"observation"}}})).unwrap();
     for _ in 0..2 {
         let work = f.app.next_work(&Default::default()).unwrap().unwrap();
         f.app
@@ -1801,7 +2072,7 @@ fn workflow_queue_moves_its_remaining_nodes_as_one_outcome() {
     let mut f = Fixture::new();
     let first = f.submit("ahead");
     let spec = json!({"kind":"cpu.smoke","params":{"seconds":0,"fail":false}});
-    let root=f.call("jobs","submit_workflow",json!({"key":"move-plan","label":"One outcome","owner":"owner","notify":"owner","nodes":[{"id":"a","label":"A","spec":spec},{"id":"b","label":"B","depends_on":["a"],"spec":spec}],"outputs":{"out":{"node":"b","entity":"observation"}}})).unwrap();
+    let root=f.legacy_workflow(json!({"key":"move-plan","label":"One outcome","owner":"owner","notify":"owner","nodes":[{"id":"a","label":"A","spec":spec},{"id":"b","label":"B","depends_on":["a"],"spec":spec}],"outputs":{"out":{"node":"b","entity":"observation"}}})).unwrap();
     f.call(
         "jobs",
         "reorder",

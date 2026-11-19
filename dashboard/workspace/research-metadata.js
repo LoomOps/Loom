@@ -145,12 +145,12 @@ function loomResearchInputsHTML(inputs){
  }).join('')+'</div>';
 }
 function loomResearchSection(title,body){return '<section class="pa-output-section"><h2>'+esc(title)+'</h2>'+body+'</section>';}
-function loomResearchOverview(e){
+function loomResearchOverviewContent(e){
  const s=loomResearchSummary(e),map=loomResearchFactMap(e),inputs=s.inputs.filter(x=>x.status==='present');
  const order=e.kind==='model'?['context','model','validation','inputs','training','observations','physics','annotations','instructions','extensions']:
   e.kind==='dataset'?['physics','context','collection','inputs','observations','quality','annotations','extensions']:
   ['context','evaluation','validation','training','scoring','population','model','inputs','physics','annotations','observations','instructions','extensions'];
- let body='<section class="pa-research-overview pa-output-overview-cards" aria-label="Research properties">';
+ let body='';
  for(const id of order){
   if(id==='inputs'){
    if(inputs.length)body+='<div class="pa-research-input-panel">'+loomResearchSection(e.kind==='dataset'?'Observations':'Inputs',loomResearchInputsHTML(inputs))+'</div>';
@@ -171,8 +171,11 @@ function loomResearchOverview(e){
   +catProperties({Owner:e.owner_profile?.display_name||e.owner||'—',ID:e.id})
   +(s.sources?.some(x=>x.status!=='verified')?'<p class="pa-catalog-warning">Some registered metadata files could not be verified.</p>':'')
   +(e.dataset_mirror_key?'<div class="pa-source-copies">'+loomDatasetMirrors(e).map(copy=>catLink(copy.id,copy.loom_history?.source||copy.id)).join(' · ')+'</div>':'')
-  +'<details data-output-record="'+esc(e.id)+'" '+((state.openOutputRecords||[]).includes(e.id)?'open':'')+'><summary>Original record</summary><pre>'+((state.openOutputRecords||[]).includes(e.id)?esc(loomResearchRaw(e)):'')+'</pre></details></details></section>';
+  +'<details data-output-record="'+esc(e.id)+'" '+((state.openOutputRecords||[]).includes(e.id)?'open':'')+'><summary>Original record</summary><pre>'+((state.openOutputRecords||[]).includes(e.id)?esc(loomResearchRaw(e)):'')+'</pre></details></details>';
  return body;
+}
+function loomResearchOverviewCard(content){
+ return '<section class="pa-panel pa-research-overview pa-output-overview-cards" aria-label="Research properties">'+content+'</section>';
 }
 const loomResearchOldDetail=catalogDetail;
 catalogDetail=function(id){
@@ -191,7 +194,7 @@ catalogDetail=function(id){
  // A bounded page is not an inventory of every registered input. Exact source
  // references remain in the raw record; absence here is not "unregistered".
  for(const node of t.content.querySelectorAll('.pa-catalog-warning'))if(node.textContent.trim().startsWith('미등록 관계:'))node.remove();
- title.insertAdjacentHTML('afterend',loomResearchOverview(e));
+ title.insertAdjacentHTML('afterend',loomResearchOverviewCard(loomResearchOverviewContent(e)));
  t.content.querySelector('[data-output-sources]')?.insertAdjacentHTML('beforeend',sources.join(''));
  for(const node of t.content.querySelectorAll('.pa-analysis-grid'))if(!node.textContent.trim())node.remove();
  title.insertAdjacentHTML('beforebegin',loomTaskProperty(e));

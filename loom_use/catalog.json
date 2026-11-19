@@ -24,10 +24,38 @@
     },
     {
       "id": "workflows",
-      "title": "Steps and workflows",
+      "title": "Research plans and Unit lifecycle",
       "source": "loom_use/workflows.md",
       "type": "how-to",
-      "summary": "One requested outcome with internal work, multiple Profiles or preserved runs."
+      "summary": "Independent Jobs, prerequisites, producer Steps, scientific commitments and preserved runs."
+    },
+    {
+      "id": "job-cases",
+      "title": "Job request walkthroughs",
+      "source": "loom_use/job-cases.md",
+      "type": "reference",
+      "summary": "Trace user requests from Profile discovery through submitted Job IDs to published results."
+    },
+    {
+      "id": "job-intake-cases",
+      "title": "Job input walkthroughs",
+      "source": "loom_use/job-intake-cases.md",
+      "type": "reference",
+      "summary": "Resolve input values from conversation, accepted Jobs and discovery, then submit or ask."
+    },
+    {
+      "id": "job-control-cases",
+      "title": "Job control and follow-up walkthroughs",
+      "source": "loom_use/job-control-cases.md",
+      "type": "reference",
+      "summary": "Trace examples for queue order, holds, cancellation, recovery, publication repair and follow-up evaluation."
+    },
+    {
+      "id": "catalog-cases",
+      "title": "Catalog request walkthroughs",
+      "source": "loom_use/catalog-cases.md",
+      "type": "reference",
+      "summary": "Trace user requests through catalog lookup, copy binding, lineage, import and result readback."
     },
     {
       "id": "components",

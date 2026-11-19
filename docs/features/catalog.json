@@ -771,6 +771,10 @@
         "tests/ops/client_source.py",
         "loom_use/catalog.json",
         "loom_use/reporting.md",
+        "loom_use/job-cases.md",
+        "loom_use/job-intake-cases.md",
+        "loom_use/job-control-cases.md",
+        "loom_use/catalog-cases.md",
         "rust/crates/reference/src/lib.rs"
       ],
       "tests": [

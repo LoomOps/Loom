@@ -1,5 +1,7 @@
 # Select and publish output metadata
 
+Before registering or publishing an entry, select its identity and relationships using [catalog request walkthroughs](catalog-cases.md).
+
 Use registered metadata templates for new Dataset, Model and Experiment producers.
 Templates validate structure and display fields; they do not establish scientific
 acceptance. Read `results.metadata_templates` and `results.get_metadata_template`

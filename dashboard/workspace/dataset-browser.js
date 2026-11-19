@@ -18,7 +18,7 @@ function loomDatasetRow(e,depth,children,expanded,parent,showTask=false){
  const ancestry=link?'<small class="pa-dataset-relation">'+esc(loomDatasetRelations[link.transformation?.kind]||'Derived')+(parent?'':' · '+esc(loomDatasetParentEntity(link)?.label||link.label||link.parent?.identity?.id||''))+'</small>':'';
  return '<article role="listitem" class="pa-catalog-item pa-scientific-card pa-dataset-row" data-output-id="'+esc(e.id)+'" data-dataset-depth="'+depth+'" style="--dataset-indent:'+Math.min(depth,4)*14+'px">'
   +(showTask?loomTaskProperty(e):'')+'<div class="pa-row-main pa-dataset-name">'+(children?'<button class="pa-dataset-expander" data-dataset-node="'+esc(loomDatasetKey(e))+'" aria-expanded="'+expanded+'" aria-label="'+esc((expanded?'Collapse ':'Expand ')+e.label)+'">'+icon(expanded?'chevron-down':'chevron-right')+'</button>':'')
-  +'<div>'+catLink(e.id)+loomDatasetOriginBadge(e)+ancestry+stateLabel+'</div></div>'
+  +'<div><div class="pa-dataset-title-line">'+catLink(e.id)+loomDatasetOriginBadge(e)+stateLabel+'</div>'+ancestry+'</div></div>'
   +(mainFacts.length?loomResearchFactsHTML(mainFacts,true):'')+'</article>';
 }
 function loomDatasetTree(rows){
@@ -91,8 +91,7 @@ function loomDatasetList(){
  const result=filtered?'<div class="pa-dataset-tree" role="list">'+shown.map(e=>loomDatasetRow(e,0,0,false,null,true)).join('')+'</div>':loomDatasetGroups(shown);
  const empty='<div class="pa-empty">'+(filtered?'조건에 맞는 데이터셋이 없습니다.':'표시할 데이터셋이 없습니다.')+'</div>';
  return heading('CATALOG','Datasets','')+catStatus()+filters
-  +panel(`<span data-dataset-result-count>${shown.length} / ${rows.length}개 데이터셋</span>`,result&&shown.length?result:empty)
-  +loomCatalogPager('dataset');
+  +panel(`<span data-dataset-result-count>${shown.length} / ${rows.length}개 데이터셋</span>`,(result&&shown.length?result:empty)+loomCatalogPager('dataset','Load more datasets'));
 }
 const loomDatasetPriorList=catalogList;
 catalogList=function(kind){return kind==='dataset'?loomDatasetList():loomDatasetPriorList(kind);};

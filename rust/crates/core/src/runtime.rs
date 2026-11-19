@@ -200,7 +200,7 @@ impl Application {
                          AND json_extract(p.value,'$.runtime_pin.sha256')=?)
                  )
                  SELECT j.id,j.attempt,j.state,m.spec,coalesce(w.root,j.id) execution_owner
-                 FROM matches m JOIN jobs j ON j.id=m.job LEFT JOIN workflow_nodes w ON w.job=j.id
+                 FROM matches m JOIN jobs j ON j.id=m.job LEFT JOIN execution_memberships w ON w.job=j.id
                  WHERE m.preferred=1 ORDER BY j.created DESC,j.id LIMIT 201",
                 &[&item["id"].as_str(),&item["revision"].as_i64(),&item["sha256"].as_str()])?;
             item["jobs_complete"] = json!(consumers.len() <= 200);

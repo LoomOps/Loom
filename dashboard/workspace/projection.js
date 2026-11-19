@@ -1,4 +1,4 @@
-let loomPresentationView='research';
+let loomPresentationView='all';
 // Adapt scoped Ops records to the original workspace's presentation fields.
 function loomHost(host) {
   return typeof host === 'string' ? {name:host, hostname:host} : host;

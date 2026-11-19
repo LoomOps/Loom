@@ -9,6 +9,7 @@ use std::{
 struct State {
     container: Option<Value>,
     creates: usize,
+    gpu_argument: Option<String>,
     starts: usize,
     lost_create: bool,
     lost_start: bool,
@@ -24,6 +25,9 @@ impl Docker for Fake {
                 state.creates += 1;
                 let mut labels = serde_json::Map::new();
                 for pair in args.windows(2) {
+                    if pair[0] == "--gpus" {
+                        state.gpu_argument = Some(pair[1].clone());
+                    }
                     if pair[0] == "--label" {
                         let (k, v) = pair[1].split_once('=').unwrap();
                         labels.insert(k.into(), json!(v));
@@ -73,11 +77,14 @@ struct Fixture {
 }
 impl Fixture {
     fn new() -> Self {
+        Self::with_gpu_budget(json!({}))
+    }
+    fn with_gpu_budget(budget: Value) -> Self {
         let root = std::env::temp_dir().join(format!("loom-host-test-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir(&root).unwrap();
         std::fs::create_dir(root.join("data")).unwrap();
         std::fs::create_dir(root.join("components")).unwrap();
-        let config:Config=serde_json::from_value(json!({"uid":1001,"gid":1001,"components":root.join("components"),"instances":{"one":{"uid":1001,"gid":1001,"token":"fixture-only","data":root.join("data"),"storage":{"data/0":root.join("data")},"runtimes":["cpu"],"gpu":true},"two":{"uid":1002,"gid":1002,"token":"other-only","data":root.join("data"),"runtimes":["cpu"],"gpu":true}},"runtimes":{"cpu":{"image":format!("sha256:{}","a".repeat(64)),"network":"none","cpus":1,"memory":"64m","pids":32}}})).unwrap();
+        let config:Config=serde_json::from_value(json!({"uid":1001,"gid":1001,"components":root.join("components"),"gpu_shared_memory_mib":budget,"gpu_devices":["0","1"],"instances":{"one":{"uid":1001,"gid":1001,"token":"fixture-only","data":root.join("data"),"storage":{"data/0":root.join("data")},"runtimes":["cpu"],"gpu":true},"two":{"uid":1002,"gid":1002,"token":"other-only","data":root.join("data"),"runtimes":["cpu"],"gpu":true}},"runtimes":{"cpu":{"image":format!("sha256:{}","a".repeat(64)),"network":"none","cpus":1,"memory":"64m","pids":32}}})).unwrap();
         let fake = Fake::default();
         let executor = Executor::open(&root, config, fake.clone()).unwrap();
         Self {
@@ -194,6 +201,54 @@ fn unknown_status_keeps_gpu_ownership() {
         true
     );
 }
+#[test]
+fn shared_gpu_ticket_fences_exclusive_until_confirmed_return() {
+    let mut f = Fixture::with_gpu_budget(json!({"0":1024,"1":1024}));
+    let mut shared = f.request();
+    shared["lane"] = json!("gpu");
+    shared["gpu_access"] = json!({"mode":"shared","devices":["0"],"memory_mib":700});
+    let ticket = f.executor.handle("one", "start", shared).unwrap()["ticket"].clone();
+    let mut exclusive = f.request();
+    exclusive["ticket"] = json!("exclusive");
+    exclusive["lane"] = json!("gpu");
+    exclusive["gpu_access"] = json!({"mode":"exclusive","devices":["0","1"]});
+    assert_eq!(
+        f.executor
+            .handle("two", "start", exclusive.clone())
+            .unwrap()["busy"],
+        true
+    );
+    let mut fits = exclusive.clone();
+    fits["ticket"] = json!("over-capacity");
+    fits["gpu_access"] = json!({"mode":"shared","devices":["0"],"memory_mib":350});
+    assert_eq!(
+        f.executor.handle("two", "start", fits).unwrap()["busy"],
+        true
+    );
+    f.fake.0.lock().unwrap().unknown = true;
+    assert_eq!(
+        f.executor
+            .handle("two", "start", exclusive.clone())
+            .unwrap()["busy"],
+        true
+    );
+    f.fake.0.lock().unwrap().unknown = false;
+    assert_eq!(
+        f.executor
+            .handle("one", "cancel", json!({"ticket":ticket}))
+            .unwrap()["returned"],
+        true
+    );
+    assert_eq!(
+        f.executor.handle("two", "start", exclusive).unwrap()["state"],
+        "running"
+    );
+    assert_eq!(
+        f.fake.0.lock().unwrap().gpu_argument.as_deref(),
+        Some("\"device=0,1\"")
+    );
+}
+
 #[test]
 fn foreign_container_is_not_accepted_or_stopped() {
     let mut f = Fixture::new();

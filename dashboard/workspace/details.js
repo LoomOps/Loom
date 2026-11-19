@@ -74,9 +74,9 @@ function loomJobPanel(job, entry) {
   const workTime=timeline?panel('전체 작업 시간','<p data-loom-work-time>'+timeRange(timeline)+'</p>'
     +catTable(['실행','시작','종료'],timeline.executions.map(value=>[catLink(value.job),queueTime(queueMillis(value.started)),queueTime(queueMillis(value.ended))]))):'';
   const preserved = progress?.status === 'preserved_execution';
-  const internal = progress ? panel(preserved ? 'Recorded executions' : 'Internal steps', ''
+  const internal = progress ? panel(preserved ? 'Recorded executions' : record.entry_type==='unit'?'Observed units':'Internal steps', ''
     +(progress.status==='unavailable'?'<p>'+esc(progress.reason)+'</p>':'')
-    +catTable([preserved ? 'Execution' : 'Step','상태','원본 실행 시간','상세'],(progress.steps||[]).map(step=>[esc(step.label),esc(step.state),step.source_execution?timeRange(step.source_execution):'—',esc(step.detail||'')]))):'';
+    +catTable([preserved ? 'Execution' : record.entry_type==='unit'?'Unit':'Step','상태','원본 실행 시간','상세'],(progress.steps||[]).map(step=>[esc(step.label),esc(step.state),step.source_execution?timeRange(step.source_execution):'—',esc(step.detail||'')]))):'';
   const sources=record.consolidation?.sources||[];
   const continuity=sources.length?panel('이전 실행 이력', ''
     +catTable(['Job','Attempt'],sources.map(source=>[catLink(source.job),esc(source.attempt)]))):'';
@@ -134,11 +134,9 @@ const loomLegacyWorkRow = workRow;
 workRow = function(entity, current) {
   const row = loomLegacyWorkRow(entity, current);
   if (entity.properties?.record_role === 'loom_job') {
-    const nodeCount=entity.properties.execution_node_count ?? entity.loom_workflow?.executions?.length;
     const preserved=entity.reviewed_executions ?? (entity.internal_steps?.status==='preserved_execution' ? entity.internal_steps.steps : null);
     const steps=entity.properties.internal_step_count || (entity.steps || []).length;
-    const [count,unit]=Number.isInteger(nodeCount) ? [nodeCount,'Node']
-      : Array.isArray(preserved) ? [preserved.length,'Execution']
+    const [count,unit]=Array.isArray(preserved) ? [preserved.length,'Execution']
       : steps ? [steps,'Step'] : [(entity.attempts || []).length,'Attempt'];
     const summary=count+' '+unit+(count===1?'':'s');
     row[0] = '<div class="pa-queue-name">' + catLink(entity.id) + '<small>'
@@ -268,7 +266,8 @@ function loomDetailHeading(html, id) {
         + '<div><dt>Task level</dt><dd>' + workVerificationCell(entity) + '</dd></div>'
         + (entity?.properties?.output_storage ? '<div><dt>Output Storage</dt><dd>'+esc(entity.properties.output_storage)+'</dd></div>' : '')
         + '<div><dt>Job Type</dt><dd>' + esc(loomJobClass(entity).category) + '</dd></div>'
-        + '<div><dt title="Full: main run; Pilot: reduced trial; Smoke: startup check">Execution Mode</dt><dd>' + esc(loomJobClass(entity).mode) + '</dd></div></dl>');
+        + '<div><dt title="Full: main run; Pilot: reduced trial; Smoke: startup check">Execution Mode</dt><dd>' + esc(loomJobClass(entity).mode) + '</dd></div>'
+        + (entity.properties?.pilot?'<div><dt>Planned full run</dt><dd>'+esc(entity.properties.pilot.preflight_for)+'</dd></div><div><dt>Reduced scope</dt><dd>'+esc(entity.properties.pilot.reduced_scope)+'</dd></div>':'')+'</dl>');
       title.after(...properties.children);
     }
     if (entity?.kind === 'dataset') {

@@ -130,8 +130,24 @@ pub(crate) struct ScientificPlan {
 
 pub(crate) fn scientific_plan(db: &Connection, job: &str) -> Result<Option<ScientificPlan>> {
     let parent: Option<(String,String,String)> = db.query_row(
-        "SELECT w.id,n.node,w.request FROM workflow_nodes n JOIN job_workflows w ON w.id=n.root WHERE n.job=? AND json_type(w.request,'$.outcome.science')='object'",
+        "SELECT w.id,n.node,w.request FROM execution_memberships n JOIN job_workflows w ON w.id=n.root WHERE n.job=? AND json_type(w.request,'$.outcome.science')='object'",
         [job], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?))).optional()?;
+    if parent.is_none() {
+        let direct: Option<String> = db
+            .query_row(
+                "SELECT spec FROM jobs WHERE id=? AND json_type(spec,'$.outcome.science')='object'",
+                [job],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if let Some(spec) = direct {
+            return Ok(Some(ScientificPlan {
+                root: job.to_owned(),
+                node: String::new(),
+                doc: serde_json::from_str(&spec)?,
+            }));
+        }
+    }
     parent
         .map(|(root, node, raw)| {
             Ok(ScientificPlan {
@@ -143,6 +159,17 @@ pub(crate) fn scientific_plan(db: &Connection, job: &str) -> Result<Option<Scien
         .transpose()
 }
 
+// Standalone Jobs publish their own entity. Older commitments explicitly name its producer.
+fn produced_entity<'a>(promise: &'a Value, producer: &str) -> Option<&'a str> {
+    if producer.is_empty() {
+        promise["entity"].as_str()
+    } else if promise["from"]["node"] == producer {
+        promise["from"]["entity"].as_str()
+    } else {
+        None
+    }
+}
+
 impl ScientificPlan {
     fn deliverables<'a>(&'a self, entity: &'a Value) -> impl Iterator<Item = (&'a str, &'a Value)> {
         let expected = &self.doc["outcome"]["science"]["deliverables"];
@@ -150,7 +177,7 @@ impl ScientificPlan {
             .as_array()
             .into_iter()
             .flatten()
-            .filter(|p| p["from"]["node"] == self.node && p["from"]["entity"] == entity["id"])
+            .filter(|p| produced_entity(p, &self.node).is_some_and(|id| entity["id"] == id))
             .filter_map(move |p| {
                 let alias = p["alias"].as_str()?;
                 Some((alias, expected.get(alias)?))
@@ -433,15 +460,14 @@ fn output_kind(spec: &Value, entity: &str) -> Option<String> {
 }
 
 pub(crate) fn check_execution(doc: &Value, node: &str, spec: &Value) -> Result<()> {
-    for d in doc["outcome"]["deliverables"]
+    for (d, entity) in doc["outcome"]["deliverables"]
         .as_array()
         .into_iter()
         .flatten()
-        .filter(|d| d["from"]["node"] == node)
+        .filter_map(|d| produced_entity(d, node).map(|entity| (d, entity)))
     {
         require(
-            output_kind(spec, d["from"]["entity"].as_str().unwrap_or("")).as_deref()
-                == d["kind"].as_str(),
+            output_kind(spec, entity).as_deref() == d["kind"].as_str(),
             "deliverable",
             "Pinned Profile must publish the promised entity and kind",
             409,
@@ -452,7 +478,7 @@ pub(crate) fn check_execution(doc: &Value, node: &str, spec: &Value) -> Result<(
             continue;
         };
         let profile = &spec["profile"];
-        let selector = format!("output:{}", d["from"]["entity"].as_str().unwrap());
+        let selector = format!("output:{entity}");
         let kind = d["kind"].as_str().unwrap();
         let template = profile["metadata_template_pins"]
             .get(&selector)
@@ -495,69 +521,212 @@ pub(crate) fn check_execution(doc: &Value, node: &str, spec: &Value) -> Result<(
 // Returns true for a managed plan, including when it cannot yet complete.
 pub(crate) fn finish(db: &Connection, root: &str) -> Result<bool> {
     let Some((raw,state,notify))=db.query_row("SELECT request,state,notify FROM job_workflows WHERE id=? AND json_type(request,'$.plan_revision')='integer'",[root],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?,r.get::<_,String>(2)?))).optional()? else {return Ok(false)};
-    if matches!(state.as_str(), "complete" | "cancelled") {
+    if matches!(state.as_str(), "complete" | "cancelled" | "failed") {
         return Ok(true);
     }
     let doc: Value = serde_json::from_str(&raw)?;
-    let members=rows(db,"SELECT n.node,j.state,j.result FROM workflow_nodes n JOIN jobs j ON j.id=n.job WHERE n.root=?",&[&root])?;
-    let terminal =
-        if doc["cancel_requested"] == true || members.iter().any(|m| m["state"] == "cancelled") {
-            if !members.iter().all(|m| {
-                matches!(
-                    m["state"].as_str(),
-                    Some("cancelled" | "complete" | "failed" | "interrupted" | "result_failed")
-                )
-            }) {
-                return Ok(true);
+    let members=rows(db,"SELECT n.node,j.id,j.state,j.result,r.state AS recovery_state FROM execution_memberships n JOIN jobs j ON j.id=n.job LEFT JOIN recovery r ON r.job=j.id WHERE n.root=?",&[&root])?;
+    let exhausted = members
+        .iter()
+        .any(|member| member["recovery_state"] == "exhausted")
+        && db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM research_jobs WHERE id=?)",
+            [root],
+            |row| row.get::<_, bool>(0),
+        )?;
+    let terminal = if exhausted && doc["cancel_requested"] != true {
+        for member in &members {
+            if matches!(
+                member["state"].as_str(),
+                Some("queued" | "ready" | "blocked")
+            ) {
+                let id = member["id"].as_str().unwrap();
+                let row = jobs::load(db, id)?;
+                jobs::transition(db, &row, loom_domain::Event::RequestCancel)?;
+                db.execute("UPDATE attempts SET state='cancelled',ended=COALESCE(ended,?) WHERE job=? AND id=? AND state='running'",
+                        params![now(),id,row.aggregate.fence.attempt.as_ref().map(|attempt| attempt.as_str())])?;
             }
-            "cancelled"
-        } else {
-            if doc["plan"]["sealed"] != true || !members.iter().all(|m| m["state"] == "complete") {
-                return Ok(true);
-            }
-            for d in doc["outcome"]["deliverables"]
-                .as_array()
-                .into_iter()
-                .flatten()
-            {
-                if d["kind"] == "runtime_receipt" {
-                    if !doc["receipts"][d["alias"].as_str().unwrap()].is_object() {
-                        return Ok(true);
-                    }
-                } else {
-                    let result = members
-                        .iter()
-                        .find(|m| m["node"] == d["from"]["node"])
-                        .and_then(|m| m["result"].as_str())
-                        .map(serde_json::from_str::<Value>)
-                        .transpose()?
-                        .unwrap_or_default();
-                    if result["artifact_ready"] != true
-                        || !result["entities"].as_array().is_some_and(|entities| {
-                            entities
-                                .iter()
-                                .any(|e| e["id"] == d["from"]["entity"] && e["kind"] == d["kind"])
-                        })
-                    {
-                        return Ok(true);
-                    }
+        }
+        if members.iter().any(|m| {
+            matches!(
+                m["state"].as_str(),
+                Some("preparing" | "running" | "processing")
+            )
+        }) {
+            return Ok(true);
+        }
+        "failed"
+    } else if doc["cancel_requested"] == true || members.iter().any(|m| m["state"] == "cancelled") {
+        if !members.iter().all(|m| {
+            matches!(
+                m["state"].as_str(),
+                Some("cancelled" | "complete" | "failed" | "interrupted" | "result_failed")
+            )
+        }) {
+            return Ok(true);
+        }
+        "cancelled"
+    } else {
+        if doc["plan"]["sealed"] != true || !members.iter().all(|m| m["state"] == "complete") {
+            return Ok(true);
+        }
+        for d in doc["outcome"]["deliverables"]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
+            if d["kind"] == "runtime_receipt" {
+                if !doc["receipts"][d["alias"].as_str().unwrap()].is_object() {
+                    return Ok(true);
+                }
+            } else {
+                let result = members
+                    .iter()
+                    .find(|m| m["node"] == d["from"]["node"])
+                    .and_then(|m| m["result"].as_str())
+                    .map(serde_json::from_str::<Value>)
+                    .transpose()?
+                    .unwrap_or_default();
+                if result["artifact_ready"] != true
+                    || !result["entities"].as_array().is_some_and(|entities| {
+                        entities
+                            .iter()
+                            .any(|e| e["id"] == d["from"]["entity"] && e["kind"] == d["kind"])
+                    })
+                {
+                    return Ok(true);
                 }
             }
-            "complete"
-        };
+        }
+        "complete"
+    };
     db.execute(
         "UPDATE job_workflows SET state=? WHERE id=?",
         params![terminal, root],
     )?;
     db.execute(
-        "INSERT INTO events(job,target,code,created,attempt) VALUES(?,?,?,?,NULL)",
+        "INSERT INTO events(job,target,code,created,attempt) SELECT ?1,?2,?3,?4,NULL WHERE NOT EXISTS(SELECT 1 FROM events WHERE job=?1 AND target=?2 AND code=?3 AND attempt IS NULL)",
         params![root, notify, terminal, now()],
     )?;
     Ok(true)
 }
 
 impl Application {
-    pub(crate) fn write_plan(&mut self, actor: &Actor, action: &str, raw: Value) -> Result<Value> {
+    pub(crate) fn write_plan(
+        &mut self,
+        actor: &Actor,
+        action: &str,
+        mut raw: Value,
+    ) -> Result<Value> {
+        if raw["plan"].get("units").is_none() {
+            let mut entries = Vec::new();
+            if let Some(mut run) = raw["plan"].get("run").cloned() {
+                run["id"] = json!("run");
+                entries.push(run);
+            }
+            raw["plan"] = json!({"units":entries,"sealed":raw["plan"]["sealed"]});
+            for promise in raw
+                .pointer_mut("/outcome/deliverables")
+                .and_then(Value::as_array_mut)
+                .into_iter()
+                .flatten()
+            {
+                if promise["kind"] != "runtime_receipt" {
+                    let entity = promise
+                        .as_object_mut()
+                        .unwrap()
+                        .remove("entity")
+                        .ok_or_else(|| {
+                            Error::input("Name the output entity of the reserved Job")
+                        })?;
+                    promise["from"] = json!({"node":"run","entity":entity});
+                }
+            }
+            let receipt = self.write_accepted_plan(actor, action, raw, false)?;
+            return Ok(
+                json!({"id":receipt["id"],"revision":receipt["revision"],"sealed":receipt["sealed"],
+                "execution_job":receipt["nodes"]["run"],"receipts":receipt["receipts"],"science_digest":receipt["science_digest"]}),
+            );
+        }
+        require(
+            !raw["outcome"]["deliverables"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|d| d.get("entity").is_some()),
+            "deliverable",
+            "Historical plan format requires its original producer reference",
+            400,
+        )?;
+        self.write_accepted_plan(actor, action, raw, false)
+    }
+    pub(crate) fn write_research_plan(
+        &mut self,
+        actor: &Actor,
+        action: &str,
+        mut raw: Value,
+    ) -> Result<Value> {
+        let creating = action == "submit_research";
+        if creating {
+            require(
+                raw["presentation"]["parent_job"].is_null(),
+                "execution_model",
+                "Use Unit membership or an exact dependency for related execution",
+                400,
+            )?;
+            let deliverables = raw["outcome"]["deliverables"].as_array_mut().unwrap();
+            require(
+                deliverables.len() == 1,
+                "deliverable",
+                "A research Job declares exactly one independent research output",
+                400,
+            )?;
+            let output = &mut deliverables[0];
+            output["from"]["node"] = output["from"]
+                .as_object_mut()
+                .unwrap()
+                .remove("unit")
+                .unwrap();
+        }
+        for slot in raw["plan"]["units"].as_array_mut().unwrap() {
+            if let Some(params) = slot
+                .pointer_mut("/execution/params")
+                .and_then(Value::as_object_mut)
+            {
+                for value in params.values_mut() {
+                    require(
+                        value.get("node").is_none(),
+                        "execution_model",
+                        "Use a Unit name for a local output reference",
+                        400,
+                    )?;
+                    if value.as_object().is_some_and(|o| o.len() == 2)
+                        && value["unit"].is_string()
+                        && value["entity"].is_string()
+                    {
+                        *value = json!({"node":value["unit"], "entity":value["entity"]});
+                    }
+                }
+            }
+        }
+        let receipt = self.write_accepted_plan(
+            actor,
+            if creating { "create" } else { "revise_plan" },
+            raw,
+            true,
+        )?;
+        Ok(
+            json!({"id":receipt["id"],"kind":"job","revision":receipt["revision"],
+            "sealed":receipt["sealed"],"units":receipt["nodes"],"science_digest":receipt["science_digest"]}),
+        )
+    }
+    fn write_accepted_plan(
+        &mut self,
+        actor: &Actor,
+        action: &str,
+        raw: Value,
+        research: bool,
+    ) -> Result<Value> {
         let config = self.config.clone();
         let bulk = self.bulk.clone();
         let tx = self.transaction()?;
@@ -574,6 +743,19 @@ impl Application {
             Some(raw["id"].as_str().unwrap().to_string())
         };
         let root = prior.clone().unwrap_or_else(id);
+        let typed: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM research_jobs WHERE id=?)",
+            [&root],
+            |r| r.get(0),
+        )?;
+        if prior.is_some() {
+            require(
+                typed == research,
+                "execution_model",
+                "Use the original Job plan contract",
+                409,
+            )?;
+        }
         let mut nodes = jobs::workflow_ids(&tx, &root)?.as_object().unwrap().clone();
         let plan = &raw["plan"];
         let mut doc = if prior.is_some() {
@@ -616,14 +798,22 @@ impl Application {
             )?;
             require(
                 doc["cancel_requested"] != true
-                    && !matches!(state.as_str(), "complete" | "cancelled"),
+                    && !matches!(state.as_str(), "complete" | "cancelled" | "failed"),
                 "plan_closed",
                 "Outcome is closing or terminal",
                 409,
             )?;
             validate_revision(&doc["plan"], plan, &nodes)?;
+            require(
+                research || units(plan).len() <= units(&doc["plan"]).len().max(1),
+                "separate_jobs",
+                "Submit additional executions as separate Jobs with jobs.submit and depends_on",
+                409,
+            )?;
             doc
         } else {
+            require(research || units(plan).len() <= 1, "separate_jobs",
+                "Submit each independently scheduled execution with jobs.submit and link their Job IDs", 409)?;
             for field in ["owner", "notify"] {
                 JobId::new(raw[field].as_str().unwrap())?;
             }
@@ -644,6 +834,10 @@ impl Application {
                 crate::scenario::pin(&tx, &serde_json::from_value(reference.clone())?)?;
             }
             tx.execute("INSERT INTO job_workflows(id,submitter,key,request,owner,notify,created,state) VALUES(?,?,?,?,?,?,?,'queued')",params![root,actor.id,key,"{}",raw["owner"].as_str(),raw["notify"].as_str(),now()])?;
+            if research {
+                enable_job_units(&tx)?;
+                tx.execute("INSERT INTO research_jobs(id) VALUES(?)", [&root])?;
+            }
             doc
         };
         active(&tx)?;
@@ -748,6 +942,15 @@ impl Application {
             if nodes.contains_key(name) {
                 continue;
             }
+            jobs::validate_pilot(&n.spec)?;
+            if research && deliverables.iter().any(|d| d["from"]["node"] == name) {
+                require(
+                    !matches!(n.spec["execution_mode"].as_str(), Some("pilot" | "smoke")),
+                    "deliverable",
+                    "Pilot and Smoke execution cannot satisfy a Regular deliverable",
+                    400,
+                )?;
+            }
             require(
                 n.depends_on.iter().all(|d| nodes.contains_key(d)),
                 "plan_pending",
@@ -761,11 +964,20 @@ impl Application {
                 );
             }
             doc["stage_receipts"][name] = json!(gates);
-            let child =
-                jobs::admit_node(&tx, (&config, &bulk), actor, &root, &workflow, &n, &nodes)?;
+            let phase = research.then(|| slot["phase"].as_str().unwrap_or("run"));
+            let child = jobs::admit_node(
+                &tx,
+                (&config, &bulk),
+                actor,
+                &root,
+                &workflow,
+                &n,
+                &nodes,
+                phase,
+            )?;
             let frozen = jobs::load(&tx, &child)?;
             check_execution(&doc, name, &frozen.spec)?;
-            let cycle:bool=tx.query_row("WITH RECURSIVE deps(id) AS (SELECT value FROM json_each(?,'$.depends_on') UNION SELECT d.value FROM deps JOIN jobs j ON j.id=deps.id JOIN json_each(j.spec,'$.depends_on') d UNION SELECT n.job FROM deps JOIN workflow_nodes n ON n.root=deps.id) SELECT EXISTS(SELECT 1 FROM deps WHERE id IN (?,?))",params![encode(&frozen.spec)?,root,child],|r|r.get(0))?;
+            let cycle:bool=tx.query_row("WITH RECURSIVE deps(id) AS (SELECT value FROM json_each(?,'$.depends_on') UNION SELECT d.value FROM deps JOIN jobs j ON j.id=deps.id JOIN json_each(j.spec,'$.depends_on') d UNION SELECT n.job FROM deps JOIN execution_memberships n ON n.root=deps.id) SELECT EXISTS(SELECT 1 FROM deps WHERE id IN (?,?))",params![encode(&frozen.spec)?,root,child],|r|r.get(0))?;
             require(
                 !cycle,
                 "plan",

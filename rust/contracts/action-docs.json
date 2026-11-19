@@ -87,13 +87,13 @@
   "jobs.reorder": {
     "title": "Reorder waiting Job",
     "description": "Move a waiting Job; a logical workflow moves its remaining waiting nodes as one group. Preserve running Jobs and dependencies.",
-    "returns": "Receipt · changed, state, held, position",
+    "returns": "Updated shared queue with physical entries and logical entries",
     "example": {
       "id": "<job-id>",
       "position": "next"
     },
     "errors": [
-      "Permission denied, invalid position or reference no longer waiting. If execution was claimed first, changed=false."
+      "Permission denied, invalid position or reference no longer waiting. A target with no waiting execution returns a queue conflict (409)."
     ],
     "implementation": {
       "feature": "queue",
@@ -103,12 +103,12 @@
   "jobs.hold": {
     "title": "Hold waiting Job",
     "description": "Prevent new stages of a waiting Job. Active preparation finishes, but run cannot start.",
-    "returns": "Receipt · changed, state, held, position",
+    "returns": "Updated shared queue with physical entries and logical entries",
     "example": {
       "id": "<job-id>"
     },
     "errors": [
-      "Permission denied. If the main run already started, changed=false."
+      "Permission denied. A physical Job with no waiting or preparing stage returns a queue conflict (409)."
     ],
     "implementation": {
       "feature": "queue",
@@ -118,7 +118,7 @@
   "jobs.resume": {
     "title": "Resume waiting Job",
     "description": "Release an ordinary hold while preserving order. This is not error recovery or checkpoint restart.",
-    "returns": "Receipt · changed, state, held, position",
+    "returns": "Updated shared queue with physical entries and logical entries",
     "example": {
       "id": "<job-id>"
     },
@@ -145,7 +145,7 @@
   },
   "jobs.list": {
     "title": "List Jobs",
-    "description": "List logical Jobs in reverse registration order. include_consolidated=true also returns preserved constituent Jobs.",
+    "description": "List scheduled Jobs, including each execution previously submitted in a workflow. Populated group receipts remain available by exact ID. Unbound reservations remain visible.",
     "returns": "Job[] · id, status, state, owner, attempt, recovery, category, execution_mode",
     "example": {
       "limit": 25,
@@ -174,7 +174,7 @@
   },
   "jobs.submit": {
     "title": "Submit Job",
-    "description": "Pin a registered profile and parameters and enter the queue. category does not select the executor. One requested outcome is one Job; batch/vectorized work runs internally. Explicit consolidates reuses completed producer Jobs without rewriting them.",
+    "description": "Queue one independently scheduled Job. Submit intake, training and evaluation separately; pass exact producer IDs to dependent Jobs. Optional outcome pins direct deliverables and scientific reporting. Pilot requires pilot.preflight_for and pilot.reduced_scope.",
     "returns": "Submission · id",
     "example": {
       "key": "example-run-001",
@@ -850,8 +850,8 @@
     }
   },
   "jobs.submit_workflow": {
-    "title": "Submit one logical Job",
-    "description": "Atomically submit pinned internal execution nodes with node dependencies and output aliases. Each node uses the ordinary scheduler and verified artifacts. Replay the exact request key after an uncertain response.",
+    "title": "Replay a historical workflow request",
+    "description": "Existing keys replay their original receipts. New graph submissions return separate_jobs (409). Use jobs.submit with Job dependencies.",
     "returns": "Logical Job ID and node execution IDs",
     "example": {
       "key": "example-work",
@@ -873,7 +873,7 @@
       ]
     },
     "errors": [
-      "Unknown/cyclic node dependency, conflicting key, invalid Profile or output alias. All nodes roll back on rejection."
+      "409 separate_jobs for a new request; 409 idempotency_conflict when the original key is reused with a different request."
     ],
     "implementation": {
       "feature": "queue",
@@ -1268,8 +1268,13 @@
     "description": "Read visible queue occupants and their Job rows independently of paginated history. Queue controls follow the authenticated user's permissions.",
     "returns": "Revision, queue and matching Job entities",
     "example": {},
-    "errors": ["Requires read access."],
-    "implementation": {"feature":"queue","entrypoint":"rust/crates/core/src/catalog.rs#dashboard_occupancy"}
+    "errors": [
+      "Requires read access."
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/catalog.rs#dashboard_occupancy"
+    }
   },
   "system.dashboard_activity": {
     "title": "Dashboard activity",
@@ -2009,7 +2014,7 @@
   "jobs.preview_history": {
     "title": "Review accepted and preserved Job links",
     "description": "Read authority for up to 24 exact Job IDs. Inspect workflow membership separately from a presentation parent, a preserved snapshot, and an exact consolidation. This review never infers Steps or writes Job history.",
-    "returns": "Bounded Job review \u00b7 records, changes",
+    "returns": "Bounded Job review · records, changes",
     "example": {
       "ids": [
         "<job-id>"
@@ -2025,8 +2030,8 @@
   },
   "jobs.preview_outcome": {
     "title": "Preview outcome evidence",
-    "description": "Resolve scientific deliverable pins and list applicable reporting requirements before issuing a Job. This call does not allocate work. The same validation runs at creation; node Profile compatibility is checked on binding.",
-    "returns": "Preview \u00b7 mode, per-alias coverage and science_digest",
+    "description": "Check output kinds, reporting pins, setup and optional hypothesis before submission. Direct Job deliverables identify the output entity.",
+    "returns": "Preview · mode, per-alias coverage and science_digest",
     "example": {
       "outcome": {
         "goal": "Verify the requested hardware diagnostic"
@@ -2043,8 +2048,8 @@
   },
   "jobs.create": {
     "title": "Create an outcome",
-    "description": "Accept a frozen goal with optional typed output or Runtime receipt promises. An outcome without deliverables completes when its sealed executable plan succeeds. Executable units are admitted with their Profile and applicable scientific reporting contract in the same transaction.",
-    "returns": "Outcome receipt · id, revision, sealed, nodes, receipts",
+    "description": "Reserve one execution or verify Runtime receipts. Use plan.run for a pending or bound execution and directly name its output entities. Use jobs.submit for runnable Jobs.",
+    "returns": "Reservation receipt · id, revision, sealed, execution_job, receipts and science_digest. Exact historical requests retain their response format.",
     "example": {
       "key": "dataset-generation",
       "owner": "researcher",
@@ -2055,30 +2060,24 @@
           {
             "alias": "cases",
             "kind": "dataset",
-            "from": {
-              "node": "generate",
-              "entity": "cases"
-            }
+            "entity": "cases"
           }
         ]
       },
       "plan": {
         "sealed": false,
-        "units": [
-          {
-            "id": "generate",
-            "label": "Generate",
-            "requires": [
-              {
-                "stage": "runtime",
-                "runtime": {
-                  "id": "simulation",
-                  "revision": 1
-                }
+        "run": {
+          "label": "Generate",
+          "requires": [
+            {
+              "stage": "runtime",
+              "runtime": {
+                "id": "simulation",
+                "revision": 1
               }
-            ]
-          }
-        ]
+            }
+          ]
+        }
       }
     },
     "errors": [
@@ -2091,8 +2090,8 @@
   },
   "jobs.revise_plan": {
     "title": "Revise an outcome plan",
-    "description": "Submit the full next plan with its expected revision. Retain admitted units and existing prerequisites. Bind an open slot to an installed Profile or append a unit. Seal after all bindings and Runtime receipts resolve. Exact replay returns its original receipt.",
-    "returns": "Outcome receipt · id, revision, sealed, nodes, receipts",
+    "description": "Bind or seal the reserved execution on its existing ID. Replay an exact revision request with the same key. Additional scheduled work requires a separate Job.",
+    "returns": "Reservation receipt · id, revision, sealed, execution_job, receipts and science_digest. Exact historical requests retain their response format.",
     "example": {
       "id": "<outcome-id>",
       "key": "bind-generator",
@@ -2100,25 +2099,22 @@
       "reason": "Generator Profile and Runtime validated",
       "plan": {
         "sealed": true,
-        "units": [
-          {
-            "id": "generate",
-            "label": "Generate",
-            "requires": [
-              {
-                "stage": "runtime",
-                "runtime": {
-                  "id": "simulation",
-                  "revision": 1
-                }
+        "run": {
+          "label": "Generate",
+          "requires": [
+            {
+              "stage": "runtime",
+              "runtime": {
+                "id": "simulation",
+                "revision": 1
               }
-            ],
-            "execution": {
-              "kind": "generation.r1",
-              "params": {}
             }
+          ],
+          "execution": {
+            "kind": "generation.r1",
+            "params": {}
           }
-        ]
+        }
       }
     },
     "errors": [
@@ -2127,6 +2123,179 @@
     "implementation": {
       "feature": "queue",
       "entrypoint": "rust/crates/core/src/plans.rs#write_plan"
+    }
+  },
+  "jobs.submit_research": {
+    "title": "Submit a research Job",
+    "description": "Admit one research output and its scheduled Units without Job nesting.",
+    "returns": "Returns the accepted Job ID, plan revision, sealed flag and map of Unit names to independently readable execution IDs.",
+    "example": {
+      "key": "generate-paired",
+      "owner": "owner",
+      "notify": "owner",
+      "outcome": {
+        "goal": "Publish the final Dataset",
+        "deliverables": [
+          {
+            "alias": "dataset",
+            "kind": "dataset",
+            "from": {
+              "unit": "generate",
+              "entity": "dataset"
+            }
+          }
+        ]
+      },
+      "plan": {
+        "sealed": true,
+        "units": [
+          {
+            "id": "generate",
+            "label": "Generate",
+            "execution": {
+              "kind": "owner.collect.r1",
+              "params": {}
+            }
+          }
+        ]
+      }
+    },
+    "errors": [
+      "Invalid inputs, pinned software, resource request or insufficient scope."
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/plans.rs#write_research_plan"
+    }
+  },
+  "jobs.revise_research": {
+    "title": "Revise a research plan",
+    "description": "Bind or add Units within the original accepted research outcome.",
+    "returns": "Accepted identity and execution details",
+    "example": {
+      "id": "<job-id>",
+      "key": "bind-generator",
+      "expected_revision": 1,
+      "reason": "Verified Runtime",
+      "plan": {
+        "sealed": true,
+        "units": [
+          {
+            "id": "generate",
+            "label": "Generate",
+            "execution": {
+              "kind": "owner.collect.r1",
+              "params": {}
+            }
+          }
+        ]
+      }
+    },
+    "errors": [
+      "Invalid inputs, pinned software, resource request or insufficient scope."
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/plans.rs#write_research_plan"
+    }
+  },
+  "units.submit": {
+    "title": "Submit a standalone Unit",
+    "description": "Submit one standalone Unit. Its scientific catalog evidence is Reference.",
+    "returns": "Accepted identity and execution details",
+    "example": {
+      "key": "quick-check",
+      "owner": "owner",
+      "notify": "owner",
+      "kind": "cpu.smoke",
+      "params": {
+        "seconds": 0,
+        "fail": false
+      },
+      "execution_mode": "smoke"
+    },
+    "errors": [
+      "Invalid inputs, pinned software, resource request or insufficient scope."
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/jobs.rs#submit_execution"
+    }
+  },
+  "units.get": {
+    "title": "Read a Unit",
+    "description": "Apply get to an exact Unit ID.",
+    "returns": "Returns current state, Stage and Attempt receipts, optional Job membership, output and scheduling evidence.",
+    "example": {
+      "id": "<unit-id>"
+    },
+    "errors": [
+      "The ID does not exist."
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/query.rs#inspect_job"
+    }
+  },
+  "units.hold": {
+    "title": "Hold a Unit",
+    "description": "Apply hold to an exact Unit ID.",
+    "returns": "Updated shared queue with physical entries and logical entries",
+    "example": {
+      "id": "<unit-id>"
+    },
+    "errors": [
+      "Permission denied. A physical Job with no waiting or preparing stage returns a queue conflict (409)."
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/jobs.rs#job_action"
+    }
+  },
+  "units.resume": {
+    "title": "Release a Unit hold",
+    "description": "Apply resume to an exact Unit ID.",
+    "returns": "Updated shared queue with physical entries and logical entries",
+    "example": {
+      "id": "<unit-id>"
+    },
+    "errors": [
+      "Permission denied. Releasing a failed Job's hold does not rerun its failed execution."
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/jobs.rs#job_action"
+    }
+  },
+  "units.cancel": {
+    "title": "Cancel a Unit",
+    "description": "Apply cancel to an exact Unit ID.",
+    "returns": "Cancellation receipt · id, state",
+    "example": {
+      "id": "<unit-id>"
+    },
+    "errors": [
+      "Missing cancel scope."
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/jobs.rs#job_action"
+    }
+  },
+  "units.reorder": {
+    "title": "Reorder a waiting Unit",
+    "description": "Apply reorder to an exact Unit ID.",
+    "returns": "Updated shared queue with physical entries and logical entries",
+    "example": {
+      "id": "<unit-id>",
+      "position": "next"
+    },
+    "errors": [
+      "Permission denied, invalid position or reference no longer waiting. A target with no waiting execution returns a queue conflict (409)."
+    ],
+    "implementation": {
+      "feature": "queue",
+      "entrypoint": "rust/crates/core/src/jobs.rs#job_action"
     }
   }
 }

@@ -18,7 +18,8 @@ Read scope includes discovery; submit permits the documented mutation/maintenanc
 
 | Group | Actions | Reference |
 |---|---:|---|
-| `jobs` | 20 | [Job execution and shared queue](jobs.md) |
+| `jobs` | 22 | [Research Job admission and history](jobs.md) |
+| `units` | 6 | [Independent execution and resource control](units.md) |
 | `recovery` | 5 | [Bounded incident repair](recovery.md) |
 | `events` | 2 | [Recipient lifecycle events](events.md) |
 | `components` | 23 | [Profiles, Components, Tools and Runtimes](components.md) |

@@ -37,19 +37,51 @@ class NativeWorkspaceTests(unittest.TestCase):
   created=self.call('jobs','create',{'key':'browser-open','owner':'owner','notify':'owner','outcome':{'goal':'Pending simulation run','deliverables':[{'alias':'out','kind':'artifact','from':{'node':'run','entity':'observation'}}]},'plan':{'sealed':False,'units':[slot]}})
   try:
    self.wd('/refresh',{});self.ui.connect()
-   current="[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('현재 큐'))"
+   current="[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('Job Queue'))"
    self.ui.wait('return '+current+"?.textContent.includes('Pending simulation run')")
    self.assertTrue(self.ui.js('return '+current+"?.textContent.includes('Runtime 연결 대기')"))
    detail=self.call('jobs','get',{'id':created['id']})
    self.assertEqual(detail['executions'],[]);self.assertEqual(detail['execution_intervals'],[])
   finally:self.call('jobs','cancel',{'id':created['id']})
+ def test_job_unit_queues_and_explicit_catalog_classes(self):
+  def remove_fixture():
+   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+    db.execute("DELETE FROM history_records WHERE source='catalog' AND snapshot='classes'")
+  self.addCleanup(remove_fixture)
+  for name in ('regular','reference'):
+   record={'original':{'id':'browser-class-'+name,'kind':'dataset','label':'Class '+name,'catalog_class':name,'properties':{},'metrics':[],'relations':[],'artifacts':[]},'record':{'created':time.time()},'locations':[]}
+   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+    db.execute('INSERT INTO history_records(source,kind,id,revision,snapshot,body) VALUES(?,?,?,?,?,?)',('catalog','dataset','browser-class-'+name,'r1','classes',json.dumps(record)))
+  for _ in range(100):
+   page=self.call('system','dashboard_page',{'kinds':['dataset'],'view':'all','role':'all','catalog_classes':['regular','reference'],'limit':50})
+   if {'browser-class-regular','browser-class-reference'}<={e.get('loom_history',{}).get('id') for e in page['entities']}:break
+   time.sleep(.05)
+  else:self.fail([e['label'] for e in page['entities']])
+  self.ui.top();self.wd('/refresh',{});self.ui.connect()
+  self.ui.wait("return [...document.querySelectorAll('h2')].some(h=>h.textContent.startsWith('Unit Queue'))")
+  self.ui.nav('Datasets')
+  contents="document.querySelector('#pa-content').textContent"
+  self.ui.wait("return "+contents+".includes('Class regular')")
+  self.assertNotIn('Class reference',self.ui.js('return '+contents))
+  self.ui.click('[data-output-class=reference]')
+  self.ui.wait("return "+contents+".includes('Class reference')")
+  self.ui.click('[data-output-class=regular]')
+  self.ui.wait("return !"+contents+".includes('Class regular')")
+  self.assertIn('Class reference',self.ui.js('return '+contents))
+
  def test_presentation_parent_keeps_its_status_and_followup_has_own_row(self):
+  def set_dispatch_paused(paused):
+   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+    db.execute("UPDATE dispatch_control SET paused=? WHERE id=1",(paused,))
+  set_dispatch_paused(1)
+  self.addCleanup(set_dispatch_paused,0)
   def submit(key):return self.call('jobs','submit',{'key':key,'kind':'browser.profile.r1','owner':'owner','notify':'owner','params':{}})['id']
   main=submit('group-root');child=submit('group-latest')
   self.call('jobs','curate',{'key':'group-ui-link','reason':'Related preparation','dry_run':False,'changes':[{'kind':'job','id':main,'presentation':{'label':'Original completed pilot'}},{'kind':'job','id':child,'presentation':{'label':'Recent follow-up','parent_job':main,'role':'support'}}]})
   clock=time.time()-120
   with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:
    db.execute("UPDATE jobs SET state='complete' WHERE id=?",(main,))
+   db.execute("INSERT OR REPLACE INTO recovery(job,state,rounds,updated) VALUES(?,'waiting',0,?)",(main,clock))
    db.execute("UPDATE jobs SET state='running' WHERE id=?",(child,))
    db.execute("INSERT INTO stage_runs VALUES(?,'old','run',?,?,'returned')",(main,clock-86400,clock-86390))
    db.execute("INSERT INTO stage_runs VALUES(?,'new','run',?,NULL,'running')",(child,clock))
@@ -154,8 +186,8 @@ class NativeWorkspaceTests(unittest.TestCase):
    ui.click('[data-report-tab=overview]')
    for theme in ('light','dark'):
     ui.click('[data-theme='+theme+']')
-    self.assertEqual(ui.js("const grid=document.querySelector('.pa-report-policy .pa-research-overview');return getComputedStyle(grid).gridTemplateColumns.split(' ').length"),2 if width==1440 else 1)
-    self.assertTrue(ui.js("const card=document.querySelector('.pa-report-policy .pa-output-section');return getComputedStyle(card).borderTopStyle==='solid'&&card.scrollWidth<=card.clientWidth+1"))
+    self.assertEqual(ui.js("return document.querySelectorAll('.pa-report-policy .pa-report-overview > .pa-panel').length"),1)
+    self.assertTrue(ui.js("const card=document.querySelector('.pa-report-policy .pa-output-section');return getComputedStyle(card).borderLeftStyle==='none'&&card.scrollWidth<=card.clientWidth+1"))
    ui.click('[data-report-tab=training]')
   ui.click('[data-report-tab=overview]');self.assertIn('browser.fixture',ui.js("return document.querySelector('.pa-report-contract summary').textContent"))
   excluded=json.loads(json.dumps(entity));excluded['id']=job+'.unconditional-policy';excluded['reporting']['reports']=[r for r in reports if r['role']!='instructions'];excluded['reporting']['exclusions']=[{'id':'instructions','role':'instructions','reason':'Verified language-free input interface'}]
@@ -164,6 +196,32 @@ class NativeWorkspaceTests(unittest.TestCase):
    try:self.call('results','resolve_item',{'native_ref':{'kind':'entity','identity':{'id':excluded['id'],'revision':1}}});break
    except HTTPError:time.sleep(.05)
   ui.route(excluded['id']);ui.wait("return document.querySelector('[data-report-content]')?.textContent.includes('Not applicable')")
+
+ def test_episode_picker_pages_the_verified_manifest_and_preserves_selection(self):
+  ui=self.ui;job=self.call('jobs','submit',{'key':'episode-pagination','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False}})['id']
+  identity=job+'.episodes';name='episode-pagination.json'
+  raw=json.dumps({'data':{'members':[{'id':str(n),'frames':n+10} for n in range(103)]}}).encode()
+  (self.native_root/'data'/name).write_bytes(raw);digest=hashlib.sha256(raw).hexdigest()
+  report={'requirement_id':'collection','label':'Collection','role':'dataset_statistics','component':name,'sha256':digest,'state':'recorded','fields':[{'id':'members','format':'table','label':'Episodes','pointer':'/members','columns':[{'label':'Frames','pointer':'/frames'}]}]}
+  entity={'id':identity,'kind':'dataset','label':'Episode pagination fixture','revision':1,'job':job,'components':[{'ref':name,'sha256':digest,'size':len(raw)}],'reporting':{'reports':[report]}}
+  with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:
+   db.execute("UPDATE jobs SET state='complete' WHERE id=?",(job,))
+   db.execute("INSERT INTO entity_revisions VALUES(?,1,?,'dataset','owner','owner',?)",(identity,job,json.dumps(entity)))
+   db.execute("INSERT INTO entity_locations VALUES(?,1,?,'browser-fixture','browser-data',?,'available')",(identity,name,name))
+  for _ in range(100):
+   try:
+    self.call('results','resolve_item',{'native_ref':{'kind':'entity','identity':{'id':identity,'revision':1}}});break
+   except HTTPError:time.sleep(.05)
+  else:self.fail('Dataset Item was not indexed')
+  ui.nav('Datasets');ui.route(identity);ui.wait("return !!document.querySelector('[data-report-tab=episodes]')")
+  ui.click('[data-report-tab=episodes]');picker='[data-report-filter=member]'
+  ui.wait("return document.querySelector(arguments[0])?.options.length===100",picker)
+  self.assertTrue(ui.js("""const sel=document.querySelector(arguments[0]),label=sel.parentElement,button=label.parentElement.querySelector('button');
+   return parseFloat(getComputedStyle(label).rowGap)>=6 && button.textContent==='Load more episodes'""",picker))
+  selected=ui.js("const s=document.querySelector(arguments[0]);s.selectedIndex=6;s.dispatchEvent(new Event('change',{bubbles:true}));return s.value",picker)
+  ui.click('[data-report-more]');ui.wait("return document.querySelector(arguments[0])?.options.length===103",picker)
+  self.assertEqual(ui.js("return document.querySelector(arguments[0]).value",picker),selected)
+  self.assertFalse(ui.js("return !!document.querySelector('[data-report-more]')"))
 
  def test_experiment_result_points_open_the_exact_case_and_seed(self):
   job=self.call('jobs','submit',{'key':'browser-case-results','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False}})['id']
@@ -291,7 +349,7 @@ class NativeWorkspaceTests(unittest.TestCase):
    self.ui.wait("return [...document.querySelector('[data-research-task]').options].some(o=>o.textContent==='Shell pane demand')")
    self.assertNotIn('dashboard_activity',observed);self.assertNotIn('dashboard_queue',observed)
    self.ui.nav('Dashboard')
-   self.ui.wait("return !!document.querySelector('.pa-activity-graph') && [...document.querySelectorAll('h2')].some(h=>h.textContent.startsWith('현재 큐 ·'))")
+   self.ui.wait("return !!document.querySelector('.pa-activity-graph') && [...document.querySelectorAll('h2')].some(h=>h.textContent.startsWith('Job Queue ·'))")
    self.assertTrue(loaded.wait(5),observed)
 
  def test_unloaded_native_job_link_does_not_depend_on_name_search(self):
@@ -506,6 +564,11 @@ class NativeWorkspaceTests(unittest.TestCase):
   ui.js("document.querySelector('[data-registry-apply] input[name=reason]').value='Mistaken fixture'")
   ui.click('[data-registry-apply] button');ui.wait("return !document.querySelector('[data-hub-dialog]')")
   self.assertEqual(self.call('components','get',{'owner':'owner','id':'ui-archive','revision':1})['lifecycle']['state'],'archived')
+  for _ in range(100):
+   page=self.call('results','search_items',{'text':'UI archive fixture','kinds':['component'],'view':'all','role':'all','include_archived':False})
+   if not page['partial'] and not page['items']:break
+   time.sleep(.05)
+  else:self.fail({'partial':page['partial'],'labels':[e['label'] for e in page['items']]})
   ui.click('[data-command-open]');ui.wait("return !!document.querySelector('[data-item-search-form]')")
   ui.js("const f=document.querySelector('[data-item-search-form]');f.elements.text.value='UI archive fixture';f.elements.view.value='all';f.elements.kind.value='component'")
   ui.click('[data-item-search-form] button');ui.wait("return document.querySelector('[data-search-status]')?.textContent==='No results'")

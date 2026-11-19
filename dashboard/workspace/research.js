@@ -7,11 +7,13 @@ render=function(){
  if(['queue','activity'].includes(state.page)){existing?.remove();return;}
  if(bar&&!existing){
   const select=document.createElement('select');select.dataset.researchView='';select.setAttribute('aria-label','Catalog view');
-  for(const [value,label] of [['research','Research'],['operations','Operations'],['builtin','Built-in'],['all','All']]){
+  for(const [value,label] of [['all','All'],['research','Research'],['operations','Operations'],['builtin','Built-in']]){
    const option=document.createElement('option');option.value=value;option.textContent=label;select.append(option);
   }
-  select.value=catalogData.presentation_view||'research';bar.after(select);
+  bar.after(select);
  }
+ const selector=existing||root.querySelector('[data-research-view]');
+ if(selector)selector.value=catalogData.presentation_view||'all';
 };
 root.addEventListener('change',e=>{
  if(e.target.matches('[data-research-view]'))parent.postMessage({type:'loom-research-view',view:e.target.value},'*');
@@ -21,11 +23,11 @@ loomJobPanel=function(job,entry){
  const record=entry?.data;
  let result=loomResearchJobPanel(job,entry);
  const nodes=record?.executions||[];
- if(record?.workflow&&record.result?.outputs){
+ if((record?.workflow||record?.entry_type==='job')&&record.result?.outputs){
   const outputs=Object.entries(record.result.outputs).flatMap(([name,ref])=>{
    const origin=record.spec?.outputs?.[name];
-   const producer=nodes.find(node=>node.id===origin?.node);
-   return producer&&ref.id?[[esc(name),catLink(producer.job+'.'+ref.id)]]:[];
+   const producer=record.units?.find(unit=>unit.name===origin?.unit)?.id||nodes.find(node=>node.id===origin?.node)?.job;
+   return producer&&ref.id?[[esc(name),catLink(producer+'.'+ref.id)]]:[];
   });
   if(outputs.length)result+=panel('Outputs',catTable(['Output','Record'],outputs));
  }
@@ -35,14 +37,17 @@ loomJobPanel=function(job,entry){
   result+=panel('Accepted reporting',catTable(['Deliverable','Activity','Template','Contract'],commitments)
    +(science.hypothesis?catProperties({Hypothesis:science.hypothesis.statement,Population:science.hypothesis.population,Metric:science.hypothesis.metric,Analysis:science.hypothesis.analysis}):''));
  }
- if(nodes.length)result=panel('Executions',catTable([record.workflow?'Node':'Job','State','Attempts','Execution'],nodes.map(n=>[
+ if(record?.entry_type==='job'&&record.units?.length)result=panel('Units',catTable(['Unit','Phase','State','Attempt'],record.units.map(unit=>[
+  catLink(unit.id,unit.label)+loomQueueControls(unit.id),esc(unit.phase),esc(unit.status),esc(unit.attempt||'—')
+ ])))+result;
+ else if(nodes.length)result=panel('Related Jobs',catTable(['Job','State','Attempts','Execution'],nodes.map(n=>[
   esc(n.label),esc(n.state),esc(n.attempts.length),catLink(n.job,n.id)+loomQueueControls(n.job)
  ])))+result;
  if(record?.annotations?.length)result+=panel('Notes',catTable(['Author','Note','Evidence'],record.annotations.map(a=>[
   esc(a.author),esc(a.reason),esc(JSON.stringify(a.evidence))
  ])));
  const family=record?.family;
- if(family){
+ if(family&&!record.entry_type){
   const members=(family.members||[]).filter(m=>m.id!==job.id);
   if(family.root!==job.id)result=panel('Related Job',catLink(family.root))+result;
   if(members.length)result+=panel('Related Jobs',catTable(['Job','Parent','State','Pinned Runtime'],members.map(m=>[

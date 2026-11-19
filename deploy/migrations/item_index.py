@@ -10,7 +10,7 @@ def run(root,platform,phase):
     root=Path(root);state=root/'runtime'
     with sqlite3.connect((state/'ops.sqlite3').as_uri()+'?mode=ro',uri=True) as db:
         version=db.execute('PRAGMA user_version').fetchone()[0]
-        if version==6:
+        if version in (6,7,8):
             if db.execute('PRAGMA integrity_check').fetchone()[0]!='ok' or not db.execute('SELECT length(origin)=16 FROM catalog_meta WHERE id=1').fetchone()[0]:raise ValueError('Catalog authority failed validation')
             return {'status':'done'}
     if version==4 and phase!='apply':return {'status':'needed'}

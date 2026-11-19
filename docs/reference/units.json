@@ -1,0 +1,421 @@
+{
+  "actions": [
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "submit",
+      "description": "Submit one standalone Unit. Its scientific catalog evidence is Reference.",
+      "errors": [
+        "Invalid inputs, pinned software, resource request or insufficient scope."
+      ],
+      "example": {
+        "execution_mode": "smoke",
+        "key": "quick-check",
+        "kind": "cpu.smoke",
+        "notify": "owner",
+        "owner": "owner",
+        "params": {
+          "fail": false,
+          "seconds": 0
+        }
+      },
+      "group": "units",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/jobs.rs#submit_execution",
+        "feature": "queue"
+      },
+      "returns": "Accepted identity and execution details",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "default": "other",
+            "description": "Job purpose; does not select an execution runner.",
+            "enum": [
+              "sdg",
+              "data_preparation",
+              "fine_tuning",
+              "evaluation",
+              "pipeline",
+              "development",
+              "other"
+            ],
+            "type": "string"
+          },
+          "depends_on": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "execution": {
+            "additionalProperties": false,
+            "properties": {
+              "max_attempts": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "retry_backoff_seconds": {
+                "maximum": 86400,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "retry_on": {
+                "items": {
+                  "enum": [
+                    "exit_nonzero",
+                    "timeout",
+                    "launch_failed",
+                    "interrupted"
+                  ],
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "timeout_seconds": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "execution_mode": {
+            "default": null,
+            "description": "Full run, reduced pilot, or short smoke check. Null means unrecorded.",
+            "enum": [
+              "full",
+              "pilot",
+              "smoke",
+              null
+            ],
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gpu_access": {
+            "additionalProperties": false,
+            "properties": {
+              "devices": {
+                "items": {
+                  "maxLength": 2048,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 8,
+                "type": "array",
+                "uniqueItems": true
+              },
+              "memory_mib": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "mode": {
+                "enum": [
+                  "shared",
+                  "exclusive"
+                ]
+              }
+            },
+            "required": [
+              "mode"
+            ],
+            "type": "object"
+          },
+          "key": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "notify": {
+            "type": "string"
+          },
+          "output_storage": {
+            "default": "data/0",
+            "description": "Registered output store from system.status.data_stores. Defaults to data/0; frozen per Job.",
+            "pattern": "^data/[0-9]+$",
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object"
+          },
+          "pilot": {
+            "additionalProperties": false,
+            "properties": {
+              "preflight_for": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              "reduced_scope": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "preflight_for",
+              "reduced_scope"
+            ],
+            "type": "object"
+          },
+          "presentation": {
+            "additionalProperties": false,
+            "properties": {
+              "experiment": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              "label": {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              "output_roles": {
+                "additionalProperties": {
+                  "enum": [
+                    "main",
+                    "support",
+                    "test"
+                  ]
+                },
+                "maxProperties": 256,
+                "type": "object"
+              },
+              "parent_job": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              "request_ref": {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              "role": {
+                "enum": [
+                  "main",
+                  "support",
+                  "test"
+                ]
+              },
+              "scope": {
+                "enum": [
+                  "research",
+                  "operations"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "queue_position": {
+            "default": "tail",
+            "enum": [
+              "tail",
+              "next"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "owner",
+          "notify",
+          "params"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Submit a standalone Unit"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "get",
+      "description": "Apply get to an exact Unit ID.",
+      "errors": [
+        "The ID does not exist."
+      ],
+      "example": {
+        "id": "<unit-id>"
+      },
+      "group": "units",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/query.rs#inspect_job",
+        "feature": "queue"
+      },
+      "returns": "Returns current state, Stage and Attempt receipts, optional Job membership, output and scheduling evidence.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "read",
+      "title": "Read a Unit"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "hold",
+      "description": "Apply hold to an exact Unit ID.",
+      "errors": [
+        "Permission denied. A physical Job with no waiting or preparing stage returns a queue conflict (409)."
+      ],
+      "example": {
+        "id": "<unit-id>"
+      },
+      "group": "units",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/jobs.rs#job_action",
+        "feature": "queue"
+      },
+      "returns": "Updated shared queue with physical entries and logical entries",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Hold a Unit"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "resume",
+      "description": "Apply resume to an exact Unit ID.",
+      "errors": [
+        "Permission denied. Releasing a failed Job's hold does not rerun its failed execution."
+      ],
+      "example": {
+        "id": "<unit-id>"
+      },
+      "group": "units",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/jobs.rs#job_action",
+        "feature": "queue"
+      },
+      "returns": "Updated shared queue with physical entries and logical entries",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Release a Unit hold"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "cancel",
+      "description": "Apply cancel to an exact Unit ID.",
+      "errors": [
+        "Missing cancel scope."
+      ],
+      "example": {
+        "id": "<unit-id>"
+      },
+      "group": "units",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/jobs.rs#job_action",
+        "feature": "queue"
+      },
+      "returns": "Cancellation receipt · id, state",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "scope": "cancel",
+      "title": "Cancel a Unit"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "reorder",
+      "description": "Apply reorder to an exact Unit ID.",
+      "errors": [
+        "Permission denied, invalid position or reference no longer waiting. A target with no waiting execution returns a queue conflict (409)."
+      ],
+      "example": {
+        "id": "<unit-id>",
+        "position": "next"
+      },
+      "group": "units",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/jobs.rs#job_action",
+        "feature": "queue"
+      },
+      "returns": "Updated shared queue with physical entries and logical entries",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "position": {
+            "enum": [
+              "next",
+              "tail",
+              "before",
+              "after"
+            ],
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1000,
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "position"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Reorder a waiting Unit"
+    }
+  ],
+  "description": "Independent execution and resource control",
+  "name": "units"
+}

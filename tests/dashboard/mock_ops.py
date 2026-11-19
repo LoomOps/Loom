@@ -90,7 +90,7 @@ class MockOps(BaseHTTPRequestHandler):
                 entries.insert(index,row)
                 for i,r in enumerate(entries):r['position']=i+1
             else:return self.send_json({'error':'fixture deny'},400)
-            return self.send_json({'id':row['id'],'changed':True,'held':row['held'],'position':row['position']})
+            return self.send_json(self.server.fixture['catalog']['queue'])
         if self.path=='/api/history/get':
             row=self.server.fixture['jobs'].get(body.get('id'))
             return self.send_json({'body':{'record':row}}) if row else self.send_json({'error':'missing'},404)

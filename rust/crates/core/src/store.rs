@@ -45,9 +45,42 @@ pub struct Application {
     pub(crate) catalog_cache: std::sync::Arc<std::sync::Mutex<Option<(String, Value)>>>,
 }
 fn compatibility_views(db: &Connection, version: i64) -> Result<()> {
+    if !job_unit_tables(db)? {
+        db.execute_batch("CREATE TEMP VIEW research_jobs AS SELECT NULL AS id WHERE 0;
+            CREATE TEMP VIEW execution_units AS SELECT NULL AS id,NULL AS job_id,NULL AS name,NULL AS label,NULL AS phase WHERE 0;
+            CREATE TEMP VIEW execution_memberships AS SELECT rowid,root,node,label,job FROM main.workflow_nodes;")?;
+    }
+    if !review_tables(db)? {
+        db.execute_batch("CREATE TEMP VIEW reviewed_work AS SELECT NULL AS id,NULL AS entry_type,NULL AS job_id,0 AS visible,NULL AS reason WHERE 0;")?;
+    }
     if version < 7 {
         db.execute_batch("CREATE TEMP VIEW IF NOT EXISTS all_entity_revisions AS SELECT * FROM main.entity_revisions; CREATE TEMP VIEW IF NOT EXISTS all_entity_locations AS SELECT * FROM main.entity_locations;")?;
     }
+    Ok(())
+}
+pub(crate) fn review_tables(db: &Connection) -> Result<bool> {
+    Ok(db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='reviewed_work')",
+        [],
+        |r| r.get(0),
+    )?)
+}
+pub(crate) fn job_unit_tables(db: &Connection) -> Result<bool> {
+    Ok(db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='execution_units')",
+        [],
+        |r| r.get(0),
+    )?)
+}
+
+/// The first accepted typed write raises the SQLite compatibility boundary in
+/// the same transaction. Older writers already reject schemas above seven.
+pub(crate) fn enable_job_units(db: &Connection) -> Result<()> {
+    db.execute(
+        "UPDATE rust_authority SET minimum_writer=2 WHERE id=1 AND minimum_writer<2",
+        [],
+    )?;
+    db.pragma_update(None, "user_version", 8)?;
     Ok(())
 }
 impl Application {
@@ -56,7 +89,7 @@ impl Application {
     }
     pub fn open(local: &Path, bulk: &Path, components: &Path, config: Config) -> Result<Self> {
         let path = local.join("ops.sqlite3");
-        if path.is_file() {
+        let target = if path.is_file() {
             let db =
                 Connection::open_with_flags(&path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
             let version: i64 = db.query_row("PRAGMA user_version", [], |r| r.get(0))?;
@@ -66,8 +99,11 @@ impl Application {
                 "Run the explicit drained catalog migration before starting this native writer",
                 409,
             )?;
-        }
-        Self::open_schema(local, bulk, components, config, 7)
+            version.max(7)
+        } else {
+            7
+        };
+        Self::open_schema(local, bulk, components, config, target)
     }
     pub fn open_schema(
         local: &Path,
@@ -77,7 +113,7 @@ impl Application {
         target: i64,
     ) -> Result<Self> {
         require(
-            matches!(target, 5..=7),
+            matches!(target, 5..=8),
             "schema",
             "Unsupported target schema",
             409,
@@ -102,7 +138,7 @@ impl Application {
         )?;
         let version: i64 = db.query_row("PRAGMA user_version", [], |r| r.get(0))?;
         require(
-            matches!(version, 0 | 4..=7) && (version <= target || version == 0),
+            matches!(version, 0 | 4..=8) && (version <= target || version == 0),
             "schema",
             "Unsupported Ops schema",
             409,
@@ -135,12 +171,21 @@ impl Application {
             let broken:bool=db.query_row("SELECT EXISTS(SELECT 1 FROM catalog_revisions r LEFT JOIN catalog_items i ON i.id=r.item WHERE i.id IS NULL) OR EXISTS(SELECT 1 FROM catalog_aliases a LEFT JOIN catalog_items i ON i.id=a.item LEFT JOIN catalog_revisions r ON r.id=a.revision WHERE i.id IS NULL OR r.id IS NULL OR r.item!=a.item) OR EXISTS(SELECT 1 FROM catalog_items i LEFT JOIN catalog_revisions r ON r.id=i.current_revision WHERE i.current_revision IS NOT NULL AND (r.id IS NULL OR r.item!=i.id)) OR EXISTS(SELECT 1 FROM catalog_manifests m LEFT JOIN catalog_revisions r ON r.id=m.revision WHERE r.id IS NULL OR r.item!=m.item) OR EXISTS(SELECT 1 FROM catalog_changes c LEFT JOIN catalog_items i ON i.id=c.item WHERE i.id IS NULL)",[],|r|r.get(0))?;
             require(meta&&!broken,"catalog_authority_missing","Authoritative Item identity metadata is incomplete; preserve evidence and restore it",409)?;
         }
-        if version == 7 {
+        if version >= 7 {
             let count:i64=db.query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name IN('reconcile_plans','asset_imports','file_bindings','log_retention','catalog_tasks','asset_revisions','asset_locations')",[],|r|r.get(0))?;
             require(
                 count == 7,
                 "reconciliation_authority_missing",
                 "Restore reconciliation authority; never recreate lost plans or bindings silently",
+                409,
+            )?;
+        }
+        if version >= 8 {
+            let complete: bool = db.query_row("SELECT count(*)=3 FROM sqlite_master WHERE name IN ('research_jobs','execution_units','execution_memberships')", [], |r| r.get(0))?;
+            require(
+                complete,
+                "job_unit_authority_missing",
+                "Restore the Job and Unit records before serving",
                 409,
             )?;
         }
@@ -195,7 +240,7 @@ impl Application {
         require(
             matches!(
                 db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))?,
-                5..=7
+                5..=8
             ),
             "schema",
             "Read-only serving requires a previously migrated Rust database",
@@ -245,6 +290,16 @@ impl Application {
         // Token authorization and operation are evaluated on the same serialized lane.
         crate::auth::validate_current(&self.db, actor)?;
         let mut value = match (group, action) {
+            ("units", "submit") => self.submit_execution(actor, args, true),
+            ("units", action) => {
+                let exists: bool = self.db.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM execution_units WHERE id=?)",
+                    [args["id"].as_str().unwrap()],
+                    |r| r.get(0),
+                )?;
+                require(exists, "unit", "Unit not found", 404)?;
+                self.job_action(actor, action, args)
+            }
             (
                 "system",
                 "rebuild_search" | "catalog_task" | "prune_search" | "retry_catalog_task",
@@ -336,7 +391,7 @@ impl Application {
             self.db
                 .query_row("SELECT mode FROM node_control WHERE id=1", [], |r| r.get(0))?;
         Ok(
-            json!({"service":"Loom Ops","build":{"build_id":crate::onboarding::assets().build_id,"image_build_id":crate::onboarding::assets().build_id,"source_modified":false,"source_kind":"immutable_rust_binary","git_commit":crate::onboarding::assets().git_commit},"storage_id":self.config.storage_id,"inventory":self.config.extra.get("inventory").cloned().unwrap_or(serde_json::json!({})),"engine":"rust","build_id":crate::onboarding::assets().build_id,"image_build_id":crate::onboarding::assets().build_id,"git_commit":crate::onboarding::assets().git_commit,"source_modified":false,"source_kind":"immutable_rust_binary","api_revision":crate::onboarding::identity()["api_revision"],"machine_id":self.config.machine_id,"admission":{"mode":mode},"source":crate::onboarding::assets().source_sha256,"version":crate::onboarding::assets().release_version,"authoring":{"default_language":"rust","python":"external SDK integration","sdk":"loom-producer/v1"}}),
+            json!({"service":"Loom Ops","build":{"build_id":crate::onboarding::assets().build_id,"image_build_id":crate::onboarding::assets().build_id,"source_modified":false,"source_kind":"immutable_rust_binary","git_commit":crate::onboarding::assets().git_commit},"storage_id":self.config.storage_id,"inventory":self.config.extra.get("inventory").cloned().unwrap_or(serde_json::json!({})),"engine":"rust","build_id":crate::onboarding::assets().build_id,"image_build_id":crate::onboarding::assets().build_id,"git_commit":crate::onboarding::assets().git_commit,"source_modified":false,"source_kind":"immutable_rust_binary","api_revision":crate::onboarding::identity()["api_revision"],"machine_id":self.config.machine_id,"execution_model":"job-unit/v1","admission":{"mode":mode},"source":crate::onboarding::assets().source_sha256,"version":crate::onboarding::assets().release_version,"authoring":{"default_language":"rust","python":"external SDK integration","sdk":"loom-producer/v1"}}),
         )
     }
 }

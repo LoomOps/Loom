@@ -61,7 +61,7 @@ comparisonCompatible=function(a,b){
 const loomOutputComparison=comparison;
 comparison=function(){
  // Comparison can be entered directly, before either list has been loaded.
- const pages=['model','experiment'].map(kind=>loomCatalogPager(kind).replace('>More</button>','>More '+(kind==='model'?'models':'experiments')+'</button>')).join('');
+ const pages=['model','experiment'].map(kind=>loomCatalogPager(kind,kind==='model'?'Load more policies':'Load more experiments')).join('');
  const pending=(state.compareRuns||[]).filter(id=>!catEntity(id)),selected=[...(state.compareRuns||[])],base=state.compareBase;
  for(const id of pending)if(!loomCatalogOpening.has(id)){
   loomCatalogOpening.add(id);
@@ -91,20 +91,38 @@ function loomOutputDevelopment(e){
  return e.presentation?.role==='support'||e.presentation?.role==='test'||p.purpose==='engineering'||p.evaluation_class==='engineering'||e.dataset_overview?.role==='diagnostic_observations'
   ||(e.kind==='model'&&modelFilterMeta(e).role==='Observer');
 }
-function loomOutputPurpose(){return state.outputPurpose||((catalogData.presentation_view||'research')==='research'?'research':'all');}
+function loomOutputPurpose(){return state.outputPurpose||((catalogData.presentation_view||'all')==='research'?'research':'all');}
+const loomOutputClasses=()=>Array.isArray(state.outputClasses)?state.outputClasses:['regular'];
 const loomOutputKinds=catKind;
 catKind=function(kind,discarded=false){
  if(!['model','dataset','experiment','run'].includes(kind))return loomOutputKinds(kind,discarded);
- const view=catalogData.presentation_view||'research';
+ if(catalogData.capabilities?.job_units){
+  const classes=loomOutputClasses(),page=loomCatalogPages.get(loomCatalogPageKey(kind));
+  const ids=page?.committed?new Set(page.ids):null;
+  return loomTaskItems((catalogData.all_entities||catalogData.entities).filter(e=>e.kind===kind&&(discarded||!catIsDiscarded(e))
+   &&(!ids||ids.has(e.id))&&classes.includes(e.catalog_class||(loomOutputDevelopment(e)?'reference':'regular'))),kind);
+ }
+ const view=catalogData.presentation_view||'all';
  const rows=loomTaskItems((catalogData.all_entities||catalogData.entities).filter(e=>e.kind===kind&&(discarded||!catIsDiscarded(e))&&(view==='all'||(view==='operations'?e.presentation?.scope==='operations':view==='builtin'?e.owner_kind==='built-in':e.presentation?.scope!=='operations'))),kind);
  const purpose=loomOutputPurpose();
  return rows.filter(e=>purpose==='all'||(purpose==='development')===loomOutputDevelopment(e))
   .sort((a,b)=>Number(loomOutputDevelopment(a))-Number(loomOutputDevelopment(b))||loomOutputRank(a)-loomOutputRank(b));
 };
 const loomOutputToolbar=loomTaskToolbar;
-loomTaskToolbar=function(){return loomOutputToolbar()+'<div class="pa-filter" aria-label="Output purpose">'
+loomTaskToolbar=function(){
+ if(catalogData.capabilities?.job_units)return loomOutputToolbar()+'<div class="pa-filter" aria-label="Catalog class">'
+  +[['regular','Regular'],['reference','Reference']].map(([value,label])=>'<label class="pa-pill"><input type="checkbox" data-output-class="'+value+'"'+(loomOutputClasses().includes(value)?' checked':'')+'> '+label+'</label>').join('')+'</div>';
+ return loomOutputToolbar()+'<div class="pa-filter" aria-label="Output purpose">'
  +[['all','All'],['research','Research'],['development','Development']].map(([value,label])=>'<button class="pa-pill '+(loomOutputPurpose()===value?'active':'')+'" aria-pressed="'+(loomOutputPurpose()===value)+'" data-output-purpose="'+value+'">'+label+'</button>').join('')+'</div>';};
 root.addEventListener('click',event=>{const b=event.target.closest('[data-output-purpose]');if(!b)return;const pane=b.closest('[data-pane]');if(pane)ws.active=pane.dataset.pane;activeTab().view.outputPurpose=b.dataset.outputPurpose;render();persist();});
+
+root.addEventListener('change',event=>{
+ const input=event.target.closest('[data-output-class]');if(!input)return;
+ const pane=input.closest('[data-pane]');if(pane)ws.active=pane.dataset.pane;
+ const view=activeTab().view,classes=new Set(view.outputClasses||['regular']);
+ if(input.checked)classes.add(input.dataset.outputClass);else classes.delete(input.dataset.outputClass);
+ view.outputClasses=['regular','reference'].filter(value=>classes.has(value));render();persist();
+});
 
 function loomRepresentativeOutcome(e){
  const rows=catResultMetrics(e),primary=rows.filter(r=>r.role==='primary_outcome');

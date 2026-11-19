@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import socket
 import subprocess
+import tarfile
 import tempfile
 import time
 import unittest
@@ -88,10 +89,16 @@ class RustServiceTests(unittest.TestCase):
   missing=self.call('jobs','logs',args);self.assertFalse(missing['available']);self.assertEqual(missing['next_offset'],0)
 
   events=self.call('events','list',{'kind':'all'});completion=next(e for e in events if e['job']==job['id'] and e['code']=='complete');self.call('events','ack',{'seq':completion['seq']});self.assertFalse(any(e['seq']==completion['seq'] for e in self.call('events','list',{'kind':'all'})))
- def test_real_mcp_six_groups_and_guide(self):
+ def test_real_mcp_action_groups_and_guide(self):
   init=self.post('/mcp',{'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2025-03-26'}});self.assertEqual(init['result']['protocolVersion'],'2025-03-26')
-  tools=self.post('/mcp',{'jsonrpc':'2.0','id':2,'method':'tools/list'});self.assertEqual({t['name'] for t in tools['result']['tools']},{'jobs','recovery','events','components','results','system'})
+  tools=self.post('/mcp',{'jsonrpc':'2.0','id':2,'method':'tools/list'});self.assertEqual({t['name'] for t in tools['result']['tools']},{'jobs','units','recovery','events','components','results','system'})
   guide=self.post('/mcp',{'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'system','arguments':{'action':'guide','arguments':{'id':'authoring'}}}});data=json.loads(guide['result']['content'][0]['text']);self.assertIn('Rust',data['content']);self.assertIn('loom',guide['result']['_meta'])
+  for guide_id in ('job-cases','catalog-cases'):
+   self.assertIn(guide_id,init['result']['instructions'])
+  for guide_id in ('job-cases','job-intake-cases','job-control-cases','catalog-cases'):
+   args={'action':'guide','arguments':{'id':guide_id}}
+   reply=self.post('/mcp',{'jsonrpc':'2.0','id':5,'method':'tools/call','params':{'name':'system','arguments':args}})['result']
+   self.assertEqual(json.loads(reply['content'][0]['text']),self.call('system','guide',{'id':guide_id}))
   identity=guide['result']['_meta']['loom'];marker=f"Loom {identity['build_id']} | contract {identity['contract_revision'][:12]} | guide {identity['guide_revision'][:12]}"
   self.assertEqual(guide['result']['content'][-1]['text'],marker)
   error=self.post('/mcp',{'jsonrpc':'2.0','id':4,'method':'tools/call','params':{'name':'jobs','arguments':{'action':'get','arguments':{'id':'missing'}}}})['result']
@@ -99,6 +106,122 @@ class RustServiceTests(unittest.TestCase):
   self.assertNotEqual(error['content'][0]['text'],marker)
   with urlopen(Request(self.url+'/api/status',headers={'Authorization':'Bearer '+self.token}),timeout=5) as response:
    self.assertEqual(response.headers['X-Loom-Revision'],identity['revision'])
+
+ def test_job_unit_pipelining_and_history_have_distinct_identities(self):
+  self.assertEqual(self.call('system','status')['execution_model'],'job-unit/v1')
+  owner={'owner':'owner','notify':'owner'}
+  smoke={'kind':'cpu.smoke','params':{'seconds':2,'fail':False}}
+  plans=[]
+  for name in ('a','b'):
+   proposed={**owner,'key':f'research-{name}','outcome':{
+    'goal':f'Generate dataset {name}',
+    'deliverables':[{'alias':'dataset','kind':'dataset','from':{'unit':'generate','entity':'dataset'}}]},
+    'plan':{'sealed':False,'units':[
+     {'id':'preflight','label':'Prepare inputs','phase':'prepare','execution':smoke},
+     {'id':'generate','label':'Generate demonstrations','depends_on':['preflight']}]}}
+   accepted=self.call('jobs','submit_research',proposed)
+   self.assertEqual(accepted,self.call('jobs','submit_research',proposed))
+   plans.append(accepted)
+  alone=self.call('units','submit',{**owner,'key':'standalone-smoke',**smoke,'execution_mode':'smoke'})['id']
+  for _ in range(120):
+   queue=self.call('system','dashboard_queue')['queue']
+   if len([u for u in queue['unit_entries'] if u['state']=='running'])==3:break
+   time.sleep(.025)
+  else:self.fail(queue)
+  self.assertEqual({j['id'] for j in queue['job_entries']},{p['id'] for p in plans})
+  self.assertTrue(all(j['state']=='preparing' for j in queue['job_entries']))
+  for plan in plans:
+   job=self.call('jobs','get',{'id':plan['id']})
+   member=plan['units']['preflight']
+   self.assertEqual(job['entry_type'],'job')
+   self.assertNotIn('executions',job)
+   self.assertEqual(job['spec']['outcome']['deliverables'][0]['from']['unit'],'generate')
+   self.assertEqual(job['units'][0]['id'],member)
+   exact=self.call('units','get',{'id':member})
+   self.assertEqual(exact['unit']['job_id'],job['id'])
+   self.assertNotIn('parent_job',exact['presentation'])
+   self.assertNotIn('execution_membership',exact)
+   self.wait(member)
+  self.assertIsNone(self.wait(alone)['unit']['job_id'])
+  for _ in range(100):
+   page=self.call('system','dashboard_page',{'kinds':['job'],'view':'all','role':'all','limit':50})
+   if not page['partial']:break
+   time.sleep(.05)
+  else:self.fail(page)
+  items=page['entities']
+  self.assertEqual({e['id'] for e in items if e['entry_type']=='unit'},{alone})
+  self.assertEqual({e['id'] for e in items if e['entry_type']=='job'},{p['id'] for p in plans})
+  with self.assertRaises(HTTPError) as invalid:
+   self.call('units','submit',{**owner,'key':'not-a-child',**smoke,'presentation':{'scope':'research','role':'support','parent_job':plans[0]['id']}})
+  self.assertEqual(invalid.exception.code,400)
+
+ def test_published_walkthrough_requests_execute_against_isolated_loom(self):
+  def examples(guide):
+   content=self.call('system','guide',{'id':guide})['content']
+   return [json.loads(block.split("```",1)[0]) for block in content.split("```json\n")[1:]]
+  status_request=next(e for e in examples('job-cases') if e.get('method')=='tools/call')
+  reply=self.post('/mcp',status_request)['result']
+  self.assertFalse(reply.get('isError',False),reply)
+  self.assertEqual(json.loads(reply['content'][0]['text'])['machine_id'],'fixture')
+  self.assertFalse(self.call('jobs','list',{'view':'all'}))
+
+  catalog=examples('catalog-cases')
+  template=self.post('/api/actions',next(e for e in catalog if e['action']=='get_metadata_template'))
+  plan=next(e for e in catalog if e['action']=='reconcile_plan')
+  definition=plan['arguments']['proposal']['operations'][0]['definition']
+  archive=self.data/definition['primary']['ref']
+  archive.parent.mkdir()
+  demo=archive.parent/'benchmark.json'
+  demo.write_text('{"release":"2026.01"}')
+  with tarfile.open(archive,'w') as tar:tar.add(demo,arcname='benchmark.json')
+  definition['primary']['sha256']=hashlib.sha256(archive.read_bytes()).hexdigest()
+  definition['metadata']['template_ref']['sha256']=template['sha256']
+  def publish_import():
+   accepted=self.post('/api/actions',plan)
+   for action in ('reconcile_validate','reconcile_apply'):
+    call=next(e for e in catalog if e['action']==action)
+    call['arguments']['plan_id']=accepted['plan_id']
+    response=self.post('/api/actions',call)
+    if action=='reconcile_validate':self.assertEqual(response['state'],'validated')
+   self.assertEqual(response['receipt']['created_jobs'],0)
+   created=response['receipt']['operations'][0]
+   return self.call('results','get',{'id':created['id'],'revision':created['revision']})
+
+  imported=publish_import()
+  self.assertEqual(imported['kind'],'dataset')
+  self.assertEqual(imported['origin']['type'],'import')
+  self.assertEqual(imported['origin']['source']['revision'],'2026.01')
+  self.assertIn('available',[loc['status'] for loc in imported['locations']])
+
+  restored=self.data/'restored-benchmark.tar'
+  restored.write_bytes(archive.read_bytes())
+  reconnect=next(e for e in catalog if e['action']=='reconnect')
+  component=imported['components'][0]
+  reconnect['arguments'].update(id=imported['id'],revision=imported['revision'],
+                                component=component['ref'],ref=restored.name,storage='data/0')
+  self.assertEqual(self.post('/api/actions',reconnect)['status'],'available')
+  self.assertIn(restored.name,[loc['ref'] for loc in self.call(
+   'results','get',{'id':imported['id'],'revision':imported['revision']})['locations']])
+
+  plan['arguments']['key']='held-out-subset-fixture'
+  plan['arguments']['proposal']['operations'][0]['source']['id']='grasp-heldout'
+  child=publish_import()
+  parent_ref={'kind':'entity','identity':{'id':imported['id'],'revision':imported['revision']}}
+  child_ref={'kind':'entity','identity':{'id':child['id'],'revision':child['revision']}}
+  digest=None
+  for link in (e for e in catalog if e['action']=='link_dataset'):
+   args=link['arguments']
+   args.update(target=child_ref,parent=parent_ref)
+   args['evidence'][0].update(target=parent_ref,component=component['ref'],sha256=component['sha256'])
+   if not args['dry_run']:args['expected_digest']=digest
+   response=self.post('/api/actions',link)
+   self.assertEqual(response['stored'],not args['dry_run'])
+   digest=response['digest']
+  self.assertIsNotNone(digest)
+  derived=self.call('results','get',child_ref['identity'])
+  self.assertEqual(derived['dataset_lineage']['parents'][0]['parent'],parent_ref)
+  self.assertFalse(self.call('jobs','list',{'view':'all'}))
+
 
  def test_scenario_job_pin_and_reuse_are_real_api_operations(self):
   s=self.call('results','register_scenario',{'key':'s','definition':{'label':'Fixture task'}})
@@ -133,27 +256,18 @@ class RustServiceTests(unittest.TestCase):
   self.assertEqual(len(done['executions'][0]['attempts']),1)
   self.assertEqual(done['result']['outputs']['out']['id'],'observation')
   self.assertEqual([(e['job'],e['code']) for e in self.call('events','list',{'kind':'all'})],[(root,'complete')])
- def test_workflow_has_one_public_completion(self):
-  spec={'kind':'cpu.smoke','params':{'seconds':0,'fail':False}}
-  workflow=self.call('jobs','submit_workflow',{'key':'graph','label':'One outcome','owner':'owner','notify':'owner','nodes':[{'id':'a','label':'first','spec':spec},{'id':'b','label':'second','depends_on':['a'],'spec':spec}],'outputs':{'final':{'node':'b','entity':'observation'}}})
-  done=self.wait(workflow['id']);self.assertTrue(done['workflow']);self.assertEqual(len(done['executions']),2)
-  events=self.call('events','list',{'kind':'all'});self.assertEqual([(e['job'],e['code']) for e in events if e['code']=='complete'],[(workflow['id'],'complete')])
-  streams=self.call('jobs','log_streams',{'id':workflow['id']});self.assertGreaterEqual(len(streams['items']),2);self.assertTrue(all(s['job']!=workflow['id'] for s in streams['items']))
-  reference={'native_ref':{'kind':'job','identity':{'id':workflow['id']}}}
+ def test_scheduled_jobs_have_independent_completion_and_visibility(self):
+  first=self.submit('intake')
+  spec={'owner':'owner','notify':'owner','kind':'cpu.smoke','params':{'seconds':0,'fail':False}}
+  second=self.call('jobs','submit',{**spec,'key':'evaluate','execution_mode':'pilot','pilot':{'preflight_for':'full evaluation','reduced_scope':'one test case'},'depends_on':[first]})['id']
+  self.wait(second)
+  events=self.call('events','list',{'kind':'all'})
+  self.assertEqual({e['job'] for e in events if e['code']=='complete'},{first,second})
   for _ in range(100):
-   try:original=self.call('results','resolve_item',reference);break
-   except HTTPError as error:
-    if error.code!=404:raise
-    time.sleep(.05)
-  else:self.fail('Workflow root not adopted')
-  self.call('jobs','curate',{'key':'workflow-presentation','reason':'User preparation','dry_run':False,'changes':[{'kind':'job','id':workflow['id'],'presentation':{'scope':'operations','role':'main'}}]})
-  for _ in range(100):
-   page=self.call('system','dashboard_page',{'kinds':['job'],'view':'operations','role':'all','limit':100})
-   if any(e['id']==workflow['id'] for e in page['entities']):break
+   page=self.call('system','dashboard_page',{'kinds':['job'],'view':'all','role':'all','limit':100})
+   if {first,second} <= {e['id'] for e in page['entities']}:break
    time.sleep(.05)
-  else:self.fail('Curated workflow disappeared from paged discovery')
-  self.assertEqual(original,self.call('results','resolve_item',reference))
-  self.assertEqual(self.call('jobs','get',{'id':workflow['id']})['state'],'complete')
+  else:self.fail('Independent Jobs missing from paged discovery')
  def test_bad_credential_and_origin_cannot_submit(self):
   with self.assertRaises(HTTPError) as denied:self.post('/api/actions',{'group':'jobs','action':'queue','arguments':{}},token='wrong')
   self.assertEqual(denied.exception.code,401)
@@ -180,7 +294,7 @@ class RustServiceTests(unittest.TestCase):
 from pathlib import Path
 from stdio import OpsTransport
 t=OpsTransport(Path(sys.argv[1]));r=t.rpc({'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2025-03-26'}});assert r['result']['protocolVersion']=='2025-03-26'
-r=t.rpc({'jsonrpc':'2.0','id':2,'method':'tools/list'});assert len(r['result']['tools'])==6
+r=t.rpc({'jsonrpc':'2.0','id':2,'method':'tools/list'});assert {t['name'] for t in r['result']['tools']}=={'jobs','units','recovery','events','components','results','system'}
 r=t.rpc({'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'system','arguments':{'action':'status','arguments':{}}}});assert json.loads(r['result']['content'][0]['text'])['engine']=='rust'
 r=t.rpc({'jsonrpc':'2.0','id':4,'method':'tools/call','params':{'name':'system','arguments':{'action':'guide','arguments':{}}}});assert json.loads(r['result']['content'][0]['text'])['manifest']['revision'];assert 'loom' in r['result']['_meta']
 '''

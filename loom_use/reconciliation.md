@@ -1,6 +1,7 @@
 # Reconcile selected assets
 
 
+For an import, a relocated copy or a derived Dataset, select the matching [catalog case](catalog-cases.md) first.
 Discover results.reconcile_contract and current schemas before proposing changes.
 reconcile_inspect pages registered metadata; it never scans unregistered directories.
 Agents identify meaning and exact source provenance, then use reconcile_plan with

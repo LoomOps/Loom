@@ -1,7 +1,10 @@
 // Queue controls use the same server snapshot and eligibility as dispatch.
 let loomQueueBusy = false;
 let loomQueueNotice = '';
-const loomQueueEntries = () => [...(catalogData.queue?.entries||[]),...(catalogData.queue?.logical_entries||[])];
+const loomQueueEntries = () => {
+  const queue=catalogData.queue||{};
+  return [...(queue.entries||[]),...(queue.logical_entries||[]).filter(row=>row.entry_type==='job'||!row.executions?.length)];
+};
 const loomQueueEntry = id => loomQueueEntries().find(row => row.id === id);
 function loomQueueReason(row) {
   if(row.reason==='executing')return row.state==='preparing'?'준비 중':'실행 중';
@@ -48,13 +51,12 @@ workItems=function(pageIds=null){
   }
   const displayed=[...logical.values()];
   const known=new Set(displayed.map(e=>e.id));
-  // Only authoritative workflow membership collapses execution nodes. A
-  // presentation parent may group a separate follow-up; it must not hide it.
-  const nodes=new Set(items.flatMap(e=>(e.loom_workflow?.executions||[]).map(n=>n.job)));
-  const jobs=displayed.filter(e=>!nodes.has(e.id)&&!e.properties?.workflow_root&&!e.properties?.consolidated_into);
+  const jobs=displayed.filter(e=>!loomJobWrapper(e)&&e.reviewed_work?.visible!==0&&!e.unit?.job_id&&!e.properties?.consolidated_into);
   if(pageIds)return jobs;
-  return jobs.concat(loomQueueEntries().filter(r=>!known.has(r.id)&&(!r.workflow||r.workflow===r.id)).map(r=>({id:r.id,label:r.id,kind:'job',loom_queue_shared:true,presentation:r.presentation,
-    properties:{record_role:'loom_job',state:r.state,owner:r.owner}})));
+  return jobs.concat(loomQueueEntries().filter(r=>!known.has(r.id)).map(r=>({
+    id:r.id,label:r.label||r.id,kind:'job',loom_queue_shared:true,presentation:r.presentation,
+    properties:{record_role:'loom_job',state:r.state,owner:r.owner,category:r.category,execution_mode:r.execution_mode}
+  })));
 };
 function loomQueueCompare(a,b) {
   const rank=id=>{const r=loomQueueEntry(id);return r?(r.position??0):Number.MAX_SAFE_INTEGER;};
@@ -63,11 +65,17 @@ function loomQueueCompare(a,b) {
 const loomQueueWorkRow=workRow;
 workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
+  if(catalogData.capabilities?.job_units){
+    if(!current)row[0]='<small class="pa-queue-owner">'+(entity.entry_type==='unit'?'Unit':'Job')+'</small>'+row[0];
+    if(entity.entry_type)row[0]=row[0].replace(/(\d+) Steps/,(_,n)=>entity.entry_type==='unit'?(Number(n)?n+' observed units':''):n+' Units');
+  }
   const tasks=loomTaskLabels(entity);
   if(current && q){
-    if(entity.loom_queue_shared)row[0]='<div class="pa-queue-name">'+esc(q.spec?.label||q.id)+'<small>'+esc(q.owner)+' · 공유 큐</small></div>';
+    if(entity.loom_queue_shared)row[0]='<div class="pa-queue-name">'+esc(q.label||q.spec?.label||q.id)+'<small>'+esc(q.owner)+' · 공유 큐</small></div>';
     row[0]+='<small class="pa-queue-position">'+loomQueuePosition(q)+'</small>'+loomQueueControls(q.id);
   }
+  const mode=entity.properties?.execution_mode;
+  if(mode)row[0]+='<small class="pa-queue-owner">'+esc(loomJobContract().execution_modes?.[mode]||mode)+'</small>';
   const owner=entity.owner_profile?.display_name || entity.properties?.owner_name || q?.owner_profile?.display_name || entity.owner || entity.properties?.owner;
   if(tasks)row[0]+='<div class="pa-queue-tasks"><span>Task ·</span><span>'+tasks+'</span></div>';
   if(owner)row[0]+='<small class="pa-queue-owner">Owner · '+esc(owner)+'</small>';
@@ -89,6 +97,22 @@ loomJobPanel=function(job,entry){
 };
 function loomCurrentQueuePanel(rows,table){
  const waiting=catalogData.capabilities?.live_queue&&!catalogData.queue;
+ if(catalogData.capabilities?.job_units){
+  const queue=catalogData.queue,notice=waiting||loomHomeErrors.queue?loomHomeStatus('queue'):'';
+  const record=q=>catEntity(q.id)||{
+   id:q.id,label:q.label||q.spec?.label||q.id,kind:'job',entry_type:q.entry_type,
+   loom_queue_shared:true,properties:{state:q.state,owner:q.owner}
+  };
+  const jobs=(queue?.job_entries||[]).map(record).sort(loomQueueCompare),units=queue?.unit_entries||[];
+  const body=units.map(unit=>{
+   const active=(unit.progress?.steps||[]).filter(step=>step.state==='running').map(step=>esc(step.label)).join(' · ');
+   const label=catLink(unit.id,unit.unit?.label||unit.label)+loomQueueControls(unit.id);
+   const gpu=unit.gpu_access?.mode ? 'GPU · '+esc(unit.gpu_access.mode) : unit.lane==='gpu'?'GPU':'CPU';
+   return [label,unit.job_id?catLink(unit.job_id):'—',queueBadge(record(unit)),gpu,active||esc(loomQueueReason(unit))];
+  });
+  return panel('Job Queue · '+jobs.length,notice+(jobs.length?table(jobs,true):queue?'<div class="pa-empty">대기 또는 실행 중인 Job이 없습니다.</div>':''))
+    +panel('Unit Queue · '+units.length,body.length?'<div class="pa-queue-table">'+catTable(['Unit','Job','상태','자원','진행'],body)+'</div>':queue?'<div class="pa-empty">대기 또는 실행 중인 Unit이 없습니다.</div>':'');
+ }
  if(waiting)return panel('현재 큐',loomHomeStatus('queue'));
  if(catalogData.capabilities?.live_queue){
   const ids=new Set(loomQueueEntries().map(row=>row.id));
@@ -115,6 +139,6 @@ window.addEventListener('message',event=>{
  if(event.source!==parent || event.data?.type!=='loom-queue-result')return;
  loomQueueBusy=false;
  const {data,error}=event.data;
- loomQueueNotice=error===403?'이 Job을 변경할 권한이 없습니다.':error?'변경을 확인하지 못했습니다. 큐를 새로고침해 주세요.':data?.changed?'큐 변경 완료':data?.reason==='not_waiting'?'이미 실행되었거나 대기 상태가 아닙니다.':'이미 요청한 상태입니다.';
+ loomQueueNotice=error===403?'이 Job을 변경할 권한이 없습니다.':error?'변경을 확인하지 못했습니다. 큐를 새로고침해 주세요.':Array.isArray(data?.entries)||data?.changed?'큐 변경 완료':data?.reason==='not_waiting'?'이미 실행되었거나 대기 상태가 아닙니다.':'이미 요청한 상태입니다.';
  loomEntityReads.clear();scheduleCatalogRender();
 });

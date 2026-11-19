@@ -2020,6 +2020,17 @@
               "recorded"
             ]
           },
+          "catalog_classes": {
+            "items": {
+              "enum": [
+                "regular",
+                "reference"
+              ]
+            },
+            "maxItems": 2,
+            "type": "array",
+            "uniqueItems": true
+          },
           "category": {
             "maxLength": 128,
             "type": "string"
@@ -2184,6 +2195,17 @@
               "source_unavailable",
               "recorded"
             ]
+          },
+          "catalog_classes": {
+            "items": {
+              "enum": [
+                "regular",
+                "reference"
+              ]
+            },
+            "maxItems": 2,
+            "type": "array",
+            "uniqueItems": true
           },
           "category": {
             "maxLength": 128,

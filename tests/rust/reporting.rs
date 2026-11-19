@@ -664,6 +664,96 @@ fn checkpoint_evaluation_keeps_paired_cases_and_a_separate_representative_score(
 }
 
 #[test]
+fn unit_catalog_records_keep_executing_producer_and_class() {
+    for member in [false, true] {
+        let mut f = Fixture::new();
+        let contract = builtin(&mut f, "loom.report.dataset");
+        let (unit, folder, manifest) = fixture_report(&mut f, &contract, &[("membership", data())]);
+        let job = member.then_some("research-fixture");
+        if let Some(job) = job {
+            let request = json!({"outcome":{"deliverables":[{"alias":"dataset","kind":"dataset","from":{"node":"produce","entity":"data"}}]}});
+            f.app.db.execute("INSERT INTO job_workflows(id,submitter,key,request,owner,notify,created,state) VALUES(?,'owner','k',?,'owner','owner',0,'queued')",
+                             rusqlite::params![job,request.to_string()]).unwrap();
+            f.app
+                .db
+                .execute("INSERT INTO research_jobs VALUES(?)", [job])
+                .unwrap();
+        }
+        f.app
+            .db
+            .execute(
+                "INSERT INTO execution_units VALUES(?,?,'produce','Produce','run')",
+                rusqlite::params![unit, job],
+            )
+            .unwrap();
+        f.app
+            .publish_result(&unit, "report-attempt", manifest, &folder)
+            .unwrap();
+        let published = f
+            .call(
+                "results",
+                "get",
+                json!({"id":format!("{unit}.data"),"revision":1}),
+            )
+            .unwrap();
+        assert_eq!(
+            published["catalog_class"],
+            if member { "regular" } else { "reference" }
+        );
+        assert_eq!(published["producer"]["unit_id"], unit);
+        assert_eq!(published["producer"]["job_id"], json!(job));
+        assert_eq!(published["producer"]["attempt_id"], "report-attempt");
+    }
+}
+
+#[test]
+fn direct_scientific_output_keeps_the_accepted_job_identity_without_a_group() {
+    let mut f = Fixture::new();
+    let contract = builtin(&mut f, "loom.report.dataset");
+    let template = f
+        .call(
+            "results",
+            "get_metadata_template",
+            json!({"id":"loom.dataset","revision":1}),
+        )
+        .unwrap();
+    let (job, folder, manifest) = fixture_report(&mut f, &contract, &[("membership", data())]);
+    let mut spec = jobs::load(&f.app.db, &job).unwrap().spec;
+    spec["outcome"] = json!({"goal":"Import dataset","deliverables":[{"alias":"cohort","entity":"data","kind":"dataset"}],
+        "science":{"deliverables":{"cohort":{"activity":"dataset_import","template_ref":crate::metadata_templates::reference(&template),
+        "contract_ref":reporting::reference(&contract)}}}});
+    spec["science_digest"] = f
+        .call(
+            "jobs",
+            "preview_outcome",
+            json!({"outcome":spec["outcome"]}),
+        )
+        .unwrap()["science_digest"]
+        .clone();
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET spec=? WHERE id=?",
+            rusqlite::params![spec.to_string(), job],
+        )
+        .unwrap();
+    f.app
+        .publish_result(&job, "report-attempt", manifest, &folder)
+        .unwrap();
+    let published = f
+        .call(
+            "results",
+            "get",
+            json!({"id":format!("{job}.data"),"revision":1}),
+        )
+        .unwrap();
+    assert_eq!(published["science"]["outcome"], job);
+    assert_eq!(published["science"]["digest"], spec["science_digest"]);
+    assert!(published["science"]["deliverables"]["cohort"].is_object());
+    assert_eq!(f.count("job_workflows"), 0);
+}
+
+#[test]
 fn outcome_preview_and_publication_bind_hypothesis_and_verified_setup_sessions() {
     let mut f = Fixture::new();
     let contract = builtin(&mut f, "loom.report.dataset");

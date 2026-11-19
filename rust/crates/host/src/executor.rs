@@ -187,6 +187,8 @@ pub struct Start {
     #[serde(default = "cpu")]
     pub lane: String,
     #[serde(default)]
+    pub gpu_access: Option<Value>,
+    #[serde(default)]
     pub runtime_id: Option<String>,
     #[serde(default)]
     pub runtime_ref: Option<Value>,
@@ -297,7 +299,7 @@ impl<D: Docker> Executor<D> {
         db.execute_batch("PRAGMA journal_mode=WAL;PRAGMA synchronous=FULL; CREATE TABLE IF NOT EXISTS tickets(id TEXT PRIMARY KEY,instance TEXT,container TEXT,gpu INTEGER,state TEXT,request TEXT,exit_code INTEGER,image_id TEXT,logs TEXT);")?;
         db.execute_batch("CREATE TABLE IF NOT EXISTS ticket_launches(ticket TEXT PRIMARY KEY,labels TEXT NOT NULL,argv TEXT NOT NULL);")?;
         let columns = rows(&db, "PRAGMA table_info(tickets)", &[])?;
-        for name in ["exit_code", "image_id", "logs"] {
+        for name in ["exit_code", "image_id", "logs", "gpu_devices"] {
             if !columns.iter().any(|c| c["name"] == name) {
                 db.execute(
                     &format!(
@@ -481,7 +483,7 @@ impl<D: Docker> Executor<D> {
                         result["declared_images"] = json!(images);
                     }
                 }
-                result["protocol"] = json!({"version":1,"capabilities":["cancel_intent","log_range","log_stream_v1","runtime_ref","drain_status"]});
+                result["protocol"] = json!({"version":1,"capabilities":["cancel_intent","log_range","log_stream_v1","runtime_ref","drain_status","gpu_access"]});
                 Ok(result)
             }
             "resolve_runtime" => {
@@ -631,6 +633,101 @@ impl<D: Docker> Executor<D> {
             json!({"image":digest,"cpus":cpus,"memory":memory,"pids":pids,"network":policy["network"].as_str().unwrap_or("none"),"driver_capabilities":policy.get("driver_capabilities").cloned().unwrap_or(json!(["compute","utility"]))}),
         )
     }
+    fn select_gpu_devices(&self, request: Option<&Value>) -> Result<Vec<String>> {
+        let configured = if self.config.gpu_devices.is_empty() {
+            vec!["0".to_owned()]
+        } else {
+            self.config.gpu_devices.clone()
+        };
+        let Some(request) = request else {
+            return Ok(configured);
+        };
+        require(
+            matches!(request["mode"].as_str(), Some("exclusive" | "shared")),
+            "gpu_access",
+            "GPU access mode required",
+            400,
+        )?;
+        let devices = if let Some(devices) = request.get("devices") {
+            let devices: Vec<String> = serde_json::from_value(devices.clone())?;
+            require(
+                !devices.is_empty()
+                    && devices.iter().all(|id| configured.contains(id))
+                    && devices
+                        .iter()
+                        .collect::<std::collections::BTreeSet<_>>()
+                        .len()
+                        == devices.len(),
+                "gpu_access",
+                "GPU devices must be distinct configured devices",
+                409,
+            )?;
+            devices
+        } else {
+            vec![configured[0].clone()]
+        };
+        if request["mode"] == "shared" {
+            let budget = &self
+                .config
+                .extra
+                .get("gpu_shared_memory_mib")
+                .cloned()
+                .unwrap_or_default();
+            let requested = request["memory_mib"].as_u64().unwrap_or(0);
+            require(
+                requested > 0
+                    && devices
+                        .iter()
+                        .all(|id| budget[id].as_u64().is_some_and(|n| n >= requested)),
+                "gpu_capacity",
+                "Shared GPU access needs a reservation within the configured device budget",
+                409,
+            )?;
+        }
+        Ok(devices)
+    }
+
+    fn gpu_busy(&self, devices: &[String], request: Option<&Value>) -> Result<bool> {
+        let shared = request.is_some_and(|v| v["mode"] == "shared");
+        let requested = request.and_then(|v| v["memory_mib"].as_u64()).unwrap_or(0);
+        let limits = self
+            .config
+            .extra
+            .get("gpu_shared_memory_mib")
+            .cloned()
+            .unwrap_or_default();
+        let mut reserved = BTreeMap::<String, u64>::new();
+        for ticket in rows(
+            &self.db,
+            "SELECT * FROM tickets WHERE gpu=1 AND state!='returned'",
+            &[],
+        )? {
+            // Unknown status keeps the previous resource claim.
+            if self.observed(&ticket).is_ok_and(|v| v["returned"] == true) {
+                continue;
+            }
+            let start: Value = serde_json::from_str(ticket["request"].as_str().unwrap_or("{}"))?;
+            let access = start.get("gpu_access").filter(|v| !v.is_null());
+            let occupied = if let Some(devices) = ticket["gpu_devices"].as_str() {
+                serde_json::from_str::<Vec<String>>(devices)?
+            } else {
+                self.select_gpu_devices(access)?
+            };
+            for device in devices.iter().filter(|d| occupied.contains(d)) {
+                if !shared || access.is_none_or(|v| v["mode"] != "shared") {
+                    return Ok(true);
+                }
+                let used = reserved.entry(device.clone()).or_default();
+                *used =
+                    used.saturating_add(access.unwrap()["memory_mib"].as_u64().unwrap_or(u64::MAX));
+                if used.saturating_add(requested) > limits[device].as_u64().unwrap_or(0) {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(false)
+    }
+
     fn start(&mut self, instance: &str, value: Value) -> Result<Value> {
         let request: Start = serde_json::from_value(value.clone())?;
         identity(&request.ticket)?;
@@ -673,23 +770,21 @@ impl<D: Docker> Executor<D> {
         }
         let gpu = lane == loom_domain::Lane::Gpu;
         require(!gpu || cfg.gpu, "gpu", "GPU outside instance grant", 403)?;
-        if gpu {
-            for old in rows(
-                &self.db,
-                "SELECT * FROM tickets WHERE gpu=1 AND state!='returned'",
-                &[],
-            )? {
-                let _ = self.observed(&old);
-            }
-            let busy: bool = self.db.query_row(
-                "SELECT EXISTS(SELECT 1 FROM tickets WHERE gpu=1 AND state!='returned')",
-                [],
-                |r| r.get(0),
-            )?;
-            if busy {
-                return Ok(json!({"busy":true}));
-            }
+        require(
+            gpu || request.gpu_access.is_none(),
+            "gpu_access",
+            "CPU launches cannot claim GPU access",
+            400,
+        )?;
+        let devices = if gpu {
+            self.select_gpu_devices(request.gpu_access.as_ref())?
+        } else {
+            vec![]
+        };
+        if gpu && self.gpu_busy(&devices, request.gpu_access.as_ref())? {
+            return Ok(json!({"busy":true}));
         }
+        let gpu_devices = gpu.then(|| serde_json::to_string(&devices)).transpose()?;
         let (runtime, legacy_policy) = if let Some(pin) = &request.runtime_ref {
             require(
                 pin["sha256"].is_string(),
@@ -937,10 +1032,12 @@ impl<D: Docker> Executor<D> {
             ]));
         }
         if gpu {
-            let devices = if self.config.gpu_devices.is_empty() {
-                "0".to_string()
+            let selection = format!("device={}", devices.join(","));
+            // Docker parses --gpus as CSV, including when invoked without a shell.
+            let selection = if devices.len() > 1 {
+                format!("\"{selection}\"")
             } else {
-                self.config.gpu_devices.join(",")
+                selection
             };
             let capabilities = runtime["driver_capabilities"]
                 .as_array()
@@ -970,7 +1067,7 @@ impl<D: Docker> Executor<D> {
             )?;
             argv.extend(strings(&[
                 "--gpus",
-                &format!("device={devices}"),
+                &selection,
                 "--env",
                 &format!("NVIDIA_DRIVER_CAPABILITIES={capabilities}"),
             ]));
@@ -999,7 +1096,7 @@ impl<D: Docker> Executor<D> {
         argv.splice(1..1, labelargs);
         // Intent precedes create/start. A lost reply never creates a second identity.
         let tx = self.db.unchecked_transaction()?;
-        tx.execute("INSERT INTO tickets(id,instance,container,gpu,state,request) VALUES(?,?,?,?,'creating',?)",params![ticket,instance,name,i64::from(gpu),encoded])?;
+        tx.execute("INSERT INTO tickets(id,instance,container,gpu,state,request,gpu_devices) VALUES(?,?,?,?,'creating',?,?)",params![ticket,instance,name,i64::from(gpu),encoded,gpu_devices])?;
         tx.execute(
             "INSERT INTO ticket_launches VALUES(?,?,?)",
             params![

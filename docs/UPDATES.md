@@ -231,3 +231,8 @@ Native update preservation permits Runtime/Dependency observation retirement and
 monotonic catalog access-epoch advancement. Their original IDs, native keys,
 creation identity, immutable revisions and aliases remain preserved. Scientific
 Item retirement, origin/cursor-key changes and access-epoch regression are rejected.
+
+
+### Job and Unit compatibility boundary
+
+The first accepted typed Job or Unit raises the instance's SQLite authority to schema 8 in the acceptance transaction. A release that only supports schema 7 will reject that database. Keep the drained checkpoint for recovery. After accepting typed work, prefer forward repair or a verified data-preserving conversion before changing writer versions. An older checkpoint omits submissions and publications made after its capture.

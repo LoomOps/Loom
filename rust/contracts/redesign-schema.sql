@@ -108,3 +108,42 @@ CREATE TABLE IF NOT EXISTS rust_plan_revisions(
  actor TEXT NOT NULL, key TEXT NOT NULL, request TEXT NOT NULL, response TEXT NOT NULL,
  recorded REAL NOT NULL, PRIMARY KEY(root,revision), UNIQUE(root,actor,key)
 );
+
+CREATE TABLE IF NOT EXISTS research_jobs(id TEXT PRIMARY KEY REFERENCES job_workflows(id));
+CREATE TABLE IF NOT EXISTS execution_units(
+ id TEXT PRIMARY KEY REFERENCES jobs(id),
+ job_id TEXT REFERENCES research_jobs(id),
+ name TEXT NOT NULL,
+ label TEXT NOT NULL,
+ phase TEXT NOT NULL CHECK(phase IN ('prepare','run','finalize')),
+ UNIQUE(job_id,name)
+);
+CREATE VIEW IF NOT EXISTS execution_memberships AS
+ SELECT rowid,root,node,label,job FROM workflow_nodes
+ UNION ALL
+ SELECT rowid,job_id,name,label,id FROM execution_units WHERE job_id IS NOT NULL;
+
+-- Retrospective classification overlays. Exact source records remain authoritative.
+CREATE TABLE IF NOT EXISTS reviewed_work(
+ id TEXT PRIMARY KEY,
+ entry_type TEXT NOT NULL CHECK(entry_type IN ('job','unit')),
+ job_id TEXT,
+ visible INTEGER NOT NULL CHECK(visible IN (0,1)),
+ reason TEXT NOT NULL,
+ CHECK(job_id IS NULL OR (entry_type='unit' AND id<>job_id))
+);
+CREATE TABLE IF NOT EXISTS reviewed_outputs(
+ source TEXT NOT NULL, kind TEXT NOT NULL, id TEXT NOT NULL,
+ revision TEXT NOT NULL, snapshot TEXT NOT NULL,
+ catalog_class TEXT NOT NULL CHECK(catalog_class IN ('regular','reference')),
+ reason TEXT NOT NULL,
+ PRIMARY KEY(source,kind,id,revision,snapshot)
+);
+CREATE TABLE IF NOT EXISTS reviewed_clock(id INTEGER PRIMARY KEY CHECK(id=1),version INTEGER NOT NULL);
+INSERT OR IGNORE INTO reviewed_clock VALUES(1,0);
+CREATE TRIGGER IF NOT EXISTS reviewed_work_insert AFTER INSERT ON reviewed_work BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; UPDATE reviewed_clock SET version=version+1 WHERE id=1; END;
+CREATE TRIGGER IF NOT EXISTS reviewed_work_update AFTER UPDATE ON reviewed_work BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; UPDATE reviewed_clock SET version=version+1 WHERE id=1; END;
+CREATE TRIGGER IF NOT EXISTS reviewed_work_delete AFTER DELETE ON reviewed_work BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; UPDATE reviewed_clock SET version=version+1 WHERE id=1; END;
+CREATE TRIGGER IF NOT EXISTS reviewed_outputs_insert AFTER INSERT ON reviewed_outputs BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; UPDATE reviewed_clock SET version=version+1 WHERE id=1; END;
+CREATE TRIGGER IF NOT EXISTS reviewed_outputs_update AFTER UPDATE ON reviewed_outputs BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; UPDATE reviewed_clock SET version=version+1 WHERE id=1; END;
+CREATE TRIGGER IF NOT EXISTS reviewed_outputs_delete AFTER DELETE ON reviewed_outputs BEGIN UPDATE rust_projection_version SET version=version+1 WHERE id=1; UPDATE reviewed_clock SET version=version+1 WHERE id=1; END;

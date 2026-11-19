@@ -1,11 +1,9 @@
 #pai-studio .pa-report-workspace { min-width:0; margin:20px 0; }
-#pai-studio :is(.pa-report-policy,.pa-report-dataset,.pa-report-experiment,.pa-output-overview-cards) { max-width:1160px; }
 #pai-studio :is(.pa-report-policy,.pa-report-dataset,.pa-report-experiment) .pa-report-overview,
 #pai-studio :is(.pa-report-policy,.pa-report-experiment) [data-report-content],
 #pai-studio .pa-research-overview.pa-output-overview-cards { display:grid; gap:16px; min-width:0; }
 #pai-studio .pa-report-overview .pa-output-overview-cards { margin:0; }
-#pai-studio .pa-output-overview-cards :is(.pa-research-input-panel,.pa-output-source) { grid-column:1 / -1; }
-#pai-studio :is(.pa-report-policy,.pa-report-dataset .pa-report-overview,.pa-report-experiment,.pa-output-overview-cards) .pa-output-section { box-sizing:border-box; padding:16px 20px; border:1px solid var(--pa-line); border-radius:10px; background:var(--pa-paper); }
+#pai-studio :is(.pa-report-policy,.pa-report-experiment) [data-report-content] > .pa-output-section { box-sizing:border-box; padding:16px 20px; border:1px solid var(--pa-line); border-radius:10px; background:var(--pa-paper); }
 #pai-studio :is(.pa-report-policy,.pa-report-dataset .pa-report-overview,.pa-report-experiment,.pa-output-overview-cards) .pa-output-section > h2 { margin-bottom:14px; }
 #pai-studio :is(.pa-report-policy,.pa-report-dataset .pa-report-overview,.pa-report-experiment,.pa-output-overview-cards) .pa-entity-facts { margin-block:0; padding-block:0; border-block:0; }
 #pai-studio .pa-report-policy .pa-report-field { margin:0 0 12px; }
@@ -17,9 +15,8 @@
 #pai-studio .pa-report-metric-details { margin-top:12px; color:var(--pa-muted); }
 #pai-studio .pa-report-metric-details > summary { cursor:pointer; padding:6px 0; }
 #pai-studio .pa-report-metric-details > dl + dl { margin-top:8px; }
-@container pane (min-width:720px) {
- #pai-studio .pa-output-overview-cards { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; }
-}
+#pai-studio .pa-panel.pa-output-overview-cards > :is(section,div) ~ :is(section,div) { border-top:1px solid var(--pa-line); padding-top:16px; }
+#pai-studio .pa-report-member-controls { align-items:end; }
 #pai-studio .pa-report-tabs { display:flex; flex-direction:row; flex-wrap:wrap; gap:6px 20px; border-bottom:1px solid var(--pa-line); margin-bottom:24px; }
 #pai-studio .pa-report-tabs button { flex:0 0 auto; width:auto; min-width:0; font:inherit; color:var(--pa-muted); background:none; border:0; padding:12px 0; border-bottom:2px solid transparent; }
 #pai-studio .pa-report-tabs button[aria-current=page] { color:var(--pa-ink); border-bottom-color:var(--pa-accent); }

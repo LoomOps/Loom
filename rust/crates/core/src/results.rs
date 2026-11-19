@@ -471,9 +471,18 @@ impl Application {
             require(row.spec["profile"]["reporting_policy"]==crate::reporting::POLICY,"report_profile_legacy","New scientific outputs require a frozen reporting contract; declare scientific outputs before submission",409)?;
         }
         let science_plan = crate::plans::scientific_plan(&self.db, job)?;
-        let missing:bool=self.db.query_row("SELECT EXISTS(SELECT 1 FROM workflow_nodes n JOIN job_workflows w ON w.id=n.root JOIN json_each(w.request,'$.outcome.deliverables') d WHERE n.job=? AND json_extract(d.value,'$.from.node')=n.node AND NOT EXISTS(SELECT 1 FROM json_each(?,'$.entities') e WHERE json_extract(e.value,'$.id')=json_extract(d.value,'$.from.entity') AND json_extract(e.value,'$.kind')=json_extract(d.value,'$.kind')))",params![job,encode(&manifest)?],|r|r.get(0))?;
+        let missing:bool=self.db.query_row("SELECT EXISTS(SELECT 1 FROM execution_memberships n JOIN job_workflows w ON w.id=n.root JOIN json_each(w.request,'$.outcome.deliverables') d WHERE n.job=? AND json_extract(d.value,'$.from.node')=n.node AND NOT EXISTS(SELECT 1 FROM json_each(?,'$.entities') e WHERE json_extract(e.value,'$.id')=json_extract(d.value,'$.from.entity') AND json_extract(e.value,'$.kind')=json_extract(d.value,'$.kind')))",params![job,encode(&manifest)?],|r|r.get(0))?;
         require(
-            !missing,
+            !missing
+                && row.spec["outcome"]["deliverables"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .all(|d| {
+                        entities
+                            .iter()
+                            .any(|e| e["id"] == d["entity"] && e["kind"] == d["kind"])
+                    }),
             "deliverable",
             "Result is missing a promised output or its kind differs",
             409,
@@ -659,6 +668,43 @@ impl Application {
                 relations.push(json!({"kind":"derived_from","input":input,"id":parent["id"],"revision":parent["revision"],"transformation":lineage["transformation"],"primary":lineage["primary"].as_bool().unwrap_or(false)}));
             }
             let mut published = json!({"id":identity,"revision":1,"kind":kind,"origin_machine":self.config.machine_id,"job":job,"attempt":attempt,"provenance":entity.get("provenance").cloned().unwrap_or(json!({})),"components":components,"relations":relations,"metadata_schema":row.spec["profile"]["metadata_schemas"].get(entity_id).or_else(||row.spec["profile"]["metadata_schemas"].get("*")).cloned(),"metrics":manifest["metrics"].as_array().unwrap().iter().filter(|m|m["entity_id"]==entity_id).collect::<Vec<_>>()});
+            if let Some(unit) = rows(
+                &self.db,
+                "SELECT job_id,name FROM execution_units WHERE id=?",
+                &[&job],
+            )?
+            .into_iter()
+            .next()
+            {
+                let mut regular = false;
+                let mut alias = Value::Null;
+                if let Some(root) = unit["job_id"].as_str() {
+                    let request: String = self.db.query_row(
+                        "SELECT request FROM job_workflows WHERE id=?",
+                        [root],
+                        |r| r.get(0),
+                    )?;
+                    let request: Value = serde_json::from_str(&request)?;
+                    if let Some(promise) = request["outcome"]["deliverables"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .find(|d| {
+                            d["from"]["node"] == unit["name"]
+                                && d["from"]["entity"] == entity_id
+                                && d["kind"] == kind
+                        })
+                    {
+                        regular = true;
+                        alias = promise["alias"].clone();
+                    }
+                }
+                published["producer"] = json!({"unit_id":job,"job_id":unit["job_id"],"attempt_id":attempt,"alias":alias});
+                if matches!(kind, "dataset" | "model" | "experiment") {
+                    published["catalog_class"] =
+                        json!(if regular { "regular" } else { "reference" });
+                }
+            }
 
             if entity["inventory"].is_object() {
                 require(
@@ -1178,7 +1224,7 @@ pub(crate) fn input_relations(db: &Connection, params: &Value) -> Result<Vec<Val
                     serde_json::from_str(parent["request"].as_str().unwrap_or("{}"))?;
                 let alias = &request["outputs"][output];
                 let child: String = db.query_row(
-                    "SELECT job FROM workflow_nodes WHERE root=? AND node=?",
+                    "SELECT job FROM execution_memberships WHERE root=? AND node=?",
                     params![upstream, alias["node"].as_str()],
                     |r| r.get(0),
                 )?;

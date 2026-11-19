@@ -85,11 +85,11 @@ impl Application {
                 .unwrap_or(Value::Null);
             let root: Option<String> = self
                 .db
-                .query_row("SELECT root FROM workflow_nodes WHERE job=?", [id], |r| {
+                .query_row("SELECT root FROM execution_memberships WHERE job=?", [id], |r| {
                     r.get(0)
                 })
                 .optional()?;
-            entities.push(json!({"id":id,"kind":"job","namespace":"loom","label":d["presentation"]["label"].as_str().unwrap_or(spec["kind"].as_str().unwrap_or(id)),"state":d["state"],"created":d["created"],"attempt":d["attempt"],"properties":{"id":id,"state":d["state"],"status":d["status"],"created":d["created"],"attempt":d["attempt"],"owner":d["owner"],"record_role":"loom_job","category":d["category"],"execution_mode":d["execution_mode"],"queued_at":d["created"],"started_at":d["work_timeline"].get("started").or_else(||d["timeline"].get("started")).unwrap_or(&started),"process_exited_at":d["work_timeline"].get("ended").or_else(||d["timeline"].get("ended")).unwrap_or(&ended),"artifact_ready":d["result"]["artifact_ready"],"recovery":d["recovery"],"output_storage":spec["output_storage"],"consolidated_into":d["consolidation"]["consolidated_into"],"internal_step_count":d["internal_steps"]["steps"].as_array().map(|a|a.len()).unwrap_or(0),"workflow_root":root},"attempts":attempts,"internal_steps":d["internal_steps"],"execution_intervals":d["execution_intervals"],"loom_job":{"id":id},"presentation":d["presentation"],"scenario_ref":d["scenario_ref"],"relations":[],"artifacts":[]}));
+            entities.push(json!({"id":id,"kind":"job","namespace":"loom","label":d["presentation"]["label"].as_str().unwrap_or(spec["kind"].as_str().unwrap_or(id)),"state":d["state"],"created":d["created"],"attempt":d["attempt"],"properties":{"id":id,"state":d["state"],"status":d["status"],"created":d["created"],"attempt":d["attempt"],"owner":d["owner"],"record_role":"loom_job","category":d["category"],"execution_mode":d["execution_mode"],"pilot":spec["pilot"],"queued_at":d["created"],"started_at":d["work_timeline"].get("started").or_else(||d["timeline"].get("started")).unwrap_or(&started),"process_exited_at":d["work_timeline"].get("ended").or_else(||d["timeline"].get("ended")).unwrap_or(&ended),"artifact_ready":d["result"]["artifact_ready"],"recovery":d["recovery"],"output_storage":spec["output_storage"],"consolidated_into":d["consolidation"]["consolidated_into"],"internal_step_count":d["internal_steps"]["steps"].as_array().map(|a|a.len()).unwrap_or(0),"workflow_root":root},"attempts":attempts,"internal_steps":d["internal_steps"],"execution_intervals":d["execution_intervals"],"loom_job":{"id":id},"presentation":d["presentation"],"scenario_ref":d["scenario_ref"],"relations":[],"artifacts":[]}));
             if let Some(entity) = entities.last_mut() {
                 for key in ["owner", "owner_name", "owner_profile"] {
                     entity[key] = d[key].clone();
@@ -104,8 +104,9 @@ impl Application {
         )? {
             let id = w["id"].as_str().unwrap_or("");
             let d = self.job_detail(id)?;
-            let node_count = d["executions"].as_array().map(Vec::len).unwrap_or(0);
-            entities.push(json!({"id":id,"kind":"job","namespace":"loom","label":d["spec"]["label"],"state":d["state"],"created":d["created"],"properties":{"record_role":"loom_job","id":id,"state":d["state"],"status":d["status"],"queued_at":d["created"],"started_at":d["execution_intervals"].as_array().and_then(|a|a.iter().filter_map(|i|i["start"].as_f64()).min_by(f64::total_cmp)),"process_exited_at":if d["state"]=="complete"{d["execution_intervals"].as_array().and_then(|a|a.iter().filter_map(|i|i["end"].as_f64()).max_by(f64::total_cmp))}else{None},"owner":d["owner"],"execution_node_count":node_count,"internal_step_count":node_count},"loom_workflow":d,"loom_job":{"id":id},"steps":d["executions"],"execution_intervals":d["execution_intervals"],"presentation":d["presentation"],"scenario_ref":d["scenario_ref"],"relations":[],"artifacts":[]}));
+            let members = d.get("units").unwrap_or(&d["executions"]);
+            let node_count = members.as_array().map(Vec::len).unwrap_or(0);
+            entities.push(json!({"id":id,"kind":"job","namespace":"loom","label":d["spec"]["label"],"state":d["state"],"created":d["created"],"properties":{"record_role":"loom_job","id":id,"state":d["state"],"status":d["status"],"queued_at":d["created"],"started_at":d["execution_intervals"].as_array().and_then(|a|a.iter().filter_map(|i|i["start"].as_f64()).min_by(f64::total_cmp)),"process_exited_at":if d["state"]=="complete"{d["execution_intervals"].as_array().and_then(|a|a.iter().filter_map(|i|i["end"].as_f64()).max_by(f64::total_cmp))}else{None},"owner":d["owner"],"execution_node_count":node_count,"internal_step_count":node_count},"loom_workflow":d,"loom_job":{"id":id},"steps":members,"execution_intervals":d["execution_intervals"],"presentation":d["presentation"],"scenario_ref":d["scenario_ref"],"relations":[],"artifacts":[]}));
             if let Some(entity) = entities.last_mut() {
                 for key in ["owner", "owner_name", "owner_profile"] {
                     entity[key] = d[key].clone();
@@ -551,7 +552,56 @@ impl Application {
                 visible.push(entity);
             }
         }
-        let entities = visible;
+        let mut entities = visible;
+        for entity in entities
+            .iter_mut()
+            .filter(|e| e["kind"] == "job" && e["loom_history"].is_null())
+        {
+            let id = entity["id"].as_str().unwrap_or("");
+            if let Some(unit) = self.unit_summary(id)? {
+                entity["entry_type"] = json!("unit");
+                entity["unit"] = unit;
+                entity["presentation"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("parent_job");
+                entity["properties"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("workflow_root");
+            } else if self.db.query_row(
+                "SELECT EXISTS(SELECT 1 FROM research_jobs WHERE id=?)",
+                [id],
+                |r| r.get::<_, bool>(0),
+            )? {
+                entity["entry_type"] = json!("job");
+                if let Some(count) = entity["properties"]
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("execution_node_count")
+                {
+                    entity["properties"]["unit_count"] = count;
+                }
+            }
+        }
+
+        for entity in entities
+            .iter_mut()
+            .filter(|e| e["kind"] == "job" && e["entry_type"].is_null())
+        {
+            let id = entity["loom_history"]["id"]
+                .as_str()
+                .or_else(|| entity["id"].as_str())
+                .unwrap_or("");
+            if let Some(review) = self.work_review(id)? {
+                entity["entry_type"] = review["entry_type"].clone();
+                entity["reviewed_work"] = review.clone();
+                if review["entry_type"] == "unit" {
+                    entity["unit"] = json!({"job_id":review["job_id"]});
+                }
+            }
+        }
+
         if let Some(runtimes) = runtime_catalog["runtimes"].as_array_mut() {
             runtimes.retain(|r| r["owner_kind"] != "system");
         }
@@ -592,7 +642,7 @@ impl Application {
             "revision":self.dashboard_revision()?, "entities":[], "host":self.dashboard_host()?,
             "research_tasks":self.dashboard_tasks()?, "sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],
             "job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,
-            "capabilities":{"catalog_pages":true,"live_queue":true,"scenarios":true,"item_search":true,"metadata_templates":true,"reporting":true},
+            "capabilities":{"catalog_pages":true,"live_queue":true,"job_units":true,"scenarios":true,"item_search":true,"metadata_templates":true,"reporting":true},
             "initial_page_complete":false
         }))
     }
@@ -603,10 +653,11 @@ impl Application {
             &mut queue,
             !self.read_only && actor.scopes.iter().any(|s| s == "submit"),
         );
+        crate::query::project_queue_types(&mut queue);
         let ids: std::collections::BTreeSet<_> = ["entries", "logical_entries"]
             .iter()
             .flat_map(|key| queue[*key].as_array().into_iter().flatten())
-            .filter_map(|entry| entry["workflow"].as_str().or_else(|| entry["id"].as_str()))
+            .filter_map(|entry| entry["id"].as_str())
             .collect();
         let selected: Vec<_> = ids
             .into_iter()
@@ -629,16 +680,13 @@ impl Application {
                     .is_ok_and(|s| s["state"] != "archived")
             })
         });
-        let queue = self.queue()?;
-        for entry in ["logical_entries", "entries"]
+        let queue = self.dashboard_queue()?;
+        for entry in ["entries", "logical_entries"]
             .iter()
             .flat_map(|key| queue[key].as_array().into_iter().flatten())
             .take(200)
         {
-            let id = entry
-                .get("workflow")
-                .filter(|v| v.is_string())
-                .unwrap_or(&entry["id"]);
+            let id = &entry["id"];
             if let Ok(resolved) =
                 self.resolve_item(&json!({"native_ref":{"kind":"job","identity":{"id":id}}}))
             {
@@ -668,6 +716,9 @@ impl Application {
         for entity in catalog["entities"].as_array_mut().unwrap() {
             entity["item_id"] = item["item_id"].clone();
             entity["item_revision_id"] = item["revision_id"].clone();
+            if item["catalog_class"].is_string() {
+                entity["catalog_class"] = item["catalog_class"].clone();
+            }
         }
         Ok(catalog)
     }
@@ -691,6 +742,7 @@ impl Application {
                 "dependency"
             ]);
         }
+        query["_dashboard_job_rows"] = json!(true);
         query["include_system"] = json!(false);
         if query.get("include_archived").is_none() {
             query["include_archived"] = json!(false);
@@ -742,6 +794,9 @@ impl Application {
             if let Some(item) = item {
                 entity["item_id"] = item["item_id"].clone();
                 entity["item_revision_id"] = item["revision_id"].clone();
+                if item["catalog_class"].is_string() {
+                    entity["catalog_class"] = item["catalog_class"].clone();
+                }
             }
         }
         // Search pagination follows authority items, not extra related DTOs.

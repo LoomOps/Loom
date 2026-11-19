@@ -4,6 +4,8 @@
 
 Do not preempt running Jobs. Respect dependencies, allow concurrent preparation and never reassign resources before their return. Logical workflow queue summaries use child readiness for waiting states and distinguish execution, finalization and recovery. Accepted-key submission replays return their original Job while admission is draining; new submissions remain fenced.
 
+Preparing Jobs can be held while their CPU stage completes. A durable hold blocks the next Run claim across service restarts. The queue reports the stage lane used by dispatch, including CPU preparation of GPU Jobs. Queue ordering applies only to waiting Jobs.
+
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
@@ -59,17 +61,6 @@ Physical `jobs.get` records expose `execution_membership` as `{root,node}` only
 for actual workflow nodes, or null for independent Jobs. Consumers must use this
 authority rather than treating `presentation.parent_job` as execution membership.
 
-Root catalog rows expose `group_summary` and each member exposes `group_root`.
-The bounded summary counts physical executions once, unions recorded intervals,
-and reports the latest member and active phase. A partial summary is explicit;
-the UI must not treat it as a complete family. Home sorts a completed group by
-its latest activity and shows current group occupancy while a follow-up runs.
-The original root's state, timeline, scheduler graph and Runtime pins stay intact.
-Home status labels omit internal root terminology and the duplicate original-state
-note. Current group occupancy, the latest member and failed execution counts stay
-visible; exact Job details retain each original execution state.
-History folding uses the recorded outcome root even when the immediate parent
-was consolidated into a continuation. A filter that excludes the root still
-shows matching children, and explicit source history retains original executions.
+Typed research Jobs aggregate scheduled Units. The Dashboard Job Queue shows current outcomes, the Unit Queue shows physical work, and terminal history shows each research Job or standalone Unit once. Legacy records retain their original execution history.
 
-Open outcomes retain one workflow ID across plan revisions. Slots without an execution have no queue position or Attempt. See [outcome admission](../../loom_use/workflows.md#accept-an-outcome-before-installation).
+Open outcomes retain their Job ID across plan revisions. Slots without an execution have no queue position or Attempt. See [outcome admission](../../loom_use/workflows.md#planning).

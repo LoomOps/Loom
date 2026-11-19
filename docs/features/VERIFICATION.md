@@ -48,13 +48,7 @@ Installation uses actual doctor results and the selected step's exit criteria. O
 Historical release-specific notes are preserved in [VERIFICATION-HISTORY.md](VERIFICATION-HISTORY.md); they are not another current checklist.
 
 For Job ownership, exercise presentation links, parent removal, cycle rejection
-and immutable Node membership. A presentation parent cannot transfer controls,
-execution times or ownership. Verify independent Job rows on the first load and
-after a partial refresh. True workflow Nodes and accepted source Attempts stay
-under the owning Job. Activity unions overlapping intervals by that owner and
-KST day; presentation-only relations leave both Jobs in the count. Verify
-started Runtime pins on recovered Attempts and distinguish execution Nodes from
-producer Steps.
+and historical membership. Each scheduled Job appears once in queue, history and Activity, including Jobs accepted in older workflow groups. Verify first load and paginated refresh. Inspect exact old group IDs and accepted consolidation sources. A presentation parent does not transfer controls or runtime pins. Count retries once per Job and KST day.
 
 Check an open plan before and after Runtime binding, exact replay, sealed-plan
 immutability, publication evidence failures and finalization retry. For

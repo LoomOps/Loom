@@ -2667,6 +2667,7 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 |---|---|---|---|
 | `at_least` | no | `"string"` | `—` |
 | `availability` | no | `["verified", "source_unavailable", "recorded"]` | `—` |
+| `catalog_classes` | no | `"array"` | `—` |
 | `category` | no | `"string"` | `—` |
 | `cursor` | no | `"string"` | `—` |
 | `dependency_ref` | no | `"object"` | `—` |
@@ -2705,6 +2706,17 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
         "source_unavailable",
         "recorded"
       ]
+    },
+    "catalog_classes": {
+      "items": {
+        "enum": [
+          "regular",
+          "reference"
+        ]
+      },
+      "maxItems": 2,
+      "type": "array",
+      "uniqueItems": true
     },
     "category": {
       "maxLength": 128,
@@ -2867,6 +2879,7 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 |---|---|---|---|
 | `at_least` | no | `"string"` | `—` |
 | `availability` | no | `["verified", "source_unavailable", "recorded"]` | `—` |
+| `catalog_classes` | no | `"array"` | `—` |
 | `category` | no | `"string"` | `—` |
 | `cursor` | no | `"string"` | `—` |
 | `dependency_ref` | no | `"object"` | `—` |
@@ -2907,6 +2920,17 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
         "source_unavailable",
         "recorded"
       ]
+    },
+    "catalog_classes": {
+      "items": {
+        "enum": [
+          "regular",
+          "reference"
+        ]
+      },
+      "maxItems": 2,
+      "type": "array",
+      "uniqueItems": true
     },
     "category": {
       "maxLength": 128,

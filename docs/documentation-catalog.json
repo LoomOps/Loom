@@ -572,6 +572,12 @@
       "authority": "current implementation and linked task reference"
     },
     {
+      "path": "docs/jobs/JOB-UNIT-DESIGN.md",
+      "audience": "reader",
+      "status": "current",
+      "authority": "current implementation and linked task reference"
+    },
+    {
       "path": "docs/metadata-templates/OUTPUT-EVIDENCE.md",
       "audience": "maintainer",
       "status": "proposed",
@@ -639,6 +645,12 @@
     },
     {
       "path": "docs/reference/system.md",
+      "audience": "caller",
+      "status": "generated",
+      "authority": "compiled native registry"
+    },
+    {
+      "path": "docs/reference/units.md",
       "audience": "caller",
       "status": "generated",
       "authority": "compiled native registry"
@@ -836,6 +848,12 @@
       "authority": "license notices"
     },
     {
+      "path": "loom_use/catalog-cases.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
       "path": "loom_use/components.md",
       "audience": "agent",
       "status": "current",
@@ -849,6 +867,24 @@
     },
     {
       "path": "loom_use/inventory.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/job-cases.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/job-control-cases.md",
+      "audience": "agent",
+      "status": "current",
+      "authority": "running native guide catalog and handlers"
+    },
+    {
+      "path": "loom_use/job-intake-cases.md",
       "audience": "agent",
       "status": "current",
       "authority": "running native guide catalog and handlers"

@@ -30,14 +30,14 @@ pub(crate) const JOB_LINKS_CTE: &str = r#"job_links AS (
  SELECT j.id,COALESCE(w.root,json_extract(json_patch(COALESCE(json_extract(j.spec,'$.presentation'),'{}'),COALESCE(o.presentation,'{}')),'$.parent_job')) parent
  FROM (SELECT id,spec FROM jobs UNION ALL SELECT id,request FROM job_workflows) j
  LEFT JOIN research_overlays o ON o.kind='job' AND o.id=j.id
- LEFT JOIN workflow_nodes w ON w.job=j.id
+ LEFT JOIN execution_memberships w ON w.job=j.id
 )"#;
 impl Application {
     // Presentation links describe an outcome's preparation/follow-up history.
     // They never become scheduler dependencies or accepted execution membership.
     pub(crate) fn job_parent(&self, id: &str) -> Result<Option<String>> {
         Ok(self.db.query_row(
-            "SELECT COALESCE((SELECT root FROM workflow_nodes WHERE job=?),json_extract(json_patch(COALESCE(json_extract(j.spec,'$.presentation'),'{}'),COALESCE(o.presentation,'{}')),'$.parent_job')) FROM (SELECT id,spec FROM jobs UNION ALL SELECT id,request FROM job_workflows) j LEFT JOIN research_overlays o ON o.kind='job' AND o.id=j.id WHERE j.id=?",
+            "SELECT COALESCE((SELECT root FROM execution_memberships WHERE job=?),json_extract(json_patch(COALESCE(json_extract(j.spec,'$.presentation'),'{}'),COALESCE(o.presentation,'{}')),'$.parent_job')) FROM (SELECT id,spec FROM jobs UNION ALL SELECT id,request FROM job_workflows) j LEFT JOIN research_overlays o ON o.kind='job' AND o.id=j.id WHERE j.id=?",
             params![id,id], |r| r.get(0),
         ).optional()?.flatten())
     }
@@ -67,6 +67,10 @@ impl Application {
             let presentation = &record["presentation"]["parent_job"];
             let authority = if record["migration"]["read_only"] == true {
                 "preserved"
+            } else if record["entry_type"] == "unit" {
+                "unit"
+            } else if record["entry_type"] == "job" {
+                "job"
             } else if membership.is_object() {
                 "workflow_node"
             } else if record["workflow"] == true {
@@ -86,9 +90,12 @@ impl Application {
     }
     pub fn inspect_job(&self, id: &str) -> Result<Value> {
         let mut detail = self.job_detail(id)?;
+        if detail["entry_type"].is_string() {
+            return Ok(detail);
+        }
         let root = self.job_family_root(id)?;
         let members = rows(&self.db,
-            &format!("WITH RECURSIVE {JOB_LINKS_CTE}, family(id) AS (SELECT ? UNION SELECT l.id FROM job_links l JOIN family f ON l.parent=f.id) SELECT l.id,l.parent,EXISTS(SELECT 1 FROM workflow_nodes n WHERE n.job=l.id) execution_node,(SELECT count(*) FROM family) total FROM family f JOIN job_links l ON l.id=f.id ORDER BY l.id LIMIT 201"),
+            &format!("WITH RECURSIVE {JOB_LINKS_CTE}, family(id) AS (SELECT ? UNION SELECT l.id FROM job_links l JOIN family f ON l.parent=f.id) SELECT l.id,l.parent,EXISTS(SELECT 1 FROM execution_memberships n WHERE n.job=l.id) execution_node,(SELECT count(*) FROM family) total FROM family f JOIN job_links l ON l.id=f.id ORDER BY l.id LIMIT 201"),
             &[&root])?;
         let total = members
             .first()
@@ -98,6 +105,9 @@ impl Application {
         for member in members.into_iter().take(200) {
             let child = self.job_detail(member["id"].as_str().unwrap())?;
             related.push(json!({"id":member["id"],"parent":member["parent"],"relation":if member["execution_node"]==1 {"execution_node"} else {"presentation"},"label":child["presentation"].get("label").or_else(||child["spec"].get("label")).or_else(||child["spec"].get("kind")),"state":child["state"],"attempt":child["attempt"],"profile":child["spec"]["profile"].get("sha256"),"runtime_refs":crate::runtime::profile_runtime_refs(&child["spec"]["profile"])}));
+        }
+        if let Some(review) = self.work_review(id)? {
+            detail["reviewed_work"] = review;
         }
         detail["family"] = json!({"root":root,"parent":self.job_parent(id)?,"authority":"presentation_and_workflow_membership","execution_unchanged":true,"total":total,"complete":total<=200,"members":related,"summary":self.job_group_summary(&root)?});
         Ok(detail)
@@ -215,6 +225,11 @@ impl Application {
         if let Some(workflow) = workflow {
             let request: Value =
                 serde_json::from_str(workflow["request"].as_str().unwrap_or("{}"))?;
+            let research: bool = self.db.query_row(
+                "SELECT EXISTS(SELECT 1 FROM research_jobs WHERE id=?)",
+                [&id],
+                |r| r.get(0),
+            )?;
             let mut nodes = vec![];
             let mut intervals = vec![];
             let mut open_intervals = vec![];
@@ -223,13 +238,22 @@ impl Application {
             let mut errors = vec![];
             for n in rows(
                 &self.db,
-                "SELECT node,label,job FROM workflow_nodes WHERE root=? ORDER BY rowid",
+                "SELECT node,label,job FROM execution_memberships WHERE root=? ORDER BY rowid",
                 &[&id],
             )? {
                 let child = n["job"].as_str().unwrap_or("");
                 let row = jobs::load(&self.db, child)?;
                 let detail = self.record_detail(&row)?;
-                states.push(row.aggregate.state);
+                let phase = detail["unit"]["phase"].as_str();
+                states.push(if research && row.aggregate.state == JobState::Running {
+                    match phase {
+                        Some("prepare") => JobState::Preparing,
+                        Some("finalize") => JobState::Processing,
+                        _ => row.aggregate.state,
+                    }
+                } else {
+                    row.aggregate.state
+                });
                 open_intervals.extend(
                     detail["execution_intervals"]
                         .as_array()
@@ -267,7 +291,9 @@ impl Application {
                 }
             }
             let managed = request["plan_revision"].is_number();
-            let state = if managed && workflow["state"] == "cancelled" {
+            let state = if managed && workflow["state"] == "failed" {
+                JobState::Failed
+            } else if managed && workflow["state"] == "cancelled" {
                 JobState::Cancelled
             } else if managed && workflow["state"] == "complete"
                 || !managed && states.iter().all(|s| *s == JobState::Complete)
@@ -321,6 +347,53 @@ impl Application {
                 result["receipts"] = request["receipts"].clone();
             }
             let mut detail = json!({"id":id,"workflow":true,"owner":workflow["owner"],"notify":workflow["notify"],"created":workflow["created"],"state":state.as_str(),"status":state.public(),"spec":request,"executions":nodes,"execution_intervals":execution_intervals,"result":result,"errors":errors,"presentation":presentation,"scenario_ref":request["scenario_ref"]});
+            if research {
+                detail["entry_type"] = json!("job");
+                detail["units"] = json!(self.unit_members(id)?);
+                let fields = detail.as_object_mut().unwrap();
+                fields.remove("executions");
+                fields.remove("workflow");
+                let spec = fields.get_mut("spec").unwrap().as_object_mut().unwrap();
+                for key in ["outcome", "outputs"] {
+                    let Some(value) = spec.get_mut(key) else {
+                        continue;
+                    };
+                    if key == "outcome" {
+                        for deliverable in
+                            value["deliverables"].as_array_mut().into_iter().flatten()
+                        {
+                            unit_source(&mut deliverable["from"]);
+                        }
+                    } else {
+                        for source in value
+                            .as_object_mut()
+                            .into_iter()
+                            .flat_map(|outputs| outputs.values_mut())
+                        {
+                            unit_source(source);
+                        }
+                    }
+                }
+                if let Some(plan) = spec.get_mut("plan") {
+                    for slot in plan["units"].as_array_mut().into_iter().flatten() {
+                        if let Some(inputs) = slot
+                            .pointer_mut("/execution/params")
+                            .and_then(Value::as_object_mut)
+                        {
+                            for value in inputs.values_mut() {
+                                if value["entity"].is_string() {
+                                    unit_source(value);
+                                }
+                            }
+                        }
+                    }
+                }
+                for error in detail["errors"].as_array_mut().into_iter().flatten() {
+                    if let Some(unit) = error.as_object_mut().unwrap().remove("job") {
+                        error["unit"] = unit;
+                    }
+                }
+            }
             let annotations = self.job_annotations(id)?;
             if !annotations.is_empty() {
                 detail["annotations"] = json!(annotations);
@@ -443,12 +516,23 @@ impl Application {
         let mut details = json!({"id":id,"submitter":row.submitter,"owner":row.owner,"notify":row.notify,"state":row.aggregate.state.as_str(),"status":row.aggregate.state.public(),"attempt":row.aggregate.fence.attempt.as_ref().map(|a|a.as_str()),"created":row.created,"spec":spec,"result":result,"previous_result":previous,"attempts":attempts,"stages":stages,"execution_intervals":timing,"recovery":recovery,"presentation":presentation,"category":row.spec.get("category").unwrap_or(&json!("other")),"execution_mode":row.spec["execution_mode"],"scenario_ref":row.spec["scenario_ref"],"scheduling":{"eligible":scheduling.reason().is_none(),"waiting_reason":scheduling.reason(),"dependency_failed":scheduling.dependency_failed},"cancel":row.aggregate.cancel_requested,"queue_history":queue_history,"internal_steps":internal_steps});
         details["execution_membership"] = rows(
             &self.db,
-            "SELECT root,node FROM workflow_nodes WHERE job=?",
+            "SELECT root,node FROM execution_memberships WHERE job=?",
             &[&id],
         )?
         .into_iter()
         .next()
         .unwrap_or(Value::Null);
+        details["unit"] = self.unit_summary(id)?.unwrap_or(Value::Null);
+        if details["unit"].is_object() {
+            details["entry_type"] = json!("unit");
+            details
+                .as_object_mut()
+                .unwrap()
+                .remove("execution_membership");
+            if let Some(presentation) = details["presentation"].as_object_mut() {
+                presentation.remove("parent_job");
+            }
+        }
         details = self.decorate_owner("job", id, &row.owner, details)?;
         let annotations = self.job_annotations(id)?;
         if !annotations.is_empty() {
@@ -577,7 +661,7 @@ impl Application {
         let category = args["category"].as_str();
         let mode = args["execution_mode"].as_str();
         let consolidated = args["include_consolidated"] == true;
-        let identities=rows(&self.db,"WITH folded AS (SELECT DISTINCT json_extract(c.value,'$.job') id FROM jobs j,json_each(j.spec,'$._consolidation_sources') c JOIN jobs original ON original.id=json_extract(c.value,'$.job') WHERE j.state='complete' AND json_extract(j.result,'$.artifact_ready')=1 AND original.state='complete' AND original.attempt IS json_extract(c.value,'$.attempt')), candidates AS (SELECT j.id,j.created,CASE WHEN o.presentation IS NULL THEN j.spec ELSE json_patch(j.spec,json_object('presentation',json_patch(COALESCE(json_extract(j.spec,'$.presentation'),'{}'),o.presentation))) END spec,0 workflow FROM jobs j LEFT JOIN research_overlays o ON o.kind='job' AND o.id=j.id WHERE NOT EXISTS(SELECT 1 FROM workflow_nodes n WHERE n.job=j.id) AND (? OR NOT EXISTS(SELECT 1 FROM folded f WHERE f.id=j.id)) UNION ALL SELECT w.id,w.created,CASE WHEN o.presentation IS NULL THEN w.request ELSE json_patch(w.request,json_object('presentation',json_patch(COALESCE(json_extract(w.request,'$.presentation'),'{}'),o.presentation))) END,1 FROM job_workflows w LEFT JOIN research_overlays o ON o.kind='job' AND o.id=w.id UNION ALL SELECT h.id,COALESCE(json_extract(h.body,'$.record.created'),json_extract(h.body,'$.entity.created'),json_extract(h.body,'$.entity.properties.created_at'),0),COALESCE(json_extract(h.body,'$.record.spec'),json_extract(h.body,'$.entity.properties'),'{}'),2 FROM history_records h WHERE h.rowid IN(SELECT max(rowid) FROM history_records WHERE kind='job_view' AND source IN ('queue','loom-ops') GROUP BY id) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.id=h.id)) SELECT id,workflow FROM candidates WHERE (?='all' OR COALESCE(json_extract(spec,'$.presentation.scope'),json_extract(spec,'$.scope'),CASE WHEN json_extract(spec,'$.kind')='cpu.smoke' THEN 'operations' ELSE 'research' END)=?) AND (? IS NULL OR COALESCE(json_extract(spec,'$.category'),'other')=?) AND (? IS NULL OR json_extract(spec,'$.execution_mode')=?) ORDER BY created DESC,id LIMIT ? OFFSET ?",&[&consolidated,&view,&view,&category,&category,&mode,&mode,&limit,&offset])?;
+        let identities=rows(&self.db,"WITH folded AS (SELECT DISTINCT json_extract(c.value,'$.job') id FROM jobs j,json_each(j.spec,'$._consolidation_sources') c JOIN jobs original ON original.id=json_extract(c.value,'$.job') WHERE j.state='complete' AND json_extract(j.result,'$.artifact_ready')=1 AND original.state='complete' AND original.attempt IS json_extract(c.value,'$.attempt')), candidates AS (SELECT j.id,j.created,CASE WHEN o.presentation IS NULL THEN j.spec ELSE json_patch(j.spec,json_object('presentation',json_patch(COALESCE(json_extract(j.spec,'$.presentation'),'{}'),o.presentation))) END spec,0 workflow FROM jobs j LEFT JOIN research_overlays o ON o.kind='job' AND o.id=j.id WHERE NOT EXISTS(SELECT 1 FROM execution_units u WHERE u.id=j.id) AND (? OR NOT EXISTS(SELECT 1 FROM folded f WHERE f.id=j.id)) UNION ALL SELECT w.id,w.created,CASE WHEN o.presentation IS NULL THEN w.request ELSE json_patch(w.request,json_object('presentation',json_patch(COALESCE(json_extract(w.request,'$.presentation'),'{}'),o.presentation))) END,1 FROM job_workflows w LEFT JOIN research_overlays o ON o.kind='job' AND o.id=w.id WHERE (EXISTS(SELECT 1 FROM research_jobs r WHERE r.id=w.id) OR NOT EXISTS(SELECT 1 FROM execution_memberships n WHERE n.root=w.id)) UNION ALL SELECT h.id,COALESCE(json_extract(h.body,'$.record.created'),json_extract(h.body,'$.entity.created'),json_extract(h.body,'$.entity.properties.created_at'),0),COALESCE(json_extract(h.body,'$.record.spec'),json_extract(h.body,'$.entity.properties'),'{}'),2 FROM history_records h WHERE h.rowid IN(SELECT max(rowid) FROM history_records WHERE kind='job_view' AND source IN ('queue','loom-ops') GROUP BY id) AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.id=h.id) AND NOT EXISTS(SELECT 1 FROM job_workflows w WHERE w.id=h.id)) SELECT id,workflow FROM candidates WHERE (?='all' OR COALESCE(json_extract(spec,'$.presentation.scope'),json_extract(spec,'$.scope'),CASE WHEN json_extract(spec,'$.kind')='cpu.smoke' THEN 'operations' ELSE 'research' END)=?) AND (? IS NULL OR COALESCE(json_extract(spec,'$.category'),'other')=?) AND (? IS NULL OR json_extract(spec,'$.execution_mode')=?) ORDER BY created DESC,id LIMIT ? OFFSET ?",&[&consolidated,&view,&view,&category,&category,&mode,&mode,&limit,&offset])?;
         let mut items = vec![];
         for identity in identities {
             let id = identity["id"].as_str().unwrap_or("");
@@ -622,22 +706,70 @@ impl Application {
         }
         Ok(json!(items))
     }
+    pub(crate) fn work_review(&self, id: &str) -> Result<Option<Value>> {
+        Ok(rows(
+            &self.db,
+            "SELECT entry_type,job_id,visible,reason FROM reviewed_work WHERE id=?",
+            &[&id],
+        )?
+        .into_iter()
+        .next())
+    }
+    pub(crate) fn unit_summary(&self, id: &str) -> Result<Option<Value>> {
+        Ok(rows(
+            &self.db,
+            "SELECT id,job_id,name,label,phase FROM execution_units WHERE id=?",
+            &[&id],
+        )?
+        .into_iter()
+        .next())
+    }
+
+    fn unit_members(&self, job: &str) -> Result<Vec<Value>> {
+        let mut result = Vec::new();
+        for mut unit in rows(&self.db,
+            "SELECT u.id,u.job_id,u.name,u.label,u.phase,j.state,j.attempt,j.spec FROM execution_units u JOIN jobs j ON j.id=u.id WHERE u.job_id=? ORDER BY u.rowid", &[&job])? {
+            let state = JobState::parse(unit["state"].as_str().unwrap())?;
+            let spec: Value = serde_json::from_str(unit.as_object_mut().unwrap().remove("spec").unwrap().as_str().unwrap())?;
+            unit["status"] = json!(state.public());
+            unit["profile"] = spec["kind"].clone();
+            unit["depends_on"] = spec["depends_on"].clone();
+            unit["gpu_access"] = spec["gpu_access"].clone();
+            result.push(unit);
+        }
+        Ok(result)
+    }
     pub fn queue(&self) -> Result<Value> {
+        let mut queue = self.queue_snapshot(true)?;
+        project_queue_types(&mut queue);
+        Ok(queue)
+    }
+    pub(crate) fn queue_snapshot(&self, include_group_receipts: bool) -> Result<Value> {
         let mut entries = vec![];
         let mut position = 0;
-        for row in rows(&self.db,"SELECT id FROM jobs WHERE id IN (SELECT id FROM jobs WHERE state IN ('queued','blocked','preparing','ready','running','processing','result_failed') UNION SELECT job FROM recovery WHERE state IN ('waiting','claimed','pending','executing')) ORDER BY COALESCE(queue_order,created),id",&[])? {
+        for row in rows(&self.db,"SELECT id FROM jobs WHERE id IN (SELECT id FROM jobs WHERE (state IN ('queued','blocked','preparing','ready','running','processing') OR (state='result_failed' AND NOT EXISTS(SELECT 1 FROM recovery r WHERE r.job=jobs.id AND r.state='exhausted'))) UNION SELECT r.job FROM recovery r JOIN jobs j ON j.id=r.job WHERE r.state IN ('waiting','claimed','pending','executing') AND j.state IN ('failed','interrupted','result_failed')) ORDER BY COALESCE(queue_order,created),id",&[])? {
             let id = row["id"].as_str().unwrap_or("");
             let record = jobs::load(&self.db, id)?;
             let ready = self.readiness(&record)?;
             let parent: Option<String> = self.db.query_row(
-                "SELECT root FROM workflow_nodes WHERE job=?", [id], |r| r.get(0)
+                "SELECT root FROM execution_memberships WHERE job=?", [id], |r| r.get(0)
             ).optional()?;
+            let (stage, lane) = record.stage_and_lane();
             let mut entry = json!({
                 "id":id,"state":record.aggregate.state.as_str(),"status":record.aggregate.state.public(),
-                "owner":record.owner,"lane":record.spec["profile"]["runtime"]["lane"].as_str().unwrap_or("cpu"),
-                "stage":if record.aggregate.state==JobState::Processing{"finalize"}else{"run"},
+                "owner":record.owner,"lane":lane,"category":record.spec["category"],"execution_mode":record.spec["execution_mode"],
+                "label":record.spec["presentation"].get("label").unwrap_or(&record.spec["kind"]),
+                "stage":stage,
                 "workflow":parent,"scheduling":{"eligible":ready.reason().is_none(),"waiting_reason":ready.reason(),"dependency_failed":ready.dependency_failed}
             });
+            if let Some(unit) = self.unit_summary(id)? {
+                entry["job_id"] = unit["job_id"].clone();
+                entry["unit"] = unit;
+                entry["entry_type"] = json!("unit");
+                entry["gpu_access"] = record.spec["gpu_access"].clone();
+                entry.as_object_mut().unwrap().remove("workflow");
+                entry["progress"] = self.record_detail(&record)?["internal_steps"].clone();
+            }
             let waiting = matches!(entry["state"].as_str(), Some("queued" | "ready" | "blocked"));
             entry["position"] = if waiting {
                 position += 1;
@@ -664,8 +796,9 @@ impl Application {
             );
             entry["eligible"] = json!(waiting && ready.reason().is_none());
             entry["can_reorder"] = json!(waiting);
-            entry["can_hold"] = json!(waiting && !ready.held);
-            entry["can_resume"] = json!(waiting && ready.held);
+            let holdable = waiting || record.aggregate.state == JobState::Preparing;
+            entry["can_hold"] = json!(holdable && !ready.held);
+            entry["can_resume"] = json!(holdable && ready.held);
             entry["presentation"] = record
                 .spec
                 .get("presentation")
@@ -679,14 +812,18 @@ impl Application {
         // enters the live queue only while it has a live physical member.
         let active_roots: std::collections::BTreeSet<_> = entries
             .iter()
-            .filter_map(|entry| entry["workflow"].as_str())
+            .filter_map(|entry| {
+                entry["job_id"]
+                    .as_str()
+                    .or_else(|| entry["workflow"].as_str())
+            })
             .collect();
-        for row in rows(&self.db, "SELECT id FROM job_workflows WHERE CASE WHEN json_type(request,'$.plan_revision') IN ('integer','real') THEN state NOT IN ('complete','cancelled') ELSE id IN (SELECT value FROM json_each(?)) END",
-            &[&encode(&json!(active_roots))?])? {
+        for row in rows(&self.db, "SELECT id FROM job_workflows w WHERE (? OR EXISTS(SELECT 1 FROM research_jobs r WHERE r.id=w.id) OR NOT EXISTS(SELECT 1 FROM execution_memberships n WHERE n.root=w.id)) AND CASE WHEN json_type(request,'$.plan_revision') IN ('integer','real') THEN state NOT IN ('complete','cancelled','failed') ELSE id IN (SELECT value FROM json_each(?)) END",
+            &[&include_group_receipts, &encode(&json!(active_roots))?])? {
             let mut d = self.job_detail(row["id"].as_str().unwrap_or(""))?;
             let children: Vec<_> = entries
                 .iter()
-                .filter(|e| e["workflow"] == d["id"])
+                .filter(|e| e["job_id"] == d["id"] || e["workflow"] == d["id"])
                 .collect();
             if children.is_empty() && !d["spec"]["plan_revision"].is_number() {
                 continue;
@@ -731,6 +868,18 @@ impl Application {
                 .unwrap_or(Value::Null);
             if !matches!(d["state"].as_str(), Some("complete" | "cancelled")) {
                 logical.push(d);
+            }
+        }
+        for entry in &mut entries {
+            if entry["entry_type"].is_null() {
+                let id = entry["id"].as_str().unwrap_or("");
+                if let Some(review) = self.work_review(id)? {
+                    entry["entry_type"] = review["entry_type"].clone();
+                    entry["job_id"] = review["job_id"].clone();
+                    if review["entry_type"] == "unit" {
+                        entry["unit"] = json!({"job_id":review["job_id"],"label":entry["label"]});
+                    }
+                }
             }
         }
         Ok(
@@ -918,10 +1067,21 @@ impl Application {
                 400,
             )?;
             if key.0 == "job" {
+                if change["presentation"]["parent_job"].is_string() {
+                    let typed: bool = self.db.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM research_jobs WHERE id=?1 UNION ALL SELECT 1 FROM execution_units WHERE id=?1)", [&key.1], |r| r.get(0)
+                    )?;
+                    require(
+                        !typed,
+                        "execution_model",
+                        "Use Unit membership or an exact dependency",
+                        400,
+                    )?;
+                }
                 if let Some(root) = self
                     .db
                     .query_row(
-                        "SELECT root FROM workflow_nodes WHERE job=?",
+                        "SELECT root FROM execution_memberships WHERE job=?",
                         [&key.1],
                         |r| r.get::<_, String>(0),
                     )
@@ -1192,4 +1352,37 @@ pub fn queue_permissions(value: &mut Value, write: bool) {
             _ => {}
         }
     }
+}
+
+fn unit_source(source: &mut Value) {
+    if let Some(fields) = source.as_object_mut() {
+        if let Some(unit) = fields.remove("node") {
+            fields.insert("unit".into(), unit);
+        }
+    }
+}
+
+pub(crate) fn project_queue_types(queue: &mut Value) {
+    queue["job_entries"] = json!(queue["logical_entries"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|entry| entry["entry_type"] == "job"
+            || entry["executions"].as_array().is_some_and(Vec::is_empty))
+        .chain(
+            queue["entries"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|entry| entry["entry_type"] != "unit")
+        )
+        .cloned()
+        .collect::<Vec<_>>());
+    queue["unit_entries"] = json!(queue["entries"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|entry| entry["entry_type"] == "unit")
+        .cloned()
+        .collect::<Vec<_>>());
 }

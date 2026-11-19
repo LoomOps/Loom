@@ -1,5 +1,7 @@
 # Runtimes and dependency installation
 
+Before registering or publishing an entry, select its identity and relationships using [catalog request walkthroughs](catalog-cases.md).
+
 A Runtime is an independently versioned execution environment: an immutable local
 image ID, exact dependency inventory, resource/network/driver policy and measured
 validation evidence. Components implement Job lifecycle; Tools implement reusable

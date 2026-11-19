@@ -14,4 +14,4 @@ pub struct ReferenceAssets {
     pub source_sha256: &'static str,
 }
 
-pub const MCP_INSTRUCTIONS: &str = "Call system.status to confirm the target and system.guide for task routes. Load the relevant guide and system.describe action schema. Keep accepted Job IDs and pins.";
+pub const MCP_INSTRUCTIONS: &str = "Call system.status to confirm the target and system.guide for task routes. Use reads for status and comparisons of existing results. Derive necessary Jobs and catalog outputs from the requested outcome. Before Job submission load jobs and job-cases. Resolve required inputs from the request, exact prior records and live Profile. Ask about unresolved required choices before submitting. Before catalog registration or publication load catalog-cases. Load the exact system.describe action schema. Keep accepted Job IDs and pins.";

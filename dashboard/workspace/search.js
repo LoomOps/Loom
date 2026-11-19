@@ -23,8 +23,8 @@ function loomSearchRelationTable(id){
  const rows=page.items.map(edge=>{
   const node=edge.execution_membership?.node;
   const legacyNode=edge.relation==='step' && edge.native_ref?.kind==='job';
-  const relation=node||legacyNode?'Node':edge.relation;
-  const label=node||edge.label||edge.native_ref?.identity?.id||edge.item_id||edge.native_ref?.identity?.kind||'—';
+  const relation=node||legacyNode?'Job':edge.relation;
+  const label=edge.label||node||edge.native_ref?.identity?.id||edge.item_id||edge.native_ref?.identity?.kind||'—';
   const text=esc(relation)+' · '+esc(label);
   return edge.item_id?'<button data-search-item="'+esc(edge.item_id)+'">'+text+'</button>':'<span>'+text+'</span>';
  });

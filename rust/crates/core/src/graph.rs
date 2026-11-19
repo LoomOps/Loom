@@ -269,7 +269,7 @@ impl Application {
             if native["kind"] == "job" {
                 for row in rows(
                     &self.db,
-                    "SELECT node,job FROM workflow_nodes WHERE root=? AND node>? ORDER BY node LIMIT ?",
+                    "SELECT node,job FROM execution_memberships WHERE root=? AND node>? ORDER BY node LIMIT ?",
                     &[&id["id"].as_str(), &last, &((left + 1) as i64)],
                 )? {
                     // Keep the original wire relation for existing Item graph clients.

@@ -1,5 +1,5 @@
 {
-  "revision": "loom-job/v2",
+  "revision": "loom-job/v3",
   "fields": {
     "category": {
       "type": "string",
@@ -27,7 +27,7 @@
         null
       ],
       "default": null,
-      "description": "Full run, reduced pilot, or short smoke check. Null means unrecorded."
+      "description": "Pilot requires an explicit reduced preflight and intended full run. Null means unrecorded."
     }
   },
   "categories": {
@@ -45,12 +45,12 @@
     "smoke": "Smoke-test"
   },
   "work_unit_policy": {
-    "default": "one requested outcome is one Job",
-    "internal_steps": "profile.steps for progress; jobs.submit_workflow for pinned execution DAGs",
+    "default": "one independently scheduled execution is one Job",
+    "internal_steps": "profile.steps reports progress within one execution; connect scheduled Jobs with depends_on",
     "consolidation": "jobs.submit.consolidates preserves completed source execution; list(include_consolidated=true) exposes all sources"
   },
   "semantics": "Classification does not change kind, params, task level, verification, or dispatch.",
-  "api_revision": "loom-ops/v50",
+  "api_revision": "loom-ops/v60",
   "authoring": {
     "default": "rust",
     "python": "external SDK workers"
