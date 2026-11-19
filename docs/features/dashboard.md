@@ -19,6 +19,9 @@ intersect. Recognized variants of a recorded architecture share a family label
 in the index. Training Dataset and text search remain available on the list.
 Declared Observer models stay reachable by exact links and through discovery.
 They are omitted from the Policies list.
+The Policies and Experiments lists fold identical preserved copies of the same
+source revision within the selected catalog context. Every exact snapshot
+remains addressable, including copies whose original records differ.
 
 The Catalog orders Datasets, Policies and Experiments. Its left Task index initially selects All. The selected Task carries across the three tabs, and All includes unlinked records. Reporting-enabled details use
 Overview with optional Distribution and Episodes for Datasets, Overview and

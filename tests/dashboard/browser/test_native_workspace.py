@@ -522,8 +522,8 @@ class NativeWorkspaceTests(unittest.TestCase):
   task=self.call('results','register_scenario',{'key':'filter-task','definition':{'label':'Shared grasp task'}})
   identity={'source':'catalog','kind':'model','id':'task-model','revision':'r1','snapshot':'exact'}
   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
-   for snapshot in ['exact','other']:
-    body={'original':{'id':'task-model','kind':'model','label':'Linked model '+snapshot,'properties':{},'metrics':[],'relations':[],'artifacts':[]},'locations':[]}
+   for snapshot in ['exact','other','mirror']:
+    body={'original':{'id':'task-model','kind':'model','label':'Linked model '+('other' if snapshot=='other' else 'exact'),'properties':{},'metrics':[],'relations':[],'artifacts':[]},'locations':[]}
     db.execute('INSERT INTO history_records(source,kind,id,revision,snapshot,body) VALUES(?,?,?,?,?,?)',('catalog','model','task-model','r1',snapshot,json.dumps(body)))
   self.call('results','link_scenario',{'key':'filter-link','scenario_ref':{'id':task['id'],'revision':1},'target':{'kind':'historical','identity':identity},'relation':'produced_for','provenance':{'reason':'Exact historical model'}})
   for _ in range(100):
@@ -537,6 +537,16 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Linked model exact')")
   self.assertNotIn('Linked model other',self.ui.js("return document.querySelector('#pa-content').textContent"))
   self.assertTrue(self.ui.js("return !!document.querySelector('.pa-task-label')"))
+  for snapshot in ('mirror','other'):
+   self.call('results','link_scenario',{'key':'filter-link-'+snapshot,'scenario_ref':{'id':task['id'],'revision':1},'target':{'kind':'historical','identity':identity|{'snapshot':snapshot}},'relation':'produced_for','provenance':{'reason':'Same task, exact preserved snapshot'}})
+  page=self.call('system','dashboard_page',{'kinds':['model'],'scenario_ref':{'id':task['id'],'revision':1}})
+  mirror_keys={row['loom_history']['snapshot']:row['catalog_mirror_key'] for row in page['entities']}
+  self.assertEqual(set(mirror_keys),{'exact','mirror','other'})
+  self.assertEqual(mirror_keys['exact'],mirror_keys['mirror'])
+  self.assertNotEqual(mirror_keys['exact'],mirror_keys['other'])
+  self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+  self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Linked model other')")
+  self.assertEqual(self.ui.js("return [...document.querySelectorAll('[data-model-entry]')].filter(row=>row.textContent.includes('Linked model exact')).length"),1)
   for width in (1440,500):
    self.ui.top();self.wd('/window/rect',{'width':width,'height':1000});self.ui.frame()
    for theme in ('light','dark'):

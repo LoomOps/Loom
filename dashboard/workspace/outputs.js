@@ -68,9 +68,19 @@ function policyFilterSelect(key,label,entries,value){
  return '<label class="pa-model-filter-field"><span>'+esc(label)+'</span><select data-model-filter="'+key+'" aria-label="'+esc(label)+' 필터"><option value="">전체</option>'+
   [...options].sort((a,b)=>String(a[1]).localeCompare(String(b[1]),'ko')).map(([id,name])=>'<option value="'+esc(id)+'"'+(id===value?' selected':'')+'>'+esc(name)+'</option>').join('')+'</select></label>';
 }
+function loomUniqueCatalogSnapshots(records){
+ const shown=new Set();
+ return records.filter(record=>{
+  if(!record.catalog_mirror_key)return true;
+  const tasks=state.researchTask?[state.researchTask.id]:(record.task_refs||[]).map(task=>task.id).sort();
+  const key=JSON.stringify([record.catalog_mirror_key,record.catalog_class,tasks]);
+  if(shown.has(key))return false;
+  shown.add(key);return true;
+ });
+}
 function policyList(){
  const f=policyFilters(state),query=f.query.trim().toLowerCase();
- const records=catKind('model').map(e=>({e,...modelFilterMeta(e)})).filter(x=>x.role!=='Observer');
+ const records=loomUniqueCatalogSnapshots(catKind('model')).map(e=>({e,...modelFilterMeta(e)})).filter(x=>x.role!=='Observer');
  const shown=records.filter(x=>(!f.family||x.family===f.family)&&(!f.dataset||x.datasets.some(d=>d.id===f.dataset))&&(!query||catSearchText(x.e).includes(query))).map(x=>x.e);
  const filters='<section class="pa-model-filters" aria-label="Policy filters"><div class="pa-model-filter-fields pa-policy-filter-fields">'
   +policyFilterSelect('dataset','학습 데이터셋',records.flatMap(x=>x.datasets),f.dataset)
@@ -132,7 +142,7 @@ function loomGroupedOutputs(items, renderItem) {
 }
 experiments=function(){
  const discarded=state.resultDispositionFilter==='discarded';
- const all=[...catKind('experiment',true),...catKind('run',true)];
+ const all=loomUniqueCatalogSnapshots([...catKind('experiment',true),...catKind('run',true)]);
  const rows=all.filter(e=>catIsDiscarded(e)===discarded);
  const filters='<section class="pa-model-filters" aria-label="Experiment filters"><div class="pa-model-filter-top"><div class="pa-model-role-group" role="group" aria-label="Record status">'
   +[['current','Current',false],['discarded','Discarded',true]].map(([value,label,isDiscarded])=>'<button class="pa-pill '+(discarded===isDiscarded?'active':'')+'" data-result-disposition-filter="'+value+'" aria-pressed="'+(discarded===isDiscarded)+'">'+label+'<span>'+all.filter(e=>catIsDiscarded(e)===isDiscarded).length+'</span></button>').join('')+'</div></div></section>';

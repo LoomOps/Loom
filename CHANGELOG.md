@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0-alpha.62
+
+- Show identical preserved copies of one Policy or Experiment source revision once within a catalog selection. Keep exact snapshots individually accessible and show differently recorded sources separately.
+
 ## 0.2.0-alpha.61
 
 - Navigate the research Catalog by Task. Policies add an independent Model family selection, and catalog rows retain their exact record and lineage links.

@@ -5563,9 +5563,19 @@ function policyFilterSelect(key,label,entries,value){
  return &#x27;&lt;label class=&quot;pa-model-filter-field&quot;&gt;&lt;span&gt;&#x27;+esc(label)+&#x27;&lt;/span&gt;&lt;select data-model-filter=&quot;&#x27;+key+&#x27;&quot; aria-label=&quot;&#x27;+esc(label)+&#x27; 필터&quot;&gt;&lt;option value=&quot;&quot;&gt;전체&lt;/option&gt;&#x27;+
   [...options].sort((a,b)=&gt;String(a[1]).localeCompare(String(b[1]),&#x27;ko&#x27;)).map(([id,name])=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(id)+&#x27;&quot;&#x27;+(id===value?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+esc(name)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;;
 }
+function loomUniqueCatalogSnapshots(records){
+ const shown=new Set();
+ return records.filter(record=&gt;{
+  if(!record.catalog_mirror_key)return true;
+  const tasks=state.researchTask?[state.researchTask.id]:(record.task_refs||[]).map(task=&gt;task.id).sort();
+  const key=JSON.stringify([record.catalog_mirror_key,record.catalog_class,tasks]);
+  if(shown.has(key))return false;
+  shown.add(key);return true;
+ });
+}
 function policyList(){
  const f=policyFilters(state),query=f.query.trim().toLowerCase();
- const records=catKind(&#x27;model&#x27;).map(e=&gt;({e,...modelFilterMeta(e)})).filter(x=&gt;x.role!==&#x27;Observer&#x27;);
+ const records=loomUniqueCatalogSnapshots(catKind(&#x27;model&#x27;)).map(e=&gt;({e,...modelFilterMeta(e)})).filter(x=&gt;x.role!==&#x27;Observer&#x27;);
  const shown=records.filter(x=&gt;(!f.family||x.family===f.family)&amp;&amp;(!f.dataset||x.datasets.some(d=&gt;d.id===f.dataset))&amp;&amp;(!query||catSearchText(x.e).includes(query))).map(x=&gt;x.e);
  const filters=&#x27;&lt;section class=&quot;pa-model-filters&quot; aria-label=&quot;Policy filters&quot;&gt;&lt;div class=&quot;pa-model-filter-fields pa-policy-filter-fields&quot;&gt;&#x27;
   +policyFilterSelect(&#x27;dataset&#x27;,&#x27;학습 데이터셋&#x27;,records.flatMap(x=&gt;x.datasets),f.dataset)
@@ -5627,7 +5637,7 @@ function loomGroupedOutputs(items, renderItem) {
 }
 experiments=function(){
  const discarded=state.resultDispositionFilter===&#x27;discarded&#x27;;
- const all=[...catKind(&#x27;experiment&#x27;,true),...catKind(&#x27;run&#x27;,true)];
+ const all=loomUniqueCatalogSnapshots([...catKind(&#x27;experiment&#x27;,true),...catKind(&#x27;run&#x27;,true)]);
  const rows=all.filter(e=&gt;catIsDiscarded(e)===discarded);
  const filters=&#x27;&lt;section class=&quot;pa-model-filters&quot; aria-label=&quot;Experiment filters&quot;&gt;&lt;div class=&quot;pa-model-filter-top&quot;&gt;&lt;div class=&quot;pa-model-role-group&quot; role=&quot;group&quot; aria-label=&quot;Record status&quot;&gt;&#x27;
   +[[&#x27;current&#x27;,&#x27;Current&#x27;,false],[&#x27;discarded&#x27;,&#x27;Discarded&#x27;,true]].map(([value,label,isDiscarded])=&gt;&#x27;&lt;button class=&quot;pa-pill &#x27;+(discarded===isDiscarded?&#x27;active&#x27;:&#x27;&#x27;)+&#x27;&quot; data-result-disposition-filter=&quot;&#x27;+value+&#x27;&quot; aria-pressed=&quot;&#x27;+(discarded===isDiscarded)+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;span&gt;&#x27;+all.filter(e=&gt;catIsDiscarded(e)===isDiscarded).length+&#x27;&lt;/span&gt;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&lt;/div&gt;&lt;/section&gt;&#x27;;

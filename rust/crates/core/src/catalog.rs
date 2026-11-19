@@ -233,6 +233,20 @@ impl Application {
                 };
                 entity["namespace"] = json!("history");
                 entity["loom_history"] = identity.clone();
+                if matches!(
+                    identity["kind"].as_str(),
+                    Some("model" | "experiment" | "run")
+                ) {
+                    // Exact historical selectors stay distinct. The browser can
+                    // fold preserved copies only when the original envelope agrees.
+                    entity["catalog_mirror_key"] = json!(hash(encode(&json!([
+                        identity["source"],
+                        identity["kind"],
+                        identity["id"],
+                        identity["revision"],
+                        body
+                    ]))?));
+                }
                 entity["migration"] = json!({"read_only":true,"source":identity["source"],"snapshot":identity["snapshot"]});
                 // The index descriptor already resolved legacy presentation overlays.
                 // Keep list filters, labels and the displayed role consistent.
