@@ -130,7 +130,16 @@ class NativeWorkspaceTests(unittest.TestCase):
     if revision==2:manifest['supplement']={'base':{'id':id,'revision':1}}
     db.execute("INSERT INTO entity_revisions VALUES(?,?,?,'experiment','owner','owner',?)",(id,revision,job,json.dumps(manifest)))
     db.execute("INSERT OR IGNORE INTO rust_annotations VALUES('evaluation_group_experiment',?,?,?)",(id,json.dumps(group),time.time()))
+  for _ in range(100):
+   page=self.call('system','dashboard_page',{'kinds':['experiment'],'view':'all','role':'all','catalog_classes':['regular'],'limit':100})
+   if {outputs[0],outputs[1]}<={e['id'] for e in page['entities'] if e.get('evaluation_group')} and not page['partial']:break
+   time.sleep(.05)
+  else:self.fail('Comparison fixture did not reach the current catalog index')
+  self.ui.top();self.wd('/refresh',{});self.ui.connect()
   self.ui.nav('Experiments')
+  outcome=self.ui.wait("""return document.querySelector('[data-evaluation-group=browser-group]')?'group':
+   document.querySelector('[data-catalog-more=experiment]:not([data-catalog-restart])')?'more':false""")
+  if outcome=='more':self.ui.click('[data-catalog-more=experiment]')
   self.ui.wait("return document.querySelector('[data-evaluation-group=browser-group]')?.textContent.includes('Independent evaluation')")
   self.ui.route(outputs[0])
   self.ui.wait("return document.querySelector('h1')?.textContent.includes('Extended evaluation')")
