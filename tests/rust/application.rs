@@ -87,6 +87,47 @@ fn exhausted_research_unit_keeps_one_failed_job_and_releases_waiting_units() {
 }
 
 #[test]
+fn research_recovery_names_the_failed_unit_and_rejects_the_parent() {
+    let mut f = Fixture::new();
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"recovery-task","definition":{"label":"Dataset preparation"}}),
+        )
+        .unwrap();
+    let job = f.call("jobs", "submit_research", json!({"key":"unit-repair","owner":"owner","notify":"owner",
+        "scenario_ref":{"id":task["id"],"revision":1},
+        "outcome":{"goal":"Dataset","deliverables":[{"alias":"dataset","kind":"dataset","from":{"unit":"generate","entity":"dataset"}}]},
+        "plan":{"sealed":false,"units":[{"id":"check","label":"Check","execution":{"kind":"cpu.smoke","params":{"seconds":0,"fail":true}}},
+                                        {"id":"generate","label":"Generate","depends_on":["check"]}]}})).unwrap();
+    let work = f.app.next_work(&Default::default()).unwrap().unwrap();
+    let unit = &job["units"]["check"];
+    assert_eq!(work.job, unit.as_str().unwrap());
+    f.app
+        .stage_returned(&work, 1, json!({"returned":true}))
+        .unwrap();
+    let root = f.call("jobs", "get", json!({"id":job["id"]})).unwrap();
+    assert_eq!(root["units"][0]["id"], *unit);
+    assert_eq!(root["units"][0]["recovery_state"], "waiting");
+    assert_eq!(root["units"][0]["recovery_reason"], "exit_nonzero");
+    assert_eq!(
+        f.app.queue().unwrap()["job_entries"][0]["reason"],
+        "unit_failed"
+    );
+    let error = f
+        .call("recovery", "claim", json!({"id":job["id"]}))
+        .unwrap_err();
+    assert_eq!(
+        (error.code.as_str(), error.status),
+        ("recovery_unit_required", 409)
+    );
+    f.call("recovery", "claim", json!({"id":unit})).unwrap();
+    let root = f.call("jobs", "get", json!({"id":job["id"]})).unwrap();
+    assert_eq!(root["units"][0]["recovery_state"], "claimed");
+}
+
+#[test]
 fn first_typed_submission_fences_old_writer_and_preserves_exact_reads() {
     let mut f = Fixture::new();
     let legacy = f.submit("legacy-before-units");

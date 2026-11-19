@@ -356,7 +356,7 @@ impl Application {
                     Err(e) => {
                         let incident = self.incident(&format!("{group}.{action}"), &e);
                         Ok(
-                            json!({"isError":true,"content":[{"type":"text","text":e.message}],"incident_id":incident,"structuredContent":{"error":e.code,"incident_id":incident}}),
+                            json!({"isError":true,"content":[{"type":"text","text":e.message}],"incident_id":incident,"structuredContent":{"error":e.code,"status":e.status,"incident_id":incident}}),
                         )
                     }
                 }

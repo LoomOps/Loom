@@ -4,6 +4,10 @@
 
 The caller owns error repair. Preserve reservation deadlines, attempt limits and downstream dependency blocking. Event acknowledgments are recipient-specific. Execution repair recomputes inferred input dependencies, retains explicit dependencies and the original output storage ID, and rejects self, transitive and workflow dependency cycles before committing.
 An exact consumed-lease replay returns its durable receipt even while admission is fenced; it creates no new revision or execution. A changed request still conflicts and a new recovery mutation remains fenced.
+Research Job readbacks expose each Unit's recovery state and reason. Recovery
+actions target the execution ID and reject a logical Job ID with 409
+`recovery_unit_required`. MCP tool errors include the application status for
+clients that reconcile definite rejection separately from an unconfirmed reply.
 
 ## Interfaces
 

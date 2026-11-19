@@ -229,13 +229,13 @@
   },
   "recovery.claim": {
     "title": "Claim recovery",
-    "description": "Claim a failed Job awaiting a response. Pass the returned lease to progress/resume.",
+    "description": "Claim the failed execution Unit awaiting a response. Find its ID in jobs.get units and pass the returned lease to progress/resume.",
     "returns": "Recovery · state, rounds, agent, deadline, hard_deadline, lease",
     "example": {
-      "id": "<job-id>"
+      "id": "<unit-id>"
     },
     "errors": [
-      "Waiting deadline expired or another agent already claimed recovery."
+      "A research Job ID returns recovery_unit_required. The waiting deadline can expire or another agent may already hold the Unit lease."
     ],
     "implementation": {
       "feature": "recovery",
@@ -247,7 +247,7 @@
     "description": "Report progress with a valid lease to refresh the idle deadline, without extending the round's hard deadline.",
     "returns": "Recovery · state, rounds, agent, deadline, hard_deadline",
     "example": {
-      "id": "<job-id>",
+      "id": "<unit-id>",
       "lease": "<recovery-lease>"
     },
     "errors": [
@@ -263,7 +263,7 @@
     "description": "Schedule recovery at the reserved queue position using a valid lease. Inspect the live patch schema; finalization-only repair preserves the successful execution Attempt.",
     "returns": "Recovery · state=pending, rounds, agent",
     "example": {
-      "id": "<job-id>",
+      "id": "<unit-id>",
       "lease": "<recovery-lease>",
       "patch": {},
       "reason": "Rerun after repairing the cause"
@@ -282,7 +282,7 @@
     "description": "Release the current queue reservation. Dependent Jobs wait while independent Jobs proceed.",
     "returns": "Recovery · state=deferred",
     "example": {
-      "id": "<job-id>"
+      "id": "<unit-id>"
     },
     "errors": [
       "No valid reservation. Another user's reservation can be explicitly released; the acting user is recorded."
