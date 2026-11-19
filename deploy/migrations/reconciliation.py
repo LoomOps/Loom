@@ -12,9 +12,8 @@ def run(root,platform,phase):
  root=Path(root);state=root/'runtime'
  with sqlite3.connect((state/'ops.sqlite3').as_uri()+'?mode=ro',uri=True) as db:
   version=db.execute('PRAGMA user_version').fetchone()[0]
-  if version in (7,8):
+  if version==7:
    tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-   if version==8 and not {'research_jobs','execution_units'}<=tables:raise ValueError('Job and Unit authority is incomplete')
    if db.execute('PRAGMA integrity_check').fetchone()[0]!='ok' or not {'catalog_meta','reconcile_plans','asset_imports','file_bindings','log_retention','catalog_tasks','asset_revisions','asset_locations'}<=tables:raise ValueError('Reconciliation authority is incomplete')
    return {'status':'done'}
  if phase!='apply' and version in (4,5,6):return {'status':'needed'}
