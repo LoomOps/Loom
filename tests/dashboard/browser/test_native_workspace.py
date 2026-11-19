@@ -143,9 +143,11 @@ class NativeWorkspaceTests(unittest.TestCase):
     db.execute("INSERT OR IGNORE INTO rust_annotations VALUES('evaluation_group_experiment',?,?,?)",(id,json.dumps(group),time.time()))
   for _ in range(100):
    page=self.call('system','dashboard_page',{'kinds':['experiment'],'view':'all','role':'all','catalog_classes':['regular'],'limit':100})
-   if {outputs[0],outputs[1]}<={e['id'] for e in page['entities'] if e.get('evaluation_group')} and not page['partial']:break
+   if set(outputs)<={e['id'] for e in page['entities']} and not page['partial']:break
    time.sleep(.05)
   else:self.fail('Comparison fixture did not reach the current catalog index')
+  self.assertFalse(any('evaluation_group' in e for e in page['entities'] if e['id'] in outputs))
+  self.assertEqual(self.call('results','get',{'id':outputs[0],'revision':2})['evaluation_group']['id'],group['id'])
   self.ui.top();self.wd('/refresh',{});self.ui.connect()
   self.ui.nav('Experiments')
   rows="['browser-canonical-experiment','browser-comparison-experiment'].every(id=>document.querySelector('[data-output-id='+id+']'))"
