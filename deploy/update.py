@@ -58,6 +58,11 @@ def ungate(path, *, retain_pause=False):
   if retain_pause and c.execute("SELECT name FROM sqlite_master WHERE name='dispatch_control'").fetchone() and c.execute('SELECT paused FROM dispatch_control WHERE id=1').fetchone()[0]:return
   c.execute("UPDATE node_control SET mode='active' WHERE id=1 AND mode='maintenance'")
 
+def restore_admission(path,record,*,retain_legacy_pause=False):
+ mode=record.get('pre_update_admission',{}).get(str(path))
+ if mode=='active' or (mode is None and not retain_legacy_pause):ungate(path)
+ elif mode is None:ungate(path,retain_pause=True)
+
 def inspect(root,release):
  root,release=Path(root),Path(release)
  if (root/'development').exists():raise ValueError('Release updater requires an image-backed instance; dev uses source mounts')
@@ -317,7 +322,7 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
    if record['state'] in ('backing_up','applying'):
     freeze_failed_writers(record,src,root,project)
    if record['state']=='preparing':
-    for db in gated:ungate(db,retain_pause=True)
+    for db in gated:restore_admission(db,record)
    record['state']='failed';write(archive/'record.json',record)
    # Leave explicit recovery evidence; never restart a failed update silently.
    raise
@@ -329,9 +334,8 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
     freeze_failed_writers(record,src,root,project)
     record['state']='failed';write(archive/'record.json',record)
     raise ValueError('Update evidence is incomplete; inspect post_evidence_errors before recovery')
-   for db in gated:
-    if record['state']=='complete' and record['pre_update_admission'][str(db)]=='active':ungate(db)
-    elif record['state']=='preparing':ungate(db,retain_pause=True)
+   if record['state']=='complete':
+    for db in gated:restore_admission(db,record)
   return {'updated':info['build_id'],'mode':mode,'record':str(archive/'record.json'),'preserved':'accounts, tokens, installation identity, overrides, components, tools, profiles, history, data'}
 
 def freeze_failed_writers(record,source,root,project):
@@ -413,8 +417,7 @@ def resume(record_path):
     record['state']='failed';write(path,record)
     raise ValueError('Update evidence is incomplete; inspect post_evidence_errors before recovery')
   if record['state']=='complete':
-   for name in record['gated']:
-    if record.get('pre_update_admission',{}).get(name,'active')=='active':ungate(Path(name))
+   for name in record['gated']:restore_admission(Path(name),record)
  return {'updated':record['build'],'resumed':True,'record':str(path)}
 
 def rollback(record_path):
@@ -465,11 +468,11 @@ def _rollback(record_path):
   if record.get('preserved_state'):state_snapshot.verify(root,record['preserved_state'])
   start_stack(record)
   if record.get('guides'):guide_bundle.select(record['guides']['parent'],record['guides']['previous'])
-  for db in gated:ungate(db,retain_pause=True)
+  for db in gated:restore_admission(db,record,retain_legacy_pause=True)
   record['state']='rolled_back';write(path,record)
  except BaseException:
   if not mutated:
-   for db in acquired:ungate(db,retain_pause=True)
+   for db in acquired:ungate(db)
   raise
  return {'rolled_back':True,'record':str(path)}
 

@@ -924,10 +924,14 @@ pub(crate) fn validate_catalog_admission(db: &Connection, spec: &Value) -> Resul
                 .result
                 .as_ref()
                 .and_then(|result| result["entities"].as_array())
-                .and_then(|entities| entities.iter().find(|entity| entity["id"] == output))
-                .and_then(|entity| entity.get("registry_ref"));
-            if let Some(pin) = published {
-                validate_catalog_input(db, pin, kind, task)?;
+                .and_then(|entities| entities.iter().find(|entity| entity["id"] == output));
+            if let Some(entity) = published {
+                let pin = crate::results::output_identity(
+                    upstream.aggregate.id.as_str(),
+                    &output,
+                    entity.get("registry_ref"),
+                );
+                validate_catalog_input(db, &pin, kind, task)?;
             } else {
                 require(
                     upstream.spec["scenario_ref"]["id"] == *task,

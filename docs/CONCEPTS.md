@@ -36,7 +36,7 @@ Search is a projection and can lag. An empty partial search does not prove absen
 
 Regular and Reference classify scientific catalog records. The Catalog shows Regular records by default. An imported Dataset can be Regular with its external provenance even when a standalone Unit verified the archive. The Job and Unit queues show scheduling and resource occupancy regardless of the catalog selection.
 
-An Experiment can receive new checkpoints from a later Job. The Job pins the current Experiment revision and publishes its next revision after Loom verifies matching inputs, protocol and reset cohort. A comparison group can show independent Policies and Experiments together while retaining their recorded scores and exact identities.
+An Experiment can receive new checkpoints from a later Job. The Job pins the current Experiment revision and publishes its next revision after Loom verifies matching inputs, protocol and reset cohort. A comparison association records the exact identities of independent Policies and Experiments for comparison.
 
 See [task guides](../loom_use/entry.md), [API reference](reference/README.md) and [implementation ownership](IMPLEMENTATION.md).
 

@@ -43,6 +43,7 @@ Attempts, recovery, actual resource return, artifacts and queue-change history.
 Job Queue shows research outcomes. Unit Queue shows execution and resource
 occupancy. Terminal history starts at 10 rows and identifies each Job or
 Standalone Unit.
+Home shows current order and waiting reasons. Reorder controls are on work details.
 
 The catalog is revision-checked every 30 seconds while visible; manual refresh
 is available. Queue changes refresh the catalog immediately. Resource data has

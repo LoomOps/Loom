@@ -531,7 +531,7 @@ Unregistered profile or missing artifact.
 
 ## group_evaluations
 
-Group current Regular Experiments for browsing by verified protocol, evaluation inputs and seed/reset cohort. Preserve independent scores, execution records, and exact Experiment and Policy revisions.
+Record a comparison association for current Regular Experiments with verified matching protocol, inputs and seed/reset cohort. Catalog rows stay independent. Use a checkpoint supplement to extend the same Experiment revision history.
 
 Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/experiment_supplements.rs#group_evaluations](../../rust/crates/core/src/experiment_supplements.rs).
 

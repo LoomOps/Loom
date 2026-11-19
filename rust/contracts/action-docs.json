@@ -1955,7 +1955,7 @@
   },
   "results.group_evaluations": {
     "title": "Group comparable evaluations and their Policies",
-    "description": "Group current Regular Experiments for browsing by verified protocol, evaluation inputs and seed/reset cohort. Preserve independent scores, execution records, and exact Experiment and Policy revisions.",
+    "description": "Record a comparison association for current Regular Experiments with verified matching protocol, inputs and seed/reset cohort. Catalog rows stay independent. Use a checkpoint supplement to extend the same Experiment revision history.",
     "returns": "Group ID, display label and exact Experiment and Policy references.",
     "example": {
       "key": "square-evaluation-family",

@@ -8,6 +8,8 @@ Search the existing Task, Dataset variants, and Policies with `results.scenarios
 and `results.search_items` before choosing IDs or registering replacements. Each
 Dataset has its own immutable ID and revision. Record a stable variant path in
 `metadata.research.organization` when a Task has variants such as D0, D1 or D2.
+If the organization declares `task_ref`, use the same `{id,revision}` as the
+Job or import's Task.
 Pin the exact training Dataset for a Policy and the exact evaluation Dataset and
 Policy for an Experiment. A prior publication under the same Task supplies the
 input identity and evidence for reuse.

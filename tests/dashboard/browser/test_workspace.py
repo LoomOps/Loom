@@ -1131,14 +1131,14 @@ const done=arguments[arguments.length-1];
             {'id':'other-waiting','owner':'other','state':'queued','status':'queued','position':1,'held':False,'reason':'ready','can_reorder':False,'can_hold':False,'can_resume':False},
             {'id':'fixture-waiting','owner':'owner','state':'queued','status':'queued','position':2,'held':False,'reason':'ready','can_reorder':True,'can_hold':True,'can_resume':False}]}
         ui.top();self.wd('/url',{'url':self.base});ui.wait("return document.querySelector('iframe')?.hidden===false");ui.frame()
+        ui.wait("return document.querySelector('.pa-current-work-queue [data-entity=fixture-waiting]')")
+        self.assertFalse(ui.js("return !!document.querySelector('.pa-current-work-queue [data-queue-action]')"))
+        ui.route(entity['id'])
         ui.wait("return document.querySelector('[data-queue-id=fixture-waiting]')")
-        self.assertFalse(ui.js("return !!document.querySelector('[data-queue-id=other-waiting]')"))
-        self.assertFalse(ui.js("return !!document.querySelector('[data-queue-action=hold]')"))
         self.assertEqual(ui.js("return document.querySelector('.pa-queue-control summary').textContent"),'순서 변경')
         ui.click('.pa-queue-control summary');ui.click('[data-queue-position=next]')
         ui.wait("return document.querySelector('.pa-queue-feedback')?.textContent==='큐 변경 완료'")
         self.assertEqual(self.api.actions[-1],{'group':'jobs','action':'reorder','arguments':{'id':'fixture-waiting','position':'next'}})
-        ui.wait("return document.querySelector('.pa-current-work-queue tbody tr')?.textContent.includes('Fixture fixture-waiting')")
         self.api.errors['/api/actions']=403
         ui.click('[data-queue-position=tail]')
         ui.wait("return document.querySelector('.pa-queue-feedback')?.textContent.includes('권한이 없습니다')")
@@ -1147,7 +1147,9 @@ const done=arguments[arguments.length-1];
         waiting=next(r for r in self.api.fixture['catalog']['queue']['entries'] if r['id']==entity['id'])
         waiting.update(held=True,reason='held',can_hold=False,can_resume=True)
         ui.top();self.wd('/refresh',{});ui.connect()
-        ui.wait("return !!document.querySelector('[data-queue-action=resume]')")
+        ui.nav('Dashboard')
+        ui.wait("return !!document.querySelector('.pa-current-work-queue [data-queue-action=resume]')")
+        self.assertFalse(ui.js("return !!document.querySelector('.pa-current-work-queue [data-queue-action=reorder]')"))
         ui.route(entity['id'])
         ui.wait("return !!document.querySelector('.pa-document-pane.is-active [data-queue-action=resume]')")
         self.assertFalse(ui.js("return !!document.querySelector('.pa-document-pane.is-active [data-queue-action=hold]')"))
@@ -1635,8 +1637,8 @@ const done=arguments[arguments.length-1];
         self.api.fixture['catalog']['entities'].append(run);self.api.fixture['catalog']['revision']='primary-ui-v1'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('primary-ui-v1')")
         ui.nav('Experiments');ui.wait("return !!document.querySelector('[data-output-id=primary-fixture]')")
-        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=primary-fixture] .pa-result-score-item small')].map(n=>n.textContent)"),['Result','Checkpoint'])
-        self.assertIn('0 / 20',ui.js("return document.querySelector('[data-output-id=primary-fixture] .pa-result-score').textContent"))
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=primary-fixture] dl dt')].map(n=>n.textContent)"),['Dataset','Policy','Result','Checkpoint'])
+        self.assertEqual(ui.js("return document.querySelector('[data-output-id=primary-fixture] [data-research-fact=result] dd').textContent"),'0 / 20 (0%)')
         self.assertFalse(ui.js("return !!document.querySelector('[data-output-id=primary-fixture] .pa-output-metrics')"))
         ui.route(run['id']);ui.wait("return document.querySelector('#pa-content').textContent.includes('measured-observer-r2')")
         self.assertIn('Position tolerance5 mm',ui.js("return document.querySelector('#pa-content').textContent"))
@@ -1645,8 +1647,7 @@ const done=arguments[arguments.length-1];
         self.assertNotIn('등록된 원본 산출물 기반',ui.js("return document.querySelector('.pa-footer').textContent"))
         run['comparison']['all'][1]['role']='primary_outcome';self.api.fixture['catalog']['revision']='primary-ui-v2'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('primary-ui-v2')");ui.nav('Experiments')
-        self.assertEqual(ui.js("return document.querySelectorAll('[data-output-id=primary-fixture] .pa-result-score-item').length"),2)
-        self.assertIn('Missing',ui.js("return document.querySelector('[data-output-id=primary-fixture] .pa-result-score').textContent"))
+        self.assertEqual(ui.js("return document.querySelector('[data-output-id=primary-fixture] [data-research-fact=result] dd').textContent"),'Missing')
         self.assertEqual(run['comparison']['all'][0]['numerator'],0)
 
     def test_sidebar_keeps_newer_host_observation(self):
@@ -1864,8 +1865,8 @@ const done=arguments[arguments.length-1];
         row={'id':'condition-comparison-fixture','kind':'experiment','label':'Condition comparison','properties':{},'metrics':[],'relations':[],'artifacts':[],'research_summary':{'schema':'loom-research-summary/v1','kind':'experiment','inputs':[],'sources':[],'facts':[{'id':'condition_outcomes','label':'Condition outcomes','section':'evaluation','status':'recorded','evidence':[],'value':[{'condition':'RGB','strict_success':12,'functional_success':14,'valid':20,'planned':24},{'condition':'Depth','strict_success':8,'valid':10,'planned':10},{'condition':'Empty','strict_success':0,'valid':0,'planned':4}]}]}}
         self.api.fixture['catalog']['entities'].append(row);self.api.fixture['catalog']['revision']='condition-comparison'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('condition-comparison')")
-        ui.nav('Experiments');ui.wait("return !!document.querySelector('[data-output-id=condition-comparison-fixture] .pa-result-score')")
-        self.assertIn('Missing',ui.js("return document.querySelector('[data-output-id=condition-comparison-fixture] .pa-result-score').innerText"))
+        ui.nav('Experiments');ui.wait("return !!document.querySelector('[data-output-id=condition-comparison-fixture] [data-research-fact=result]')")
+        self.assertEqual(ui.js("return document.querySelector('[data-output-id=condition-comparison-fixture] [data-research-fact=result] dd').textContent"),'Missing')
         self.assertFalse(ui.js("return !!document.querySelector('[data-output-id=condition-comparison-fixture] .pa-research-conditions')"))
         ui.route(row['id']);ui.wait("return !!document.querySelector('.pa-research-overview .pa-research-conditions')")
         text=ui.js("return document.querySelector('.pa-research-overview').innerText")
@@ -2039,13 +2040,15 @@ const done=arguments[arguments.length-1];
         ui.wait("return !!document.querySelector('.pa-heading .pa-dataset-origin')")
         self.assertTrue(ui.js("""const badge=document.querySelector('.pa-heading .pa-dataset-origin'),a=getComputedStyle(badge),b=getComputedStyle(badge.parentElement);
             return ['fontFamily','fontWeight','fontSize','letterSpacing'].every(k=>a[k]===b[k])"""))
-        ui.nav('Experiments');ui.wait("return !!document.querySelector('[data-output-id=checkpoint-evaluation] .pa-result-score')")
-        score=ui.js("return document.querySelector('[data-output-id=checkpoint-evaluation] .pa-result-score').innerText")
-        for value in ['Result','Checkpoint','step 10,000','80%']:self.assertIn(value,score)
-        self.assertNotIn('23',score)
-        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=checkpoint-evaluation] dt')].map(n=>n.textContent)"),['Dataset','Policy'])
+        ui.nav('Experiments');ui.wait("return !!document.querySelector('[data-output-id=checkpoint-evaluation] [data-research-fact=result]')")
+        facts=ui.js("return [...document.querySelectorAll('[data-output-id=checkpoint-evaluation] .pa-scientific-facts > div')].map(n=>[n.firstElementChild.textContent,n.lastElementChild.textContent])")
+        self.assertEqual(facts,[['Dataset','Missing'],['Policy','Missing'],['Result','16 / 20 (80%)'],['Checkpoint','step 10,000']])
+        self.assertTrue(ui.js("const fields=[...document.querySelectorAll('[data-output-id=checkpoint-evaluation] dt')].map(n=>n.getBoundingClientRect());return fields.every((field,i)=>field.top===fields[0].top&&(!i||field.left>fields[i-1].left))"))
+        ui.top();self.wd('/window/rect',{'width':500,'height':1000});ui.frame()
+        self.assertTrue(ui.js("const row=document.querySelector('[data-output-id=checkpoint-evaluation]');return row.scrollWidth<=row.clientWidth+1"))
+        ui.top();self.wd('/window/rect',{'width':1440,'height':1000});ui.frame()
 
-        tied_score=ui.js("return document.querySelector('[data-output-id=tied-evaluation] .pa-result-score').innerText")
+        tied_score=ui.js("return document.querySelector('[data-output-id=tied-evaluation] .pa-scientific-facts').innerText")
         self.assertIn('Tied',tied_score)
         self.assertIn('0 / 20',tied_score)
 

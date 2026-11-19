@@ -92,6 +92,29 @@ print(json.dumps({'status':'done' if done else 'needed'}))
 
 
 class PreservedRebuildTests(lifecycle.ReleaseLifecycleFixture):
+    def test_preflight_failure_restores_active_admission_without_resuming_dispatch(self):
+        with sqlite3.connect(self.db) as db:
+            db.executescript('CREATE TABLE dispatch_control(id INTEGER PRIMARY KEY, paused INTEGER); INSERT INTO dispatch_control VALUES(1,1);')
+        executor = self.p/'shared/executor/executor.sqlite3'
+        executor.parent.mkdir(parents=True)
+        with sqlite3.connect(executor) as db:
+            db.execute('CREATE TABLE invalid_fixture(id)')
+        with self.contexts(), self.assertRaises(sqlite3.OperationalError):
+            update.apply(self.root,self.rel,'fixture',self.p)
+        self.assertEqual(self.mode(),'active')
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT paused FROM dispatch_control').fetchone(),(1,))
+
+    def test_rollback_restores_active_admission_with_a_paused_dispatcher(self):
+        with sqlite3.connect(self.db) as db:
+            db.executescript('CREATE TABLE dispatch_control(id INTEGER PRIMARY KEY, paused INTEGER); INSERT INTO dispatch_control VALUES(1,1);')
+        with self.contexts():
+            receipt=update.apply(self.root,self.rel,'fixture',self.p)
+            update.rollback(receipt['record'])
+        self.assertEqual(self.mode(),'active')
+        with sqlite3.connect(self.db) as db:
+            self.assertEqual(db.execute('SELECT paused FROM dispatch_control').fetchone(),(1,))
+
     def test_update_preserves_preexisting_admission_fence_and_dispatch_pause(self):
         with sqlite3.connect(self.db) as db:
             db.execute("UPDATE node_control SET mode='maintenance' WHERE id=1")

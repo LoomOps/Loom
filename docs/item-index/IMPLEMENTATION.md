@@ -70,8 +70,8 @@ full binding/plan/import/retention identity and evidence. Streamed single-store
 portable relocation preserves payload metadata and logical machine/store IDs;
 unsupported clone/multi-store remapping is rejected with an explicit repair path.
 
-All six MCP groups, native guides, Dashboard relay and independently pinned Loom
-Use are updated together. The native CPU image and packaged client require separate
+MCP action schemas, native guides, Dashboard relay and independently pinned Loom
+Use are reviewed together. The native CPU image and packaged client require separate
 execution acceptance. Scale fixtures include the opt-in 100k Item / 1m File / 10m
 bounded log-document envelope with raw-byte/overlap disclosure. Actual scientific
 libraries, tensor values, GPU/Sim behavior, reboot and external network/Sharing

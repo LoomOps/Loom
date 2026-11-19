@@ -77,7 +77,7 @@ or protocols through separately accepted Experiments.
 ### Checkpoint supplements
 
 Set `outcome.deliverables[0].supplements` to the current Regular Experiment's
-`{id,revision}`. Keep the exact Policy, Dataset and other evaluation inputs and run each additional checkpoint on
+`{id,revision}`. Reuse its Task, exact Policy, Dataset and other evaluation inputs. Run each additional checkpoint on
 the same complete valid seed/reset cohort under the same protocol. Keep
 case IDs unique across batches. If the batch contract requires a selection,
 repeat the accepted rule. An evaluation contract with no selection field can

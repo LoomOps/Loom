@@ -70,8 +70,8 @@ The Dashboard can fold mirrored historical rows when their exact publication
 revision, normalized original record and location inventory agree. Policies use
 the current revision of each catalog identity. List fields are fixed by kind
 independently of metadata templates. Datasets show Episodes and Split. Policies
-show Dataset, Model family and Checkpoint. Experiments show Dataset, Policy,
-Result and Checkpoint. The Experiment checkpoint is the one behind the stated
+show Dataset, Model family and Checkpoint. Experiment rows show Dataset, Policy,
+Result and Checkpoint in that order in the shared facts row. The checkpoint is the one behind the stated
 result when identifiable. Detailed metrics remain in Results.
 
 Datasets, Policies and Experiments use the same Current and Discarded filters.

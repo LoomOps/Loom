@@ -606,6 +606,7 @@
 #pai-studio .pa-catalog-task-card>h3 a{color:inherit;text-decoration:none}
 #pai-studio .pa-catalog-task-card>h3 a:hover{text-decoration:underline}
 #pai-studio .pa-catalog-task-records{padding:14px}
+#pai-studio .pa-scientific-card.pa-output-compact{grid-template-columns:minmax(0,1fr)}
 #pai-studio .pa-catalog-task-records>.pa-output-compact:first-child{padding-top:0}
 #pai-studio .pa-catalog-task-records>.pa-output-compact:last-child{padding-bottom:0}
 #pai-studio .pa-catalog-task-records>.pa-output-compact:last-child{border-bottom:0}

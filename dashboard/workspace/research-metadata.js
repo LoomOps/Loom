@@ -105,7 +105,7 @@ catFacts=function(e){
  if(['model','dataset','experiment','run'].includes(e.kind))return loomResearchCardFacts(e).map(f=>({role:f.id,label:f.label,value:loomResearchValue(f,{compact:true})}));
  return loomPriorCatalogFacts(e);
 };
-function loomResearchFactsHTML(facts,compact=false){return '<dl class="pa-entity-facts pa-scientific-facts '+(compact?'is-compact':'')+'">'+facts.map(f=>'<div data-research-fact="'+esc(f.id)+'"><dt>'+esc(f.label)+'</dt><dd title="'+esc(loomResearchValue(f))+'">'+esc(loomResearchValue(f,{compact}))+'</dd></div>').join('')+'</dl>';}
+function loomResearchFactsHTML(facts,compact=false){return '<dl class="pa-entity-facts pa-scientific-facts '+(compact?'is-compact':'')+'">'+facts.map(f=>'<div data-research-fact="'+esc(f.id)+'"><dt>'+esc(f.label)+'</dt><dd title="'+esc(f.title||loomResearchValue(f))+'">'+esc(loomResearchValue(f,{compact}))+'</dd></div>').join('')+'</dl>';}
 function loomResearchConditions(e){
  const fact=loomResearchFactMap(e).get('condition_outcomes');if(!fact||!Array.isArray(fact.value))return '';
  if(loomCheckpointPooledFact(e,fact))return '';

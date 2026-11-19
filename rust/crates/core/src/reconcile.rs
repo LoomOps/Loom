@@ -62,6 +62,15 @@ fn import_task(db: &Connection, definition: &Value) -> Result<Option<Value>> {
     let task = reference
         .map(|value| crate::scenario::pin(db, &serde_json::from_value(value.clone())?))
         .transpose()?;
+    if definition["kind"] == "dataset" {
+        if let Some(organization) = definition.pointer("/metadata/research/organization") {
+            crate::dataset_organization::validate_declaration(organization)?;
+            crate::dataset_organization::validate_task(
+                organization,
+                task.as_ref().unwrap_or(&Value::Null),
+            )?;
+        }
+    }
     let inputs: &[(&str, &str)] = match definition["kind"].as_str() {
         Some("model") => &[("trained_on", "dataset")],
         Some("experiment") => &[("evaluated_on", "dataset"), ("evaluated_model", "model")],

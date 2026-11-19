@@ -24,13 +24,14 @@ function loomTimingNotice(rows) {
  return rows.some(e=>(e.execution_intervals||[]).some(x=>x.may_include_waiting))
    ?'<p class="pa-queue-caption">일부 과거 기록에는 stage 시간이 없어 Attempt 경과 시간을 표시합니다. 대기 시간이 포함될 수 있습니다.</p>':'';
 }
-function loomQueueControls(id) {
+function loomQueueControls(id,{reorder=true}={}) {
   const row = loomQueueEntry(id);
-  if (!row || !(row.can_reorder || row.can_resume)) return '';
+  const canReorder=reorder&&row?.can_reorder;
+  if (!(canReorder || row?.can_resume)) return '';
   const disabled=loomQueueBusy?' disabled':'';
   const button=(action,text,position='')=>'<button class="pa-button" data-queue-action="'+action+'" data-queue-id="'+esc(id)+'" data-queue-position="'+position+'"'+disabled+'>'+text+'</button>';
   const resume=row.can_resume?button('resume','보류 해제'):'';
-  if(!row.can_reorder)return '<div class="pa-queue-control">'+resume+'</div>';
+  if(!canReorder)return '<div class="pa-queue-control">'+resume+'</div>';
   const choices=loomQueueEntries().filter(r=>r.id!==id && r.position!==null);
   return '<details class="pa-queue-control"><summary>'+(resume?'큐 관리':'순서 변경')+'</summary><div class="pa-queue-control-body">'
     +button('reorder','맨 앞으로','next')+button('reorder','맨 뒤로','tail')+resume
@@ -86,7 +87,7 @@ workRow=function(entity,current){
   const tasks=loomTaskLabels(entity);
   if(current && q){
     if(entity.loom_queue_shared)row[0]='<div class="pa-queue-name">'+esc(q.label||q.spec?.label||q.id)+'<small>'+esc(q.owner)+' · 공유 큐</small></div>';
-    row[0]+='<small class="pa-queue-position">'+loomQueuePosition(q)+'</small>'+loomQueueControls(q.id);
+    row[0]+='<small class="pa-queue-position">'+loomQueuePosition(q)+'</small>'+loomQueueControls(q.id,{reorder:false});
   }
   const mode=entity.properties?.execution_mode;
   if(mode)row[0]+='<small class="pa-queue-owner">'+esc(loomJobContract().execution_modes?.[mode]||mode)+'</small>';
@@ -106,7 +107,7 @@ const loomQueuePanelBefore=loomJobPanel;
 loomJobPanel=function(job,entry){
  const body=loomQueuePanelBefore(job,entry),q=loomQueueEntry(job.id);
  const history=entry?.data?.queue_history||[];
- return (q?panel('Queue', '<p>'+loomQueuePosition(q)+'</p>'+loomQueueControls(job.id)):'')+body
+ return (q?panel('Queue', '<p>'+loomQueuePosition(q)+'</p>'+loomQueueControls(job.id)+loomQueueNoticeMarkup()):'')+body
    +(history.length?panel('순서·보류 이력',catTable(['시각','사용자','변경','사유'],history.slice(-30).reverse().map(h=>[new Date(h.recorded*1000).toLocaleString(),h.actor,h.action,h.reason||'—'].map(esc)))):'');
 };
 function loomCurrentQueuePanel(rows,table){
@@ -120,7 +121,7 @@ function loomCurrentQueuePanel(rows,table){
   const jobs=(queue?.job_entries||[]).map(record).sort(loomQueueCompare),units=queue?.unit_entries||[];
   const body=units.map(unit=>{
    const active=(unit.progress?.steps||[]).filter(step=>step.state==='running').map(step=>esc(step.label)).join(' · ');
-   const label=loomWorkTypeBadge('unit',unit.job_id)+catLink(unit.id,unit.unit?.label||unit.label)+loomQueueControls(unit.id);
+   const label=loomWorkTypeBadge('unit',unit.job_id)+catLink(unit.id,unit.unit?.label||unit.label)+loomQueueControls(unit.id,{reorder:false});
    const gpu=unit.gpu_access?.mode ? 'GPU · '+esc(unit.gpu_access.mode) : unit.lane==='gpu'?'GPU':'CPU';
    return [label,unit.job_id?catLink(unit.job_id):'—',queueBadge(record(unit)),gpu,active||esc(loomQueueReason(unit))];
   });
@@ -135,7 +136,8 @@ function loomCurrentQueuePanel(rows,table){
  const notice=catalogData.capabilities?.live_queue&&loomHomeErrors.queue?loomHomeStatus('queue'):'';
  return panel('현재 큐 · '+rows.length,notice+(rows.length?table(rows,true):'<div class="pa-empty">현재 등록된 Job이 없습니다.</div>'));
 }
-function loomQueueFeedback(){const paused=catalogData.queue?.dispatch;return (paused?.paused?'<p class="pa-queue-feedback" role="status">큐 일시 중단 · '+esc(paused.reason||'운영 작업')+'</p>':'')+'<p class="pa-queue-feedback" role="status">'+esc(loomQueueNotice)+'</p>';}
+function loomQueueNoticeMarkup(){return '<p class="pa-queue-feedback" role="status">'+esc(loomQueueNotice)+'</p>';}
+function loomQueueFeedback(){const paused=catalogData.queue?.dispatch;return (paused?.paused?'<p class="pa-queue-feedback" role="status">큐 일시 중단 · '+esc(paused.reason||'운영 작업')+'</p>':'')+loomQueueNoticeMarkup();}
 helpDescriptions.queue='대기 순서와 대기 이유를 확인합니다. 실행 중 Job은 중단하지 않으며 준비·의존성·실행 슬롯에 따라 시작 순서는 달라질 수 있습니다.';
 root.addEventListener('click',event=>{
  const button=event.target.closest('[data-queue-action]');if(!button || loomQueueBusy)return;

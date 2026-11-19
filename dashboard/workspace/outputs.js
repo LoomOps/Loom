@@ -188,22 +188,22 @@ function loomOutputCheckpoint(e){
 }
 function loomCatalogOutcome(outcome){
  if(!outcome)return 'Missing';
- if(outcome.numerator==null||!outcome.denominator)return resultOutcomeValue(outcome);
+ if(outcome.numerator==null||!outcome.denominator){
+  return outcome.kind==='ratio'||outcome.denominator!==undefined?'미측정':outcome.value??outcome.count??outcome.missing_reason??'미측정';
+ }
  const percent=Math.round(1000*outcome.numerator/outcome.denominator)/10;
- return esc(outcome.numerator)+' / '+esc(outcome.denominator)+' <span class="pa-ratio">('+esc(percent)+'%)</span>';
+ return outcome.numerator+' / '+outcome.denominator+' ('+percent+'%)';
 }
 function loomCompactOutput(e,result){
  const dataset=loomInputNames(e,'datasets'),policy=loomInputNames(e,'policies');
  const checkpoint=loomOutputCheckpoint(e);
  const outcome=result?loomRepresentativeOutcome(e)[0]:null;
  const family=result?null:modelFilterMeta(e).family;
- const facts=result?{'Dataset':dataset,'Policy':policy}:
+ const facts=result?{'Dataset':dataset,'Policy':policy,'Result':loomCatalogOutcome(outcome),'Checkpoint':checkpoint}:
   {'Dataset':dataset,'Model family':family==='미기록'?'Missing':family,'Checkpoint':checkpoint};
- return '<article class="pa-catalog-item pa-scientific-card pa-output-compact'+(result?' pa-result-card':'')+'" data-output-id="'+esc(e.id)+'"'+(result?'':' data-model-entry="'+esc(e.id)+'"')+'>'
+ return '<article class="pa-catalog-item pa-scientific-card pa-output-compact" data-output-id="'+esc(e.id)+'"'+(result?'':' data-model-entry="'+esc(e.id)+'"')+'>'
   +'<div class="pa-row-main">'+catLink(e.id)+'</div>'
-  +(result?'<div class="pa-result-score"><div class="pa-result-score-item" title="'+esc(outcome?.label||'')+'"><small>Result</small><strong>'+loomCatalogOutcome(outcome)+'</strong></div>'
-    +'<div class="pa-result-score-item"><small>Checkpoint</small><strong>'+esc(checkpoint)+'</strong></div></div>':'')
-  +loomResearchFactsHTML(Object.entries(facts).map(([label,value])=>({id:label.toLowerCase().replaceAll(' ','_'),label,value,status:'recorded'})),true)+'</article>';
+  +loomResearchFactsHTML(Object.entries(facts).map(([label,value])=>({id:label.toLowerCase().replaceAll(' ','_'),label,value,status:'recorded',title:label==='Result'?outcome?.label:undefined})),true)+'</article>';
 }
 experiments=function(){
  const records=loomUniqueCatalogSnapshots(loomOutputRows([...catKind('experiment',true),...catKind('run',true)]));

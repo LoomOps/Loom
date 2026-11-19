@@ -14,9 +14,9 @@ Group counts describe loaded variants; paging does not claim a complete lineage.
 Datasets, Policies and Experiments share the scientific list and filter styles.
 The Dataset list uses the Task index and catalog class. Inputs, splits and the
 Imported badge remain record facts. Named sections show related variants and exact
-parent labels. Policies add a Model family index below Tasks. The two selections
-intersect. Recognized variants of a recorded architecture share a family label
-in the index. Training Dataset and text search remain available on the list.
+parent labels. Policies and Experiments have a Family index. Selecting a Task
+also shows its linked Datasets in the index. These filters intersect. Recognized
+variants of a recorded architecture share a family label. Policies support text search.
 Declared Observer models stay reachable by exact links and through discovery.
 They are omitted from the Policies list.
 The Policies and Experiments lists fold identical preserved copies of the same

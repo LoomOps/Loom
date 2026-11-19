@@ -4544,13 +4544,14 @@ function loomTimingNotice(rows) {
  return rows.some(e=&gt;(e.execution_intervals||[]).some(x=&gt;x.may_include_waiting))
    ?&#x27;&lt;p class=&quot;pa-queue-caption&quot;&gt;일부 과거 기록에는 stage 시간이 없어 Attempt 경과 시간을 표시합니다. 대기 시간이 포함될 수 있습니다.&lt;/p&gt;&#x27;:&#x27;&#x27;;
 }
-function loomQueueControls(id) {
+function loomQueueControls(id,{reorder=true}={}) {
   const row = loomQueueEntry(id);
-  if (!row || !(row.can_reorder || row.can_resume)) return &#x27;&#x27;;
+  const canReorder=reorder&amp;&amp;row?.can_reorder;
+  if (!(canReorder || row?.can_resume)) return &#x27;&#x27;;
   const disabled=loomQueueBusy?&#x27; disabled&#x27;:&#x27;&#x27;;
   const button=(action,text,position=&#x27;&#x27;)=&gt;&#x27;&lt;button class=&quot;pa-button&quot; data-queue-action=&quot;&#x27;+action+&#x27;&quot; data-queue-id=&quot;&#x27;+esc(id)+&#x27;&quot; data-queue-position=&quot;&#x27;+position+&#x27;&quot;&#x27;+disabled+&#x27;&gt;&#x27;+text+&#x27;&lt;/button&gt;&#x27;;
   const resume=row.can_resume?button(&#x27;resume&#x27;,&#x27;보류 해제&#x27;):&#x27;&#x27;;
-  if(!row.can_reorder)return &#x27;&lt;div class=&quot;pa-queue-control&quot;&gt;&#x27;+resume+&#x27;&lt;/div&gt;&#x27;;
+  if(!canReorder)return &#x27;&lt;div class=&quot;pa-queue-control&quot;&gt;&#x27;+resume+&#x27;&lt;/div&gt;&#x27;;
   const choices=loomQueueEntries().filter(r=&gt;r.id!==id &amp;&amp; r.position!==null);
   return &#x27;&lt;details class=&quot;pa-queue-control&quot;&gt;&lt;summary&gt;&#x27;+(resume?&#x27;큐 관리&#x27;:&#x27;순서 변경&#x27;)+&#x27;&lt;/summary&gt;&lt;div class=&quot;pa-queue-control-body&quot;&gt;&#x27;
     +button(&#x27;reorder&#x27;,&#x27;맨 앞으로&#x27;,&#x27;next&#x27;)+button(&#x27;reorder&#x27;,&#x27;맨 뒤로&#x27;,&#x27;tail&#x27;)+resume
@@ -4606,7 +4607,7 @@ workRow=function(entity,current){
   const tasks=loomTaskLabels(entity);
   if(current &amp;&amp; q){
     if(entity.loom_queue_shared)row[0]=&#x27;&lt;div class=&quot;pa-queue-name&quot;&gt;&#x27;+esc(q.label||q.spec?.label||q.id)+&#x27;&lt;small&gt;&#x27;+esc(q.owner)+&#x27; · 공유 큐&lt;/small&gt;&lt;/div&gt;&#x27;;
-    row[0]+=&#x27;&lt;small class=&quot;pa-queue-position&quot;&gt;&#x27;+loomQueuePosition(q)+&#x27;&lt;/small&gt;&#x27;+loomQueueControls(q.id);
+    row[0]+=&#x27;&lt;small class=&quot;pa-queue-position&quot;&gt;&#x27;+loomQueuePosition(q)+&#x27;&lt;/small&gt;&#x27;+loomQueueControls(q.id,{reorder:false});
   }
   const mode=entity.properties?.execution_mode;
   if(mode)row[0]+=&#x27;&lt;small class=&quot;pa-queue-owner&quot;&gt;&#x27;+esc(loomJobContract().execution_modes?.[mode]||mode)+&#x27;&lt;/small&gt;&#x27;;
@@ -4626,7 +4627,7 @@ const loomQueuePanelBefore=loomJobPanel;
 loomJobPanel=function(job,entry){
  const body=loomQueuePanelBefore(job,entry),q=loomQueueEntry(job.id);
  const history=entry?.data?.queue_history||[];
- return (q?panel(&#x27;Queue&#x27;, &#x27;&lt;p&gt;&#x27;+loomQueuePosition(q)+&#x27;&lt;/p&gt;&#x27;+loomQueueControls(job.id)):&#x27;&#x27;)+body
+ return (q?panel(&#x27;Queue&#x27;, &#x27;&lt;p&gt;&#x27;+loomQueuePosition(q)+&#x27;&lt;/p&gt;&#x27;+loomQueueControls(job.id)+loomQueueNoticeMarkup()):&#x27;&#x27;)+body
    +(history.length?panel(&#x27;순서·보류 이력&#x27;,catTable([&#x27;시각&#x27;,&#x27;사용자&#x27;,&#x27;변경&#x27;,&#x27;사유&#x27;],history.slice(-30).reverse().map(h=&gt;[new Date(h.recorded*1000).toLocaleString(),h.actor,h.action,h.reason||&#x27;—&#x27;].map(esc)))):&#x27;&#x27;);
 };
 function loomCurrentQueuePanel(rows,table){
@@ -4640,7 +4641,7 @@ function loomCurrentQueuePanel(rows,table){
   const jobs=(queue?.job_entries||[]).map(record).sort(loomQueueCompare),units=queue?.unit_entries||[];
   const body=units.map(unit=&gt;{
    const active=(unit.progress?.steps||[]).filter(step=&gt;step.state===&#x27;running&#x27;).map(step=&gt;esc(step.label)).join(&#x27; · &#x27;);
-   const label=loomWorkTypeBadge(&#x27;unit&#x27;,unit.job_id)+catLink(unit.id,unit.unit?.label||unit.label)+loomQueueControls(unit.id);
+   const label=loomWorkTypeBadge(&#x27;unit&#x27;,unit.job_id)+catLink(unit.id,unit.unit?.label||unit.label)+loomQueueControls(unit.id,{reorder:false});
    const gpu=unit.gpu_access?.mode ? &#x27;GPU · &#x27;+esc(unit.gpu_access.mode) : unit.lane===&#x27;gpu&#x27;?&#x27;GPU&#x27;:&#x27;CPU&#x27;;
    return [label,unit.job_id?catLink(unit.job_id):&#x27;—&#x27;,queueBadge(record(unit)),gpu,active||esc(loomQueueReason(unit))];
   });
@@ -4655,7 +4656,8 @@ function loomCurrentQueuePanel(rows,table){
  const notice=catalogData.capabilities?.live_queue&amp;&amp;loomHomeErrors.queue?loomHomeStatus(&#x27;queue&#x27;):&#x27;&#x27;;
  return panel(&#x27;현재 큐 · &#x27;+rows.length,notice+(rows.length?table(rows,true):&#x27;&lt;div class=&quot;pa-empty&quot;&gt;현재 등록된 Job이 없습니다.&lt;/div&gt;&#x27;));
 }
-function loomQueueFeedback(){const paused=catalogData.queue?.dispatch;return (paused?.paused?&#x27;&lt;p class=&quot;pa-queue-feedback&quot; role=&quot;status&quot;&gt;큐 일시 중단 · &#x27;+esc(paused.reason||&#x27;운영 작업&#x27;)+&#x27;&lt;/p&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;p class=&quot;pa-queue-feedback&quot; role=&quot;status&quot;&gt;&#x27;+esc(loomQueueNotice)+&#x27;&lt;/p&gt;&#x27;;}
+function loomQueueNoticeMarkup(){return &#x27;&lt;p class=&quot;pa-queue-feedback&quot; role=&quot;status&quot;&gt;&#x27;+esc(loomQueueNotice)+&#x27;&lt;/p&gt;&#x27;;}
+function loomQueueFeedback(){const paused=catalogData.queue?.dispatch;return (paused?.paused?&#x27;&lt;p class=&quot;pa-queue-feedback&quot; role=&quot;status&quot;&gt;큐 일시 중단 · &#x27;+esc(paused.reason||&#x27;운영 작업&#x27;)+&#x27;&lt;/p&gt;&#x27;:&#x27;&#x27;)+loomQueueNoticeMarkup();}
 helpDescriptions.queue=&#x27;대기 순서와 대기 이유를 확인합니다. 실행 중 Job은 중단하지 않으며 준비·의존성·실행 슬롯에 따라 시작 순서는 달라질 수 있습니다.&#x27;;
 root.addEventListener(&#x27;click&#x27;,event=&gt;{
  const button=event.target.closest(&#x27;[data-queue-action]&#x27;);if(!button || loomQueueBusy)return;
@@ -5683,22 +5685,22 @@ function loomOutputCheckpoint(e){
 }
 function loomCatalogOutcome(outcome){
  if(!outcome)return &#x27;Missing&#x27;;
- if(outcome.numerator==null||!outcome.denominator)return resultOutcomeValue(outcome);
+ if(outcome.numerator==null||!outcome.denominator){
+  return outcome.kind===&#x27;ratio&#x27;||outcome.denominator!==undefined?&#x27;미측정&#x27;:outcome.value??outcome.count??outcome.missing_reason??&#x27;미측정&#x27;;
+ }
  const percent=Math.round(1000*outcome.numerator/outcome.denominator)/10;
- return esc(outcome.numerator)+&#x27; / &#x27;+esc(outcome.denominator)+&#x27; &lt;span class=&quot;pa-ratio&quot;&gt;(&#x27;+esc(percent)+&#x27;%)&lt;/span&gt;&#x27;;
+ return outcome.numerator+&#x27; / &#x27;+outcome.denominator+&#x27; (&#x27;+percent+&#x27;%)&#x27;;
 }
 function loomCompactOutput(e,result){
  const dataset=loomInputNames(e,&#x27;datasets&#x27;),policy=loomInputNames(e,&#x27;policies&#x27;);
  const checkpoint=loomOutputCheckpoint(e);
  const outcome=result?loomRepresentativeOutcome(e)[0]:null;
  const family=result?null:modelFilterMeta(e).family;
- const facts=result?{&#x27;Dataset&#x27;:dataset,&#x27;Policy&#x27;:policy}:
+ const facts=result?{&#x27;Dataset&#x27;:dataset,&#x27;Policy&#x27;:policy,&#x27;Result&#x27;:loomCatalogOutcome(outcome),&#x27;Checkpoint&#x27;:checkpoint}:
   {&#x27;Dataset&#x27;:dataset,&#x27;Model family&#x27;:family===&#x27;미기록&#x27;?&#x27;Missing&#x27;:family,&#x27;Checkpoint&#x27;:checkpoint};
- return &#x27;&lt;article class=&quot;pa-catalog-item pa-scientific-card pa-output-compact&#x27;+(result?&#x27; pa-result-card&#x27;:&#x27;&#x27;)+&#x27;&quot; data-output-id=&quot;&#x27;+esc(e.id)+&#x27;&quot;&#x27;+(result?&#x27;&#x27;:&#x27; data-model-entry=&quot;&#x27;+esc(e.id)+&#x27;&quot;&#x27;)+&#x27;&gt;&#x27;
+ return &#x27;&lt;article class=&quot;pa-catalog-item pa-scientific-card pa-output-compact&quot; data-output-id=&quot;&#x27;+esc(e.id)+&#x27;&quot;&#x27;+(result?&#x27;&#x27;:&#x27; data-model-entry=&quot;&#x27;+esc(e.id)+&#x27;&quot;&#x27;)+&#x27;&gt;&#x27;
   +&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;+catLink(e.id)+&#x27;&lt;/div&gt;&#x27;
-  +(result?&#x27;&lt;div class=&quot;pa-result-score&quot;&gt;&lt;div class=&quot;pa-result-score-item&quot; title=&quot;&#x27;+esc(outcome?.label||&#x27;&#x27;)+&#x27;&quot;&gt;&lt;small&gt;Result&lt;/small&gt;&lt;strong&gt;&#x27;+loomCatalogOutcome(outcome)+&#x27;&lt;/strong&gt;&lt;/div&gt;&#x27;
-    +&#x27;&lt;div class=&quot;pa-result-score-item&quot;&gt;&lt;small&gt;Checkpoint&lt;/small&gt;&lt;strong&gt;&#x27;+esc(checkpoint)+&#x27;&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;&#x27;:&#x27;&#x27;)
-  +loomResearchFactsHTML(Object.entries(facts).map(([label,value])=&gt;({id:label.toLowerCase().replaceAll(&#x27; &#x27;,&#x27;_&#x27;),label,value,status:&#x27;recorded&#x27;})),true)+&#x27;&lt;/article&gt;&#x27;;
+  +loomResearchFactsHTML(Object.entries(facts).map(([label,value])=&gt;({id:label.toLowerCase().replaceAll(&#x27; &#x27;,&#x27;_&#x27;),label,value,status:&#x27;recorded&#x27;,title:label===&#x27;Result&#x27;?outcome?.label:undefined})),true)+&#x27;&lt;/article&gt;&#x27;;
 }
 experiments=function(){
  const records=loomUniqueCatalogSnapshots(loomOutputRows([...catKind(&#x27;experiment&#x27;,true),...catKind(&#x27;run&#x27;,true)]));
@@ -5931,7 +5933,7 @@ catFacts=function(e){
  if([&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;,&#x27;run&#x27;].includes(e.kind))return loomResearchCardFacts(e).map(f=&gt;({role:f.id,label:f.label,value:loomResearchValue(f,{compact:true})}));
  return loomPriorCatalogFacts(e);
 };
-function loomResearchFactsHTML(facts,compact=false){return &#x27;&lt;dl class=&quot;pa-entity-facts pa-scientific-facts &#x27;+(compact?&#x27;is-compact&#x27;:&#x27;&#x27;)+&#x27;&quot;&gt;&#x27;+facts.map(f=&gt;&#x27;&lt;div data-research-fact=&quot;&#x27;+esc(f.id)+&#x27;&quot;&gt;&lt;dt&gt;&#x27;+esc(f.label)+&#x27;&lt;/dt&gt;&lt;dd title=&quot;&#x27;+esc(loomResearchValue(f))+&#x27;&quot;&gt;&#x27;+esc(loomResearchValue(f,{compact}))+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/dl&gt;&#x27;;}
+function loomResearchFactsHTML(facts,compact=false){return &#x27;&lt;dl class=&quot;pa-entity-facts pa-scientific-facts &#x27;+(compact?&#x27;is-compact&#x27;:&#x27;&#x27;)+&#x27;&quot;&gt;&#x27;+facts.map(f=&gt;&#x27;&lt;div data-research-fact=&quot;&#x27;+esc(f.id)+&#x27;&quot;&gt;&lt;dt&gt;&#x27;+esc(f.label)+&#x27;&lt;/dt&gt;&lt;dd title=&quot;&#x27;+esc(f.title||loomResearchValue(f))+&#x27;&quot;&gt;&#x27;+esc(loomResearchValue(f,{compact}))+&#x27;&lt;/dd&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/dl&gt;&#x27;;}
 function loomResearchConditions(e){
  const fact=loomResearchFactMap(e).get(&#x27;condition_outcomes&#x27;);if(!fact||!Array.isArray(fact.value))return &#x27;&#x27;;
  if(loomCheckpointPooledFact(e,fact))return &#x27;&#x27;;
@@ -7457,6 +7459,7 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 #pai-studio .pa-catalog-task-card&gt;h3 a{color:inherit;text-decoration:none}
 #pai-studio .pa-catalog-task-card&gt;h3 a:hover{text-decoration:underline}
 #pai-studio .pa-catalog-task-records{padding:14px}
+#pai-studio .pa-scientific-card.pa-output-compact{grid-template-columns:minmax(0,1fr)}
 #pai-studio .pa-catalog-task-records&gt;.pa-output-compact:first-child{padding-top:0}
 #pai-studio .pa-catalog-task-records&gt;.pa-output-compact:last-child{padding-bottom:0}
 #pai-studio .pa-catalog-task-records&gt;.pa-output-compact:last-child{border-bottom:0}

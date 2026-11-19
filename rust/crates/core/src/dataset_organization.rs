@@ -57,6 +57,19 @@ pub fn validate_declaration(value: &Value) -> Result<()> {
     }
     Ok(())
 }
+
+pub(crate) fn validate_task(organization: &Value, task: &Value) -> Result<()> {
+    let declared = &organization["task_ref"];
+    require(
+        task.is_object()
+            && (declared.is_null()
+                || (declared["id"] == task["id"] && declared["revision"] == task["revision"])),
+        "organization_task",
+        "Dataset organization must use the accepted Task revision",
+        409,
+    )
+}
+
 fn saved(app: &Application, target: &Target) -> Result<Value> {
     let text: Option<String> = app
         .db

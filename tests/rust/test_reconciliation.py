@@ -21,6 +21,11 @@ class ReconciliationTests(unittest.TestCase):
   self.assertEqual(json.load(missing.exception)['code'],'task_required')
   task=self.call('results','register_scenario',{'key':'import-task','definition':{'label':'Grasp'}})
   definition['scenario_ref']={'id':task['id'],'revision':1}
+  organization={'path':[{'id':'original','label':'Original'}],'task_ref':{'id':'wrong','revision':1}}
+  definition['metadata']['research']['organization']=organization
+  with self.assertRaises(HTTPError) as mismatch:self.call('results','reconcile_plan',request)
+  self.assertEqual(json.load(mismatch.exception)['code'],'organization_task')
+  organization['task_ref']=definition['scenario_ref']
   p=self.call('results','reconcile_plan',{'key':'template-plan','proposal':{'schema':'loom-reconcile/v1','operations':[op]}})
   args={'plan_id':p['plan_id']};self.call('results','reconcile_validate',args);applied=self.call('results','reconcile_apply',args)
   self.assertEqual(applied,self.call('results','reconcile_apply',args))

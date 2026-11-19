@@ -48,6 +48,10 @@ the required migration chain; `--mode rebuild` is explicit and preserves identit
 
 Failures retain a recovery record and maintenance state. Use `sudo python3 deploy/update.py rollback --record /loom/updates/<id>/record.json` to restore previous code, configuration and DB. **Automatic restoration refuses databases containing new post-update records**, preventing loss of new Jobs/artifacts. Review a data-preserving migration in that case. Updates are not automatically scheduled and do not force-stop active Jobs.
 
+If preflight fails before backup, admission returns to its previous mode for each
+instance already checked. A completed rollback also restores the previous
+admission mode and preserves the saved dispatch pause.
+
 Do not use the release updater for development source mounts. Validate dev source changes, then pin a dev image snapshot. Temporary-filesystem/Docker mock tests are distinct from actual fresh-host, reboot and multi-client acceptance.
 
 Host guides remain under `loom_use`; client Skills are distributed by the independently pinned Loom Use release. Installation and updates do not create `/loom/agents` or machine entry skills. Machine access instructions and personal agent operations belong to external operators; Loom does not overwrite instructions in user homes.

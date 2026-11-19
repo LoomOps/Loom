@@ -102,6 +102,7 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.ui.wait('return '+queue_row+"?.querySelector('[data-work-type=unit]')?.textContent==='Standalone Unit'",unit)
   self.assertTrue(self.ui.wait('return !!'+queue_row,attached))
   self.assertIsNone(self.ui.js('return '+queue_row+".querySelector('[data-work-type]')?.textContent",attached))
+  self.assertIsNone(self.ui.js('return '+panel+".querySelector('[data-queue-action=reorder]')"))
   with sqlite3.connect(db_path,timeout=10) as db:
    db.execute("UPDATE jobs SET state='complete' WHERE id IN (?,?,?)",(unit,job,pilot))
    db.execute("UPDATE jobs SET spec=json_set(spec,'$.execution_mode','pilot') WHERE id IN (?,?)",(job,unit))

@@ -510,6 +510,33 @@ fn new_catalog_admission_requires_exact_dataset_and_policy_under_the_task() {
     check(&spec).unwrap();
     spec["params"]["dataset"]["artifact"]["id"] = json!("d2");
     assert_eq!(check(&spec).unwrap_err().code, "catalog_input_task");
+
+    // Revision 1 receipts omit registry_ref. Use the published entity's Task
+    // context even if the producing execution predates Task pins.
+    let published_id = format!("{job}.data");
+    f.app
+        .db
+        .execute(
+            "INSERT INTO entity_revisions VALUES(?,1,?,'dataset','owner','owner',?)",
+            rusqlite::params![
+                published_id,
+                job,
+                json!({"scenario_ref":{"id":"square","revision":1}}).to_string()
+            ],
+        )
+        .unwrap();
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET result=? WHERE id=?",
+            rusqlite::params![
+                json!({"entities":[{"id":"data","kind":"dataset"}]}).to_string(),
+                job
+            ],
+        )
+        .unwrap();
+    spec["params"]["dataset"] = json!({"job":job,"entity":"data"});
+    check(&spec).unwrap();
 }
 
 #[test]

@@ -950,14 +950,9 @@ impl Application {
                 }
             }
             if let Some(organization) = entity.pointer("/metadata/research/organization") {
-                let task = &row.spec["scenario_ref"];
-                require(
-                    task.is_object()
-                        && (!organization["task_ref"].is_object()
-                            || organization["task_ref"] == *task),
-                    "organization_task",
-                    "Dataset organization must use the accepted Job Task pin",
-                    409,
+                crate::dataset_organization::validate_task(
+                    organization,
+                    &row.spec["scenario_ref"],
                 )?;
             }
             if let Some(reporting) = crate::reporting::validate_reports(

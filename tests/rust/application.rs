@@ -808,7 +808,7 @@ fn native_dataset_publication_resolves_only_declared_data_parent_inputs() {
             json!({"key":"native-family","definition":{"label":"Native family"}}),
         )
         .unwrap();
-    spec["scenario_ref"] = json!({"id":task["id"],"revision":1});
+    spec["scenario_ref"] = json!({"id":task["id"],"revision":1,"sha256":task["sha256"]});
     f.app
         .db
         .execute(
@@ -819,7 +819,7 @@ fn native_dataset_publication_resolves_only_declared_data_parent_inputs() {
     let folder = f.root.join("data").join("derived");
     fs::create_dir(&folder).unwrap();
     fs::write(folder.join("dataset.json"), b"{}").unwrap();
-    let manifest = json!({"entities":[{"id":"selected","kind":"dataset","path":"dataset.json","provenance":{},"relations":[],"metadata":{"research":{"organization":{"path":[{"id":"cohort","label":"Cohort"}]}}},"lineage":[{"input":"data","transformation":{"kind":"condition_selection","details":"Selected two conditions","member_count":2}}]}],"metrics":[]});
+    let manifest = json!({"entities":[{"id":"selected","kind":"dataset","path":"dataset.json","provenance":{},"relations":[],"metadata":{"research":{"organization":{"path":[{"id":"cohort","label":"Cohort"}],"task_ref":{"id":task["id"],"revision":1}}}},"lineage":[{"input":"data","transformation":{"kind":"condition_selection","details":"Selected two conditions","member_count":2}}]}],"metrics":[]});
     let mut missing = manifest.clone();
     missing["entities"][0]["lineage"][0]["input"] = json!("not-an-input");
     assert_eq!(
