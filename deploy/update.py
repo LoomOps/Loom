@@ -44,16 +44,17 @@ def require_idle(c):
 
 def idle_gate(path):
  """Same SQLite transaction as dispatch: no check-then-fence race."""
- with sql(path) as c:
+ with contextlib.closing(sql(path)) as c,c:
   c.execute('BEGIN IMMEDIATE')
   require_idle(c)
   mode=c.execute('SELECT mode FROM node_control WHERE id=1').fetchone()[0]
   paused=c.execute("SELECT name FROM sqlite_master WHERE name='dispatch_control'").fetchone() and c.execute('SELECT paused FROM dispatch_control WHERE id=1').fetchone()[0]
   if mode!='active' and not (mode=='maintenance' and paused):raise ValueError('Instance is already fenced: '+mode)
-  c.execute("UPDATE node_control SET mode='maintenance' WHERE id=1")
+  if mode=='active':c.execute("UPDATE node_control SET mode='maintenance' WHERE id=1")
+  return mode
 
 def ungate(path, *, retain_pause=False):
- with sql(path) as c:
+ with contextlib.closing(sql(path)) as c,c:
   if retain_pause and c.execute("SELECT name FROM sqlite_master WHERE name='dispatch_control'").fetchone() and c.execute('SELECT paused FROM dispatch_control WHERE id=1').fetchone()[0]:return
   c.execute("UPDATE node_control SET mode='active' WHERE id=1 AND mode='maintenance'")
 
@@ -258,7 +259,7 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
   # Another administrator may have finished an update before this lock arrived.
   info=inspect(root,release);upgrade=migrations.plan(root,release);installed=previous_source(root,platform)
-  paths=instance_paths(platform,root) if helper_files(platform,release/'source') else [root];gated=[];record={'schema':'loom-update/v1','root':str(root),'project':project,'release':str(release),'build':info['build_id'],'mode':mode,'upgrade':upgrade,'state':'preparing','gated':[],'helpers':{},'files':{},'databases':{}}
+  paths=instance_paths(platform,root) if helper_files(platform,release/'source') else [root];gated=[];record={'schema':'loom-update/v1','root':str(root),'project':project,'release':str(release),'build':info['build_id'],'mode':mode,'upgrade':upgrade,'state':'preparing','gated':[],'pre_update_admission':{},'helpers':{},'files':{},'databases':{}}
   record['executor_settings']=executor_settings(platform)
   guides=platform/'loom_use'
   record['guides']={'parent':str(guides),'previous':guide_bundle.selected(guides),'version':info['build_id']}
@@ -268,7 +269,9 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
   record['previous_source']=str(old_source)
   try:
    for instance in paths:
-    db=instance/'runtime/ops.sqlite3';idle_gate(db);gated.append(db);record['gated']=[str(x) for x in gated];write(archive/'record.json',record)
+    db=instance/'runtime/ops.sqlite3'
+    record['pre_update_admission'][str(db)]=idle_gate(db)
+    gated.append(db);record['gated']=[str(x) for x in gated];write(archive/'record.json',record)
    ex=platform/'shared/executor/executor.sqlite3'
    if ex.exists():
     with sql(ex) as c:
@@ -327,7 +330,7 @@ def apply(root,release,project,platform=Path('/loom'),mode='update'):
     record['state']='failed';write(archive/'record.json',record)
     raise ValueError('Update evidence is incomplete; inspect post_evidence_errors before recovery')
    for db in gated:
-    if record['state']=='complete':ungate(db)
+    if record['state']=='complete' and record['pre_update_admission'][str(db)]=='active':ungate(db)
     elif record['state']=='preparing':ungate(db,retain_pause=True)
   return {'updated':info['build_id'],'mode':mode,'record':str(archive/'record.json'),'preserved':'accounts, tokens, installation identity, overrides, components, tools, profiles, history, data'}
 
@@ -410,7 +413,8 @@ def resume(record_path):
     record['state']='failed';write(path,record)
     raise ValueError('Update evidence is incomplete; inspect post_evidence_errors before recovery')
   if record['state']=='complete':
-   for name in record['gated']:ungate(Path(name))
+   for name in record['gated']:
+    if record.get('pre_update_admission',{}).get(name,'active')=='active':ungate(Path(name))
  return {'updated':record['build'],'resumed':True,'record':str(path)}
 
 def rollback(record_path):

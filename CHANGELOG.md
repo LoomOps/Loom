@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0-alpha.63
+
+- Group recorded architecture descriptions that name the same recognized policy family, including BC-RNN descriptions with implementation prefixes.
+- Preserve an existing operator maintenance fence across a completed update or recovery.
+
 ## 0.2.0-alpha.62
 
 - Show identical preserved copies of one Policy or Experiment source revision once within a catalog selection. Keep exact snapshots individually accessible and show differently recorded sources separately.

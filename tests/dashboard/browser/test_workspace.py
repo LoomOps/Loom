@@ -1924,6 +1924,8 @@ const done=arguments[arguments.length-1];
                 ('assembly-xvla',assembly,'X-VLA Pt','policy'),
                 ('assembly-smolvla',assembly,'SmolVLA','policy'),
                 ('alignment-xvla',alignment,'X-VLA LoRA','policy'),
+                ('assembly-bc',assembly,'Official BC-RNN, two LSTM(400) layers','policy'),
+                ('alignment-bc',alignment,'robomimic BC-RNN ShallowConv + LSTM','policy'),
                 ('assembly-observer',assembly,'Keypoint estimator','observer'),
             )
         ]
@@ -1935,7 +1937,7 @@ const done=arguments[arguments.length-1];
             return set(ui.js("return [...document.querySelectorAll('.pa-document-pane.is-active [data-model-entry]')].map(n=>n.dataset.modelEntry)"))
         self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-document-pane.is-active .pa-catalog-index-stack nav')].map(n=>n.getAttribute('aria-label'))"),['Tasks','Model family'])
         ui.click('[data-research-task=output-assembly]')
-        self.assertEqual(shown(),{'assembly-xvla','assembly-smolvla'})
+        self.assertEqual(shown(),{'assembly-xvla','assembly-smolvla','assembly-bc'})
         self.assertFalse(ui.js("""return !!document.querySelector('[data-policy-family="Keypoint estimator"]')"""))
         ui.click('[data-policy-family=X-VLA]')
         self.assertEqual(shown(),{'assembly-xvla'})
@@ -1946,6 +1948,8 @@ const done=arguments[arguments.length-1];
         ui.click('[data-research-task=""]')
         ui.click('[data-policy-family=X-VLA]')
         self.assertEqual(shown(),{'assembly-xvla','alignment-xvla'})
+        ui.click('[data-policy-family=BC-RNN]')
+        self.assertEqual(shown(),{'assembly-bc','alignment-bc'})
         for name in ('Datasets','Experiments'):
             ui.nav(name)
             self.assertFalse(ui.js("return !!document.querySelector('.pa-document-pane.is-active [data-policy-family]')"))

@@ -92,6 +92,18 @@ print(json.dumps({'status':'done' if done else 'needed'}))
 
 
 class PreservedRebuildTests(lifecycle.ReleaseLifecycleFixture):
+    def test_update_preserves_preexisting_admission_fence_and_dispatch_pause(self):
+        with sqlite3.connect(self.db) as db:
+            db.execute("UPDATE node_control SET mode='maintenance' WHERE id=1")
+            db.execute("CREATE TABLE dispatch_control(id INTEGER PRIMARY KEY, paused INTEGER)")
+            db.execute("INSERT INTO dispatch_control VALUES(1,1)")
+        with self.contexts(),patch.object(update,'ungate',wraps=update.ungate) as ungate:
+            receipt=update.apply(self.root,self.rel,'fixture',self.p)
+            ungate.assert_not_called()
+        self.assertEqual(self.mode(),'maintenance')
+        self.assertEqual(json.loads(Path(receipt['record']).read_text())['pre_update_admission'][str(self.db)],'maintenance')
+        with sqlite3.connect(self.db) as db:self.assertEqual(db.execute('SELECT paused FROM dispatch_control').fetchone(),(1,))
+
     def identity_state(self):
         (self.root/'config').mkdir();(self.root/'secrets').mkdir()
         (self.root/'config/api.json').write_text('{"installation_id":"original-install","machine_id":"original-machine"}')

@@ -39,9 +39,10 @@ datasets=function(){return loomOutputList(loomOutputDatasets());};
 const policyFilterDefaults={family:'',dataset:'',query:''};
 function policyText(...values){return values.find(v=>typeof v==='string'&&v.trim())?.trim()||'';}
 function policyFamily(recorded){
- const known=[[/^X[-_ ]?VLA\b/i,'X-VLA'],[/^Smol[-_ ]?VLA\b/i,'SmolVLA'],
-  [/^Open[-_ ]?VLA\b/i,'OpenVLA'],[/^BC[-_ ]?RNN\b/i,'BC-RNN']];
- return known.find(([pattern])=>pattern.test(recorded))?.[1]||recorded||'미기록';
+ const known=[[/\bX[-_ ]?VLA\b/i,'X-VLA'],[/\bSmol[-_ ]?VLA\b/i,'SmolVLA'],
+  [/\bOpen[-_ ]?VLA\b/i,'OpenVLA'],[/\bBC[-_ ]?RNN\b/i,'BC-RNN']];
+ const matches=known.filter(([pattern])=>pattern.test(recorded));
+ return matches.length===1?matches[0][1]:recorded||'미기록';
 }
 function modelFilterMeta(e){
  const p=e.properties||{},facts=loomResearchFactMap(e),roleFact=facts.get('model_role'),architecture=facts.get('architecture');

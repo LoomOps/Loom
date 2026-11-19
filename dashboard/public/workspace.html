@@ -5534,9 +5534,10 @@ datasets=function(){return loomOutputList(loomOutputDatasets());};
 const policyFilterDefaults={family:&#x27;&#x27;,dataset:&#x27;&#x27;,query:&#x27;&#x27;};
 function policyText(...values){return values.find(v=&gt;typeof v===&#x27;string&#x27;&amp;&amp;v.trim())?.trim()||&#x27;&#x27;;}
 function policyFamily(recorded){
- const known=[[/^X[-_ ]?VLA\b/i,&#x27;X-VLA&#x27;],[/^Smol[-_ ]?VLA\b/i,&#x27;SmolVLA&#x27;],
-  [/^Open[-_ ]?VLA\b/i,&#x27;OpenVLA&#x27;],[/^BC[-_ ]?RNN\b/i,&#x27;BC-RNN&#x27;]];
- return known.find(([pattern])=&gt;pattern.test(recorded))?.[1]||recorded||&#x27;미기록&#x27;;
+ const known=[[/\bX[-_ ]?VLA\b/i,&#x27;X-VLA&#x27;],[/\bSmol[-_ ]?VLA\b/i,&#x27;SmolVLA&#x27;],
+  [/\bOpen[-_ ]?VLA\b/i,&#x27;OpenVLA&#x27;],[/\bBC[-_ ]?RNN\b/i,&#x27;BC-RNN&#x27;]];
+ const matches=known.filter(([pattern])=&gt;pattern.test(recorded));
+ return matches.length===1?matches[0][1]:recorded||&#x27;미기록&#x27;;
 }
 function modelFilterMeta(e){
  const p=e.properties||{},facts=loomResearchFactMap(e),roleFact=facts.get(&#x27;model_role&#x27;),architecture=facts.get(&#x27;architecture&#x27;);
