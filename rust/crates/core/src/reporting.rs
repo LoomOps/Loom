@@ -938,13 +938,16 @@ pub fn validate_plan(db: &Connection, spec: &Value) -> Result<()> {
     }
     Ok(())
 }
-pub fn validate_new_admission(spec: &Value) -> Result<()> {
-    let p = &spec["profile"];
-    let scientific = p["outputs"].as_object().is_some_and(|o| {
+pub(crate) fn has_catalog_outputs(profile: &Value) -> bool {
+    profile["outputs"].as_object().is_some_and(|o| {
         o.values()
             .any(|v| matches!(v.as_str(), Some("dataset" | "model" | "experiment")))
-    });
-    require(!scientific||p["reporting_policy"]==POLICY,"report_profile_legacy","New scientific Jobs require a reporting-ready Profile revision; accepted Jobs retain their contract",409)
+    })
+}
+
+pub fn validate_new_admission(spec: &Value) -> Result<()> {
+    let p = &spec["profile"];
+    require(!has_catalog_outputs(p)||p["reporting_policy"]==POLICY,"report_profile_legacy","New scientific Jobs require a reporting-ready Profile revision; accepted Jobs retain their contract",409)
 }
 fn selected<'a>(profile: &'a Value, entity: &Value) -> Option<&'a Value> {
     profile["reporting_pins"]

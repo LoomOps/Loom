@@ -10,14 +10,14 @@
     },
     {
       "id": "quickstart",
-      "title": "First Job",
+      "title": "First Unit",
       "source": "loom_use/quickstart.md",
       "type": "tutorial",
-      "summary": "Submit and inspect a bounded Job using a reusable Profile."
+      "summary": "Submit and inspect a standalone Unit using a built-in Profile."
     },
     {
       "id": "jobs",
-      "title": "Jobs and queue",
+      "title": "Jobs and Units",
       "source": "loom_use/jobs.md",
       "type": "how-to",
       "summary": "Submission, queue controls, Attempts and output storage."
@@ -27,7 +27,7 @@
       "title": "Research plans and Unit lifecycle",
       "source": "loom_use/workflows.md",
       "type": "how-to",
-      "summary": "Independent Jobs, prerequisites, producer Steps, scientific commitments and preserved runs."
+      "summary": "Research plans, Unit membership, producer progress and preserved runs."
     },
     {
       "id": "job-cases",
@@ -111,7 +111,7 @@
       "title": "Events and recovery",
       "source": "loom_use/recovery.md",
       "type": "how-to",
-      "summary": "Read recipient events, claim a lease and repair a failed Job."
+      "summary": "Read events, claim a lease and repair a failed execution."
     },
     {
       "id": "scenarios",

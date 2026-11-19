@@ -34,13 +34,15 @@ distinguish image baseline and live source; DEV BUILD is development-only.
 
 Current queue order, hold flags, waiting reasons and caller capabilities come
 from the same backend scheduling function used by dispatch. Authenticated users share Job reads and queue operations; Owner indicates responsibility.
-Running Jobs
-are never interrupted. HTTP POST `/api/jobs/queue-actions` forwards only these three
-actions. Other explicitly supported writes include Job cancellation, Admin token issue/revoke and update checks; arbitrary API writes are rejected. Use Ops MCP/API for other operations.
+Reordering and holding preserve active execution. The queue-action relay accepts
+reorder, hold and resume. Cancellation uses its dedicated route. Admin token
+writes and update checks use the documented relay routes. Use Ops MCP/API for
+other operations.
 Same-origin and native session/CSRF checks apply to browser operations; explicit token access is limited to the configured non-SSO path. Job detail shows
 Attempts, recovery, actual resource return, artifacts and queue-change history.
-Termination history starts at 10 rows with expansion/collapse. No aggregate
-Execution log or separate Loom Jobs queue is added.
+Job Queue shows research outcomes. Unit Queue shows execution and resource
+occupancy. Terminal history starts at 10 rows and identifies each Job or
+Standalone Unit.
 
 The catalog is revision-checked every 30 seconds while visible; manual refresh
 is available. Queue changes refresh the catalog immediately. Resource data has
@@ -53,7 +55,7 @@ explicitly permits them. Host collectors supply machine/OS/kernel/driver metrics
 missing, warming, partial and stale values remain distinct. Observations never
 control dispatch. Sim/Cyclo are external optional Job runtimes, not core services.
 
-MCP Reference renders system.describe with six groups, action schemas, nested
+MCP Reference renders the groups returned by `system.describe`, action schemas, nested
 contracts, examples and response/error notes. It does not execute copied examples.
 Unknown saved views resolve to Dashboard.
 

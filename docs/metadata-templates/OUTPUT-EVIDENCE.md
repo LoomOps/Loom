@@ -1,6 +1,6 @@
 # Scientific outputs and experimental setup
 
-Status: proposed. Design for review against the native development tree. The field names, Setup references and admission checks proposed below require implementation. The installed reference remains authoritative for current actions.
+Status: proposed design for scientific coverage and Setup comparison. Read the [reporting guide](../../loom_use/reporting.md) and [Results feature specification](../features/results.md) for implemented contracts. The examples below include proposed fields and checks.
 
 ## The unit of analysis
 

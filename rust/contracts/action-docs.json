@@ -159,8 +159,8 @@
   },
   "jobs.get": {
     "title": "Job details",
-    "description": "Read state, Attempts, internal_steps, consolidation provenance, work_timeline from original execution receipts, waiting reasons, recovery, callbacks and artifacts. Consolidated work elapsed time includes sources; Attempts retain continuation runtime timestamps. family adds bounded Main Job, prerequisite/follow-up and real execution-node navigation with original states and Runtime pins; presentation grouping does not change execution membership or completion. family.summary is a bounded read-only aggregate of physical executions, recent activity and active state; original root state and timestamps remain unchanged. Physical records expose execution_membership as {root,node} for actual workflow nodes or null for independent executions; presentation parents do not imply scheduler membership.",
-    "returns": "Job · status, scheduling, recovery, attempts, stages, callbacks, result",
+    "description": "Read an accepted research Job, its plan, member Units, status and deliverable receipts. Use units.get for a member Unit's Attempts, stages and recovery. Exact legacy reads retain original workflow membership, Attempts, consolidation and timing evidence. The optional family view includes related work and recent activity. Use unit.job_id or recorded execution membership to determine scheduling ownership.",
+    "returns": "Job status, accepted plan, Units and result, or exact legacy execution details",
     "example": {
       "id": "<job-id>"
     },
@@ -173,8 +173,8 @@
     }
   },
   "jobs.submit": {
-    "title": "Submit Job",
-    "description": "Queue one independently scheduled Job. Submit intake, training and evaluation separately; pass exact producer IDs to dependent Jobs. Optional outcome pins direct deliverables and scientific reporting. Pilot requires pilot.preflight_for and pilot.reduced_scope.",
+    "title": "Submit a legacy single execution",
+    "description": "Queue one physical execution using the compatibility contract. New research outcomes use jobs.submit_research. Independent supporting work uses units.submit. Profiles declaring Dataset, Policy or Experiment outputs require scenario_ref. A legacy outcome can pin direct deliverables and scientific reporting. Pilot requires pilot.preflight_for and pilot.reduced_scope.",
     "returns": "Submission · id",
     "example": {
       "key": "example-run-001",
@@ -851,7 +851,7 @@
   },
   "jobs.submit_workflow": {
     "title": "Replay a historical workflow request",
-    "description": "Existing keys replay their original receipts. New graph submissions return separate_jobs (409). Use jobs.submit with Job dependencies.",
+    "description": "Replay the original receipt for an existing key. New graph submissions return separate_jobs (409). Use jobs.submit_research for one research outcome with its Units and link separate Jobs through exact outputs.",
     "returns": "Logical Job ID and node execution IDs",
     "example": {
       "key": "example-work",
@@ -1119,7 +1119,7 @@
   },
   "results.reconcile_plan": {
     "title": "Plan an exact reconciliation",
-    "description": "Normalize a bounded explicit proposal with a stable key; reject ambiguous or conflicting identities. This does not copy files or create research execution.",
+    "description": "Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. Artifact imports can omit it. Inspect results.reconcile_contract for the import fields.",
     "returns": "Plan · plan_id, state, normalized proposal, validation and optional original receipt",
     "example": {
       "key": "preserved-assets-v1",
@@ -2067,13 +2067,14 @@
     }
   },
   "jobs.create": {
-    "title": "Create an outcome",
-    "description": "Reserve one execution or verify Runtime receipts. Use plan.run for a pending or bound execution and directly name its output entities. Use jobs.submit for runnable Jobs.",
+    "title": "Reserve one execution using the compatibility contract",
+    "description": "Reserve one execution or verify Runtime receipts. Use plan.run for a pending or bound execution and name its output entities. Catalog deliverables and Profiles that publish them require scenario_ref. Use jobs.submit_research with an unbound Unit to reserve a new research outcome.",
     "returns": "Reservation receipt · id, revision, sealed, execution_job, receipts and science_digest. Exact historical requests retain their response format.",
     "example": {
       "key": "dataset-generation",
       "owner": "researcher",
       "notify": "researcher",
+      "scenario_ref": {"id": "<task-id>", "revision": 1},
       "outcome": {
         "goal": "Publish generated cases",
         "deliverables": [
@@ -2109,8 +2110,8 @@
     }
   },
   "jobs.revise_plan": {
-    "title": "Revise an outcome plan",
-    "description": "Bind or seal the reserved execution on its existing ID. Replay an exact revision request with the same key. Additional scheduled work requires a separate Job.",
+    "title": "Revise a compatibility reservation",
+    "description": "Bind or seal a jobs.create reservation on its existing ID. Replay an uncertain revision using the same key and arguments. Use jobs.revise_research for a typed research Job.",
     "returns": "Reservation receipt · id, revision, sealed, execution_job, receipts and science_digest. Exact historical requests retain their response format.",
     "example": {
       "id": "<outcome-id>",
@@ -2147,10 +2148,11 @@
   },
   "jobs.submit_research": {
     "title": "Submit a research Job",
-    "description": "Admit one research output and its scheduled Units without Job nesting. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision.",
+    "description": "Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision.",
     "returns": "Returns the accepted Job ID, plan revision, sealed flag and map of Unit names to independently readable execution IDs.",
     "example": {
       "key": "generate-paired",
+      "scenario_ref": {"id": "<task-id>", "revision": 1},
       "owner": "owner",
       "notify": "owner",
       "outcome": {
@@ -2221,7 +2223,7 @@
   },
   "units.submit": {
     "title": "Submit a standalone Unit",
-    "description": "Submit one standalone Unit. Its scientific catalog evidence is Reference.",
+    "description": "Submit one standalone Unit. Pin scenario_ref for task-specific work. The Task pin is required when the Profile declares Dataset, Policy or Experiment outputs, which publish as Reference. General infrastructure Units may publish Artifacts without a Task.",
     "returns": "Accepted identity and execution details",
     "example": {
       "key": "quick-check",

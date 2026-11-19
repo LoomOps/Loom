@@ -165,11 +165,6 @@ function loomCatalogPager(kind,label="More",inlineStatus=false){
 }
 const loomPagedCatalogList=catalogList;
 catalogList=function(kind){return loomPagedCatalogList(kind)+loomCatalogPager(kind);};
-// Models and Experiments use their own filter layouts rather than catalogList.
-const loomPagedModels=modelList;
-modelList=function(){return loomPagedModels()+loomCatalogPager('model','Load more policies');};
-const loomPagedExperiments=experiments;
-experiments=function(){return loomPagedExperiments()+loomCatalogPager('experiment','Load more experiments');};
 const loomPagedSoftware=loomSoftwareView;
 loomSoftwareView=function(kind){const html=loomPagedSoftware(kind);return html+loomCatalogPager(kind,'More',html.includes('class="pa-registry-status"'));};
 const loomPagedProfiles=loomProfilesView;
@@ -259,27 +254,17 @@ function loomTaskOptions(){
  }
  return [...tasks.values()].sort((a,b)=>a.label.localeCompare(b.label));
 }
-function loomTaskToolbar(){
- const tasks=loomTaskOptions(),selected=state.researchTask;
- return '<div class="pa-task-filter"><label>Task <select data-research-task><option value="">All tasks</option>'+tasks.map(t=>'<option value="'+esc(t.id+':'+t.revision)+'"'+(selected?.id===t.id&&selected?.revision===t.revision?' selected':'')+'>'+esc(t.label)+'</option>').join('')+'</select></label>'+'</div>';
-}
 function loomTaskLabels(entity){return (entity.task_refs||[]).map(t=>'<a class="pa-task-label" href="#/entities/'+encodeURIComponent(t.id)+'" data-entity="'+esc(t.id)+'">'+esc(t.label)+'</a>').join(' · ');}
 function loomTaskProperty(entity){const links=loomTaskLabels(entity);return links?'<div class="pa-output-task"><span>Task</span><span>'+links+'</span></div>':'';}
 function loomOutputRow(markup,entity){
- return markup.replace('<article ','<article data-output-id="'+esc(entity.id)+'" ').replace(/(<article[^>]*>)/,'$1'+loomTaskProperty(entity));
+ const singleTask=Object.hasOwn(loomOutputPages,state.page)&&!state.entity&&!state.model&&loomCatalogTask(entity)&&new Set(entity.task_refs.map(task=>task.id)).size===1;
+ const row=markup.replace('<article ','<article data-output-id="'+esc(entity.id)+'" ');
+ return singleTask?row:row.replace(/(<article[^>]*>)/,'$1'+loomTaskProperty(entity));
 }
 const loomTaskCatalogRow=catListRow;
 catListRow=function(entity){return loomOutputRow(loomTaskCatalogRow(entity),entity);};
 const loomTaskResultCard=resultCard;
 resultCard=function(entity){return loomOutputRow(loomTaskResultCard(entity),entity);};
-const loomTaskModelList=modelList;
-modelList=function(){return loomTaskToolbar()+loomTaskModelList();};
-const loomTaskDatasetList=datasets;
-datasets=function(){return loomTaskToolbar()+loomTaskDatasetList();};
-const loomTaskExperimentList=experiments;
-experiments=function(){return loomTaskToolbar()+loomTaskExperimentList();};
-root.addEventListener('change',event=>{const field=event.target.closest('[data-research-task]');if(!field)return;const pane=ws.panes.find(p=>p.id===field.closest('[data-pane]')?.dataset.pane);if(!pane)return;const value=field.value;activeTab(pane).view.researchTask=loomTaskOptions().find(t=>t.id+':'+t.revision===value);render();persist();});
-
 const loomPagedFiles=files;files=function(){return loomPagedFiles()+loomCatalogPager("explorer");};
 
 // Only background patches use this anchor. User navigation keeps normal scroll behavior.

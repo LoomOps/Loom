@@ -46,11 +46,8 @@ def build(original):
     inner = replace_once(inner,
         "${o.denominator!=null?' · '+o.numerator+' / '+o.denominator:o.count!=null?' · n='+o.count:''}",
         "${esc(o.denominator!=null?' · '+o.numerator+' / '+o.denominator:o.count!=null?' · n='+o.count:'')}")
-    inner = replace_once(inner,
-        "d.open=d.dataset.workGroup?!!v.openWorkGroups?.includes(d.dataset.workGroup):!!v.openDetails?.includes(i);",
-        "d.open=d.hasAttribute('data-dataset-family')?loomDatasetGroupOpen(v,'task:'+d.dataset.datasetFamily):d.hasAttribute('data-dataset-group')?loomDatasetGroupOpen(v,d.dataset.datasetGroup):d.dataset.workGroup?!!v.openWorkGroups?.includes(d.dataset.workGroup):!!v.openDetails?.includes(i);")
     inner = replace_once(inner, "if(n.dataset.workGroup)return 'group:'+n.dataset.workGroup;",
-        "if(n.hasAttribute('data-dataset-family'))return 'dataset-family:'+n.dataset.datasetFamily;if(n.hasAttribute('data-dataset-group'))return 'dataset-group:'+n.dataset.datasetGroup;if(n.dataset.workGroup)return 'group:'+n.dataset.workGroup;")
+        "if(n.hasAttribute('data-catalog-task-card'))return 'task-card:'+n.dataset.catalogTaskCard;if(n.hasAttribute('data-research-task'))return 'task-filter:'+n.dataset.researchTask;if(n.hasAttribute('data-policy-family'))return 'policy-family:'+n.dataset.policyFamily;if(n.dataset.workGroup)return 'group:'+n.dataset.workGroup;")
     inner = replace_once(inner, "등록된 원본 산출물 기반 · 읽기 전용", "")
     inner = inner.replace("['component','컴포넌트']", "['component','컴포넌트'],['tool','Tool']")
     inner = inner.replace("component:'컴포넌트'}", "component:'컴포넌트',tool:'Tool'}")
@@ -126,7 +123,7 @@ def build(original):
     inner=replace_once(inner,"['tools','Tools','wrench']","['profiles','Runtimes',loomRuntimeIcon]")
     inner=replace_once(inner,"['models','Models','box'],['datasets','Datasets','database'],['experiments','Experiments','flask-conical'],['comparison','Comparison','git-compare-arrows']","['datasets','Catalog','archive'],['comparison','Comparison',loomComparisonIcon]")
     inner=inner.replace("icon('git-compare-arrows')", "icon(loomComparisonIcon)")
-    inner=inner.replace("heading('ANALYSIS','Comparison','')+controls", "heading('ANALYSIS','Comparison','')+loomTaskToolbar()+controls")
+    inner=inner.replace("heading('ANALYSIS','Comparison','')+controls", "heading('ANALYSIS','Comparison','')+loomComparisonTaskFilter()+loomTaskToolbar()+controls")
     inner=replace_once(inner, "(selected.length?'__unlinked__':models[0]?.id)",
         "comparisonModel(comparisonRuns()[0]||{})?.id||(unlinked?'__unlinked__':models[0]?.id)")
     # The default selection uses available evaluations, whose unlinked flag is
@@ -137,11 +134,11 @@ def build(original):
     inner=inner.replace("'작업실 / '+viewTitle(state)","loomOutputBreadcrumb(state)")
     inner=replace_once(inner,"catalogData=catTitleSnapshot(e.data.catalog);","catalogData=loomCatalogRefresh(e.data.catalog);")
     inner=replace_once(inner,"  patchResourceNode(body,next,true);","  loomPreserveViewport(body,()=>patchResourceNode(body,next,true));")
-    inner=replace_once(inner," if(n.dataset.modelFilter)return"," if(n.dataset.outputId)return 'output:'+n.dataset.outputId;\n if(n.dataset.datasetFilter)return 'dataset-filter:'+n.dataset.datasetFilter;\n if(n.dataset.modelFilter)return")
-    inner=replace_once(inner,"function modelFilterSelect(key,label,entries,value){","function modelFilterSelect(key,label,entries,value,attribute='data-model-filter'){")
-    inner=replace_once(inner,"shown.map(e=>catListRow(e).replace('<article ',\x60<article data-model-entry=\"\x24{esc(e.id)}\" \x60)).join('')",
-                         "loomGroupedOutputs(shown,e=>catListRow(e).replace('<article ',\x60<article data-model-entry=\"\x24{esc(e.id)}\" \x60))")
-    inner=replace_once(inner,'<select data-model-filter="${key}" aria-label="${esc(label)} 필터">','<select ${attribute}="${esc(key)}" aria-label="${esc(label)} 필터">')
+    inner=replace_once(inner," if(n.dataset.modelFilter)return"," if(n.dataset.outputId)return 'output:'+n.dataset.outputId;\n if(n.dataset.modelFilter)return")
+    # The editable list implementation lives in outputs.js.
+    model_filters_start = inner.index("// Per-document filters are projections of source metadata")
+    model_filters_end = inner.index("catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');", model_filters_start)
+    inner = inner[:model_filters_start] + inner[model_filters_end:]
 
     inner=replace_once(inner,"const interested=!!root.querySelector('[data-resource-panel]');","const interested=!!root.querySelector('[data-resource-panel],.pa-finder,.pa-sidebar-bottom');")
     inner=replace_once(inner,"const catKind=(k,includeDiscarded=false)=>catalogData.entities.filter(e=>e.kind===k&&(includeDiscarded||!catIsDiscarded(e)));","let catKind=(k,includeDiscarded=false)=>loomTaskItems(catalogData.entities.filter(e=>e.kind===k&&(includeDiscarded||!catIsDiscarded(e))),k);")
@@ -152,6 +149,8 @@ def build(original):
     inner=replace_once(inner,"state.page===id?'page':'false'","(state.page===id||id==='profiles'&&loomIsHubPage(state.page)||id==='datasets'&&loomIsOutputPage(state.page))?'page':'false'")
     inner=replace_once(inner,"(navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')","({scenarios:'Tasks',datasets:'Datasets',experiments:'Experiments',models:'Policies',comparison:'Comparison',profiles:'Profiles',components:'Components',tools:'Tools',runtimes:'Runtimes',dependencies:'Dependencies'}[v.page]||navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')")
     inner = replace_once(inner, "panel(`현재 큐 · ${current.length}`,current.length?table(current,true):'<div class=\"pa-empty\">현재 등록된 Job이 없습니다.</div>')", "loomCurrentQueuePanel(current,table)")
+    inner = replace_once(inner, "table(ended.slice(0,state.queueHistoryLimits?.all||10),false)",
+                         "loomTerminalWorkTable(ended.slice(0,state.queueHistoryLimits?.all||10),table)")
     marker = "catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');"
     inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "dependencies.js", "scenarios.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js", "search.js", "projection.js", "catalog-pages.js", "outputs.js", "research-metadata.js", "dataset-browser.js", "reporting.js", "registry-lifecycle.js"))
     inner = replace_once(inner, marker, inner_additions + "\n" + (HERE.parent/"branding/brand.js").read_text() + "\n" + marker)

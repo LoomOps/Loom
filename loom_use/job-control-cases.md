@@ -12,6 +12,7 @@ The agent retained the complete original request and its key. Replay that exact 
   "action": "submit_research",
   "arguments": {
     "key": "grasp-rgb-5000",
+    "scenario_ref": {"id": "<task-id>", "revision": 1},
     "owner": "owner",
     "notify": "owner",
     "category": "fine_tuning",
@@ -94,7 +95,7 @@ Read the current queue and identify the exact waiting evaluation Unit and refere
 {"group":"units","action":"reorder","arguments":{"id":"a3000000000000000000000000000003","position":"before","reference":"a3000000000000000000000000000004"}}
 ```
 
-Read the updated order and any dependencies. The intended effect is priority when both Jobs are eligible.
+Read the updated order and any dependencies. The order determines priority when both Units are eligible.
 
 ## "Stop the training that's running now."
 
@@ -142,6 +143,7 @@ The catalog contains all three checkpoints but no matched Experiment. Inspect a 
   "action": "submit_research",
   "arguments": {
     "key": "xvla-matched-checkpoint-sweep",
+    "scenario_ref": {"id": "<task-id>", "revision": 1},
     "owner": "owner",
     "notify": "owner",
     "category": "evaluation",

@@ -124,7 +124,7 @@ Shared authentication, schema, scope and handler preconditions still apply.
 
 ## get
 
-Read state, Attempts, internal_steps, consolidation provenance, work_timeline from original execution receipts, waiting reasons, recovery, callbacks and artifacts. Consolidated work elapsed time includes sources; Attempts retain continuation runtime timestamps. family adds bounded Main Job, prerequisite/follow-up and real execution-node navigation with original states and Runtime pins; presentation grouping does not change execution membership or completion. family.summary is a bounded read-only aggregate of physical executions, recent activity and active state; original root state and timestamps remain unchanged. Physical records expose execution_membership as {root,node} for actual workflow nodes or null for independent executions; presentation parents do not imply scheduler membership.
+Read an accepted research Job, its plan, member Units, status and deliverable receipts. Use units.get for a member Unit's Attempts, stages and recovery. Exact legacy reads retain original workflow membership, Attempts, consolidation and timing evidence. The optional family view includes related work and recent activity. Use unit.job_id or recorded execution membership to determine scheduling ownership.
 
 Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/query.rs#inspect_job](../../rust/crates/core/src/query.rs).
 
@@ -165,13 +165,13 @@ Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crate
 
 ### Result and failures
 
-Job · status, scheduling, recovery, attempts, stages, callbacks, result
+Job status, accepted plan, Units and result, or exact legacy execution details
 
 The ID does not exist.
 
 ## submit
 
-Queue one independently scheduled Job. Submit intake, training and evaluation separately; pass exact producer IDs to dependent Jobs. Optional outcome pins direct deliverables and scientific reporting. Pilot requires pilot.preflight_for and pilot.reduced_scope.
+Queue one physical execution using the compatibility contract. New research outcomes use jobs.submit_research. Independent supporting work uses units.submit. Profiles declaring Dataset, Policy or Experiment outputs require scenario_ref. A legacy outcome can pin direct deliverables and scientific reporting. Pilot requires pilot.preflight_for and pilot.reduced_scope.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/jobs.rs#submit](../../rust/crates/core/src/jobs.rs).
 
@@ -676,7 +676,7 @@ Unregistered profile, parameter schema mismatch, denied input access or stopped 
 
 ## submit_workflow
 
-Existing keys replay their original receipts. New graph submissions return separate_jobs (409). Use jobs.submit with Job dependencies.
+Replay the original receipt for an existing key. New graph submissions return separate_jobs (409). Use jobs.submit_research for one research outcome with its Units and link separate Jobs through exact outputs.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/jobs.rs#submit_workflow](../../rust/crates/core/src/jobs.rs).
 
@@ -1438,7 +1438,7 @@ Unregistered profile or missing Job.
 
 ## create
 
-Reserve one execution or verify Runtime receipts. Use plan.run for a pending or bound execution and directly name its output entities. Use jobs.submit for runnable Jobs.
+Reserve one execution or verify Runtime receipts. Use plan.run for a pending or bound execution and name its output entities. Catalog deliverables and Profiles that publish them require scenario_ref. Use jobs.submit_research with an unbound Unit to reserve a new research outcome.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/plans.rs#write_plan](../../rust/crates/core/src/plans.rs).
 
@@ -2333,6 +2333,10 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
       ]
     },
     "sealed": false
+  },
+  "scenario_ref": {
+    "id": "<task-id>",
+    "revision": 1
   }
 }
 ```
@@ -2347,7 +2351,7 @@ Reservation receipt · id, revision, sealed, execution_job, receipts and science
 
 ## revise_plan
 
-Bind or seal the reserved execution on its existing ID. Replay an exact revision request with the same key. Additional scheduled work requires a separate Job.
+Bind or seal a jobs.create reservation on its existing ID. Replay an uncertain revision using the same key and arguments. Use jobs.revise_research for a typed research Job.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/plans.rs#write_plan](../../rust/crates/core/src/plans.rs).
 
@@ -2846,7 +2850,7 @@ Reservation receipt · id, revision, sealed, execution_job, receipts and science
 
 ## submit_research
 
-Admit one research output and its scheduled Units without Job nesting. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision.
+Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/plans.rs#write_research_plan](../../rust/crates/core/src/plans.rs).
 
@@ -2861,7 +2865,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 | `owner` | yes | `"string"` | `—` |
 | `plan` | yes | `"object"` | `—` |
 | `presentation` | no | `"object"` | `—` |
-| `scenario_ref` | no | `"object"` | `—` |
+| `scenario_ref` | yes | `"object"` | `—` |
 
 <details><summary>Exact input JSON Schema</summary>
 
@@ -3492,7 +3496,8 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
     "owner",
     "notify",
     "outcome",
-    "plan"
+    "plan",
+    "scenario_ref"
   ],
   "type": "object"
 }
@@ -3532,6 +3537,10 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
         "label": "Generate"
       }
     ]
+  },
+  "scenario_ref": {
+    "id": "<task-id>",
+    "revision": 1
   }
 }
 ```

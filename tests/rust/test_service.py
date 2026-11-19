@@ -114,6 +114,7 @@ class RustServiceTests(unittest.TestCase):
   self.assertEqual(self.call('system','status')['execution_model'],'job-unit/v1')
   owner={'owner':'owner','notify':'owner'}
   smoke={'kind':'cpu.smoke','params':{'seconds':2,'fail':False}}
+  task=self.call('results','register_scenario',{'key':'pipeline-task','definition':{'label':'Generate demonstrations'}})
   plans=[]
   for name in ('a','b'):
    proposed={**owner,'key':f'research-{name}','outcome':{
@@ -122,6 +123,13 @@ class RustServiceTests(unittest.TestCase):
     'plan':{'sealed':False,'units':[
      {'id':'preflight','label':'Prepare inputs','phase':'prepare','execution':smoke},
      {'id':'generate','label':'Generate demonstrations','depends_on':['preflight']}]}}
+   if name=='a':
+    with self.assertRaises(HTTPError) as missing:self.call('jobs','submit_research',proposed)
+    self.assertEqual(missing.exception.code,400)
+    invalid={**proposed,'scenario_ref':{'id':task['id'],'revision':999}}
+    with self.assertRaises(HTTPError) as unknown:self.call('jobs','submit_research',invalid)
+    self.assertEqual(unknown.exception.code,404)
+   proposed['scenario_ref']={'id':task['id'],'revision':1}
    accepted=self.call('jobs','submit_research',proposed)
    self.assertEqual(accepted,self.call('jobs','submit_research',proposed))
    plans.append(accepted)
@@ -137,6 +145,7 @@ class RustServiceTests(unittest.TestCase):
    job=self.call('jobs','get',{'id':plan['id']})
    member=plan['units']['preflight']
    self.assertEqual(job['entry_type'],'job')
+   self.assertEqual(job['spec']['scenario_ref'],{'id':task['id'],'revision':1})
    self.assertNotIn('executions',job)
    self.assertEqual(job['spec']['outcome']['deliverables'][0]['from']['unit'],'generate')
    self.assertEqual(job['units'][0]['id'],member)

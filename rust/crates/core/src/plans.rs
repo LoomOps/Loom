@@ -821,6 +821,17 @@ impl Application {
                 crate::system_ownership::require_admin(&config, actor)?;
             }
             let mut doc = json!({"key":key,"label":raw["outcome"]["goal"],"owner":raw["owner"],"notify":raw["notify"],"outcome":raw["outcome"],"outputs":{},"stage_receipts":{},"receipts":{}});
+            let catalog_deliverable = doc["outcome"]["deliverables"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .any(|d| matches!(d["kind"].as_str(), Some("dataset" | "model" | "experiment")));
+            require(
+                raw["scenario_ref"].is_object() || (!research && !catalog_deliverable),
+                "task_required",
+                "Pin a Task revision for a research Job or a Catalog deliverable",
+                400,
+            )?;
             if research {
                 let output = &doc["outcome"]["deliverables"][0];
                 if let Some(target) = output.get("supplements") {
@@ -830,10 +841,17 @@ impl Application {
                         "Only a checkpoint Experiment can be supplemented",
                         400,
                     )?;
-                    crate::experiment_supplements::target(
+                    let previous = crate::experiment_supplements::target(
                         &tx,
                         target,
                         raw["owner"].as_str().unwrap(),
+                    )?;
+                    require(
+                        previous["scenario_ref"].is_null()
+                            || previous["scenario_ref"]["id"] == raw["scenario_ref"]["id"],
+                        "supplement_task",
+                        "Use the Task of the Experiment being supplemented",
+                        409,
                     )?;
                 }
             }

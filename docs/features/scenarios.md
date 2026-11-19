@@ -44,6 +44,8 @@ never label matching in a projection. Task filters are server-paginated and reta
 linked historical selectors. Withdrawn links stop matching; originals remain.
 Task metadata cannot hide current queue occupants or grant file access.
 
-Task selection is an Outputs filter; no dedicated sub-tab or create button is
-exposed. Existing exact Task details and API authoring remain supported. Known
-Task metadata remains selectable while bounded bootstrap data catches up.
+The Catalog Task index filters Datasets, Policies and Experiments and defaults to
+All, including unlinked historical records. New Dataset, Policy and Experiment
+submissions and imports require an exact Task revision for both catalog classes.
+General infrastructure evidence stays in Artifacts and Runtime receipts.
+Exact Task details and API authoring remain available.

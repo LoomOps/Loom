@@ -1,6 +1,7 @@
 # Native implementation and acceptance
 
-Status: native implementation on `codex/loom-rust`.
+Status: historical implementation ledger for `codex/loom-rust`.
+See [implementation boundaries](../IMPLEMENTATION.md) and the [generated API reference](../reference/README.md) for the current source.
 The frozen design/audit remains in this directory. This document records what is
 implemented, where authority resides, and which acceptance boundaries are separate.
 D1–D7 implementation is present. D8 requires separate source-qualified and
@@ -56,7 +57,7 @@ Python; authoring instructions and generated producer projects prefer Rust.
 - Rust SDK templates cover Tool, Component and hybrid workers. Registration never
   compiles/imports/runs source. Python source in new packages requires a concrete
   external package, stage and reason. Existing accepted Python revisions persist.
-- HTTP/MCP shares one live schema/action registry, six groups, versioned guides,
+- HTTP/MCP shared one schema/action registry, versioned guides,
   JSON/SSE and safe errors. Existing published and candidate clients are exercised
   against the native service. Native logs support bounded ranges during execution;
   returned logs preserve complete bytes beyond control-reply limits.

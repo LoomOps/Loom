@@ -92,7 +92,7 @@ Image dependencies still require administrator-approved pinned images. Validate
 the new Profile in an isolated Job before selecting it for new research. Do not
 guess which S1v1/planner source should be reclassified or rewrite old Job specs.
 
-Loom Use transports the same six MCP groups and discovers new action schemas.
+Loom Use discovers the connected server's advertised groups and action schemas, including `units` where supported.
 An optional coordinator remains a user of Loom; it does not deploy this upgrade, mutate
 operational registries, or activate native threads merely by reading this handoff.
 

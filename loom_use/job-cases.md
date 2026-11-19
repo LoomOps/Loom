@@ -6,9 +6,7 @@ Replace symbolic identities and sample Profile kinds using live discovery. Read 
 
 “Is the evaluation still running?”
 
-Confirm the installation and read the exact Job with `jobs.get`. Follow its active Unit and Attempt when the question is about progress.
-
-
+Confirm the installation, then use the accepted Job ID.
 
 ```json
 {
@@ -16,15 +14,16 @@ Confirm the installation and read the exact Job with `jobs.get`. Follow its acti
   "id": 1,
   "method": "tools/call",
   "params": {
-    "name": "system",
+    "name": "jobs",
     "arguments": {
-      "action": "status",
-      "arguments": {}
+      "action": "get",
+      "arguments": {"id":"<evaluation-job-id>"}
     }
   }
 }
 ```
 
+Read the active Unit and Attempt with `units.get` when the question concerns execution progress.
 
 ## Generate 140 demonstrations, train X-VLA, then evaluate
 
@@ -39,6 +38,7 @@ Submit one Job per independent deliverable. The Dataset Job can schedule CPU pre
   "action": "submit_research",
   "arguments": {
     "key": "grasp-v3-dataset",
+    "scenario_ref": {"id": "<task-id>", "revision": 1},
     "owner": "<owner-id>",
     "notify": "<recipient-id>",
     "outcome": {
@@ -93,6 +93,7 @@ Submit one Job per independent deliverable. The Dataset Job can schedule CPU pre
   "action": "submit_research",
   "arguments": {
     "key": "grasp-v3-policy",
+    "scenario_ref": {"id": "<task-id>", "revision": 1},
     "owner": "<owner-id>",
     "notify": "<recipient-id>",
     "outcome": {
@@ -141,6 +142,7 @@ Submit one Job per independent deliverable. The Dataset Job can schedule CPU pre
   "action": "submit_research",
   "arguments": {
     "key": "grasp-v3-evaluation",
+    "scenario_ref": {"id": "<task-id>", "revision": 1},
     "owner": "<owner-id>",
     "notify": "<recipient-id>",
     "outcome": {
@@ -209,7 +211,7 @@ Submit a standalone Unit. Register the validated Observer in the software regist
 
 “Check the candidate checkpoints on the same validation run and pick the best supported one.”
 
-Use an Experiment Job whose producer evaluates the pinned checkpoint set on one frozen cohort and reports per-checkpoint outcomes. Use the built-in representative-selection contract when its prerequisites apply. A tie or absent valid cohort leaves representative selection unset. Comparing already completed runs uses exact existing results.
+Use an Experiment Job whose producer evaluates the pinned checkpoint set on one frozen cohort and reports each checkpoint's outcomes. Selection by success rate requires identical, complete development or validation cohorts. A tie leaves the selection unset. To compare completed runs, read their exact published results.
 
 ## Keep preparing while training
 

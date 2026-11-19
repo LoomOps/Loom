@@ -1835,7 +1835,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "reconcile_plan",
-      "description": "Normalize a bounded explicit proposal with a stable key; reject ambiguous or conflicting identities. This does not copy files or create research execution.",
+      "description": "Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. Artifact imports can omit it. Inspect results.reconcile_contract for the import fields.",
       "errors": [
         "Unknown source contract, conflicting source identity/key or proposal bound exceeded."
       ],

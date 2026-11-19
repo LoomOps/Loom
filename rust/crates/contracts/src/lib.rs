@@ -179,6 +179,10 @@ pub fn actions() -> Vec<Action> {
     research_slot["properties"]["phase"] = json!({"enum":["prepare","run","finalize"]});
     research_slot["properties"]["execution"]["properties"]["gpu_access"] = gpu_access.clone();
     let mut research_create = create.clone();
+    research_create["required"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!("scenario_ref"));
     research_create["properties"]["plan"] = object(
         json!({"sealed":{"type":"boolean"},"units":{"type":"array","minItems":1,"maxItems":64,"items":research_slot}}),
         &["sealed", "units"],
@@ -231,6 +235,7 @@ pub fn actions() -> Vec<Action> {
         .schema
         .clone();
     unit_submit["properties"]["gpu_access"] = gpu_access;
+    unit_submit["properties"]["scenario_ref"] = reference.clone();
     for field in ["consolidates", "outcome"] {
         unit_submit["properties"]
             .as_object_mut()

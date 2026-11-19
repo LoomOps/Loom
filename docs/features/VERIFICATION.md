@@ -5,7 +5,7 @@ The feature catalog maps every block to its executable cases. This matrix record
 | Block | Automated evidence to keep | Installation / live boundary |
 |---|---|---|
 | identity | Native bindings, signed identity, expiry, VPN-account change, revocation and Admin matching | Doctor compares native SSO/Admin configuration, bypass flags and live Docker gateway/trusted-proxy agreement. Another-client profile/role verification remains live. |
-| api | Six tool groups, HTTP/MCP schema parity including reconnect, independent result-action coverage, protocol errors and version metadata | Doctor queries actual API/tools; smoke submits through MCP. Real third-party clients remain separate. |
+| api | Scope-filtered tool discovery, HTTP/MCP schema parity including reconnect, result-action coverage, protocol errors and version metadata | Doctor queries actual API/tools. The smoke test submits through MCP. Third-party clients require live acceptance. |
 | queue | Order, hold/resume, dependent Jobs, workflow readiness reasons and preparation overlap | Smoke never reorders or cancels existing work. A busy queue leaves acceptance pending. |
 | execution | Frozen profiles/output stores, container boundary, phase retries, return/cancellation | Doctor checks executor/image/GPU exposure; smoke runs prepare and run in containers. GPU computation is not inferred from nvidia-smi. |
 | recovery | Leases, timeout, retry limits, lost agent, repaired-input dependency cycles and pinned storage | Installer never fixes a failed smoke Job by rewriting receipts. Failed Job evidence is retained. |

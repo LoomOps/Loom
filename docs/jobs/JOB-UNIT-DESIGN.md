@@ -1,10 +1,10 @@
 # Job, Unit, and catalog execution design
 
-Status: design and rollout record. The generated API reference describes implemented actions. The connected installation advertises its active model.
+Status: historical design and rollout record. See [Job and Unit boundaries](BOUNDARIES.md) and the [generated API reference](../reference/README.md) for current behavior.
 
 ## Baseline and audit findings
 
-The development checkout is based on v0.2.0-alpha.56 with pending admission, projection, Dashboard, and guide changes. Both operating installations reported alpha.56 at the last direct comparison. The audit scanned tracked and pending source for execution, identity, resource, publication, and visibility assumptions, then followed the entry points and consumers below. Private host records and conversations inform the scenarios. Distributable examples use synthetic IDs and inputs.
+The audit used v0.2.0-alpha.56 as its baseline. It reviewed execution, identity, resource, publication and visibility assumptions at the entry points below. The examples use synthetic IDs and inputs.
 
 | Observed coupling | Source paths | Required treatment |
 |---|---|---|

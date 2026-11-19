@@ -12,12 +12,15 @@ follows explicit exact lineage, retains variant names and overlapping counts, an
 does not infer a data-parent edge from Task names or general consumes relations.
 Group counts describe loaded variants; paging does not claim a complete lineage.
 Datasets, Policies and Experiments share the scientific list and filter styles.
-Dataset filters offer recorded role, input, split and origin values plus search.
-An Imported badge follows the accepted import activity or a registered import source. Matches appear as
-individual rows with their Task and known parent, so collapsed branches cannot
-hide results. Clearing filters restores the previous lineage tree state.
+The Dataset list uses the Task index and catalog class. Inputs, splits and the
+Imported badge remain record facts. Named sections show related variants and exact
+parent labels. Policies add a Model family index below Tasks. The two selections
+intersect. Recognized variants of a recorded architecture share a family label
+in the index. Training Dataset and text search remain available on the list.
+Declared Observer models stay reachable by exact links and through discovery.
+They are omitted from the Policies list.
 
-The Dashboard catalog view initially selects All. The Catalog orders Datasets, Policies and Experiments. Reporting-enabled details use
+The Catalog orders Datasets, Policies and Experiments. Its left Task index initially selects All. The selected Task carries across the three tabs, and All includes unlinked records. Reporting-enabled details use
 Overview with optional Distribution and Episodes for Datasets, Overview and
 Training for Policies, and Overview, Results and Cases for Experiments.
 Each Overview presents its metadata sections together in one standard panel,
@@ -99,12 +102,15 @@ Acceptance outside these fixtures:
 
 ## Bounded catalogs and refresh
 
-The browser opens an authenticated shell before fetching any Jobs, Activity, registered files or runtime inventory. Visible Home panes request queue occupants, paged history and Activity independently. Job details also request the current queue for controls. The legacy bootstrap remains available to older clients. Same-revision refresh preserves loaded list pages and Empty Runtime hub lists show a centered loading status while fetching, an indexing status on a partial index response, and the empty result only after completion. Already visible cards stay available during refresh.
+The browser opens the authenticated shell first. Visible Home panes then request
+queue occupants, paged history and Activity independently. Job details request
+the queue for controls. Same-revision refresh preserves loaded pages and
 parent-side detail identities. A new revision invalidates page cursors and pending
 responses before the visible list reloads. Dashboard history starts its paged Job
 read when bootstrap data patches the pane. It waits for the first complete Job
 page and keeps the previous page during refresh or partial reads. The queue
-shows current user-owned Jobs independently of history pagination.
+shows current user work independently of history pagination. Runtime lists with
+no visible rows show loading or indexing until a complete response arrives.
 An unloaded native deep link resolves its logical Item alias or exact native
 entity, Job or Task identity before text search; it does not require the record to be among bootstrap or first-page rows.
 Tasks appear as filters and record labels, without a standalone Scenario tab.
@@ -140,10 +146,11 @@ above Owner, after the Job title and execution metadata. Links preserve keyboard
 focus and theme contrast. Scientific metadata precedes Owner; full recorded metadata remains
 available below. Dataset role labels remain source metadata, not browse headings.
 
-Output purpose filters separate Research and Development using declared roles,
-engineering classifications and explicit Observer model roles. Main outputs sort
-before supporting records. Historical Observer model records retain their role. New Observer evidence belongs to the Job or reusable Tool or Component. Job Type and Execution Mode remain in Job detail.
-Historical Jobs retain their recorded metadata.
+Catalog filters use Regular and Reference on Job/Unit installations, with
+Regular selected by default. The legacy Research and Development filters are
+available for older servers. Historical Observer models retain their recorded
+role. New Observer evidence belongs to the producing Unit or the reusable Tool
+or Component revision.
 
 A list emphasizes one unambiguous declared primary metric, one exact sole outcome
 highlight, or one sole metric. Multiple primaries/populations have no synthesized
@@ -215,12 +222,12 @@ a model with an available evaluation; explicit user choices remain unchanged.
 The current queue, terminal history and Home Activity include user work across
 Research and Operations without a Job scope selector. System ownership identifies
 platform work excluded from the Dashboard. Operations records the purpose of work
-regardless of ownership. Terminal history labels verified Job and Standalone Unit
-rows beside their titles. The Unit Queue also labels standalone Units and links
+regardless of ownership. Terminal history shows Job and Standalone Unit in the
+Type column before Status. The Unit Queue also labels standalone Units and links
 Job-owned Units to their Job. Completed consolidation sources are visible through
 their continuation. Presentation-only parent links preserve discoverability in
-detail. A completed, reviewed legacy Job with a verified Regular publication
-keeps its recorded mode in the exact record and omits a stale Pilot label in history.
+detail. A Pilot label requires both a named preflight purpose and a recorded
+reduced scope. Exact Job records retain their original mode.
 
 Activity responses from older revisions cannot overwrite the current observation.
 

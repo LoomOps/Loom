@@ -4,7 +4,7 @@
 
 Bind one Job's deliverable to `outcome.deliverables[0].from:{unit,entity}`. The Unit name is local to the plan. Its pinned Profile declares that entity and kind. Use `jobs.preview_outcome` to inspect optional scientific commitments using the preview action schema. Attach a hypothesis when the request defines one.
 
-To evaluate additional checkpoints for an existing Regular Experiment, submit a new Job with `outcome.deliverables[0].supplements:{id,revision}` targeting its current revision. Bind the same exact Policy, Dataset and evaluation inputs. Produce only the new checkpoint cases under the same protocol and seed/reset cohort. See [checkpoint supplements](reporting.md#checkpoint-supplements).
+To add checkpoint cases to an existing Regular Experiment, follow [checkpoint supplements](reporting.md#checkpoint-supplements).
 
 `plan.units` defines each Unit's local `id`, label, optional phase and prerequisite Unit names. Bound slots specify `execution.kind` and `execution.params`. Local inputs use `{unit,entity}` and name a declared prerequisite. A downstream Job consumes an accepted upstream result via `{job,entity}`, where `entity` is the producer Job's deliverable alias. An exact artifact reference can instead pin a published revision directly.
 
@@ -14,7 +14,7 @@ Use a sealed plan when all bindings are ready. When a Runtime is pending, reserv
 
 Keep episodes, optimizer updates and other in-process progress in the producer's existing progress report. The SDK writes the bounded `loom-job-steps/v1` compatibility report, which the Dashboard displays as observed Units on typed execution. In a typed run request, `unit_id` identifies the scheduled execution and `research_job_id` is its optional Job. Existing physical producer and Attempt fields retain their original meaning.
 
-For long generation, pin episode IDs, seed/configuration and input revisions. Checkpoint completed episodes atomically with hashes and a durable manifest. Only claim restart from a checkpoint if the producer verifies that state and skips exactly the completed items. Resume pending dispatch with the corresponding hold control. Use the recovery guide for a failed Attempt or publication repair.
+For long generation, pin episode IDs, seeds, configuration and input revisions. Checkpoint completed episodes atomically with hashes and a durable manifest. On restart, verify the checkpoint against the accepted inputs and skip exactly the completed items. Use [recovery](recovery.md) for a failed Attempt or publication repair.
 
 ## Historical execution
 

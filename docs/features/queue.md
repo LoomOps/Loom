@@ -2,18 +2,18 @@
 
 ## Boundary
 
-Do not preempt running Jobs. Respect dependencies, allow concurrent preparation and never reassign resources before their return. Logical workflow queue summaries use child readiness for waiting states and distinguish execution, finalization and recovery. Accepted-key submission replays return their original Job while admission is draining; new submissions remain fenced.
+Respect Unit dependencies and lane capacity. Independent CPU preparation can run concurrently while an exclusive GPU Unit owns its requested devices. Wait for a Unit to return resources before reassigning them. While admission drains, accepted-key replays return the original entry and new submissions remain fenced.
 
-Preparing Jobs can be held while their CPU stage completes. A durable hold blocks the next Run claim across service restarts. The queue reports the stage lane used by dispatch, including CPU preparation of GPU Jobs. Queue ordering applies only to waiting Jobs.
+Queue ordering changes the priority of waiting Units when they become eligible. A durable hold blocks subsequent claims across service restarts. Existing process and resource receipts remain authoritative for work already running.
 
 ## Interfaces
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
 |---|---|---|---|---|
-| Scheduling decision | `rust/crates/core/src/jobs.rs#readiness` | Job row + DB dependency/recovery/hold state + lane | Eligibility/stage/waiting reason consumed by worker and UI | api, catalog |
-| Queue mutation | `rust/crates/core/src/jobs.rs#job_action` | Waiting Job, actor, relative/absolute placement | Persisted order and change receipt; running Job not preempted | api |
+| Scheduling decision | `rust/crates/core/src/jobs.rs#readiness` | Execution row, dependencies, recovery and hold state, resource lane | Eligibility, stage and waiting reason consumed by worker and UI | api, catalog |
+| Queue mutation | `rust/crates/core/src/jobs.rs#job_action` | Queue entry, actor and placement | Persisted waiting order and change receipt | api |
 
-Public actions and input schemas are in the generated [API reference](../reference/README.md). This block owns: `jobs.preview_history`, `jobs.preview_outcome`, `jobs.create`, `jobs.revise_plan`, `jobs.assign_owner`, `jobs.queue`, `jobs.reorder`, `jobs.hold`, `jobs.resume`, `jobs.list`, `jobs.get`, `jobs.submit`, `jobs.cancel`, `jobs.logs`, `jobs.submit_workflow`, `jobs.curate`.
+See the generated [Job](../reference/jobs.md) and [Unit](../reference/units.md) references for admission, queue control, historical actions and their scopes.
 
 ## Sources and contracts
 
@@ -50,6 +50,8 @@ membership. Activity and Profile usage share that mapping. Detailed source
 receipts use an iterative, deduplicated traversal; callbacks alone do not suppress
 a legacy Attempt execution interval.
 
+## Historical compatibility
+
 Historical `parent_job` curation is an additive outcome hierarchy, separate from
 workflow execution membership and consolidation. Exact `jobs.get.family` reads
 retain each member's own state, Attempt and Runtime pins. Workflow presentation
@@ -60,6 +62,8 @@ Neither grouping nor a failed follow-up rewrites the original root's state.
 Physical `jobs.get` records expose `execution_membership` as `{root,node}` only
 for actual workflow nodes, or null for independent Jobs. Consumers must use this
 authority rather than treating `presentation.parent_job` as execution membership.
+
+## Job and Unit projections
 
 Typed research Jobs aggregate scheduled Units. The Dashboard Job Queue shows current outcomes, the Unit Queue shows physical work, and terminal history shows each research Job or standalone Unit once. Legacy records retain their original execution history.
 

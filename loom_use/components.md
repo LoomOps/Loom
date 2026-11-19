@@ -61,7 +61,7 @@ For example: `"runtime": {"executor":"container","runtime_id":"python","command"
 
 ## Research Tools
 
-Use components.list_tools/get_tool/register_tool within the existing six groups.
+Use `components.list_tools`, `components.get_tool` and `components.register_tool`.
 Tool registration accepts manifest/files, or an exact legacy component reference
 (owner/id/revision). Copying a legacy snapshot preserves every old revision/Job.
 Tool manifests carry research interfaces/provenance, not lifecycle profiles.
@@ -72,8 +72,6 @@ do not change existing Jobs. Dependencies belong in the selected pinned image.
 Tools share the existing administrator-granted source store under .tools.
 Use the running server's system.describe for these optional actions. Older clients
 can forward them without installing another MCP or changing authentication.
-
-The Runtimes workspace does not rename the six MCP groups or `components` actions.
 
 Driver libraries and network policy are administrator-owned executor settings.
 Defaults remain compute/utility and no network; explicit graphics or bridge egress

@@ -194,9 +194,30 @@ pub fn reference(actor: &Actor) -> Result<Value> {
             groups.push(json!({"name":group,"description":match group{"jobs"=>"Research Job admission and history","units"=>"Independent execution and resource control","recovery"=>"Bounded incident repair","events"=>"Recipient lifecycle events","components"=>"Profiles, Components, Tools and Runtimes","results"=>"Results and versioned Scenario context",_=>"Installation status, contracts and guides"},"actions":actions}));
         }
     }
-    Ok(
-        json!({"revision":"loom-ops/v60","guidance":{"group":"system","action":"guide"},"groups":groups,"transport":{"mcp":"POST /mcp","http":"POST /api/actions","result":"JSON is in result.content[0].text. Version identity is in _meta.loom; do not concatenate text blocks."},"workflow":[{"step":"Inspect profiles","group":"components","action":"profiles","note":"Reuse exact compatible Profiles before authoring."},{"step":"Accept outcome","group":"jobs","action":"create","note":"Use an open slot for a pending Runtime. Bind and seal with jobs.revise_plan."},{"step":"Inspect","group":"jobs","action":"get","note":"Read current state, independent scheduling facts and actual execution evidence."},{"step":"Consume events","group":"events","action":"list","note":"Use kind=all; ACK only acknowledges receipt."},{"step":"Repair","group":"recovery","action":"claim","note":"Use the current lease and shared three-round budget."}]}),
-    )
+    let workflow = [
+        ("Inspect profiles", "components", "profiles", "Reuse exact compatible Profiles before authoring."),
+        ("Submit a research outcome", "jobs", "submit_research", "Pin a registered Task and declare one Regular deliverable. Use an open slot for unresolved preparation and bind it with jobs.revise_research."),
+        ("Submit standalone work", "units", "submit", "Pin a Task for Reference Dataset, Policy or Experiment outputs. Use Artifacts for infrastructure evidence."),
+        ("Inspect", "jobs", "get", "Read the Job and its Units. Use units.get for a Unit ID."),
+        ("Consume events", "events", "list", "Use kind=all to include completion. ACK acknowledges receipt."),
+        ("Repair", "recovery", "claim", "Use the current lease and shared three-round budget."),
+    ]
+    .into_iter()
+    .filter(|(_, group, action, _)| {
+        groups.iter().any(|entry| {
+            entry["name"] == *group
+                && entry["actions"].as_array().unwrap().iter().any(|item| item["action"] == *action)
+        })
+    })
+    .map(|(step, group, action, note)| json!({"step":step,"group":group,"action":action,"note":note}))
+    .collect::<Vec<_>>();
+    Ok(json!({
+        "revision":"loom-ops/v60",
+        "guidance":{"group":"system","action":"guide"},
+        "groups":groups,
+        "transport":{"mcp":"POST /mcp","http":"POST /api/actions","result":"MCP action JSON is in result.content[0].text. Version identity is in _meta.loom."},
+        "workflow":workflow,
+    }))
 }
 
 #[cfg(test)]

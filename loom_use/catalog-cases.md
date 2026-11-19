@@ -64,6 +64,8 @@ Check `stored:true`, then read the held-out Dataset and confirm `dataset_lineage
 
 Confirm the external source ID, release revision, published checksum and recorded metadata. Here the archive has already been staged and is usable without conversion. Search for an existing import and inspect a comparable Dataset and its exact template. In this example the external release leaves the robot and collection details unrecorded. The fixture store has a single verified archive.
 
+Find or register the Task shared by the benchmark's variants. For example, Square D0, D1 and D2 share one `Square` Task. Use the same exact Task revision in each Regular import and put the variant on the record.
+
 ```json
 {"group":"results","action":"get_metadata_template","arguments":{"id":"loom.dataset","revision":1}}
 ```
@@ -79,6 +81,7 @@ Use its returned `id`, `revision` and `sha256` for `template_ref`. Supply the gr
       "source":{"system":"benchmark-release","id":"grasp","revision":"2026.01"},
       "definition":{
         "kind":"dataset","label":"Grasp benchmark · 2026.01",
+        "scenario_ref":{"id":"<task-id>","revision":1},
         "primary":{"machine_id":"fixture","storage_id":"fixture-data","ref":"incoming/grasp-2026-01.tar","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
         "metadata":{
           "template_ref":{"id":"loom.dataset","revision":1,"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
@@ -100,7 +103,7 @@ Take the returned `plan_id`. Call `results.reconcile_validate` with it and check
 {"group":"results","action":"reconcile_apply","arguments":{"plan_id":"f1000000000000000000000000000001"}}
 ```
 
-Read `receipt.operations[0].id` and `revision` with `results.get`. Confirm `origin.type:"import"`, the source release and the available component. The receipt reports `created_jobs:0`. If verification or conversion is separately scheduled, follow [Job request walkthroughs](job-cases.md) for that execution.
+Read the exact `id` and `revision` from `receipt.operations[0]` with `results.get`. Confirm `origin.type:"import"`, the source release and the available component. The receipt reports `created_jobs:0`. If several Jobs need a verification or indexing pass, run it as a standalone Unit and bind the same imported Dataset revision in each Job. If the requested work creates a distinct publishable Dataset, use a research Job and record the derivation.
 
 ## "Which of my finished closed-loop evaluations did better?"
 

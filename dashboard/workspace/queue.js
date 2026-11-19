@@ -67,11 +67,20 @@ function loomWorkTypeBadge(type, jobId) {
   if(type==='unit'&&!jobId)return '<span class="pa-work-type" data-work-type="unit">Standalone Unit</span>';
   return '';
 }
+function loomTerminalWorkTable(items, legacyTable) {
+  if(!catalogData.capabilities?.job_units)return legacyTable(items,false);
+  const rows=items.map(entity=>{
+    const [title,...details]=workRow(entity,false);
+    return [title,loomWorkTypeBadge(entity.entry_type,entity.unit?.job_id)||'—',...details];
+  });
+  return '<div class="pa-queue-table pa-terminal-work-queue">'+catTable(
+    ['Name','Type','상태','Task Level','실행 시작','실행 종료','실행 시간'],rows
+  )+'</div>';
+}
 const loomQueueWorkRow=workRow;
 workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
   if(catalogData.capabilities?.job_units){
-    if(!current)row[0]=row[0].replace('<div class="pa-queue-name">','<div class="pa-queue-name">'+loomWorkTypeBadge(entity.entry_type,entity.unit?.job_id));
     if(entity.entry_type)row[0]=row[0].replace(/(\d+) Steps/,(_,n)=>entity.entry_type==='unit'?(Number(n)?n+' observed units':''):n+' Units');
   }
   const tasks=loomTaskLabels(entity);
@@ -80,7 +89,7 @@ workRow=function(entity,current){
     row[0]+='<small class="pa-queue-position">'+loomQueuePosition(q)+'</small>'+loomQueueControls(q.id);
   }
   const mode=entity.properties?.execution_mode;
-  if(mode&&!(mode==='pilot'&&entity.reviewed_work?.has_regular_output))row[0]+='<small class="pa-queue-owner">'+esc(loomJobContract().execution_modes?.[mode]||mode)+'</small>';
+  if(mode)row[0]+='<small class="pa-queue-owner">'+esc(loomJobContract().execution_modes?.[mode]||mode)+'</small>';
   const owner=entity.owner_profile?.display_name || entity.properties?.owner_name || q?.owner_profile?.display_name || entity.owner || entity.properties?.owner;
   if(tasks)row[0]+='<div class="pa-queue-tasks"><span>Task ·</span><span>'+tasks+'</span></div>';
   if(owner)row[0]+='<small class="pa-queue-owner">Owner · '+esc(owner)+'</small>';

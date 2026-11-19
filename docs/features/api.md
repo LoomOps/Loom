@@ -2,7 +2,7 @@
 
 ## Boundary
 
-HTTP and the six MCP groups invoke the same operations. Distinguish request acceptance from successful execution.
+HTTP actions and the MCP tools listed by the connected server invoke the same operations. An acceptance receipt returns the execution identity. Exact state reads show execution and publication progress.
 
 ## Interfaces
 

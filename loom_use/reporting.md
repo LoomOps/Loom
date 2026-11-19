@@ -72,13 +72,13 @@ separately accepted Experiments.
 
 ### Checkpoint supplements
 
-Pin the current Regular Experiment in the Job deliverable's `supplements`
-field. Keep all exact evaluation inputs and run each additional checkpoint on
+Set `outcome.deliverables[0].supplements` to the current Regular Experiment's
+`{id,revision}`. Keep the exact Policy, Dataset and other evaluation inputs and run each additional checkpoint on
 the same complete valid seed/reset cohort under the same protocol. Keep
 case IDs unique across batches. If the batch contract requires a selection,
 repeat the accepted rule. An evaluation contract with no selection field can
-carry additional evidence for an already recorded rule. For a legacy report with an explicitly
-recorded split, supply the intended rule in the supplementary batch.
+carry evidence for an already recorded rule. For a legacy report with an
+explicitly recorded split, supply the rule in the supplementary batch.
 
 Publication creates the next revision of the same Experiment. Its checkpoint
 table, counts and selection use evidence from all accepted batches. The Job

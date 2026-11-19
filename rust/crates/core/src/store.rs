@@ -272,7 +272,7 @@ impl Application {
         action: &str,
         args: Value,
     ) -> Result<Value> {
-        let contract = crate::contracts::action(group, action)?;
+        let mut contract = crate::contracts::action(group, action)?;
         require(
             !self.query_snapshot || contract.scope == "read" && action != "check_updates",
             "query_snapshot",
@@ -286,6 +286,26 @@ impl Application {
             "This instance is read-only",
             409,
         )?;
+        // Older accepted research requests can replay their exact receipt without a Task.
+        if (group, action) == ("jobs", "submit_research") && args.get("scenario_ref").is_none() {
+            if let Some(key) = args["key"].as_str() {
+                let legacy: bool = self.db.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM job_workflows w JOIN research_jobs r ON r.id=w.id
+                     WHERE w.submitter=? AND w.key=? AND json_type(w.request,'$.scenario_ref') IS NULL)",
+                    params![actor.id, key], |row| row.get(0),
+                )?;
+                require(
+                    legacy,
+                    "task_required",
+                    "Pin a Task with scenario_ref.id and scenario_ref.revision",
+                    400,
+                )?;
+                contract.schema["required"]
+                    .as_array_mut()
+                    .unwrap()
+                    .retain(|field| field != "scenario_ref");
+            }
+        }
         crate::contracts::validate(&contract.schema, &args)?;
         // Token authorization and operation are evaluated on the same serialized lane.
         crate::auth::validate_current(&self.db, actor)?;

@@ -6,7 +6,7 @@ A **Task** (Scenario in API action/field names) describes the task and protocol:
 
 A **Job** accepts one independent Regular Dataset, Policy or Experiment. Units within a Job may have different pinned Profiles, dependencies and resource claims. Separate Jobs consume exact upstream outputs; Task association groups related outcomes.
 
-A **Unit** is a scheduled execution. It can belong to one Job or be standalone for preparation, software development, Pilot or maintenance. An observed Unit represents progress within the scheduled execution. A **Stage** is the engine lifecycle of a scheduled Unit, including prepare, run and finalize.
+A **Unit** is a scheduled execution. Attach preparation to the Job that needs it. Independently requested preparation, shared verification, software development, Pilot and maintenance can run as standalone Units. Several Jobs may consume the same verified input without owning the Unit that prepared it. An observed Unit represents progress within one scheduled execution. A **Stage** is a lifecycle phase within that execution, such as prepare, run or finalize.
 
 An **Attempt** records one try of a scheduled Unit. Recovery can create another Attempt while retaining the accepted Job and Unit. Publication repair preserves the original Attempt. **Pilot** is a deliberately reduced preflight for an identified full run.
 
@@ -34,7 +34,9 @@ Common **Item** IDs connect these objects for discovery. **File** Items identify
 
 Search is a projection and can lag. An empty partial search does not prove absence. Exact native reads and accepted artifact inputs remain separate from search. Reconciliation plans explicit adoptions, imports or matching copy bindings; it does not guess scientific meaning, rebuild an entire filesystem or fabricate an execution.
 
-Regular and Reference classify scientific catalog records. The default Outputs view shows Regular records. The Job and Unit queues expose scheduling and resource occupancy independently of the catalog selection.
+Regular and Reference classify scientific catalog records. The Catalog shows Regular records by default. An imported Dataset can be Regular with its external provenance even when a standalone Unit verified the archive. The Job and Unit queues show scheduling and resource occupancy regardless of the catalog selection.
+
+An Experiment can receive new checkpoints from a later Job. The Job pins the current Experiment revision and publishes its next revision after Loom verifies matching inputs, protocol and reset cohort. A comparison group can show independent Policies and Experiments together while retaining their recorded scores and exact identities.
 
 See [task guides](../loom_use/entry.md), [API reference](reference/README.md) and [implementation ownership](IMPLEMENTATION.md).
 

@@ -1,7 +1,7 @@
 //! Typed inspect/plan/validate/apply. Agents propose meaning; this module owns comparison,
 //! compatibility and evidence. Reconciliation never fabricates execution history.
 use crate::{auth::Actor, error::require, file_set, items, storage, store::*, Error, Result};
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 use std::{collections::BTreeMap, path::PathBuf};
 
@@ -32,6 +32,37 @@ fn field<'a>(v: &'a Value, name: &str) -> Result<&'a str> {
         .filter(|s| !s.is_empty() && s.len() <= 2048)
         .ok_or_else(|| Error::input(format!("Missing or invalid {name}")))
 }
+fn import_catalog_class(definition: &Value) -> Option<&str> {
+    matches!(
+        definition["kind"].as_str(),
+        Some("dataset" | "model" | "experiment")
+    )
+    .then(|| {
+        definition["catalog_class"].as_str().unwrap_or_else(|| {
+            let presentation = &definition["presentation"];
+            if presentation["scope"].as_str().unwrap_or("research") == "research"
+                && presentation["role"].as_str().unwrap_or("main") == "main"
+            {
+                "regular"
+            } else {
+                "reference"
+            }
+        })
+    })
+}
+
+fn import_task(db: &Connection, definition: &Value) -> Result<Option<Value>> {
+    let reference = definition.get("scenario_ref");
+    require(
+        reference.is_some() || import_catalog_class(definition).is_none(),
+        "task_required",
+        "Pin a Task revision for a Dataset, Policy or Experiment import",
+        400,
+    )?;
+    reference
+        .map(|value| crate::scenario::pin(db, &serde_json::from_value(value.clone())?))
+        .transpose()
+}
 fn operations(v: &Value) -> Result<&Vec<Value>> {
     let a = v["operations"]
         .as_array()
@@ -56,6 +87,11 @@ fn normalize(v: &Value) -> Result<Value> {
         v["definition"] = json!({"kind":v["type"],"label":v["name"],"metadata":v.get("properties").cloned().unwrap_or(json!({})),"primary":v["primary"],"members":v.get("members").cloned().unwrap_or(json!([]))});
         for k in ["type", "name", "properties", "primary", "members"] {
             v.as_object_mut().unwrap().remove(k);
+        }
+        for k in ["scenario_ref", "catalog_class"] {
+            if let Some(value) = v.as_object_mut().unwrap().remove(k) {
+                v["definition"][k] = value;
+            }
         }
         v["schema"] = json!("loom-asset/v2");
     }
@@ -82,7 +118,7 @@ fn normalize(v: &Value) -> Result<Value> {
             )?;
             field(d, "label")?;
             crate::contracts::validate(
-                &json!({"type":"object","properties":{"kind":{"type":"string"},"label":{"type":"string","maxLength":512},"description":{"type":"string","maxLength":4096},"metadata":{"type":"object"},"primary":{"type":"object"},"members":{"type":"array","maxItems":200,"items":{"type":"object"}},"inventory":{"type":"object"},"scenario_ref":{"type":"object"},"relations":{"type":"array","maxItems":200},"presentation":{"type":"object"}},"required":["kind","label","primary"],"additionalProperties":false}),
+                &json!({"type":"object","properties":{"kind":{"type":"string"},"label":{"type":"string","maxLength":512},"description":{"type":"string","maxLength":4096},"metadata":{"type":"object"},"primary":{"type":"object"},"members":{"type":"array","maxItems":200,"items":{"type":"object"}},"inventory":{"type":"object"},"catalog_class":{"enum":["regular","reference"]},"scenario_ref":{"type":"object","properties":{"id":{"type":"string","minLength":1,"maxLength":2048},"revision":{"type":"integer","minimum":1}},"required":["id","revision"],"additionalProperties":false},"relations":{"type":"array","maxItems":200},"presentation":{"type":"object"}},"required":["kind","label","primary"],"additionalProperties":false}),
                 d,
             )?;
             let source = &v["source"];
@@ -147,7 +183,7 @@ impl Application {
     pub fn reconciliation(&mut self, actor: &Actor, action: &str, args: &Value) -> Result<Value> {
         match action {
             "reconcile_contract" => Ok(
-                json!({"schema":CONTRACT,"asset_schema":"loom-asset/v3","adapters":["loom-asset/v1","loom-asset/v2","loom-asset/v3"],"operations":["import","bind_file","bind_historical","adopt"],"max_operations":200,"inline_members_max":200,"producer_inventory":"loom-output-inventory/v1","roots":"configured registered stores; Runtime payloads require protected host grants","stages":["plan","validate","apply","verify"],"scientific_validation":"declared metadata is not a scientific acceptance claim"}),
+                json!({"schema":CONTRACT,"asset_schema":"loom-asset/v3","adapters":["loom-asset/v1","loom-asset/v2","loom-asset/v3"],"operations":["import","bind_file","bind_historical","adopt"],"max_operations":200,"inline_members_max":200,"producer_inventory":"loom-output-inventory/v1","catalog_import":{"kinds":["dataset","model","experiment"],"class_field":"definition.catalog_class","classes":["regular","reference"],"task_field":"definition.scenario_ref","task_reference":{"required":["id","revision"]},"required_for":["regular","reference"]},"roots":"configured registered stores; Runtime payloads require protected host grants","stages":["plan","validate","apply","verify"],"scientific_validation":"declared metadata is not a scientific acceptance claim"}),
             ),
             "reconcile_plan" => {
                 let key = field(args, "key")?;
@@ -347,6 +383,7 @@ impl Application {
                     )?;
                     Ok(json!({"status":"unchanged","id":id}))
                 } else {
+                    import_task(&self.db, &op["definition"])?;
                     let exists: bool = self.db.query_row(
                         "SELECT EXISTS(SELECT 1 FROM all_entity_revisions WHERE id=?)",
                         [&id],
@@ -560,16 +597,7 @@ impl Application {
                         )?;
                     }
                 }
-                if d["scenario_ref"].is_object() {
-                    crate::results::verify_target(
-                        &self.db,
-                        &crate::contracts::Target {
-                            kind: "scenario".into(),
-                            identity: d["scenario_ref"].clone(),
-                        },
-                        &self.config,
-                    )?;
-                }
+                import_task(&self.db, d)?;
                 for member in d["members"].as_array().into_iter().flatten() {
                     field(member, "key")?;
                 }
@@ -693,7 +721,11 @@ impl Application {
                             json!({"ref":member["key"],"sha256":proof.sha256,"size":proof.size}),
                         );
                     }
-                    let mut record = json!({"id":identity,"revision":1,"kind":d["kind"],"label":d["label"],"description":d["description"].as_str().unwrap_or(""),"metadata":d.get("metadata").cloned().unwrap_or(json!({})),"components":components,"path":name,"relations":d.get("relations").cloned().unwrap_or(json!([])),"scenario_ref":d["scenario_ref"],"origin":{"type":"import","source":op["source"],"adapter":op["schema"],"plan_id":id},"presentation":d.get("presentation").cloned().unwrap_or(json!({"scope":"research","role":"main"})),"validation":{"level":"structural_and_byte_integrity","scientific_acceptance":"unverified"}});
+                    let task = import_task(&tx, d)?;
+                    let mut record = json!({"id":identity,"revision":1,"kind":d["kind"],"label":d["label"],"description":d["description"].as_str().unwrap_or(""),"metadata":d.get("metadata").cloned().unwrap_or(json!({})),"components":components,"path":name,"relations":d.get("relations").cloned().unwrap_or(json!([])),"scenario_ref":task,"origin":{"type":"import","source":op["source"],"adapter":op["schema"],"plan_id":id},"presentation":d.get("presentation").cloned().unwrap_or(json!({"scope":"research","role":"main"})),"validation":{"level":"structural_and_byte_integrity","scientific_acceptance":"unverified"}});
+                    if let Some(class) = import_catalog_class(d) {
+                        record["catalog_class"] = json!(class);
+                    }
                     if op["schema"] == "loom-asset/v3"
                         && matches!(d["kind"].as_str(), Some("dataset" | "model" | "experiment"))
                     {

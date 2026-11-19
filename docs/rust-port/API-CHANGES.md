@@ -1,8 +1,8 @@
 # Shared API and instruction contracts
 
-The development registry implements the additions below within the existing six
-MCP groups. Discover the running server before using them; old installations do
-not acquire capabilities from this source checkout. HTTP, MCP, Dashboard,
+Status: historical record of the original Rust API changes. See the [generated API reference](../reference/README.md) for the current action groups, or call `system.describe` on the connected installation.
+
+HTTP, MCP, Dashboard,
 CLI and retained clients call the same authorized application commands/queries.
 A typed registry supplies argument schemas, required scopes, safe errors, compact
 reference and guide links; do not hand-maintain duplicate dispatch/schema lists.

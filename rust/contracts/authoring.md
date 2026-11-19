@@ -32,7 +32,7 @@ fn main() -> loom_sdk::Result<()> {
 }
 ```
 
-This emits a technical receipt, not a fabricated scientific result. Implement requested semantics explicitly. Write under `request.output_dir`; use the accepted Profile for provenance. `Producer.register_inventory` supports large sorted output inventories; see `items`. Step reports are display progress, not execution-success or resource-return evidence.
+The scaffold emits a technical receipt. Implement the requested task before producing scientific outputs. Write under `request.output_dir` and use the accepted Profile for provenance. `Producer.register_inventory` supports sorted file inventories. See the `items` guide. Producer progress reports appear as observed Units. Execution and resource return have their own receipts.
 
 ## Bind a build and register
 
@@ -40,7 +40,7 @@ Source identity and executable identity are separate. A `loom-producer-build/v1`
 
 A runner command beginning `@producer` requires this verified receipt and an explicit container Runtime. Loom binds the verified executable as `/inputs/loom-producer`. The registration path never invokes Cargo or imports the submitted source.
 
-Use `components.register` / `register_tool` and, when needed, `register_profile` with exact Component/Tool/Runtime references. Inspect the resulting revision and Profile. Submit the requested work through `jobs.submit` or one workflow, keeping batching internal. Package validation and registration do not establish GPU/SDK/scientific acceptance; perform the relevant bounded test only within the requested execution scope.
+Use `components.register`, `components.register_tool` and, when needed, `components.register_profile` with exact software and Runtime references. Inspect the resulting revision and Profile. Submit a research deliverable with `jobs.submit_research` or independent supporting work with `units.submit`. Keep batches within their accepted Job. Verify GPU, SDK or scientific behavior with a workload that exercises it when that execution is requested.
 
 New producer labels follow the Output names section of the results guide:
 robot model · subject · variant · purpose · revision/selected step, omitting unknown parts.

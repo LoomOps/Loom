@@ -2165,7 +2165,7 @@ function comparisonBar(){if(ws.panes.length&lt;2)return &#x27;&#x27;;const a=act
 render=function(){applyTheme();hideHelp();menu=null;root.querySelector(&#x27;.pa-context-menu&#x27;)?.remove();snapshot();root.querySelector(&#x27;#pa-nav&#x27;).innerHTML=navs.map(([id,label,ico])=&gt;`&lt;button class=&quot;pa-nav-item ${(state.page===id||id===&#x27;profiles&#x27;&amp;&amp;loomIsHubPage(state.page)||id===&#x27;datasets&#x27;&amp;&amp;loomIsOutputPage(state.page))?&#x27;active&#x27;:&#x27;&#x27;}&quot; data-go=&quot;${id}&quot; aria-current=&quot;${(state.page===id||id===&#x27;profiles&#x27;&amp;&amp;loomIsHubPage(state.page)||id===&#x27;datasets&#x27;&amp;&amp;loomIsOutputPage(state.page))?&#x27;page&#x27;:&#x27;false&#x27;}&quot;&gt;${icon(ico)}${label}&lt;/button&gt;`).join(&#x27;&#x27;);root.querySelector(&#x27;#pa-breadcrumb&#x27;).textContent=loomOutputBreadcrumb(state);const toolbar=`&lt;div class=&quot;pa-workspace-toolbar&quot;&gt;&lt;span&gt;워크스페이스 &lt;small&gt;탭 ${ws.panes.reduce((s,p)=&gt;s+p.tabs.length,0)}개&lt;/small&gt;&lt;/span&gt;&lt;div&gt;&lt;button class=&quot;pa-button&quot; data-workspace=&quot;side&quot; aria-label=&quot;좌우 분할&quot;&gt;${icon(&#x27;columns-2&#x27;)} 좌우&lt;/button&gt;&lt;button class=&quot;pa-button&quot; data-workspace=&quot;stack&quot; aria-label=&quot;상하 분할&quot;&gt;${icon(&#x27;rows-2&#x27;)} 상하&lt;/button&gt;${ws.panes.length===2?`&lt;button class=&quot;pa-button&quot; data-workspace=&quot;swap&quot; aria-label=&quot;패널 교환&quot;&gt;${icon(&#x27;arrow-right-left&#x27;)}&lt;/button&gt;&lt;button class=&quot;pa-button&quot; data-workspace=&quot;merge&quot;&gt;합치기&lt;/button&gt;`:&#x27;&#x27;}&lt;/div&gt;&lt;/div&gt;`;const compare=comparisonBar();let panes=&#x27;&#x27;;const pages={home,models:()=&gt;state.model?modelDetail():modelList(),datasets,experiments,comparison,queue,issues,files,scenarios:loomScenarioView,profiles:loomProfilesView,components:loomComponentsView,runtimes:loomRuntimesView,dependencies:loomDependenciesView,tools:loomToolsView,docker:loomDockerView,mcp:loomMcpView,access:loomAccessView};for(let idx=0;idx&lt;ws.panes.length;idx++){const p=ws.panes[idx],t=activeTab(p);state=t.view;let body=state.query?searchView(state.query):state.entity?catalogDetail(state.entity):(pages[state.page]||home)();t.view=state;body=body.replace(/id=&quot;pa-episode-select&quot;/g,&#x27;data-episode-select=&quot;true&quot;&#x27;).replace(/id=&quot;pa-media-phase&quot;/g,&#x27;data-media-phase=&quot;true&quot;&#x27;);panes+=`&lt;section class=&quot;pa-document-pane ${p.id===ws.active?&#x27;is-active&#x27;:&#x27;&#x27;}&quot; data-pane=&quot;${p.id}&quot; aria-label=&quot;${idx===0?&#x27;첫 번째&#x27;:&#x27;두 번째&#x27;} 패널&quot;&gt;&lt;div class=&quot;pa-document-tabs&quot; role=&quot;tablist&quot; aria-label=&quot;${idx+1}번 패널 탭&quot;&gt;${p.tabs.map(tab=&gt;`&lt;div class=&quot;pa-document-tab ${p.active===tab.id?&#x27;active&#x27;:&#x27;&#x27;}&quot; draggable=&quot;true&quot; data-drag-doc=&quot;${esc(tab.id)}&quot;&gt;&lt;button role=&quot;tab&quot; data-doc=&quot;${esc(tab.id)}&quot; aria-selected=&quot;${p.active===tab.id}&quot;&gt;${esc(viewTitle(tab.view))}&lt;/button&gt;&lt;button class=&quot;pa-tab-more&quot; data-doc-options=&quot;${esc(tab.id)}&quot; aria-label=&quot;${esc(viewTitle(tab.view))} 탭 옵션&quot;&gt;⋯&lt;/button&gt;&lt;button class=&quot;pa-tab-close&quot; data-close-doc=&quot;${esc(tab.id)}&quot; aria-label=&quot;${esc(viewTitle(tab.view))} 탭 닫기&quot; title=&quot;내부 탭 닫기 · ⌘/Ctrl+W · 대체 Alt+W&quot;&gt;×&lt;/button&gt;&lt;/div&gt;`).join(&#x27;&#x27;)}&lt;button class=&quot;pa-new-doc&quot; data-new-doc=&quot;true&quot; aria-label=&quot;새 탭&quot;&gt;+&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;pa-pane-body&quot; role=&quot;tabpanel&quot;&gt;${body}&lt;/div&gt;&lt;/section&gt;`;if(idx===0&amp;&amp;ws.panes.length===2)panes+=`&lt;div class=&quot;pa-pane-divider&quot; role=&quot;separator&quot; tabindex=&quot;0&quot; aria-label=&quot;패널 비율&quot; aria-orientation=&quot;${ws.orientation===&#x27;side&#x27;?&#x27;vertical&#x27;:&#x27;horizontal&#x27;}&quot; aria-valuemin=&quot;25&quot; aria-valuemax=&quot;75&quot; aria-valuenow=&quot;${ws.ratio}&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;/div&gt;`;}
 snapshot();content.innerHTML=toolbar+compare+`&lt;div class=&quot;pa-mobile-pane-switch&quot;&gt;${ws.panes.map((p,i)=&gt;`&lt;button class=&quot;pa-pill ${p.id===ws.active?&#x27;active&#x27;:&#x27;&#x27;}&quot; data-focus-pane=&quot;${p.id}&quot;&gt;${i+1} · ${esc(viewTitle(activeTab(p).view))}&lt;/button&gt;`).join(&#x27;&#x27;)}&lt;/div&gt;&lt;div class=&quot;pa-analysis-workspace ${ws.panes.length===2?&#x27;is-split&#x27;:&#x27;&#x27;} ${ws.orientation===&#x27;stack&#x27;?&#x27;is-stacked&#x27;:&#x27;&#x27;}&quot; style=&quot;--pane-ratio:${ws.ratio}fr;--pane-rest:${100-ws.ratio}fr&quot;&gt;${panes}&lt;/div&gt;`;
 for(const b of content.querySelectorAll(&#x27;.pa-pane-body button[data-entity],.pa-pane-body button[data-model],.pa-pane-body button[data-go=&quot;datasets&quot;],.pa-pane-body button[data-go=&quot;experiments&quot;]&#x27;)){if(b.classList.contains(&#x27;pa-pipeline-stage&#x27;)||b.closest(&#x27;.pa-resource-reservations&#x27;))continue;const more=document.createElement(&#x27;button&#x27;);more.className=&#x27;pa-entity-more&#x27;;more.setAttribute(&#x27;aria-label&#x27;,b.textContent.trim()+&#x27; 열기 옵션&#x27;);more.textContent=&#x27;⋯&#x27;;more.dataset.entityOptions=&#x27;true&#x27;;more._target=b;b.insertAdjacentElement(&#x27;afterend&#x27;,more);}
-for(const p of ws.panes){const v=activeTab(p).view,body=content.querySelector(`[data-pane=&quot;${p.id}&quot;] .pa-pane-body`);if(v.mediaPhase){body.querySelectorAll(&#x27;[data-phase]&#x27;).forEach(b=&gt;b.classList.toggle(&#x27;active&#x27;,b.dataset.phase===v.mediaPhase));const label=body.querySelector(&#x27;[data-media-phase]&#x27;);if(label)label.textContent=v.mediaPhase+&#x27; 구간 · 실제 영상과 수치가 연결될 위치입니다.&#x27;;}body.querySelectorAll(&#x27;details&#x27;).forEach((d,i)=&gt;{d.open=d.hasAttribute(&#x27;data-dataset-family&#x27;)?loomDatasetGroupOpen(v,&#x27;task:&#x27;+d.dataset.datasetFamily):d.hasAttribute(&#x27;data-dataset-group&#x27;)?loomDatasetGroupOpen(v,d.dataset.datasetGroup):d.dataset.workGroup?!!v.openWorkGroups?.includes(d.dataset.workGroup):!!v.openDetails?.includes(i);});body.scrollTop=v.scrollTop||0;const strip=body.querySelector(&#x27;.pa-columns-strip&#x27;);if(strip){strip.scrollLeft=v.finderFollowSelection?strip.scrollWidth:(v.finderScroll||0);v.finderFollowSelection=false;}}
+for(const p of ws.panes){const v=activeTab(p).view,body=content.querySelector(`[data-pane=&quot;${p.id}&quot;] .pa-pane-body`);if(v.mediaPhase){body.querySelectorAll(&#x27;[data-phase]&#x27;).forEach(b=&gt;b.classList.toggle(&#x27;active&#x27;,b.dataset.phase===v.mediaPhase));const label=body.querySelector(&#x27;[data-media-phase]&#x27;);if(label)label.textContent=v.mediaPhase+&#x27; 구간 · 실제 영상과 수치가 연결될 위치입니다.&#x27;;}body.querySelectorAll(&#x27;details&#x27;).forEach((d,i)=&gt;{d.open=d.dataset.workGroup?!!v.openWorkGroups?.includes(d.dataset.workGroup):!!v.openDetails?.includes(i);});body.scrollTop=v.scrollTop||0;const strip=body.querySelector(&#x27;.pa-columns-strip&#x27;);if(strip){strip.scrollLeft=v.finderFollowSelection?strip.scrollWidth:(v.finderScroll||0);v.finderFollowSelection=false;}}
 if(globalThis.lucide)loomCreateIcons({attrs:{width:16,height:16}});
 };
 root.addEventListener(&#x27;click&#x27;,e=&gt;{const b=e.target.closest(&#x27;button&#x27;);if(!b){if(!e.target.closest(&#x27;.pa-context-menu&#x27;))root.querySelector(&#x27;.pa-context-menu&#x27;)?.remove();return;}const paneEl=b.closest(&#x27;[data-pane]&#x27;);if(paneEl)ws.active=paneEl.dataset.pane;
@@ -2432,11 +2432,10 @@ function displayNodeKey(n){
  if(n.hasAttribute(&#x27;data-container-row&#x27;))return &#x27;container:&#x27;+n.dataset.containerRow;
  if(n.hasAttribute(&#x27;data-container-extra&#x27;))return &#x27;container-detail:&#x27;+n.dataset.containerExtra;
  if(n.dataset.outputId)return &#x27;output:&#x27;+n.dataset.outputId;
- if(n.dataset.datasetFilter)return &#x27;dataset-filter:&#x27;+n.dataset.datasetFilter;
  if(n.dataset.modelFilter)return &#x27;model-filter:&#x27;+n.dataset.modelFilter;
  if(n.hasAttribute(&#x27;data-model-role&#x27;))return &#x27;model-role:&#x27;+n.dataset.modelRole;
  if(n.dataset.modelEntry)return &#x27;model-entry:&#x27;+n.dataset.modelEntry;
- if(n.hasAttribute(&#x27;data-dataset-family&#x27;))return &#x27;dataset-family:&#x27;+n.dataset.datasetFamily;if(n.hasAttribute(&#x27;data-dataset-group&#x27;))return &#x27;dataset-group:&#x27;+n.dataset.datasetGroup;if(n.dataset.workGroup)return &#x27;group:&#x27;+n.dataset.workGroup;
+ if(n.hasAttribute(&#x27;data-catalog-task-card&#x27;))return &#x27;task-card:&#x27;+n.dataset.catalogTaskCard;if(n.hasAttribute(&#x27;data-research-task&#x27;))return &#x27;task-filter:&#x27;+n.dataset.researchTask;if(n.hasAttribute(&#x27;data-policy-family&#x27;))return &#x27;policy-family:&#x27;+n.dataset.policyFamily;if(n.dataset.workGroup)return &#x27;group:&#x27;+n.dataset.workGroup;
  if(n.dataset.activityDay)return &#x27;day:&#x27;+n.dataset.activityDay;
  if(n.dataset.agentSourceId)return &#x27;source:&#x27;+n.dataset.agentSourceId;
  if(n.nodeName===&#x27;TR&#x27;){const id=n.querySelector(&#x27;td:first-child [data-entity]&#x27;)?.dataset.entity;if(id)return &#x27;row:&#x27;+id;}
@@ -2608,7 +2607,7 @@ function comparison(){
  const chosen=state.compareModel||comparisonModel(selected[0]||{})?.id||comparisonModel(comparisonRuns()[0]||{})?.id||(unlinked?&#x27;__unlinked__&#x27;:models[0]?.id);
  const available=comparisonRuns().filter(e=&gt;(comparisonModel(e)?.id||&#x27;__unlinked__&#x27;)===chosen);
  const controls=`&lt;div class=&quot;cmp-controls&quot;&gt;&lt;label&gt;모델&lt;select data-compare-model aria-label=&quot;비교 모델&quot;&gt;${models.map(e=&gt;`&lt;option value=&quot;${esc(e.id)}&quot; ${e.id===chosen?&#x27;selected&#x27;:&#x27;&#x27;}&gt;${esc(e.label)}&lt;/option&gt;`).join(&#x27;&#x27;)}${unlinked?`&lt;option value=&quot;__unlinked__&quot; ${chosen===&#x27;__unlinked__&#x27;?&#x27;selected&#x27;:&#x27;&#x27;}&gt;모델 관계 미등록&lt;/option&gt;`:&#x27;&#x27;}&lt;/select&gt;&lt;/label&gt;&lt;label&gt;평가 실행 · Checkpoint&lt;select data-compare-run aria-label=&quot;평가 실행&quot;&gt;${available.map(e=&gt;`&lt;option value=&quot;${esc(e.id)}&quot;&gt;${esc(e.label)} · selected ${esc(e.comparison?.checkpoint?.selected_step??comparisonModel(e)?.properties?.selected_step??&#x27;—&#x27;)}&lt;/option&gt;`).join(&#x27;&#x27;)||&#x27;&lt;option value=&quot;&quot;&gt;평가 결과 없음&lt;/option&gt;&#x27;}&lt;/select&gt;&lt;/label&gt;&lt;button class=&quot;pa-button pa-primary&quot; data-compare-add ${!available.length?&#x27;disabled&#x27;:&#x27;&#x27;}&gt;비교에 추가&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;cmp-mode&quot;&gt;&lt;div class=&quot;pa-view-toggle&quot;&gt;&lt;button data-compare-mode=&quot;all&quot; aria-pressed=&quot;${!paired}&quot;&gt;전체 유효 결과&lt;/button&gt;&lt;button data-compare-mode=&quot;paired&quot; aria-pressed=&quot;${paired}&quot;&gt;공통 UID·seed&lt;/button&gt;&lt;/div&gt;&lt;small&gt;${paired?&#x27;선택한 실행 전체에 공통인 유효 사례 · 인프라 무효 제외&#x27;:&#x27;각 실행의 유효 사례 · 분모가 다르면 비율만으로 순위를 판단하지 않습니다.&#x27;}&lt;/small&gt;&lt;/div&gt;`;
- if(!selected.length)return heading(&#x27;ANALYSIS&#x27;,&#x27;Comparison&#x27;,&#x27;&#x27;)+loomTaskToolbar()+controls+panel(&#x27;평가 비교&#x27;,&#x27;&lt;div class=&quot;pa-empty&quot;&gt;모델과 평가 실행을 선택해 추가하세요.&lt;/div&gt;&#x27;);
+ if(!selected.length)return heading(&#x27;ANALYSIS&#x27;,&#x27;Comparison&#x27;,&#x27;&#x27;)+loomComparisonTaskFilter()+loomTaskToolbar()+controls+panel(&#x27;평가 비교&#x27;,&#x27;&lt;div class=&quot;pa-empty&quot;&gt;모델과 평가 실행을 선택해 추가하세요.&lt;/div&gt;&#x27;);
  const rows=new Map();for(const e of selected)for(const m of comparisonRows(e,ids,paired)){const k=comparisonIdentity(m,e);if(!rows.has(k))rows.set(k,{spec:m,cells:{}});rows.get(k).cells[e.id]=m;}
  const head=selected.map(e=&gt;{const model=comparisonModel(e),contract=e.comparison?.contract,ok=comparisonCompatible(base,e);return `&lt;th&gt;&lt;div class=&quot;cmp-column-title&quot;&gt;${catLink(e.id)}&lt;button data-compare-remove=&quot;${esc(e.id)}&quot; aria-label=&quot;${esc(e.label)} 비교에서 제외&quot;&gt;×&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;cmp-head-meta&quot;&gt;Selected ${esc(e.comparison?.checkpoint?.selected_step??model?.properties?.selected_step??&#x27;—&#x27;)} · 유효 ${esc(e.properties?.valid??e.properties?.valid_cases??&#x27;—&#x27;)}건&lt;br&gt;${catRelations(e).filter(r=&gt;catEntity(r.id)?.kind===&#x27;dataset&#x27;).map(r=&gt;catLink(r.id)).join(&#x27; · &#x27;)||&#x27;데이터셋 미등록&#x27;} · ${esc(contract?.split||&#x27;split 미등록&#x27;)}&lt;details&gt;&lt;summary&gt;모델 · 평가 설정&lt;/summary&gt;${model?catLink(model.id):&#x27;모델 미등록&#x27;}&lt;br&gt;${esc(contract?.label||e.namespace)}&lt;br&gt;${esc(e.protocol?.id||&#x27;Protocol 미등록&#x27;)} ${esc(e.protocol?.revision||&#x27;&#x27;)}&lt;br&gt;${esc(contract?.scorers?.join(&#x27; · &#x27;)||&#x27;채점 정의 미등록&#x27;)}&lt;/details&gt;&lt;/div&gt;&lt;div class=&quot;cmp-col-foot&quot;&gt;&lt;button class=&quot;pa-pill ${e.id===base?.id?&#x27;active&#x27;:&#x27;&#x27;}&quot; data-compare-base=&quot;${esc(e.id)}&quot;&gt;${e.id===base?.id?&#x27;기준 모델&#x27;:&#x27;기준으로 고정&#x27;}&lt;/button&gt;&lt;span class=&quot;cmp-status ${ok?&#x27;&#x27;:&#x27;reference&#x27;}&quot;&gt;${ok?&#x27;동일 평가 계약&#x27;:!base?.comparison?.contract||!e.comparison?.contract?&#x27;참고 표시 · 비교 정의 미등록&#x27;:&#x27;참고 비교 · 계약 미일치&#x27;}&lt;/span&gt;&lt;/div&gt;&lt;/th&gt;`;}).join(&#x27;&#x27;);
  const body=[...rows.values()].map(({spec,cells})=&gt;`&lt;tr class=&quot;${spec.role===&#x27;conditional_outcome&#x27;?&#x27;cmp-emphasis&#x27;:&#x27;&#x27;}&quot;&gt;&lt;th scope=&quot;row&quot;&gt;${esc(spec.label)}&lt;small&gt;${esc(spec.meaning||spec.aggregation||&#x27;&#x27;)}${spec.branch&amp;&amp;spec.meaning!==&#x27;보조 채점&#x27;?&#x27; · 보조 채점&#x27;:&#x27;&#x27;}&lt;/small&gt;&lt;/th&gt;${selected.map(e=&gt;{const m=cells[e.id];return `&lt;td&gt;${m?`&lt;button class=&quot;cmp-cell&quot; data-compare-cell=&quot;${esc(e.id)}&quot; data-definition=&quot;${esc(comparisonIdentity(spec,e))}&quot; title=&quot;사례별 근거 보기&quot;&gt;${comparisonValue(m)}&lt;/button&gt;&lt;small&gt;${m.kind!==&#x27;ratio&#x27;?`측정 n=${esc(m.sample_n??&#x27;—&#x27;)} / 유효 ${esc(m.cohort_n??&#x27;—&#x27;)}`:m.value==null?esc(m.missing_reason||&#x27;미측정 또는 분모 없음&#x27;):&#x27;&#x27;}&lt;/small&gt;`:&#x27;&lt;span class=&quot;cmp-missing&quot;&gt;—&lt;small&gt;동일 정의 미등록&lt;/small&gt;&lt;/span&gt;&#x27;}&lt;/td&gt;`;}).join(&#x27;&#x27;)}&lt;/tr&gt;`).join(&#x27;&#x27;);
@@ -2616,7 +2615,7 @@ function comparison(){
  const notices=contracts.map(c=&gt;`&lt;details class=&quot;cmp-contract&quot;&gt;&lt;summary&gt;${esc(c.label)} · 비교 조건&lt;/summary&gt;&lt;p&gt;${esc((c.fixed_conditions||[]).join(&#x27; · &#x27;))}&lt;/p&gt;&lt;p&gt;변경 허용: ${esc((c.permitted_interventions||[]).join(&#x27; · &#x27;))}&lt;/p&gt;&lt;p&gt;${esc(c.interpretation)}&lt;/p&gt;&lt;/details&gt;`).join(&#x27;&#x27;);
  const sameContract=selected.every(e=&gt;comparisonCompatible(base,e));
  const pairedAvailable=sameContract&amp;&amp;selected.every(e=&gt;e.comparison?.cohorts?.[[...ids].sort().join(&#x27;|&#x27;)]);
- return heading(&#x27;ANALYSIS&#x27;,&#x27;Comparison&#x27;,&#x27;&#x27;)+loomTaskToolbar()+controls+notices+(paired&amp;&amp;!pairedAvailable?`&lt;div class=&quot;pa-notice&quot;&gt;${sameContract?&#x27;이 실행 조합의 공통 사례 집계가 등록되지 않았습니다.&#x27;:&#x27;제어 정책 또는 평가 계약이 달라 공통 사례로 합산하지 않습니다.&#x27;} 전체 결과를 참고 비교할 수 있습니다.&lt;/div&gt;`:&#x27;&#x27;)+`&lt;div class=&quot;pa-panel cmp-table-wrap&quot;&gt;&lt;table class=&quot;cmp-table&quot;&gt;${comparisonColumns(selected.length)}&lt;thead&gt;&lt;tr&gt;&lt;th&gt;구간 · 지표&lt;/th&gt;${head}&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;${body||`&lt;tr&gt;&lt;td colspan=&quot;${selected.length+1}&quot;&gt;비교할 집계가 없습니다.&lt;/td&gt;&lt;/tr&gt;`}&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;`+comparisonTransitions(selected,base)+comparisonEvidence(selected,ids,paired)+selected.map(e=&gt;resultNoticesPanel(e,true)).join(&#x27;&#x27;);
+ return heading(&#x27;ANALYSIS&#x27;,&#x27;Comparison&#x27;,&#x27;&#x27;)+loomComparisonTaskFilter()+loomTaskToolbar()+controls+notices+(paired&amp;&amp;!pairedAvailable?`&lt;div class=&quot;pa-notice&quot;&gt;${sameContract?&#x27;이 실행 조합의 공통 사례 집계가 등록되지 않았습니다.&#x27;:&#x27;제어 정책 또는 평가 계약이 달라 공통 사례로 합산하지 않습니다.&#x27;} 전체 결과를 참고 비교할 수 있습니다.&lt;/div&gt;`:&#x27;&#x27;)+`&lt;div class=&quot;pa-panel cmp-table-wrap&quot;&gt;&lt;table class=&quot;cmp-table&quot;&gt;${comparisonColumns(selected.length)}&lt;thead&gt;&lt;tr&gt;&lt;th&gt;구간 · 지표&lt;/th&gt;${head}&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;${body||`&lt;tr&gt;&lt;td colspan=&quot;${selected.length+1}&quot;&gt;비교할 집계가 없습니다.&lt;/td&gt;&lt;/tr&gt;`}&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;`+comparisonTransitions(selected,base)+comparisonEvidence(selected,ids,paired)+selected.map(e=&gt;resultNoticesPanel(e,true)).join(&#x27;&#x27;);
 }
 function comparisonTransitions(selected,base){
  const panels=selected.filter(e=&gt;e.id!==base?.id).map(e=&gt;{const p=e.comparison?.pairs?.[base.id];if(!p||!comparisonCompatible(base,e))return &#x27;&#x27;;
@@ -2767,7 +2766,7 @@ queue=function(){
  const counts=[[&#x27;running&#x27;,&#x27;Running&#x27;],[&#x27;ready&#x27;,&#x27;Ready&#x27;],[&#x27;waiting&#x27;,&#x27;Wait&#x27;],[&#x27;paused&#x27;,&#x27;Paused&#x27;],[&#x27;blocked&#x27;,&#x27;Blocked&#x27;],[&#x27;complete&#x27;,&#x27;Complete&#x27;],[&#x27;failed&#x27;,&#x27;Failed&#x27;]].map(([key,label])=&gt;({key,label,n:(ended||[]).concat(current).filter(e=&gt;queueState(e).info[0]===key).length}));
  const summary=`&lt;div class=&quot;pa-queue-counts&quot;&gt;${counts.filter(x=&gt;x.n).map(x=&gt;`&lt;div class=&quot;pa-queue-count pa-job-${x.key}&quot;&gt;&lt;span&gt;${x.label}&lt;/span&gt;&lt;strong&gt;${x.n}&lt;/strong&gt;&lt;/div&gt;`).join(&#x27;&#x27;)}&lt;/div&gt;`;
  const table=(items,isCurrent)=&gt;`&lt;div class=&quot;pa-queue-table${isCurrent?&#x27; pa-current-work-queue&#x27;:&#x27;&#x27;}&quot;&gt;${catTable(isCurrent?[&#x27;Job&#x27;,&#x27;상태&#x27;,&#x27;Task Level&#x27;,&#x27;실행 시간&#x27;,&#x27;남은 예상 시간&#x27;,&#x27;시작 예정&#x27;,&#x27;완료 예정&#x27;]:[&#x27;Job&#x27;,&#x27;상태&#x27;,&#x27;Task Level&#x27;,&#x27;실행 시작&#x27;,&#x27;실행 종료&#x27;,&#x27;실행 시간&#x27;],items.map(e=&gt;workRow(e,isCurrent)))}&lt;/div&gt;`;
- const history=ended?.length?table(ended.slice(0,state.queueHistoryLimits?.all||10),false)+loomHistoryMore(ended.length)
+ const history=ended?.length?loomTerminalWorkTable(ended.slice(0,state.queueHistoryLimits?.all||10),table)+loomHistoryMore(ended.length)
    :ended?&#x27;&lt;div class=&quot;pa-empty&quot;&gt;종료된 Job이 없습니다.&lt;/div&gt;&#x27;:&#x27;&#x27;;
  return heading(&#x27;WORKSPACE&#x27;,&#x27;Dashboard&#x27;,&#x27;&#x27;)+catStatus()+resourcePanel()+summary+loomQueueFeedback()
    +`&lt;div class=&quot;pa-queue-caption&quot;&gt;사용자 목표 기준 · KST · 대기 제외 · Job 내부 중복 실행시간 제외&lt;/div&gt;`
@@ -3216,81 +3215,6 @@ catalogDetail = function (id) {
  const entity = catEntity(id);
  return entity ? body + automationResultPanels(entity) : body;
 };
-
-// Per-document filters are projections of source metadata, never model-name guesses.
-const modelFilterEmpty={role:&#x27;&#x27;,family:&#x27;&#x27;,vision:&#x27;&#x27;,instruction:&#x27;&#x27;,dataset:&#x27;&#x27;,query:&#x27;&#x27;};
-function modelFilterText(...values){return values.find(v=&gt;typeof v===&#x27;string&#x27;&amp;&amp;v.trim())?.trim()||&#x27;&#x27;;}
-function modelFilterMeta(e){
- const p=e.properties||{},inputs=Array.isArray(e.inputs)&amp;&amp;e.inputs.length?e.inputs:Array.isArray(p.inputs)?p.inputs:[];
- const family=modelFilterText(p.model_family,p.family,p.architecture,p.policy_type,(e.highlights||[]).find(x=&gt;x.role===&#x27;architecture&#x27;)?.value)||&#x27;미기록&#x27;;
- const roleValue=p.model_role??e.model_role??p.role,declared=Array.isArray(roleValue)?roleValue.join(&#x27; &#x27;):modelFilterText(roleValue);
- let role=&#x27;미분류&#x27;;
- if(/\b(observer|perception|pose_estimator)\b/i.test(declared))role=&#x27;Observer&#x27;;
- else if(/\bvla\b/i.test(declared)||/^(?:X[-_ ]?VLA|SmolVLA|OpenVLA|π[0-9.]+|pi[0-9.]+)(?:\b|$)/i.test(family))role=&#x27;VLA&#x27;;
- else if(/\b(policy|action_policy)\b/i.test(declared))role=&#x27;Policy&#x27;;
- else if(/\b(world_model|world model)\b/i.test(declared))role=&#x27;World model&#x27;;
- else if(declared)role=declared;
- const present=inputs.filter(x=&gt;x.status===&#x27;present&#x27;),visionInputs=present.filter(x=&gt;[&#x27;vision&#x27;,&#x27;rgb&#x27;,&#x27;depth&#x27;,&#x27;point_cloud&#x27;,&#x27;pointcloud&#x27;].includes(x.kind));
- let vision=modelFilterText(p.modality);
- if(!vision){
-  const rgb=visionInputs.some(x=&gt;x.kind===&#x27;rgb&#x27;||/\brgb\b/i.test(String(x.value||&#x27;&#x27;))),depth=visionInputs.some(x=&gt;x.kind===&#x27;depth&#x27;);
-  vision=rgb&amp;&amp;depth?&#x27;RGB-D&#x27;:rgb?&#x27;RGB&#x27;:depth?&#x27;Depth&#x27;:visionInputs.some(x=&gt;/point_?cloud/.test(x.kind))?&#x27;Point cloud&#x27;:visionInputs.map(x=&gt;modelFilterText(x.value,x.label)).filter(Boolean).join(&#x27; + &#x27;);
- }
- if(/^rgb[-_ +]?d(?:epth)?$/i.test(vision))vision=&#x27;RGB-D&#x27;;
- if(/^rgb$/i.test(vision))vision=&#x27;RGB&#x27;;
- const instructionInput=inputs.find(x=&gt;x.kind===&#x27;instruction&#x27;);
- let instruction=&#x27;미확인&#x27;;
- if(instructionInput?.status===&#x27;absent&#x27;)instruction=&#x27;없음&#x27;;
- else if(instructionInput?.status===&#x27;present&#x27;){
-  const value=modelFilterText(instructionInput.mode,instructionInput.value);
-  instruction=/^fixed/i.test(value)?&#x27;Fixed&#x27;:/^phase/i.test(value)?&#x27;Phase&#x27;:/^(overall|full|task)/i.test(value)?&#x27;Overall&#x27;:value||&#x27;사용&#x27;;
- }
- const linked=catRelations(e).filter(x=&gt;x.kind===&#x27;trained_on&#x27;||catEntity(x.id)?.kind===&#x27;dataset&#x27;);
- const datasets=linked.map(x=&gt;({id:x.id,label:catEntity(x.id)?.label||x.id}));
- if(!datasets.length)datasets.push({id:modelFilterText(p.training_dataset,p.dataset_name)||&#x27;__unrecorded__&#x27;,label:modelFilterText(p.dataset_name,p.training_dataset)||&#x27;미기록&#x27;});
- return {role,family,vision:vision||&#x27;미기록&#x27;,instruction,datasets};
-}
-function modelFilterMatches(e,filters){
- const m=modelFilterMeta(e),f={...modelFilterEmpty,...filters};
- return [&#x27;role&#x27;,&#x27;family&#x27;,&#x27;vision&#x27;,&#x27;instruction&#x27;].every(k=&gt;!f[k]||m[k]===f[k])&amp;&amp;(!f.dataset||m.datasets.some(x=&gt;x.id===f.dataset))&amp;&amp;(!f.query.trim()||catSearchText(e).includes(f.query.trim().toLowerCase()));
-}
-function modelFilterSelect(key,label,entries,value,attribute=&#x27;data-model-filter&#x27;){
- const options=new Map(entries.map(x=&gt;typeof x===&#x27;string&#x27;?[x,x]:[x.id,x.label]));
- // Retain an applied value when a live source temporarily omits that option.
- if(value&amp;&amp;!options.has(value))options.set(value,value===&#x27;__unrecorded__&#x27;?&#x27;미기록&#x27;:value);
- return `&lt;label class=&quot;pa-model-filter-field&quot;&gt;&lt;span&gt;${esc(label)}&lt;/span&gt;&lt;select ${attribute}=&quot;${esc(key)}&quot; aria-label=&quot;${esc(label)} 필터&quot;&gt;&lt;option value=&quot;&quot;&gt;전체&lt;/option&gt;${[...options].sort((a,b)=&gt;a[1].localeCompare(b[1],&#x27;ko&#x27;)).map(([id,text])=&gt;`&lt;option value=&quot;${esc(id)}&quot;${id===value?&#x27; selected&#x27;:&#x27;&#x27;}&gt;${esc(text)}&lt;/option&gt;`).join(&#x27;&#x27;)}&lt;/select&gt;&lt;/label&gt;`;
-}
-function modelFilterList(){
- const rows=catKind(&#x27;model&#x27;),f={...modelFilterEmpty,...state.modelFilters},meta=rows.map(modelFilterMeta),shown=rows.filter(e=&gt;modelFilterMatches(e,f));
- const roles=[...new Set(meta.map(x=&gt;x.role))];if(f.role&amp;&amp;!roles.includes(f.role))roles.push(f.role);
- roles.sort((a,b)=&gt;[&#x27;VLA&#x27;,&#x27;Observer&#x27;,&#x27;Policy&#x27;,&#x27;World model&#x27;,&#x27;미분류&#x27;].indexOf(a)-[&#x27;VLA&#x27;,&#x27;Observer&#x27;,&#x27;Policy&#x27;,&#x27;World model&#x27;,&#x27;미분류&#x27;].indexOf(b));
- const changed=Object.values(f).some(Boolean);
- const pills=[[&#x27;&#x27;,&#x27;All&#x27;,rows.length],...roles.map(role=&gt;[role,role,meta.filter(x=&gt;x.role===role).length])].map(([value,label,n])=&gt;`&lt;button class=&quot;pa-pill ${f.role===value?&#x27;active&#x27;:&#x27;&#x27;}&quot; data-model-role=&quot;${esc(value)}&quot; aria-pressed=&quot;${f.role===value}&quot;&gt;${esc(label)}&lt;span&gt;${n}&lt;/span&gt;&lt;/button&gt;`).join(&#x27;&#x27;);
- return heading(&#x27;CATALOG&#x27;,&#x27;Models&#x27;,&#x27;&#x27;)+catStatus()+`&lt;section class=&quot;pa-model-filters&quot; aria-label=&quot;모델 필터&quot;&gt;&lt;div class=&quot;pa-model-filter-top&quot;&gt;&lt;div class=&quot;pa-model-role-group&quot; role=&quot;group&quot; aria-label=&quot;모델 종류&quot;&gt;${pills}&lt;/div&gt;&lt;button class=&quot;pa-model-filter-reset&quot; data-model-reset${changed?&#x27;&#x27;:&#x27; disabled&#x27;}&gt;초기화&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;pa-model-filter-fields&quot;&gt;${modelFilterSelect(&#x27;family&#x27;,&#x27;모델 계열&#x27;,meta.map(x=&gt;x.family),f.family)}${modelFilterSelect(&#x27;vision&#x27;,&#x27;입력&#x27;,meta.map(x=&gt;x.vision),f.vision)}${modelFilterSelect(&#x27;instruction&#x27;,&#x27;Instruction&#x27;,meta.map(x=&gt;x.instruction),f.instruction)}${modelFilterSelect(&#x27;dataset&#x27;,&#x27;학습 데이터셋&#x27;,meta.flatMap(x=&gt;x.datasets),f.dataset)}&lt;label class=&quot;pa-model-filter-field pa-model-filter-search&quot;&gt;&lt;span&gt;검색&lt;/span&gt;&lt;input type=&quot;search&quot; data-model-filter=&quot;query&quot; aria-label=&quot;모델 검색&quot; placeholder=&quot;이름·계열·키워드&quot; value=&quot;${esc(f.query)}&quot; autocomplete=&quot;off&quot;&gt;&lt;/label&gt;&lt;/div&gt;&lt;/section&gt;`+panel(`&lt;span data-model-result-count&gt;${shown.length} / ${rows.length}개 모델&lt;/span&gt;`,`&lt;div data-model-filter-results&gt;${loomGroupedOutputs(shown,e=&gt;catListRow(e).replace(&#x27;&lt;article &#x27;,`&lt;article data-model-entry=&quot;${esc(e.id)}&quot; `))||`&lt;div class=&quot;pa-empty&quot;&gt;${rows.length?&#x27;조건에 맞는 모델이 없습니다.&#x27;:&#x27;등록된 모델이 없습니다.&#x27;}${changed?&#x27;&lt;button class=&quot;pa-button&quot; data-model-reset&gt;필터 초기화&lt;/button&gt;&#x27;:&#x27;&#x27;}&lt;/div&gt;`}&lt;/div&gt;`);
-}
-modelList=modelFilterList;
-function updateModelFilter(target,updates,reset=false){
- const pane=ws.panes.find(p=&gt;p.id===target.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);if(!pane)return;
- ws.active=pane.id;const view=activeTab(pane).view;
- view.modelFilters=reset?{...modelFilterEmpty}:{...modelFilterEmpty,...view.modelFilters,...updates};
- state=view;
- // Typing must never reconcile or detach the focused form control.
- if(target.matches(&#x27;input[data-model-filter=&quot;query&quot;]&#x27;)){
-  const body=target.closest(&#x27;.pa-pane-body&#x27;),next=document.createElement(&#x27;div&#x27;);next.innerHTML=modelFilterList();
-  const result=next.querySelector(&#x27;[data-model-filter-results]&#x27;);
-  for(const button of result.querySelectorAll(&#x27;button[data-entity]&#x27;)){
-   const more=document.createElement(&#x27;button&#x27;);more.className=&#x27;pa-entity-more&#x27;;more.dataset.entityOptions=&#x27;true&#x27;;more.setAttribute(&#x27;aria-label&#x27;,button.textContent.trim()+&#x27; 열기 옵션&#x27;);more.textContent=&#x27;⋯&#x27;;button.insertAdjacentElement(&#x27;afterend&#x27;,more);
-  }
-  patchResourceNode(body.querySelector(&#x27;[data-model-filter-results]&#x27;),result,true);
-  for(const button of body.querySelectorAll(&#x27;.pa-entity-more&#x27;))button._target=button.previousElementSibling;
-  body.querySelector(&#x27;[data-model-result-count]&#x27;).textContent=next.querySelector(&#x27;[data-model-result-count]&#x27;).textContent;
-  body.querySelector(&#x27;.pa-model-filter-reset&#x27;).disabled=!Object.values(view.modelFilters).some(Boolean);
- }else refreshCatalogPanes();
- persist();
-}
-root.addEventListener(&#x27;click&#x27;,event=&gt;{const button=event.target.closest(&#x27;[data-model-role],[data-model-reset]&#x27;);if(!button)return;updateModelFilter(button,{role:button.dataset.modelRole},button.hasAttribute(&#x27;data-model-reset&#x27;));});
-root.addEventListener(&#x27;change&#x27;,event=&gt;{const field=event.target.closest(&#x27;select[data-model-filter]&#x27;);if(field)updateModelFilter(field,{[field.dataset.modelFilter]:field.value});});
-root.addEventListener(&#x27;input&#x27;,event=&gt;{const field=event.target.closest(&#x27;input[data-model-filter=&quot;query&quot;]&#x27;);if(field)updateModelFilter(field,{query:field.value});});
 
 // Reference browser. It never invokes the operations shown in its examples.
 let loomDocGroup = &#x27;jobs&#x27;;
@@ -4663,11 +4587,20 @@ function loomWorkTypeBadge(type, jobId) {
   if(type===&#x27;unit&#x27;&amp;&amp;!jobId)return &#x27;&lt;span class=&quot;pa-work-type&quot; data-work-type=&quot;unit&quot;&gt;Standalone Unit&lt;/span&gt;&#x27;;
   return &#x27;&#x27;;
 }
+function loomTerminalWorkTable(items, legacyTable) {
+  if(!catalogData.capabilities?.job_units)return legacyTable(items,false);
+  const rows=items.map(entity=&gt;{
+    const [title,...details]=workRow(entity,false);
+    return [title,loomWorkTypeBadge(entity.entry_type,entity.unit?.job_id)||&#x27;—&#x27;,...details];
+  });
+  return &#x27;&lt;div class=&quot;pa-queue-table pa-terminal-work-queue&quot;&gt;&#x27;+catTable(
+    [&#x27;Name&#x27;,&#x27;Type&#x27;,&#x27;상태&#x27;,&#x27;Task Level&#x27;,&#x27;실행 시작&#x27;,&#x27;실행 종료&#x27;,&#x27;실행 시간&#x27;],rows
+  )+&#x27;&lt;/div&gt;&#x27;;
+}
 const loomQueueWorkRow=workRow;
 workRow=function(entity,current){
   const row=loomQueueWorkRow(entity,current), q=loomQueueEntry(entity.id);
   if(catalogData.capabilities?.job_units){
-    if(!current)row[0]=row[0].replace(&#x27;&lt;div class=&quot;pa-queue-name&quot;&gt;&#x27;,&#x27;&lt;div class=&quot;pa-queue-name&quot;&gt;&#x27;+loomWorkTypeBadge(entity.entry_type,entity.unit?.job_id));
     if(entity.entry_type)row[0]=row[0].replace(/(\d+) Steps/,(_,n)=&gt;entity.entry_type===&#x27;unit&#x27;?(Number(n)?n+&#x27; observed units&#x27;:&#x27;&#x27;):n+&#x27; Units&#x27;);
   }
   const tasks=loomTaskLabels(entity);
@@ -4676,7 +4609,7 @@ workRow=function(entity,current){
     row[0]+=&#x27;&lt;small class=&quot;pa-queue-position&quot;&gt;&#x27;+loomQueuePosition(q)+&#x27;&lt;/small&gt;&#x27;+loomQueueControls(q.id);
   }
   const mode=entity.properties?.execution_mode;
-  if(mode&amp;&amp;!(mode===&#x27;pilot&#x27;&amp;&amp;entity.reviewed_work?.has_regular_output))row[0]+=&#x27;&lt;small class=&quot;pa-queue-owner&quot;&gt;&#x27;+esc(loomJobContract().execution_modes?.[mode]||mode)+&#x27;&lt;/small&gt;&#x27;;
+  if(mode)row[0]+=&#x27;&lt;small class=&quot;pa-queue-owner&quot;&gt;&#x27;+esc(loomJobContract().execution_modes?.[mode]||mode)+&#x27;&lt;/small&gt;&#x27;;
   const owner=entity.owner_profile?.display_name || entity.properties?.owner_name || q?.owner_profile?.display_name || entity.owner || entity.properties?.owner;
   if(tasks)row[0]+=&#x27;&lt;div class=&quot;pa-queue-tasks&quot;&gt;&lt;span&gt;Task ·&lt;/span&gt;&lt;span&gt;&#x27;+tasks+&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;;
   if(owner)row[0]+=&#x27;&lt;small class=&quot;pa-queue-owner&quot;&gt;Owner · &#x27;+esc(owner)+&#x27;&lt;/small&gt;&#x27;;
@@ -5445,11 +5378,6 @@ function loomCatalogPager(kind,label=&quot;More&quot;,inlineStatus=false){
 }
 const loomPagedCatalogList=catalogList;
 catalogList=function(kind){return loomPagedCatalogList(kind)+loomCatalogPager(kind);};
-// Models and Experiments use their own filter layouts rather than catalogList.
-const loomPagedModels=modelList;
-modelList=function(){return loomPagedModels()+loomCatalogPager(&#x27;model&#x27;,&#x27;Load more policies&#x27;);};
-const loomPagedExperiments=experiments;
-experiments=function(){return loomPagedExperiments()+loomCatalogPager(&#x27;experiment&#x27;,&#x27;Load more experiments&#x27;);};
 const loomPagedSoftware=loomSoftwareView;
 loomSoftwareView=function(kind){const html=loomPagedSoftware(kind);return html+loomCatalogPager(kind,&#x27;More&#x27;,html.includes(&#x27;class=&quot;pa-registry-status&quot;&#x27;));};
 const loomPagedProfiles=loomProfilesView;
@@ -5539,27 +5467,17 @@ function loomTaskOptions(){
  }
  return [...tasks.values()].sort((a,b)=&gt;a.label.localeCompare(b.label));
 }
-function loomTaskToolbar(){
- const tasks=loomTaskOptions(),selected=state.researchTask;
- return &#x27;&lt;div class=&quot;pa-task-filter&quot;&gt;&lt;label&gt;Task &lt;select data-research-task&gt;&lt;option value=&quot;&quot;&gt;All tasks&lt;/option&gt;&#x27;+tasks.map(t=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(t.id+&#x27;:&#x27;+t.revision)+&#x27;&quot;&#x27;+(selected?.id===t.id&amp;&amp;selected?.revision===t.revision?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+esc(t.label)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;+&#x27;&lt;/div&gt;&#x27;;
-}
 function loomTaskLabels(entity){return (entity.task_refs||[]).map(t=&gt;&#x27;&lt;a class=&quot;pa-task-label&quot; href=&quot;#/entities/&#x27;+encodeURIComponent(t.id)+&#x27;&quot; data-entity=&quot;&#x27;+esc(t.id)+&#x27;&quot;&gt;&#x27;+esc(t.label)+&#x27;&lt;/a&gt;&#x27;).join(&#x27; · &#x27;);}
 function loomTaskProperty(entity){const links=loomTaskLabels(entity);return links?&#x27;&lt;div class=&quot;pa-output-task&quot;&gt;&lt;span&gt;Task&lt;/span&gt;&lt;span&gt;&#x27;+links+&#x27;&lt;/span&gt;&lt;/div&gt;&#x27;:&#x27;&#x27;;}
 function loomOutputRow(markup,entity){
- return markup.replace(&#x27;&lt;article &#x27;,&#x27;&lt;article data-output-id=&quot;&#x27;+esc(entity.id)+&#x27;&quot; &#x27;).replace(/(&lt;article[^&gt;]*&gt;)/,&#x27;$1&#x27;+loomTaskProperty(entity));
+ const singleTask=Object.hasOwn(loomOutputPages,state.page)&amp;&amp;!state.entity&amp;&amp;!state.model&amp;&amp;loomCatalogTask(entity)&amp;&amp;new Set(entity.task_refs.map(task=&gt;task.id)).size===1;
+ const row=markup.replace(&#x27;&lt;article &#x27;,&#x27;&lt;article data-output-id=&quot;&#x27;+esc(entity.id)+&#x27;&quot; &#x27;);
+ return singleTask?row:row.replace(/(&lt;article[^&gt;]*&gt;)/,&#x27;$1&#x27;+loomTaskProperty(entity));
 }
 const loomTaskCatalogRow=catListRow;
 catListRow=function(entity){return loomOutputRow(loomTaskCatalogRow(entity),entity);};
 const loomTaskResultCard=resultCard;
 resultCard=function(entity){return loomOutputRow(loomTaskResultCard(entity),entity);};
-const loomTaskModelList=modelList;
-modelList=function(){return loomTaskToolbar()+loomTaskModelList();};
-const loomTaskDatasetList=datasets;
-datasets=function(){return loomTaskToolbar()+loomTaskDatasetList();};
-const loomTaskExperimentList=experiments;
-experiments=function(){return loomTaskToolbar()+loomTaskExperimentList();};
-root.addEventListener(&#x27;change&#x27;,event=&gt;{const field=event.target.closest(&#x27;[data-research-task]&#x27;);if(!field)return;const pane=ws.panes.find(p=&gt;p.id===field.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);if(!pane)return;const value=field.value;activeTab(pane).view.researchTask=loomTaskOptions().find(t=&gt;t.id+&#x27;:&#x27;+t.revision===value);render();persist();});
-
 const loomPagedFiles=files;files=function(){return loomPagedFiles()+loomCatalogPager(&quot;explorer&quot;);};
 
 // Only background patches use this anchor. User navigation keeps normal scroll behavior.
@@ -5612,9 +5530,89 @@ openView=function(view,...args){
  return loomOutputOpenView(view,...args);
 };
 const loomOutputDatasets=datasets;
-datasets=function(){return loomOutputChrome()+loomOutputDatasets();};
-const loomOutputModels=modelList;
-modelList=function(){return loomOutputChrome()+loomOutputModels().replace(/&gt;Models&lt;/g,&#x27;&gt;Policies&lt;&#x27;);};
+datasets=function(){return loomOutputList(loomOutputDatasets());};
+const policyFilterDefaults={family:&#x27;&#x27;,dataset:&#x27;&#x27;,query:&#x27;&#x27;};
+function policyText(...values){return values.find(v=&gt;typeof v===&#x27;string&#x27;&amp;&amp;v.trim())?.trim()||&#x27;&#x27;;}
+function policyFamily(recorded){
+ const known=[[/^X[-_ ]?VLA\b/i,&#x27;X-VLA&#x27;],[/^Smol[-_ ]?VLA\b/i,&#x27;SmolVLA&#x27;],
+  [/^Open[-_ ]?VLA\b/i,&#x27;OpenVLA&#x27;],[/^BC[-_ ]?RNN\b/i,&#x27;BC-RNN&#x27;]];
+ return known.find(([pattern])=&gt;pattern.test(recorded))?.[1]||recorded||&#x27;미기록&#x27;;
+}
+function modelFilterMeta(e){
+ const p=e.properties||{},facts=loomResearchFactMap(e),roleFact=facts.get(&#x27;model_role&#x27;),architecture=facts.get(&#x27;architecture&#x27;);
+ const family=policyText(p.model_family,p.family)||policyFamily(policyText(architecture?.status===&#x27;recorded&#x27;?loomResearchValue(architecture,{compact:true}):null,
+  p.architecture,p.policy_type,e.highlights?.find(x=&gt;x.role===&#x27;architecture&#x27;)?.value));
+ const declared=roleFact?.status===&#x27;recorded&#x27;?loomResearchValue(roleFact):p.model_role??e.model_role??e.metadata?.research?.model?.role??p.role;
+ const roles=Array.isArray(declared)?declared.join(&#x27; &#x27;):policyText(declared);
+ let role=roles||&#x27;미분류&#x27;;
+ if(/\b(observer|perception|pose[ _-]estimator)\b/i.test(roles))role=&#x27;Observer&#x27;;
+ else if(/\bvla\b/i.test(roles)||/^(?:X[-_ ]?VLA|SmolVLA|OpenVLA|π[0-9.]+|pi[0-9.]+)(?:\b|$)/i.test(family))role=&#x27;VLA&#x27;;
+ else if(/\b(policy|action_policy)\b/i.test(roles))role=&#x27;Policy&#x27;;
+ const datasets=catRelations(e).filter(r=&gt;r.kind===&#x27;trained_on&#x27;||catEntity(r.id)?.kind===&#x27;dataset&#x27;)
+  .map(r=&gt;({id:r.id,label:catEntity(r.id)?.label||r.id}));
+ if(!datasets.length)datasets.push({id:policyText(p.training_dataset,p.dataset_name)||&#x27;__unrecorded__&#x27;,label:policyText(p.dataset_name,p.training_dataset)||&#x27;미기록&#x27;});
+ return {role,family,datasets};
+}
+function policyFilters(view){
+ const {family=&#x27;&#x27;,dataset=&#x27;&#x27;,query=&#x27;&#x27;}=view.modelFilters||{};
+ return {family,dataset,query};
+}
+function policyFilterSelect(key,label,entries,value){
+ const options=new Map(entries.map(x=&gt;typeof x===&#x27;string&#x27;?[x,x]:[x.id,x.label]));
+ if(value&amp;&amp;!options.has(value))options.set(value,value===&#x27;__unrecorded__&#x27;?&#x27;미기록&#x27;:value);
+ return &#x27;&lt;label class=&quot;pa-model-filter-field&quot;&gt;&lt;span&gt;&#x27;+esc(label)+&#x27;&lt;/span&gt;&lt;select data-model-filter=&quot;&#x27;+key+&#x27;&quot; aria-label=&quot;&#x27;+esc(label)+&#x27; 필터&quot;&gt;&lt;option value=&quot;&quot;&gt;전체&lt;/option&gt;&#x27;+
+  [...options].sort((a,b)=&gt;String(a[1]).localeCompare(String(b[1]),&#x27;ko&#x27;)).map(([id,name])=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(id)+&#x27;&quot;&#x27;+(id===value?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+esc(name)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;;
+}
+function policyList(){
+ const f=policyFilters(state),query=f.query.trim().toLowerCase();
+ const records=catKind(&#x27;model&#x27;).map(e=&gt;({e,...modelFilterMeta(e)})).filter(x=&gt;x.role!==&#x27;Observer&#x27;);
+ const shown=records.filter(x=&gt;(!f.family||x.family===f.family)&amp;&amp;(!f.dataset||x.datasets.some(d=&gt;d.id===f.dataset))&amp;&amp;(!query||catSearchText(x.e).includes(query))).map(x=&gt;x.e);
+ const filters=&#x27;&lt;section class=&quot;pa-model-filters&quot; aria-label=&quot;Policy filters&quot;&gt;&lt;div class=&quot;pa-model-filter-fields pa-policy-filter-fields&quot;&gt;&#x27;
+  +policyFilterSelect(&#x27;dataset&#x27;,&#x27;학습 데이터셋&#x27;,records.flatMap(x=&gt;x.datasets),f.dataset)
+  +&#x27;&lt;label class=&quot;pa-model-filter-field pa-model-filter-search&quot;&gt;&lt;span&gt;검색&lt;/span&gt;&lt;input type=&quot;search&quot; data-model-filter=&quot;query&quot; aria-label=&quot;정책 검색&quot; placeholder=&quot;이름·계열·키워드&quot; value=&quot;&#x27;+esc(f.query)+&#x27;&quot; autocomplete=&quot;off&quot;&gt;&lt;/label&gt;&lt;/div&gt;&#x27;
+  +&#x27;&lt;button type=&quot;button&quot; class=&quot;pa-model-filter-reset&quot; data-model-reset&#x27;+(f.dataset||f.query?&#x27;&#x27;:&#x27; hidden&#x27;)+&#x27;&gt;필터 초기화&lt;/button&gt;&lt;/section&gt;&#x27;;
+ const rows=loomCatalogTaskGroups(shown,loomCatalogTask,items=&gt;loomGroupedOutputs(items,e=&gt;catListRow(e).replace(&#x27;&lt;article &#x27;,`&lt;article data-model-entry=&quot;${esc(e.id)}&quot; `)));
+ const families=[...new Set(records.map(r=&gt;r.family).concat(f.family).filter(Boolean))].sort((a,b)=&gt;a.localeCompare(b));
+ const familyIndex=loomCatalogIndex(&#x27;Model family&#x27;,&#x27;data-policy-family&#x27;,families.map(family=&gt;({id:family,label:family})),f.family);
+ return loomOutputList(heading(&#x27;CATALOG&#x27;,&#x27;Policies&#x27;,&#x27;&#x27;)+catStatus()+filters+panel(`&lt;span data-model-result-count&gt;${shown.length} / ${records.length}개 정책&lt;/span&gt;`,
+  &#x27;&lt;div data-model-filter-results&gt;&#x27;+(rows||&#x27;&lt;div class=&quot;pa-empty&quot;&gt;&#x27;+(records.length?&#x27;조건에 맞는 정책이 없습니다.&#x27;:&#x27;표시할 정책이 없습니다.&#x27;)+&#x27;&lt;/div&gt;&#x27;)+&#x27;&lt;/div&gt;&#x27;)+loomCatalogPager(&#x27;model&#x27;,&#x27;Load more policies&#x27;),familyIndex);
+}
+modelList=policyList;
+function updatePolicyFilter(control){
+ const pane=ws.panes.find(p=&gt;p.id===control.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);if(!pane)return;
+ ws.active=pane.id;const view=activeTab(pane).view;
+ const f=policyFilters(view);
+ if(control.hasAttribute(&#x27;data-model-reset&#x27;))view.modelFilters={...policyFilterDefaults,family:f.family};
+ else if(control.hasAttribute(&#x27;data-policy-family&#x27;))view.modelFilters={...f,family:control.dataset.policyFamily};
+ else view.modelFilters={...f,[control.dataset.modelFilter]:control.value};
+ refreshCatalogPanes();persist();
+}
+root.addEventListener(&#x27;click&#x27;,event=&gt;{const control=event.target.closest(&#x27;[data-model-reset],[data-policy-family]&#x27;);if(control)updatePolicyFilter(control);});
+root.addEventListener(&#x27;change&#x27;,event=&gt;{const control=event.target.closest(&#x27;select[data-model-filter]&#x27;);if(control)updatePolicyFilter(control);});
+root.addEventListener(&#x27;input&#x27;,event=&gt;{const control=event.target.closest(&#x27;input[data-model-filter=&quot;query&quot;]&#x27;);if(control&amp;&amp;!event.isComposing)updatePolicyFilter(control);});
+function loomCatalogIndex(label,attribute,entries,selected){
+ const buttons=[{id:&#x27;&#x27;,label:&#x27;All&#x27;},...entries].map(entry=&gt;&#x27;&lt;button type=&quot;button&quot; &#x27;+attribute+&#x27;=&quot;&#x27;+esc(entry.id)+&#x27;&quot; aria-pressed=&quot;&#x27;+(selected===entry.id)+&#x27;&quot;&gt;&#x27;+esc(entry.label)+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;);
+ return &#x27;&lt;nav class=&quot;pa-catalog-task-index&quot; aria-label=&quot;&#x27;+label+&#x27;&quot;&gt;&lt;h2&gt;&#x27;+label+&#x27;&lt;/h2&gt;&#x27;+buttons+&#x27;&lt;/nav&gt;&#x27;;
+}
+function loomOutputList(body,secondaryIndex=&#x27;&#x27;){
+ const taskIndex=loomCatalogIndex(&#x27;Tasks&#x27;,&#x27;data-research-task&#x27;,loomTaskOptions(),state.researchTask?.id||&#x27;&#x27;);
+ return loomOutputChrome()+&#x27;&lt;div class=&quot;pa-catalog-task-layout&quot;&gt;&lt;div class=&quot;pa-catalog-index-stack&quot;&gt;&#x27;+taskIndex+secondaryIndex+&#x27;&lt;/div&gt;&lt;div class=&quot;pa-catalog-task-content&quot;&gt;&#x27;+loomTaskToolbar()+body+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;;
+}
+function loomCatalogTask(e){
+ const refs=e.task_refs||[],organization=e.dataset_organization?.task_ref;
+ return refs.find(r=&gt;r.id===state.researchTask?.id)||refs.find(r=&gt;r.id===organization?.id&amp;&amp;r.revision===organization?.revision)||refs.find(r=&gt;r.id===e.scenario_ref?.id)||
+  (refs.length&amp;&amp;refs.every(r=&gt;r.id===refs[0].id)?refs[0]:null);
+}
+function loomCatalogTaskGroups(items,taskFor,renderItems){
+ const groups=new Map();
+ for(const item of items){
+  const task=taskFor(item),id=task?.id||&#x27;&#x27;;
+  if(!groups.has(id))groups.set(id,{task,items:[]});
+  groups.get(id).items.push(item);
+ }
+ if(groups.size===1&amp;&amp;groups.has(&#x27;&#x27;))return renderItems(groups.get(&#x27;&#x27;).items);
+ return [...groups.values()].map(group=&gt;&#x27;&lt;section class=&quot;pa-catalog-task-card&quot; data-catalog-task-card=&quot;&#x27;+esc(group.task?.id||&#x27;&#x27;)+&#x27;&quot;&gt;&lt;h3&gt;&#x27;+(group.task?loomTaskLabels({task_refs:[group.task]}):&#x27;Other&#x27;)+&#x27;&lt;/h3&gt;&lt;div class=&quot;pa-catalog-task-records&quot;&gt;&#x27;+renderItems(group.items)+&#x27;&lt;/div&gt;&lt;/section&gt;&#x27;).join(&#x27;&#x27;);
+}
 function loomGroupedOutputs(items, renderItem) {
  const groups=new Map(),ordered=[];
  for(const item of items){
@@ -5633,8 +5631,8 @@ experiments=function(){
  const rows=all.filter(e=&gt;catIsDiscarded(e)===discarded);
  const filters=&#x27;&lt;section class=&quot;pa-model-filters&quot; aria-label=&quot;Experiment filters&quot;&gt;&lt;div class=&quot;pa-model-filter-top&quot;&gt;&lt;div class=&quot;pa-model-role-group&quot; role=&quot;group&quot; aria-label=&quot;Record status&quot;&gt;&#x27;
   +[[&#x27;current&#x27;,&#x27;Current&#x27;,false],[&#x27;discarded&#x27;,&#x27;Discarded&#x27;,true]].map(([value,label,isDiscarded])=&gt;&#x27;&lt;button class=&quot;pa-pill &#x27;+(discarded===isDiscarded?&#x27;active&#x27;:&#x27;&#x27;)+&#x27;&quot; data-result-disposition-filter=&quot;&#x27;+value+&#x27;&quot; aria-pressed=&quot;&#x27;+(discarded===isDiscarded)+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;span&gt;&#x27;+all.filter(e=&gt;catIsDiscarded(e)===isDiscarded).length+&#x27;&lt;/span&gt;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&lt;/div&gt;&lt;/section&gt;&#x27;;
- return loomOutputChrome()+loomTaskToolbar()+heading(&#x27;CATALOG&#x27;,&#x27;Experiments&#x27;,&#x27;&#x27;)+catStatus()+filters
-  +panel(rows.length+&#x27; / &#x27;+all.length+&#x27;개 실험&#x27;,&#x27;&lt;div&gt;&#x27;+ (loomGroupedOutputs(rows,e=&gt;resultCard(e)+(discarded?resultDispositionPanel(e):&#x27;&#x27;))||&#x27;&lt;div class=&quot;pa-empty&quot;&gt;표시할 실험이 없습니다.&lt;/div&gt;&#x27;)+&#x27;&lt;/div&gt;&#x27;)+loomCatalogPager(&#x27;experiment&#x27;);
+ return loomOutputList(heading(&#x27;CATALOG&#x27;,&#x27;Experiments&#x27;,&#x27;&#x27;)+catStatus()+filters
+  +panel(rows.length+&#x27; / &#x27;+all.length+&#x27;개 실험&#x27;,&#x27;&lt;div&gt;&#x27;+ (loomCatalogTaskGroups(rows,loomCatalogTask,items=&gt;loomGroupedOutputs(items,e=&gt;resultCard(e)+(discarded?resultDispositionPanel(e):&#x27;&#x27;)))||&#x27;&lt;div class=&quot;pa-empty&quot;&gt;표시할 실험이 없습니다.&lt;/div&gt;&#x27;)+&#x27;&lt;/div&gt;&#x27;)+loomCatalogPager(&#x27;experiment&#x27;));
 };
 const loomOutputDetail=catalogDetail;
 catalogDetail=function(id){return (loomIsOutputPage(state.page)?loomOutputChrome():&#x27;&#x27;)+loomOutputDetail(id);};
@@ -5668,7 +5666,25 @@ comparison=function(){
  });
  return body+(setups.length?panel(&#x27;Experimental setups&#x27;,catTable([&#x27;Experiment&#x27;,&#x27;Session&#x27;,&#x27;Domain&#x27;,&#x27;Setup&#x27;,&#x27;Members&#x27;,&#x27;Readback&#x27;],setups)):&#x27;&#x27;)+pages;
 };
+function selectCatalogTask(control,id){
+ const pane=control.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;
+ activeTab().view.researchTask=loomTaskOptions().find(task=&gt;task.id===id);
+ render();persist();
+}
+function loomComparisonTaskFilter(){
+ const options=loomTaskOptions().map(t=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(t.id)+&#x27;&quot;&#x27;+(state.researchTask?.id===t.id?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;+esc(t.label)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;);
+ return &#x27;&lt;div class=&quot;pa-task-filter&quot;&gt;&lt;label&gt;Task &lt;select data-comparison-task&gt;&lt;option value=&quot;&quot;&gt;All tasks&lt;/option&gt;&#x27;+options+&#x27;&lt;/select&gt;&lt;/label&gt;&lt;/div&gt;&#x27;;
+}
+root.addEventListener(&#x27;change&#x27;,event=&gt;{
+ const control=event.target.closest(&#x27;[data-comparison-task]&#x27;);if(control)selectCatalogTask(control,control.value);
+});
 root.addEventListener(&#x27;click&#x27;,event=&gt;{
+ const taskButton=event.target.closest(&#x27;button[data-research-task]&#x27;);
+ if(taskButton){
+  selectCatalogTask(taskButton,taskButton.dataset.researchTask);
+  root.querySelector(&#x27;.pa-document-pane.is-active [data-research-task][aria-pressed=true]&#x27;)?.focus({preventScroll:true});
+  return;
+ }
  const button=event.target.closest(&#x27;[data-output-page]&#x27;);if(!button)return;
  event.preventDefault();const pane=button.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;
  loomOutputNavigate(button.dataset.outputPage);
@@ -5697,12 +5713,11 @@ catKind=function(kind,discarded=false){
  return rows.filter(e=&gt;purpose===&#x27;all&#x27;||(purpose===&#x27;development&#x27;)===loomOutputDevelopment(e))
   .sort((a,b)=&gt;Number(loomOutputDevelopment(a))-Number(loomOutputDevelopment(b))||loomOutputRank(a)-loomOutputRank(b));
 };
-const loomOutputToolbar=loomTaskToolbar;
-loomTaskToolbar=function(){
- if(catalogData.capabilities?.job_units)return loomOutputToolbar()+&#x27;&lt;div class=&quot;pa-filter&quot; aria-label=&quot;Catalog class&quot;&gt;&#x27;
+function loomTaskToolbar(){
+ if(catalogData.capabilities?.job_units)return &#x27;&lt;div class=&quot;pa-filter&quot; aria-label=&quot;Catalog class&quot;&gt;&#x27;
   +[[&#x27;regular&#x27;,&#x27;Regular&#x27;],[&#x27;reference&#x27;,&#x27;Reference&#x27;]].map(([value,label])=&gt;&#x27;&lt;label class=&quot;pa-pill&quot;&gt;&lt;input type=&quot;checkbox&quot; data-output-class=&quot;&#x27;+value+&#x27;&quot;&#x27;+(loomOutputClasses().includes(value)?&#x27; checked&#x27;:&#x27;&#x27;)+&#x27;&gt; &#x27;+label+&#x27;&lt;/label&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
- return loomOutputToolbar()+&#x27;&lt;div class=&quot;pa-filter&quot; aria-label=&quot;Output purpose&quot;&gt;&#x27;
- +[[&#x27;all&#x27;,&#x27;All&#x27;],[&#x27;research&#x27;,&#x27;Research&#x27;],[&#x27;development&#x27;,&#x27;Development&#x27;]].map(([value,label])=&gt;&#x27;&lt;button class=&quot;pa-pill &#x27;+(loomOutputPurpose()===value?&#x27;active&#x27;:&#x27;&#x27;)+&#x27;&quot; aria-pressed=&quot;&#x27;+(loomOutputPurpose()===value)+&#x27;&quot; data-output-purpose=&quot;&#x27;+value+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;};
+ return &#x27;&lt;div class=&quot;pa-filter&quot; aria-label=&quot;Output purpose&quot;&gt;&#x27;
+ +[[&#x27;all&#x27;,&#x27;All&#x27;],[&#x27;research&#x27;,&#x27;Research&#x27;],[&#x27;development&#x27;,&#x27;Development&#x27;]].map(([value,label])=&gt;&#x27;&lt;button class=&quot;pa-pill &#x27;+(loomOutputPurpose()===value?&#x27;active&#x27;:&#x27;&#x27;)+&#x27;&quot; aria-pressed=&quot;&#x27;+(loomOutputPurpose()===value)+&#x27;&quot; data-output-purpose=&quot;&#x27;+value+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;}
 root.addEventListener(&#x27;click&#x27;,event=&gt;{const b=event.target.closest(&#x27;[data-output-purpose]&#x27;);if(!b)return;const pane=b.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;activeTab().view.outputPurpose=b.dataset.outputPurpose;render();persist();});
 
 root.addEventListener(&#x27;change&#x27;,event=&gt;{
@@ -5831,18 +5846,6 @@ function loomResearchCardFacts(e){
  if(count)map.set(&#x27;count&#x27;,loomResearchCountFact(count,unit));
  return order.map(id=&gt;map.get(id)).filter(f=&gt;f&amp;&amp;f.status!==&#x27;conflict&#x27;&amp;&amp;loomResearchVisibleFact(f)&amp;&amp;!loomCheckpointPooledFact(e,f)).slice(0,isDataset?10:isModel?9:10);
 }
-const loomResearchOldModelMeta=modelFilterMeta;
-modelFilterMeta=function(e){
- const result=loomResearchOldModelMeta(e),facts=loomResearchFactMap(e),role=facts.get(&#x27;model_role&#x27;),architecture=facts.get(&#x27;architecture&#x27;);
- if(role?.status===&#x27;recorded&#x27;)result.role=loomResearchValue(role);
- if(architecture?.status===&#x27;recorded&#x27;)result.family=loomResearchValue(architecture,{compact:true});
- const inputs=loomResearchInputs(e).filter(i=&gt;i.status===&#x27;present&#x27;);
- const rgb=inputs.some(i=&gt;i.kind===&#x27;rgb&#x27;||i.kind===&#x27;rgbd&#x27;||i.kind===&#x27;vision&#x27;&amp;&amp;/RGB/i.test(String(i.value||&#x27;&#x27;)));
- const depth=inputs.some(i=&gt;i.kind===&#x27;depth&#x27;||i.kind===&#x27;rgbd&#x27;||i.kind===&#x27;vision&#x27;&amp;&amp;/RGB-D/i.test(String(i.value||&#x27;&#x27;)));
- if(rgb||depth)result.vision=rgb&amp;&amp;depth?&#x27;RGB-D&#x27;:rgb?&#x27;RGB&#x27;:&#x27;Depth&#x27;;
- const instruction=loomResearchInstruction(e);if(instruction)result.instruction=instruction;
- return result;
-};
 catInputProperties=function(e){
  const inputs=loomResearchInputs(e).filter(x=&gt;x.status===&#x27;present&#x27;);
  return &#x27;&lt;div class=&quot;pa-input-properties&quot;&gt;&#x27;+inputs.map(x=&gt;&#x27;&lt;span class=&quot;pa-input-property&quot;&gt;&lt;small&gt;&#x27;+esc(loomResearchInputName(x))+&#x27;&lt;/small&gt;&lt;b&gt;&#x27;+esc(x.shape?.length?x.shape.join(&#x27;×&#x27;):Array.isArray(x.value)?x.value.join(&#x27; · &#x27;):x.value||x.unit||&#x27;&#x27;)+&#x27;&lt;/b&gt;&lt;/span&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
@@ -5963,122 +5966,63 @@ root.addEventListener(&#x27;click&#x27;,async event=&gt;{
  catch(error){button.disabled=false;button.textContent=error.message;}
 },true);
 
-function loomDatasetGroupOpen(view,key){return key===&#x27;task:unassigned&#x27;?view.openOtherDatasets===true:!view.closedDatasetGroups?.includes(key);}
 // Task context / subgroup taxonomy / data lineage are independent dimensions.
 // This renderer consumes declared organization; it never classifies by names.
 const loomDatasetRelations={subset:&#x27;Subset&#x27;,condition_selection:&#x27;Conditions&#x27;,includes:&#x27;Partial reuse&#x27;,relabel:&#x27;Relabel&#x27;,resample:&#x27;Resample&#x27;,sensor_rerender:&#x27;Sensor re-render&#x27;,augment:&#x27;Augment&#x27;,merge:&#x27;Merge&#x27;};
-function loomDatasetContext(e){
- const refs=e.task_refs||[],declared=e.dataset_organization;
- const task=declared?refs.find(r=&gt;r.id===declared.task_ref?.id&amp;&amp;r.revision===declared.task_ref?.revision):refs.length===1?refs[0]:null;
- return {task,path:declared?.path||[]};
-}
 function loomDatasetKey(e){return e.dataset_mirror_key||e.id;}
 function loomDatasetImported(e){return e.reporting?.activity===&#x27;dataset_import&#x27;||e.origin?.type===&#x27;import&#x27;;}
 function loomDatasetOriginBadge(e){return loomDatasetImported(e)?&#x27;&lt;span class=&quot;pa-dataset-origin&quot;&gt;Imported&lt;/span&gt;&#x27;:&#x27;&#x27;;}
-function loomDatasetRow(e,depth,children,expanded,parent,showTask=false){
- const links=e.dataset_lineage?.parents||[],link=parent?links.find(p=&gt;{const exact=loomDatasetParentEntity(p);return exact&amp;&amp;loomDatasetKey(exact)===loomDatasetKey(parent);}):(links.length===1?links[0]:links.find(p=&gt;p.primary));
+function loomDatasetRow(e,depth=0){
  const facts=loomResearchCardFacts(e),ready=facts.find(f=&gt;f.id===&#x27;bc_ready&#x27;);
  const stateLabel=typeof ready?.value===&#x27;boolean&#x27;?&#x27;&lt;span class=&quot;pa-dataset-bc &#x27;+(ready.value?&#x27;is-ready&#x27;:&#x27;is-not-ready&#x27;)+&#x27;&quot;&gt;BC &#x27;+(ready.value?&#x27;ready&#x27;:&#x27;not ready&#x27;)+&#x27;&lt;/span&gt;&#x27;:&#x27;&#x27;;
  const mainFacts=facts.filter(f=&gt;[&#x27;count&#x27;,&#x27;frames&#x27;,&#x27;inputs&#x27;,&#x27;split&#x27;,&#x27;train_snapshots&#x27;,&#x27;validation_snapshots&#x27;,&#x27;physics&#x27;,&#x27;dynamics&#x27;].includes(f.id));
- const ancestry=link?&#x27;&lt;small class=&quot;pa-dataset-relation&quot;&gt;&#x27;+esc(loomDatasetRelations[link.transformation?.kind]||&#x27;Derived&#x27;)+(parent?&#x27;&#x27;:&#x27; · &#x27;+esc(loomDatasetParentEntity(link)?.label||link.label||link.parent?.identity?.id||&#x27;&#x27;))+&#x27;&lt;/small&gt;&#x27;:&#x27;&#x27;;
- return &#x27;&lt;article role=&quot;listitem&quot; class=&quot;pa-catalog-item pa-scientific-card pa-dataset-row&quot; data-output-id=&quot;&#x27;+esc(e.id)+&#x27;&quot; data-dataset-depth=&quot;&#x27;+depth+&#x27;&quot; style=&quot;--dataset-indent:&#x27;+Math.min(depth,4)*14+&#x27;px&quot;&gt;&#x27;
-  +(showTask?loomTaskProperty(e):&#x27;&#x27;)+&#x27;&lt;div class=&quot;pa-row-main pa-dataset-name&quot;&gt;&#x27;+(children?&#x27;&lt;button class=&quot;pa-dataset-expander&quot; data-dataset-node=&quot;&#x27;+esc(loomDatasetKey(e))+&#x27;&quot; aria-expanded=&quot;&#x27;+expanded+&#x27;&quot; aria-label=&quot;&#x27;+esc((expanded?&#x27;Collapse &#x27;:&#x27;Expand &#x27;)+e.label)+&#x27;&quot;&gt;&#x27;+icon(expanded?&#x27;chevron-down&#x27;:&#x27;chevron-right&#x27;)+&#x27;&lt;/button&gt;&#x27;:&#x27;&#x27;)
-  +&#x27;&lt;div&gt;&lt;div class=&quot;pa-dataset-title-line&quot;&gt;&#x27;+catLink(e.id)+loomDatasetOriginBadge(e)+stateLabel+&#x27;&lt;/div&gt;&#x27;+ancestry+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;
+ const ancestry=(e.dataset_lineage?.parents||[]).map(link=&gt;&#x27;&lt;small class=&quot;pa-dataset-relation&quot;&gt;&#x27;+esc(loomDatasetRelations[link.transformation?.kind]||&#x27;Derived&#x27;)+&#x27; from &#x27;+esc(loomDatasetParentEntity(link)?.label||link.label||link.parent?.identity?.id||&#x27;&#x27;)+&#x27;&lt;/small&gt;&#x27;).join(&#x27;&#x27;);
+ return &#x27;&lt;article role=&quot;listitem&quot; class=&quot;pa-catalog-item pa-scientific-card pa-dataset-row&quot; data-output-id=&quot;&#x27;+esc(e.id)+&#x27;&quot; data-dataset-depth=&quot;&#x27;+depth+&#x27;&quot;&gt;&#x27;
+  +&#x27;&lt;div class=&quot;pa-row-main pa-dataset-name&quot;&gt;&lt;div&gt;&lt;div class=&quot;pa-dataset-title-line&quot;&gt;&#x27;+catLink(e.id)+loomDatasetOriginBadge(e)+stateLabel+&#x27;&lt;/div&gt;&#x27;+ancestry+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;
   +(mainFacts.length?loomResearchFactsHTML(mainFacts,true):&#x27;&#x27;)+&#x27;&lt;/article&gt;&#x27;;
 }
 function loomDatasetTree(rows){
- const canonical=new Map(rows.map(e=&gt;[loomDatasetKey(e),e])),parents=new Map(),children=new Map();
+ const canonical=new Map(rows.map(e=&gt;[loomDatasetKey(e),e])),parents=new Set(),children=new Map(),seen=new Set(),ordered=[];
  for(const e of rows){
   const links=e.dataset_lineage?.parents||[],chosen=links.length===1?links[0]:links.find(p=&gt;p.primary),exact=chosen&amp;&amp;loomDatasetParentEntity(chosen),parent=exact&amp;&amp;canonical.get(loomDatasetKey(exact));
-  if(parent&amp;&amp;parent!==e){parents.set(loomDatasetKey(e),parent);const key=loomDatasetKey(parent);if(!children.has(key))children.set(key,[]);children.get(key).push(e);}
+  if(parent&amp;&amp;parent!==e){parents.add(loomDatasetKey(e));const key=loomDatasetKey(parent);if(!children.has(key))children.set(key,[]);children.get(key).push(e);}
  }
- const roots=rows.filter(e=&gt;!parents.has(loomDatasetKey(e))),seen=new Set(),closed=new Set(state.closedDatasetNodes||[]);let body=&#x27;&#x27;;
- function append(start){
-  const stack=[{e:start,depth:0,parent:null}];
-  while(stack.length){const {e,depth,parent}=stack.pop(),key=loomDatasetKey(e);if(seen.has(key))continue;seen.add(key);
-   const next=children.get(key)||[],expanded=!closed.has(key);body+=loomDatasetRow(e,depth,next.length,expanded,parent);
-   if(expanded)for(const child of [...next].reverse())stack.push({e:child,depth:depth+1,parent:e});
-   else{const hidden=[...next];while(hidden.length){const c=hidden.pop(),k=loomDatasetKey(c);if(seen.has(k))continue;seen.add(k);hidden.push(...(children.get(k)||[]));}}
+ for(const e of [...rows.filter(e=&gt;!parents.has(loomDatasetKey(e))),...rows]){
+  const stack=[{e,depth:0}];
+  while(stack.length){const {e,depth}=stack.pop(),key=loomDatasetKey(e);if(seen.has(key))continue;seen.add(key);
+   ordered.push(loomDatasetRow(e,depth));
+   for(const child of [...(children.get(key)||[])].reverse())stack.push({e:child,depth:depth+1});
   }
  }
- for(const e of roots)append(e);
- // Do not hide a corrupt legacy cycle. Native declarations reject cycles.
- for(const e of rows)if(!seen.has(loomDatasetKey(e)))append(e);
- return &#x27;&lt;div class=&quot;pa-dataset-tree&quot; role=&quot;list&quot;&gt;&#x27;+body+&#x27;&lt;/div&gt;&#x27;;
+ return &#x27;&lt;div class=&quot;pa-dataset-tree&quot; role=&quot;list&quot;&gt;&#x27;+ordered.join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
 }
 function loomUniqueDatasets(rows){
  const unique=new Map();for(const e of rows){const key=loomDatasetKey(e),old=unique.get(key);if(!old||!old.dataset_organization&amp;&amp;e.dataset_organization)unique.set(key,e);}
  return [...unique.values()];
 }
 function loomDatasetGroups(rows){
- const families=new Map();
- for(const e of rows){
-  const context=loomDatasetContext(e),key=context.task?.id||&#x27;unassigned&#x27;;
-  if(!families.has(key))families.set(key,{key,label:context.task?.label?.split(&#x27;·&#x27;)[0].trim()||&#x27;Other&#x27;,rows:[],children:new Map()});
-  const family=families.get(key);family.rows.push(e);let group=family,prefix=[];
-  for(const node of context.path){prefix.push(node.id);const k=JSON.stringify(prefix);if(!group.children.has(node.id))group.children.set(node.id,{key:&#x27;subgroup:&#x27;+key+&#x27;:&#x27;+k,label:node.label,rows:[],children:new Map()});group=group.children.get(node.id);}
-  if(!group.direct)group.direct=[];group.direct.push(e);
- }
- function subgroup(group){
-  const content=(group.direct?.length?loomDatasetTree(group.direct):&#x27;&#x27;)+[...group.children.values()].map(subgroup).join(&#x27;&#x27;);
-  return &#x27;&lt;details class=&quot;pa-dataset-subgroup&quot; data-dataset-group=&quot;&#x27;+esc(group.key)+&#x27;&quot; &#x27;+(loomDatasetGroupOpen(state,group.key)?&#x27;open&#x27;:&#x27;&#x27;)+&#x27;&gt;&lt;summary data-dataset-group-toggle=&quot;&#x27;+esc(group.key)+&#x27;&quot;&gt;&#x27;+esc(group.label)+&#x27;&lt;/summary&gt;&#x27;+content+&#x27;&lt;/details&gt;&#x27;;
- }
- const contents=family=&gt;(family.direct?.length?loomDatasetTree(family.direct):&#x27;&#x27;)+[...family.children.values()].map(subgroup).join(&#x27;&#x27;);
- if(families.size===1&amp;&amp;families.has(&#x27;unassigned&#x27;))return contents(families.get(&#x27;unassigned&#x27;));
- return [...families.values()].sort((a,b)=&gt;Number(a.key===&#x27;unassigned&#x27;)-Number(b.key===&#x27;unassigned&#x27;)||a.label.localeCompare(b.label)).map(f=&gt;{
-  const key=&#x27;task:&#x27;+f.key;
-  return &#x27;&lt;section class=&quot;pa-dataset-family&quot;&gt;&lt;details data-dataset-family=&quot;&#x27;+esc(f.key)+&#x27;&quot; &#x27;+(loomDatasetGroupOpen(state,key)?&#x27;open&#x27;:&#x27;&#x27;)+&#x27;&gt;&lt;summary data-dataset-group-toggle=&quot;&#x27;+esc(key)+&#x27;&quot;&gt;&lt;h2&gt;&#x27;+esc(f.label)+&#x27;&lt;/h2&gt;&lt;span&gt;&#x27;+f.rows.length+&#x27;&lt;/span&gt;&lt;/summary&gt;&#x27;+contents(f)+&#x27;&lt;/details&gt;&lt;/section&gt;&#x27;;
- }).join(&#x27;&#x27;);
-}
-const loomDatasetFilterRoles={training_observations:&#x27;Training observations&#x27;,diagnostic_observations:&#x27;Diagnostic observations&#x27;,evaluation_conditions:&#x27;Evaluation conditions&#x27;};
-const loomDatasetFilterEmpty={role:&#x27;&#x27;,input:&#x27;&#x27;,split:&#x27;&#x27;,origin:&#x27;&#x27;,query:&#x27;&#x27;};
-function loomDatasetFilterMeta(e){
- const inputs=loomResearchInputs(e).filter(x=&gt;x.status===&#x27;present&#x27;&amp;&amp;![&#x27;instruction&#x27;,&#x27;camera_intrinsics&#x27;,&#x27;camera_transform&#x27;,&#x27;depth_validity&#x27;].includes(x.kind));
- const split=loomResearchFactMap(e).get(&#x27;split&#x27;),value=split?.status===&#x27;recorded&#x27;?split.value:null;
- const groups=Array.isArray(value)?value.filter(x=&gt;x&amp;&amp;typeof x===&#x27;object&#x27;).map(x=&gt;[x.id,x]):Object.entries(value&amp;&amp;typeof value===&#x27;object&#x27;?value:{});
- const splits=groups.filter(([id,x])=&gt;typeof id===&#x27;string&#x27;&amp;&amp;x!=null&amp;&amp;![&#x27;not_applicable&#x27;,&#x27;unrecorded&#x27;,&#x27;not_recorded&#x27;].includes(typeof x===&#x27;string&#x27;?x:x.status))
-  .map(([id])=&gt;id===&#x27;val&#x27;?&#x27;validation&#x27;:id);
- const role=e.dataset_overview?.role;
- return {role:Object.hasOwn(loomDatasetFilterRoles,role)?loomDatasetFilterRoles[role]:&#x27;미분류&#x27;,
-  inputs:inputs.flatMap(x=&gt;loomResearchInputName(x).split(&#x27; · &#x27;)),splits,origin:loomDatasetImported(e)?&#x27;Imported&#x27;:e.reporting?.activity===&#x27;sdg&#x27;?&#x27;Generated&#x27;:&#x27;Unrecorded&#x27;};
+ return loomCatalogTaskGroups(rows,loomCatalogTask,items=&gt;{
+  const groups=new Map();
+  for(const e of items){
+   const task=loomCatalogTask(e),organization=e.dataset_organization;
+   const path=organization?.task_ref?.id===task?.id?(organization?.path||[]):[];
+   const key=JSON.stringify(path.map(node=&gt;node.id));
+   if(!groups.has(key))groups.set(key,{label:path.map(node=&gt;node.label).join(&#x27; / &#x27;),rows:[]});
+   groups.get(key).rows.push(e);
+  }
+  return [...groups.values()].map(group=&gt;group.label?
+   &#x27;&lt;section class=&quot;pa-dataset-subgroup&quot;&gt;&lt;h4&gt;&#x27;+esc(group.label)+&#x27;&lt;/h4&gt;&#x27;+loomDatasetTree(group.rows)+&#x27;&lt;/section&gt;&#x27;:
+   loomDatasetTree(group.rows)).join(&#x27;&#x27;);
+ });
 }
 function loomDatasetList(){
- const rows=loomUniqueDatasets(catKind(&#x27;dataset&#x27;)),f={...loomDatasetFilterEmpty,...state.datasetFilters};
- const candidates=rows.map(e=&gt;({e,...loomDatasetFilterMeta(e)})),query=f.query.trim().toLowerCase();
- const filtered=Boolean(f.role||f.input||f.split||f.origin||query),changed=Object.values(f).some(Boolean);
- const shown=candidates.filter(x=&gt;(!f.role||x.role===f.role)&amp;&amp;(!f.input||x.inputs.includes(f.input))&amp;&amp;(!f.split||x.splits.includes(f.split))&amp;&amp;(!f.origin||x.origin===f.origin)&amp;&amp;(!query||catSearchText(x.e).includes(query))).map(x=&gt;x.e);
- const roles=[...new Set([...candidates.map(x=&gt;x.role),f.role].filter(Boolean))].sort();
- const buttons=roles.length&gt;1||f.role?[[&#x27;&#x27;,&#x27;All&#x27;,rows.length],...roles.map(role=&gt;[role,role,candidates.filter(x=&gt;x.role===role).length])]:[];
- const pills=buttons.map(([value,label,n])=&gt;`&lt;button class=&quot;pa-pill ${f.role===value?&#x27;active&#x27;:&#x27;&#x27;}&quot; data-dataset-role=&quot;${esc(value)}&quot; aria-pressed=&quot;${f.role===value}&quot;&gt;${esc(label)}&lt;span&gt;${n}&lt;/span&gt;&lt;/button&gt;`).join(&#x27;&#x27;);
- const select=(key,label,entries)=&gt;modelFilterSelect(key,label,entries,f[key],&#x27;data-dataset-filter&#x27;);
- const filters=`&lt;section class=&quot;pa-model-filters&quot; aria-label=&quot;데이터셋 필터&quot;&gt;&lt;div class=&quot;pa-model-filter-top&quot;&gt;&lt;div class=&quot;pa-model-role-group&quot; role=&quot;group&quot; aria-label=&quot;데이터셋 종류&quot;&gt;${pills}&lt;/div&gt;&lt;button class=&quot;pa-model-filter-reset&quot; data-dataset-reset${changed?&#x27;&#x27;:&#x27; disabled&#x27;}&gt;초기화&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;pa-model-filter-fields pa-dataset-filter-fields&quot;&gt;${select(&#x27;input&#x27;,&#x27;입력&#x27;,candidates.flatMap(x=&gt;x.inputs))}${select(&#x27;split&#x27;,&#x27;Split&#x27;,candidates.flatMap(x=&gt;x.splits))}${select(&#x27;origin&#x27;,&#x27;Origin&#x27;,candidates.map(x=&gt;x.origin))}&lt;label class=&quot;pa-model-filter-field pa-model-filter-search&quot;&gt;&lt;span&gt;검색&lt;/span&gt;&lt;input type=&quot;search&quot; data-dataset-filter=&quot;query&quot; aria-label=&quot;데이터셋 검색&quot; placeholder=&quot;이름·키워드&quot; value=&quot;${esc(f.query)}&quot; autocomplete=&quot;off&quot;&gt;&lt;/label&gt;&lt;/div&gt;&lt;/section&gt;`;
- // A focused search shows matches even when a lineage branch was collapsed.
- const result=filtered?&#x27;&lt;div class=&quot;pa-dataset-tree&quot; role=&quot;list&quot;&gt;&#x27;+shown.map(e=&gt;loomDatasetRow(e,0,0,false,null,true)).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;:loomDatasetGroups(shown);
- const empty=&#x27;&lt;div class=&quot;pa-empty&quot;&gt;&#x27;+(filtered?&#x27;조건에 맞는 데이터셋이 없습니다.&#x27;:&#x27;표시할 데이터셋이 없습니다.&#x27;)+&#x27;&lt;/div&gt;&#x27;;
- return heading(&#x27;CATALOG&#x27;,&#x27;Datasets&#x27;,&#x27;&#x27;)+catStatus()+filters
-  +panel(`&lt;span data-dataset-result-count&gt;${shown.length} / ${rows.length}개 데이터셋&lt;/span&gt;`,(result&amp;&amp;shown.length?result:empty)+loomCatalogPager(&#x27;dataset&#x27;,&#x27;Load more datasets&#x27;));
+ const rows=loomUniqueDatasets(catKind(&#x27;dataset&#x27;));
+ const list=rows.length?loomDatasetGroups(rows):&#x27;&lt;div class=&quot;pa-empty&quot;&gt;표시할 데이터셋이 없습니다.&lt;/div&gt;&#x27;;
+ return heading(&#x27;CATALOG&#x27;,&#x27;Datasets&#x27;,&#x27;&#x27;)+catStatus()
+  +panel(`&lt;span data-dataset-result-count&gt;${rows.length}개 데이터셋&lt;/span&gt;`,list+loomCatalogPager(&#x27;dataset&#x27;,&#x27;Load more datasets&#x27;));
 }
 const loomDatasetPriorList=catalogList;
 catalogList=function(kind){return kind===&#x27;dataset&#x27;?loomDatasetList():loomDatasetPriorList(kind);};
-function updateDatasetFilters(target,values,reset=false){
- const pane=ws.panes.find(p=&gt;p.id===target.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);if(!pane)return;
- ws.active=pane.id;
- const view=activeTab(pane).view;
- view.datasetFilters=reset?{...loomDatasetFilterEmpty}:{...loomDatasetFilterEmpty,...view.datasetFilters,...values};
- if(reset)render();else refreshCatalogPanes();
- persist();
-}
-root.addEventListener(&#x27;click&#x27;,event=&gt;{const b=event.target.closest(&#x27;[data-dataset-role],[data-dataset-reset]&#x27;);if(b)updateDatasetFilters(b,{role:b.dataset.datasetRole},b.hasAttribute(&#x27;data-dataset-reset&#x27;));});
-root.addEventListener(&#x27;change&#x27;,event=&gt;{const f=event.target.closest(&#x27;select[data-dataset-filter]&#x27;);if(f)updateDatasetFilters(f,{[f.dataset.datasetFilter]:f.value});});
-root.addEventListener(&#x27;input&#x27;,event=&gt;{const f=event.target.closest(&#x27;input[data-dataset-filter]&#x27;);if(f&amp;&amp;!event.isComposing)updateDatasetFilters(f,{query:f.value});});
-root.addEventListener(&#x27;click&#x27;,event=&gt;{
- const summary=event.target.closest(&#x27;[data-dataset-group-toggle]&#x27;),button=event.target.closest(&#x27;[data-dataset-node]&#x27;);if(!summary&amp;&amp;!button)return;
- event.preventDefault();event.stopImmediatePropagation();const pane=(summary||button).closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;
- const view=activeTab().view;
- if(summary){const opening=!summary.parentElement.open,closed=new Set(view.closedDatasetGroups||[]);if(opening)closed.delete(summary.dataset.datasetGroupToggle);else closed.add(summary.dataset.datasetGroupToggle);view.closedDatasetGroups=[...closed];if(summary.dataset.datasetGroupToggle===&#x27;task:unassigned&#x27;)view.openOtherDatasets=opening;render();}
- else{const closed=new Set(view.closedDatasetNodes||[]);closed.has(button.dataset.datasetNode)?closed.delete(button.dataset.datasetNode):closed.add(button.dataset.datasetNode);view.closedDatasetNodes=[...closed];render();}
- persist();
-},true);
 
 const loomReportingPriorOutcome=loomRepresentativeOutcome;
 function loomCheckpointHeadline(sweep){
@@ -6386,7 +6330,8 @@ const loomReportPreviousDetail=catalogDetail;
 catalogDetail=function(id){
  const e=catEntity(id),html=loomReportPreviousDetail(id);if(!e||![&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;run&#x27;].includes(e.kind)||!catalogData.capabilities?.reporting)return html;
  const t=document.createElement(&#x27;template&#x27;);t.innerHTML=html;
- const policy=e.kind===&#x27;model&#x27;&amp;&amp;(e.reporting||e.metadata?.research?.model?.role===&#x27;policy&#x27;||[&#x27;VLA&#x27;,&#x27;Policy&#x27;].includes(modelFilterMeta(e).role));
+ const role=e.kind===&#x27;model&#x27;?modelFilterMeta(e).role:null;
+ const policy=role&amp;&amp;role!==&#x27;Observer&#x27;&amp;&amp;(e.reporting||[&#x27;VLA&#x27;,&#x27;Policy&#x27;].includes(role));
  if(policy){const label=t.content.querySelector(&#x27;.pa-heading .pa-eyebrow&#x27;);if(label)label.textContent=&#x27;POLICY&#x27;;}
  const overview=t.content.querySelector(&#x27;.pa-research-overview&#x27;);if(!overview)return t.innerHTML;
  if(policy){
@@ -6939,6 +6884,7 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 /* Queue actions remain inline with their Job, sharing both color themes. */
 #pai-studio .pa-work-type{display:inline-block;margin-inline-end:8px;padding:1px 7px;border:1px solid var(--pa-line);border-radius:5px;background:var(--pa-paper);color:var(--pa-ink);font-size:12px;font-weight:650;line-height:1.45;white-space:nowrap;vertical-align:1px}
 #pai-studio .pa-work-type[data-work-type=&quot;job&quot;]{background:var(--pa-tint);color:var(--pa-selected-text)}
+#pai-studio .pa-terminal-work-queue .pa-work-type{margin-inline-end:0}
 #pai-studio .pa-evaluation-group{padding:12px;margin:8px 0 14px;border:1px solid var(--pa-line);border-radius:var(--pa-radius)}
 #pai-studio .pa-evaluation-group&gt;h3{margin:0 0 10px;font-size:14px;font-weight:650}
 .pa-queue-position{display:block;margin-top:5px;color:var(--muted)}
@@ -7379,19 +7325,37 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 #pai-studio .pa-research-inputs dt{font-size:12px;color:var(--pa-muted)}
 #pai-studio .pa-research-inputs dd{margin:0;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
 #pai-studio .pa-research-conditions{min-width:0;overflow:auto;grid-column:1/-1}
-#pai-studio .pa-model-filter-fields.pa-dataset-filter-fields{grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.4fr)}
-#pai-studio .pa-dataset-filter-fields .pa-model-filter-search{grid-column:auto}
-#pai-studio .pa-dataset-family{margin:12px 0 20px;min-width:0}
-#pai-studio .pa-dataset-family&gt;details&gt;summary{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--pa-line);color:var(--pa-ink);cursor:pointer}
-#pai-studio .pa-dataset-family&gt;details&gt;summary:before{content:&#x27;▾&#x27;;font-size:11px}
-#pai-studio .pa-dataset-family&gt;details:not([open])&gt;summary:before{content:&#x27;▸&#x27;}
-#pai-studio .pa-dataset-family h2{font-size:15px;margin:0;line-height:1.5;overflow-wrap:anywhere}
-#pai-studio .pa-dataset-family&gt;details&gt;summary&gt;span{font-size:12px;color:var(--pa-muted);font-variant-numeric:tabular-nums}
-#pai-studio .pa-dataset-subgroup{margin:8px 0 12px;min-width:0}
-#pai-studio .pa-dataset-subgroup&gt;summary{font-size:13px;font-weight:600;padding:8px 0;color:var(--pa-muted);cursor:pointer}
-#pai-studio .pa-dataset-subgroup .pa-dataset-subgroup{margin-left:12px}
-#pai-studio .pa-scientific-card.pa-dataset-row{padding-inline-start:var(--dataset-indent,0);min-width:0}
-#pai-studio .pa-dataset-tree{margin-top:12px}
+#pai-studio .pa-catalog-task-layout{display:grid;grid-template-columns:minmax(130px,180px) minmax(0,1fr);align-items:start;gap:20px}
+#pai-studio .pa-catalog-index-stack{display:grid;gap:10px;min-width:0}
+#pai-studio .pa-catalog-task-index{display:grid;gap:3px;align-self:start;min-width:0;padding:5px;border:1px solid var(--pa-line);border-radius:var(--pa-radius);background:var(--pa-side)}
+#pai-studio .pa-catalog-task-index&gt;h2{margin:0;padding:5px 10px;color:var(--pa-muted);font-size:12px;font-weight:600;line-height:1.4}
+#pai-studio .pa-model-filter-fields.pa-policy-filter-fields{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}
+#pai-studio .pa-policy-filter-fields .pa-model-filter-search{grid-column:auto}
+#pai-studio .pa-policy-filter-fields+.pa-model-filter-reset{display:block;margin:10px 0 0 auto}
+#pai-studio .pa-policy-filter-fields+.pa-model-filter-reset[hidden]{display:none}
+@container pane (max-width:440px){
+ #pai-studio .pa-model-filter-fields.pa-policy-filter-fields{grid-template-columns:minmax(0,1fr)}
+}
+#pai-studio .pa-catalog-task-index button{border:0;border-radius:6px;background:none;color:var(--pa-muted);text-align:left;padding:8px 10px;cursor:pointer;overflow-wrap:anywhere}
+#pai-studio .pa-catalog-task-index button:hover,#pai-studio .pa-catalog-task-index button[aria-pressed=true]{background:var(--pa-tint);color:var(--pa-ink)}
+#pai-studio .pa-catalog-task-index button[aria-pressed=true]{font-weight:600}
+#pai-studio .pa-catalog-task-content{min-width:0}
+#pai-studio .pa-catalog-task-content&gt;.pa-filter{margin-top:0}
+#pai-studio .pa-catalog-task-card{margin:12px 0 16px;border:1px solid var(--pa-line);border-radius:var(--pa-radius);overflow:hidden;min-width:0}
+#pai-studio .pa-catalog-task-card&gt;h3{margin:0;padding:10px 14px;background:var(--pa-side);border-bottom:1px solid var(--pa-line);font-size:15px;font-weight:600;overflow-wrap:anywhere}
+#pai-studio .pa-catalog-task-card&gt;h3 a{color:inherit;text-decoration:none}
+#pai-studio .pa-catalog-task-card&gt;h3 a:hover{text-decoration:underline}
+#pai-studio .pa-catalog-task-records{padding:0 14px}
+#pai-studio .pa-catalog-task-records .pa-output-task{margin:0}
+#pai-studio .pa-dataset-subgroup{padding-block:10px;min-width:0}
+#pai-studio .pa-dataset-subgroup+.pa-dataset-subgroup{border-top:1px solid var(--pa-line)}
+#pai-studio .pa-dataset-subgroup&gt;h4{margin:0;color:var(--pa-accent);font-size:13px;font-weight:600;overflow-wrap:anywhere}
+#pai-studio .pa-scientific-card.pa-dataset-row{min-width:0}
+@container pane (max-width:700px){
+ #pai-studio .pa-catalog-task-layout{grid-template-columns:minmax(0,1fr);gap:14px}
+ #pai-studio .pa-catalog-task-index{display:flex;flex-wrap:wrap}
+ #pai-studio .pa-catalog-task-index&gt;h2{flex-basis:100%}
+}
 #pai-studio .pa-dataset-name{display:flex;align-items:flex-start;gap:6px;min-width:0}
 #pai-studio .pa-dataset-name&gt;div{min-width:0}
 #pai-studio .pa-dataset-name [data-entity]{white-space:normal;overflow-wrap:anywhere;text-align:left}
@@ -7401,12 +7365,6 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 #pai-studio .pa-dataset-bc{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;background:var(--pa-tint);color:var(--pa-ink)}
 #pai-studio .pa-dataset-bc.is-not-ready{border:1px solid var(--pa-line);font-weight:500}
 #pai-studio .pa-dataset-origin{display:inline-block;padding:1px 6px;border:1px solid var(--pa-line);border-radius:4px;font-size:11px;color:var(--pa-muted)}
-#pai-studio .pa-dataset-expander{display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--pa-muted);padding:2px;flex:0 0 18px;width:18px}
-#pai-studio .pa-dataset-expander svg{width:14px;height:14px}
-@container pane (max-width:540px){
- #pai-studio .pa-model-filter-fields.pa-dataset-filter-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
- #pai-studio .pa-dataset-filter-fields .pa-model-filter-search{grid-column:1/-1}
-}
 #pai-studio .pa-dataset-parent{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;margin:8px 0}
 #pai-studio .pa-dataset-parent&gt;small{flex-basis:100%;color:var(--pa-muted);overflow-wrap:anywhere}
 #pai-studio .pa-dataset-parent&gt;.pa-button,#pai-studio .pa-dataset-parent&gt;[data-entity]{max-width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere;text-align:left}

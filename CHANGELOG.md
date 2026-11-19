@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0-alpha.61
+
+- Navigate the research Catalog by Task. Policies add an independent Model family selection, and catalog rows retain their exact record and lineage links.
+- Require an exact Task revision for newly submitted or imported Regular and Reference Datasets, Policies and Experiments. Keep general installation and Runtime evidence in Artifacts and receipts.
+- Clarify Standalone Unit history, consolidate scientific record presentation, and synchronize Loom Use guidance with the native API reference.
+
 ## 0.2.0-alpha.46
 
 - Discover grouped Job parents once per catalog read and avoid recursive family aggregation for unrelated singleton Jobs. Preserve real group summaries and keep large catalog reads separate from the mutation lane.

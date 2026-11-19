@@ -1,6 +1,6 @@
 # Loom
 
-Loom lets multiple users and clients queue CPU/GPU Jobs and manage execution state, logs and artifacts. Callers declare preparation, execution, completion and error-handling actions; Loom executes and records them. Error diagnosis, fixes, event consumption and agent operations remain the caller's responsibility.
+Loom schedules CPU and GPU work, records execution and logs, and publishes versioned research outputs. A Job delivers one Dataset, Policy or Experiment. Units carry out the Job's work or run independently for preparation and validation.
 
 The native Rust core retains the existing web and administrator integrations. Start with [the documentation index](docs/README.md), [concepts](docs/CONCEPTS.md), or [API reference](docs/reference/README.md). Maintainers use [implementation boundaries](docs/IMPLEMENTATION.md) and the feature catalog. Operational updates use a separately selected immutable release.
 
@@ -11,6 +11,7 @@ This repository includes source, Dockerfiles, Compose definitions and host insta
 - **[Install on a new machine: INSTALL.md](INSTALL.md)**
 - [Installation and operations](deploy/README.md)
 - [Agent-assisted installation and script reference](deploy/installer/INSTALL.md)
+- [Updates and rollback for an existing installation](docs/UPDATES.md)
 
 Pin a [GitHub Release](https://github.com/LoomOps/Loom/releases) tag to build images and an installation kit from source. A separate image registry is not required. Private repositories require GitHub read access; host administration and Tailscale enrollment are separate permissions.
 
@@ -54,12 +55,6 @@ python3 tests/run.py --browser
 In an existing development installation, `deploy/build.sh` creates numbered images and `deploy/compose.sh up -d --no-build` applies them. Restart Ops after active Jobs return their resources. On a new machine, complete installation first.
 
 [Testing](deploy/TESTING.md) · [Platform architecture](deploy/PLATFORM.md) · [Documentation index](docs/README.md)
-
-## Installation and updates
-
-[Structured installation](deploy/installer/INSTALL.md) · [Source installation, overrides, updates and rollback](docs/UPDATES.md)
-
-Client installation tools and Skills live in the independent Loom Use repository. Server guides and its pinned client release live in `loom_use`; development specifications live in `docs/features`. Machine-specific instructions, secrets, research data and historical execution evidence are not part of the Git distribution.
 
 ## License
 

@@ -97,18 +97,6 @@ function loomResearchCardFacts(e){
  if(count)map.set('count',loomResearchCountFact(count,unit));
  return order.map(id=>map.get(id)).filter(f=>f&&f.status!=='conflict'&&loomResearchVisibleFact(f)&&!loomCheckpointPooledFact(e,f)).slice(0,isDataset?10:isModel?9:10);
 }
-const loomResearchOldModelMeta=modelFilterMeta;
-modelFilterMeta=function(e){
- const result=loomResearchOldModelMeta(e),facts=loomResearchFactMap(e),role=facts.get('model_role'),architecture=facts.get('architecture');
- if(role?.status==='recorded')result.role=loomResearchValue(role);
- if(architecture?.status==='recorded')result.family=loomResearchValue(architecture,{compact:true});
- const inputs=loomResearchInputs(e).filter(i=>i.status==='present');
- const rgb=inputs.some(i=>i.kind==='rgb'||i.kind==='rgbd'||i.kind==='vision'&&/RGB/i.test(String(i.value||'')));
- const depth=inputs.some(i=>i.kind==='depth'||i.kind==='rgbd'||i.kind==='vision'&&/RGB-D/i.test(String(i.value||'')));
- if(rgb||depth)result.vision=rgb&&depth?'RGB-D':rgb?'RGB':'Depth';
- const instruction=loomResearchInstruction(e);if(instruction)result.instruction=instruction;
- return result;
-};
 catInputProperties=function(e){
  const inputs=loomResearchInputs(e).filter(x=>x.status==='present');
  return '<div class="pa-input-properties">'+inputs.map(x=>'<span class="pa-input-property"><small>'+esc(loomResearchInputName(x))+'</small><b>'+esc(x.shape?.length?x.shape.join('×'):Array.isArray(x.value)?x.value.join(' · '):x.value||x.unit||'')+'</b></span>').join('')+'</div>';

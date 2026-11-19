@@ -441,6 +441,46 @@ fn new_scientific_admission_requires_reporting_but_frozen_legacy_execution_is_re
 }
 
 #[test]
+fn new_reference_units_require_a_task_and_artifact_only_smoke_can_omit_it() {
+    let mut f = Fixture::new();
+    let contract = builtin(&mut f, "loom.report.dataset");
+    let mut profile = json!({
+        "schema":"loom-execution/v2","revision":"reference.r1","sha256":"a".repeat(64),
+        "params_schema":{"type":"object"},"inputs":{},"outputs":{"data":"dataset"},
+        "runtime":{"executor":"container","lane":"cpu","command":["/bin/true"]},
+        "limits":{"max_attempts":1,"timeout_seconds":30},
+        "reporting":{"contracts":{"dataset":reporting::reference(&contract)},"capabilities":["dataset_statistics"]}
+    });
+    reporting::bind_profile(&f.app.db, &mut profile).unwrap();
+    f.app.config.profiles.insert("reference.r1".into(), profile);
+    let mut unit = json!({"key":"reference","kind":"reference.r1","owner":"owner","notify":"owner","params":{}});
+    assert_eq!(
+        f.call("units", "submit", unit.clone()).unwrap_err().code,
+        "task_required"
+    );
+    assert_eq!(f.count("jobs"), 0);
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"reference-task","definition":{"label":"Grasp"}}),
+        )
+        .unwrap();
+    unit["scenario_ref"] = json!({"id":task["id"],"revision":1});
+    let accepted = f.call("units", "submit", unit.clone()).unwrap();
+    assert_eq!(f.call("units", "submit", unit.clone()).unwrap(), accepted);
+    let spec = jobs::load(&f.app.db, accepted["id"].as_str().unwrap())
+        .unwrap()
+        .spec;
+    assert_eq!(spec["scenario_ref"]["id"], task["id"]);
+    let smoke = f.call("units","submit",json!({"key":"smoke","kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false}})).unwrap();
+    assert!(jobs::load(&f.app.db, smoke["id"].as_str().unwrap())
+        .unwrap()
+        .spec["scenario_ref"]
+        .is_null());
+}
+
+#[test]
 fn new_dynamic_outputs_cannot_bypass_reporting_and_old_accepted_outputs_are_preserved() {
     let mut f = Fixture::new();
     let job = f.submit("dynamic-output");
@@ -755,7 +795,14 @@ fn checkpoint_supplement_preserves_exact_sources_and_recomputes_the_series() {
         .call("results", "get", json!({"id":id,"revision":1}))
         .unwrap();
     assert_eq!(original["catalog_class"], "regular");
-    let admission=f.call("jobs","submit_research",json!({"key":"accept-supplement","owner":"owner","notify":"owner",
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"supplement-task","definition":{"label":"Checkpoint evaluation"}}),
+        )
+        .unwrap();
+    let admission=f.call("jobs","submit_research",json!({"key":"accept-supplement","owner":"owner","notify":"owner","scenario_ref":{"id":task["id"],"revision":1},
         "outcome":{"goal":"Evaluate more checkpoints","deliverables":[{"alias":"evaluation","kind":"experiment","from":{"unit":"evaluate","entity":"data"},"supplements":{"id":id,"revision":1}}]},
         "plan":{"sealed":false,"units":[{"id":"evaluate","label":"Evaluate"}]}})).unwrap();
     let root = admission["id"].as_str().unwrap();
@@ -822,7 +869,7 @@ fn checkpoint_supplement_preserves_exact_sources_and_recomputes_the_series() {
         true,
         true,
     );
-    let next=f.call("jobs","submit_research",json!({"key":"accept-invalid-batch","owner":"owner","notify":"owner",
+    let next=f.call("jobs","submit_research",json!({"key":"accept-invalid-batch","owner":"owner","notify":"owner","scenario_ref":{"id":task["id"],"revision":1},
         "outcome":{"goal":"Evaluate another checkpoint","deliverables":[{"alias":"evaluation","kind":"experiment","from":{"unit":"evaluate","entity":"data"},"supplements":exact}]},
         "plan":{"sealed":false,"units":[{"id":"evaluate","label":"Evaluate"}]}})).unwrap();
     f.app
@@ -1025,6 +1072,18 @@ fn outcome_preview_and_publication_bind_hypothesis_and_verified_setup_sessions()
             json!({"outcome":request["outcome"]}),
         )
         .unwrap();
+    assert_eq!(
+        f.call("jobs", "create", request.clone()).unwrap_err().code,
+        "task_required"
+    );
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"science-task","definition":{"label":"Collect demonstrations"}}),
+        )
+        .unwrap();
+    request["scenario_ref"] = json!({"id":task["id"],"revision":1});
     let opened = f.call("jobs", "create", request.clone()).unwrap();
     assert_eq!(opened["science_digest"], preview["science_digest"]);
     request["outcome"]["science"]["hypothesis"]["metric"] = json!("changed");

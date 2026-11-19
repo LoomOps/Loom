@@ -304,7 +304,8 @@ const loomReportPreviousDetail=catalogDetail;
 catalogDetail=function(id){
  const e=catEntity(id),html=loomReportPreviousDetail(id);if(!e||!['dataset','model','experiment','run'].includes(e.kind)||!catalogData.capabilities?.reporting)return html;
  const t=document.createElement('template');t.innerHTML=html;
- const policy=e.kind==='model'&&(e.reporting||e.metadata?.research?.model?.role==='policy'||['VLA','Policy'].includes(modelFilterMeta(e).role));
+ const role=e.kind==='model'?modelFilterMeta(e).role:null;
+ const policy=role&&role!=='Observer'&&(e.reporting||['VLA','Policy'].includes(role));
  if(policy){const label=t.content.querySelector('.pa-heading .pa-eyebrow');if(label)label.textContent='POLICY';}
  const overview=t.content.querySelector('.pa-research-overview');if(!overview)return t.innerHTML;
  if(policy){

@@ -7,5 +7,5 @@ Platform releases preserve editable sources and immutable revisions used by Jobs
 
 The Dashboard's **Runtimes** workspace has separate Component and Tool views and shows exact Profile bindings. Components implement Job lifecycle integration; Tools
 implement reusable research algorithms, including hybrid runners. Profiles bind
-execution contracts and immutable revisions. This UI label does not rename the
-six MCP groups or the `components` actions.
+execution contracts and immutable revisions. The software API remains under
+`components`. Discover the current actions with `system.describe`.

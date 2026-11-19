@@ -41,6 +41,7 @@ def classification(path,root=ROOT):
         try:
             with (root/path).open() as source:heading=source.read(1024)
         except OSError:heading=''
+        if re.search(r'^Status: historical\b',heading,re.M):return ('maintainer','historical','recorded design/audit revision')
         if re.search(r'^Status: proposed\b',heading,re.M):return ('maintainer','proposed','explicit design proposal; not an installed capability')
     if path.startswith('docs/features/'):return ('maintainer','current','feature catalog and native implementation')
     if path.endswith('SKILL.md') or path=='AGENTS.md':return ('agent','current','repository/client entry instructions')

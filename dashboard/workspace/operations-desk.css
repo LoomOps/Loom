@@ -149,6 +149,7 @@
 /* Queue actions remain inline with their Job, sharing both color themes. */
 #pai-studio .pa-work-type{display:inline-block;margin-inline-end:8px;padding:1px 7px;border:1px solid var(--pa-line);border-radius:5px;background:var(--pa-paper);color:var(--pa-ink);font-size:12px;font-weight:650;line-height:1.45;white-space:nowrap;vertical-align:1px}
 #pai-studio .pa-work-type[data-work-type="job"]{background:var(--pa-tint);color:var(--pa-selected-text)}
+#pai-studio .pa-terminal-work-queue .pa-work-type{margin-inline-end:0}
 #pai-studio .pa-evaluation-group{padding:12px;margin:8px 0 14px;border:1px solid var(--pa-line);border-radius:var(--pa-radius)}
 #pai-studio .pa-evaluation-group>h3{margin:0 0 10px;font-size:14px;font-weight:650}
 .pa-queue-position{display:block;margin-top:5px;color:var(--muted)}
@@ -589,19 +590,37 @@
 #pai-studio .pa-research-inputs dt{font-size:12px;color:var(--pa-muted)}
 #pai-studio .pa-research-inputs dd{margin:0;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
 #pai-studio .pa-research-conditions{min-width:0;overflow:auto;grid-column:1/-1}
-#pai-studio .pa-model-filter-fields.pa-dataset-filter-fields{grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.4fr)}
-#pai-studio .pa-dataset-filter-fields .pa-model-filter-search{grid-column:auto}
-#pai-studio .pa-dataset-family{margin:12px 0 20px;min-width:0}
-#pai-studio .pa-dataset-family>details>summary{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--pa-line);color:var(--pa-ink);cursor:pointer}
-#pai-studio .pa-dataset-family>details>summary:before{content:'▾';font-size:11px}
-#pai-studio .pa-dataset-family>details:not([open])>summary:before{content:'▸'}
-#pai-studio .pa-dataset-family h2{font-size:15px;margin:0;line-height:1.5;overflow-wrap:anywhere}
-#pai-studio .pa-dataset-family>details>summary>span{font-size:12px;color:var(--pa-muted);font-variant-numeric:tabular-nums}
-#pai-studio .pa-dataset-subgroup{margin:8px 0 12px;min-width:0}
-#pai-studio .pa-dataset-subgroup>summary{font-size:13px;font-weight:600;padding:8px 0;color:var(--pa-muted);cursor:pointer}
-#pai-studio .pa-dataset-subgroup .pa-dataset-subgroup{margin-left:12px}
-#pai-studio .pa-scientific-card.pa-dataset-row{padding-inline-start:var(--dataset-indent,0);min-width:0}
-#pai-studio .pa-dataset-tree{margin-top:12px}
+#pai-studio .pa-catalog-task-layout{display:grid;grid-template-columns:minmax(130px,180px) minmax(0,1fr);align-items:start;gap:20px}
+#pai-studio .pa-catalog-index-stack{display:grid;gap:10px;min-width:0}
+#pai-studio .pa-catalog-task-index{display:grid;gap:3px;align-self:start;min-width:0;padding:5px;border:1px solid var(--pa-line);border-radius:var(--pa-radius);background:var(--pa-side)}
+#pai-studio .pa-catalog-task-index>h2{margin:0;padding:5px 10px;color:var(--pa-muted);font-size:12px;font-weight:600;line-height:1.4}
+#pai-studio .pa-model-filter-fields.pa-policy-filter-fields{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}
+#pai-studio .pa-policy-filter-fields .pa-model-filter-search{grid-column:auto}
+#pai-studio .pa-policy-filter-fields+.pa-model-filter-reset{display:block;margin:10px 0 0 auto}
+#pai-studio .pa-policy-filter-fields+.pa-model-filter-reset[hidden]{display:none}
+@container pane (max-width:440px){
+ #pai-studio .pa-model-filter-fields.pa-policy-filter-fields{grid-template-columns:minmax(0,1fr)}
+}
+#pai-studio .pa-catalog-task-index button{border:0;border-radius:6px;background:none;color:var(--pa-muted);text-align:left;padding:8px 10px;cursor:pointer;overflow-wrap:anywhere}
+#pai-studio .pa-catalog-task-index button:hover,#pai-studio .pa-catalog-task-index button[aria-pressed=true]{background:var(--pa-tint);color:var(--pa-ink)}
+#pai-studio .pa-catalog-task-index button[aria-pressed=true]{font-weight:600}
+#pai-studio .pa-catalog-task-content{min-width:0}
+#pai-studio .pa-catalog-task-content>.pa-filter{margin-top:0}
+#pai-studio .pa-catalog-task-card{margin:12px 0 16px;border:1px solid var(--pa-line);border-radius:var(--pa-radius);overflow:hidden;min-width:0}
+#pai-studio .pa-catalog-task-card>h3{margin:0;padding:10px 14px;background:var(--pa-side);border-bottom:1px solid var(--pa-line);font-size:15px;font-weight:600;overflow-wrap:anywhere}
+#pai-studio .pa-catalog-task-card>h3 a{color:inherit;text-decoration:none}
+#pai-studio .pa-catalog-task-card>h3 a:hover{text-decoration:underline}
+#pai-studio .pa-catalog-task-records{padding:0 14px}
+#pai-studio .pa-catalog-task-records .pa-output-task{margin:0}
+#pai-studio .pa-dataset-subgroup{padding-block:10px;min-width:0}
+#pai-studio .pa-dataset-subgroup+.pa-dataset-subgroup{border-top:1px solid var(--pa-line)}
+#pai-studio .pa-dataset-subgroup>h4{margin:0;color:var(--pa-accent);font-size:13px;font-weight:600;overflow-wrap:anywhere}
+#pai-studio .pa-scientific-card.pa-dataset-row{min-width:0}
+@container pane (max-width:700px){
+ #pai-studio .pa-catalog-task-layout{grid-template-columns:minmax(0,1fr);gap:14px}
+ #pai-studio .pa-catalog-task-index{display:flex;flex-wrap:wrap}
+ #pai-studio .pa-catalog-task-index>h2{flex-basis:100%}
+}
 #pai-studio .pa-dataset-name{display:flex;align-items:flex-start;gap:6px;min-width:0}
 #pai-studio .pa-dataset-name>div{min-width:0}
 #pai-studio .pa-dataset-name [data-entity]{white-space:normal;overflow-wrap:anywhere;text-align:left}
@@ -611,12 +630,6 @@
 #pai-studio .pa-dataset-bc{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;background:var(--pa-tint);color:var(--pa-ink)}
 #pai-studio .pa-dataset-bc.is-not-ready{border:1px solid var(--pa-line);font-weight:500}
 #pai-studio .pa-dataset-origin{display:inline-block;padding:1px 6px;border:1px solid var(--pa-line);border-radius:4px;font-size:11px;color:var(--pa-muted)}
-#pai-studio .pa-dataset-expander{display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--pa-muted);padding:2px;flex:0 0 18px;width:18px}
-#pai-studio .pa-dataset-expander svg{width:14px;height:14px}
-@container pane (max-width:540px){
- #pai-studio .pa-model-filter-fields.pa-dataset-filter-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
- #pai-studio .pa-dataset-filter-fields .pa-model-filter-search{grid-column:1/-1}
-}
 #pai-studio .pa-dataset-parent{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;margin:8px 0}
 #pai-studio .pa-dataset-parent>small{flex-basis:100%;color:var(--pa-muted);overflow-wrap:anywhere}
 #pai-studio .pa-dataset-parent>.pa-button,#pai-studio .pa-dataset-parent>[data-entity]{max-width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere;text-align:left}

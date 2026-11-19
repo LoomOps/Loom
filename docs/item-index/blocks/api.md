@@ -1,10 +1,10 @@
 # Api — Item/index impact and detailed work
 
-Status: proposed. Impact: **Direct**. No runtime change is made by this plan.
+Status: historical Item index impact review. See the [current API feature specification](../../features/api.md).
 
 ## Observed baseline
 
-The live registry exposes six groups; native reads use bounded read snapshots. Historical lookup accepts revision but currently selects the latest matching snapshot in history_record.
+At the time of this review the registry exposed six groups and native reads used bounded read snapshots. Use the [historical result action reference](../../reference/results.md#historical) for the current revision and snapshot arguments.
 
 Reviewed source:
 

@@ -4,7 +4,7 @@ A Research Task is versioned task/protocol context, not a scheduler or Profile. 
 
 ## Create and pin
 
-Read the exact schemas for `results.register_scenario` and `jobs.submit` (or `submit_workflow`). Create a definition with `label` and optional `description`, `protocol`, `references` and `metadata`, using a stable key. Retain the returned ID, revision and digest. Submit `scenario_ref: {"id":"<scenario-id>","revision":1}` when the user's task has explicit known context. Unassigned records remain valid.
+Look up the Task with `results.scenarios`. If an established task has no entry, use `results.register_scenario` with a stable key, `label` and any recorded `description`, `protocol`, `references` and `metadata`. Pin the returned ID and revision in `scenario_ref` when submitting or importing a Dataset, Policy or Experiment, including Reference. General infrastructure work may omit the Task and use Artifacts or Runtime receipts. Existing unassigned records remain readable.
 
 `results.update_scenario` appends a definition revision using `expected_revision` and a reason. Existing accepted Jobs retain their original reference. `archive_scenario` changes discovery; exact historical context remains readable. A stale revision or changed key/request is a conflict.
 
@@ -31,8 +31,8 @@ dashboard_page/search_items task_id filters span Task revisions. The exact
 scenario_ref filter selects one revision. Both match accepted pins and active
 typed links. An explicitly linked historical snapshot remains selectable even
 when another snapshot is newer; link corrections expire context-filtered cursors.
-Unassigned records remain visible in All tasks. The Dashboard has no standalone
-Scenario navigation tab; Tasks are filters and links on research lists.
+Unassigned records remain visible under All in the catalog Task index. The index
+filters Datasets, Policies and Experiments. Exact Task details remain linked from records.
 
 Target identity objects accept only their documented selector fields. Extra fields
 are rejected before storing a link, so a typo cannot create an accepted reference

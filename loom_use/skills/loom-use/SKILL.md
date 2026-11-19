@@ -5,6 +5,6 @@ description: Compatibility entry for existing Loom server-guide Skill links. Rea
 
 # Loom guide bridge
 
-If MCP is connected, call `system.status`, `system.guide`, and load the relevant task guide. Use `jobs` for the Job and Unit boundaries and `results` for catalog classes. Read the nearest walkthrough in `job-cases` or `catalog-cases` when a boundary or publication path is unclear. Resolve required values with the connected `jobs` guide and use `job-intake-cases` for input and clarification examples. Use `system.describe({group,action})` for exact arguments. The running binary defines supported behavior.
+Confirm the connection with `system.status`. Load the relevant server guide through `system.guide` and the exact action schema through `system.describe({group,action})`. The `jobs` and `catalog-cases` guides cover execution and publication boundaries.
 
-This server bundle contains guides, not the client installer. For requested connection setup or repair, use the exact independent Loom-Use release declared by `client_release` in the guide manifest. Its checksum-verified package contains `INSTALL.md` and the current client Skills. Do not treat this directory as the client root or install server software as a connection step.
+For requested client setup or repair, use `INSTALL.md` from the checksum-verified Loom Use package declared by `client_release` in the guide manifest.

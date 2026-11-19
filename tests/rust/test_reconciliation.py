@@ -15,13 +15,32 @@ class ReconciliationTests(unittest.TestCase):
   t=self.call('results','get_metadata_template',{'id':'loom.dataset','revision':1});pin={k:t[k] for k in ('id','revision','sha256')}
   definition={'kind':'dataset','label':'Source demonstrations','primary':{'machine_id':'fixture','storage_id':'fixture-data','ref':'template.txt'},'metadata':{'template_ref':pin,'research':{'robot':{'status':'recorded','model':'Franka Panda'},'collection':{'status':'recorded','count':0,'unit':'episodes'}}}}
   op={'operation':'import','schema':'loom-asset/v3','source':{'system':'fixture','id':'typed-dataset','revision':'1'},'definition':definition}
+  request={'key':'template-plan','proposal':{'schema':'loom-reconcile/v1','operations':[op]}}
+  with self.assertRaises(HTTPError) as missing:self.call('results','reconcile_plan',request)
+  self.assertEqual(missing.exception.code,400)
+  self.assertEqual(json.load(missing.exception)['code'],'task_required')
+  task=self.call('results','register_scenario',{'key':'import-task','definition':{'label':'Grasp'}})
+  definition['scenario_ref']={'id':task['id'],'revision':1}
   p=self.call('results','reconcile_plan',{'key':'template-plan','proposal':{'schema':'loom-reconcile/v1','operations':[op]}})
   args={'plan_id':p['plan_id']};self.call('results','reconcile_validate',args);applied=self.call('results','reconcile_apply',args)
   self.assertEqual(applied,self.call('results','reconcile_apply',args))
   with sqlite3.connect(self.root/'state/ops.sqlite3') as db:
-   row=json.loads(db.execute('SELECT manifest FROM asset_revisions').fetchone()[0]);self.assertEqual(row['label'],'Franka Panda · Source demonstrations');self.assertEqual(row['metadata_template'],pin)
+   row=json.loads(db.execute('SELECT manifest FROM asset_revisions').fetchone()[0]);self.assertEqual(row['label'],'Franka Panda · Source demonstrations');self.assertEqual(row['metadata_template'],pin);self.assertEqual(row['scenario_ref']['id'],task['id']);self.assertEqual(row['catalog_class'],'regular')
    self.assertEqual(db.execute('SELECT count(*) FROM jobs').fetchone()[0],0)
   self.assertEqual((self.data/'template.txt').read_bytes(),raw)
+  reference={**op,'source':{**op['source'],'id':'reference-dataset'},'definition':{**definition,'catalog_class':'reference'}}
+  reference['definition'].pop('scenario_ref')
+  request={'key':'reference-plan','proposal':{'schema':'loom-reconcile/v1','operations':[reference]}}
+  with self.assertRaises(HTTPError) as missing:self.call('results','reconcile_plan',request)
+  self.assertEqual(missing.exception.code,400)
+  self.assertEqual(json.load(missing.exception)['code'],'task_required')
+  reference['definition']['scenario_ref']=definition['scenario_ref']
+  ref=self.call('results','reconcile_plan',request)
+  args={'plan_id':ref['plan_id']};self.call('results','reconcile_validate',args);done=self.call('results','reconcile_apply',args)
+  result=self.call('results','get',{'id':done['receipt']['operations'][0]['id'],'revision':1})
+  self.assertEqual(result['catalog_class'],'reference')
+  self.assertEqual(result['scenario_ref']['id'],task['id'])
+
  def import_file(self,key,name='original.txt',kind='artifact',metadata=None):
   definition={'kind':kind,'label':'Preserved '+kind,'metadata':metadata or {},'primary':{'machine_id':'fixture','storage_id':'fixture-data','ref':name}}
   op={'operation':'import','schema':'loom-asset/v2','source':{'system':'preserved-fixture','id':key,'revision':'original'},'definition':definition}
@@ -71,7 +90,8 @@ class ReconciliationTests(unittest.TestCase):
    self.assertEqual(db.execute('select count(*) from asset_revisions').fetchone()[0],1)
  def test_changed_source_between_validate_and_apply_rolls_back_entire_plan(self):
   (self.data/'original.txt').write_text('before')
-  op={'operation':'import','schema':'loom-asset/v2','source':{'system':'fixture','id':'mutated','revision':'1'},'definition':{'kind':'model','label':'Model','primary':{'machine_id':'fixture','storage_id':'fixture-data','ref':'original.txt'}}}
+  task=self.call('results','register_scenario',{'key':'model-task','definition':{'label':'Grasp'}})
+  op={'operation':'import','schema':'loom-asset/v2','source':{'system':'fixture','id':'mutated','revision':'1'},'definition':{'kind':'model','label':'Model','catalog_class':'reference','scenario_ref':{'id':task['id'],'revision':1},'primary':{'machine_id':'fixture','storage_id':'fixture-data','ref':'original.txt'}}}
   plan=self.call('results','reconcile_plan',{'key':'stale','proposal':{'schema':'loom-reconcile/v1','operations':[op]}});args={'plan_id':plan['plan_id']}
   self.call('results','reconcile_validate',args);(self.data/'original.txt').write_text('after')
   with self.assertRaises(HTTPError) as error:self.call('results','reconcile_apply',args)

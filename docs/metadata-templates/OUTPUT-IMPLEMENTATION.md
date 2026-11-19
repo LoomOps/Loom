@@ -1,6 +1,6 @@
 # Output evidence implementation boundaries
 
-Status: implementation and rollout record. Companion to [Scientific outputs and experimental setup](OUTPUT-EVIDENCE.md). Names in backticks described as proposed are design identifiers. The connected server's action registry describes installed behavior.
+Status: historical implementation and rollout record. See the [Results feature specification](../features/results.md) and [reporting guide](../../loom_use/reporting.md) for supported behavior.
 
 ## Current implementation
 

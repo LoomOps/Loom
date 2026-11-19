@@ -5,7 +5,7 @@ Loom schedules reproducible Jobs, records their outputs, and connects research r
 | Need | Start here |
 |---|---|
 | Understand the objects and their relationships | [Concepts](CONCEPTS.md) |
-| Submit and inspect a first Job | [First Job](../loom_use/quickstart.md) |
+| Submit and inspect a first Unit | [First Unit](../loom_use/quickstart.md) |
 | Perform a specific operation | [Task guide index](../loom_use/entry.md) |
 | Look up an API action, schema, scope or example | [API reference](reference/README.md) |
 | Find the implementation to change | [Implementation boundaries](IMPLEMENTATION.md), then [feature catalog](features/README.md) |
@@ -21,6 +21,6 @@ For a connected installation, `system.guide` supplies that binary's task guides 
 
 The [scientific Output and Experimental Setup proposal](metadata-templates/OUTPUT-EVIDENCE.md) defines analysis coverage, evidence ownership and Sim–Real comparison.
 
-The [Job and Unit design](jobs/JOB-UNIT-DESIGN.md) is the proposed plan for independent research outcomes, two queue views, GPU access and catalog classes. The [current Job boundaries](jobs/BOUNDARIES.md) describe the existing execution contract and its historical terminology.
+The [current Job and Unit boundaries](jobs/BOUNDARIES.md) describe research outcomes, scheduling and catalog publication. The [original design and rollout record](jobs/JOB-UNIT-DESIGN.md) explains how those boundaries were chosen.
 
 [Rust redesign](rust-port/README.md) and [Item index design](item-index/README.md) retain the plans, decisions and implementation ledgers used to build the native service. The implementation is present in `rust/`. Planning language in a historical document is not a current installation or agent instruction. Use the current reference and feature catalog for changes; use the design records to understand the rationale.

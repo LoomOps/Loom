@@ -18,6 +18,7 @@ The Job's publishing Unit identifies the evaluation Profile, Policy and test Dat
   "action": "submit_research",
   "arguments": {
     "key": "rgb-eval-replicate-02",
+    "scenario_ref": {"id": "<task-id>", "revision": 1},
     "owner": "owner",
     "notify": "owner",
     "category": "evaluation",
@@ -79,6 +80,7 @@ The preceding Job pins the Dataset revision and used 20,000 updates. The current
   "action": "submit_research",
   "arguments": {
     "key": "grasp-rgb-5000",
+    "scenario_ref": {"id": "<task-id>", "revision": 1},
     "owner": "owner",
     "notify": "owner",
     "category": "fine_tuning",

@@ -554,6 +554,20 @@ impl Application {
             }
         }
         let mut entities = visible;
+        for job in entities.iter_mut().filter(|entity| entity["kind"] == "job") {
+            let properties = &mut job["properties"];
+            // The Job's exact spec retains older mode values. A Dashboard label
+            // needs the recorded purpose and reduced scope of an actual pilot.
+            if properties["execution_mode"] == "pilot"
+                && !["preflight_for", "reduced_scope"].into_iter().all(|field| {
+                    properties["pilot"][field]
+                        .as_str()
+                        .is_some_and(|value| !value.trim().is_empty())
+                })
+            {
+                properties["execution_mode"] = Value::Null;
+            }
+        }
         for entity in entities
             .iter_mut()
             .filter(|e| e["kind"] == "job" && e["loom_history"].is_null())
@@ -594,22 +608,7 @@ impl Application {
                 .as_str()
                 .or_else(|| entity["id"].as_str())
                 .unwrap_or("");
-            if let Some(mut review) = self.work_review(id)? {
-                if review["entry_type"] == "job"
-                    && entity["properties"]["state"] == "complete"
-                    && entity["properties"]["execution_mode"] == "pilot"
-                    && self.db.query_row(
-                        "SELECT EXISTS(
-                            SELECT 1 FROM all_entity_revisions e JOIN reviewed_outputs o
-                              ON o.id=e.id AND o.kind=e.kind AND o.revision=CAST(e.revision AS TEXT)
-                            WHERE e.job=? AND o.source='entity' AND o.snapshot='' AND o.catalog_class='regular'
-                         )",
-                        [id],
-                        |r| r.get::<_, bool>(0),
-                    )?
-                {
-                    review["has_regular_output"] = json!(true);
-                }
+            if let Some(review) = self.work_review(id)? {
                 entity["entry_type"] = review["entry_type"].clone();
                 if review["entry_type"] == "unit" {
                     entity["unit"] = json!({"job_id":review["job_id"]});

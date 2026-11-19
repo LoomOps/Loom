@@ -5,10 +5,59 @@ use serde_json::{json, Value};
 use std::fs;
 
 #[test]
+fn accepted_taskless_research_can_only_replay_its_original_request() {
+    let mut f = Fixture::new();
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"old-job-task","definition":{"label":"Grasp"}}),
+        )
+        .unwrap();
+    let mut args = json!({"key":"accepted-before-task","owner":"owner","notify":"owner","scenario_ref":{"id":task["id"],"revision":1},
+        "outcome":{"goal":"Dataset","deliverables":[{"alias":"dataset","kind":"dataset","from":{"unit":"generate","entity":"dataset"}}]},
+        "plan":{"sealed":false,"units":[{"id":"generate","label":"Generate"}]}});
+    let original = f.call("jobs", "submit_research", args.clone()).unwrap();
+    let job = original["id"].as_str().unwrap();
+    f.app
+        .db
+        .execute(
+            "UPDATE job_workflows SET request=json_remove(request,'$.scenario_ref') WHERE id=?",
+            [job],
+        )
+        .unwrap();
+    f.app.db.execute("UPDATE rust_plan_revisions SET request=json_remove(request,'$.scenario_ref') WHERE root=?", [job]).unwrap();
+    args.as_object_mut().unwrap().remove("scenario_ref");
+    assert_eq!(
+        f.call("jobs", "submit_research", args.clone()).unwrap(),
+        original
+    );
+    args["outcome"]["goal"] = json!("Different dataset");
+    assert_eq!(
+        f.call("jobs", "submit_research", args.clone())
+            .unwrap_err()
+            .code,
+        "idempotency_conflict"
+    );
+    args["key"] = json!("new-without-task");
+    assert_eq!(
+        f.call("jobs", "submit_research", args).unwrap_err().code,
+        "task_required"
+    );
+}
+
+#[test]
 fn exhausted_research_unit_keeps_one_failed_job_and_releases_waiting_units() {
     let mut f = Fixture::new();
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"exhausted-task","definition":{"label":"Dataset preparation"}}),
+        )
+        .unwrap();
     let run = json!({"kind":"cpu.smoke","params":{"seconds":0,"fail":true}});
-    let job = f.call("jobs", "submit_research", json!({"key":"typed-exhausted","owner":"owner","notify":"owner",
+    let job = f.call("jobs", "submit_research", json!({"key":"typed-exhausted","owner":"owner","notify":"owner","scenario_ref":{"id":task["id"],"revision":1},
         "outcome":{"goal":"Dataset preparation","deliverables":[{"alias":"dataset","kind":"dataset","from":{"unit":"generate","entity":"dataset"}}]},
         "plan":{"sealed":false,"units":[{"id":"check","label":"Check","execution":run},
             {"id":"confirm","label":"Confirm","depends_on":["check"],"execution":run},
@@ -3296,7 +3345,14 @@ fn relation_pages_preserve_all_edges_without_allocating_child_items() {
 fn reconciliation_import_replays_without_new_jobs_and_rejects_mutated_source_evidence() {
     let mut f = Fixture::new();
     fs::write(f.app.bulk.join("weights.json"), b"{\"weight\":1}").unwrap();
-    let proposal = json!({"schema":"loom-reconcile/v1","operations":[{"operation":"import","schema":"loom-asset/v1","source":{"system":"preserved-fixture","id":"selected-model","revision":"r1"},"type":"model","name":"Selected model","properties":{"declared_steps":20000},"primary":{"machine_id":"fixture","storage_id":"fixture-data","ref":"weights.json"}}]});
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"import-model-task","definition":{"label":"Selected model evaluation"}}),
+        )
+        .unwrap();
+    let proposal = json!({"schema":"loom-reconcile/v1","operations":[{"operation":"import","schema":"loom-asset/v1","source":{"system":"preserved-fixture","id":"selected-model","revision":"r1"},"type":"model","scenario_ref":{"id":task["id"],"revision":1},"name":"Selected model","properties":{"declared_steps":20000},"primary":{"machine_id":"fixture","storage_id":"fixture-data","ref":"weights.json"}}]});
     let plan = f
         .call(
             "results",

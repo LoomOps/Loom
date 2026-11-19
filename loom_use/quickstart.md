@@ -1,12 +1,10 @@
 # First Unit
 
-Before submission, read [Job request walkthroughs](job-cases.md) for the closest execution boundary.
-
-This walkthrough uses an existing Profile. It does not install software or change the server. Choose a small workload only when execution is part of the user's request.
+This walkthrough runs a small CPU check using the existing `cpu.smoke` Profile. Use it when the requested work includes a smoke test. For a research deliverable, see [worked Job requests](job-cases.md).
 
 ## 1. Select the target and recipe
 
-Call `system.status`, then `components.profiles`. Confirm the target, principal/scopes and admission state. Select a compatible exact `kind` from discovery and inspect its params/input/output contract. `components.inspect_profile` can check a proposed parameter object without reserving resources or submitting a Job.
+Call `system.status` to confirm the target, principal and admission state. Use `components.profiles` to find `cpu.smoke`. `components.inspect_profile` checks parameters without reserving resources.
 
 The built-in `cpu.smoke` Profile, when advertised, provides a bounded platform test with `params: {"seconds":0,"fail":false}`. It is not a scientific experiment. Other Profiles have different parameters; use their actual contract.
 
@@ -49,7 +47,7 @@ not make a user's Job System-owned; user research/preparation remains user work.
 
 Call `units.get({id})`. `status` is the public phase; `state` retains the native value (`complete` corresponds to `completed`). Scheduling and recovery are separate objects. Continue legacy `jobs.logs` using `next_offset`, or use `jobs.log_streams/read_log` for exact source generations.
 
-After publication, inspect the Job's result and use `results.get` with an exact returned artifact identity/revision. Read `events.list({kind:"all"})`; ACK records delivery only. A client disconnect does not stop a server Job. If execution or indexing fails, follow `recovery` or `results` rather than creating another Job blindly.
+After publication, use `results.get` with the exact artifact ID and revision. Read `events.list({kind:"all"})` for notifications. ACK records delivery. The Unit continues if the client disconnects. Use [recovery](recovery.md) for a failed execution or publication.
 
 ## HTTP equivalent
 

@@ -4,7 +4,7 @@ The service account is non-login loom:loom without sudo or Docker group membersh
 
 ## Server layout
 
-- **loom-ops**: MCP/API, Job queue and worker, state, metadata and result registration. One MCP endpoint exposes six tool groups.
+- **loom-ops** serves MCP/API, admission, execution and result registration. Read `tools/list` for the caller's available groups.
 - **loom-dashboard**: web UI and authenticated API relay, including Job controls and Admin token management. Ops enforces the operation contracts.
 - **host executor**: creates Job containers from approved images and manages resource allocation, termination and return. Platform and Job containers have independent lifetimes.
 - **Storage**: instance databases, settings and secrets under `/loom/ops`; registered Component/Tool source under the configured source root, with Profile revisions in the Ops DB; artifacts on external storage attached through Compose.
@@ -45,13 +45,7 @@ The installing Linux user, service account loom:loom and Loom ownership profiles
 
 One `/mcp` endpoint provides stateless Streamable HTTP. Supported versions are `2024-11-05`, `2025-03-26` and `2025-06-18`, negotiated during initialize. Send `MCP-Protocol-Version` on subsequent requests. Normal responses are JSON; requests selecting SSE receive only their own response before the stream closes. Notifications return 202 with an empty body; GET/DELETE return 405. No sessions, separate `/sse` or `/messages` endpoints, or resident subscriptions are created. Callers remain responsible for Job event consumption.
 
-Source installation starts at deploy/install.py, host execution attachment at deploy/executor-attach.py, and Compose at deploy/compose.sh. Prepare Docker/Compose and Python 3; GPU execution also requires NVIDIA drivers and Container Toolkit. Read deploy/PLATFORM.md and deploy/README.md from the selected deployment source.
-
-/loom/ops stores instance configuration, DB and secrets. /loom/shared stores executor, authority and observation services. The configured Component source root (default /loom/components) stores sealed Component/Tool sources; registered Profiles are in the Ops DB. Preserve legacy Profile configuration directories independently. /loom/loom_use stores versioned user guides. External data storage is declared in Compose; the installation-configured dependency directory holds external source, Runtime recipes and installation evidence.
-
-Updates deploy immutable images with matching guides. Block execution admission and confirm actual worker/lease return before backing up the DB, configuration and image identity and switching versions. Use isolated dev-build for development; never copy its authentication bypass into deployment defaults.
-
-Entry guides should link to system.guide/describe/profiles rather than embed volatile API fields or profile lists. Deployment does not alter existing Job pins or historical results. After deployment, verify MCP initialize/status/guide, basic read/action calls and, where needed, an isolated small Job.
+For a new host, start at `INSTALL.md` in the selected release source or kit. Use the matching `docs/UPDATES.md` for an existing installation. The updater checks execution return before switching immutable images. Confirm MCP initialize, discovery and an exact read after the switch.
 
 ## Dashboard SSO
 
@@ -82,7 +76,7 @@ Machine administrators use `deploy/uninstall.py plan` and then `apply` from the 
 
 Dashboard Admins issue and revoke individual agent tokens in Tailscale → Agent Tokens. Select an existing Loom user and Operator or Read only permissions. Tokens have no expiry and are shown once; only SHA-256 digests are stored. They retain the selected user's attribution and event inbox, and grant no Admin capability. Revocation takes effect on the next request, including existing MCP connections; already running Jobs continue.
 
-Admin-only HTTP routes: `GET /api/admin/tokens` lists metadata and registered users; `POST /api/admin/tokens` accepts `{label, owner, scopes}`; `POST /api/admin/tokens/revoke` accepts `{id}`. Browser writes require the Admin session and CSRF/Origin checks. Ops accepts only the signed Dashboard Admin claim for these routes. Neither ordinary MCP callers nor the installation owner credential can issue tokens. Six operational MCP groups remain unchanged.
+The installed HTTP reference lists token-management routes. Browser writes require an Admin session and CSRF/Origin checks. Ops accepts only the signed Dashboard Admin claim for token issuance.
 
 Token acquisition is an optional client step after server installation. The installer never auto-issues or renews tokens. Follow the independent LoomOps/Loom-Use INSTALL.md from the actual client account; keep credentials outside Git. A tagged machine's network identity is not its individual Linux user's identity.
 

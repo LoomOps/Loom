@@ -15,7 +15,7 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 
 ## submit
 
-Submit one standalone Unit. Its scientific catalog evidence is Reference.
+Submit one standalone Unit. Pin scenario_ref for task-specific work. The Task pin is required when the Profile declares Dataset, Policy or Experiment outputs, which publish as Reference. General infrastructure Units may publish Artifacts without a Task.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/jobs.rs#submit_execution](../../rust/crates/core/src/jobs.rs).
 
@@ -37,6 +37,7 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 | `pilot` | no | `"object"` | `—` |
 | `presentation` | no | `"object"` | `—` |
 | `queue_position` | no | `["tail", "next"]` | `"tail"` |
+| `scenario_ref` | no | `"object"` | `—` |
 
 <details><summary>Exact input JSON Schema</summary>
 
@@ -237,6 +238,25 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
         "next"
       ],
       "type": "string"
+    },
+    "scenario_ref": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "type": "object"
     }
   },
   "required": [

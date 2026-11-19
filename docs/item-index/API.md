@@ -1,8 +1,7 @@
 # Proposed MCP/HTTP/query contract
 
-Status: design only. None of these actions is advertised by the current registry.
-Keep the six MCP groups. Generate schemas, scopes, guides and references from the
-same action registry; do not add a seventh hardcoded client tool group.
+Status: historical Item index proposal. See the [generated API reference](../reference/README.md) for implemented actions and routes.
+Clients discover the action groups, scopes and schemas from the connected server.
 
 ## Surfaces
 

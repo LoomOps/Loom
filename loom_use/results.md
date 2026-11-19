@@ -2,9 +2,11 @@
 
 Before registering or publishing an entry, select its identity and relationships using [catalog request walkthroughs](catalog-cases.md).
 
-Regular is the Job’s accepted Dataset, Policy or Experiment. Standalone Units may publish Reference evidence. The requested scientific outcome determines the Dataset, Policy or Experiment that the Job should publish. A separate publication instruction is unnecessary for those deliverables. Compare completed Experiments by exact revision. Keep infrastructure checks and software validation in the producing Unit or software revision. Choose the Profile, template and report contract when planning the work. A producer writes files and `result.json` under `request.output_dir`. The Profile declares output and metadata contracts. Inspect `system.contract` and the actual Profile before writing a manifest; generic success does not supply domain metadata.
+Regular and Reference Datasets, Policies and Experiments both require an exact Task revision when newly published or imported. Standalone Units publish task-specific scientific evidence as Reference. Use Artifacts or Runtime receipts for installation smoke and general Runtime checks. For a preserved record, add verified Task context with `results.link_scenario` against the exact identity. Archive verification or indexing can run as a standalone Unit when it serves several Jobs.
 
-Execution return, result publication and event ACK are separate facts. Use `jobs.get` for the Attempt and result state, `results.list/get` for native entities and locations, and `events.list(kind=all)` for notifications. A result-indexing error uses `results.reindex` after repairing publication; it must not rerun successful training.
+Choose the Profile, metadata template and report contract before submission. The producer writes files and `result.json` under `request.output_dir` according to the accepted Profile. Compare completed Experiments by exact revision. Use the producing Unit or software revision for infrastructure validation.
+
+Use `jobs.get` for the accepted Job and deliverable, `units.get` for Attempt and return state, and `results.get` for exact published revisions and locations. Use `events.list` with `kind:"all"` to read events. ACK records delivery. For a publication error, repair the cause and use `results.reindex` when applicable to keep the original successful Attempt.
 
 Declare measurements, units, denominators, splits and provenance in the producer's output. Reference the accepted Profile revision and source hash. Large outputs can use the Rust SDK's sealed file inventory; see `authoring` and `items`. A structural/byte check does not establish model or dataset semantics.
 
@@ -183,8 +185,8 @@ a fresh preview. An empty path places the Dataset directly under its Task.
 
 Subgroups describe shared collection context; they are not parent/child claims.
 Use `lineage` or `results.link_dataset` only for evidenced data derivation. The
-Dashboard nests loaded descendants across multiple generations within a subgroup;
-multi-parent cross-links remain in detail. A parent outside the selected subgroup,
-page or filter remains an exact cross-link rather than a duplicated Dataset.
+Dashboard orders loaded parents before their descendants within a subgroup and
+names every known parent on the row. Exact parent references remain in the detail
+view, including parents outside the subgroup, page or filter.
 Never sum overlapping child counts into a family total. Family counts count logical
 Dataset entries after exact mirror grouping, not unique episodes.

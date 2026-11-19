@@ -1,5 +1,7 @@
 # Compatibility contract for a new Rust design
 
+Status: historical Rust migration design. See the [generated API reference](../reference/README.md) for the current action groups.
+
 Compatibility protects accepted work, not the old internal architecture. Preserve
 valid interfaces and evidence; correct documented bugs with explicit cases in
 [REVIEW](REVIEW.md). Do not reproduce a broken result solely for differential parity.
@@ -39,7 +41,7 @@ No second implementation decides next states during a shadow comparison.
 
 ## Preserved integrations and explicit changes
 
-Preserve current HTTP/MCP six groups, JSON/SSE/errors, scope-filtered discovery,
+Preserve the original HTTP/MCP entry points, JSON/SSE/errors, scope-filtered discovery,
 trusted dashboard assertions, Origin/CSRF, cookie invalidation and iframe isolation.
 Existing Loom Use and external coordination clients remain acceptance clients. New Scenario and authoring
 capabilities are additive and discovered live; guide/client/package changes are

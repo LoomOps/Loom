@@ -59,6 +59,20 @@ fn guidance_identity_tracks_every_distributed_instruction_surface() {
 #[test]
 fn native_reference_covers_every_action_with_valid_examples_and_ownership() {
     let actor = crate::auth::person_actor("documentation-fixture");
+    let reference = reference(&actor).unwrap();
+    let routes: Vec<_> = reference["workflow"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|step| {
+            (
+                step["group"].as_str().unwrap(),
+                step["action"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert!(routes.contains(&("jobs", "submit_research")));
+    assert!(routes.contains(&("units", "submit")));
     let docs: Value = serde_json::from_str(ACTION_DOCS).unwrap();
     assert_eq!(docs.as_object().unwrap().len(), contracts::actions().len());
     for action in contracts::actions() {
@@ -82,6 +96,15 @@ fn reader_reference_never_advertises_mutating_actions() {
         for action in group["actions"].as_array().unwrap() {
             assert_eq!(action["scope"], "read");
         }
+    }
+    for step in reference["workflow"].as_array().unwrap() {
+        let doc = describe(
+            &reader,
+            step["group"].as_str().unwrap(),
+            step["action"].as_str().unwrap(),
+        )
+        .unwrap();
+        assert_eq!(doc["scope"], "read");
     }
     assert!(describe(&reader, "jobs", "submit").is_err());
     assert!(describe(&reader, "results", "reconcile_apply").is_err());

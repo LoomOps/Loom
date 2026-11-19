@@ -1,6 +1,6 @@
 # Output metadata templates and robot-first names
 
-Status: implemented. Installation rollout is tracked separately. This document
+Status: historical implementation plan. See the [current metadata guide](../../loom_use/metadata.md). This document
 records the design, impact review and acceptance boundaries. The generated native
 reference describes the candidate contract, not the version of an installed host.
 

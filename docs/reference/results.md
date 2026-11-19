@@ -2418,7 +2418,7 @@ Index unavailable, invalid filter or expired cursor.
 
 ## reconcile_plan
 
-Normalize a bounded explicit proposal with a stable key; reject ambiguous or conflicting identities. This does not copy files or create research execution.
+Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. Artifact imports can omit it. Inspect results.reconcile_contract for the import fields.
 
 Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reconcile.rs#reconciliation](../../rust/crates/core/src/reconcile.rs).
 

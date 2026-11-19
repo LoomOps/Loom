@@ -78,8 +78,13 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.addCleanup(set_paused,0)
   spec={'kind':'browser.profile.r1','owner':'owner','notify':'owner','params':{}}
   unit=self.call('units','submit',spec|{'key':'standalone-label','presentation':{'label':'Standalone label fixture'}})['id']
+  pilot=self.call('units','submit',spec|{'key':'explicit-pilot-label','execution_mode':'pilot',
+   'pilot':{'preflight_for':'Full evaluation','reduced_scope':'Two reset seeds'},
+   'presentation':{'label':'Explicit pilot fixture'}})['id']
   job=self.call('jobs','submit',spec|{'key':'reviewed-label','presentation':{'label':'Reviewed research fixture'}})['id']
+  task=self.call('results','register_scenario',{'key':'unit-with-job-task','definition':{'label':'Research fixture'}})
   research=self.call('jobs','submit_research',{'key':'unit-with-job-label','owner':'owner','notify':'owner',
+   'scenario_ref':{'id':task['id'],'revision':1},
    'outcome':{'goal':'Research label fixture','deliverables':[{'alias':'out','kind':'dataset','from':{'unit':'generate','entity':'dataset'}}]},
    'plan':{'sealed':False,'units':[{'id':'check','label':'Attached label fixture','execution':{'kind':spec['kind'],'params':{}}},
      {'id':'generate','label':'Generate','depends_on':['check']}]}})
@@ -98,17 +103,22 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.assertTrue(self.ui.wait('return !!'+queue_row,attached))
   self.assertIsNone(self.ui.js('return '+queue_row+".querySelector('[data-work-type]')?.textContent",attached))
   with sqlite3.connect(db_path,timeout=10) as db:
-   db.execute("UPDATE jobs SET state='complete' WHERE id IN (?,?)",(unit,job))
-   db.execute("UPDATE jobs SET spec=json_set(spec,'$.execution_mode','pilot') WHERE id=?",(job,))
+   db.execute("UPDATE jobs SET state='complete' WHERE id IN (?,?,?)",(unit,job,pilot))
+   db.execute("UPDATE jobs SET spec=json_set(spec,'$.execution_mode','pilot') WHERE id IN (?,?)",(job,unit))
    db.execute("INSERT INTO reviewed_work VALUES(?,'job',NULL,1,'Full research protocol')",(job,))
    db.execute("INSERT INTO entity_revisions VALUES('browser-reviewed-publication',1,?,'model','owner','owner','{}')",(job,))
    db.execute("INSERT INTO reviewed_outputs VALUES('entity','model','browser-reviewed-publication','1','','regular','Published full result')")
   self.wd('/refresh',{});self.ui.connect()
   history="[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('종료 이력'))"
   row=history+"""?.querySelector('[data-entity="'+arguments[0]+'"]')?.closest('tr')"""
-  for entry,kind,label in ((job,'job','Job'),(unit,'unit','Standalone Unit')):
-   self.ui.wait('return '+row+"?.querySelector('[data-work-type="+kind+"]')?.textContent==="+json.dumps(label),entry)
+  for entry,kind,label in ((job,'job','Job'),(unit,'unit','Standalone Unit'),(pilot,'unit','Standalone Unit')):
+   self.ui.wait('return '+row+"?.cells[1]?.querySelector('[data-work-type="+kind+"]')?.textContent==="+json.dumps(label),entry)
+   self.assertIsNone(self.ui.js('return '+row+".cells[0].querySelector('[data-work-type]')",entry))
+  self.assertEqual(self.ui.js('return '+history+".querySelector('th:nth-child(2)').textContent"),'Type')
+  self.assertEqual(self.ui.js('return '+history+".querySelector('th:nth-child(3)').textContent"),'상태')
   self.assertNotIn('Pilot',self.ui.js('return '+row+'.textContent',job))
+  self.assertNotIn('Pilot',self.ui.js('return '+row+'.textContent',unit))
+  self.assertIn('Pilot-test',self.ui.js('return '+row+'.textContent',pilot))
   self.assertEqual(self.call('jobs','get',{'id':job})['spec']['execution_mode'],'pilot')
 
  def test_experiment_groups_and_previous_revision_keep_the_latest_list_record(self):
@@ -335,7 +345,7 @@ class NativeWorkspaceTests(unittest.TestCase):
 
  def test_native_scenario_create_revision_and_render_without_injected_markup(self):
   task=self.call('results','register_scenario',{'key':'native-ui-context','definition':{'label':'Native <img src=x onerror=alert(1)>','description':'Fixture context'}})
-  ui=self.ui;ui.nav('Models');self.assertFalse(ui.js("return !!document.querySelector('[data-scenario-create]')"));ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return [...document.querySelector('[data-research-task]').options].some(o=>o.value===arguments[0]+':1')",task['id']);ui.route(task['id']);ui.wait("return !!document.querySelector('[data-scenario-edit]')");self.assertFalse(ui.js("return !!document.querySelector('#pa-content img[src=x]')"));self.assertNotIn('Unassigned',ui.js("return document.querySelector('#pa-content').textContent"))
+  ui=self.ui;ui.nav('Models');self.assertFalse(ui.js("return !!document.querySelector('[data-scenario-create]')"));ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return [...document.querySelectorAll('[data-research-task]')].some(o=>o.dataset.researchTask===arguments[0])",task['id']);ui.route(task['id']);ui.wait("return !!document.querySelector('[data-scenario-edit]')");self.assertFalse(ui.js("return !!document.querySelector('#pa-content img[src=x]')"));self.assertNotIn('Unassigned',ui.js("return document.querySelector('#pa-content').textContent"))
   ui.click('[data-scenario-edit]');ui.js("const f=document.querySelector('[data-scenario-form]');f.elements.label.value='Native context revised';f.elements.reason.value='Protocol revision fixture';f.querySelector('button[type=submit]').click()");ui.wait("return !document.querySelector('[data-hub-dialog][open]')");ui.wait("return document.querySelector('[data-scenario-revision]')?.options.length===2")
   for width in (1440,500):
    ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
@@ -404,7 +414,7 @@ class NativeWorkspaceTests(unittest.TestCase):
   for n in range(65):
    self.call('results','register_scenario',{'key':'page-scenario-'+str(n),'definition':{'label':f'Paged Scenario {n:03}'}})
   self.wd('/url',{'url':self.base});self.ui.connect();self.ui.nav('Models')
-  self.ui.wait("return [...document.querySelector('[data-research-task]').options].filter(e=>e.textContent.startsWith('Paged Scenario')).length===65")
+  self.ui.wait("return [...document.querySelectorAll('[data-research-task]')].filter(e=>e.textContent.startsWith('Paged Scenario')).length===65")
   self.assertFalse(self.ui.js("return !!document.querySelector('#pa-nav [data-go=scenarios]')"))
   with urlopen(self.native+'/api/dashboard/bootstrap',timeout=5) as response:bootstrap=json.load(response)
   self.assertTrue(bootstrap['capabilities']['catalog_pages']);self.assertIsInstance(bootstrap['activity']['days'],list)
@@ -426,7 +436,7 @@ class NativeWorkspaceTests(unittest.TestCase):
   with patch.object(reference.server.WebHandler,'relay',relay):
    self.call('results','register_scenario',{'key':'shell-pane-demand','definition':{'label':'Shell pane demand'}})
    self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
-   self.ui.wait("return [...document.querySelector('[data-research-task]').options].some(o=>o.textContent==='Shell pane demand')")
+   self.ui.wait("return [...document.querySelectorAll('[data-research-task]')].some(o=>o.textContent==='Shell pane demand')")
    self.assertNotIn('dashboard_activity',observed);self.assertNotIn('dashboard_queue',observed)
    self.ui.nav('Dashboard')
    self.ui.wait("return !!document.querySelector('.pa-activity-graph') && [...document.querySelectorAll('h2')].some(h=>h.textContent.startsWith('Job Queue ·'))")
@@ -523,7 +533,7 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.assertEqual(len(page['entities']),1)
   self.assertEqual(page['entities'][0]['loom_history']['snapshot'],'exact')
   self.wd('/url',{'url':self.base});self.ui.connect();self.ui.nav('Models')
-  self.ui.js("const field=document.querySelector('[data-research-task]');field.value=arguments[0]+':1';field.dispatchEvent(new Event('change',{bubbles:true}))",task['id'])
+  self.ui.js("[...document.querySelectorAll('[data-research-task]')].find(b=>b.dataset.researchTask===arguments[0]).click()",task['id'])
   self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Linked model exact')")
   self.assertNotIn('Linked model other',self.ui.js("return document.querySelector('#pa-content').textContent"))
   self.assertTrue(self.ui.js("return !!document.querySelector('.pa-task-label')"))

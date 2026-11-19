@@ -9,8 +9,7 @@ It preserves old rows/configuration/storage identities and records a private
 backup/intent/receipt. Resume verifies unchanged before/after hashes; rollback
 refuses new post-cutover records. Never start a legacy writer on a migrated native database. See ITEM-INDEX.md
 for exact alias/file preservation, explicit reconciliation and online index maintenance.
-See [native acceptance and limitations](rust-port/IMPLEMENTATION.md). This source
-document is not permission to update an operational installation.
+See [native migration verification](features/VERIFICATION.md) and the [original implementation ledger](rust-port/IMPLEMENTATION.md).
 
 ## Source and host state
 
@@ -44,7 +43,7 @@ the required migration chain; `--mode rebuild` is explicit and preserves identit
 1. Prepare new source/images with `release.py VERSION`; this does not affect running services.
 2. Run `sudo python3 deploy/update.py plan --instance /loom/ops --project loom --release /loom/builds/alpha/VERSION`.
 3. Run `apply` at the chosen update time. It refuses active Jobs, result processing, pending callbacks or unreturned executor tickets. Idle verification and dispatch blocking share one DB transaction.
-4. Preserve DB, previous image selection and host helper copies under `/loom/updates/<id>`. Start services, verify API/web health and the running native identity/Gateway entry contract, then resume dispatch. Readiness checks compare the actual session endpoint, Gateway installation, private browser relay routes (including Admin/updates/events) and Funnel isolation. Healthy containers alone are insufficient.
+4. Preserve DB, previous images and host helper copies under `/loom/updates/<id>`. Start services and verify API/web health, native identity and Gateway entry. Readiness checks compare the session endpoint, Gateway installation, private browser relay routes and Funnel isolation. The updater lifts its admission fence on success. An existing dispatch pause requires a separate operator resume.
 5. Deploying alpha on another machine is a separate operation. Apply new network/Sharing configuration explicitly with `tailnet.py`/`access_setup.py`; image updates do not clone another instance's settings.
 
 Failures retain a recovery record and maintenance state. Use `sudo python3 deploy/update.py rollback --record /loom/updates/<id>/record.json` to restore previous code, configuration and DB. **Automatic restoration refuses databases containing new post-update records**, preventing loss of new Jobs/artifacts. Review a data-preserving migration in that case. Updates are not automatically scheduled and do not force-stop active Jobs.

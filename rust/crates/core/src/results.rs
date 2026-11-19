@@ -697,6 +697,9 @@ impl Application {
                 relations.push(json!({"kind":"derived_from","input":input,"id":parent["id"],"revision":parent["revision"],"transformation":lineage["transformation"],"primary":lineage["primary"].as_bool().unwrap_or(false)}));
             }
             let mut published = json!({"id":identity,"revision":1,"kind":kind,"origin_machine":self.config.machine_id,"job":job,"attempt":attempt,"provenance":entity.get("provenance").cloned().unwrap_or(json!({})),"components":components,"relations":relations,"metadata_schema":row.spec["profile"]["metadata_schemas"].get(entity_id).or_else(||row.spec["profile"]["metadata_schemas"].get("*")).cloned(),"metrics":manifest["metrics"].as_array().unwrap().iter().filter(|m|m["entity_id"]==entity_id).collect::<Vec<_>>()});
+            if row.spec["scenario_ref"].is_object() {
+                published["scenario_ref"] = row.spec["scenario_ref"].clone();
+            }
             if let Some(unit) = rows(
                 &self.db,
                 "SELECT job_id,name FROM execution_units WHERE id=?",
@@ -800,7 +803,6 @@ impl Application {
                     "Dataset organization must use the accepted Job Task pin",
                     409,
                 )?;
-                published["scenario_ref"] = task.clone();
             }
             if let Some(reporting) = crate::reporting::validate_reports(
                 &row.spec,
