@@ -9,7 +9,7 @@ RECONCILIATION_TABLES = {
     "catalog_meta", "reconcile_plans", "asset_imports", "file_bindings",
     "log_retention", "catalog_tasks", "asset_revisions", "asset_locations",
 }
-JOB_UNIT_TABLES = {"research_jobs", "execution_units", "execution_memberships"}
+JOB_UNIT_TABLES = {"research_jobs", "execution_units"}
 
 
 def verify(instance, phase):
@@ -25,7 +25,10 @@ def verify(instance, phase):
         if not RECONCILIATION_TABLES <= tables or db.execute("PRAGMA integrity_check").fetchall() != [("ok",)]:
             raise ValueError("Reconciliation authority is incomplete")
         if version == 8:
-            if not JOB_UNIT_TABLES <= tables:
+            membership_view = db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='view' AND name='execution_memberships'"
+            ).fetchone()
+            if not JOB_UNIT_TABLES <= tables or membership_view is None:
                 raise ValueError("Job and Unit authority is incomplete")
             if db.execute("SELECT minimum_writer FROM rust_authority WHERE id=1").fetchone() != (2,):
                 raise ValueError("Job and Unit writer fence is missing")

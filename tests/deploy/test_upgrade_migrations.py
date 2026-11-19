@@ -97,7 +97,7 @@ print(json.dumps({'status':'done' if done else 'needed'}))
         for step in catalog["steps"]:
             rel = step["script"]
             shutil.copy2(checkout / rel, self.source / rel)
-        (self.release / "result.json").write_text('{"build_id":"0.2.0-alpha.71"}')
+        (self.release / "result.json").write_text('{"build_id":"0.2.0-alpha.72"}')
         (self.root / "build.env").write_text("LOOM_BUILD_ID=0.2.0-alpha.69\n")
         self.seal()
         plan = migrations.plan(self.root, self.release)
@@ -124,7 +124,7 @@ print(json.dumps({'status':'done' if done else 'needed'}))
                 CREATE TABLE asset_locations(id);
                 CREATE TABLE research_jobs(id);
                 CREATE TABLE execution_units(id);
-                CREATE TABLE execution_memberships(id);
+                CREATE VIEW execution_memberships AS SELECT id FROM execution_units;
                 CREATE TABLE rust_authority(id, minimum_writer);
                 INSERT INTO rust_authority VALUES(1, 2);
             """)
@@ -136,7 +136,7 @@ print(json.dumps({'status':'done' if done else 'needed'}))
         migrations.apply(plan, self.root, self.release, self.p)
         self.assertEqual(self.db.read_bytes(), original)
         with sqlite3.connect(self.db) as db:
-            db.execute("DROP TABLE execution_memberships")
+            db.execute("DROP VIEW execution_memberships")
         with self.assertRaisesRegex(RuntimeError, "reconciliation-compatibility-v1"):
             migrations.invoke(step, "check", self.root, self.release, self.p)
 

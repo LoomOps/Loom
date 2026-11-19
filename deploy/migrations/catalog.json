@@ -59,7 +59,7 @@
     },
     {
       "id": "reconciliation-compatibility-v1",
-      "introduced": "0.2.0-alpha.71",
+      "introduced": "0.2.0-alpha.72",
       "requires": [
         "common-reconciliation-v1"
       ],
