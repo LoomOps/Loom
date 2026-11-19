@@ -142,3 +142,5 @@ Runtime. Exact Dashboard projection must use the resolved revision, including
 older granted environments referenced by recorded Jobs.
 
 Native catalog reads discover Job group parents once and aggregate only roots with actual children. Singleton Jobs retain a null group summary; their presence must not cause one full family scan per record. The 5,001-item read fixture preserves the independent two-second mutation-lane assertion.
+
+Runtime inventory observation retains exact dependency version aliases across Runtime revisions. Repeated or reordered snapshots publish one current descriptor per logical Item and preserve historical pins.

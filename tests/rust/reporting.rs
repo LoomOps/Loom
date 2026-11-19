@@ -580,6 +580,90 @@ fn evaluation_reports_recompute_predicate_and_do_not_accept_a_training_or_compar
 }
 
 #[test]
+fn checkpoint_evaluation_keeps_paired_cases_and_a_separate_representative_score() {
+    for mode in ["declared", "mismatched", "legacy"] {
+        let mismatch = mode == "mismatched";
+        let legacy = mode == "legacy";
+        let mut f = Fixture::new();
+        let base = builtin(&mut f, "loom.report.checkpoint_evaluation");
+        let plain = builtin(&mut f, "loom.report.evaluation");
+        assert!(
+            plain["definition"]["requirements"][0]["schema"]["properties"]["checkpoint_selection"]
+                .is_null()
+        );
+        let metric = f
+            .call(
+                "results",
+                "get_report_definition",
+                json!({"id":"loom.metric.success","revision":1}),
+            )
+            .unwrap();
+        let protocol=f.call("results","register_report_definition",json!({"id":"fixture.checkpoint_protocol","key":"protocol","reason":"Test paired resets","definition":{"kind":"protocol","label":"Goal reached","mode":"closed_loop","environment":"sim","controller":"policy","scope":{"evaluator":{"kind":"producer"},"phases":[{"id":"reach","controller":"policy"}],"gt_access":{"policy":false,"planner":false,"scoring":true},"policy_active_during_hold":null,"physics_hz":60,"control_hz":30,"goal_frame":"world XY"},"primary_metric_ref":reporting::reference(&metric),"predicate":{"all":[{"pointer":"/measurements/distance","op":"lte","value":5,"unit":"mm"}]}}})).unwrap();
+        let mut definition = if legacy { &plain } else { &base }["definition"].clone();
+        definition["requirements"][0]["definitions"]
+            .as_array_mut()
+            .unwrap()
+            .push(reporting::reference(&protocol));
+        let contract = registered(&mut f, "fixture.checkpoints", definition);
+        let cases: Vec<_> = [(10, "a", 9), (20, "b", 3)].iter().map(|(step, pin, measured)| json!({
+            "id":format!("step-{step}"),"seed":1,"valid":true,"outcome":if *measured<=5{"success"}else{"failure"},"failure_stage":null,
+            "factors":{"update":step,"checkpoint_sha256":pin.repeat(64),"reset_state_sha256":if mismatch&&*step==20{"d"}else{"c"}.repeat(64)},
+            "measurements":{"distance":{"value":measured,"unit":"mm"}}
+        })).collect();
+        let mut data = json!({"inputs":[],"protocol_ref":reporting::reference(&protocol),"counts":{"planned":2,"executed":2,"unexecuted":0,"valid":2,"successes":1,"infra":0,"invalid":0},"cases":cases});
+        if !legacy {
+            data["checkpoint_selection"] =
+                json!({"split":"development","rule":"best_success_rate","selected_step":null});
+        }
+        let (job, folder, mut manifest) =
+            fixture_report(&mut f, &contract, &[("evaluation", data)]);
+        if legacy {
+            f.app.db.execute("UPDATE jobs SET spec=json_set(spec,'$.params.updates',json('[10,20]')) WHERE id=?",[&job]).unwrap();
+            manifest["entities"][0]["metadata"] =
+                json!({"research":{"evaluation":{"split":"development matched resets"}}});
+        }
+        let result = f
+            .app
+            .publish_result(&job, "report-attempt", manifest, &folder);
+        if mismatch {
+            assert_eq!(result.unwrap_err().code, "report_contract");
+            continue;
+        }
+        result.unwrap();
+        let id = format!("{job}.data");
+        let mut e = f
+            .call("results", "get", json!({"id":id,"revision":1}))
+            .unwrap();
+        if legacy {
+            assert_eq!(e["reporting"]["primary_outcome"]["denominator"], 2);
+            let catalog = f
+                .app
+                .dashboard_catalog_selected(Some(&[
+                    json!({"native_ref":{"kind":"entity","identity":{"id":id,"revision":1}}}),
+                ]))
+                .unwrap();
+            e = catalog["entities"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|r| r["id"] == id)
+                .unwrap()
+                .clone();
+        }
+        assert!(e["reporting"]["primary_outcome"].is_null());
+        assert_eq!(e["reporting"]["evaluation_summary"]["counts"]["valid"], 2);
+        let group = &e["reporting"]["checkpoint_sweep"];
+        assert_eq!(
+            group["selected_step"],
+            if legacy { Value::Null } else { json!(20) }
+        );
+        assert_eq!(group["best_steps"], json!([20]));
+        assert_eq!(group["checkpoints"][1]["successes"], 1);
+        assert_eq!(group["checkpoints"][1]["valid"], 1);
+    }
+}
+
+#[test]
 fn outcome_preview_and_publication_bind_hypothesis_and_verified_setup_sessions() {
     let mut f = Fixture::new();
     let contract = builtin(&mut f, "loom.report.dataset");

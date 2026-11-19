@@ -24,7 +24,10 @@
   let updateTimer;
   let updatesBusy = false;
   const retry = document.getElementById('loom-entry-retry');
-  retry.addEventListener('click',()=>location.reload());
+  retry.addEventListener('click',()=>{
+    if (!signedIn()) {location.reload();return;}
+    refreshCatalog();
+  });
 
   function showBuild(build) {
     buildInfo = build;
@@ -92,7 +95,13 @@
   async function refreshCatalog() {
     if (!signedIn() || catalogRequest) return;
     const signal = lifetime.signal;
-    catalogRequest = read('/api/dashboard/bootstrap', signal).catch(error=>{if(error.status===404)return read('/api/dashboard/catalog',signal);throw error;});
+    catalogRequest = (async () => {
+      for (const path of ['/api/dashboard/shell', '/api/dashboard/bootstrap']) {
+        try {return await read(path, signal);}
+        catch (error) {if (error.status !== 404) throw error;}
+      }
+      return read('/api/dashboard/catalog', signal);
+    })();
     try {
       const incoming = await catalogRequest;
       if (signal.aborted) return;
@@ -109,6 +118,7 @@
       catalogLoaded = true;
       frame.hidden = false;
       access.hidden = true;
+      scheduleRevision();
     } catch (error) {
       if (signal.aborted) return;
       if (authError(error)) return reset('현재 credential로 다시 연결해 주세요.');
@@ -117,10 +127,13 @@
         emit('pai-catalog-status', {text: '카탈로그 접근 권한 없음'});
         return reset('카탈로그 조회 권한이 없습니다.');
       }
-      const message = catalogLoaded ? '서버 연결 불가 · 마지막 조회 기록' : '카탈로그 연결 불가 · 다시 연결해 주세요.';
+      const message = catalogLoaded ? '서버 연결 불가 · 마지막 조회 기록' : (error.status ? '카탈로그를 불러오지 못했습니다 (HTTP '+error.status+').' : '카탈로그 요청을 완료하지 못했습니다.');
       emit('pai-catalog-status', {text: message});
       status.textContent = message;
-      if (!catalogLoaded) {access.hidden=false;retry.hidden=false;}
+      if (!catalogLoaded) {
+        access.hidden=false;retry.hidden=false;
+        document.getElementById('loom-sso-login').hidden=true;
+      }
     } finally {
       catalogRequest = null;
     }
@@ -250,9 +263,11 @@
   }
 
   async function searchAction(message) {
-    const allowed={results:['search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file','metadata_templates','get_metadata_template','validate_metadata','report_contracts','get_report_contract','report_definitions','get_report_definition','get_report_evidence','validate_report_contract','read_report'],jobs:['log_streams','read_log','search_logs'],system:['search_status','dashboard_summary','dashboard_page','dashboard_activity','dashboard_entity']};
+    const allowed={results:['search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file','metadata_templates','get_metadata_template','validate_metadata','report_contracts','get_report_contract','report_definitions','get_report_definition','get_report_evidence','validate_report_contract','read_report'],jobs:['log_streams','read_log','search_logs'],system:['search_status','dashboard_summary','dashboard_page','dashboard_queue','dashboard_activity','dashboard_entity']};
     if(!signedIn()||!allowed[message.group]?.includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;
-    try{const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({group:message.group,action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(15000)});const value=await response.json();if(response.ok&&message.group==='system'&&['dashboard_page','dashboard_entity'].includes(message.action)){for(const entity of value.entities||[])catalogEntities.set(entity.id,entity);if(value.revision===catalogRevision){const records=new Map((researchIncoming?.entities||[]).map(e=>[e.id,e]));for(const entity of value.entities||[]){catalogEntities.set(entity.id,entity);records.set(entity.id,entity);}while(records.size>4000)records.delete(records.keys().next().value);researchIncoming={...researchIncoming,entities:[...records.values()]};}}emit('loom-search-result',{id:message.id,ok:response.ok,value});}catch(error){emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});}
+    const args = researchIncoming?.capabilities?.live_queue && message.group==='system' && ['dashboard_page','dashboard_entity'].includes(message.action)
+      ? {...message.arguments,records_only:true} : message.arguments;
+    try{const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({group:message.group,action:message.action,arguments:args}),signal:AbortSignal.timeout(15000)});const value=await response.json();if(response.ok&&message.group==='system'&&['dashboard_page','dashboard_entity','dashboard_queue'].includes(message.action)){for(const entity of value.entities||[])catalogEntities.set(entity.id,entity);if(value.revision===catalogRevision){const records=new Map((researchIncoming?.entities||[]).map(e=>[e.id,e]));for(const entity of value.entities||[]){catalogEntities.set(entity.id,entity);records.set(entity.id,entity);}while(records.size>4000)records.delete(records.keys().next().value);researchIncoming={...researchIncoming,entities:[...records.values()]};}}emit('loom-search-result',{id:message.id,ok:response.ok,value});}catch(error){emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});}
   }
   async function scenarioAction(message) {
     if(!signedIn()||!['scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link'].includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;
@@ -440,7 +455,7 @@
   window.addEventListener('online', refreshCatalog);
   document.addEventListener('visibilitychange', () => {
     resources();
-    if (!document.hidden && catalogLoaded) {refreshCatalog();updates();}
+    if (!document.hidden && signedIn()) {refreshCatalog();updates();}
     scheduleRevision();
   });
   window.addEventListener('pagehide', () => {

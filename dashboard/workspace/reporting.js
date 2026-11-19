@@ -1,5 +1,16 @@
 const loomReportingPriorOutcome=loomRepresentativeOutcome;
-loomRepresentativeOutcome=function(e){const p=e.reporting?.primary_outcome;if(!p)return loomReportingPriorOutcome(e);return [{id:'whole_task_success',label:p.label,numerator:p.numerator,denominator:p.denominator,value:p.denominator?p.numerator/p.denominator:null,kind:'rate',population:'Valid cases',unit:'ratio'}];};
+function loomCheckpointHeadline(sweep){
+ const step=sweep.selected_step??(sweep.best_steps?.length===1?sweep.best_steps[0]:null);
+ const row=sweep.checkpoints?.find(c=>c.step===step);
+ if(!row?.valid)return null;
+ const label=sweep.rule==='prespecified'?'Selected':sweep.rule==='best_success_rate'?'Best':'Best observed';
+ return {label:label+' · step '+loomReportNumber(row.step),numerator:row.successes,denominator:row.valid};
+}
+loomRepresentativeOutcome=function(e){
+ const sweep=e.reporting?.checkpoint_sweep,p=sweep?loomCheckpointHeadline(sweep):e.reporting?.primary_outcome;
+ if(!p)return sweep?[]:loomReportingPriorOutcome(e);
+ return [{id:'whole_task_success',label:p.label,numerator:p.numerator,denominator:p.denominator,value:p.denominator?p.numerator/p.denominator:null,kind:'rate',population:'Valid cases',unit:'ratio'}];
+};
 resultOutcomeRows=loomRepresentativeOutcome;
 // Exact report bindings drive bounded views. Legacy records remain readable.
 const loomReportOverviewBodies=new Map();
@@ -7,6 +18,27 @@ const loomReportLegacyMetrics=new Map();
 const loomReportViews=new Map(),loomReportPages=new Map(),loomReportPending=new Set();
 const loomReportPointer=(value,pointer)=>pointer===''?value:String(pointer||'').split('/').slice(1).reduce((v,k)=>v?.[k.replace(/~1/g,'/').replace(/~0/g,'~')],value);
 function loomReportState(e){if(!loomReportViews.has(e.id))loomReportViews.set(e.id,{tab:'overview',phase:'all',split:'all'});return loomReportViews.get(e.id);}
+function loomCheckpointRows(e,rows){
+ const step=loomReportState(e).checkpoint;
+ return step==null||step==='all'?rows:rows.filter(row=>String(row.factors?.update)===step);
+}
+function loomCheckpointPicker(e){
+ const groups=e.reporting?.checkpoint_sweep?.checkpoints;
+ if(!groups?.length)return '';
+ const step=loomReportState(e).checkpoint;
+ return '<div class="pa-report-controls"><label>Checkpoint<select data-report-filter="checkpoint"><option value="all">All checkpoints</option>'+groups.map(g=>'<option value="'+esc(g.step)+'"'+(String(g.step)===step?' selected':'')+'>Step '+esc(loomReportNumber(g.step))+'</option>').join('')+'</select></label></div>';
+}
+function loomCheckpointOverview(sweep,detail=false){
+ const headline=loomCheckpointHeadline(sweep);
+ if(!detail)return loomResearchSection('Checkpoint evaluation',catProperties({Checkpoints:sweep.checkpoints.length,...(headline?{[headline.label]:headline.numerator+' / '+headline.denominator+' · '+loomReportNumber(100*headline.numerator/headline.denominator)+'%'}:{})}));
+ const rows=sweep.checkpoints.map(g=>{
+  const badge=g.step===sweep.selected_step?(sweep.rule==='prespecified'?'Selected':'Best'):sweep.best_steps?.includes(g.step)?'Best observed':'';
+  return [esc(loomReportNumber(g.step)),esc(g.valid?g.successes+' / '+g.valid+' · '+loomReportNumber(100*g.successes/g.valid)+'%':'—'),esc(g.executed),esc(badge)];
+ });
+ return loomResearchSection('Checkpoint results',catTable(['Step','Success / valid','Executed','Selection'],rows)
+  +(sweep.best_steps?.length>1?'<p class="pa-report-note">Tied on the recorded cohort</p>':'')
+  +(!sweep.comparable?'<p class="pa-report-note">Checkpoint cohorts differ or are incomplete</p>':''));
+}
 function loomReportTabs(e){
  if(e.kind==='dataset'){
   const members=e.reporting?.reports?.some(r=>r.role==='dataset_statistics'&&r.fields?.some(f=>f.id==='members'&&f.format==='table'));
@@ -98,7 +130,7 @@ function loomReportCaseGraph(e){
  if(page.error)return '<p class="pa-catalog-warning">'+esc(page.error)+'</p>';
  const state=loomReportState(e),index=Number(state.criterion)||0,rule=criteria[index]||criteria[0];
  const label=r=>r.pointer.split('/').at(-1).replaceAll('_',' ');
- const points=page.value.flatMap(row=>{
+ const points=loomCheckpointRows(e,page.value).flatMap(row=>{
   const m=loomReportPointer(row,rule.pointer);
   return m?.unit===rule.unit&&Number.isFinite(m?.value)?[{row,value:m.value}]:[];
  });
@@ -139,7 +171,7 @@ function loomReportField(e,r,f){
  if(page.error)return '<p class="pa-catalog-warning">'+esc(page.error)+'</p>';
  const state=loomReportState(e),all=Array.isArray(page.value)?page.value:[];
  const bySeries=f.format==='series';
- const rows=bySeries?all.filter(row=>(state.phase==='all'||row.phase==null||String(row.phase)===state.phase)&&(state.split==='all'||row.split==null||row.split===state.split)):all;
+ const rows=bySeries?all.filter(row=>(state.phase==='all'||row.phase==null||String(row.phase)===state.phase)&&(state.split==='all'||row.split==null||row.split===state.split)):r.role==='evaluation_cases'&&f.format==='table'?loomCheckpointRows(e,all):all;
  const controls=loomReportPageControls(page,r,f,rows.length,all.length);
  if(['bar','coverage_matrix'].includes(f.format))return loomReportDistributionChart(rows,f)+controls;
  if((state.tab==='episodes'||state.tab==='cases')&&f.format==='table')return loomReportMember(e,r,f,rows)+controls;
@@ -185,6 +217,11 @@ function loomPolicyLearningSection(e,report,fields){
 }
 function loomReportOverview(e){
  const r=e.reporting,reports=r?.reports||[],parts=[loomReportOverviewBodies.get(e.id)||loomResearchOverview(e)];
+ if(r?.checkpoint_sweep)parts.unshift(loomCheckpointOverview(r.checkpoint_sweep));
+ else if(['experiment','run'].includes(e.kind)){
+  const outcomes=loomRepresentativeOutcome(e);
+  if(outcomes.length)parts.unshift(loomResearchSection('Outcome',catTable(['Metric','Value','Population'],outcomes.map(m=>[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||'—')]))));
+ }
  for(const [alias,claim] of Object.entries(e.science?.deliverables||{})){
   const sections=[];
   if(claim.sessions?.length){
@@ -233,22 +270,23 @@ function loomReportTrainingFilters(e,reports){
 }
 function loomReportContent(e){
  const {tab}=loomReportState(e),r=e.reporting;
- if(tab==='overview')return loomReportOverview(e);
+ if(tab==='overview')return '<div class="pa-report-overview">'+loomReportOverview(e)+'</div>';
  const roles={training:['learning_series','action_metrics'],results:['evaluation_cases','evaluation_metrics'],cases:['evaluation_cases'],episodes:['dataset_statistics'],distribution:['sdg_conditions','sdg_readback','distribution']};
  const reports=(r?.reports||[]).filter(report=>roles[tab]?.includes(report.role));
  const legacy=['training','results'].includes(tab)?loomReportLegacyMetrics.get(e.id)||'':'';
- const summary=tab==='results'?r?.evaluation_summary:null;
+ const sweep=r?.checkpoint_sweep,summary=tab==='results'&&!sweep?r?.evaluation_summary:null;
  const failures=Object.entries(summary?.recorded_failure_subtasks||{});
  const failureBreakdown=failures.length?loomResearchSection('Recorded failure subtasks',catTable(['Subtask','Valid cases with recorded failure'],failures.map(([name,count])=>[esc(name),esc(count)]))):'';
  const sections=reports.map(report=>{
   let fields=report.fields||[];
   if(tab==='episodes')fields=fields.filter(f=>f.id==='members');
   if(tab==='cases')fields=fields.filter(f=>f.id==='cases'||f.format==='table');
-  if(tab==='results'&&report.role==='evaluation_cases')fields=fields.filter(f=>f.format!=='table');
+  if(tab==='results'&&report.role==='evaluation_cases')fields=sweep?[]:fields.filter(f=>f.format!=='table');
   if(tab==='training'&&report.role==='learning_series')return loomPolicyLearningSection(e,report,fields.filter(f=>f.id!=='selected_step'));
   return loomReportSection(e,report,fields);
  }).join('');
- return (tab==='training'?loomReportTrainingFilters(e,reports):'')+sections+failureBreakdown+(tab==='results'?loomReportCaseGraph(e):'')+(legacy?'<details class="pa-report-legacy"'+(sections&&tab==='training'?'':' open')+'><summary>Recorded metrics</summary>'+legacy+'</details>':'')+(!sections&&!legacy?'<p class="pa-report-missing">Unrecorded</p>':'');
+ const checkpoints=tab==='results'&&sweep?loomCheckpointOverview(sweep,true):'';
+ return (tab==='training'?loomReportTrainingFilters(e,reports):'')+checkpoints+(['results','cases'].includes(tab)?loomCheckpointPicker(e):'')+sections+failureBreakdown+(tab==='results'?loomReportCaseGraph(e):'')+(legacy?'<details class="pa-report-legacy"'+(sections&&tab==='training'?'':' open')+'><summary>Recorded metrics</summary>'+legacy+'</details>':'')+(!sections&&!legacy&&!checkpoints?'<p class="pa-report-missing">Unrecorded</p>':'');
 }
 const loomReportPreviousDetail=catalogDetail;
 catalogDetail=function(id){
@@ -265,7 +303,7 @@ catalogDetail=function(id){
  loomReportLegacyMetrics.set(e.id,e.metrics?.length?(toolbar?.outerHTML||'')+(metrics?.outerHTML||''):'');
  metrics?.remove();toolbar?.remove();
  loomReportOverviewBodies.set(e.id,overview.outerHTML);while(loomReportOverviewBodies.size>160){const id=loomReportOverviewBodies.keys().next().value;loomReportOverviewBodies.delete(id);loomReportLegacyMetrics.delete(id);}
- const view=loomReportState(e);const parent=document.createElement('section');parent.className='pa-report-workspace'+(policy?' pa-report-policy':'');parent.dataset.reportOutput=e.id;
+ const view=loomReportState(e);const parent=document.createElement('section');parent.className='pa-report-workspace'+(policy?' pa-report-policy':e.kind==='dataset'?' pa-report-dataset':e.kind==='model'?'':' pa-report-experiment');parent.dataset.reportOutput=e.id;
  parent.innerHTML='<nav class="pa-report-tabs" aria-label="Output details">'+loomReportTabs(e).map(([id,label])=>'<button data-report-tab="'+id+'" aria-current="'+(view.tab===id?'page':'false')+'">'+label+'</button>').join('')+'</nav><div data-report-content>'+loomReportContent(e)+'</div>';
  overview.replaceWith(parent);return t.innerHTML;
 };
@@ -281,6 +319,6 @@ root.addEventListener('click',async event=>{
   catch(error){if(target.isConnected)target.textContent=error.message;}finally{if(protocol.isConnected)protocol.disabled=false;}
  }
 });
-root.addEventListener('change',event=>{const workspace=event.target.closest('[data-report-output]');if(!workspace||!event.target.dataset.reportFilter)return;const e=catEntity(workspace.dataset.reportOutput);loomReportState(e)[event.target.dataset.reportFilter]=event.target.value;render();});
+root.addEventListener('change',event=>{const workspace=event.target.closest('[data-report-output]'),field=event.target.dataset.reportFilter;if(!workspace||!field)return;const e=catEntity(workspace.dataset.reportOutput),view=loomReportState(e);view[field]=event.target.value;if(field==='checkpoint')view.member=null;render();});
 
 root.addEventListener('click',event=>{if(event.target.closest('[data-report-contracts]'))loomRegistryBrowser('report_contract');});

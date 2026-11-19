@@ -23,7 +23,7 @@ Read scope includes discovery; submit permits the documented mutation/maintenanc
 | `events` | 2 | [Recipient lifecycle events](events.md) |
 | `components` | 23 | [Profiles, Components, Tools and Runtimes](components.md) |
 | `results` | 47 | [Results and versioned Scenario context](results.md) |
-| `system` | 18 | [Installation status, contracts and guides](system.md) |
+| `system` | 19 | [Installation status, contracts and guides](system.md) |
 
 See [concepts](../CONCEPTS.md) for object identity/state distinctions, [task guides](../../loom_use/entry.md) for workflows and [implementation boundaries](../IMPLEMENTATION.md) for maintainers. Input schema validation does not prove successful execution, byte availability or scientific semantics.
 

@@ -9,6 +9,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     io::Read,
     path::Path,
+    sync::{Mutex, OnceLock},
 };
 
 pub const POLICY: &str = "loom-reporting/v1";
@@ -104,7 +105,7 @@ fn record(id: &str, revision: u64, definition: Value, owner: &str, kind: &str) -
 fn builtins(kind: &str) -> Vec<Value> {
     let source: Value = serde_json::from_str(include_str!("../../../contracts/reporting.json"))
         .expect("reporting contracts");
-    source[if kind == "report_contract" {
+    let mut records: Vec<_> = source[if kind == "report_contract" {
         "contracts"
     } else {
         "definitions"
@@ -135,7 +136,30 @@ fn builtins(kind: &str) -> Vec<Value> {
         }
         record(v["id"].as_str().unwrap(), 1, d, "builtin", kind)
     })
-    .collect()
+    .collect();
+    if kind == "report_contract" {
+        // Preserve the existing single-checkpoint contract and its exact pins.
+        let mut definition = records
+            .iter()
+            .find(|r| r["id"] == "loom.report.evaluation")
+            .expect("base evaluation report")["definition"]
+            .clone();
+        definition["label"] = json!("Checkpoint evaluation");
+        let schema = &mut definition["requirements"][0]["schema"];
+        schema["properties"]["checkpoint_selection"] = source["checkpoint_selection"].clone();
+        schema["required"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!("checkpoint_selection"));
+        records.push(record(
+            "loom.report.checkpoint_evaluation",
+            1,
+            definition,
+            "builtin",
+            kind,
+        ));
+    }
+    records
 }
 pub fn get(db: &Connection, kind: &str, id: &str, revision: Option<u64>) -> Result<Value> {
     if let Some(v) = builtins(kind)
@@ -788,16 +812,26 @@ pub fn bind_profile(db: &Connection, profile: &mut Value) -> Result<()> {
         }
     }
     for (selector, contract) in &pins {
-        if contract["definition"]["activity"] == "training" {
-            for r in effective(contract)
-                .iter()
-                .filter(|r| r.required && r.role == "learning_series")
-            {
+        for r in effective(contract).iter().filter(|r| r.required) {
+            let binding = match r.role.as_str() {
+                "learning_series" if contract["definition"]["activity"] == "training" => {
+                    Some("/schedule")
+                }
+                "evaluation_cases"
+                    if r.schema["required"]
+                        .as_array()
+                        .is_some_and(|a| a.contains(&json!("checkpoint_selection"))) =>
+                {
+                    Some("/checkpoint_selection")
+                }
+                _ => None,
+            };
+            if let Some(pointer) = binding {
                 check(
                     reporting["expectations"][selector][&r.id]
                         .as_array()
-                        .is_some_and(|a| a.iter().any(|v| v["pointer"] == "/schedule")),
-                    format!("Declare the learning schedule before execution: {}", r.id),
+                        .is_some_and(|a| a.iter().any(|v| v["pointer"] == pointer)),
+                    format!("Declare {pointer} before execution: {}", r.id),
                 )?;
             }
         }
@@ -818,11 +852,23 @@ pub fn validate_plan(db: &Connection, spec: &Value) -> Result<()> {
     {
         for (_, bindings) in requirements.as_object().into_iter().flatten() {
             for b in bindings.as_array().into_iter().flatten() {
-                if let Some(pointer) = b["context_pointer"].as_str() {
-                    check(
-                        spec.pointer(pointer).is_some(),
-                        "Expected report context pointer is absent from this Job",
-                    )?;
+                let value = if let Some(pointer) = b["context_pointer"].as_str() {
+                    spec.pointer(pointer).ok_or_else(|| {
+                        Error::new(
+                            "report_contract",
+                            "Expected report context pointer is absent from this Job",
+                            400,
+                        )
+                    })?
+                } else {
+                    &b["value"]
+                };
+                if b["pointer"] == "/checkpoint_selection" {
+                    check(matches!(value["split"].as_str(), Some("development" | "validation" | "test")) && match value["rule"].as_str() {
+                        Some("best_success_rate") => value["split"] != "test" && value.get("selected_step").is_some_and(Value::is_null),
+                        Some("prespecified") => value["selected_step"].as_u64().is_some(),
+                        _ => false,
+                    }, "Freeze a prespecified checkpoint or a development/validation success-rate rule before execution")?;
                 }
             }
         }
@@ -1334,7 +1380,10 @@ pub fn validate_reports(
             )?;
         }
     }
-    let primary=report_data.get("evaluation_cases").and_then(|a|a.first()).map(|d|json!({"label":"Whole-task success","numerator":d["counts"]["successes"],"denominator":d["counts"]["valid"],"protocol_ref":d["protocol_ref"]}));
+    let cases = report_data.get("evaluation_cases").and_then(|a| a.first());
+    let checkpoint_sweep =
+        cases.and_then(|data| checkpoint_evaluation(data, false).filter(|v| v["rule"].is_string()));
+    let primary=cases.filter(|_|checkpoint_sweep.is_none()).map(|d|json!({"label":"Whole-task success","numerator":d["counts"]["successes"],"denominator":d["counts"]["valid"],"protocol_ref":d["protocol_ref"]}));
     let evaluation_summary = report_data.get("evaluation_cases").and_then(|data| data.first()).map(|data| {
         let mut failure_counts = BTreeMap::new();
         for case in data["cases"].as_array().into_iter().flatten() {
@@ -1350,8 +1399,98 @@ pub fn validate_reports(
         json!({"counts":data["counts"],"recorded_failure_subtasks":failure_counts,"criteria":criteria})
     });
     Ok(Some(
-        json!({"state":"validated","contract_ref":reference(contract),"activity":contract["definition"]["activity"],"reports":reports,"adaptations":contract["definition"]["resolved_adaptations"],"exclusions":contract["definition"]["excluded_requirements"],"inputs":expected_inputs,"primary_outcome":primary,"evaluation_summary":evaluation_summary}),
+        json!({"state":"validated","contract_ref":reference(contract),"activity":contract["definition"]["activity"],"reports":reports,"adaptations":contract["definition"]["resolved_adaptations"],"exclusions":contract["definition"]["excluded_requirements"],"inputs":expected_inputs,"primary_outcome":primary,"evaluation_summary":evaluation_summary,"checkpoint_sweep":checkpoint_sweep}),
     ))
+}
+
+#[derive(Default)]
+struct CheckpointCases {
+    sha256: String,
+    resets: BTreeMap<i64, String>,
+    valid: u64,
+    successes: u64,
+}
+
+fn checkpoint_evaluation(data: &Value, legacy_non_test: bool) -> Option<Value> {
+    let mut groups = BTreeMap::<u64, CheckpointCases>::new();
+    for row in data["cases"].as_array()? {
+        let factors = &row["factors"];
+        let step = factors["update"].as_u64()?;
+        let digest = digest_field(&factors["checkpoint_sha256"])?;
+        let reset = digest_field(&factors["reset_state_sha256"])?;
+        let seed = row["seed"].as_i64()?;
+        let group = groups.entry(step).or_insert_with(|| CheckpointCases {
+            sha256: digest.into(),
+            ..Default::default()
+        });
+        if group.sha256 != digest
+            || group.resets.insert(seed, reset.into()).is_some()
+            || groups.len() > 64
+        {
+            return None;
+        }
+        let group = groups.get_mut(&step).unwrap();
+        group.valid += u64::from(row["valid"] == true);
+        group.successes += u64::from(row["valid"] == true && row["outcome"] == "success");
+    }
+    if groups.len() < 2
+        || groups
+            .values()
+            .map(|g| &g.sha256)
+            .collect::<BTreeSet<_>>()
+            .len()
+            != groups.len()
+    {
+        return None;
+    }
+    let selection = &data["checkpoint_selection"];
+    let first = groups.values().next()?;
+    let comparable = data["counts"]["unexecuted"] == 0
+        && groups
+            .values()
+            .all(|g| g.valid as usize == g.resets.len() && g.resets == first.resets);
+    let can_rank = comparable
+        && (legacy_non_test
+            || matches!(
+                selection["split"].as_str(),
+                Some("development" | "validation")
+            ));
+    let max = can_rank
+        .then(|| groups.values().map(|g| g.successes).max())
+        .flatten();
+    let best_steps: Vec<_> = groups
+        .iter()
+        .filter_map(|(step, g)| (Some(g.successes) == max).then_some(*step))
+        .collect();
+    let selected = match selection["rule"].as_str() {
+        Some("prespecified") => {
+            let step = selection["selected_step"].as_u64()?;
+            if groups.get(&step)?.valid == 0 {
+                return None;
+            }
+            Some(step)
+        }
+        Some("best_success_rate") if can_rank && selection["selected_step"].is_null() => {
+            if best_steps.len() == 1 {
+                best_steps.first().copied()
+            } else {
+                None
+            }
+        }
+        None => None,
+        _ => return None,
+    };
+    Some(
+        json!({"split":selection["split"],"rule":selection["rule"],"selected_step":selected,"best_steps":best_steps,"comparable":comparable,"checkpoints":groups.iter().map(|(step,g)|json!({"step":step,"sha256":g.sha256,"valid":g.valid,"successes":g.successes,"executed":g.resets.len()})).collect::<Vec<_>>()}),
+    )
+}
+
+fn digest_field(value: &Value) -> Option<&str> {
+    value.as_str().filter(|s| {
+        s.len() == 64
+            && s.bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    })
 }
 
 // Built-in semantics are validated in addition to JSON Schema. Custom roles carry
@@ -1437,6 +1576,9 @@ fn semantic(r: &Requirement, data: &Value, contract: &Value, inputs: &[Value]) -
     }
     if r.role == "evaluation_cases" {
         let rows = data["cases"].as_array().unwrap();
+        if data["checkpoint_selection"].is_object() {
+            check(checkpoint_evaluation(data, false).is_some(), "Checkpoint evaluation needs distinct checkpoint pins and unique seed/reset cases; select by success only on identical complete development/validation cohorts")?;
+        }
         let mut ids = BTreeSet::new();
         for row in rows {
             check(
@@ -1758,6 +1900,65 @@ impl Application {
         Ok(value)
     }
 
+    pub(crate) fn legacy_checkpoint_evaluation(
+        &self,
+        entity: &Value,
+        params: &Value,
+    ) -> Option<Value> {
+        let steps = params
+            .get("updates")
+            .or_else(|| params.get("checkpoint_steps"))?
+            .as_array()?;
+        if !(2..=64).contains(&steps.len()) || entity["reporting"]["activity"] != "evaluation" {
+            return None;
+        }
+        let planned = steps
+            .iter()
+            .map(Value::as_u64)
+            .collect::<Option<BTreeSet<_>>>()?;
+        if planned.len() != steps.len() {
+            return None;
+        }
+        let report = entity["reporting"]["reports"]
+            .as_array()?
+            .iter()
+            .find(|r| r["state"] == "recorded" && r["role"] == "evaluation_cases")?;
+        let digest = digest_field(&report["sha256"])?;
+        let split = entity
+            .pointer("/metadata/research/evaluation/split")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .split_whitespace()
+            .next();
+        let non_test = matches!(split, Some("development" | "validation"));
+        let key = (digest.to_string(), non_test);
+        type Summaries = BTreeMap<(String, bool), Value>;
+        static CACHE: OnceLock<Mutex<Summaries>> = OnceLock::new();
+        let cache = CACHE.get_or_init(Default::default);
+        let summary =
+            if let Some(value) = cache.lock().ok().and_then(|cache| cache.get(&key).cloned()) {
+                value
+            } else {
+                let payload = self
+                    .read_bound_report(entity["id"].as_str()?, entity["revision"].as_u64()?, report)
+                    .ok()?;
+                let value = checkpoint_evaluation(&payload["data"], non_test)?;
+                if let Ok(mut cache) = cache.lock() {
+                    if cache.len() >= 128 {
+                        cache.pop_first();
+                    }
+                    cache.insert(key, value.clone());
+                }
+                value
+            };
+        let recorded = summary["checkpoints"]
+            .as_array()?
+            .iter()
+            .map(|c| c["step"].as_u64())
+            .collect::<Option<BTreeSet<_>>>()?;
+        (planned == recorded).then_some(summary)
+    }
+
     fn read_report(&self, args: Value) -> Result<Value> {
         let id = args["id"].as_str().unwrap_or("");
         let revision = args["revision"].as_u64().unwrap_or(1);
@@ -1785,6 +1986,35 @@ impl Application {
             "Report was not recorded",
             404,
         )?;
+        let payload = self.read_bound_report(id, revision, report)?;
+        let pointer = args["pointer"].as_str().unwrap_or("");
+        let mut value = payload["data"]
+            .pointer(pointer)
+            .cloned()
+            .ok_or_else(|| Error::input("Report field not found"))?;
+        let total = value.as_array().map(Vec::len);
+        let offset = args["offset"].as_u64().unwrap_or(0) as usize;
+        let limit = args["limit"].as_u64().unwrap_or(100).clamp(1, 500) as usize;
+        if let Some(rows) = value.as_array() {
+            value = json!(rows
+                .iter()
+                .skip(offset)
+                .take(limit)
+                .cloned()
+                .collect::<Vec<_>>());
+        }
+        require(
+            serde_json::to_vec(&value)?.len() <= 256 * 1024,
+            "report_page_size",
+            "Select a report field or smaller row page",
+            413,
+        )?;
+        Ok(
+            json!({"id":id,"revision":revision,"report":report,"pointer":pointer,"value":value,"total":total,"next_offset":total.filter(|n|offset.saturating_add(limit)<*n).map(|_|offset+limit),"verification":"sha256_verified"}),
+        )
+    }
+
+    fn read_bound_report(&self, id: &str, revision: u64, report: &Value) -> Result<Value> {
         let locations=rows(&self.db,"SELECT storage_id,ref FROM all_entity_locations WHERE id=? AND revision=? AND component=? AND status='available' ORDER BY storage_id,ref",&[&id,&(revision as i64),&report["component"].as_str()])?;
         let mut data = None;
         let mut last_error = None;
@@ -1812,7 +2042,7 @@ impl Application {
                 Err(error) => last_error = Some(error),
             }
         }
-        let payload = data.ok_or_else(|| {
+        data.ok_or_else(|| {
             last_error.unwrap_or_else(|| {
                 Error::new(
                     "report_unavailable",
@@ -1820,31 +2050,6 @@ impl Application {
                     404,
                 )
             })
-        })?;
-        let pointer = args["pointer"].as_str().unwrap_or("");
-        let mut value = payload["data"]
-            .pointer(pointer)
-            .cloned()
-            .ok_or_else(|| Error::input("Report field not found"))?;
-        let total = value.as_array().map(Vec::len);
-        let offset = args["offset"].as_u64().unwrap_or(0) as usize;
-        let limit = args["limit"].as_u64().unwrap_or(100).clamp(1, 500) as usize;
-        if let Some(rows) = value.as_array() {
-            value = json!(rows
-                .iter()
-                .skip(offset)
-                .take(limit)
-                .cloned()
-                .collect::<Vec<_>>());
-        }
-        require(
-            serde_json::to_vec(&value)?.len() <= 256 * 1024,
-            "report_page_size",
-            "Select a report field or smaller row page",
-            413,
-        )?;
-        Ok(
-            json!({"id":id,"revision":revision,"report":report,"pointer":pointer,"value":value,"total":total,"next_offset":total.filter(|n|offset.saturating_add(limit)<*n).map(|_|offset+limit),"verification":"sha256_verified"}),
-        )
+        })
     }
 }

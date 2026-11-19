@@ -41,13 +41,15 @@ one arbitrarily. See `metadata` for registered formats and canonical field types
 
 Include the discriminators needed to distinguish sibling outputs: modality,
 model family, protocol/cohort, checkpoint role or revision as appropriate.
+When evaluations share a protocol and cohort, include the evaluated Policy
+variant or checkpoint in each label if it distinguishes the runs.
 Keep full parameters, counts, splits, timestamps, hashes and Runtime pins in
 their typed metadata/provenance fields. IDs and file paths remain independent.
 Do not use a Job UUID, an output local key such as checkpoint, or the Task name
 alone as the display name.
 
 Task membership is a separate exact `scenario_ref`/context link, shown as a property
-in Outputs. It never replaces `label`. Reuse an accepted Task when appropriate;
+in the Catalog. It never replaces `label`. Reuse an accepted Task when appropriate;
 do not create another Task just to name an output.
 
 With the Rust SDK, register the file/entity or inventory, then call
@@ -71,7 +73,9 @@ prompt or an observer-source identifier does not establish stored language or
 depth. Keep stored observations, observer inputs and policy inputs separate.
 For Models, record actual policy conditioning and input consumers (`used_by`),
 including proprioception dimensions. An absent language input differs from unknown.
-Do not author Overview prose for Outputs; keep useful information in typed fields.
+Keep useful information in typed fields. For a Dataset brought into Loom, use
+`dataset_import` and retain the upstream source, revision and digest. The Catalog
+identifies recorded imports and lets readers filter Dataset origin.
 
 Find the most comparable exact prior output before choosing a format. Reuse its
 registered metadata template when compatible; copy its structure rather than

@@ -1,5 +1,6 @@
 """Firefox, retained Dashboard relay and the native Ops process on private fixture roots."""
 import base64,hashlib,json,os,socket,sqlite3,subprocess,tempfile,time,unittest
+from threading import Event
 from unittest.mock import patch
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -269,7 +270,29 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.assertFalse(self.ui.js("return !!document.querySelector('#pa-nav [data-go=scenarios]')"))
   with urlopen(self.native+'/api/dashboard/bootstrap',timeout=5) as response:bootstrap=json.load(response)
   self.assertTrue(bootstrap['capabilities']['catalog_pages']);self.assertIsInstance(bootstrap['activity']['days'],list)
+  with urlopen(self.native+'/api/dashboard/shell',timeout=5) as response:shell=json.load(response)
+  self.assertTrue(shell['capabilities']['live_queue']);self.assertEqual(shell['entities'],[])
+  self.assertTrue({'activity','queue','runtime_catalog','summary'}.isdisjoint(shell))
   self.ui.nav('Profiles');self.ui.wait("return document.querySelector('#pa-content').textContent.includes('browser.profile.r1')")
+
+ def test_catalog_refresh_only_fetches_activity_and_queue_for_visible_home(self):
+  self.ui.nav('Models')
+  observed=[];loaded=Event();original=reference.server.WebHandler.relay
+  def relay(handler,method,path,body=None,*,media=False):
+   if path=='/api/actions' and body:
+    payload=json.loads(body)
+    if payload.get('group')=='system':
+     observed.append(payload['action'])
+     if 'dashboard_activity' in observed and 'dashboard_queue' in observed:loaded.set()
+   return original(handler,method,path,body,media=media)
+  with patch.object(reference.server.WebHandler,'relay',relay):
+   self.call('results','register_scenario',{'key':'shell-pane-demand','definition':{'label':'Shell pane demand'}})
+   self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+   self.ui.wait("return [...document.querySelector('[data-research-task]').options].some(o=>o.textContent==='Shell pane demand')")
+   self.assertNotIn('dashboard_activity',observed);self.assertNotIn('dashboard_queue',observed)
+   self.ui.nav('Dashboard')
+   self.ui.wait("return !!document.querySelector('.pa-activity-graph') && [...document.querySelectorAll('h2')].some(h=>h.textContent.startsWith('현재 큐 ·'))")
+   self.assertTrue(loaded.wait(5),observed)
 
  def test_unloaded_native_job_link_does_not_depend_on_name_search(self):
   self.ui.nav('Loom Use')
@@ -444,7 +467,6 @@ class NativeWorkspaceTests(unittest.TestCase):
    self.ui.wait("return !!document.querySelector('[data-catalog-more='+arguments[0]+']')",query_kind)
    self.ui.click('[data-catalog-more='+query_kind+']')
    self.ui.wait("return document.querySelectorAll('[data-output-id]').length===65")
-   if kind=='dataset':self.ui.click('[data-dataset-family=unassigned]>summary')
    self.ui.js("document.querySelector('.pa-pane-body').scrollTop=1200")
    time.sleep(.2)
    capture="""const b=document.querySelector('.pa-pane-body'),edge=b.getBoundingClientRect(),e=[...b.querySelectorAll('[data-output-id]')].find(e=>e.getClientRects().length&&e.getBoundingClientRect().bottom>edge.top);return {id:e.dataset.outputId,offset:e.getBoundingClientRect().top-edge.top,top:b.scrollTop,count:b.querySelectorAll('[data-output-id]').length};"""

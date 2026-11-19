@@ -151,6 +151,7 @@ impl Application {
             path,
             "/api/dashboard/catalog"
                 | "/api/dashboard/bootstrap"
+                | "/api/dashboard/shell"
                 | "/api/dashboard/revision"
                 | "/api/dashboard/resources"
         ) {
@@ -160,13 +161,17 @@ impl Application {
             } else if path.ends_with("resources") {
                 self.resources()?
             } else {
-                let mut catalog = if path.ends_with("bootstrap") {
+                let mut catalog = if path.ends_with("/shell") {
+                    self.dashboard_shell()?
+                } else if path.ends_with("bootstrap") {
                     self.dashboard_bootstrap()?
                 } else {
                     self.dashboard_catalog()?
                 };
                 let write = !self.read_only && actor.scopes.iter().any(|s| s == "submit");
-                crate::query::queue_permissions(&mut catalog["queue"], write);
+                if let Some(queue) = catalog.get_mut("queue") {
+                    crate::query::queue_permissions(queue, write);
+                }
                 catalog["capabilities"]["curate"] =
                     json!(!self.read_only && actor.scopes.iter().any(|s| s == "submit"));
                 if path.ends_with("revision") {
@@ -709,7 +714,7 @@ pub fn is_heavy_read(r: &HttpRequest) -> bool {
     (r.path.starts_with("/api/dashboard/")
         && !matches!(
             r.path.as_str(),
-            "/api/dashboard/resources" | "/api/dashboard/revision"
+            "/api/dashboard/resources" | "/api/dashboard/revision" | "/api/dashboard/shell"
         ))
         || r.path.starts_with("/api/items/")
         || r.path.starts_with("/api/files/")
@@ -726,6 +731,7 @@ pub fn is_heavy_read(r: &HttpRequest) -> bool {
                         "dashboard_page"
                             | "dashboard_entity"
                             | "dashboard_activity"
+                            | "dashboard_queue"
                             | "dashboard_summary"
                     )
             )

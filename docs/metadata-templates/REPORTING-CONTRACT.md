@@ -95,7 +95,7 @@ contract and retains its source-contract lineage and exclusion evidence.
 
 ## Output eligibility
 
-The primary Outputs path is Dataset -> trained Policy -> Policy evaluation.
+The Catalog contains imported and produced Datasets, trained Policies and Policy evaluations.
 Derived Datasets retain exact parent revisions and transformations; creating a
 new Dataset does not create a new Task or break its parent chain.
 
@@ -105,6 +105,7 @@ new Dataset does not create a new Task or break its parent chain.
 | Trained Policy checkpoint | Policy revision with Dataset/checkpoint pins | No |
 | Training/validation loss, selection and optimization report | Attached Policy reports, accessible through Training | No |
 | One evaluation execution under a frozen protocol | Experiment with exact Policy, cohort and per-case evidence | Yes |
+| One Policy evaluated at multiple checkpoints under the same frozen protocol | One Experiment with per-checkpoint cases and a declared selection rule | Yes |
 | Cross-Policy or cross-run comparison | Derived comparison view over exact accepted Experiment revisions | No |
 | Observer weights, runtime setup, smoke or platform acceptance | Owning Tool/Component or operational Job evidence | No |
 
@@ -121,6 +122,15 @@ This is distinct from an evaluation's legitimate aggregation of cases within one
 protocol execution. Historical misclassified entries keep their IDs and evidence;
 an audited presentation/attachment mapping removes them from the primary results
 view without deleting their execution or inventing new evaluations.
+
+`loom.report.checkpoint_evaluation` adds a frozen `/checkpoint_selection` value
+and checkpoint/reset factors to the evaluation case contract. The published
+`reporting.checkpoint_sweep` summary keeps checkpoint steps and digests, separate
+denominators and the selection. Ranking requires identical complete valid
+development or validation cohorts. A test cohort reports a prespecified step.
+Historical sweeps can display a best observed score only when the verified report
+matches the declared planned steps and proves a comparable non-test cohort.
+The historical aggregate and all exact case evidence remain recoverable from the source report.
 
 ## Recorded, missing and inapplicable values
 

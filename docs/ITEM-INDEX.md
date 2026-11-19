@@ -115,8 +115,8 @@ not claims that any corpus fits them; configure capacity before a scale migratio
 
 ## Dashboard and acceptance
 
-The browser bootstraps compact authority metadata, queue occupants and a separate
-KST activity rollup. Catalog pages, exact source details, files, relations and logs
+The browser opens a metadata-only shell. Home requests current queue occupants,
+Job history and the KST activity rollup independently. Catalog pages, exact source details, files, relations and logs
 are loaded as requested. Revision-qualified reads preserve historical snapshots
 and accepted software definitions. The legacy catalog route remains for compatible
 clients; new clients do not need it for bootstrap.

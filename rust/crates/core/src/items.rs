@@ -462,7 +462,7 @@ pub fn adopt(db: &Connection, topic: &str, key: &Value) -> Result<()> {
             &json!({"id":key["id"]}),
         );
     }
-    let Some((native_kind, logical, definition, mut body)) = doc(db, topic, key)? else {
+    let Some((native_kind, logical, definition, body)) = doc(db, topic, key)? else {
         let kind = match topic {
             "jobs" | "job_workflows" => "job",
             "entity_revisions" => "entity",
@@ -487,6 +487,17 @@ pub fn adopt(db: &Connection, topic: &str, key: &Value) -> Result<()> {
         }
         return Ok(());
     };
+    adopt_descriptor(db, native_kind, logical, definition, body, true)
+}
+
+fn adopt_descriptor(
+    db: &Connection,
+    native_kind: String,
+    logical: Value,
+    definition: Value,
+    mut body: Value,
+    publish_current: bool,
+) -> Result<()> {
     let logical_key = encode(&logical)?;
     let item: Vec<u8> = db
         .query_row(
@@ -549,13 +560,14 @@ pub fn adopt(db: &Connection, topic: &str, key: &Value) -> Result<()> {
         .as_deref()
         .and_then(|s| serde_json::from_str(s).ok())
         .unwrap_or(Value::Null);
-    let current = match (
-        old_native["identity"]["revision"].as_i64(),
-        native_ref["identity"]["revision"].as_i64(),
-    ) {
-        (Some(a), Some(b)) => b >= a,
-        _ => true,
-    };
+    let current = publish_current
+        && match (
+            old_native["identity"]["revision"].as_i64(),
+            native_ref["identity"]["revision"].as_i64(),
+        ) {
+            (Some(a), Some(b)) => b >= a,
+            _ => true,
+        };
     db.execute("INSERT INTO catalog_items VALUES(?,?,?,?,?,?,0) ON CONFLICT(native_kind,native_key) DO UPDATE SET current_revision=CASE WHEN ? THEN excluded.current_revision ELSE current_revision END,deleted=0",params![item,body["kind"].as_str(),native_kind,logical_key,revision,now(),current])?;
     db.execute(
         "INSERT OR IGNORE INTO catalog_revisions VALUES(?,?,?,?,?)",
@@ -841,6 +853,29 @@ impl Application {
 }
 
 pub use loom_primitives::items::dependency_ref;
+// One current source per logical Item, plus independently resolvable revision pins.
+fn observe_item(
+    db: &Connection,
+    kind: &str,
+    logical: Value,
+    body: Value,
+    current: bool,
+) -> Result<()> {
+    if current {
+        db.execute("INSERT INTO catalog_sources VALUES(?,?,?) ON CONFLICT(kind,identity) DO UPDATE SET body=excluded.body WHERE body!=excluded.body", params![kind,encode(&logical)?,encode(&body)?])?;
+    } else {
+        let known: bool = db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM catalog_aliases WHERE kind=? AND identity=?)",
+            params![kind, encode(&body["native_ref"]["identity"])?],
+            |r| r.get(0),
+        )?;
+        if known {
+            return Ok(());
+        }
+    }
+    adopt_descriptor(db, kind.into(), logical.clone(), logical, body, current)
+}
+
 fn adopt_runtimes(db: &Connection) -> Result<()> {
     let encoded: Option<String> = db
         .query_row(
@@ -857,8 +892,12 @@ fn adopt_runtimes(db: &Connection) -> Result<()> {
         return Ok(());
     }
     let mut dependencies_present = std::collections::BTreeSet::new();
-    let mut present = vec![];
-    for runtime in value["runtimes"].as_array().into_iter().flatten() {
+    let mut present = std::collections::BTreeSet::new();
+    let mut runtimes: Vec<_> = value["runtimes"].as_array().into_iter().flatten().collect();
+    // Select the highest observed revision within a Runtime. A shared origin
+    // reported by independent Runtimes has a stable Runtime-ID tie breaker.
+    runtimes.sort_by_key(|r| (r["id"].as_str(), std::cmp::Reverse(r["revision"].as_u64())));
+    for runtime in runtimes {
         if runtime["legacy"] == true {
             continue;
         }
@@ -875,30 +914,19 @@ fn adopt_runtimes(db: &Connection) -> Result<()> {
             let logical =
                 json!({"name":exact["name"],"scope":exact["scope"],"origin":exact["origin"]});
             let key = encode(&logical)?;
-            dependencies_present.insert(key.clone());
+            let current = dependencies_present.insert(key);
             let main = primary
                 .iter()
                 .any(|d| d["name"] == dep["name"] && d["version"] == dep["version"]);
             let body = json!({"kind":"dependency","label":dep["name"],"version":dep["version"],"category":dep["category"],"scope":if main{"research"}else{"operations"},"role":if main{"main"}else{"support"},"origin_type":"host","source_key":hash(encode(&exact)?),"native_ref":{"kind":"dependency","identity":exact},"source_status":"observed","recorded_at":null});
-            db.execute("INSERT INTO catalog_sources VALUES('dependency',?,?) ON CONFLICT(kind,identity) DO UPDATE SET body=excluded.body WHERE body!=excluded.body",params![key,encode(&body)?])?;
-            adopt(
-                db,
-                "catalog_sources",
-                &json!({"kind":"dependency","identity":key}),
-            )?;
+            observe_item(db, "dependency", logical, body, current)?;
         }
         let identity = json!({"id":runtime["id"]});
         let exact =
             json!({"id":runtime["id"],"revision":runtime["revision"],"sha256":runtime["sha256"]});
         let body = json!({"kind":"runtime","label":runtime["manifest"].get("label").unwrap_or(&runtime["id"]),"scope":"research","role":"main","source_key":runtime["sha256"],"native_ref":{"kind":"runtime","identity":exact},"dependencies":runtime["manifest"].get("primary_dependencies").cloned().unwrap_or(json!([])),"source_status":"observed","file_inventory":runtime["manifest"]["file_inventory"]});
         let key = encode(&identity)?;
-        present.push(key.clone());
-        db.execute("INSERT INTO catalog_sources VALUES('runtime',?,?) ON CONFLICT(kind,identity) DO UPDATE SET body=excluded.body WHERE body!=excluded.body",params![key,encode(&body)?])?;
-        adopt(
-            db,
-            "catalog_sources",
-            &json!({"kind":"runtime","identity":key}),
-        )?;
+        observe_item(db, "runtime", identity, body, present.insert(key))?;
     }
     let mut q = db.prepare(
         "SELECT id,native_key FROM catalog_items WHERE native_kind='runtime' AND deleted=0",

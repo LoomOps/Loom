@@ -22,7 +22,7 @@ consolidation_edges(source,source_attempt,target,target_attempt) AS (
  UNION
  SELECT p.source,p.source_attempt,e.target,e.target_attempt
  FROM consolidation_paths p JOIN consolidation_edges e ON e.source=p.target AND e.source_attempt IS p.target_attempt
-), consolidation_roots AS (
+), consolidation_roots AS MATERIALIZED (
  SELECT p.* FROM consolidation_paths p WHERE NOT EXISTS(
  SELECT 1 FROM consolidation_edges e WHERE e.source=p.target AND e.source_attempt IS p.target_attempt)
 )"#;
@@ -180,6 +180,22 @@ impl Application {
         )
     }
     pub fn consolidation_target(&self, id: &str) -> Result<Option<String>> {
+        // Every detail in this request sees the same authority transaction.
+        // Only consolidated source Jobs occupy the map. Writer reads stay live.
+        if self.query_snapshot {
+            if self.consolidation_targets.get().is_none() {
+                let mut stmt = self.db.prepare(&format!("{CONSOLIDATION_CTE} SELECT r.source, min(r.target) FROM consolidation_roots r JOIN jobs j ON j.id=r.source WHERE j.state='complete' AND r.source_attempt IS j.attempt GROUP BY r.source"))?;
+                let targets = stmt
+                    .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                    .collect::<rusqlite::Result<_>>()?;
+                let _ = self.consolidation_targets.set(targets);
+            }
+            return Ok(self
+                .consolidation_targets
+                .get()
+                .and_then(|map| map.get(id))
+                .cloned());
+        }
         Ok(self.db.query_row(&format!("{CONSOLIDATION_CTE} SELECT r.target FROM consolidation_roots r JOIN jobs original ON original.id=r.source WHERE original.id=? AND original.state='complete' AND r.source_attempt IS original.attempt ORDER BY r.target LIMIT 1"),[id],|r|r.get(0)).optional()?)
     }
     fn job_annotations(&self, id: &str) -> Result<Vec<Value>> {
@@ -608,16 +624,21 @@ impl Application {
     }
     pub fn queue(&self) -> Result<Value> {
         let mut entries = vec![];
-        for row in rows(&self.db,"SELECT id FROM jobs WHERE id IN (SELECT id FROM jobs WHERE state IN ('queued','blocked','preparing','ready','running','processing','result_failed') UNION SELECT job FROM recovery WHERE state IN ('waiting','claimed','pending','executing')) ORDER BY COALESCE(queue_order,created),id",&[])? {let id=row["id"].as_str().unwrap_or("");let record=jobs::load(&self.db,id)?;let r=self.readiness(&record)?;let parent:Option<String>=self.db.query_row("SELECT root FROM workflow_nodes WHERE job=?",[id],|r|r.get(0)).optional()?;entries.push(json!({"id":id,"state":record.aggregate.state.as_str(),"status":record.aggregate.state.public(),"position":entries.len()+1,"owner":record.owner,"lane":record.spec["profile"]["runtime"]["lane"].as_str().unwrap_or("cpu"),"stage":if record.aggregate.state==JobState::Processing{"finalize"}else{"run"},"workflow":parent,"scheduling":{"eligible":r.reason().is_none(),"waiting_reason":r.reason(),"dependency_failed":r.dependency_failed}}));}
         let mut position = 0;
-        for entry in &mut entries {
-            let waiting = matches!(
-                entry["state"].as_str(),
-                Some("queued" | "ready" | "blocked")
-            );
-            let id = entry["id"].as_str().unwrap_or("").to_string();
-            let record = jobs::load(&self.db, &id)?;
+        for row in rows(&self.db,"SELECT id FROM jobs WHERE id IN (SELECT id FROM jobs WHERE state IN ('queued','blocked','preparing','ready','running','processing','result_failed') UNION SELECT job FROM recovery WHERE state IN ('waiting','claimed','pending','executing')) ORDER BY COALESCE(queue_order,created),id",&[])? {
+            let id = row["id"].as_str().unwrap_or("");
+            let record = jobs::load(&self.db, id)?;
             let ready = self.readiness(&record)?;
+            let parent: Option<String> = self.db.query_row(
+                "SELECT root FROM workflow_nodes WHERE job=?", [id], |r| r.get(0)
+            ).optional()?;
+            let mut entry = json!({
+                "id":id,"state":record.aggregate.state.as_str(),"status":record.aggregate.state.public(),
+                "owner":record.owner,"lane":record.spec["profile"]["runtime"]["lane"].as_str().unwrap_or("cpu"),
+                "stage":if record.aggregate.state==JobState::Processing{"finalize"}else{"run"},
+                "workflow":parent,"scheduling":{"eligible":ready.reason().is_none(),"waiting_reason":ready.reason(),"dependency_failed":ready.dependency_failed}
+            });
+            let waiting = matches!(entry["state"].as_str(), Some("queued" | "ready" | "blocked"));
             entry["position"] = if waiting {
                 position += 1;
                 json!(position)
@@ -650,10 +671,18 @@ impl Application {
                 .get("presentation")
                 .cloned()
                 .unwrap_or(json!({}));
+            entries.push(entry);
         }
         let paused=self.db.query_row("SELECT paused,reason,recorded FROM dispatch_control WHERE id=1",[],|r|Ok(json!({"paused":r.get::<_,i64>(0)?!=0,"reason":r.get::<_,Option<String>>(1)?,"recorded":r.get::<_,Option<f64>>(2)?})))?;
         let mut logical = vec![];
-        for row in rows(&self.db, "SELECT id FROM job_workflows", &[])? {
+        // Managed terminal roots carry authoritative state. An unmanaged workflow
+        // enters the live queue only while it has a live physical member.
+        let active_roots: std::collections::BTreeSet<_> = entries
+            .iter()
+            .filter_map(|entry| entry["workflow"].as_str())
+            .collect();
+        for row in rows(&self.db, "SELECT id FROM job_workflows WHERE CASE WHEN json_type(request,'$.plan_revision') IN ('integer','real') THEN state NOT IN ('complete','cancelled') ELSE id IN (SELECT value FROM json_each(?)) END",
+            &[&encode(&json!(active_roots))?])? {
             let mut d = self.job_detail(row["id"].as_str().unwrap_or(""))?;
             let children: Vec<_> = entries
                 .iter()

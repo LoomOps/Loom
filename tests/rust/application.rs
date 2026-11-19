@@ -4629,6 +4629,41 @@ mod system_ownership_tests;
 mod registry_lifecycle_tests;
 
 #[test]
+fn repeated_runtime_revisions_keep_dependency_pins_without_republishing() {
+    let mut f = Fixture::new();
+    let mut runtimes = Vec::new();
+    for (revision, version) in [(1, "1.0"), (2, "2.0")] {
+        let manifest = json!({"runtime":{"image":format!("sha256:{}","a".repeat(64))},"dependencies":[{"name":"package","version":version}]});
+        runtimes.push(json!({"id":"sim","revision":revision,"sha256":hash(crate::compat::seal(&manifest)),"manifest":manifest}));
+    }
+    let mut head = None;
+    for _ in 0..3 {
+        runtimes.reverse();
+        f.app
+            .observe_runtimes(json!({"status":"ok","complete":true,"runtimes":runtimes}))
+            .unwrap();
+        f.app.index_once().unwrap();
+        let current = f.app.catalog_head().unwrap();
+        assert_eq!(*head.get_or_insert(current), current);
+        let mut revisions = Vec::new();
+        for version in ["1.0", "2.0"] {
+            let resolved=f.call("results","resolve_item",json!({"native_ref":{"kind":"dependency","identity":{"name":"package","version":version,"scope":"unrecorded","origin":{"type":"runtime","id":"sim"}}}})).unwrap();
+            revisions.push((resolved["item_id"].clone(), resolved["revision_id"].clone()));
+        }
+        assert_eq!(revisions[0].0, revisions[1].0);
+        assert_ne!(revisions[0].1, revisions[1].1);
+        let page = f
+            .call(
+                "results",
+                "search_items",
+                json!({"kinds":["dependency"],"view":"all","role":"all"}),
+            )
+            .unwrap();
+        assert_eq!(page["items"][0]["version"], "2.0");
+    }
+}
+
+#[test]
 fn image_os_dependencies_do_not_oscillate_between_distinct_runtime_images() {
     let mut f = Fixture::new();
     let mut runtimes = vec![];

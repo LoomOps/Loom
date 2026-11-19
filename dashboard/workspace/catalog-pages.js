@@ -1,19 +1,54 @@
 // Bounded per-view transport. Payload trees, software combinations and logs stay lazy.
 const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityView=null;const loomCatalogOpening=new Set();
-// Bootstrap refreshes do not invoke render(); renew Activity for their revision.
+// Split panes can show Home alongside an unrelated detail. Read only for visible panes.
+function loomHomeVisible(){
+ return ws.panes.some(p=>{const v=activeTab(p).view;return !v.entity&&['home','queue'].includes(v.page);});
+}
+let loomQueueRevision=null,loomHomeErrors={};
+function loomLoadHomeData(){
+ if(!catalogData.capabilities?.catalog_pages)return;
+ const revision=catalogData.revision;
+ if(loomHomeVisible())loomCatalogActivity();
+ const needsQueue=loomHomeVisible()||ws.panes.some(p=>{
+  const v=activeTab(p).view;return v.entity&&(v.page==='queue'||catEntity(v.entity)?.kind==='job');
+ });
+ if(!needsQueue||!catalogData.capabilities.live_queue||loomQueueRevision===revision)return;
+ loomQueueRevision=revision;delete loomHomeErrors.queue;
+ loomSearchAction('system','dashboard_queue').then(value=>{
+  if(loomQueueRevision!==revision||catalogData.revision!==revision)return;
+  catalogData.queue=value.queue;
+  loomCatalogMerge(value);
+  catalogRefreshViews();
+ }).catch(()=>{
+  if(loomQueueRevision===revision){loomHomeErrors.queue=true;catalogRefreshViews();}
+ });
+}
 function loomCatalogActivity(){
  const view='all',revision=catalogData.revision,key=JSON.stringify([revision,view]);
- if(!catalogData.capabilities?.catalog_pages||loomActivityView===key)return;
- loomActivityView=key;
+ if(!loomHomeVisible()||!catalogData.capabilities?.catalog_pages||loomActivityView===key)return;
+ loomActivityView=key;delete loomHomeErrors.activity;
  queueMicrotask(async()=>{
   try{
    const activity=await loomSearchAction('system','dashboard_activity',{view});
-   if(loomActivityView!==key)return;
-   if(catalogData.revision!==revision){loomActivityView=null;loomCatalogActivity();return;}
+   if(loomActivityView!==key||catalogData.revision!==revision)return;
    catalogData.activity={...activity,view};catalogRefreshViews();
-  }catch{if(loomActivityView===key)loomActivityView=null;}
+  }catch{if(loomActivityView===key){loomHomeErrors.activity=true;catalogRefreshViews();}}
  });
 }
+function loomHomeStatus(kind){
+ return '<span role="status">'+(loomHomeErrors[kind]?'조회 실패 <button data-home-retry="'+kind+'">Retry</button>':'…')+'</span>';
+}
+root.addEventListener('click',event=>{
+ const button=event.target.closest('[data-home-retry]');if(!button)return;
+ if(button.dataset.homeRetry==='activity')loomActivityView=null;else loomQueueRevision=null;
+ loomLoadHomeData();catalogRefreshViews();
+});
+const loomHomeActivityPanel=dashboardActivity;
+dashboardActivity=function(){
+ if(catalogData.capabilities?.live_queue&&(loomHomeErrors.activity||!catalogData.activity?.days))
+  return panel('Activity',loomHomeStatus('activity'))+(catalogData.activity?.days?loomHomeActivityPanel():'');
+ return loomHomeActivityPanel();
+};
 const loomCatalogKinds={models:'model',datasets:'dataset',experiments:'experiment',issues:'issue',profiles:'profile',components:'component',tools:'tool',runtimes:'runtime',dependencies:'dependency',scenarios:'scenario',queue:'job',files:'explorer'};
 function loomCatalogQuery(kind){if(kind==='job')return {kinds:['job'],view:'all',role:'all',limit:50};if(kind==='explorer')return {kinds:['dataset','model','experiment','artifact'],view:'all',role:'all',limit:50};const view=catalogData.presentation_view||'research';return {...(['profile','component','tool','runtime'].includes(kind)?{...loomRegistryArgs(state.registryFilter||'current'),...(state.registryFilter==='archived'?{history:'all'}:{})}:{}),kinds:[kind],view:view==='builtin'?'all':view,role:['model','dataset','experiment'].includes(kind)?((state.outputPurpose||(view==='research'?'research':'all'))==='research'?'main':'all'):kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(['model','dataset','experiment'].includes(kind)&&state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
@@ -44,9 +79,9 @@ function loomCatalogRefresh(value){
  const records=new Map(old.map(e=>[e.id,e]));
  for(const e of value.all_entities||value.entities){const old=records.get(e.id);records.set(e.id,old?.kind==='scenario'&&old.loom_scenario.revision>e.loom_scenario?.revision?old:loomCatalogRetainResearch(old,e,!changed));}
  loomPresentationView=value.presentation_view||catalogData.presentation_view||'research';
- queueMicrotask(loomCatalogActivity);
+ queueMicrotask(loomLoadHomeData);
  const activity=catalogData.activity?.view==='all'?catalogData.activity:value.activity;
- return catTitleSnapshot(loomCatalogProjection({...value,activity,entities:[...records.values()]}));
+ return catTitleSnapshot(loomCatalogProjection({...value,queue:value.queue||catalogData.queue,runtime_catalog:value.runtime_catalog||catalogData.runtime_catalog,activity,entities:[...records.values()]}));
 }
 function loomCatalogRetainResearch(previous,incoming,sameRevision){
  if(!sameRevision||!previous?.research_summary||!incoming.research_summary)return incoming;
@@ -88,6 +123,7 @@ async function loomCatalogLoad(kind,more=false,query=loomCatalogQuery(kind)){
   if(kind!=='job'||!result.partial){
    page.ids=more?[...new Set([...page.ids,...ids])]:result.partial&&page.ids.length>ids.length?page.ids:ids;
    loomCatalogMerge({...result,entities});
+   if(['runtime','dependency'].includes(kind)&&result.runtime_catalog)catalogData.runtime_catalog=result.runtime_catalog;
    page.cursor=cursor;page.committed=true;
   }
   page.loaded=true;page.partial=result.partial;
@@ -137,7 +173,7 @@ render=function(){
  if(catalogData.capabilities?.catalog_pages&&state.entity&&!catEntity(state.entity)&&!loomCatalogOpening.has(state.entity)){
   const id=state.entity;loomCatalogOpening.add(id);queueMicrotask(()=>loomCatalogOpen(id).catch(()=>{}).finally(()=>loomCatalogOpening.delete(id)));
  }
- loomCatalogActivity();
+ loomLoadHomeData();
 };
 document.addEventListener('click',event=>{const b=event.target.closest('[data-catalog-more]');if(!b)return;event.preventDefault();const pane=b.closest('[data-pane]');if(pane)ws.active=pane.dataset.pane;state=activeTab().view;const kind=b.dataset.catalogMore,page=loomCatalogPages.get(loomCatalogPageKey(kind));if(page?.error){page.loaded=false;page.error=null;}loomCatalogLoad(kind,!!page?.cursor);});
 const loomPagedActivitySummary=activitySummary;

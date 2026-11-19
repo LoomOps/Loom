@@ -4,13 +4,13 @@ function loomIsOutputPage(page){return Object.hasOwn(loomOutputPages,page)||page
 function loomIsResearchPage(page){return loomIsOutputPage(page)||page==='comparison';}
 function loomOutputTabs(){
  const selected=state.page;
- return '<nav class="pa-output-tabs" aria-label="Outputs">'+Object.entries(loomOutputPages).map(([page,label])=>'<button data-output-page="'+page+'" aria-current="'+(selected===page?'page':'false')+'">'+label+'</button>').join('')+'</nav>';
+ return '<nav class="pa-output-tabs" aria-label="Catalog">'+Object.entries(loomOutputPages).map(([page,label])=>'<button data-output-page="'+page+'" aria-current="'+(selected===page?'page':'false')+'">'+label+'</button>').join('')+'</nav>';
 }
 function loomOutputBreadcrumb(view){
  if(!loomIsOutputPage(view.page))return '작업실 / '+viewTitle(view);
  const label=view.entity||view.model?viewTitle(view):null;
  const section=loomOutputPages[view.page]||'Task';
- return '작업실 / Outputs / '+section+(label?' / '+label:'');
+ return '작업실 / Catalog / '+section+(label?' / '+label:'');
 }
 function loomOutputChrome(){
  return '<div class="pa-output-header">'+loomOutputTabs()+'</div>';
@@ -38,8 +38,15 @@ const loomOutputDatasets=datasets;
 datasets=function(){return loomOutputChrome()+loomOutputDatasets();};
 const loomOutputModels=modelList;
 modelList=function(){return loomOutputChrome()+loomOutputModels().replace(/>Models</g,'>Policies<');};
-const loomOutputExperiments=experiments;
-experiments=function(){return loomOutputChrome()+loomOutputExperiments();};
+experiments=function(){
+ const discarded=state.resultDispositionFilter==='discarded';
+ const all=[...catKind('experiment',true),...catKind('run',true)];
+ const rows=all.filter(e=>catIsDiscarded(e)===discarded);
+ const filters='<section class="pa-model-filters" aria-label="Experiment filters"><div class="pa-model-filter-top"><div class="pa-model-role-group" role="group" aria-label="Record status">'
+  +[['current','Current',false],['discarded','Discarded',true]].map(([value,label,isDiscarded])=>'<button class="pa-pill '+(discarded===isDiscarded?'active':'')+'" data-result-disposition-filter="'+value+'" aria-pressed="'+(discarded===isDiscarded)+'">'+label+'<span>'+all.filter(e=>catIsDiscarded(e)===isDiscarded).length+'</span></button>').join('')+'</div></div></section>';
+ return loomOutputChrome()+loomTaskToolbar()+heading('CATALOG','Experiments','')+catStatus()+filters
+  +panel(rows.length+' / '+all.length+'개 실험','<div>'+ (rows.map(e=>resultCard(e)+(discarded?resultDispositionPanel(e):'')).join('')||'<div class="pa-empty">표시할 실험이 없습니다.</div>')+'</div>')+loomCatalogPager('experiment');
+};
 const loomOutputDetail=catalogDetail;
 catalogDetail=function(id){return (loomIsOutputPage(state.page)?loomOutputChrome():'')+loomOutputDetail(id);};
 function loomCompareSetups(entity){

@@ -1247,7 +1247,7 @@
   },
   "system.dashboard_page": {
     "title": "Page Dashboard records",
-    "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations. Job rows include group_root and a bounded root group_summary independent of the loaded page; these are display projections, not execution mutations.",
+    "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations. Job rows include group_root and a bounded root group_summary independent of the loaded page; these are display projections, not execution mutations. Set records_only=true to omit the independent queue, host and Job contract projections.",
     "returns": "Browser catalog page · entities, research_tasks, next_cursor, partial, consistency and shared catalog metadata",
     "example": {
       "kinds": [
@@ -1262,6 +1262,14 @@
       "feature": "catalog",
       "entrypoint": "rust/crates/core/src/catalog.rs#dashboard_page"
     }
+  },
+  "system.dashboard_queue": {
+    "title": "Read current Dashboard queue",
+    "description": "Read visible queue occupants and their Job rows independently of paginated history. Queue controls follow the authenticated user's permissions.",
+    "returns": "Revision, queue and matching Job entities",
+    "example": {},
+    "errors": ["Requires read access."],
+    "implementation": {"feature":"queue","entrypoint":"rust/crates/core/src/catalog.rs#dashboard_occupancy"}
   },
   "system.dashboard_activity": {
     "title": "Dashboard activity",
@@ -1280,7 +1288,7 @@
   },
   "system.dashboard_entity": {
     "title": "Dashboard entity",
-    "description": "Read one exact source-qualified browser record with lazy file inventories.",
+    "description": "Read one exact source-qualified browser record with lazy file inventories. Set records_only=true to omit the independent queue, host and Job contract projections.",
     "returns": "Exact browser catalog projection including selected entities and common Item/revision IDs",
     "example": {
       "item_id": "2156055679491977121222771780406505881"

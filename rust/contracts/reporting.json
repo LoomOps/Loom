@@ -113,6 +113,16 @@
       }
     }
   ],
+  "checkpoint_selection": {
+    "type": "object",
+    "properties": {
+      "split": {"enum": ["development", "validation", "test"]},
+      "rule": {"enum": ["best_success_rate", "prespecified"]},
+      "selected_step": {"type": ["integer", "null"], "minimum": 0}
+    },
+    "required": ["split", "rule", "selected_step"],
+    "additionalProperties": false
+  },
   "contracts": [
     {
       "id": "loom.report.dataset",

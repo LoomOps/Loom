@@ -526,7 +526,8 @@ const done=arguments[arguments.length-1];
         ui=self.ui;ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
         ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('dataset-list-fixed')")
         ui.nav('Datasets')
-        ui.wait("return document.querySelectorAll('.pa-dataset-row').length===3");ui.click('[data-output-purpose=all]');ui.wait("return document.querySelectorAll('.pa-dataset-row').length===4");ui.click('[data-dataset-family=unassigned]>summary')
+        ui.wait("return document.querySelectorAll('.pa-dataset-row').length===3");ui.click('[data-output-purpose=all]');ui.wait("return document.querySelectorAll('.pa-dataset-row').length===4")
+        self.assertFalse(ui.js("return !!document.querySelector('[data-dataset-family=unassigned]')"))
         text=ui.js("return ['rich','legacy','annotated','conditions'].map(id=>document.querySelector('[data-output-id=dataset-'+id+']').innerText)")
         self.assertIn('RGB · State · Action',text[0]);self.assertIn('82,714',text[0])
         self.assertIn('train 100 / validation 20 / test 20',text[0])
@@ -539,7 +540,7 @@ const done=arguments[arguments.length-1];
             for theme in ('light','dark'):
                 ui.click('button[data-theme='+theme+']')
                 self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-dataset-row')].every(e=>e.scrollWidth<=e.clientWidth+1)"))
-                self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-dataset-row [data-column]')].every(e=>getComputedStyle(e).wordBreak!=='break-all')"))
+                self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-dataset-row dd')].every(e=>getComputedStyle(e).wordBreak!=='break-all')"))
         ui.route('dataset-rich')
         ui.wait("return !!document.querySelector('details[data-output-record]')")
         ui.click('[data-output-sources]>summary');ui.click('details[data-output-record] summary')
@@ -606,7 +607,14 @@ const done=arguments[arguments.length-1];
         self.ui.wait("return !document.querySelector('iframe').hidden");self.ui.frame()
         self.ui.wait("return document.querySelector('[data-loom-session-name]')?.textContent==='SSO Member'")
         self.wd('/frame',{'id':None})
-        self.wd('/refresh',{})
+        with patch.dict(self.api.errors,{'/api/dashboard/shell':503}):
+            self.wd('/refresh',{})
+            self.ui.wait("return document.querySelector('#loom-access-status')?.textContent.includes('503')")
+            self.assertTrue(self.ui.js("return document.querySelector('#loom-sso-login').hidden"))
+            self.ui.js('window.retryProbe=1')
+        self.ui.click('#loom-entry-retry')
+        self.ui.wait("return !document.querySelector('iframe').hidden")
+        self.assertEqual(self.ui.js('return window.retryProbe'),1)
         self.ui.wait("return !document.querySelector('iframe').hidden");self.ui.frame()
         self.ui.wait("return document.querySelector('[data-loom-session-name]')?.textContent==='SSO Member'")
         self.assertTrue(self.ui.js("return !!document.querySelector('.pa-sidebar [data-loom-session]') && !document.querySelector('.pa-top [data-loom-session]')"))
@@ -1659,11 +1667,16 @@ const done=arguments[arguments.length-1];
         def fact(id,label,value,section='collection'):return {'id':id,'label':label,'value':value,'section':section,'status':'recorded','evidence':[]}
         def data(id,label,count,unit):return {'id':id,'kind':'dataset','label':label,'loom_registry':{'id':id,'revision':1},'properties':{},'metrics':[],'relations':[],'artifacts':[],'description':'Legacy overview remains only in raw evidence','research_summary':{'schema':'loom-research-summary/v1','kind':'dataset','facts':[fact('count','Count',count),fact('count_unit','Unit',unit)],'inputs':[],'sources':[]}}
         parent=data('derive-parent','Recorded trajectories · Calibrated RGB · Full-length source demonstrations · consolidated-v1',4,'episodes');child=data('derive-child','Selected conditions',2,'cases')
+        child['research_summary']['facts'][0]['unit']='cases'
         parent['task_refs']=child['task_refs']=[{'id':'test-family','revision':1,'label':'Test family · Alignment'}]
         parent['dataset_organization']=child['dataset_organization']={'task_ref':{'id':'test-family','revision':1},'path':[{'id':'cohort','label':'Cohort'}]}
-        parent['research_summary']['facts'] += [fact('bc_ready','BC eligibility',False,'quality'),fact('positive_coverage','Positive BC coverage',{'train':0},'quality')]
+        parent['dataset_overview']={'role':'training_observations'}
+        child['dataset_overview']={'role':'evaluation_conditions'}
+        parent['research_summary']['inputs']=[{'kind':'rgb','status':'present'}]
+        child['research_summary']['inputs']=[{'kind':'depth','status':'present'}]
+        parent['research_summary']['facts'] += [fact('bc_ready','BC eligibility',False,'quality'),fact('positive_coverage','Positive BC coverage',{'train':0},'quality'),fact('split','Split',{'train':4})]
         child['properties']['observer_identity']='a'*64
-        child['research_summary']['facts'].append(fact('annotation_source','Annotation source','a'*64,'annotations'))
+        child['research_summary']['facts'] += [fact('annotation_source','Annotation source','a'*64,'annotations'),fact('split','Split',[{'id':'validation','count':0},{'id':'test','status':'not_applicable'}])]
         child['dataset_lineage']={'schema':'loom-dataset-lineage/v1','parents':[{'parent':{'kind':'entity','identity':{'id':'derive-parent','revision':1}},'item_id':'18446744073709551618','revision_id':'18446744073709551619','label':parent['label'],'transformation':{'kind':'condition_selection','details':'Two held-out condition UIDs'}}]}
         self.api.fixture['catalog']['entities'] += [parent,child];self.api.fixture['catalog']['revision']='derive-ui'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('derive-ui')")
@@ -1673,17 +1686,40 @@ const done=arguments[arguments.length-1];
         ui.click('.pa-dataset-subgroup>summary');self.assertFalse(ui.js("return document.querySelector('.pa-dataset-subgroup').open"))
         self.api.fixture['catalog']['revision']='derive-ui-refresh';ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('derive-ui-refresh')")
         self.assertFalse(ui.js("return document.querySelector('.pa-dataset-subgroup').open"))
+        ui.click('[data-dataset-role="Evaluation conditions"]')
+        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-dataset-tree .pa-scientific-card')].map(e=>e.dataset.outputId)"),['derive-child'])
+        ui.click('[data-dataset-reset]')
+        self.assertFalse(ui.js("return document.querySelector('.pa-dataset-subgroup').open"))
+        ui.js("""for(const [name,value] of [['input','Depth'],['split','validation']]){
+            const f=document.querySelector('[data-dataset-filter='+name+']');f.value=value;f.dispatchEvent(new Event('change',{bubbles:true}));
+        }""")
+        self.assertEqual(ui.js("return document.querySelector('[data-dataset-result-count]').textContent"),'1 / 2개 데이터셋')
+        self.assertIn('validation 0',ui.js("return document.querySelector('[data-output-id=derive-child] [data-research-fact=split]').textContent"))
+        self.assertFalse(ui.js("return !!document.querySelector('[data-dataset-filter=split] option[value=test]')"))
+        ui.click('[data-dataset-reset]')
+        self.assertTrue(ui.js("""const f=document.querySelector('input[data-dataset-filter=query]');
+            f.focus();f.value='selected conditions';f.dispatchEvent(new Event('input',{bubbles:true}));
+            return document.activeElement===f && document.querySelector('[data-output-id=derive-child]').getClientRects().length>0;
+        """))
+        self.assertTrue(ui.js("return document.querySelector('[data-output-id=derive-child] .pa-dataset-relation').textContent.includes('Recorded trajectories')"))
+        ui.click('[data-dataset-reset]')
+        self.assertEqual(ui.js("return document.querySelector('input[data-dataset-filter=query]').value"),'')
         ui.route('derive-child');ui.wait("return !!document.querySelector('[data-output-sources]')")
         self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-output-source>summary')].map(x=>x.textContent)"),['Sources'])
         visible=ui.js("return document.querySelector('#pa-content').innerText")
         self.assertNotIn('Legacy overview remains',visible);self.assertNotIn('Source metadata',visible);self.assertNotIn('개요',visible)
         self.assertIn('Cases',visible);self.assertIn('Conditions selected from',visible)
+        self.assertEqual(ui.js("return document.querySelector('.pa-research-overview [data-research-fact=count] dd').textContent"),'2')
         self.assertNotIn('a'*64,visible)
         self.assertFalse(ui.js("return !!document.querySelector('.pa-research-overview>.pa-panel,.pa-output-section>.loom-surface-skin')"))
         for width in (1440,500,390):
             ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
             for theme in ('light','dark'):
                 ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-pane-body')].every(p=>p.scrollWidth<=p.clientWidth+1)"))
+                self.assertTrue(ui.js("""const cards=document.querySelector('.pa-research-overview.pa-output-overview-cards');
+                    const sections=[...cards.querySelectorAll(':scope > .pa-output-section')];
+                    return getComputedStyle(cards).display==='grid' && sections.length>=2 && sections.every(s=>getComputedStyle(s).borderTopStyle==='solid');
+                """))
 
     def test_dataset_families_subgroups_and_deep_lineage_keep_expansion_state(self):
         ui=self.ui
@@ -1738,7 +1774,7 @@ const done=arguments[arguments.length-1];
         dataset={'id':'scientific-dataset','kind':'dataset','label':'Scientific data','properties':{},'metrics':[],'relations':[],'artifacts':[],'research_summary':{'schema':'loom-research-summary/v1','kind':'dataset','inputs':[{'kind':'rgb','status':'present'}],'sources':[],'facts':[fact('count','Count',4,'collection'),fact('physics_hz','Physics',240,'physics','Hz'),fact('control_hz','Control',80,'physics','Hz'),fact('state_hz','State sampling',[20,40],'physics','Hz'),fact('payload_mass','Payload mass',.125,'physics','kg'),fact('robot_gravity_disabled','Robot gravity disabled',False,'physics')]}}
         self.api.fixture['catalog']['entities'].append(dataset);self.api.fixture['catalog']['revision']='scientific-summary-ui'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('scientific-summary-ui')")
-        ui.nav('Datasets');ui.wait("return !!document.querySelector('[data-output-id=scientific-dataset]')");ui.click('[data-dataset-family=unassigned]>summary')
+        ui.nav('Datasets');ui.wait("return !!document.querySelector('[data-output-id=scientific-dataset]')")
         text=ui.js("return document.querySelector('[data-output-id=scientific-dataset]').textContent")
         for value in ['240 Hz','80 Hz','20 · 40 Hz','0.125 kg','gravity on']:self.assertIn(value,text)
         ui.nav('Models');ui.click('[data-output-purpose=development]');ui.wait("return !!document.querySelector('[data-output-id=fixture-model]')")
@@ -1818,8 +1854,8 @@ const done=arguments[arguments.length-1];
         self.api.fixture['catalog']['revision']='outputs-context'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
         ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('outputs-context')")
-        ui.nav('Outputs')
-        self.assertEqual(ui.js("return [...document.querySelectorAll('#pa-nav button')].filter(e=>e.textContent.trim()==='Outputs').length"),1)
+        ui.nav('Catalog')
+        self.assertEqual(ui.js("return [...document.querySelectorAll('#pa-nav button')].filter(e=>e.textContent.trim()==='Catalog').length"),1)
         self.assertFalse(ui.js("return [...document.querySelectorAll('#pa-nav button')].some(e=>['Datasets','Models','Experiments'].includes(e.textContent.trim()))"))
         self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-output-tabs button')].map(e=>e.textContent)"),['Datasets','Policies','Experiments'])
         self.assertFalse(ui.js("return !!document.querySelector('.pa-output-header [data-metadata-templates],.pa-output-header [data-report-contracts],[data-output-page=comparison]')"))
@@ -1850,11 +1886,11 @@ const done=arguments[arguments.length-1];
 
     def test_legacy_output_routes_and_confirmed_icons(self):
         ui=self.ui
-        for route,selected in [('outputs','datasets'),('datasets','datasets'),('models','models'),('experiments','experiments')]:
+        for route,selected in [('outputs','datasets'),('catalog','datasets'),('datasets','datasets'),('models','models'),('experiments','experiments')]:
             ui.top();ui.js("location.hash=arguments[0]",'#/views/'+route);ui.frame()
             ui.wait("return document.querySelector('[data-output-page='+arguments[0]+']')?.getAttribute('aria-current')==='page'",selected)
             self.assertTrue(ui.js("return document.querySelector('#pa-nav [data-go=datasets]').getAttribute('aria-current')==='page'"))
-            self.assertIn('Outputs',ui.js("return document.querySelector('#pa-breadcrumb').textContent"))
+            self.assertIn('Catalog',ui.js("return document.querySelector('#pa-breadcrumb').textContent"))
         ui.top();ui.js("location.hash='#/views/comparison'");ui.frame()
         ui.wait("return document.querySelector('#pa-nav [data-go=comparison]')?.getAttribute('aria-current')==='page'")
         self.assertTrue(ui.js("return !!document.querySelector('#pa-nav [data-go=comparison] svg[data-lucide=columns-3]')&&!document.querySelector('.pa-document-pane.is-active .pa-output-tabs')"))
@@ -1865,6 +1901,31 @@ const done=arguments[arguments.length-1];
         ui.nav('Tools')
         self.assertTrue(ui.js("return !!document.querySelector('[data-hub-page=tools] svg[data-lucide=hammer]')"))
         self.assertTrue(ui.js("return !!document.querySelector('#pa-nav [data-go=issues] svg[data-lucide=wrench]')"))
+
+    def test_catalog_marks_imports_and_only_headlines_one_checkpoint(self):
+        ui=self.ui;catalog=self.api.fixture['catalog']
+        catalog['capabilities']={'reporting':True}
+        shared={'properties':{},'metrics':[],'relations':[],'artifacts':[]}
+        dataset={**shared,'id':'imported-dataset','kind':'dataset','label':'Public demonstrations','reporting':{'activity':'dataset_import','contract_ref':{'id':'loom.report.dataset','revision':1},'reports':[]}}
+        evaluation={**shared,'id':'checkpoint-evaluation','kind':'experiment','label':'Matched resets',
+                    'reporting':{'state':'validated','primary_outcome':{'label':'Pooled','numerator':23,'denominator':40},'reports':[],
+                                 'contract_ref':{'id':'loom.report.checkpoint_evaluation','revision':1},
+                                 'checkpoint_sweep':{'selected_step':None,'rule':None,'comparable':True,'best_steps':[10000],
+                                                     'checkpoints':[{'step':5000,'valid':20,'executed':20,'successes':7},{'step':10000,'valid':20,'executed':20,'successes':16}]}}}
+        catalog['entities'] += [dataset,evaluation];catalog['revision']='checkpoint-catalog'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('checkpoint-catalog')")
+        ui.nav('Catalog');ui.wait("return document.querySelector('[data-output-id=imported-dataset] .pa-dataset-origin')?.textContent==='Imported'")
+        ui.js("const f=document.querySelector('[data-dataset-filter=origin]');f.value='Imported';f.dispatchEvent(new Event('change',{bubbles:true}))")
+        self.assertEqual(ui.js("return document.querySelectorAll('.pa-dataset-row').length"),1)
+        ui.nav('Experiments');ui.wait("return !!document.querySelector('[data-output-id=checkpoint-evaluation] .pa-result-score')")
+        score=ui.js("return document.querySelector('[data-output-id=checkpoint-evaluation] .pa-result-score').innerText")
+        for value in ['Best observed','10,000','80.0%']:self.assertIn(value,score)
+        self.assertNotIn('23',score)
+        ui.route('checkpoint-evaluation');ui.wait("return !!document.querySelector('.pa-report-experiment .pa-report-overview .pa-output-section')")
+        ui.click('[data-report-tab=results]')
+        text=ui.js("return document.querySelector('[data-report-content]').innerText")
+        for value in ['Checkpoint results','7 / 20','16 / 20','Best observed']:self.assertIn(value,text)
+        self.assertNotIn('23 / 40',text)
 
     def test_legacy_metrics_stay_in_their_tab_and_long_definitions_fit(self):
         ui=self.ui

@@ -36,6 +36,7 @@ pub struct Application {
     pub components: PathBuf,
     pub read_only: bool,
     pub(crate) query_snapshot: bool,
+    pub(crate) consolidation_targets: std::cell::OnceCell<std::collections::BTreeMap<String, String>>,
     pub(crate) live_file: Option<Result<Value>>,
     pub(crate) live_logs: Option<Result<Value>>,
     pub(crate) file_sets: std::collections::BTreeMap<String, Value>,
@@ -172,6 +173,7 @@ impl Application {
             components: components.into(),
             read_only: false,
             query_snapshot: false,
+            consolidation_targets: Default::default(),
             live_logs: None,
             live_file: None,
             file_proofs: Default::default(),
@@ -209,6 +211,7 @@ impl Application {
             components: components.into(),
             read_only: true,
             query_snapshot: false,
+            consolidation_targets: Default::default(),
             live_logs: None,
             live_file: None,
             file_proofs: Default::default(),
@@ -251,6 +254,7 @@ impl Application {
             ("jobs", "read_log") => self.read_log(&args),
             ("jobs", "search_logs") => self.search_logs(actor, &args),
             ("results", "item_relations") => self.item_graph(actor, &args),
+            ("system", "dashboard_queue") => self.dashboard_occupancy(actor),
             ("system", "dashboard_summary") => self.dashboard_summary(),
             ("system", "dashboard_activity") => {
                 self.dashboard_activity(args["view"].as_str().unwrap_or("research"))

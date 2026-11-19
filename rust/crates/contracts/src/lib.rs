@@ -481,12 +481,14 @@ pub fn actions() -> Vec<Action> {
     ] {
         search["properties"][k] = v;
     }
+    let mut page = search.clone();
+    page["properties"]["records_only"] = json!({"type":"boolean"});
     let mut files = search.clone();
     files["properties"]["item_id"] = item_id.clone();
     files["properties"]["revision_id"] = item_id.clone();
     files["required"] = json!(["item_id"]);
     for (group, name, schema) in [
-        ("system", "dashboard_page", search.clone()),
+        ("system", "dashboard_page", page),
         ("results", "search_items", search),
         ("results", "item_files", files),
         (
@@ -526,6 +528,7 @@ pub fn actions() -> Vec<Action> {
                 &["item_id"],
             ),
         ),
+        ("system", "dashboard_queue", object(json!({}), &[])),
         ("system", "dashboard_summary", object(json!({}), &[])),
         (
             "system",
@@ -539,7 +542,7 @@ pub fn actions() -> Vec<Action> {
             "system",
             "dashboard_entity",
             object(
-                json!({"item_id":item_id,"revision_id":item_id}),
+                json!({"item_id":item_id,"revision_id":item_id,"records_only":{"type":"boolean"}}),
                 &["item_id"],
             ),
         ),

@@ -87,6 +87,16 @@ loomJobPanel=function(job,entry){
  return (q?panel('Queue', '<p>'+loomQueuePosition(q)+'</p>'+loomQueueControls(job.id)):'')+body
    +(history.length?panel('순서·보류 이력',catTable(['시각','사용자','변경','사유'],history.slice(-30).reverse().map(h=>[new Date(h.recorded*1000).toLocaleString(),h.actor,h.action,h.reason||'—'].map(esc)))):'');
 };
+function loomCurrentQueuePanel(rows,table){
+ const waiting=catalogData.capabilities?.live_queue&&!catalogData.queue;
+ if(waiting)return panel('현재 큐',loomHomeStatus('queue'));
+ if(catalogData.capabilities?.live_queue){
+  const ids=new Set(loomQueueEntries().map(row=>row.id));
+  rows=rows.filter(row=>ids.has(row.id));
+ }
+ const notice=catalogData.capabilities?.live_queue&&loomHomeErrors.queue?loomHomeStatus('queue'):'';
+ return panel('현재 큐 · '+rows.length,notice+(rows.length?table(rows,true):'<div class="pa-empty">현재 등록된 Job이 없습니다.</div>'));
+}
 function loomQueueFeedback(){const paused=catalogData.queue?.dispatch;return (paused?.paused?'<p class="pa-queue-feedback" role="status">큐 일시 중단 · '+esc(paused.reason||'운영 작업')+'</p>':'')+'<p class="pa-queue-feedback" role="status">'+esc(loomQueueNotice)+'</p>';}
 helpDescriptions.queue='대기 순서와 대기 이유를 확인합니다. 실행 중 Job은 중단하지 않으며 준비·의존성·실행 슬롯에 따라 시작 순서는 달라질 수 있습니다.';
 root.addEventListener('click',event=>{

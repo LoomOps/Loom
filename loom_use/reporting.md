@@ -9,7 +9,7 @@ Read the connected server's exact action schemas for the following operations.
 1. Search comparable outputs and inspect their exact reporting references. Reuse
    structure, never measurements, cohort sizes or acceptance claims.
 2. Read `results.report_contracts` and `results.get_report_contract`. Built-in
-   templates cover Dataset membership, SDG, Policy training/import and evaluation.
+   templates cover Dataset membership, SDG, Policy training/import, single-checkpoint evaluation and checkpoint evaluation.
 3. Compare required analysis with the template. Reuse its exact
    `{id, revision, sha256}` if suitable. When necessary coverage is absent, register
    metric/factor/protocol definitions with `results.register_report_definition`,
@@ -56,6 +56,19 @@ continuous diagnostic metrics use additional registered report requirements. Its
 `between`, thresholds and units. Register a contract based on the evaluation
 structure with that protocol pin in its case requirement's `definitions`, then
 bind the Profile. Case success must agree with the frozen predicate.
+
+For one Policy evaluated at several checkpoints under the same protocol, start
+from `loom.report.checkpoint_evaluation` and pin the actual protocol. Publish one
+Experiment for the run. Freeze `/checkpoint_selection` in `reporting.expectations`.
+Use `{"split":"development","rule":"best_success_rate","selected_step":null}`
+to select from a complete matched development cohort, or use `prespecified`
+with the declared step. A test cohort can only report a prespecified choice.
+Bind case factors `update`, `checkpoint_sha256` and `reset_state_sha256`.
+Use one distinct checkpoint digest per step, and the same unique seeds and initial
+reset hashes at each step for measured ranking. Keep every case and its validity.
+The Catalog shows the selected or unique best result with its own denominator.
+A tie has no single best headline. Compare different Policies or protocols through
+separately accepted Experiments.
 
 Use `reporting.expectations` to freeze values or bind report fields to Job context.
 It maps a contract selector to requirement IDs and arrays of

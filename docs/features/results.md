@@ -91,6 +91,11 @@ reads and Dashboard DTOs expose effective organization with its authority.
 `dataset-browser.js` renders families, subgroups and an iterative multi-generation
 lineage tree. Parent links across filtered or unloaded groups stay in details.
 
+The checkpoint evaluation reporting template groups one exact Policy's rollout
+cases by update and checkpoint digest. Matched reset identities and a frozen
+selection rule control the representative score. Each checkpoint retains its
+own denominator. The case report and ordinary Activity preserve execution totals.
+
 ## Metadata templates
 
 `metadata_templates.rs` owns shared immutable formats in `catalog_sources`, exact

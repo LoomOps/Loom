@@ -119,7 +119,7 @@ def reference_files(bundle):
         '| GET | `/api/items/{id}`, `/api/items/{id}/relations` | Exact Item or paged relations; IDs remain decimal strings |',
         '| POST | `/api/items/{id}/files` | Paged registered inventory; path supplies item_id |',
         '| GET / POST | `/api/files/{id}` / `/api/files/{id}/read` | Exact file metadata / bounded verified byte range |',
-        '| GET | `/api/dashboard/bootstrap`, `/api/dashboard/catalog`, `/api/dashboard/revision`, `/api/dashboard/resources` | Browser projections and compatibility catalog; bootstrap plus paged actions avoids full catalog expansion |',
+        '| GET | `/api/dashboard/shell`, `/api/dashboard/bootstrap`, `/api/dashboard/catalog`, `/api/dashboard/revision`, `/api/dashboard/resources` | Browser projections and compatibility catalog; shell returns workspace metadata; visible panels request queue occupants, Activity and paginated records independently |',
         '| POST | `/api/events/delivery` | Scoped delivery receipt; separate from recipient ACK and repair lease |',
         '| GET / POST | `/api/admin/tokens` | Signed Dashboard Admin claim; list metadata / issue one-time token |',
         '| POST | `/api/admin/tokens/revoke` | Signed Dashboard Admin claim; revoke by exact token ID |',

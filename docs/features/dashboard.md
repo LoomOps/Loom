@@ -4,18 +4,25 @@
 
 Never send credentials to the opaque iframe. Browser writes respect Origin/CSRF boundaries. The UI must not infer completed backend states.
 
-Outputs uses compact typed field sections, without Overview prose. One Sources
+The Catalog uses compact typed field sections. One Sources
 disclosure contains original metadata, field evidence, file locations and
 publication context. Dataset quantity labels preserve episodes/cases/snapshots;
 recorded training eligibility is not a model-quality acceptance. Dataset grouping
 follows explicit exact lineage, retains variant names and overlapping counts, and
 does not infer a data-parent edge from Task names or general consumes relations.
 Group counts describe loaded variants; paging does not claim a complete lineage.
+Datasets, Policies and Experiments share the scientific list and filter styles.
+Dataset filters offer recorded role, input, split and origin values plus search.
+An Imported badge follows the accepted import activity or a registered import source. Matches appear as
+individual rows with their Task and known parent, so collapsed branches cannot
+hide results. Clearing filters restores the previous lineage tree state.
 
-Outputs orders Datasets, Policies and Experiments. Reporting-enabled details use
+The Catalog orders Datasets, Policies and Experiments. Reporting-enabled details use
 Overview with optional Distribution and Episodes for Datasets, Overview and
 Training for Policies, and Overview, Results and Cases for Experiments.
-Policy details group related facts and charts in panels. Equivalent summary and
+Overview sections group related facts in the same responsive cards,
+including records without a reporting contract. Policy training groups charts in
+panels. Equivalent summary and
 report values are shown once. Base model shows the recorded name or identifier
 without its digest. The original value stays in Sources. Exact metric definitions
 remain available in each learning chart's disclosure.
@@ -92,7 +99,7 @@ Acceptance outside these fixtures:
 
 ## Bounded catalogs and refresh
 
-A bootstrap is only a seed. Same-revision refresh preserves loaded list pages and
+The browser opens an authenticated shell before fetching any Jobs, Activity, registered files or runtime inventory. Visible Home panes request queue occupants, paged history and Activity independently. Job details also request the current queue for controls. The legacy bootstrap remains available to older clients. Same-revision refresh preserves loaded list pages and
 parent-side detail identities. A new revision invalidates page cursors and pending
 responses before the visible list reloads. Dashboard history starts its paged Job
 read when bootstrap data patches the pane. It waits for the first complete Job
@@ -106,14 +113,14 @@ loads registered file records independently of the research pane. Its bounded
 pages are not a recursive filesystem inventory or an assertion that unregistered
 files do not exist.
 
-## Outputs navigation
+## Catalog navigation
 
-The sidebar exposes Outputs with Datasets, Experiments and Policies sub-tabs.
+The sidebar exposes Catalog with Datasets, Policies and Experiments sub-tabs.
 Comparison is a separate sidebar view with a columns-3 icon. Its selections
-survive navigation back to Outputs. Outputs headers contain only the three sub-tabs;
+survive navigation back to the Catalog. Catalog headers contain the three sub-tabs;
 Templates and Contracts browsers are available from Loom Use. Task selection carries across output sections and record links.
 Legacy models/datasets/experiments/comparison view URLs and exact record links
-remain valid; /views/outputs opens Datasets and Task entities remain addressable by exact links. This is presentation navigation,
+remain valid; both `/views/catalog` and `/views/outputs` open Datasets. Task entities remain addressable by exact links. This is presentation navigation,
 not a new artifact kind or an automatic merge of scientific records.
 
 The Runtimes sidebar and Runtime tab share server-cog. Tools use hammer; the
