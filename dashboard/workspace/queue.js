@@ -23,14 +23,15 @@ function loomTimingNotice(rows) {
 }
 function loomQueueControls(id) {
   const row = loomQueueEntry(id);
-  if (!row || !(row.can_reorder || row.can_hold || row.can_resume)) return '';
+  if (!row || !(row.can_reorder || row.can_resume)) return '';
   const disabled=loomQueueBusy?' disabled':'';
   const button=(action,text,position='')=>'<button class="pa-button" data-queue-action="'+action+'" data-queue-id="'+esc(id)+'" data-queue-position="'+position+'"'+disabled+'>'+text+'</button>';
+  const resume=row.can_resume?button('resume','보류 해제'):'';
+  if(!row.can_reorder)return '<div class="pa-queue-control">'+resume+'</div>';
   const choices=loomQueueEntries().filter(r=>r.id!==id && r.position!==null);
-  return '<details class="pa-queue-control"><summary>순서·보류</summary><div class="pa-queue-control-body">'
-    +(row.can_reorder?button('reorder','맨 앞으로','next')+button('reorder','맨 뒤로','tail'):'')
-    +(row.can_resume?button('resume','보류 해제'):row.can_hold?button('hold','보류'):'')
-    +(row.can_reorder && choices.length?'<label>기준 Job <select data-queue-reference aria-label="기준 Job">'+choices.map(r=>'<option value="'+esc(r.id)+'">'+esc('#'+r.position+' · '+(r.owner_profile?.display_name || r.owner)+' · '+r.id)+'</option>').join('')+'</select></label>'+button('reorder','앞에 배치','before')+button('reorder','뒤에 배치','after'):'')
+  return '<details class="pa-queue-control"><summary>'+(resume?'큐 관리':'순서 변경')+'</summary><div class="pa-queue-control-body">'
+    +button('reorder','맨 앞으로','next')+button('reorder','맨 뒤로','tail')+resume
+    +(choices.length?'<label>기준 Job <select data-queue-reference aria-label="기준 Job">'+choices.map(r=>'<option value="'+esc(r.id)+'">'+esc('#'+r.position+' · '+(r.owner_profile?.display_name || r.owner)+' · '+r.id)+'</option>').join('')+'</select></label>'+button('reorder','앞에 배치','before')+button('reorder','뒤에 배치','after'):'')
     +'</div></details>';
 }
 workItems=function(pageIds=null){

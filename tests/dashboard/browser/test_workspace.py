@@ -229,8 +229,15 @@ const done=arguments[arguments.length-1];
         ui.nav('Dependencies')
         self.assertEqual(ui.js("return document.querySelectorAll('[data-dependency-card]').length"),2)
         self.assertLessEqual(ui.js("return new Set([...document.querySelectorAll('[data-dependency-category]')].map(e=>Math.round(e.getBoundingClientRect().top))).size"),2)
-        ui.top();self.wd('/window/rect',{'width':500,'height':1000});ui.frame()
-        self.assertTrue(ui.js("return document.querySelector('.pa-pane-body').scrollWidth<=document.querySelector('.pa-pane-body').clientWidth+1"))
+        for width in (1440,500):
+            ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
+            self.assertTrue(ui.js("return document.querySelector('.pa-pane-body').scrollWidth<=document.querySelector('.pa-pane-body').clientWidth+1"))
+            self.assertTrue(ui.js("""return [...document.querySelectorAll('.pa-dependency-group > h2')].every(heading=>{
+                const title=document.createRange();
+                title.selectNodeContents(heading.firstChild);
+                const label=title.getBoundingClientRect(),count=heading.querySelector('small').getBoundingClientRect();
+                return count.left>=label.right&&count.top<label.bottom&&count.bottom>label.top;
+            })"""))
         ui.top();self.wd('/window/rect',{'width':1440,'height':1000});ui.frame()
         self.assertEqual(ui.js("return document.querySelectorAll('[data-dependency-card=dependency-python] .pa-dependency-versions span').length"),2)
         ui.click('[data-dependency-category=simulation]')
@@ -1104,7 +1111,7 @@ const done=arguments[arguments.length-1];
         self.assertFalse(ui.js("return document.querySelector('[data-resource-panel]').textContent.includes('계측 대기')"))
         self.assertTrue(ui.js("return document.querySelector('[data-resource-panel]').textContent.includes('20 / 100 GiB')"))
 
-    def test_queue_order_hold_resume_and_error_keep_controls_scoped(self):
+    def test_queue_order_and_existing_hold_release_keep_controls_scoped(self):
         ui=self.ui
         entity,record=native('fixture-waiting')
         entity['state']=entity['properties']['state']='queued';record['state']='queued'
@@ -1116,18 +1123,28 @@ const done=arguments[arguments.length-1];
         ui.top();self.wd('/url',{'url':self.base});ui.wait("return document.querySelector('iframe')?.hidden===false");ui.frame()
         ui.wait("return document.querySelector('[data-queue-id=fixture-waiting]')")
         self.assertFalse(ui.js("return !!document.querySelector('[data-queue-id=other-waiting]')"))
+        self.assertFalse(ui.js("return !!document.querySelector('[data-queue-action=hold]')"))
+        self.assertEqual(ui.js("return document.querySelector('.pa-queue-control summary').textContent"),'순서 변경')
         ui.click('.pa-queue-control summary');ui.click('[data-queue-position=next]')
         ui.wait("return document.querySelector('.pa-queue-feedback')?.textContent==='큐 변경 완료'")
         self.assertEqual(self.api.actions[-1],{'group':'jobs','action':'reorder','arguments':{'id':'fixture-waiting','position':'next'}})
         ui.wait("return document.querySelector('.pa-current-work-queue tbody tr')?.textContent.includes('Fixture fixture-waiting')")
-        ui.click('.pa-queue-control summary');ui.click('[data-queue-action=hold]')
-        ui.wait("return document.querySelector('.pa-current-work-queue tbody tr')?.textContent.includes('Held')")
-        ui.click('.pa-queue-control summary');ui.click('[data-queue-action=resume]')
-        ui.wait("return !!document.querySelector('[data-queue-action=hold]') && !document.querySelector('[data-queue-action=resume]')")
         self.api.errors['/api/actions']=403
-        ui.click('.pa-queue-control summary');ui.click('[data-queue-action=hold]')
+        ui.click('[data-queue-position=tail]')
         ui.wait("return document.querySelector('.pa-queue-feedback')?.textContent.includes('권한이 없습니다')")
-        self.assertFalse(ui.js("return document.querySelector('[data-queue-action=hold]').disabled"))
+        self.assertFalse(ui.js("return document.querySelector('[data-queue-position=tail]').disabled"))
+        del self.api.errors['/api/actions']
+        waiting=next(r for r in self.api.fixture['catalog']['queue']['entries'] if r['id']==entity['id'])
+        waiting.update(held=True,reason='held',can_hold=False,can_resume=True)
+        ui.top();self.wd('/refresh',{});ui.connect()
+        ui.wait("return !!document.querySelector('[data-queue-action=resume]')")
+        ui.route(entity['id'])
+        ui.wait("return !!document.querySelector('.pa-document-pane.is-active [data-queue-action=resume]')")
+        self.assertFalse(ui.js("return !!document.querySelector('.pa-document-pane.is-active [data-queue-action=hold]')"))
+        ui.click('.pa-document-pane.is-active .pa-queue-control summary')
+        ui.click('.pa-document-pane.is-active [data-queue-action=resume]')
+        ui.wait("return document.querySelector('.pa-document-pane.is-active .pa-queue-control summary')?.textContent==='순서 변경'")
+        self.assertEqual(self.api.actions[-1],{'group':'jobs','action':'resume','arguments':{'id':'fixture-waiting'}})
 
     def test_theme_cookie_defaults_to_system_and_survives_reload(self):
         self.ui.top();self.ui.js("document.cookie='loom_theme=; Path=/; Max-Age=0'")

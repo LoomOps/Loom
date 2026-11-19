@@ -150,10 +150,11 @@ function loomReportField(e,r,f){
   const columns=f.columns?.length?f.columns:(f.format==='series'?[{label:'Step',pointer:f.x_pointer},{label:'Value',pointer:f.y_pointer}] : [{label:'Record',pointer:'/id'}]);
   const actualColumns=bySeries?[...columns,{label:'Subtask',pointer:'/phase'},{label:'Split',pointer:'/split'}]:columns;
   const table=catTable(actualColumns.map(c=>c.label),rows.map(row=>actualColumns.map(c=>esc(loomReportCell(loomReportPointer(row,c.pointer)))+(c.unit?' '+esc(c.unit):''))));
-  const best=bySeries?r.fields?.find(field=>field.id==='selected_step')?.value:undefined;
+  const selectedStep=bySeries?r.fields?.find(field=>field.id==='selected_step')?.value:undefined;
+  const selection=r.fields?.find(field=>field.id==='selection')?.value;
   const members=f.format==='scatter'&&r.role==='sdg_conditions'?loomReportConditionMembers(e):null;
-  body=(bySeries||f.format==='scatter')?loomReportChart(rows,f,f.format,best,Number(state.step),members)+'<details><summary>Recorded values</summary>'+table+'</details>':table;
-  if(Number.isFinite(best))body+='<p class="pa-report-selection">Best checkpoint · step '+esc(loomReportNumber(best))+'</p>';
+  body=(bySeries||f.format==='scatter')?loomReportChart(rows,f,f.format,selectedStep,Number(state.step),members)+'<details><summary>Recorded values</summary>'+table+'</details>':table;
+  if(Number.isFinite(selectedStep))body+='<p class="pa-report-selection">'+(selection==='best_validation'?'Best':'Selected')+' checkpoint · step '+esc(loomReportNumber(selectedStep))+'</p>';
   if(bySeries&&state.step&&state.step!=='all'){
    const observations=rows.filter(row=>String(loomReportPointer(row,f.x_pointer))===state.step);
    if(observations.length)body+=catTable(actualColumns.map(c=>c.label),observations.map(row=>actualColumns.map(c=>esc(loomReportCell(loomReportPointer(row,c.pointer)))+(c.unit?' '+esc(c.unit):''))));
@@ -169,7 +170,18 @@ function loomReportContract(e){
 function loomReportSection(e,report,fields){
  if(report.state!=='recorded')return loomResearchSection(report.label,'<p class="pa-report-missing">Unrecorded</p>');
  if(!fields.length)return '';
- return loomResearchSection(report.label,fields.map(f=>'<div class="pa-report-field"><h3>'+esc(f.label)+'</h3>'+loomReportField(e,report,f)+'</div>').join(''));
+ return loomResearchSection(report.label,fields.map(f=>{
+  const needsHeading=['table','series','scatter','instructions','bar','coverage_matrix','properties'].includes(f.format)&&f.label!==report.label;
+  return '<div class="pa-report-field">'+(needsHeading?'<h3>'+esc(f.label)+'</h3>':'')+loomReportField(e,report,f)+'</div>';
+ }).join(''));
+}
+function loomPolicyLearningSection(e,report,fields){
+ const charts=fields.filter(f=>f.format==='series');
+ if(report.state!=='recorded'||!charts.length)return loomReportSection(e,report,fields);
+ const details=fields.filter(f=>f.format!=='series');
+ const body=charts.map((f,i)=>'<div class="pa-report-field">'+(i?'<h3>'+esc(f.label)+'</h3>':'')+loomReportField(e,report,f)+'</div>').join('');
+ const metadata=details.map(f=>loomReportField(e,report,f)).join('');
+ return loomResearchSection(charts[0].label,body+(metadata?'<details class="pa-report-metric-details"><summary>Metric details</summary>'+metadata+'</details>':''));
 }
 function loomReportOverview(e){
  const r=e.reporting,reports=r?.reports||[],parts=[loomReportOverviewBodies.get(e.id)||loomResearchOverview(e)];
@@ -191,7 +203,10 @@ function loomReportOverview(e){
  if(r?.inputs?.length)parts.push(loomResearchSection('Accepted inputs',catTable(['Input','Record','Revision'],r.inputs.map(i=>[esc(i.input),'<button class="pa-button" data-report-input="'+esc(i.id)+'" data-report-input-revision="'+esc(i.revision)+'">'+esc(catEntity(i.id)?.label||i.id)+'</button>',esc(i.revision)]))));
  for(const report of reports){
   const fields=report.fields||[];
-  if(report.role==='policy_inputs')parts.push(loomReportSection(e,report,fields.filter(f=>f.format!=='table')));
+  if(report.role==='policy_inputs'){
+   const facts=loomResearchFactMap(e),equivalent={step:'selected_step',robot_dof:'robot_dof',action_dimension:'action_dimension',chunk:'action_chunk',state_dimension:'state_dimension',controlled_dof:'controlled_dof'};
+   parts.push(loomReportSection(e,report,fields.filter(f=>f.format!=='table'&&(!Object.hasOwn(equivalent,f.id)||facts.get(equivalent[f.id])?.value!==f.value))));
+  }
   if(report.role==='instructions')parts.push(loomReportSection(e,report,fields.filter(f=>f.format==='instructions')));
   if(report.role==='dataset_statistics'){
    const checks=fields.filter(f=>!['count','splits','members'].includes(f.id));
@@ -230,22 +245,27 @@ function loomReportContent(e){
   if(tab==='episodes')fields=fields.filter(f=>f.id==='members');
   if(tab==='cases')fields=fields.filter(f=>f.id==='cases'||f.format==='table');
   if(tab==='results'&&report.role==='evaluation_cases')fields=fields.filter(f=>f.format!=='table');
-  if(tab==='training'&&report.role==='learning_series')fields=fields.filter(f=>f.id!=='selected_step');
+  if(tab==='training'&&report.role==='learning_series')return loomPolicyLearningSection(e,report,fields.filter(f=>f.id!=='selected_step'));
   return loomReportSection(e,report,fields);
  }).join('');
- return (tab==='training'?loomReportTrainingFilters(e,reports):'')+sections+failureBreakdown+(tab==='results'?loomReportCaseGraph(e):'')+(legacy?'<details class="pa-report-legacy" open><summary>Recorded metrics</summary>'+legacy+'</details>':'')+(!sections&&!legacy?'<p class="pa-report-missing">Unrecorded</p>':'');
+ return (tab==='training'?loomReportTrainingFilters(e,reports):'')+sections+failureBreakdown+(tab==='results'?loomReportCaseGraph(e):'')+(legacy?'<details class="pa-report-legacy"'+(sections&&tab==='training'?'':' open')+'><summary>Recorded metrics</summary>'+legacy+'</details>':'')+(!sections&&!legacy?'<p class="pa-report-missing">Unrecorded</p>':'');
 }
 const loomReportPreviousDetail=catalogDetail;
 catalogDetail=function(id){
  const e=catEntity(id),html=loomReportPreviousDetail(id);if(!e||!['dataset','model','experiment','run'].includes(e.kind)||!catalogData.capabilities?.reporting)return html;
  const t=document.createElement('template');t.innerHTML=html;
- if(e.kind==='model'&&(e.reporting||e.metadata?.research?.model?.role==='policy'||['VLA','Policy'].includes(modelFilterMeta(e).role))){const label=t.content.querySelector('.pa-heading .pa-eyebrow');if(label)label.textContent='POLICY';}
+ const policy=e.kind==='model'&&(e.reporting||e.metadata?.research?.model?.role==='policy'||['VLA','Policy'].includes(modelFilterMeta(e).role));
+ if(policy){const label=t.content.querySelector('.pa-heading .pa-eyebrow');if(label)label.textContent='POLICY';}
  const overview=t.content.querySelector('.pa-research-overview');if(!overview)return t.innerHTML;
+ if(policy){
+  const role=overview.querySelector('[data-research-fact=model_role]');
+  if(role?.querySelector('dd')?.textContent.toLowerCase()==='policy')role.remove();
+ }
  const metrics=t.content.querySelector('[data-output-metrics]'),toolbar=t.content.querySelector('.pa-metrics-toolbar');
  loomReportLegacyMetrics.set(e.id,e.metrics?.length?(toolbar?.outerHTML||'')+(metrics?.outerHTML||''):'');
  metrics?.remove();toolbar?.remove();
  loomReportOverviewBodies.set(e.id,overview.outerHTML);while(loomReportOverviewBodies.size>160){const id=loomReportOverviewBodies.keys().next().value;loomReportOverviewBodies.delete(id);loomReportLegacyMetrics.delete(id);}
- const view=loomReportState(e);const parent=document.createElement('section');parent.className='pa-report-workspace';parent.dataset.reportOutput=e.id;
+ const view=loomReportState(e);const parent=document.createElement('section');parent.className='pa-report-workspace'+(policy?' pa-report-policy':'');parent.dataset.reportOutput=e.id;
  parent.innerHTML='<nav class="pa-report-tabs" aria-label="Output details">'+loomReportTabs(e).map(([id,label])=>'<button data-report-tab="'+id+'" aria-current="'+(view.tab===id?'page':'false')+'">'+label+'</button>').join('')+'</nav><div data-report-content>'+loomReportContent(e)+'</div>';
  overview.replaceWith(parent);return t.innerHTML;
 };

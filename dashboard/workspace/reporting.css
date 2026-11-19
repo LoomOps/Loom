@@ -1,4 +1,25 @@
 #pai-studio .pa-report-workspace { min-width:0; margin:20px 0; }
+#pai-studio .pa-report-policy { max-width:1160px; }
+#pai-studio .pa-report-policy [data-report-content],
+#pai-studio .pa-report-policy .pa-research-overview { display:grid; gap:16px; min-width:0; }
+#pai-studio .pa-report-policy .pa-research-overview { margin:0; }
+#pai-studio .pa-report-policy .pa-research-input-panel,
+#pai-studio .pa-report-policy .pa-output-source { grid-column:1 / -1; }
+#pai-studio .pa-report-policy .pa-output-section { box-sizing:border-box; padding:16px 20px; border:1px solid var(--pa-line); border-radius:10px; background:var(--pa-paper); }
+#pai-studio .pa-report-policy .pa-output-section > h2 { margin-bottom:14px; }
+#pai-studio .pa-report-policy .pa-entity-facts { margin-block:0; padding-block:0; border-block:0; }
+#pai-studio .pa-report-policy .pa-report-field { margin:0 0 12px; }
+#pai-studio .pa-report-policy .pa-report-field:last-child { margin-bottom:0; }
+#pai-studio .pa-report-policy .pa-report-chart { max-width:720px; }
+#pai-studio .pa-report-policy .pa-report-chart svg { min-height:0; }
+#pai-studio .pa-report-policy .pa-report-controls { margin:0; }
+#pai-studio .pa-report-policy .pa-report-contract { margin:0; }
+#pai-studio .pa-report-metric-details { margin-top:12px; color:var(--pa-muted); }
+#pai-studio .pa-report-metric-details > summary { cursor:pointer; padding:6px 0; }
+#pai-studio .pa-report-metric-details > dl + dl { margin-top:8px; }
+@container pane (min-width:720px) {
+ #pai-studio .pa-report-policy .pa-research-overview { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; }
+}
 #pai-studio .pa-report-tabs { display:flex; flex-direction:row; flex-wrap:wrap; gap:6px 20px; border-bottom:1px solid var(--pa-line); margin-bottom:24px; }
 #pai-studio .pa-report-tabs button { flex:0 0 auto; width:auto; min-width:0; font:inherit; color:var(--pa-muted); background:none; border:0; padding:12px 0; border-bottom:2px solid transparent; }
 #pai-studio .pa-report-tabs button[aria-current=page] { color:var(--pa-ink); border-bottom-color:var(--pa-accent); }

@@ -498,7 +498,9 @@
 #pai-studio .pa-dependency-categories{display:flex;flex-direction:row;flex-wrap:wrap;gap:10px;margin:16px 0 22px}
 #pai-studio .pa-dependency-categories button{display:flex;align-items:center;gap:14px;flex:1 1 160px;width:auto;min-height:56px;padding:12px 16px;border:1px solid var(--pa-line);border-radius:10px;text-align:left}
 #pai-studio .pa-dependency-categories button[aria-pressed=true]{background:var(--pa-tint);border-color:var(--pa-accent)}
-#pai-studio .pa-dependency-group{margin:22px 0}.pa-dependency-group h2{font-size:16px}.pa-dependency-group h2 small{display:inline;font-size:12px;opacity:.6;margin-left:8px}
+#pai-studio .pa-dependency-group{margin:22px 0}
+#pai-studio .pa-dependency-group>h2{font-size:16px;margin:0 0 10px}
+#pai-studio .pa-dependency-group>h2>small{display:inline-block;margin-left:6px;font-size:12px;font-weight:400;font-variant-numeric:tabular-nums}
 #pai-studio .pa-dependency-versions{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
 #pai-studio .pa-dependency-versions span{background:var(--pa-tint);border-radius:5px;padding:3px 7px;font-variant-numeric:tabular-nums}
 #pai-studio .pa-dependency-links{line-height:1.7;overflow-wrap:anywhere}

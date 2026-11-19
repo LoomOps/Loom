@@ -15,6 +15,10 @@ Group counts describe loaded variants; paging does not claim a complete lineage.
 Outputs orders Datasets, Policies and Experiments. Reporting-enabled details use
 Overview with optional Distribution and Episodes for Datasets, Overview and
 Training for Policies, and Overview, Results and Cases for Experiments.
+Policy details group related facts and charts in panels. Equivalent summary and
+report values are shown once. Base model shows the recorded name or identifier
+without its digest. The original value stays in Sources. Exact metric definitions
+remain available in each learning chart's disclosure.
 Exact Template and Contract references live in the Overview footer. Reports
 choose typed series, scatter, bar and coverage-matrix renderers. Distribution
 charts identify their measured or assigned population and preserve paging.

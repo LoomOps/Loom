@@ -110,10 +110,15 @@ class NativeWorkspaceTests(unittest.TestCase):
   def field(id,label,pointer,format,**extra):return dict(id=id,label=label,pointer=pointer,format=format,unit='',**extra)
   phase='carry <img src=x onerror=window.reportInjected=true>'
   source=[('instructions','instructions',{'texts':[{'id':'phase0','phase':'approach','text':'Approach <target> with open gripper.'}]},[field('texts','Instructions','/texts','instructions')]),('validation','learning_series',{'points':[{'step':1,'value':.2,'phase':'approach','split':'validation'},{'step':2,'value':.1,'phase':'approach','split':'validation'},{'step':1,'value':.4,'phase':phase,'split':'validation'},{'step':2,'value':.3,'phase':phase,'split':'validation'}]},[field('points','Validation','/points','series',x_pointer='/step',y_pointer='/value',x_label='Optimizer step',y_label='MSE')]),('errors','action_metrics',{'measurements':[{'channel_index':0,'error':'mse','value':.04,'unit':'rad²','phase':'approach','split':'test','population':10}]},[field('errors','Channel errors','/measurements','table',columns=[{'label':l,'pointer':p,'format':'text'} for l,p in [('Channel','/channel_index'),('Error','/error'),('Value','/value'),('Unit','/unit')]])])]
+  source[1][3].extend([field('metric','Metric definition','/definition_ref','reference',value='fixture.metric · r1'),field('selected_step','Selected step','/selection/step','count',value=2),field('selection','Selection criterion','/selection/criterion','text',value='prespecified')])
+  source.append(('inputs','policy_inputs',{},[field('action_dimension','Action dimension','/action_dimension','count',value=1),field('state_dimension','State dimension','/state_dimension','count',value=8)]))
   components=[];reports=[]
   for name,role,data,fields in source:
    raw=json.dumps({'schema':'loom-report/v1','data':data}).encode();file='browser-report-'+name+'.json';(self.native_root/'data'/file).write_bytes(raw);sha=hashlib.sha256(raw).hexdigest();components.append({'ref':file,'size':len(raw),'sha256':sha});reports.append({'requirement_id':name,'label':name,'role':role,'state':'recorded','required':True,'component':file,'sha256':sha,'fields':fields})
   entity={'id':identity,'revision':1,'kind':'model','label':'Report view fixture','job':job,'components':components,'relations':[],'metadata':{'research':{'robot':{'status':'recorded','model':'Fixture robot'},'model':{'role':'policy','action_dimension':1}}},'reporting':{'state':'validated','contract_ref':{'id':'browser.fixture','revision':1,'sha256':'f'*64},'activity':'training','reports':reports,'inputs':[]}}
+  template=self.call('results','get_metadata_template',{'id':'loom.model.policy','revision':1})
+  entity['metadata_template']={k:template[k] for k in ('id','revision','sha256')}
+  entity['metadata']['research']['model']['base_model']='Fixture model SHA-256 '+'a'*64
   with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:
    db.execute("INSERT INTO entity_revisions VALUES(?,1,?,'model','owner','owner',?)",(identity,job,json.dumps(entity)))
    for c in components:db.execute("INSERT INTO entity_locations VALUES(?,1,?,'browser-fixture','browser-data',?,'available')",(identity,c['ref'],c['ref']))
@@ -127,7 +132,16 @@ class NativeWorkspaceTests(unittest.TestCase):
   except AssertionError:self.fail(ui.js("return document.querySelector('#pa-content').innerText"))
   self.assertFalse(ui.js("return !!document.querySelector('[data-report-content] target')"))
   self.assertEqual(ui.js("return document.querySelector('.pa-document-pane.is-active .pa-heading .pa-eyebrow').textContent"),'POLICY')
+  self.assertEqual(ui.js("return [...document.querySelectorAll('[data-report-content] dt')].filter(x=>x.textContent==='Action dimension').length"),1)
+  self.assertIn('State dimension',ui.js("return document.querySelector('[data-report-content]').textContent"))
+  self.assertEqual(ui.js("const base=document.querySelector('[data-research-fact=base_model] dd');return [base.textContent,base.title]"),['Fixture model','Fixture model'])
+  ui.click('[data-output-sources] > summary')
+  ui.click('[data-output-record] > summary')
+  ui.wait("return document.querySelector('[data-output-record] pre')?.textContent.includes('Fixture model SHA-256 '+'a'.repeat(64))")
   ui.click('[data-report-tab=training]');ui.wait("return document.querySelectorAll('.pa-report-chart polyline').length===2")
+  self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-report-metric-details dt')].filter(x=>x.textContent==='Metric definition').length"),1)
+  self.assertFalse(ui.js("return document.querySelector('.pa-report-metric-details').open"))
+  self.assertIn('Selected checkpoint · step 2',ui.js("return document.querySelector('.pa-report-selection').textContent"))
   self.assertTrue(ui.js("return [...document.querySelector('[data-report-filter=phase]').options].some(o=>o.value===arguments[0])",phase))
   self.assertFalse(ui.js("return !!document.querySelector('[data-report-content] img')||!!window.reportInjected"))
   ui.js("const s=document.querySelector('[data-report-filter=phase]');s.value=arguments[0];s.dispatchEvent(new Event('change',{bubbles:true}))",phase);ui.wait("return document.querySelectorAll('.pa-report-chart polyline').length===1")
@@ -136,6 +150,12 @@ class NativeWorkspaceTests(unittest.TestCase):
    ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
    self.assertLessEqual(ui.js("return document.querySelector('.pa-report-tabs').getBoundingClientRect().height"),110)
    self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-report-tabs button')].every(b=>b.getBoundingClientRect().width<200)"))
+   ui.click('[data-report-tab=overview]')
+   for theme in ('light','dark'):
+    ui.click('[data-theme='+theme+']')
+    self.assertEqual(ui.js("const grid=document.querySelector('.pa-report-policy .pa-research-overview');return getComputedStyle(grid).gridTemplateColumns.split(' ').length"),2 if width==1440 else 1)
+    self.assertTrue(ui.js("const card=document.querySelector('.pa-report-policy .pa-output-section');return getComputedStyle(card).borderTopStyle==='solid'&&card.scrollWidth<=card.clientWidth+1"))
+   ui.click('[data-report-tab=training]')
   ui.click('[data-report-tab=overview]');self.assertIn('browser.fixture',ui.js("return document.querySelector('.pa-report-contract summary').textContent"))
   excluded=json.loads(json.dumps(entity));excluded['id']=job+'.unconditional-policy';excluded['reporting']['reports']=[r for r in reports if r['role']!='instructions'];excluded['reporting']['exclusions']=[{'id':'instructions','role':'instructions','reason':'Verified language-free input interface'}]
   with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:db.execute("INSERT INTO entity_revisions VALUES(?,1,?,'model','owner','owner',?)",(excluded['id'],job,json.dumps(excluded)))

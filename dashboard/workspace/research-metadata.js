@@ -16,7 +16,13 @@ function loomResearchSummary(e){
  return {schema:'loom-research-summary/v1',kind:e.kind,facts,inputs,sources:[]};
 }
 function loomResearchFactMap(e){return new Map(loomResearchSummary(e).facts.map(f=>[f.id,f]));}
-function loomResearchVisibleFact(f){return !(['annotation_source','instruction_source'].includes(f.id)&&/^(sha256:)?[a-f0-9]{64}$/i.test(String(f.value)));}
+function loomResearchBaseModel(value){
+ return value.trim().replace(/(?:^|\s*[([]\s*|[\s@]+)(?:sha-?256[:\s]+)?[a-f0-9]{64}\s*[)\]]?$/i,'').trim();
+}
+function loomResearchVisibleFact(f){
+ if(f.id==='base_model'&&f.status==='recorded'&&typeof f.value==='string')return Boolean(loomResearchBaseModel(f.value));
+ return !(['annotation_source','instruction_source'].includes(f.id)&&/^(sha256:)?[a-f0-9]{64}$/i.test(String(f.value)));
+}
 function loomResearchNumber(v){return Math.abs(v)>0&&Math.abs(v)<.001?Number(v).toExponential(3):Number(v).toLocaleString('en-US',Math.abs(v)>0&&Math.abs(v)<1?{maximumSignificantDigits:4}:{maximumFractionDigits:3});}
 function loomResearchSplit(v){
  const items=Array.isArray(v)?v:Object.entries(v||{}).map(([id,value])=>({id,...(typeof value==='number'?{count:value}:Array.isArray(value)?{count:value.length}:typeof value==='string'?{status:value}:value)}));
@@ -37,6 +43,7 @@ function loomResearchValue(f,{compact=false}={}){
   if(v&&typeof v==='object')return Object.entries(v).map(([name,x])=>name+(x.shape?' ['+x.shape.join('×')+']':'')).join(' · ');
  }
  if(f.id==='model_role'&&typeof v==='string')return ({observer:'Observer',vla:'VLA',policy:'Policy',world_model:'World model'})[v]||v;
+ if(f.id==='base_model'&&typeof v==='string')return loomResearchBaseModel(v);
  if(compact&&f.id==='training_method'&&typeof v==='string')return v.split(';')[0];
  if(typeof v==='boolean')return v?'Yes':'No';
  if(typeof v==='number'){
