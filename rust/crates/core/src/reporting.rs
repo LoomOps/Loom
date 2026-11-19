@@ -1935,22 +1935,25 @@ impl Application {
         type Summaries = BTreeMap<(String, bool), Value>;
         static CACHE: OnceLock<Mutex<Summaries>> = OnceLock::new();
         let cache = CACHE.get_or_init(Default::default);
-        let summary =
-            if let Some(value) = cache.lock().ok().and_then(|cache| cache.get(&key).cloned()) {
-                value
-            } else {
-                let payload = self
-                    .read_bound_report(entity["id"].as_str()?, entity["revision"].as_u64()?, report)
-                    .ok()?;
-                let value = checkpoint_evaluation(&payload["data"], non_test)?;
-                if let Ok(mut cache) = cache.lock() {
-                    if cache.len() >= 128 {
-                        cache.pop_first();
-                    }
-                    cache.insert(key, value.clone());
+        let cached = cache
+            .lock()
+            .ok()
+            .and_then(|entries| entries.get(&key).cloned());
+        let summary = if let Some(value) = cached {
+            value
+        } else {
+            let payload = self
+                .read_bound_report(entity["id"].as_str()?, entity["revision"].as_u64()?, report)
+                .ok()?;
+            let value = checkpoint_evaluation(&payload["data"], non_test)?;
+            if let Ok(mut cache) = cache.lock() {
+                if cache.len() >= 128 {
+                    cache.pop_first();
                 }
-                value
-            };
+                cache.insert(key, value.clone());
+            }
+            value
+        };
         let recorded = summary["checkpoints"]
             .as_array()?
             .iter()
