@@ -2850,7 +2850,7 @@ Reservation receipt · id, revision, sealed, execution_job, receipts and science
 
 ## submit_research
 
-Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision. Scientific Policy outputs require the exact Dataset and Experiment outputs require the exact evaluation Dataset and Policy under the same pinned Task.
+Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. A Policy deliverable can set revises to the exact current Regular Policy to publish the next revision with the same ID, owner and Task. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision. Scientific Policy outputs require the exact Dataset and Experiment outputs require the exact evaluation Dataset and Policy under the same pinned Task.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/plans.rs#write_research_plan](../../rust/crates/core/src/plans.rs).
 
@@ -2929,6 +2929,25 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
                   "model",
                   "experiment"
                 ]
+              },
+              "revises": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "maxLength": 2048,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "revision": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "id",
+                  "revision"
+                ],
+                "type": "object"
               },
               "supplements": {
                 "additionalProperties": false,

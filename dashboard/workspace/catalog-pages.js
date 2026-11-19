@@ -52,7 +52,7 @@ dashboardActivity=function(){
 const loomCatalogKinds={models:'model',datasets:'dataset',experiments:'experiment',issues:'issue',profiles:'profile',components:'component',tools:'tool',runtimes:'runtime',dependencies:'dependency',scenarios:'scenario',queue:'job',files:'explorer'};
 function loomCatalogQuery(kind){
  if(catalogData.capabilities?.job_units&&['dataset','model','experiment'].includes(kind)){
-  return {kinds:[kind],view:'all',role:'all',limit:50,catalog_classes:loomOutputClasses(),...(state.researchTask?{task_id:state.researchTask.id}:{})};
+  return {kinds:[kind],view:'all',role:'all',limit:50,catalog_classes:loomOutputClasses(),...(catalogData.capabilities.output_disposition?{output_state:loomOutputDiscarded()?'discarded':'current',...(loomOutputDiscarded()?{history:'all'}:{})}:{}),...(state.researchTask?{task_id:state.researchTask.id}:{})};
  }if(kind==='job')return {kinds:['job'],view:'all',role:'all',limit:50};if(kind==='explorer')return {kinds:['dataset','model','experiment','artifact'],view:'all',role:'all',limit:50};const view=catalogData.presentation_view||'all';return {...(['profile','component','tool','runtime'].includes(kind)?{...loomRegistryArgs(state.registryFilter||'current'),...(state.registryFilter==='archived'?{history:'all'}:{})}:{}),kinds:[kind],view:view==='builtin'?'all':view,role:['model','dataset','experiment'].includes(kind)?((state.outputPurpose||(view==='research'?'research':'all'))==='research'?'main':'all'):kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(['model','dataset','experiment'].includes(kind)&&state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 // A bootstrap is a bounded seed, never a replacement for pages from its revision.
@@ -201,7 +201,7 @@ async function loomCatalogOpen(id,navigate=true){
  const exact=/^revision:([0-9]+):([0-9]+)$/.exec(id);
  if(exact){
   const value=await loomSearchAction('system','dashboard_entity',{item_id:exact[1],revision_id:exact[2],records_only:true});
-  loomCatalogMerge({...value,entities:value.entities.map(e=>({...e,id,catalog_exact:true}))});
+  loomCatalogMerge({...value,entities:value.entities.map(e=>({...e,id,catalog_exact:known?.catalog_exact??true}))});
   if(navigate&&activeTab().id===tabKeyBefore&&catEntity(id))openView(catView(id));
   catalogRefreshViews();return;
  }

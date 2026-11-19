@@ -5,6 +5,73 @@ use crate::{
 use loom_domain::{Event, JobState};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
+
+fn output_disposition_key(db: &Connection, identity: &Value, kind: &str) -> Result<String> {
+    Ok(db.query_row(
+        "SELECT json_array(?,?,?,?,?)",
+        params![
+            identity["source"].as_str().unwrap_or("entity"),
+            identity["kind"].as_str().unwrap_or(kind),
+            identity["id"].as_str(),
+            identity["revision"]
+                .as_str()
+                .map(str::to_owned)
+                .unwrap_or_else(|| identity["revision"].as_i64().unwrap_or(1).to_string()),
+            identity["snapshot"].as_str().unwrap_or(""),
+        ],
+        |r| r.get(0),
+    )?)
+}
+
+pub(crate) fn policy_revision_base(
+    db: &Connection,
+    target: &Value,
+    owner: &str,
+    task: &Value,
+) -> Result<i64> {
+    let id = target["id"].as_str();
+    let revision = target["revision"].as_i64();
+    let row = rows(db, "SELECT e.revision,e.kind,COALESCE(o.owner,e.owner) owner,
+                          json_extract(e.manifest,'$.scenario_ref.id') task,
+                          COALESCE(r.catalog_class,json_extract(e.manifest,'$.catalog_class')) catalog_class
+                   FROM all_entity_revisions e
+                   LEFT JOIN item_owners o ON o.kind='entity' AND o.id=e.id
+                   LEFT JOIN reviewed_outputs r ON r.source='entity' AND r.kind=e.kind AND r.id=e.id
+                     AND r.revision=CAST(e.revision AS TEXT) AND r.snapshot=''
+                   WHERE e.id=? ORDER BY e.revision DESC LIMIT 1", &[&id])?;
+    let base = row
+        .first()
+        .ok_or_else(|| Error::new("policy_revision", "Policy not found", 404))?;
+    require(
+        base["kind"] == "model"
+            && base["catalog_class"] == "regular"
+            && base["revision"].as_i64() == revision,
+        "policy_revision",
+        "Use the current revision of a Regular Policy",
+        409,
+    )?;
+    require(
+        base["owner"] == owner && owner != "system",
+        "forbidden",
+        "Use the target Policy's owner",
+        403,
+    )?;
+    let task_id = task["id"].as_str();
+    let linked: bool = db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM scenario_links WHERE scenario_id=? AND target_kind='entity' AND superseded_by IS NULL
+                  AND json_extract(target,'$.id')=? AND json_extract(target,'$.revision')=?)",
+        params![task_id, id, revision], |r| r.get(0),
+    )?;
+    require(
+        task_id.is_some() && (base["task"].as_str() == task_id || linked),
+        "policy_revision_task",
+        "Use the Task of the Policy being revised",
+        409,
+    )?;
+    revision
+        .and_then(|rev| rev.checked_add(1))
+        .ok_or_else(|| Error::conflict("Policy revision overflow"))
+}
 pub fn verify_target(db: &Connection, target: &Target, config: &Config) -> Result<()> {
     let v = &target.identity;
     let fields: &[&str] = match target.kind.as_str() {
@@ -66,6 +133,87 @@ pub(crate) fn verify_historical_binding_target(
     )
 }
 impl Application {
+    pub(crate) fn output_disposition(&self, identity: &Value, kind: &str) -> Result<Option<Value>> {
+        if !matches!(kind, "dataset" | "model" | "experiment" | "run") {
+            return Ok(None);
+        }
+        let key = output_disposition_key(&self.db, identity, kind)?;
+        let body: Option<String> = self
+            .db
+            .query_row(
+                "SELECT body FROM rust_annotations WHERE kind='output_disposition' AND id=?",
+                [key],
+                |r| r.get(0),
+            )
+            .optional()?;
+        Ok(body.map(|text| serde_json::from_str(&text)).transpose()?)
+    }
+
+    pub(crate) fn attach_output_disposition(&self, entity: &mut Value) -> Result<()> {
+        if let Some(identity) = entity
+            .get("loom_history")
+            .or_else(|| entity.get("loom_registry"))
+        {
+            if let Some(disposition) =
+                self.output_disposition(identity, entity["kind"].as_str().unwrap_or(""))?
+            {
+                entity["disposition"] = disposition;
+            }
+        }
+        Ok(())
+    }
+
+    fn set_output_disposition(&mut self, actor: &Actor, args: Value) -> Result<Value> {
+        crate::system_ownership::require_admin(&self.config, actor)?;
+        let config = self.config.clone();
+        let key = args["key"].as_str().unwrap_or_default();
+        let operation = "results.set_output_disposition";
+        let tx = self.transaction()?;
+        if let Some(result) = replay(&tx, actor, key, operation, &args)? {
+            return Ok(result);
+        }
+        let mut changed = Vec::new();
+        for value in args["targets"].as_array().unwrap() {
+            let target: Target = crate::contracts::decode(value.clone())?;
+            verify_target(&tx, &target, &config)?;
+            let identity = &target.identity;
+            let kind: String = if target.kind == "historical" {
+                identity["kind"].as_str().unwrap_or_default().into()
+            } else {
+                tx.query_row(
+                    "SELECT kind FROM all_entity_revisions WHERE id=? AND revision=?",
+                    params![identity["id"].as_str(), identity["revision"].as_i64()],
+                    |r| r.get(0),
+                )?
+            };
+            require(
+                matches!(kind.as_str(), "dataset" | "model" | "experiment" | "run"),
+                "output_kind",
+                "Select a Dataset, Policy or Experiment revision",
+                400,
+            )?;
+            let id = output_disposition_key(&tx, identity, &kind)?;
+            let disposition =
+                json!({"state":args["state"],"reason":args["reason"],"actor":actor.id});
+            tx.execute(
+                "INSERT INTO rust_annotations VALUES('output_disposition',?,?,?) ON CONFLICT(kind,id) DO UPDATE SET body=excluded.body,updated=excluded.updated",
+                params![id, encode(&disposition)?, now()],
+            )?;
+            changed.push(json!({"target":target,"disposition":disposition}));
+        }
+        tx.execute(
+            "UPDATE rust_projection_version SET version=version+1 WHERE id=1",
+            [],
+        )?;
+        if review_tables(&tx)? {
+            tx.execute("UPDATE reviewed_clock SET version=version+1 WHERE id=1", [])?;
+        }
+        let result = json!({"state":args["state"],"changed":changed});
+        receipt(&tx, actor, key, operation, &args, &result)?;
+        tx.commit()?;
+        Ok(result)
+    }
+
     pub(crate) fn reviewed_output_class(
         &self,
         source: &str,
@@ -124,6 +272,7 @@ impl Application {
             return self.metadata_template_action(actor, action, args);
         }
         match action {
+            "set_output_disposition" => self.set_output_disposition(actor, args),
             "group_evaluations" => self.group_evaluations(actor, args),
             "list" => self.results_listing(&args),
             "get" => {
@@ -147,6 +296,11 @@ impl Application {
                     value["catalog_class"] = json!(class);
                 }
                 self.attach_evaluation_group(&mut value)?;
+                if let Some(disposition) =
+                    self.output_disposition(&args, value["kind"].as_str().unwrap_or(""))?
+                {
+                    value["disposition"] = disposition;
+                }
                 let display_label = self.output_label("entity", id, &value["label"])?;
                 if display_label.is_string() {
                     value["label"] = display_label;
@@ -669,6 +823,7 @@ impl Application {
             relations.extend(input_relations(&self.db, &row.spec["params"])?);
             let mut identity = format!("{job}.{entity_id}");
             let mut supplement = None;
+            let mut revises = None;
             for lineage in entity["lineage"].as_array().into_iter().flatten() {
                 let input = lineage["input"].as_str().unwrap_or("");
                 let matches = relations
@@ -730,6 +885,7 @@ impl Application {
                         regular = true;
                         alias = promise["alias"].clone();
                         supplement = promise.get("supplements").cloned();
+                        revises = promise.get("revises").cloned();
                     }
                 }
                 published["producer"] = json!({"unit_id":job,"job_id":unit["job_id"],"attempt_id":attempt,"alias":alias});
@@ -838,6 +994,17 @@ impl Application {
                 )?;
                 identity = published["id"].as_str().unwrap().into();
             }
+            if let Some(base) = &revises {
+                let revision =
+                    policy_revision_base(&self.db, base, &row.owner, &row.spec["scenario_ref"])?;
+                identity = base["id"].as_str().unwrap().into();
+                published["id"] = json!(identity);
+                published["revision"] = json!(revision);
+                published["relations"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(json!({"kind":"revises","id":identity,"revision":base["revision"]}));
+            }
             prepared.push((
                 identity,
                 kind.to_string(),
@@ -864,7 +1031,7 @@ impl Application {
         if let Some((pos, (identity, _, revision, ..))) = prepared
             .iter()
             .enumerate()
-            .find(|(_, (_, _, r, ..))| r["supplement"]["base"].is_object())
+            .find(|(_, (_, _, r, ..))| r["revision"].as_i64().is_some_and(|rev| rev > 1))
         {
             let local = format!("{job}.{}", entities[pos]["id"].as_str().unwrap());
             let pin = (identity.clone(), revision["revision"].clone());
@@ -934,6 +1101,30 @@ impl Application {
             let revision = record["revision"].as_i64().unwrap();
             if let Some(base) = record.pointer("/supplement/base") {
                 crate::experiment_supplements::target(&tx, base, &row.owner)?;
+            }
+            if let Some(base) = record["relations"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .find(|relation| relation["kind"] == "revises")
+            {
+                policy_revision_base(&tx, base, &row.owner, &row.spec["scenario_ref"])?;
+                let exact = json!({"id":base["id"],"revision":base["revision"]});
+                let imported: bool = tx.query_row(
+                    "SELECT EXISTS(SELECT 1 FROM asset_revisions WHERE id=? AND revision=?)",
+                    params![base["id"].as_str(), base["revision"].as_i64()],
+                    |r| r.get(0),
+                )?;
+                // Capture the outgoing revision before the async index sees the replacement.
+                crate::items::adopt(
+                    &tx,
+                    if imported {
+                        "asset_revisions"
+                    } else {
+                        "entity_revisions"
+                    },
+                    &exact,
+                )?;
             }
             let old: Option<String> = tx
                 .query_row(

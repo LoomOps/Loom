@@ -15,6 +15,7 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 - [historical](#historical)
 - [assign_owner](#assign_owner)
 - [group_evaluations](#group_evaluations)
+- [set_output_disposition](#set_output_disposition)
 - [metadata_templates](#metadata_templates)
 - [get_metadata_template](#get_metadata_template)
 - [register_metadata_template](#register_metadata_template)
@@ -621,6 +622,108 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 Group ID, display label and exact Experiment and Policy references.
 
 Different protocol, inputs or cohort, incomplete evidence, stale revision, existing group or denied ownership.
+
+## set_output_disposition
+
+Set an exact batch of Dataset, Policy or Experiment revisions to current or discarded. The installation administrator applies this audited overlay atomically. Exact references, files and Job history remain available.
+
+Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/results.rs#set_output_disposition](../../rust/crates/core/src/results.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `key` | yes | `"string"` | `—` |
+| `reason` | yes | `"string"` | `—` |
+| `state` | yes | `["current", "discarded"]` | `—` |
+| `targets` | yes | `"array"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "key": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "reason": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "current",
+        "discarded"
+      ]
+    },
+    "targets": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "identity": {
+            "type": "object"
+          },
+          "kind": {
+            "enum": [
+              "entity",
+              "historical"
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "identity"
+        ],
+        "type": "object"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "targets",
+    "state",
+    "reason",
+    "key"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "key": "discard-example-policy-r1",
+  "reason": "Retired before retraining",
+  "state": "discarded",
+  "targets": [
+    {
+      "identity": {
+        "id": "example.policy",
+        "revision": 1
+      },
+      "kind": "entity"
+    }
+  ]
+}
+```
+
+
+
+### Result and failures
+
+Receipt · state and changed exact revisions
+
+Unknown revision, invalid output kind, missing installation administration authority or changed request key.
 
 ## metadata_templates
 
@@ -2752,7 +2855,7 @@ The exact native reference has not been adopted, or its source was deleted.
 
 ## search_items
 
-Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates. include_system defaults to true for API/MCP discovery; false excludes current System responsibility before pagination, including files inherited from a System parent. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.
+Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates. include_system defaults to true for API/MCP discovery; false excludes current System responsibility before pagination, including files inherited from a System parent. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations. Use output_state to select current or discarded output revisions before pagination.
 
 Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/index_store.rs#search_items](../../rust/crates/core/src/index_store.rs).
 
@@ -2774,6 +2877,7 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 | `limit` | no | `"integer"` | `—` |
 | `native_kind` | no | `"string"` | `—` |
 | `origin_type` | no | `"string"` | `—` |
+| `output_state` | no | `["current", "discarded", "all"]` | `—` |
 | `parent_item_id` | no | `"string"` | `—` |
 | `recorded_from` | no | `"number"` | `—` |
 | `recorded_to` | no | `"number"` | `—` |
@@ -2864,6 +2968,13 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
     "origin_type": {
       "maxLength": 128,
       "type": "string"
+    },
+    "output_state": {
+      "enum": [
+        "current",
+        "discarded",
+        "all"
+      ]
     },
     "parent_item_id": {
       "pattern": "^[1-9][0-9]{0,38}$",

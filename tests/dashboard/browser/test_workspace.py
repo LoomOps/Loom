@@ -530,11 +530,13 @@ const done=arguments[arguments.length-1];
         ui.click('[data-output-purpose=research]');ui.wait("return document.querySelectorAll('.pa-dataset-row').length===3");ui.click('[data-output-purpose=all]');ui.wait("return document.querySelectorAll('.pa-dataset-row').length===4")
         self.assertFalse(ui.js("return !![...document.querySelectorAll('[data-catalog-task-card]')].find(e=>e.dataset.catalogTaskCard==='')"))
         text=ui.js("return ['rich','legacy','annotated','conditions'].map(id=>document.querySelector('[data-output-id=dataset-'+id+']').innerText)")
-        self.assertIn('RGB · State · Action',text[0]);self.assertIn('82,714',text[0])
+        self.assertIn('Episodes\n140',text[0])
         self.assertIn('train 100 / validation 20 / test 20',text[0])
-        self.assertIn('RGB · RGB-D',text[1]);self.assertIn('RGB-D',text[2]);self.assertIn('Cases',text[3]);self.assertIn('0',text[3])
+        self.assertIn('Episodes\nMissing',text[1])
+        self.assertIn('Episodes\n1',text[2])
+        self.assertIn('Episodes\nMissing',text[3])
         for row in text:
-            for raw in ['internal-batch-diagnostics','FF60','30Hz','camera provenance']:
+            for raw in ['internal-batch-diagnostics','FF60','30Hz','camera provenance','82,714','Cases','RGB']:
                 self.assertNotIn(raw,row)
         for width in (1440,500):
             ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
@@ -1598,7 +1600,7 @@ const done=arguments[arguments.length-1];
         self.ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('long-model-instruction')")
         self.ui.nav('Models')
         self.assertEqual(self.ui.js("return [...document.querySelectorAll('[data-model-filter]')].map(n=>n.dataset.modelFilter)"),['query'])
-        self.assertTrue(self.ui.js("""return !!document.querySelector('nav[aria-label="Model family"] [data-policy-family=""][aria-pressed=true]')"""))
+        self.assertTrue(self.ui.js("""return !!document.querySelector('nav[aria-label="Family"] [data-policy-family=""][aria-pressed=true]')"""))
         self.assertFalse(self.ui.js("return !!document.querySelector('[data-model-reset]:not([hidden]),[data-model-role]')"))
         self.assertTrue(self.ui.js("""const filter=document.querySelector('[data-model-filter=query]');
             filter.focus();filter.value='Nonexistent policy';filter.dispatchEvent(new Event('input',{bubbles:true}));
@@ -1633,8 +1635,8 @@ const done=arguments[arguments.length-1];
         self.api.fixture['catalog']['entities'].append(run);self.api.fixture['catalog']['revision']='primary-ui-v1'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('primary-ui-v1')")
         ui.nav('Experiments');ui.wait("return !!document.querySelector('[data-output-id=primary-fixture]')")
-        self.assertEqual(ui.js("return document.querySelectorAll('[data-output-id=primary-fixture] .pa-result-score-item').length"),1)
-        self.assertIn('0',ui.js("return document.querySelector('[data-output-id=primary-fixture] .pa-result-score').textContent"))
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=primary-fixture] .pa-result-score-item small')].map(n=>n.textContent)"),['Result','Checkpoint'])
+        self.assertIn('0 / 20',ui.js("return document.querySelector('[data-output-id=primary-fixture] .pa-result-score').textContent"))
         self.assertFalse(ui.js("return !!document.querySelector('[data-output-id=primary-fixture] .pa-output-metrics')"))
         ui.route(run['id']);ui.wait("return document.querySelector('#pa-content').textContent.includes('measured-observer-r2')")
         self.assertIn('Position tolerance5 mm',ui.js("return document.querySelector('#pa-content').textContent"))
@@ -1643,7 +1645,7 @@ const done=arguments[arguments.length-1];
         self.assertNotIn('등록된 원본 산출물 기반',ui.js("return document.querySelector('.pa-footer').textContent"))
         run['comparison']['all'][1]['role']='primary_outcome';self.api.fixture['catalog']['revision']='primary-ui-v2'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('primary-ui-v2')");ui.nav('Experiments')
-        self.assertEqual(ui.js("return document.querySelectorAll('[data-output-id=primary-fixture] .pa-result-score-item').length"),1)
+        self.assertEqual(ui.js("return document.querySelectorAll('[data-output-id=primary-fixture] .pa-result-score-item').length"),2)
         self.assertIn('Missing',ui.js("return document.querySelector('[data-output-id=primary-fixture] .pa-result-score').textContent"))
         self.assertEqual(run['comparison']['all'][0]['numerator'],0)
 
@@ -1696,14 +1698,15 @@ const done=arguments[arguments.length-1];
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('derive-ui')")
         ui.nav('Datasets');ui.wait("return !!document.querySelector('.pa-dataset-subgroup')")
         text=ui.js("return document.querySelector('.pa-dataset-subgroup').textContent")
-        for value in ['Recorded trajectories','Selected conditions','Conditions','Cases','BC not ready']:self.assertIn(value,text)
+        for value in ['Recorded trajectories','Selected conditions','Episodes','Split']:self.assertIn(value,text)
+        for value in ['Cases','BC not ready']:self.assertNotIn(value,text)
         self.assertFalse(ui.js("return !!document.querySelector('.pa-dataset-subgroup > summary')"))
         self.api.fixture['catalog']['revision']='derive-ui-refresh';ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('derive-ui-refresh')")
         self.assertTrue(ui.js("return !!document.querySelector('.pa-dataset-subgroup [data-output-id=derive-child]')"))
         self.assertFalse(ui.js("return !!document.querySelector('[data-dataset-role],[data-dataset-filter],[data-dataset-reset]')"))
         self.assertEqual(ui.js("return document.querySelector('[data-dataset-result-count]').textContent"),'2개 데이터셋')
         self.assertIn('validation 0',ui.js("return document.querySelector('[data-output-id=derive-child] [data-research-fact=split]').textContent"))
-        self.assertTrue(ui.js("return document.querySelector('[data-output-id=derive-child] .pa-dataset-relation').textContent.includes('Recorded trajectories')"))
+        self.assertEqual(ui.js("return document.querySelector('[data-output-id=derive-child]').dataset.datasetDepth"),'1')
         ui.route('derive-child');ui.wait("return !!document.querySelector('[data-output-sources]')")
         self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-output-source>summary')].map(x=>x.textContent)"),['Sources'])
         visible=ui.js("return document.querySelector('#pa-content').innerText")
@@ -1742,9 +1745,11 @@ const done=arguments[arguments.length-1];
         self.assertEqual(ui.js("return [...document.querySelectorAll('[data-catalog-task-card]>h3')].map(x=>x.textContent)"),['Alpha · Alignment','Beta · Alignment','Gamma · Alignment'])
         self.assertEqual(ui.js("return [...document.querySelectorAll('[data-catalog-task-card=alpha] [data-dataset-depth]')].map(x=>Number(x.dataset.datasetDepth))"),list(range(6)))
         self.assertTrue(ui.js("return [...document.querySelectorAll('[data-catalog-task-card=alpha] [data-dataset-depth]')].every(x=>x.getClientRects().length)"))
-        lineage=ui.js("return [...document.querySelectorAll('[data-output-id=alpha2] .pa-dataset-relation')].map(e=>e.textContent)")
+        ui.route('alpha2');ui.wait("return document.querySelectorAll('.pa-dataset-parent').length===2")
+        lineage=ui.js("return [...document.querySelectorAll('.pa-dataset-parent')].map(e=>e.textContent)")
         self.assertEqual(len(lineage),2)
-        self.assertTrue(any('Subset from' in parent for parent in lineage))
+        self.assertTrue(any('Subset of' in parent for parent in lineage))
+        ui.nav('Datasets')
         self.api.fixture['catalog']['revision']='family-tree-refresh';ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('family-tree-refresh')")
         self.assertTrue(ui.js("return document.querySelector('[data-output-id=alpha5]').getClientRects().length>0"))
         for width in [1440,500,390]:
@@ -1801,7 +1806,11 @@ const done=arguments[arguments.length-1];
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('scientific-summary-ui')")
         ui.nav('Datasets');ui.wait("return !!document.querySelector('[data-output-id=scientific-dataset]')")
         text=ui.js("return document.querySelector('[data-output-id=scientific-dataset]').textContent")
-        for value in ['240 Hz','80 Hz','20 · 40 Hz','0.125 kg','gravity on']:self.assertIn(value,text)
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=scientific-dataset] dt')].map(n=>n.textContent)"),['Episodes','Split'])
+        for value in ['240 Hz','80 Hz','20 · 40 Hz','0.125 kg']:self.assertNotIn(value,text)
+        ui.route(dataset['id']);ui.wait("return !!document.querySelector('[data-research-section=physics]')")
+        text=ui.js("return document.querySelector('[data-research-section=physics]').textContent")
+        for value in ['240 Hz','80 Hz','20 · 40 Hz','0.125 kg','Robot gravity disabledNo']:self.assertIn(value,text)
         ui.nav('Models');ui.wait("return !!document.querySelector('[data-output-id=fixture-model]')")
         text=ui.js("return document.querySelector('[data-output-id=fixture-model]').textContent")
         self.assertIn('Dataset',text);self.assertNotIn('4 mm',text)
@@ -1938,22 +1947,26 @@ const done=arguments[arguments.length-1];
         records={row['id']:row for row in catalog['entities']}
         for id,record in [('assembly-xvla',d0),('assembly-smolvla',d0),('assembly-bc',d1)]:
             records[id]['catalog_inputs']={'datasets':[record]}
-        group={'id':'bc-runs','policies':[{'id':'assembly-bc','revision':1},{'id':'assembly-bc-long','revision':1}]}
         bc=records['assembly-bc']
-        bc.update(loom_registry=group['policies'][0],evaluation_group=group,catalog_checkpoints=[1000,5000])
-        catalog['entities'].append({**bc,'id':'assembly-bc-long','loom_registry':group['policies'][1],'catalog_checkpoints':[1000,5000,10000,15000]})
+        bc.update(loom_registry={'id':'assembly-bc','revision':2},
+                  research_summary={'facts':[{'id':'selected_step','label':'Selected step','section':'training','status':'recorded','value':15000}],'inputs':[],'sources':[]})
+        catalog['entities'].append({**bc,'id':'assembly-bc-legacy-copy','label':'Legacy BC-RNN'})
+        bc['catalog_mirror_key']=catalog['entities'][-1]['catalog_mirror_key']='verified-training-copy'
         for id,record in [('assembly-xvla',d0),('assembly-bc',d1)]:
             catalog['entities'].append({'id':'eval-'+id,'kind':'experiment','label':'Evaluation '+id,
-                'task_refs':[assembly],'catalog_inputs':{'datasets':[record],'policies':[{'label':id,'ref':{'kind':'entity','identity':{'id':id,'revision':1}}}]}})
+                'task_refs':[assembly],'catalog_inputs':{'datasets':[record],'policies':[{'label':id,'family':records[id]['properties']['architecture'].split(' ')[0] if id.endswith('xvla') else 'BC-RNN','ref':{'kind':'entity','identity':{'id':id,'revision':1}}}]}})
+        catalog.setdefault('capabilities',{})['reporting']=True
         catalog['revision']='policy-family-index'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
         ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('policy-family-index')")
         ui.nav('Models')
         def shown():
             return set(ui.js("return [...document.querySelectorAll('.pa-document-pane.is-active [data-model-entry]')].map(n=>n.dataset.modelEntry)"))
-        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-document-pane.is-active .pa-catalog-index-stack nav')].map(n=>n.getAttribute('aria-label'))"),['Tasks','Model family'])
+        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-document-pane.is-active .pa-catalog-index-stack nav')].map(n=>n.getAttribute('aria-label'))"),['Tasks','Family'])
         ui.click('[data-research-task=output-assembly]')
-        self.assertEqual(shown(),{'assembly-xvla','assembly-smolvla','assembly-bc-long'})
+        self.assertEqual(shown(),{'assembly-xvla','assembly-smolvla','assembly-bc'})
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-model-entry=assembly-bc] dt')].map(n=>n.textContent)"),
+                         ['Dataset','Model family','Checkpoint'])
         self.assertFalse(ui.js("""return !!document.querySelector('[data-policy-family="Keypoint estimator"]')"""))
         ui.click('.pa-catalog-task-index[aria-label=Datasets] button:nth-of-type(2)')
         self.assertEqual(shown(),{'assembly-xvla','assembly-smolvla'})
@@ -1961,14 +1974,19 @@ const done=arguments[arguments.length-1];
         ui.click('[data-policy-family=X-VLA]')
         self.assertEqual(shown(),{'assembly-xvla'})
         ui.nav('Experiments')
-        ui.wait("return !!document.querySelector('[data-catalog-policy]')")
+        ui.wait("return !!document.querySelector('[data-experiment-family]')")
         ui.click('[data-research-task=output-assembly]')
         ui.click('.pa-catalog-task-index[aria-label=Datasets] button:nth-of-type(3)')
-        ui.click('.pa-catalog-task-index[aria-label=Policies] button:nth-of-type(2)')
+        ui.click('.pa-catalog-task-index[aria-label=Family] button:nth-of-type(2)')
         self.assertTrue(ui.js("return !!document.querySelector('[data-output-id=eval-assembly-bc]')"))
         self.assertFalse(ui.js("return !!document.querySelector('[data-output-id=eval-assembly-xvla]')"))
+        ui.route('assembly-bc')
+        ui.wait("return !!document.querySelector('[data-report-output=assembly-bc]')")
+        self.assertFalse(ui.js("return !!document.querySelector('.pa-output-task,[data-policy-run]')"))
+        self.assertNotIn('Training runs', ui.js("return document.querySelector('[data-report-content]').innerText"))
         ui.nav('Models')
         ui.click('[data-research-task=output-alignment]')
+        ui.click('[data-policy-family=X-VLA]')
         self.assertEqual(shown(),{'alignment-xvla'})
         ui.click('[data-policy-family=""]')
         self.assertEqual(ui.js("return document.querySelector('[data-research-task][aria-pressed=true]').dataset.researchTask"),'output-alignment')
@@ -1976,7 +1994,7 @@ const done=arguments[arguments.length-1];
         ui.click('[data-policy-family=X-VLA]')
         self.assertEqual(shown(),{'assembly-xvla','alignment-xvla'})
         ui.click('[data-policy-family=BC-RNN]')
-        self.assertEqual(shown(),{'assembly-bc-long','alignment-bc'})
+        self.assertEqual(shown(),{'assembly-bc','alignment-bc'})
         for name in ('Datasets','Experiments'):
             ui.nav(name)
             self.assertFalse(ui.js("return !!document.querySelector('.pa-document-pane.is-active [data-policy-family]')"))
@@ -2015,19 +2033,20 @@ const done=arguments[arguments.length-1];
                                'checkpoints':[{'step':step,'valid':20,'executed':20,'successes':0} for step in [0,1000,3000,6000]]}}}
         catalog['entities'] += [dataset,evaluation,tied];catalog['revision']='checkpoint-catalog'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('checkpoint-catalog')")
-        ui.nav('Catalog');ui.wait("return document.querySelector('[data-output-id=imported-dataset] .pa-dataset-origin')?.textContent==='Imported'")
-        self.assertTrue(ui.js("""const badge=document.querySelector('.pa-dataset-row .pa-dataset-origin'),bc=badge.nextElementSibling;
-            return bc.textContent==='BC ready' && bc.getBoundingClientRect().left-badge.getBoundingClientRect().right>=6"""))
+        ui.nav('Catalog');ui.wait("return !!document.querySelector('[data-output-id=imported-dataset]')")
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=imported-dataset] dt')].map(n=>n.textContent)"),['Episodes','Split'])
         ui.route('imported-dataset')
         ui.wait("return !!document.querySelector('.pa-heading .pa-dataset-origin')")
         self.assertTrue(ui.js("""const badge=document.querySelector('.pa-heading .pa-dataset-origin'),a=getComputedStyle(badge),b=getComputedStyle(badge.parentElement);
             return ['fontFamily','fontWeight','fontSize','letterSpacing'].every(k=>a[k]===b[k])"""))
         ui.nav('Experiments');ui.wait("return !!document.querySelector('[data-output-id=checkpoint-evaluation] .pa-result-score')")
         score=ui.js("return document.querySelector('[data-output-id=checkpoint-evaluation] .pa-result-score').innerText")
-        for value in ['Best observed','10,000','80.0%']:self.assertIn(value,score)
+        for value in ['Result','Checkpoint','step 10,000','80%']:self.assertIn(value,score)
         self.assertNotIn('23',score)
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=checkpoint-evaluation] dt')].map(n=>n.textContent)"),['Dataset','Policy'])
+
         tied_score=ui.js("return document.querySelector('[data-output-id=tied-evaluation] .pa-result-score').innerText")
-        self.assertIn('4 tied checkpoints',tied_score)
+        self.assertIn('Tied',tied_score)
         self.assertIn('0 / 20',tied_score)
 
         ui.route('checkpoint-evaluation');ui.wait("return !!document.querySelector('.pa-report-experiment .pa-report-overview .pa-output-section')")
@@ -2035,6 +2054,20 @@ const done=arguments[arguments.length-1];
         text=ui.js("return document.querySelector('[data-report-content]').innerText")
         for value in ['Checkpoint results','7 / 20','16 / 20','Best observed']:self.assertIn(value,text)
         self.assertNotIn('23 / 40',text)
+
+        retired={'state':'discarded','reason':'Fixture archive'}
+        catalog['entities'] += [{**row,'id':'retired-'+row['id'],'disposition':retired} for row in [dataset,evaluation,
+            {**shared,'id':'policy-fixture','kind':'model','label':'Fixture policy','properties':{'model_role':'policy','architecture':'BC-RNN'}}]]
+        catalog['revision']='checkpoint-catalog-retired'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('checkpoint-catalog-retired')")
+        for page,identity in [('Datasets','imported-dataset'),('Models','policy-fixture'),('Experiments','checkpoint-evaluation')]:
+            ui.nav(page)
+            ui.click('[data-result-disposition-filter=current]')
+            selector=f'[data-output-id=retired-{identity}]'
+            self.assertFalse(ui.js("return !!document.querySelector(arguments[0])",selector))
+            ui.click('[data-result-disposition-filter=discarded]')
+            ui.wait("return !!document.querySelector(arguments[0])",selector)
 
     def test_legacy_metrics_stay_in_their_tab_and_long_definitions_fit(self):
         ui=self.ui

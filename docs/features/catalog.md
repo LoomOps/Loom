@@ -66,6 +66,19 @@ visible and does not inherit the old consolidation's completion.
 
 ## Scientific metadata projection
 
+The Dashboard can fold mirrored historical rows when their exact publication
+revision, normalized original record and location inventory agree. Policies use
+the current revision of each catalog identity. List fields are fixed by kind
+independently of metadata templates. Datasets show Episodes and Split. Policies
+show Dataset, Model family and Checkpoint. Experiments show Dataset, Policy,
+Result and Checkpoint. The Experiment checkpoint is the one behind the stated
+result when identifiable. Detailed metrics remain in Results.
+
+Datasets, Policies and Experiments use the same Current and Discarded filters.
+`results.set_output_disposition` applies an installation-admin overlay to exact
+revisions. Exact reads, files, Job history and existing input pins remain
+available. A later revision starts current.
+
 `dashboard_page` and `dashboard_entity` expose `research_summary` for Datasets,
 Models and Experiments. The canonical fact vocabulary and extraction paths live
 in `research_metadata.rs`; the DTO is described by

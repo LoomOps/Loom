@@ -106,7 +106,12 @@ SHA-256 verified report. Batch metadata stays in provenance.
 
 `results.group_evaluations` records a comparison group for independent
 Experiments and Policies with a verified compatible evaluation context.
-Grouping changes catalog presentation. Source outputs and scores remain exact.
+Source outputs and scores remain exact.
+
+A Regular Policy Job can set `outcome.deliverables[0].revises` to the exact
+current Policy. Publication checks the owner, Task and current revision and adds
+the new output under the same ID. It stores the new Job's files and metrics and
+keeps previous revisions addressable.
 
 ## Metadata templates
 

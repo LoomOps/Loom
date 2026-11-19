@@ -14,6 +14,12 @@ input identity and evidence for reuse.
 
 Choose the Profile, metadata template and report contract before submission. The producer writes files and `result.json` under `request.output_dir` according to the accepted Profile. Compare completed Experiments by exact revision. Use the producing Unit or software revision for infrastructure validation.
 
+When new training replaces an existing Regular Policy, look up its current
+exact `{id,revision}` and pass it as `outcome.deliverables[0].revises` in
+`jobs.submit_research`. Use the same Task and owner. Publication adds a new
+revision with that Job's training evidence. Use `output_state:"current"`
+when searching for reusable catalog inputs.
+
 Use `jobs.get` for the accepted Job and deliverable, `units.get` for Attempt and return state, and `results.get` for exact published revisions and locations. Use `events.list` with `kind:"all"` to read events. ACK records delivery. For a publication error, repair the cause and use `results.reindex` when applicable to keep the original successful Attempt.
 
 Declare measurements, units, denominators, splits and provenance in the producer's output. Reference the accepted Profile revision and source hash. Large outputs can use the Rust SDK's sealed file inventory; see `authoring` and `items`. A structural/byte check does not establish model or dataset semantics.

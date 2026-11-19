@@ -2242,7 +2242,7 @@ let catalogData=catTitleSnapshot({entities:[],sources:[],revision:null});
 let catalogConnection=&#x27;카탈로그 연결 중&#x27;;
 const kindLabels={model:&#x27;모델&#x27;,dataset:&#x27;데이터셋&#x27;,experiment:&#x27;실험&#x27;,run:&#x27;평가·실행&#x27;,job:&#x27;작업&#x27;,issue:&#x27;트러블슈팅&#x27;,component:&#x27;컴포넌트&#x27;,tool:&#x27;Tool&#x27;};
 const catEntity=id=&gt;(catalogData.all_entities||catalogData.entities).find(e=&gt;e.id===id)||(typeof workStepRecord===&#x27;function&#x27;?workStepRecord(id):null)||loomHistoricalExtensionEntity(id);
-function catIsDiscarded(e){return !!e&amp;&amp;[&#x27;run&#x27;,&#x27;experiment&#x27;].includes(e.kind)&amp;&amp;e.disposition?.state===&#x27;discarded&#x27;;}
+function catIsDiscarded(e){return e?.disposition?.state===&#x27;discarded&#x27;;}
 let catKind=(k,includeDiscarded=false)=&gt;loomTaskItems(catalogData.entities.filter(e=&gt;e.kind===k&amp;&amp;(includeDiscarded||!catIsDiscarded(e))),k);
 // One result projection for lists, detail and Comparison; no model/phase/metric IDs.
 function catResultMetrics(e){
@@ -5265,7 +5265,7 @@ dashboardActivity=function(){
 const loomCatalogKinds={models:&#x27;model&#x27;,datasets:&#x27;dataset&#x27;,experiments:&#x27;experiment&#x27;,issues:&#x27;issue&#x27;,profiles:&#x27;profile&#x27;,components:&#x27;component&#x27;,tools:&#x27;tool&#x27;,runtimes:&#x27;runtime&#x27;,dependencies:&#x27;dependency&#x27;,scenarios:&#x27;scenario&#x27;,queue:&#x27;job&#x27;,files:&#x27;explorer&#x27;};
 function loomCatalogQuery(kind){
  if(catalogData.capabilities?.job_units&amp;&amp;[&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;].includes(kind)){
-  return {kinds:[kind],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50,catalog_classes:loomOutputClasses(),...(state.researchTask?{task_id:state.researchTask.id}:{})};
+  return {kinds:[kind],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50,catalog_classes:loomOutputClasses(),...(catalogData.capabilities.output_disposition?{output_state:loomOutputDiscarded()?&#x27;discarded&#x27;:&#x27;current&#x27;,...(loomOutputDiscarded()?{history:&#x27;all&#x27;}:{})}:{}),...(state.researchTask?{task_id:state.researchTask.id}:{})};
  }if(kind===&#x27;job&#x27;)return {kinds:[&#x27;job&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};if(kind===&#x27;explorer&#x27;)return {kinds:[&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};const view=catalogData.presentation_view||&#x27;all&#x27;;return {...([&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;].includes(kind)?{...loomRegistryArgs(state.registryFilter||&#x27;current&#x27;),...(state.registryFilter===&#x27;archived&#x27;?{history:&#x27;all&#x27;}:{})}:{}),kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:[&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)?((state.outputPurpose||(view===&#x27;research&#x27;?&#x27;research&#x27;:&#x27;all&#x27;))===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;):kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...([&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)&amp;&amp;state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 // A bootstrap is a bounded seed, never a replacement for pages from its revision.
@@ -5414,7 +5414,7 @@ async function loomCatalogOpen(id,navigate=true){
  const exact=/^revision:([0-9]+):([0-9]+)$/.exec(id);
  if(exact){
   const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:exact[1],revision_id:exact[2],records_only:true});
-  loomCatalogMerge({...value,entities:value.entities.map(e=&gt;({...e,id,catalog_exact:true}))});
+  loomCatalogMerge({...value,entities:value.entities.map(e=&gt;({...e,id,catalog_exact:known?.catalog_exact??true}))});
   if(navigate&amp;&amp;activeTab().id===tabKeyBefore&amp;&amp;catEntity(id))openView(catView(id));
   catalogRefreshViews();return;
  }
@@ -5529,6 +5529,13 @@ openView=function(view,...args){
  if(current&amp;&amp;loomIsResearchPage(current.page)&amp;&amp;loomIsResearchPage(view.page)&amp;&amp;view.researchTask===undefined&amp;&amp;current.researchTask)view={...view,researchTask:current.researchTask};
  return loomOutputOpenView(view,...args);
 };
+function loomOutputDiscarded(){return state.resultDispositionFilter===&#x27;discarded&#x27;;}
+function loomOutputRows(records){return records.filter(e=&gt;catIsDiscarded(e)===loomOutputDiscarded());}
+function loomOutputStatusTabs(){
+ const discarded=loomOutputDiscarded();
+ return &#x27;&lt;section class=&quot;pa-model-filters&quot; aria-label=&quot;Record status&quot;&gt;&lt;div class=&quot;pa-model-filter-top&quot;&gt;&lt;div class=&quot;pa-model-role-group&quot; role=&quot;group&quot; aria-label=&quot;Record status&quot;&gt;&#x27;
+  +[[&#x27;current&#x27;,&#x27;Current&#x27;,false],[&#x27;discarded&#x27;,&#x27;Discarded&#x27;,true]].map(([value,label,isDiscarded])=&gt;&#x27;&lt;button class=&quot;pa-pill &#x27;+(discarded===isDiscarded?&#x27;active&#x27;:&#x27;&#x27;)+&#x27;&quot; data-result-disposition-filter=&quot;&#x27;+value+&#x27;&quot; aria-pressed=&quot;&#x27;+(discarded===isDiscarded)+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&lt;/div&gt;&lt;/section&gt;&#x27;;
+}
 const loomOutputDatasets=datasets;
 datasets=function(){return loomOutputList(loomOutputDatasets());};
 const policyFilterDefaults={family:&#x27;&#x27;,query:&#x27;&#x27;};
@@ -5553,6 +5560,10 @@ function modelFilterMeta(e){
 }
 function policyFilters(view){return {...policyFilterDefaults,...view.modelFilters};}
 function loomInputKey(input){
+ if(input.dataset_mirror_key){
+  const task=input.organization?.task_ref?.id, path=input.organization?.path?.map(node=&gt;node.id);
+  return JSON.stringify([&#x27;dataset-mirror&#x27;,input.dataset_mirror_key,task,path]);
+ }
  const {kind,identity:i}=input.ref;
  return JSON.stringify(kind===&#x27;entity&#x27;?[kind,i.id,i.revision]:[kind,i.source,i.kind,i.id,i.revision,i.snapshot]);
 }
@@ -5561,10 +5572,10 @@ function loomInputLabel(input){
  const path=input.organization?.path||[];
  return path.length?path.map(node=&gt;node.label).join(&#x27; / &#x27;):input.label;
 }
-function loomCatalogInputIndex(label,field,records,selected){
+function loomCatalogDatasetIndex(records,selected){
  const options=new Map();
- for(const record of records)for(const input of loomCatalogInputs(record,field)){
-  if(field===&#x27;datasets&#x27;&amp;&amp;!input.task_refs?.some(task=&gt;task.id===state.researchTask?.id))continue;
+ for(const record of records)for(const input of loomCatalogInputs(record,&#x27;datasets&#x27;)){
+  if(!input.task_refs?.some(task=&gt;task.id===state.researchTask?.id))continue;
   options.set(loomInputKey(input),input);
  }
  const counts=new Map();
@@ -5573,37 +5584,49 @@ function loomCatalogInputIndex(label,field,records,selected){
  }
  const entries=[...options].map(([id,input])=&gt;{
   const label=loomInputLabel(input),identity=input.ref.identity;
-  const detail=identity.snapshot||(&#x27;r&#x27;+identity.revision+&#x27; · &#x27;+identity.id.slice(0,8));
+  const detail=identity.snapshot?identity.source+&#x27; · r&#x27;+identity.revision:&#x27;r&#x27;+identity.revision+&#x27; · &#x27;+identity.id.slice(0,8);
   return {id,label:counts.get(label)&gt;1?label+&#x27; · &#x27;+detail:label};
  });
  entries.sort((a,b)=&gt;a.label.localeCompare(b.label,undefined,{numeric:true}));
  if(selected&amp;&amp;!options.has(selected))entries.push({id:selected,label:&#x27;Selected input&#x27;});
- return loomCatalogIndex(label,field===&#x27;datasets&#x27;?&#x27;data-catalog-dataset&#x27;:&#x27;data-catalog-policy&#x27;,entries,selected||&#x27;&#x27;);
+ return loomCatalogIndex(&#x27;Datasets&#x27;,&#x27;data-catalog-dataset&#x27;,entries,selected||&#x27;&#x27;);
 }
 function loomMatchesCatalogInput(e,field,key){return !key||loomCatalogInputs(e,field).some(input=&gt;loomInputKey(input)===key);}
 function loomInputNames(e,field){return [...new Set(loomCatalogInputs(e,field).map(loomInputLabel))].join(&#x27; · &#x27;)||&#x27;Missing&#x27;;}
 function loomUniqueCatalogSnapshots(records){
- const shown=new Set();
- return records.filter(record=&gt;{
-  if(!record.catalog_mirror_key)return true;
+ const shown=new Map();
+ for(const record of records){
   const tasks=state.researchTask?[state.researchTask.id]:(record.task_refs||[]).map(task=&gt;task.id).sort();
-  const key=JSON.stringify([record.catalog_mirror_key,record.catalog_class,tasks]);
-  if(shown.has(key))return false;
-  shown.add(key);return true;
- });
+  const key=record.catalog_mirror_key?JSON.stringify([record.catalog_mirror_key,record.catalog_class,tasks]):record.id;
+  const previous=shown.get(key);
+  const inputs=e=&gt;loomCatalogInputs(e,&#x27;datasets&#x27;).length+loomCatalogInputs(e,&#x27;policies&#x27;).length;
+  if(!previous||inputs(record)&gt;inputs(previous))shown.set(key,record);
+ }
+ return [...shown.values()];
+}
+function loomExperimentFamilies(e){
+ return [...new Set(loomCatalogInputs(e,&#x27;policies&#x27;).map(input=&gt;{
+  const record=catEntity(input.ref.identity.id);
+  if(record?.loom_registry?.revision===input.ref.identity.revision&amp;&amp;record)return modelFilterMeta(record).family;
+  return policyText(input.family)||policyFamily(policyText(input.architecture));
+ }))];
+}
+function loomFamilyIndex(families,attribute,selected){
+ const entries=[...new Set(families.concat(selected||[]))].sort((a,b)=&gt;a.localeCompare(b))
+  .map(family=&gt;({id:family,label:family===&#x27;미기록&#x27;?&#x27;Missing&#x27;:family}));
+ return loomCatalogIndex(&#x27;Family&#x27;,attribute,entries,selected);
 }
 function policyList(){
  const f=policyFilters(state),query=f.query.trim().toLowerCase(),dataset=state.outputDataset||&#x27;&#x27;;
- const records=loomUniqueCatalogSnapshots(catKind(&#x27;model&#x27;)).filter(e=&gt;modelFilterMeta(e).role!==&#x27;Observer&#x27;);
+ const records=loomUniqueCatalogSnapshots(loomOutputRows(catKind(&#x27;model&#x27;,true))).filter(e=&gt;modelFilterMeta(e).role!==&#x27;Observer&#x27;);
  const shown=records.filter(e=&gt;(!f.family||modelFilterMeta(e).family===f.family)&amp;&amp;loomMatchesCatalogInput(e,&#x27;datasets&#x27;,dataset)&amp;&amp;(!query||catSearchText(e).includes(query)));
  const filters=&#x27;&lt;section class=&quot;pa-model-filters&quot; aria-label=&quot;Policy filters&quot;&gt;&lt;div class=&quot;pa-model-filter-fields pa-policy-filter-fields&quot;&gt;&#x27;
   +&#x27;&lt;label class=&quot;pa-model-filter-field pa-model-filter-search&quot;&gt;&lt;span&gt;검색&lt;/span&gt;&lt;input type=&quot;search&quot; data-model-filter=&quot;query&quot; aria-label=&quot;정책 검색&quot; placeholder=&quot;이름·계열·키워드&quot; value=&quot;&#x27;+esc(f.query)+&#x27;&quot; autocomplete=&quot;off&quot;&gt;&lt;/label&gt;&lt;/div&gt;&#x27;
   +&#x27;&lt;button type=&quot;button&quot; class=&quot;pa-model-filter-reset&quot; data-model-reset&#x27;+(f.query?&#x27;&#x27;:&#x27; hidden&#x27;)+&#x27;&gt;검색 초기화&lt;/button&gt;&lt;/section&gt;&#x27;;
- const rows=loomCatalogTaskGroups(shown,loomCatalogTask,items=&gt;loomPolicyRows(items).map(row=&gt;loomCompactOutput(row,false)).join(&#x27;&#x27;));
- const families=[...new Set(records.map(e=&gt;modelFilterMeta(e).family).concat(f.family).filter(Boolean))].sort((a,b)=&gt;a.localeCompare(b));
- const familyIndex=loomCatalogIndex(&#x27;Model family&#x27;,&#x27;data-policy-family&#x27;,families.map(family=&gt;({id:family,label:family})),f.family);
- const datasetIndex=state.researchTask?loomCatalogInputIndex(&#x27;Datasets&#x27;,&#x27;datasets&#x27;,records,dataset):&#x27;&#x27;;
- return loomOutputList(heading(&#x27;CATALOG&#x27;,&#x27;Policies&#x27;,&#x27;&#x27;)+catStatus()+filters+panel(`&lt;span data-model-result-count&gt;${loomPolicyRows(shown).length} / ${loomPolicyRows(records).length}개 정책&lt;/span&gt;`,
+ const rows=loomCatalogTaskGroups(shown,loomCatalogTask,items=&gt;items.map(e=&gt;loomCompactOutput(e,false)).join(&#x27;&#x27;));
+ const familyIndex=loomFamilyIndex(records.map(e=&gt;modelFilterMeta(e).family),&#x27;data-policy-family&#x27;,f.family);
+ const datasetIndex=state.researchTask?loomCatalogDatasetIndex(records,dataset):&#x27;&#x27;;
+ return loomOutputList(heading(&#x27;CATALOG&#x27;,&#x27;Policies&#x27;,&#x27;&#x27;)+catStatus()+loomOutputStatusTabs()+filters+panel(`&lt;span data-model-result-count&gt;${shown.length} / ${records.length}개 정책&lt;/span&gt;`,
   &#x27;&lt;div data-model-filter-results&gt;&#x27;+(rows||&#x27;&lt;div class=&quot;pa-empty&quot;&gt;&#x27;+(records.length?&#x27;조건에 맞는 정책이 없습니다.&#x27;:&#x27;표시할 정책이 없습니다.&#x27;)+&#x27;&lt;/div&gt;&#x27;)+&#x27;&lt;/div&gt;&#x27;)+loomCatalogPager(&#x27;model&#x27;,&#x27;Load more policies&#x27;),datasetIndex+familyIndex);
 }
 modelList=policyList;
@@ -5616,15 +5639,15 @@ function updatePolicyFilter(control){
  refreshCatalogPanes();persist();
 }
 root.addEventListener(&#x27;click&#x27;,event=&gt;{
- const control=event.target.closest(&#x27;[data-policy-family],[data-model-reset],[data-catalog-dataset],[data-catalog-policy]&#x27;);
+ const control=event.target.closest(&#x27;[data-policy-family],[data-model-reset],[data-catalog-dataset],[data-experiment-family]&#x27;);
  if(!control)return;
  if(control.matches(&#x27;[data-policy-family],[data-model-reset]&#x27;)){updatePolicyFilter(control);return;}
  const pane=control.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;
  const view=activeTab().view;
- if(control.hasAttribute(&#x27;data-catalog-dataset&#x27;)){view.outputDataset=control.dataset.catalogDataset;view.outputPolicy=&#x27;&#x27;;}
- else view.outputPolicy=control.dataset.catalogPolicy;
+ if(control.hasAttribute(&#x27;data-catalog-dataset&#x27;)){view.outputDataset=control.dataset.catalogDataset;}
+ else view.experimentFamily=control.dataset.experimentFamily;
  render();persist();
- root.querySelector(&#x27;.pa-document-pane.is-active [&#x27;+(control.hasAttribute(&#x27;data-catalog-dataset&#x27;)?&#x27;data-catalog-dataset&#x27;:&#x27;data-catalog-policy&#x27;)+&#x27;][aria-pressed=true]&#x27;)?.focus({preventScroll:true});
+ root.querySelector(&#x27;.pa-document-pane.is-active [&#x27;+(control.hasAttribute(&#x27;data-catalog-dataset&#x27;)?&#x27;data-catalog-dataset&#x27;:&#x27;data-experiment-family&#x27;)+&#x27;][aria-pressed=true]&#x27;)?.focus({preventScroll:true});
 });
 root.addEventListener(&#x27;input&#x27;,event=&gt;{const control=event.target.closest(&#x27;input[data-model-filter=&quot;query&quot;]&#x27;);if(control&amp;&amp;!event.isComposing)updatePolicyFilter(control);});
 function loomCatalogIndex(label,attribute,entries,selected){
@@ -5650,45 +5673,41 @@ function loomCatalogTaskGroups(items,taskFor,renderItems){
  if(groups.size===1&amp;&amp;groups.has(&#x27;&#x27;))return renderItems(groups.get(&#x27;&#x27;).items);
  return [...groups.values()].map(group=&gt;&#x27;&lt;section class=&quot;pa-catalog-task-card&quot; data-catalog-task-card=&quot;&#x27;+esc(group.task?.id||&#x27;&#x27;)+&#x27;&quot;&gt;&lt;h3&gt;&#x27;+(group.task?loomTaskLabels({task_refs:[group.task]}):&#x27;Other&#x27;)+&#x27;&lt;/h3&gt;&lt;div class=&quot;pa-catalog-task-records&quot;&gt;&#x27;+renderItems(group.items)+&#x27;&lt;/div&gt;&lt;/section&gt;&#x27;).join(&#x27;&#x27;);
 }
-function loomPolicyRows(items){
- const rows=new Map();
- for(const item of items){
-  const group=item.evaluation_group,task=loomCatalogTask(item);
-  const datasets=loomCatalogInputs(item,&#x27;datasets&#x27;).map(loomInputKey).sort();
-  const isMember=group?.policies?.some(p=&gt;p.id===item.loom_registry?.id&amp;&amp;p.revision===item.loom_registry?.revision);
-  const key=isMember&amp;&amp;datasets.length?JSON.stringify([group.id,task?.id,item.catalog_class,modelFilterMeta(item).family,datasets]):item.id;
-  if(!rows.has(key))rows.set(key,{e:item,steps:new Set(),records:0,scheduled:false});
-  const row=rows.get(key);row.records++;row.scheduled||=item.catalog_checkpoint_basis===&#x27;scheduled&#x27;;
-  for(const step of item.catalog_checkpoints||[])row.steps.add(step);
-  if((item.catalog_checkpoints?.at(-1)??-1)&gt;(row.e.catalog_checkpoints?.at(-1)??-1))row.e=item;
- }
- return [...rows.values()];
+function loomOutputCheckpoint(e){
+ const sweep=e.reporting?.checkpoint_sweep;
+ const headline=sweep&amp;&amp;loomCheckpointHeadline(sweep);
+ if(headline?.tied)return &#x27;Tied&#x27;;
+ const selected=loomResearchFactMap(e).get(&#x27;selected_step&#x27;);
+ const step=sweep?headline?.step:selected?.status===&#x27;recorded&#x27;?selected.value:null;
+ return Number.isSafeInteger(step)&amp;&amp;step&gt;=0?&#x27;step &#x27;+loomReportNumber(step):&#x27;Missing&#x27;;
 }
-function loomCompactOutput({e,steps,records,scheduled},result){
+function loomCatalogOutcome(outcome){
+ if(!outcome)return &#x27;Missing&#x27;;
+ if(outcome.numerator==null||!outcome.denominator)return resultOutcomeValue(outcome);
+ const percent=Math.round(1000*outcome.numerator/outcome.denominator)/10;
+ return esc(outcome.numerator)+&#x27; / &#x27;+esc(outcome.denominator)+&#x27; &lt;span class=&quot;pa-ratio&quot;&gt;(&#x27;+esc(percent)+&#x27;%)&lt;/span&gt;&#x27;;
+}
+function loomCompactOutput(e,result){
  const dataset=loomInputNames(e,&#x27;datasets&#x27;),policy=loomInputNames(e,&#x27;policies&#x27;);
- const outcomes=result?loomRepresentativeOutcome(e):[];
- const count=result?e.reporting?.checkpoint_sweep?.checkpoints?.length:steps?.size;
- const checkpointDetail=count?(scheduled?&#x27;Scheduled · &#x27;:&#x27;&#x27;)+count:&#x27;Missing&#x27;;
- const mode=loomResearchFactMap(e).get(&#x27;evaluation_mode&#x27;);
- const hasCheckpointOutcomes=e.reporting?.checkpoint_sweep?.checkpoints?.some(row=&gt;row.valid&gt;0);
- const facts=result?{&#x27;Dataset&#x27;:dataset,&#x27;Policy&#x27;:policy,...(mode?.status===&#x27;recorded&#x27;?{Evaluation:loomResearchValue(mode)}:{}),...(count?{Checkpoints:checkpointDetail}:{})}:
-  {&#x27;Dataset&#x27;:dataset,&#x27;Model family&#x27;:modelFilterMeta(e).family,Checkpoints:checkpointDetail,...(records&gt;1?{&#x27;Training runs&#x27;:records}:{})};
+ const checkpoint=loomOutputCheckpoint(e);
+ const outcome=result?loomRepresentativeOutcome(e)[0]:null;
+ const family=result?null:modelFilterMeta(e).family;
+ const facts=result?{&#x27;Dataset&#x27;:dataset,&#x27;Policy&#x27;:policy}:
+  {&#x27;Dataset&#x27;:dataset,&#x27;Model family&#x27;:family===&#x27;미기록&#x27;?&#x27;Missing&#x27;:family,&#x27;Checkpoint&#x27;:checkpoint};
  return &#x27;&lt;article class=&quot;pa-catalog-item pa-scientific-card pa-output-compact&#x27;+(result?&#x27; pa-result-card&#x27;:&#x27;&#x27;)+&#x27;&quot; data-output-id=&quot;&#x27;+esc(e.id)+&#x27;&quot;&#x27;+(result?&#x27;&#x27;:&#x27; data-model-entry=&quot;&#x27;+esc(e.id)+&#x27;&quot;&#x27;)+&#x27;&gt;&#x27;
-  +&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;+catLink(e.id)+(result?resultDispositionPanel(e,true):&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;
-  +(result?&#x27;&lt;div class=&quot;pa-result-score&quot;&gt;&#x27;+(outcomes.length?outcomes.map(m=&gt;&#x27;&lt;div class=&quot;pa-result-score-item&quot;&gt;&lt;small&gt;&#x27;+esc(m.label)+&#x27;&lt;/small&gt;&lt;strong&gt;&#x27;+resultOutcomeValue(m)+&#x27;&lt;/strong&gt;&lt;/div&gt;&#x27;).join(&#x27;&#x27;):&#x27;&lt;div class=&quot;pa-result-score-item&quot;&gt;&lt;small&gt;Outcome&lt;/small&gt;&lt;strong&gt;&#x27;+(hasCheckpointOutcomes?&#x27;See checkpoints&#x27;:&#x27;Missing&#x27;)+&#x27;&lt;/strong&gt;&lt;/div&gt;&#x27;)+&#x27;&lt;/div&gt;&#x27;:&#x27;&#x27;)
+  +&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;+catLink(e.id)+&#x27;&lt;/div&gt;&#x27;
+  +(result?&#x27;&lt;div class=&quot;pa-result-score&quot;&gt;&lt;div class=&quot;pa-result-score-item&quot; title=&quot;&#x27;+esc(outcome?.label||&#x27;&#x27;)+&#x27;&quot;&gt;&lt;small&gt;Result&lt;/small&gt;&lt;strong&gt;&#x27;+loomCatalogOutcome(outcome)+&#x27;&lt;/strong&gt;&lt;/div&gt;&#x27;
+    +&#x27;&lt;div class=&quot;pa-result-score-item&quot;&gt;&lt;small&gt;Checkpoint&lt;/small&gt;&lt;strong&gt;&#x27;+esc(checkpoint)+&#x27;&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;&#x27;:&#x27;&#x27;)
   +loomResearchFactsHTML(Object.entries(facts).map(([label,value])=&gt;({id:label.toLowerCase().replaceAll(&#x27; &#x27;,&#x27;_&#x27;),label,value,status:&#x27;recorded&#x27;})),true)+&#x27;&lt;/article&gt;&#x27;;
 }
 experiments=function(){
- const discarded=state.resultDispositionFilter===&#x27;discarded&#x27;;
- const all=loomUniqueCatalogSnapshots([...catKind(&#x27;experiment&#x27;,true),...catKind(&#x27;run&#x27;,true)]);
- const records=all.filter(e=&gt;catIsDiscarded(e)===discarded),dataset=state.outputDataset||&#x27;&#x27;,policy=state.outputPolicy||&#x27;&#x27;;
+ const records=loomUniqueCatalogSnapshots(loomOutputRows([...catKind(&#x27;experiment&#x27;,true),...catKind(&#x27;run&#x27;,true)]));
+ const dataset=state.outputDataset||&#x27;&#x27;,family=state.experimentFamily||&#x27;&#x27;;
  const datasetRows=records.filter(e=&gt;loomMatchesCatalogInput(e,&#x27;datasets&#x27;,dataset));
- const rows=datasetRows.filter(e=&gt;loomMatchesCatalogInput(e,&#x27;policies&#x27;,policy));
- const index=(state.researchTask?loomCatalogInputIndex(&#x27;Datasets&#x27;,&#x27;datasets&#x27;,records,dataset):&#x27;&#x27;)+loomCatalogInputIndex(&#x27;Policies&#x27;,&#x27;policies&#x27;,datasetRows,policy);
- const filters=&#x27;&lt;section class=&quot;pa-model-filters&quot; aria-label=&quot;Experiment filters&quot;&gt;&lt;div class=&quot;pa-model-filter-top&quot;&gt;&lt;div class=&quot;pa-model-role-group&quot; role=&quot;group&quot; aria-label=&quot;Record status&quot;&gt;&#x27;
-  +[[&#x27;current&#x27;,&#x27;Current&#x27;,false],[&#x27;discarded&#x27;,&#x27;Discarded&#x27;,true]].map(([value,label,isDiscarded])=&gt;&#x27;&lt;button class=&quot;pa-pill &#x27;+(discarded===isDiscarded?&#x27;active&#x27;:&#x27;&#x27;)+&#x27;&quot; data-result-disposition-filter=&quot;&#x27;+value+&#x27;&quot; aria-pressed=&quot;&#x27;+(discarded===isDiscarded)+&#x27;&quot;&gt;&#x27;+label+&#x27;&lt;span&gt;&#x27;+all.filter(e=&gt;catIsDiscarded(e)===isDiscarded).length+&#x27;&lt;/span&gt;&lt;/button&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&lt;/div&gt;&lt;/section&gt;&#x27;;
- return loomOutputList(heading(&#x27;CATALOG&#x27;,&#x27;Experiments&#x27;,&#x27;&#x27;)+catStatus()+filters
-  +panel(rows.length+&#x27; / &#x27;+all.length+&#x27;개 실험&#x27;,&#x27;&lt;div&gt;&#x27;+ (loomCatalogTaskGroups(rows,loomCatalogTask,items=&gt;items.map(e=&gt;loomCompactOutput({e},true)+(discarded?resultDispositionPanel(e):&#x27;&#x27;)).join(&#x27;&#x27;))||&#x27;&lt;div class=&quot;pa-empty&quot;&gt;표시할 실험이 없습니다.&lt;/div&gt;&#x27;)+&#x27;&lt;/div&gt;&#x27;)+loomCatalogPager(&#x27;experiment&#x27;),index);
+ const rows=datasetRows.filter(e=&gt;!family||loomExperimentFamilies(e).includes(family));
+ const index=(state.researchTask?loomCatalogDatasetIndex(records,dataset):&#x27;&#x27;)+loomFamilyIndex(datasetRows.flatMap(loomExperimentFamilies),&#x27;data-experiment-family&#x27;,family);
+ return loomOutputList(heading(&#x27;CATALOG&#x27;,&#x27;Experiments&#x27;,&#x27;&#x27;)+catStatus()+loomOutputStatusTabs()
+  +panel(rows.length+&#x27; / &#x27;+records.length+&#x27;개 실험&#x27;,&#x27;&lt;div&gt;&#x27;+ (loomCatalogTaskGroups(rows,loomCatalogTask,items=&gt;items.map(e=&gt;loomCompactOutput(e,true)).join(&#x27;&#x27;))||&#x27;&lt;div class=&quot;pa-empty&quot;&gt;표시할 실험이 없습니다.&lt;/div&gt;&#x27;)+&#x27;&lt;/div&gt;&#x27;)+loomCatalogPager(&#x27;experiment&#x27;),index);
 };
 const loomOutputDetail=catalogDetail;
 catalogDetail=function(id){return (loomIsOutputPage(state.page)?loomOutputChrome():&#x27;&#x27;)+loomOutputDetail(id);};
@@ -5725,7 +5744,7 @@ comparison=function(){
 function selectCatalogTask(control,id){
  const pane=control.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;
  const view=activeTab().view;
- if((view.researchTask?.id||&#x27;&#x27;)!==id){view.outputDataset=&#x27;&#x27;;view.outputPolicy=&#x27;&#x27;;}
+ if((view.researchTask?.id||&#x27;&#x27;)!==id){view.outputDataset=&#x27;&#x27;;view.experimentFamily=&#x27;&#x27;;}
  view.researchTask=loomTaskOptions().find(task=&gt;task.id===id);
  render();persist();
 }
@@ -5992,7 +6011,7 @@ catalogDetail=function(id){
  title.insertAdjacentHTML(&#x27;afterend&#x27;,loomResearchOverviewCard(loomResearchOverviewContent(e)));
  t.content.querySelector(&#x27;[data-output-sources]&#x27;)?.insertAdjacentHTML(&#x27;beforeend&#x27;,sources.join(&#x27;&#x27;));
  for(const node of t.content.querySelectorAll(&#x27;.pa-analysis-grid&#x27;))if(!node.textContent.trim())node.remove();
- title.insertAdjacentHTML(&#x27;beforebegin&#x27;,loomTaskProperty(e));
+ if(e.kind===&#x27;dataset&#x27;)title.insertAdjacentHTML(&#x27;beforebegin&#x27;,loomTaskProperty(e));
  if(e.kind===&#x27;dataset&#x27;&amp;&amp;loomDatasetImported(e))title.querySelector(&#x27;.pa-eyebrow&#x27;)?.insertAdjacentHTML(&#x27;beforeend&#x27;,loomDatasetOriginBadge(e));
  const primary=[&#x27;run&#x27;,&#x27;experiment&#x27;].includes(e.kind)&amp;&amp;!catalogData.capabilities?.reporting?loomRepresentativeOutcome(e):[];
  if(primary.length)title.insertAdjacentHTML(&#x27;afterend&#x27;,loomResearchSection(&#x27;Outcome&#x27;,catTable([&#x27;Metric&#x27;,&#x27;Value&#x27;,&#x27;Population&#x27;],primary.map(m=&gt;[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||&#x27;—&#x27;)]))));
@@ -6026,18 +6045,18 @@ root.addEventListener(&#x27;click&#x27;,async event=&gt;{
 
 // Task context / subgroup taxonomy / data lineage are independent dimensions.
 // This renderer consumes declared organization; it never classifies by names.
-const loomDatasetRelations={subset:&#x27;Subset&#x27;,condition_selection:&#x27;Conditions&#x27;,includes:&#x27;Partial reuse&#x27;,relabel:&#x27;Relabel&#x27;,resample:&#x27;Resample&#x27;,sensor_rerender:&#x27;Sensor re-render&#x27;,augment:&#x27;Augment&#x27;,merge:&#x27;Merge&#x27;};
 function loomDatasetKey(e){return e.dataset_mirror_key||e.id;}
 function loomDatasetImported(e){return e.reporting?.activity===&#x27;dataset_import&#x27;||e.origin?.type===&#x27;import&#x27;;}
 function loomDatasetOriginBadge(e){return loomDatasetImported(e)?&#x27;&lt;span class=&quot;pa-dataset-origin&quot;&gt;Imported&lt;/span&gt;&#x27;:&#x27;&#x27;;}
 function loomDatasetRow(e,depth=0){
- const facts=loomResearchCardFacts(e),ready=facts.find(f=&gt;f.id===&#x27;bc_ready&#x27;);
- const stateLabel=typeof ready?.value===&#x27;boolean&#x27;?&#x27;&lt;span class=&quot;pa-dataset-bc &#x27;+(ready.value?&#x27;is-ready&#x27;:&#x27;is-not-ready&#x27;)+&#x27;&quot;&gt;BC &#x27;+(ready.value?&#x27;ready&#x27;:&#x27;not ready&#x27;)+&#x27;&lt;/span&gt;&#x27;:&#x27;&#x27;;
- const mainFacts=facts.filter(f=&gt;[&#x27;count&#x27;,&#x27;frames&#x27;,&#x27;inputs&#x27;,&#x27;split&#x27;,&#x27;train_snapshots&#x27;,&#x27;validation_snapshots&#x27;,&#x27;physics&#x27;,&#x27;dynamics&#x27;].includes(f.id));
- const ancestry=(e.dataset_lineage?.parents||[]).map(link=&gt;&#x27;&lt;small class=&quot;pa-dataset-relation&quot;&gt;&#x27;+esc(loomDatasetRelations[link.transformation?.kind]||&#x27;Derived&#x27;)+&#x27; from &#x27;+esc(loomDatasetParentEntity(link)?.label||link.label||link.parent?.identity?.id||&#x27;&#x27;)+&#x27;&lt;/small&gt;&#x27;).join(&#x27;&#x27;);
+ const facts=loomResearchFactMap(e),unit=facts.get(&#x27;count_unit&#x27;)?.value;
+ const count=!unit||/^(episodes?|demonstrations?|trajector(?:y|ies)|rollouts?)$/i.test(unit)?facts.get(&#x27;count&#x27;):null;
+ const split=facts.get(&#x27;split&#x27;);
+ const fields=[{value:&#x27;Missing&#x27;,...count,id:&#x27;count&#x27;,label:&#x27;Episodes&#x27;},
+               {value:&#x27;Missing&#x27;,...split,id:&#x27;split&#x27;,label:&#x27;Split&#x27;}];
  return &#x27;&lt;article role=&quot;listitem&quot; class=&quot;pa-catalog-item pa-scientific-card pa-dataset-row&quot; data-output-id=&quot;&#x27;+esc(e.id)+&#x27;&quot; data-dataset-depth=&quot;&#x27;+depth+&#x27;&quot;&gt;&#x27;
-  +&#x27;&lt;div class=&quot;pa-row-main pa-dataset-name&quot;&gt;&lt;div&gt;&lt;div class=&quot;pa-dataset-title-line&quot;&gt;&#x27;+catLink(e.id)+loomDatasetOriginBadge(e)+stateLabel+&#x27;&lt;/div&gt;&#x27;+ancestry+&#x27;&lt;/div&gt;&lt;/div&gt;&#x27;
-  +(mainFacts.length?loomResearchFactsHTML(mainFacts,true):&#x27;&#x27;)+&#x27;&lt;/article&gt;&#x27;;
+  +&#x27;&lt;div class=&quot;pa-row-main pa-dataset-name&quot;&gt;&#x27;+catLink(e.id)+&#x27;&lt;/div&gt;&#x27;
+  +loomResearchFactsHTML(fields,true)+&#x27;&lt;/article&gt;&#x27;;
 }
 function loomDatasetTree(rows){
  const canonical=new Map(rows.map(e=&gt;[loomDatasetKey(e),e])),parents=new Set(),children=new Map(),seen=new Set(),ordered=[];
@@ -6074,9 +6093,9 @@ function loomDatasetGroups(rows){
  });
 }
 function loomDatasetList(){
- const rows=loomUniqueDatasets(catKind(&#x27;dataset&#x27;));
+ const rows=loomUniqueDatasets(loomOutputRows(catKind(&#x27;dataset&#x27;,true)));
  const list=rows.length?loomDatasetGroups(rows):&#x27;&lt;div class=&quot;pa-empty&quot;&gt;표시할 데이터셋이 없습니다.&lt;/div&gt;&#x27;;
- return heading(&#x27;CATALOG&#x27;,&#x27;Datasets&#x27;,&#x27;&#x27;)+catStatus()
+ return heading(&#x27;CATALOG&#x27;,&#x27;Datasets&#x27;,&#x27;&#x27;)+catStatus()+loomOutputStatusTabs()
   +panel(`&lt;span data-dataset-result-count&gt;${rows.length}개 데이터셋&lt;/span&gt;`,list+loomCatalogPager(&#x27;dataset&#x27;,&#x27;Load more datasets&#x27;));
 }
 const loomDatasetPriorList=catalogList;
@@ -6089,13 +6108,13 @@ function loomCheckpointHeadline(sweep){
  const row=sweep.checkpoints?.find(c=&gt;c.step===step);
  if(row?.valid){
   const label=sweep.rule===&#x27;prespecified&#x27;?&#x27;Selected&#x27;:sweep.rule===&#x27;best_success_rate&#x27;?&#x27;Best&#x27;:&#x27;Best observed&#x27;;
-  return {label:label+&#x27; · step &#x27;+loomReportNumber(row.step),numerator:row.successes,denominator:row.valid};
+  return {label:label+&#x27; · step &#x27;+loomReportNumber(row.step),step:row.step,numerator:row.successes,denominator:row.valid};
  }
  if(step==null&amp;&amp;best.length&gt;1&amp;&amp;sweep.comparable){
   const tied=(sweep.checkpoints||[]).filter(c=&gt;best.includes(c.step));
   const first=tied[0];
   if(first?.valid&amp;&amp;tied.length===best.length&amp;&amp;tied.every(c=&gt;c.valid===first.valid&amp;&amp;c.successes===first.successes)){
-   return {label:&#x27;Best observed · &#x27;+tied.length+&#x27; tied checkpoints&#x27;,numerator:first.successes,denominator:first.valid};
+   return {label:&#x27;Best observed · tied&#x27;,tied:true,numerator:first.successes,denominator:first.valid};
   }
  }
  return null;
@@ -6118,13 +6137,13 @@ function loomCheckpointRows(e,rows){
 }
 function loomCheckpointPicker(e){
  const groups=e.reporting?.checkpoint_sweep?.checkpoints;
- if(!groups?.length)return &#x27;&#x27;;
+ if(!groups||groups.length&lt;2)return &#x27;&#x27;;
  const step=loomReportState(e).checkpoint;
  return &#x27;&lt;div class=&quot;pa-report-controls&quot;&gt;&lt;label&gt;Checkpoint&lt;select data-report-filter=&quot;checkpoint&quot;&gt;&lt;option value=&quot;all&quot;&gt;All checkpoints&lt;/option&gt;&#x27;+groups.map(g=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(g.step)+&#x27;&quot;&#x27;+(String(g.step)===step?&#x27; selected&#x27;:&#x27;&#x27;)+&#x27;&gt;Step &#x27;+esc(loomReportNumber(g.step))+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&lt;/div&gt;&#x27;;
 }
 function loomCheckpointOverview(sweep,detail=false){
  const headline=loomCheckpointHeadline(sweep);
- if(!detail)return loomResearchSection(&#x27;Checkpoint evaluation&#x27;,catProperties({Checkpoints:sweep.checkpoints.length,...(headline?{[headline.label]:headline.numerator+&#x27; / &#x27;+headline.denominator+&#x27; · &#x27;+loomReportNumber(100*headline.numerator/headline.denominator)+&#x27;%&#x27;}:{})}));
+ if(!detail)return headline?loomResearchSection(&#x27;Outcome&#x27;,catProperties({[headline.label]:headline.numerator+&#x27; / &#x27;+headline.denominator+&#x27; · &#x27;+loomReportNumber(100*headline.numerator/headline.denominator)+&#x27;%&#x27;})):&#x27;&#x27;;
  const rows=sweep.checkpoints.map(g=&gt;{
   const badge=g.step===sweep.selected_step?(sweep.rule===&#x27;prespecified&#x27;?&#x27;Selected&#x27;:&#x27;Best&#x27;):sweep.best_steps?.includes(g.step)?&#x27;Best observed&#x27;:&#x27;&#x27;;
   return [esc(loomReportNumber(g.step)),esc(g.valid?g.successes+&#x27; / &#x27;+g.valid+&#x27; · &#x27;+loomReportNumber(100*g.successes/g.valid)+&#x27;%&#x27;:&#x27;—&#x27;),esc(g.executed),esc(badge)];
@@ -6321,17 +6340,12 @@ function loomReportLineage(e){
  if(!e.catalog_inputs||![&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;run&#x27;].includes(e.kind))return &#x27;&#x27;;
  const fields=e.kind===&#x27;model&#x27;?[[&#x27;datasets&#x27;,&#x27;Training dataset&#x27;]]:[[&#x27;datasets&#x27;,&#x27;Evaluation dataset&#x27;],[&#x27;policies&#x27;,&#x27;Evaluated policy&#x27;]];
  const rows=fields.map(([field,label])=&gt;[esc(label),loomCatalogInputs(e,field).map(input=&gt;loomReportCatalogInput(input)).join(&#x27; &#x27;)||&#x27;Missing&#x27;]);
+ const previous=e.kind===&#x27;model&#x27;&amp;&amp;(e.relations||[]).find(relation=&gt;relation.kind===&#x27;revises&#x27;);
+ if(previous)rows.push([&#x27;Previous revision&#x27;,loomReportCatalogInput({ref:{kind:&#x27;entity&#x27;,identity:{id:previous.id,revision:previous.revision}}},&#x27;r&#x27;+previous.revision)]);
  return loomResearchSection(&#x27;Catalog inputs&#x27;,catTable([&#x27;Input&#x27;,&#x27;Record&#x27;],rows));
 }
-function loomReportRelatedPolicies(e){
- const pins=e.evaluation_group?.policies||[],i=loomReportIdentity(e);
- if(e.kind!==&#x27;model&#x27;||pins.length&lt;2||!pins.some(pin=&gt;pin.id===i.id&amp;&amp;pin.revision===i.revision))return &#x27;&#x27;;
- const rows=pins.map((pin,index)=&gt;[esc(&#x27;Run &#x27;+(index+1)),pin.id===i.id&amp;&amp;pin.revision===i.revision?&#x27;Current record&#x27;:
-  loomReportCatalogInput({ref:{kind:&#x27;entity&#x27;,identity:pin}},&#x27;Open training record&#x27;)]);
- return loomResearchSection(&#x27;Training runs&#x27;,catTable([&#x27;Run&#x27;,&#x27;Policy&#x27;],rows));
-}
 function loomReportOverview(e){
- const r=e.reporting,reports=r?.reports||[],parts=[loomReportLineage(e),loomReportRelatedPolicies(e),loomReportOverviewBodies.get(e.id)||loomResearchOverviewContent(e)];
+ const r=e.reporting,reports=r?.reports||[],parts=[loomReportLineage(e),loomReportOverviewBodies.get(e.id)||loomResearchOverviewContent(e)];
  if(r?.checkpoint_sweep)parts.unshift(loomCheckpointOverview(r.checkpoint_sweep));
  else if([&#x27;experiment&#x27;,&#x27;run&#x27;].includes(e.kind)){
   const outcomes=loomRepresentativeOutcome(e);
@@ -6409,7 +6423,7 @@ function loomReportContent(e){
   return loomReportSection(e,report,fields);
  }).join(&#x27;&#x27;);
  const checkpoints=tab===&#x27;results&#x27;&amp;&amp;sweep?loomCheckpointOverview(sweep,true):&#x27;&#x27;;
- return (tab===&#x27;training&#x27;?loomReportRelatedPolicies(e)+loomReportTrainingFilters(e,reports):&#x27;&#x27;)+checkpoints+([&#x27;results&#x27;,&#x27;cases&#x27;].includes(tab)?loomCheckpointPicker(e):&#x27;&#x27;)+sections+failureBreakdown+(tab===&#x27;results&#x27;?loomReportCaseGraph(e):&#x27;&#x27;)+(legacy?&#x27;&lt;details class=&quot;pa-report-legacy&quot;&#x27;+(sections&amp;&amp;tab===&#x27;training&#x27;?&#x27;&#x27;:&#x27; open&#x27;)+&#x27;&gt;&lt;summary&gt;Recorded metrics&lt;/summary&gt;&#x27;+legacy+&#x27;&lt;/details&gt;&#x27;:&#x27;&#x27;)+(!sections&amp;&amp;!legacy&amp;&amp;!checkpoints?&#x27;&lt;p class=&quot;pa-report-missing&quot;&gt;Missing&lt;/p&gt;&#x27;:&#x27;&#x27;);
+ return (tab===&#x27;training&#x27;?loomReportTrainingFilters(e,reports):&#x27;&#x27;)+checkpoints+([&#x27;results&#x27;,&#x27;cases&#x27;].includes(tab)?loomCheckpointPicker(e):&#x27;&#x27;)+sections+failureBreakdown+(tab===&#x27;results&#x27;?loomReportCaseGraph(e):&#x27;&#x27;)+(legacy?&#x27;&lt;details class=&quot;pa-report-legacy&quot;&#x27;+(sections&amp;&amp;tab===&#x27;training&#x27;?&#x27;&#x27;:&#x27; open&#x27;)+&#x27;&gt;&lt;summary&gt;Recorded metrics&lt;/summary&gt;&#x27;+legacy+&#x27;&lt;/details&gt;&#x27;:&#x27;&#x27;)+(!sections&amp;&amp;!legacy&amp;&amp;!checkpoints?&#x27;&lt;p class=&quot;pa-report-missing&quot;&gt;Missing&lt;/p&gt;&#x27;:&#x27;&#x27;);
 }
 const loomReportPreviousDetail=catalogDetail;
 catalogDetail=function(id){
@@ -7456,13 +7470,9 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
  #pai-studio .pa-catalog-task-index&gt;h2{flex-basis:100%}
 }
 #pai-studio .pa-dataset-name{display:flex;align-items:flex-start;gap:6px;min-width:0}
-#pai-studio .pa-dataset-name&gt;div{min-width:0}
 #pai-studio .pa-dataset-name [data-entity]{white-space:normal;overflow-wrap:anywhere;text-align:left}
-#pai-studio .pa-dataset-relation{margin-top:4px;overflow-wrap:anywhere}
-#pai-studio .pa-dataset-title-line,#pai-studio .pa-heading .pa-eyebrow:has(&gt;.pa-dataset-origin){display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+#pai-studio .pa-heading .pa-eyebrow:has(&gt;.pa-dataset-origin){display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
 #pai-studio .pa-heading .pa-eyebrow&gt;.pa-dataset-origin{font:inherit;letter-spacing:inherit;text-transform:inherit}
-#pai-studio .pa-dataset-bc{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;background:var(--pa-tint);color:var(--pa-ink)}
-#pai-studio .pa-dataset-bc.is-not-ready{border:1px solid var(--pa-line);font-weight:500}
 #pai-studio .pa-dataset-origin{display:inline-block;padding:1px 6px;border:1px solid var(--pa-line);border-radius:4px;font-size:11px;color:var(--pa-muted)}
 #pai-studio .pa-dataset-parent{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;margin:8px 0}
 #pai-studio .pa-dataset-parent&gt;small{flex-basis:100%;color:var(--pa-muted);overflow-wrap:anywhere}

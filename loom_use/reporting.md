@@ -70,8 +70,8 @@ Bind case factors `update`, `checkpoint_sha256` and `reset_state_sha256`.
 Use one distinct checkpoint digest per step, and the same unique seeds and initial
 reset hashes at each step for measured ranking. Keep every case and its validity.
 The Catalog shows the selected or unique best result with its own denominator.
-For a complete matched cohort with identical best counts, the Catalog shows the
-per-checkpoint score and the number of tied checkpoints. Compare different Policies
+For a complete matched cohort with identical best counts, the Catalog marks the
+outcome as tied. The Results tab lists the measured checkpoints. Compare different Policies
 or protocols through separately accepted Experiments.
 
 ### Checkpoint supplements
@@ -88,10 +88,6 @@ Publication creates the next revision of the same Experiment. Its checkpoint
 table, counts and selection use evidence from all accepted batches. The Job
 retains its own Unit, Attempt and exact `registry_ref`. A stale Experiment
 revision or a changed cohort leaves the original Experiment readable.
-
-Use `results.group_evaluations` to browse independent training runs together
-when their evaluation protocol, non-Policy inputs and reset cohort match. The
-group preserves each Policy and Experiment and each measured result.
 
 Use `reporting.expectations` to freeze values or bind report fields to Job context.
 It maps a contract selector to requirement IDs and arrays of

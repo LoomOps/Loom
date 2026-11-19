@@ -124,7 +124,7 @@ pub(crate) fn declared(app: &Application, target: &Target) -> Result<Vec<Value>>
         Ok(vec![])
     }
 }
-fn mirror_record(mut body: Value) -> Value {
+pub(crate) fn mirror_record(mut body: Value, include_missing_artifact_ids: bool) -> Value {
     // These two legacy envelopes index the same original definition. Retain
     // publication state, but normalize its placement and generated bindings.
     let state = body
@@ -164,10 +164,22 @@ fn mirror_record(mut body: Value) -> Value {
                     .and_then(|s| s.strip_prefix("artifact-"))
                     .is_some_and(|s| s.len() == 20 && s.bytes().all(|b| b.is_ascii_hexdigit()));
                 let bound = locations.iter().any(|l| {
-                    l["source_ref"] == artifact["path"]
-                        && l["sha256"].as_str().is_some_and(|s| {
+                    let direct_or_member = l["source_ref"]
+                        .as_str()
+                        .zip(artifact["path"].as_str())
+                        .is_some_and(|(source, path)| {
+                            !path.is_empty()
+                                && (source == path
+                                    || source
+                                        .strip_prefix(path)
+                                        .is_some_and(|rest| rest.starts_with('/')))
+                        });
+                    direct_or_member
+                        && (l["sha256"].as_str().is_some_and(|s| {
                             s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())
-                        })
+                        }) || (include_missing_artifact_ids
+                            && l["source_ref"] == artifact["path"]
+                            && l["status"] == "missing"))
                 });
                 if generated && bound {
                     artifact.as_object_mut().unwrap().remove("id");
@@ -177,6 +189,13 @@ fn mirror_record(mut body: Value) -> Value {
     }
     body
 }
+pub(crate) fn mirror_key(id: &Value, body: Value) -> Result<Value> {
+    Ok(json!(hash(encode(&json!([
+        id,
+        mirror_record(body, false)
+    ]))?)))
+}
+
 pub fn attach(app: &Application, entity: &mut Value) -> Result<()> {
     if entity["kind"] != "dataset" {
         return Ok(());
@@ -187,10 +206,7 @@ pub fn attach(app: &Application, entity: &mut Value) -> Result<()> {
     if target.kind == "historical" {
         let i = &target.identity;
         let body:String=app.db.query_row("SELECT body FROM history_records WHERE source=? AND kind=? AND id=? AND revision=? AND snapshot=?",params![i["source"].as_str(),i["kind"].as_str(),i["id"].as_str(),i["revision"].as_str(),i["snapshot"].as_str()],|r|r.get(0))?;
-        entity["dataset_mirror_key"] = json!(hash(encode(&json!([
-            i["id"],
-            mirror_record(serde_json::from_str(&body)?)
-        ]))?));
+        entity["dataset_mirror_key"] = mirror_key(&i["id"], serde_json::from_str(&body)?)?;
     }
     let mut links = declared(app, &target)?;
     for link in &mut links {

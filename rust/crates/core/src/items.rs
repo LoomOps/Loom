@@ -728,6 +728,8 @@ impl Application {
             }
         }
         let native = &value["native_ref"];
+        let disposition =
+            self.output_disposition(&native["identity"], value["kind"].as_str().unwrap_or(""))?;
         if matches!(native["kind"].as_str(), Some("entity" | "historical")) {
             let kind = if native["kind"] == "entity" {
                 "entity"
@@ -745,6 +747,9 @@ impl Application {
                     label
                 ));
             }
+        }
+        if let Some(disposition) = disposition {
+            value["disposition"] = disposition;
         }
         value["files"] = json!({"action":"results.item_files","item_id":args["item_id"],"revision_id":value["revision_id"]});
         Ok(value)

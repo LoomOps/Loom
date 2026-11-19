@@ -445,6 +445,188 @@ fn historical_dataset_mirrors_require_identical_original_bodies_not_matching_nam
 }
 
 #[test]
+fn historical_policy_mirrors_use_exact_publication_and_preserve_selected_steps() {
+    let f = Fixture::new();
+    let mut selectors = Vec::new();
+    for (source, revision, snapshot, digest) in [
+        ("catalog", "842", "migration", "a"),
+        ("publication", "2", "migration", "a"),
+        ("publication", "3", "migration", "a"),
+        ("publication", "2", "different-file", "b"),
+    ] {
+        let mut body = json!({
+            "original":{"id":"legacy-policy","kind":"model","label":"Recorded policy","properties":{"selected_step":5500},
+                "artifacts":[{"path":"model.json"},{"path":"resume-latest.pt"}]},
+            "locations":[{"source_ref":"model.json","size":20,"sha256":digest.repeat(64)},{"source_ref":"resume-latest.pt","status":"missing"}]
+        });
+        if source == "catalog" {
+            body["original"]["publication"] = json!({"state":"final","entity_revision":2});
+            body["original"]["artifacts"][0]["id"] = json!("artifact-0123456789abcdef0123");
+            body["original"]["artifacts"][1]["id"] = json!("artifact-1123456789abcdef0123");
+        } else {
+            body["publication_state"] = json!("final");
+        }
+        let item_id = format!("{source}-{revision}-{snapshot}");
+        f.app
+            .db
+            .execute(
+                "INSERT INTO history_records VALUES(?,'model','legacy-policy',?,?,?)",
+                rusqlite::params![source, revision, snapshot, body.to_string()],
+            )
+            .unwrap();
+        selectors.push(json!({"item_id":item_id,"kind":"model","native_ref":{"kind":"historical","identity":{
+            "source":source,"kind":"model","id":"legacy-policy","revision":revision,"snapshot":snapshot
+        }}}));
+    }
+    let page = f.app.dashboard_catalog_selected(Some(&selectors)).unwrap();
+    let entities = page["entities"].as_array().unwrap();
+    let records: Vec<_> = selectors
+        .iter()
+        .map(|item| {
+            let id = format!("history:{}", item["item_id"].as_str().unwrap());
+            entities.iter().find(|entity| entity["id"] == id).unwrap()
+        })
+        .collect();
+    assert_eq!(
+        records[0]["catalog_mirror_key"],
+        records[1]["catalog_mirror_key"]
+    );
+    assert_ne!(
+        records[0]["catalog_mirror_key"],
+        records[2]["catalog_mirror_key"]
+    );
+    assert_ne!(
+        records[0]["catalog_mirror_key"],
+        records[3]["catalog_mirror_key"]
+    );
+    assert!(records[0]["research_summary"]["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|fact| fact["id"] == "selected_step" && fact["value"] == 5500));
+}
+
+#[test]
+fn retired_policy_revision_stays_discoverable_when_another_job_revises_it() {
+    let mut f = Fixture::new();
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"policy-task","definition":{"label":"Train a policy"}}),
+        )
+        .unwrap();
+    let task_ref = json!({"id":task["id"],"revision":1});
+    let revision_one = json!({"id":"policy","revision":1,"kind":"model","catalog_class":"regular",
+        "scenario_ref":task_ref,"metadata":{"selected_step":10000},"components":[],"relations":[]});
+    f.app
+        .db
+        .execute(
+            "INSERT INTO asset_revisions VALUES('policy',1,NULL,'model','owner','owner',?)",
+            [revision_one.to_string()],
+        )
+        .unwrap();
+    let base = json!({"id":"policy","revision":1});
+    let retire = json!({"key":"discard-r1","reason":"Superseded training","state":"discarded",
+        "targets":[{"kind":"entity","identity":base}]});
+    assert_eq!(
+        f.call("results", "set_output_disposition", retire.clone())
+            .unwrap_err()
+            .status,
+        403
+    );
+    let admin = store::hash("disposition administrator");
+    f.actor.token_sha256 = Some(admin.clone());
+    f.app.config.actors[0].token_sha256 = Some(admin);
+    let receipt = f
+        .call("results", "set_output_disposition", retire.clone())
+        .unwrap();
+    assert_eq!(
+        receipt,
+        f.call("results", "set_output_disposition", retire).unwrap()
+    );
+
+    let mut request = json!({"key":"revise-policy","owner":"owner","notify":"owner","scenario_ref":task_ref,
+        "outcome":{"goal":"Train the next Policy revision","deliverables":[
+            {"alias":"policy","kind":"model","from":{"unit":"train","entity":"weights"},"revises":base}]},
+        "plan":{"sealed":false,"units":[{"id":"train","label":"Training"}]}});
+    let accepted = f.call("jobs", "submit_research", request.clone()).unwrap();
+    let producer = f.submit("policy-training-attempt");
+    let mut spec = jobs::load(&f.app.db, &producer).unwrap().spec;
+    spec.as_object_mut().unwrap().remove("_reporting_required");
+    spec["scenario_ref"] = task_ref;
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET state='processing',attempt='fixture-attempt',spec=? WHERE id=?",
+            rusqlite::params![spec.to_string(), producer],
+        )
+        .unwrap();
+    f.app
+        .db
+        .execute(
+            "INSERT INTO execution_units VALUES(?,?,'train','Training','run')",
+            rusqlite::params![producer, accepted["id"].as_str()],
+        )
+        .unwrap();
+    let folder = f.app.bulk.join("retraining");
+    fs::create_dir(&folder).unwrap();
+    fs::write(folder.join("weights.json"), b"{}").unwrap();
+    let manifest = json!({"entities":[{"id":"weights","kind":"model","path":"weights.json",
+        "provenance":{},"relations":[],"metadata":{"selected_step":20000}}],"metrics":[]});
+    let output = f
+        .app
+        .publish_result(&producer, "fixture-attempt", manifest, &folder)
+        .unwrap();
+    assert_eq!(
+        output["entities"][0]["registry_ref"],
+        json!({"id":"policy","revision":2})
+    );
+    assert_eq!(
+        f.call("results", "get", base).unwrap()["disposition"]["state"],
+        "discarded"
+    );
+    assert!(f
+        .call("results", "get", json!({"id":"policy","revision":2}))
+        .unwrap()["disposition"]
+        .is_null());
+    assert_eq!(
+        crate::results::input_relations(
+            &f.app.db,
+            &json!({"policy":{"job":producer,"entity":"weights"}})
+        )
+        .unwrap()[0]["revision"],
+        2
+    );
+    request["key"] = json!("stale-base");
+    assert_eq!(
+        f.call("jobs", "submit_research", request).unwrap_err().code,
+        "policy_revision"
+    );
+
+    for _ in 0..12 {
+        f.app.index_once().unwrap();
+    }
+    let current = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"kinds":["model"],"view":"all","role":"all","output_state":"current","records_only":true}),
+        )
+        .unwrap();
+    assert_eq!(current["entities"].as_array().unwrap().len(), 1);
+    assert_eq!(current["entities"][0]["loom_registry"]["revision"], 2);
+    let retired = f.call("system","dashboard_page",json!({"kinds":["model"],"view":"all","role":"all","history":"all","output_state":"discarded","records_only":true})).unwrap();
+    assert_eq!(retired["entities"].as_array().unwrap().len(), 1);
+    assert_eq!(retired["entities"][0]["loom_registry"]["revision"], 1);
+    assert_eq!(retired["entities"][0]["disposition"]["state"], "discarded");
+    assert!(retired["entities"][0]["id"]
+        .as_str()
+        .unwrap()
+        .starts_with("revision:"));
+}
+
+#[test]
 fn dataset_organization_is_source_bound_keyed_and_distinct_from_lineage() {
     let mut f = Fixture::new();
     let task = f

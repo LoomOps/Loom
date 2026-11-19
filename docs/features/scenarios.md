@@ -50,7 +50,7 @@ submissions and imports require an exact Task revision for both catalog classes.
 General infrastructure evidence stays in Artifacts and Runtime receipts.
 Exact Task details and API authoring remain available. Policy and Experiment DTOs
 carry resolved exact catalog inputs, including preserved links within one source
-snapshot. Dataset and Policy indexes intersect Task, dataset variant and model
-family or evaluated Policy. New Policy and Experiment admissions validate typed
+snapshot. Policies and Experiments can be filtered by Task, Dataset and Family.
+Experiments derive Family from the exact evaluated Policy. New Policy and Experiment admissions validate typed
 input revisions or declared upstream outputs under the pinned Task. Imports use
 typed exact relations with the same Task check.

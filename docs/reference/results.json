@@ -405,6 +405,89 @@
     },
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "set_output_disposition",
+      "description": "Set an exact batch of Dataset, Policy or Experiment revisions to current or discarded. The installation administrator applies this audited overlay atomically. Exact references, files and Job history remain available.",
+      "errors": [
+        "Unknown revision, invalid output kind, missing installation administration authority or changed request key."
+      ],
+      "example": {
+        "key": "discard-example-policy-r1",
+        "reason": "Retired before retraining",
+        "state": "discarded",
+        "targets": [
+          {
+            "identity": {
+              "id": "example.policy",
+              "revision": 1
+            },
+            "kind": "entity"
+          }
+        ]
+      },
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/results.rs#set_output_disposition",
+        "feature": "results"
+      },
+      "returns": "Receipt · state and changed exact revisions",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "current",
+              "discarded"
+            ]
+          },
+          "targets": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "identity": {
+                  "type": "object"
+                },
+                "kind": {
+                  "enum": [
+                    "entity",
+                    "historical"
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "identity"
+              ],
+              "type": "object"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "targets",
+          "state",
+          "reason",
+          "key"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Discard or restore catalog output revisions"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "metadata_templates",
       "description": "List current immutable output metadata formats; include_revisions exposes previous revisions. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
       "errors": [
@@ -2071,7 +2154,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "search_items",
-      "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates. include_system defaults to true for API/MCP discovery; false excludes current System responsibility before pagination, including files inherited from a System parent. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations.",
+      "description": "Search registered metadata and verified bounded text with exact/prefix/lexical ranking, current/all revisions, origin/relation filters and optional bounded at_least watermark waits. scenario_ref also matches active exact context links, including linked preserved snapshots; context changes expire those cursors. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. A bounded content page can be empty with a non-null next_cursor; follow it to inspect later candidates. include_system defaults to true for API/MCP discovery; false excludes current System responsibility before pagination, including files inherited from a System parent. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations. Use output_state to select current or discarded output revisions before pagination.",
       "errors": [
         "Index unavailable, invalid/expired cursor, changed source/access or unsupported search."
       ],
@@ -2158,6 +2241,13 @@
           "origin_type": {
             "maxLength": 128,
             "type": "string"
+          },
+          "output_state": {
+            "enum": [
+              "current",
+              "discarded",
+              "all"
+            ]
           },
           "parent_item_id": {
             "pattern": "^[1-9][0-9]{0,38}$",

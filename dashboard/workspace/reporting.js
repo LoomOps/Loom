@@ -5,13 +5,13 @@ function loomCheckpointHeadline(sweep){
  const row=sweep.checkpoints?.find(c=>c.step===step);
  if(row?.valid){
   const label=sweep.rule==='prespecified'?'Selected':sweep.rule==='best_success_rate'?'Best':'Best observed';
-  return {label:label+' · step '+loomReportNumber(row.step),numerator:row.successes,denominator:row.valid};
+  return {label:label+' · step '+loomReportNumber(row.step),step:row.step,numerator:row.successes,denominator:row.valid};
  }
  if(step==null&&best.length>1&&sweep.comparable){
   const tied=(sweep.checkpoints||[]).filter(c=>best.includes(c.step));
   const first=tied[0];
   if(first?.valid&&tied.length===best.length&&tied.every(c=>c.valid===first.valid&&c.successes===first.successes)){
-   return {label:'Best observed · '+tied.length+' tied checkpoints',numerator:first.successes,denominator:first.valid};
+   return {label:'Best observed · tied',tied:true,numerator:first.successes,denominator:first.valid};
   }
  }
  return null;
@@ -34,13 +34,13 @@ function loomCheckpointRows(e,rows){
 }
 function loomCheckpointPicker(e){
  const groups=e.reporting?.checkpoint_sweep?.checkpoints;
- if(!groups?.length)return '';
+ if(!groups||groups.length<2)return '';
  const step=loomReportState(e).checkpoint;
  return '<div class="pa-report-controls"><label>Checkpoint<select data-report-filter="checkpoint"><option value="all">All checkpoints</option>'+groups.map(g=>'<option value="'+esc(g.step)+'"'+(String(g.step)===step?' selected':'')+'>Step '+esc(loomReportNumber(g.step))+'</option>').join('')+'</select></label></div>';
 }
 function loomCheckpointOverview(sweep,detail=false){
  const headline=loomCheckpointHeadline(sweep);
- if(!detail)return loomResearchSection('Checkpoint evaluation',catProperties({Checkpoints:sweep.checkpoints.length,...(headline?{[headline.label]:headline.numerator+' / '+headline.denominator+' · '+loomReportNumber(100*headline.numerator/headline.denominator)+'%'}:{})}));
+ if(!detail)return headline?loomResearchSection('Outcome',catProperties({[headline.label]:headline.numerator+' / '+headline.denominator+' · '+loomReportNumber(100*headline.numerator/headline.denominator)+'%'})):'';
  const rows=sweep.checkpoints.map(g=>{
   const badge=g.step===sweep.selected_step?(sweep.rule==='prespecified'?'Selected':'Best'):sweep.best_steps?.includes(g.step)?'Best observed':'';
   return [esc(loomReportNumber(g.step)),esc(g.valid?g.successes+' / '+g.valid+' · '+loomReportNumber(100*g.successes/g.valid)+'%':'—'),esc(g.executed),esc(badge)];
@@ -237,17 +237,12 @@ function loomReportLineage(e){
  if(!e.catalog_inputs||!['model','experiment','run'].includes(e.kind))return '';
  const fields=e.kind==='model'?[['datasets','Training dataset']]:[['datasets','Evaluation dataset'],['policies','Evaluated policy']];
  const rows=fields.map(([field,label])=>[esc(label),loomCatalogInputs(e,field).map(input=>loomReportCatalogInput(input)).join(' ')||'Missing']);
+ const previous=e.kind==='model'&&(e.relations||[]).find(relation=>relation.kind==='revises');
+ if(previous)rows.push(['Previous revision',loomReportCatalogInput({ref:{kind:'entity',identity:{id:previous.id,revision:previous.revision}}},'r'+previous.revision)]);
  return loomResearchSection('Catalog inputs',catTable(['Input','Record'],rows));
 }
-function loomReportRelatedPolicies(e){
- const pins=e.evaluation_group?.policies||[],i=loomReportIdentity(e);
- if(e.kind!=='model'||pins.length<2||!pins.some(pin=>pin.id===i.id&&pin.revision===i.revision))return '';
- const rows=pins.map((pin,index)=>[esc('Run '+(index+1)),pin.id===i.id&&pin.revision===i.revision?'Current record':
-  loomReportCatalogInput({ref:{kind:'entity',identity:pin}},'Open training record')]);
- return loomResearchSection('Training runs',catTable(['Run','Policy'],rows));
-}
 function loomReportOverview(e){
- const r=e.reporting,reports=r?.reports||[],parts=[loomReportLineage(e),loomReportRelatedPolicies(e),loomReportOverviewBodies.get(e.id)||loomResearchOverviewContent(e)];
+ const r=e.reporting,reports=r?.reports||[],parts=[loomReportLineage(e),loomReportOverviewBodies.get(e.id)||loomResearchOverviewContent(e)];
  if(r?.checkpoint_sweep)parts.unshift(loomCheckpointOverview(r.checkpoint_sweep));
  else if(['experiment','run'].includes(e.kind)){
   const outcomes=loomRepresentativeOutcome(e);
@@ -325,7 +320,7 @@ function loomReportContent(e){
   return loomReportSection(e,report,fields);
  }).join('');
  const checkpoints=tab==='results'&&sweep?loomCheckpointOverview(sweep,true):'';
- return (tab==='training'?loomReportRelatedPolicies(e)+loomReportTrainingFilters(e,reports):'')+checkpoints+(['results','cases'].includes(tab)?loomCheckpointPicker(e):'')+sections+failureBreakdown+(tab==='results'?loomReportCaseGraph(e):'')+(legacy?'<details class="pa-report-legacy"'+(sections&&tab==='training'?'':' open')+'><summary>Recorded metrics</summary>'+legacy+'</details>':'')+(!sections&&!legacy&&!checkpoints?'<p class="pa-report-missing">Missing</p>':'');
+ return (tab==='training'?loomReportTrainingFilters(e,reports):'')+checkpoints+(['results','cases'].includes(tab)?loomCheckpointPicker(e):'')+sections+failureBreakdown+(tab==='results'?loomReportCaseGraph(e):'')+(legacy?'<details class="pa-report-legacy"'+(sections&&tab==='training'?'':' open')+'><summary>Recorded metrics</summary>'+legacy+'</details>':'')+(!sections&&!legacy&&!checkpoints?'<p class="pa-report-missing">Missing</p>':'');
 }
 const loomReportPreviousDetail=catalogDetail;
 catalogDetail=function(id){

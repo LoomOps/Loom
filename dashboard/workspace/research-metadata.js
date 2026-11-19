@@ -185,7 +185,7 @@ catalogDetail=function(id){
  title.insertAdjacentHTML('afterend',loomResearchOverviewCard(loomResearchOverviewContent(e)));
  t.content.querySelector('[data-output-sources]')?.insertAdjacentHTML('beforeend',sources.join(''));
  for(const node of t.content.querySelectorAll('.pa-analysis-grid'))if(!node.textContent.trim())node.remove();
- title.insertAdjacentHTML('beforebegin',loomTaskProperty(e));
+ if(e.kind==='dataset')title.insertAdjacentHTML('beforebegin',loomTaskProperty(e));
  if(e.kind==='dataset'&&loomDatasetImported(e))title.querySelector('.pa-eyebrow')?.insertAdjacentHTML('beforeend',loomDatasetOriginBadge(e));
  const primary=['run','experiment'].includes(e.kind)&&!catalogData.capabilities?.reporting?loomRepresentativeOutcome(e):[];
  if(primary.length)title.insertAdjacentHTML('afterend',loomResearchSection('Outcome',catTable(['Metric','Value','Population'],primary.map(m=>[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||'—')]))));

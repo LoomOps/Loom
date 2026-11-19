@@ -1,17 +1,17 @@
 // Task context / subgroup taxonomy / data lineage are independent dimensions.
 // This renderer consumes declared organization; it never classifies by names.
-const loomDatasetRelations={subset:'Subset',condition_selection:'Conditions',includes:'Partial reuse',relabel:'Relabel',resample:'Resample',sensor_rerender:'Sensor re-render',augment:'Augment',merge:'Merge'};
 function loomDatasetKey(e){return e.dataset_mirror_key||e.id;}
 function loomDatasetImported(e){return e.reporting?.activity==='dataset_import'||e.origin?.type==='import';}
 function loomDatasetOriginBadge(e){return loomDatasetImported(e)?'<span class="pa-dataset-origin">Imported</span>':'';}
 function loomDatasetRow(e,depth=0){
- const facts=loomResearchCardFacts(e),ready=facts.find(f=>f.id==='bc_ready');
- const stateLabel=typeof ready?.value==='boolean'?'<span class="pa-dataset-bc '+(ready.value?'is-ready':'is-not-ready')+'">BC '+(ready.value?'ready':'not ready')+'</span>':'';
- const mainFacts=facts.filter(f=>['count','frames','inputs','split','train_snapshots','validation_snapshots','physics','dynamics'].includes(f.id));
- const ancestry=(e.dataset_lineage?.parents||[]).map(link=>'<small class="pa-dataset-relation">'+esc(loomDatasetRelations[link.transformation?.kind]||'Derived')+' from '+esc(loomDatasetParentEntity(link)?.label||link.label||link.parent?.identity?.id||'')+'</small>').join('');
+ const facts=loomResearchFactMap(e),unit=facts.get('count_unit')?.value;
+ const count=!unit||/^(episodes?|demonstrations?|trajector(?:y|ies)|rollouts?)$/i.test(unit)?facts.get('count'):null;
+ const split=facts.get('split');
+ const fields=[{value:'Missing',...count,id:'count',label:'Episodes'},
+               {value:'Missing',...split,id:'split',label:'Split'}];
  return '<article role="listitem" class="pa-catalog-item pa-scientific-card pa-dataset-row" data-output-id="'+esc(e.id)+'" data-dataset-depth="'+depth+'">'
-  +'<div class="pa-row-main pa-dataset-name"><div><div class="pa-dataset-title-line">'+catLink(e.id)+loomDatasetOriginBadge(e)+stateLabel+'</div>'+ancestry+'</div></div>'
-  +(mainFacts.length?loomResearchFactsHTML(mainFacts,true):'')+'</article>';
+  +'<div class="pa-row-main pa-dataset-name">'+catLink(e.id)+'</div>'
+  +loomResearchFactsHTML(fields,true)+'</article>';
 }
 function loomDatasetTree(rows){
  const canonical=new Map(rows.map(e=>[loomDatasetKey(e),e])),parents=new Set(),children=new Map(),seen=new Set(),ordered=[];
@@ -48,9 +48,9 @@ function loomDatasetGroups(rows){
  });
 }
 function loomDatasetList(){
- const rows=loomUniqueDatasets(catKind('dataset'));
+ const rows=loomUniqueDatasets(loomOutputRows(catKind('dataset',true)));
  const list=rows.length?loomDatasetGroups(rows):'<div class="pa-empty">표시할 데이터셋이 없습니다.</div>';
- return heading('CATALOG','Datasets','')+catStatus()
+ return heading('CATALOG','Datasets','')+catStatus()+loomOutputStatusTabs()
   +panel(`<span data-dataset-result-count>${rows.length}개 데이터셋</span>`,list+loomCatalogPager('dataset','Load more datasets'));
 }
 const loomDatasetPriorList=catalogList;

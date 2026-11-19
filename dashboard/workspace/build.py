@@ -152,6 +152,8 @@ def build(original):
     inner = replace_once(inner, "table(ended.slice(0,state.queueHistoryLimits?.all||10),false)",
                          "loomTerminalWorkTable(ended.slice(0,state.queueHistoryLimits?.all||10),table)")
     marker = "catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');"
+    inner=replace_once(inner,"function catIsDiscarded(e){return !!e&&['run','experiment'].includes(e.kind)&&e.disposition?.state==='discarded';}",
+        "function catIsDiscarded(e){return e?.disposition?.state==='discarded';}")
     inner_additions = "\n".join((HERE / name).read_text() for name in ("mcp.js", "frame.js", "extensions.js", "dependencies.js", "scenarios.js", "details.js", "queue.js", "research.js", "job-activity.js", "text-preview.js", "media.js", "explorer.js", "surfaces.js", "search.js", "projection.js", "catalog-pages.js", "outputs.js", "research-metadata.js", "dataset-browser.js", "reporting.js", "registry-lifecycle.js"))
     inner = replace_once(inner, marker, inner_additions + "\n" + (HERE.parent/"branding/brand.js").read_text() + "\n" + marker)
     inner = inner.replace("</head>", "<style>" + (HERE / "frame.css").read_text() + (HERE / "reporting.css").read_text() + "</style></head>", 1)

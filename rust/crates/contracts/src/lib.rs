@@ -38,6 +38,18 @@ pub fn actions() -> Vec<Action> {
         json!({"kind":{"enum":["job","entity","historical","component","tool","profile","runtime","protocol_artifact"]},"identity":{"type":"object"}}),
         &["kind", "identity"],
     );
+    result.push(Action {
+        group: "results".into(),
+        action: "set_output_disposition".into(),
+        operation: "results.set_output_disposition".into(),
+        scope: "submit".into(),
+        schema: object(
+            json!({"targets":{"type":"array","minItems":1,"maxItems":100,"uniqueItems":true,
+                   "items":object(json!({"kind":{"enum":["entity","historical"]},"identity":{"type":"object"}}), &["kind","identity"])},
+                   "state":{"enum":["current","discarded"]},"reason":string,"key":string}),
+            &["targets","state","reason","key"],
+        ),
+    });
     let template_ref = object(
         json!({"id":{"type":"string","minLength":1,"maxLength":96},"revision":{"type":"integer","minimum":1},"sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}}),
         &["id", "revision", "sha256"],
@@ -193,7 +205,7 @@ pub fn actions() -> Vec<Action> {
         "type":"array","minItems":1,"maxItems":1,
         "items":object(json!({"alias":local["id"],"kind":{"enum":["dataset","model","experiment"]},
             "from":object(json!({"unit":local["id"],"entity":local["id"]}),&["unit","entity"]),
-            "supplements":reference}), &["alias","kind","from"])
+            "supplements":reference,"revises":reference}), &["alias","kind","from"])
     });
     research_create["properties"]["outcome"]["required"] = json!(["goal", "deliverables"]);
     let mut preview_outcome = outcome.clone();
@@ -584,9 +596,14 @@ pub fn actions() -> Vec<Action> {
         search["properties"][k] = v;
     }
     search["properties"]["catalog_classes"] = json!({"type":"array","maxItems":2,"uniqueItems":true,"items":{"enum":["regular","reference"]}});
+    search["properties"]["output_state"] = json!({"enum":["current","discarded","all"]});
     let mut page = search.clone();
     page["properties"]["records_only"] = json!({"type":"boolean"});
     let mut files = search.clone();
+    files["properties"]
+        .as_object_mut()
+        .unwrap()
+        .remove("output_state");
     files["properties"]["item_id"] = item_id.clone();
     files["properties"]["revision_id"] = item_id.clone();
     files["required"] = json!(["item_id"]);

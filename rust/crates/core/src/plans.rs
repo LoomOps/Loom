@@ -834,6 +834,20 @@ impl Application {
             )?;
             if research {
                 let output = &doc["outcome"]["deliverables"][0];
+                if let Some(target) = output.get("revises") {
+                    require(
+                        output["kind"] == "model" && output.get("supplements").is_none(),
+                        "policy_revision",
+                        "Only a Policy can revise a Policy",
+                        400,
+                    )?;
+                    crate::results::policy_revision_base(
+                        &tx,
+                        target,
+                        raw["owner"].as_str().unwrap(),
+                        &raw["scenario_ref"],
+                    )?;
+                }
                 if let Some(target) = output.get("supplements") {
                     require(
                         output["kind"] == "experiment",

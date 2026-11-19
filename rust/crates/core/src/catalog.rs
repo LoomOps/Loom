@@ -4,6 +4,7 @@ use crate::{jobs, store::*, Error, Result};
 use rusqlite::{params, OptionalExtension};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
+
 // Typed input aliases from accepted contracts and preserved catalog links.
 fn catalog_input_kind(relation: &Value, declared: &Value, output: &str) -> Option<&'static str> {
     match relation["kind"].as_str()? {
@@ -37,6 +38,7 @@ impl Application {
         kind: &str,
         history: bool,
     ) -> Result<Option<Value>> {
+        let mut dataset_mirror_key = Value::Null;
         let mut record = if history {
             let row = rows(&self.db,
                 "SELECT revision, body FROM history_records WHERE source=? AND kind=? AND id=? AND snapshot=? AND (? IS NULL OR revision=?) LIMIT 2",
@@ -55,6 +57,9 @@ impl Application {
                 return Ok(None);
             };
             entity["loom_history"] = json!({"source":identity["source"],"snapshot":identity["snapshot"],"kind":kind,"id":identity["id"],"revision":record["revision"]});
+            if kind == "dataset" {
+                dataset_mirror_key = crate::dataset_lineage::mirror_key(&identity["id"], body)?;
+            }
             entity
         } else {
             let manifest: Option<String> = self.db.query_row(
@@ -76,9 +81,26 @@ impl Application {
             .or_else(|| record.get("name"))
             .filter(|v| v.is_string())
             .unwrap_or(&identity["id"]);
-        Ok(Some(
-            json!({"ref":native,"label":label,"task_refs":record["task_refs"],"organization":record["dataset_organization"]}),
-        ))
+        let metadata = record
+            .get("metadata")
+            .or_else(|| record.get("properties"))
+            .unwrap_or(&Value::Null);
+        let mut descriptor = json!({"ref":native,"label":label,"task_refs":record["task_refs"],
+            "organization":record["dataset_organization"],"dataset_mirror_key":dataset_mirror_key});
+        if kind == "model" {
+            descriptor["family"] = metadata
+                .get("model_family")
+                .or_else(|| metadata.get("family"))
+                .cloned()
+                .unwrap_or(Value::Null);
+            descriptor["architecture"] = metadata
+                .pointer("/research/model/architecture")
+                .or_else(|| metadata.get("architecture"))
+                .or_else(|| metadata.get("policy_type"))
+                .cloned()
+                .unwrap_or(Value::Null);
+        }
+        Ok(Some(descriptor))
     }
 
     fn attach_catalog_inputs(
@@ -275,14 +297,6 @@ impl Application {
             let mut entity: Value = serde_json::from_str(row["manifest"].as_str().unwrap_or("{}"))?;
             let id = row["id"].as_str().unwrap_or("");
             entity["kind"] = row["kind"].clone();
-            self.attach_evaluation_group(&mut entity)?;
-            if entity["kind"] == "model" {
-                let step = entity.pointer("/metadata/research/model/selected_step")
-                    .or_else(|| entity.pointer("/metadata/selected_step"))
-                    .or_else(|| entity.pointer("/metadata/selection/selected_step"))
-                    .and_then(Value::as_u64);
-                entity["catalog_checkpoints"] = json!(step.into_iter().collect::<Vec<_>>());
-            }
             entity["namespace"] = json!("loom");
             if entity.get("label").is_none() {
                 entity["label"] = json!(id);
@@ -319,17 +333,6 @@ impl Application {
                     .unwrap_or(json!({"scope":"research","role":"main"}));
                 entity["scenario_ref"] = record.spec["scenario_ref"].clone();
                 entity["catalog_input_kinds"] = record.spec["profile"]["reporting"]["input_kinds"].clone();
-                if entity["kind"] == "model" {
-                    let plan = &record.spec["params"];
-                    let steps: std::collections::BTreeSet<_> = plan["checkpoint_steps"]
-                        .as_array()
-                        .or_else(|| plan["updates"].as_array())
-                        .into_iter().flatten().filter_map(Value::as_u64).collect();
-                    if !steps.is_empty() {
-                        entity["catalog_checkpoints"] = json!(steps);
-                        entity["catalog_checkpoint_basis"] = json!("scheduled");
-                    }
-                }
             }
             let locations = rows(
                 &self.db,
@@ -390,15 +393,35 @@ impl Application {
                     identity["kind"].as_str(),
                     Some("model" | "experiment" | "run")
                 ) {
-                    // Exact historical selectors stay distinct. The browser can
-                    // fold preserved copies only when the original envelope agrees.
-                    entity["catalog_mirror_key"] = json!(hash(encode(&json!([
-                        identity["source"],
-                        identity["kind"],
-                        identity["id"],
-                        identity["revision"],
-                        body
-                    ]))?));
+                    // The catalog envelope pins the exact publication revision.
+                    // Fold the two copies only if the normalized original and
+                    // recorded file inventory also match.
+                    let publication = match identity["source"].as_str() {
+                        Some("catalog") => body
+                            .pointer("/original/publication/entity_revision")
+                            .and_then(Value::as_u64),
+                        Some("publication") => identity["revision"]
+                            .as_str()
+                            .and_then(|v| v.parse::<u64>().ok()),
+                        _ => None,
+                    };
+                    let key = if let Some(revision) = publication {
+                        json!([
+                            identity["kind"],
+                            identity["id"],
+                            revision,
+                            crate::dataset_lineage::mirror_record(body, true)
+                        ])
+                    } else {
+                        json!([
+                            identity["source"],
+                            identity["kind"],
+                            identity["id"],
+                            identity["revision"],
+                            body
+                        ])
+                    };
+                    entity["catalog_mirror_key"] = json!(hash(encode(&key)?));
                 }
                 entity["migration"] = json!({"read_only":true,"source":identity["source"],"snapshot":identity["snapshot"]});
                 // The index descriptor already resolved legacy presentation overlays.
@@ -715,6 +738,7 @@ impl Application {
         for entity in &mut entities {
             crate::dataset_organization::attach(self, entity)?;
             self.attach_catalog_inputs(entity, &mut input_descriptors)?;
+            self.attach_output_disposition(entity)?;
         }
         let mut visible = Vec::with_capacity(entities.len());
         for entity in entities {
@@ -796,7 +820,7 @@ impl Application {
                 value["research_tasks"] = self.dashboard_tasks()?;
                 value["sources"] =
                     json!([{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}]);
-                value["capabilities"] = json!({"curate":true,"scenarios":true,"item_search":true,"metadata_templates":true,"reporting":true});
+                value["capabilities"] = json!({"curate":true,"scenarios":true,"item_search":true,"metadata_templates":true,"reporting":true,"output_disposition":true});
                 value["host"] = self.dashboard_host()?;
                 value["job_contract"] =
                     serde_json::from_str(include_str!("../../../contracts/job-contract.json"))?;
@@ -826,7 +850,7 @@ impl Application {
             "revision":self.dashboard_revision()?, "entities":[], "host":self.dashboard_host()?,
             "research_tasks":self.dashboard_tasks()?, "sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],
             "job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,
-            "capabilities":{"catalog_pages":true,"live_queue":true,"job_units":true,"scenarios":true,"item_search":true,"metadata_templates":true,"reporting":true},
+            "capabilities":{"catalog_pages":true,"live_queue":true,"job_units":true,"scenarios":true,"item_search":true,"metadata_templates":true,"reporting":true,"output_disposition":true},
             "initial_page_complete":false
         }))
     }
@@ -951,7 +975,11 @@ impl Application {
                 let native = &item["native_ref"];
                 let id = &native["identity"];
                 match native["kind"].as_str().unwrap_or("") {
-                    "job" | "entity" | "scenario" => entity["id"] == id["id"],
+                    "entity" => {
+                        entity["loom_registry"]["id"] == id["id"]
+                            && entity["loom_registry"]["revision"] == id["revision"]
+                    }
+                    "job" | "scenario" => entity["id"] == id["id"],
                     "historical" => entity["loom_history"] == *id,
                     "profile" => {
                         entity["id"]
@@ -980,6 +1008,18 @@ impl Application {
                 entity["item_revision_id"] = item["revision_id"].clone();
                 if item["catalog_class"].is_string() {
                     entity["catalog_class"] = item["catalog_class"].clone();
+                }
+                if query["output_state"] == "discarded"
+                    && item["native_ref"]["kind"] == "entity"
+                    && matches!(
+                        entity["kind"].as_str(),
+                        Some("dataset" | "model" | "experiment" | "run")
+                    )
+                {
+                    let item_id = item["item_id"].as_str().unwrap_or("");
+                    let revision_id = item["revision_id"].as_str().unwrap_or("");
+                    entity["id"] = json!(format!("revision:{item_id}:{revision_id}"));
+                    entity["catalog_exact"] = json!(false);
                 }
             }
         }
