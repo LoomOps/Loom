@@ -90,6 +90,56 @@ print(json.dumps({'status':'done' if done else 'needed'}))
         self.assertEqual(set(migrations.ledger(self.root)['completed']),{'one','two','three'})
         with sqlite3.connect(self.db) as db:self.assertEqual(db.execute('SELECT * FROM credentials').fetchall(),[('owner','unchanged')])
 
+    def test_release_checks_accept_schema_eight_with_existing_migration_receipts(self):
+        checkout = Path(__file__).resolve().parents[2]
+        catalog = json.loads((checkout / "deploy/migrations/catalog.json").read_text())
+        self.catalog = catalog
+        for step in catalog["steps"]:
+            rel = step["script"]
+            shutil.copy2(checkout / rel, self.source / rel)
+        (self.release / "result.json").write_text('{"build_id":"0.2.0-alpha.71"}')
+        (self.root / "build.env").write_text("LOOM_BUILD_ID=0.2.0-alpha.69\n")
+        self.seal()
+        plan = migrations.plan(self.root, self.release)
+        step = plan["steps"][-1]
+        self.assertEqual(step["id"], "reconciliation-compatibility-v1")
+        # Scope the cumulative check to migrations owning these database schemas.
+        plan["steps"] = [s for s in plan["steps"]
+                         if s["id"] not in ("research-tools-v1", "browser-relay-routes-v1")]
+        prior = next(s for s in plan["steps"] if s["id"] == "common-reconciliation-v1")
+        migrations.save(self.root / "runtime/migrations.json", {
+            "schema": "loom-migrations/v1",
+            "completed": {prior["id"]: {"sha256": prior["sha256"]}},
+        })
+        with sqlite3.connect(self.db) as db:
+            db.executescript("""
+                PRAGMA user_version=6;
+                CREATE TABLE catalog_meta(id);
+                CREATE TABLE reconcile_plans(id);
+                CREATE TABLE asset_imports(id);
+                CREATE TABLE file_bindings(id);
+                CREATE TABLE log_retention(id);
+                CREATE TABLE catalog_tasks(id);
+                CREATE TABLE asset_revisions(id);
+                CREATE TABLE asset_locations(id);
+                CREATE TABLE research_jobs(id);
+                CREATE TABLE execution_units(id);
+                CREATE TABLE execution_memberships(id);
+                CREATE TABLE rust_authority(id, minimum_writer);
+                INSERT INTO rust_authority VALUES(1, 2);
+            """)
+        self.assertEqual(migrations.invoke(step, "check", self.root, self.release, self.p), "needed")
+        with sqlite3.connect(self.db) as db:
+            db.execute("PRAGMA user_version=8")
+        # Exercise the real cumulative order and supersession with the real schema probes.
+        original = self.db.read_bytes()
+        migrations.apply(plan, self.root, self.release, self.p)
+        self.assertEqual(self.db.read_bytes(), original)
+        with sqlite3.connect(self.db) as db:
+            db.execute("DROP TABLE execution_memberships")
+        with self.assertRaisesRegex(RuntimeError, "reconciliation-compatibility-v1"):
+            migrations.invoke(step, "check", self.root, self.release, self.p)
+
 
 class PreservedRebuildTests(lifecycle.ReleaseLifecycleFixture):
     def test_preflight_failure_restores_active_admission_without_resuming_dispatch(self):

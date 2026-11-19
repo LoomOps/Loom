@@ -56,6 +56,21 @@
       "script": "deploy/migrations/browser_relay_routes.py",
       "timeout_seconds": 60,
       "description": "Add missing private browser action relay prefixes without changing accounts, ACLs, Funnel or existing custom routes; conflicting targets require explicit reconciliation."
+    },
+    {
+      "id": "reconciliation-compatibility-v1",
+      "introduced": "0.2.0-alpha.71",
+      "requires": [
+        "common-reconciliation-v1"
+      ],
+      "supersedes_checks": [
+        "rust-authority-v1",
+        "common-item-index-v1",
+        "common-reconciliation-v1"
+      ],
+      "script": "deploy/migrations/reconciliation_compatibility.py",
+      "timeout_seconds": 900,
+      "description": "Verify reconciliation on schema 7 and schema 8 with the Job and Unit writer fence. No data changes."
     }
   ]
 }
