@@ -179,12 +179,13 @@
           },
           "group": {
             "enum": [
+              "components",
+              "events",
               "jobs",
               "recovery",
-              "events",
-              "components",
               "results",
-              "system"
+              "system",
+              "units"
             ],
             "type": "string"
           }

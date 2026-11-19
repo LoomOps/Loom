@@ -303,7 +303,7 @@ Scope: `read`. Owner: [onboarding](../features/onboarding.md). Implementation: [
 | Field | Required | Type / values | Default |
 |---|---|---|---|
 | `action` | no | `"string"` | `—` |
-| `group` | no | `["jobs", "recovery", "events", "components", "results", "system"]` | `—` |
+| `group` | no | `["components", "events", "jobs", "recovery", "results", "system", "units"]` | `—` |
 
 <details><summary>Exact input JSON Schema</summary>
 
@@ -317,12 +317,13 @@ Scope: `read`. Owner: [onboarding](../features/onboarding.md). Implementation: [
     },
     "group": {
       "enum": [
+        "components",
+        "events",
         "jobs",
         "recovery",
-        "events",
-        "components",
         "results",
-        "system"
+        "system",
+        "units"
       ],
       "type": "string"
     }

@@ -92,6 +92,9 @@ class RustServiceTests(unittest.TestCase):
  def test_real_mcp_action_groups_and_guide(self):
   init=self.post('/mcp',{'jsonrpc':'2.0','id':1,'method':'initialize','params':{'protocolVersion':'2025-03-26'}});self.assertEqual(init['result']['protocolVersion'],'2025-03-26')
   tools=self.post('/mcp',{'jsonrpc':'2.0','id':2,'method':'tools/list'});self.assertEqual({t['name'] for t in tools['result']['tools']},{'jobs','units','recovery','events','components','results','system'})
+  for tool in tools['result']['tools']:
+   name=tool['name'];action=tool['inputSchema']['properties']['action']['enum'][0]
+   self.assertEqual(self.call('system','describe',{'group':name,'action':action})['action'],action)
   guide=self.post('/mcp',{'jsonrpc':'2.0','id':3,'method':'tools/call','params':{'name':'system','arguments':{'action':'guide','arguments':{'id':'authoring'}}}});data=json.loads(guide['result']['content'][0]['text']);self.assertIn('Rust',data['content']);self.assertIn('loom',guide['result']['_meta'])
   for guide_id in ('job-cases','catalog-cases'):
    self.assertIn(guide_id,init['result']['instructions'])

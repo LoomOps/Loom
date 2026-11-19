@@ -766,6 +766,15 @@ pub fn actions() -> Vec<Action> {
                 json!({"enum":["active","archived","deprecated"]});
         }
     }
+    let groups = json!(result
+        .iter()
+        .map(|action| &action.group)
+        .collect::<std::collections::BTreeSet<_>>());
+    result
+        .iter_mut()
+        .find(|action| action.group == "system" && action.action == "describe")
+        .expect("action discovery schema")
+        .schema["properties"]["group"]["enum"] = groups;
     result
 }
 pub fn action(group: &str, name: &str) -> Result<Action> {
