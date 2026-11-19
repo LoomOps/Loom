@@ -36,7 +36,8 @@ pub struct Application {
     pub components: PathBuf,
     pub read_only: bool,
     pub(crate) query_snapshot: bool,
-    pub(crate) consolidation_targets: std::cell::OnceCell<std::collections::BTreeMap<String, String>>,
+    pub(crate) consolidation_targets:
+        std::cell::OnceCell<std::collections::BTreeMap<String, String>>,
     pub(crate) live_file: Option<Result<Value>>,
     pub(crate) live_logs: Option<Result<Value>>,
     pub(crate) file_sets: std::collections::BTreeMap<String, Value>,

@@ -39,7 +39,11 @@ impl Application {
         self.catalog_projection(selected, CatalogContext::Full)
     }
 
-    fn catalog_projection(&self, selected: Option<&[Value]>, context: CatalogContext) -> Result<Value> {
+    fn catalog_projection(
+        &self,
+        selected: Option<&[Value]>,
+        context: CatalogContext,
+    ) -> Result<Value> {
         let all = selected.is_none();
         let ids_for = |kind: &str| -> Result<String> {
             encode(&json!(selected
@@ -340,8 +344,15 @@ impl Application {
         }
         let software = self.extension_inventory_selected(&profiles, selected)?;
         entities.extend(software.clone());
-        let wants_runtime = matches!(context, CatalogContext::Full) || selected.is_none_or(|items| items.iter().any(|item|
-            matches!(item["native_ref"]["kind"].as_str(), Some("runtime" | "dependency"))));
+        let wants_runtime = matches!(context, CatalogContext::Full)
+            || selected.is_none_or(|items| {
+                items.iter().any(|item| {
+                    matches!(
+                        item["native_ref"]["kind"].as_str(),
+                        Some("runtime" | "dependency")
+                    )
+                })
+            });
         let mut runtime_catalog = if wants_runtime {
             self.runtime_inventory()?
         } else {
@@ -549,15 +560,19 @@ impl Application {
             CatalogContext::Full => {
                 value["queue"] = self.dashboard_queue()?;
                 value["research_tasks"] = self.dashboard_tasks()?;
-                value["sources"] = json!([{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}]);
+                value["sources"] =
+                    json!([{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}]);
                 value["capabilities"] = json!({"curate":true,"scenarios":true,"item_search":true,"metadata_templates":true,"reporting":true});
                 value["host"] = self.dashboard_host()?;
-                value["job_contract"] = serde_json::from_str(include_str!("../../../contracts/job-contract.json"))?;
+                value["job_contract"] =
+                    serde_json::from_str(include_str!("../../../contracts/job-contract.json"))?;
                 value["runtime_catalog"] = runtime_catalog;
             }
             CatalogContext::Records => {
                 value["research_tasks"] = self.dashboard_tasks()?;
-                if wants_runtime { value["runtime_catalog"] = runtime_catalog; }
+                if wants_runtime {
+                    value["runtime_catalog"] = runtime_catalog;
+                }
             }
             CatalogContext::Queue(queue) => value["queue"] = queue,
         }
@@ -584,12 +599,19 @@ impl Application {
 
     pub fn dashboard_occupancy(&self, actor: &crate::auth::Actor) -> Result<Value> {
         let mut queue = self.dashboard_queue()?;
-        crate::query::queue_permissions(&mut queue, !self.read_only && actor.scopes.iter().any(|s| s == "submit"));
-        let ids: std::collections::BTreeSet<_> = ["entries","logical_entries"].iter()
+        crate::query::queue_permissions(
+            &mut queue,
+            !self.read_only && actor.scopes.iter().any(|s| s == "submit"),
+        );
+        let ids: std::collections::BTreeSet<_> = ["entries", "logical_entries"]
+            .iter()
             .flat_map(|key| queue[*key].as_array().into_iter().flatten())
             .filter_map(|entry| entry["workflow"].as_str().or_else(|| entry["id"].as_str()))
             .collect();
-        let selected: Vec<_> = ids.into_iter().map(|id| json!({"native_ref":{"kind":"job","identity":{"id":id}}})).collect();
+        let selected: Vec<_> = ids
+            .into_iter()
+            .map(|id| json!({"native_ref":{"kind":"job","identity":{"id":id}}}))
+            .collect();
         if selected.is_empty() {
             return Ok(json!({"queue":queue,"entities":[],"revision":self.dashboard_revision()?}));
         }
@@ -637,7 +659,11 @@ impl Application {
     }
     pub fn dashboard_entity(&self, args: &Value) -> Result<Value> {
         let item = self.get_item(args)?;
-        let mode = if args["records_only"] == true { CatalogContext::Records } else { CatalogContext::Full };
+        let mode = if args["records_only"] == true {
+            CatalogContext::Records
+        } else {
+            CatalogContext::Full
+        };
         let mut catalog = self.catalog_projection(Some(std::slice::from_ref(&item)), mode)?;
         for entity in catalog["entities"].as_array_mut().unwrap() {
             entity["item_id"] = item["item_id"].clone();
@@ -648,7 +674,8 @@ impl Application {
     /// List DTOs are projected only for the selected index page; payload trees stay lazy.
     pub fn dashboard_page(&self, actor: &crate::auth::Actor, args: &Value) -> Result<Value> {
         let mut query = args.clone();
-        let records_only = query.as_object_mut().and_then(|v| v.remove("records_only")) == Some(json!(true));
+        let records_only =
+            query.as_object_mut().and_then(|v| v.remove("records_only")) == Some(json!(true));
         if query["kinds"].as_array().is_none_or(Vec::is_empty) {
             query["kinds"] = json!([
                 "scenario",
@@ -672,7 +699,11 @@ impl Application {
         let selected = page["items"]
             .as_array()
             .ok_or_else(|| Error::input("Search page missing"))?;
-        let mode = if records_only { CatalogContext::Records } else { CatalogContext::Full };
+        let mode = if records_only {
+            CatalogContext::Records
+        } else {
+            CatalogContext::Full
+        };
         let mut catalog = self.catalog_projection(Some(selected), mode)?;
         catalog["next_cursor"] = page["next_cursor"].clone();
         catalog["partial"] = page["partial"].clone();
