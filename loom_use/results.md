@@ -4,6 +4,14 @@ Before registering or publishing an entry, select its identity and relationships
 
 Regular and Reference Datasets, Policies and Experiments both require an exact Task revision when newly published or imported. Standalone Units publish task-specific scientific evidence as Reference. Use Artifacts or Runtime receipts for installation smoke and general Runtime checks. For a preserved record, add verified Task context with `results.link_scenario` against the exact identity. Archive verification or indexing can run as a standalone Unit when it serves several Jobs.
 
+Search the existing Task, Dataset variants, and Policies with `results.scenarios`
+and `results.search_items` before choosing IDs or registering replacements. Each
+Dataset has its own immutable ID and revision. Record a stable variant path in
+`metadata.research.organization` when a Task has variants such as D0, D1 or D2.
+Pin the exact training Dataset for a Policy and the exact evaluation Dataset and
+Policy for an Experiment. A prior publication under the same Task supplies the
+input identity and evidence for reuse.
+
 Choose the Profile, metadata template and report contract before submission. The producer writes files and `result.json` under `request.output_dir` according to the accepted Profile. Compare completed Experiments by exact revision. Use the producing Unit or software revision for infrastructure validation.
 
 Use `jobs.get` for the accepted Job and deliverable, `units.get` for Attempt and return state, and `results.get` for exact published revisions and locations. Use `events.list` with `kind:"all"` to read events. ACK records delivery. For a publication error, repair the cause and use `results.reindex` when applicable to keep the original successful Attempt.

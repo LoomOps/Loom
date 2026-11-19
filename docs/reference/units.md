@@ -15,7 +15,7 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 
 ## submit
 
-Submit one standalone Unit. Pin scenario_ref for task-specific work. The Task pin is required when the Profile declares Dataset, Policy or Experiment outputs, which publish as Reference. General infrastructure Units may publish Artifacts without a Task.
+Submit one standalone Unit. Pin scenario_ref for task-specific work. The Task pin is required when the Profile declares Dataset, Policy or Experiment outputs, which publish as Reference. General infrastructure Units may publish Artifacts without a Task. Scientific Policy outputs require the exact Dataset and Experiment outputs require the exact evaluation Dataset and Policy under the same pinned Task.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/jobs.rs#submit_execution](../../rust/crates/core/src/jobs.rs).
 

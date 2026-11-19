@@ -591,7 +591,7 @@ impl Application {
         }
         validate_pilot(&raw)?;
         let mut spec = prepare(&self.db, &self.config, &self.bulk, actor, &raw)?;
-        validate_new_execution(&spec)?;
+        validate_new_execution(&self.db, &spec)?;
         spec["_reporting_required"] = json!(true);
         let tx = self.transaction()?;
         let id = insert(&tx, actor, &raw, &spec)?;
@@ -1193,7 +1193,7 @@ pub fn workflow_ids(db: &Connection, root: &str) -> Result<Value> {
     Ok(json!(ids))
 }
 
-fn validate_new_execution(spec: &Value) -> Result<()> {
+fn validate_new_execution(db: &Connection, spec: &Value) -> Result<()> {
     crate::reporting::validate_new_admission(spec)?;
     require(
         spec["scenario_ref"].is_object()
@@ -1201,7 +1201,8 @@ fn validate_new_execution(spec: &Value) -> Result<()> {
         "task_required",
         "Pin a Task revision before running a Profile that publishes to the research Catalog",
         400,
-    )
+    )?;
+    crate::reporting::validate_catalog_admission(db, spec)
 }
 
 pub(crate) fn admit_node(
@@ -1266,7 +1267,7 @@ pub(crate) fn admit_node(
         }
     }
     let mut frozen = prepare(db, config, bulk, actor, &spec)?;
-    validate_new_execution(&frozen)?;
+    validate_new_execution(db, &frozen)?;
     frozen["_reporting_required"] = json!(true);
     let child = insert(db, actor, &spec, &frozen)?;
     if let Some(phase) = phase {

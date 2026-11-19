@@ -3352,7 +3352,22 @@ fn reconciliation_import_replays_without_new_jobs_and_rejects_mutated_source_evi
             json!({"key":"import-model-task","definition":{"label":"Selected model evaluation"}}),
         )
         .unwrap();
-    let proposal = json!({"schema":"loom-reconcile/v1","operations":[{"operation":"import","schema":"loom-asset/v1","source":{"system":"preserved-fixture","id":"selected-model","revision":"r1"},"type":"model","scenario_ref":{"id":task["id"],"revision":1},"name":"Selected model","properties":{"declared_steps":20000},"primary":{"machine_id":"fixture","storage_id":"fixture-data","ref":"weights.json"}}]});
+    let source = json!({"schema":"loom-reconcile/v1","operations":[{"operation":"import","schema":"loom-asset/v2",
+        "source":{"system":"preserved-fixture","id":"training-data","revision":"r1"},"definition":{"kind":"dataset","label":"Training data",
+        "scenario_ref":{"id":task["id"],"revision":1},"primary":{"machine_id":"fixture","storage_id":"fixture-data","ref":"weights.json"}}}]});
+    let source = f
+        .call(
+            "results",
+            "reconcile_plan",
+            json!({"key":"source-data","proposal":source}),
+        )
+        .unwrap();
+    let source_args = json!({"plan_id":source["plan_id"]});
+    f.call("results", "reconcile_validate", source_args.clone())
+        .unwrap();
+    let source = f.call("results", "reconcile_apply", source_args).unwrap();
+    let dataset = &source["receipt"]["operations"][0]["id"];
+    let proposal = json!({"schema":"loom-reconcile/v1","operations":[{"operation":"import","schema":"loom-asset/v1","source":{"system":"preserved-fixture","id":"selected-model","revision":"r1"},"type":"model","scenario_ref":{"id":task["id"],"revision":1},"name":"Selected model","properties":{"declared_steps":20000},"relations":[{"kind":"trained_on","id":dataset,"revision":1}],"primary":{"machine_id":"fixture","storage_id":"fixture-data","ref":"weights.json"}}]});
     let plan = f
         .call(
             "results",
@@ -3383,16 +3398,17 @@ fn reconciliation_import_replays_without_new_jobs_and_rejects_mutated_source_evi
     assert_eq!(applied["receipt"]["created_jobs"], 0);
     assert_eq!(f.count("jobs"), 0);
     assert_eq!(f.count("attempts"), 0);
-    assert_eq!(f.count("asset_revisions"), 1);
+    assert_eq!(f.count("asset_revisions"), 2);
     let listed = f.call("results", "list", json!({"view":"all"})).unwrap();
-    assert_eq!(listed.as_array().unwrap().len(), 1);
-    assert!(listed[0]["job"].is_null());
+    assert_eq!(listed.as_array().unwrap().len(), 2);
+    let id = &applied["receipt"]["operations"][0]["id"];
     let native = f
-        .call("results", "get", json!({"id":listed[0]["id"],"revision":1}))
+        .call("results", "get", json!({"id":id,"revision":1}))
         .unwrap();
     assert_eq!(native["kind"], "model");
+    assert!(native["job"].is_null());
     assert_eq!(f.call("results", "reconcile_apply", args).unwrap(), applied);
-    assert_eq!(f.count("asset_revisions"), 1);
+    assert_eq!(f.count("asset_revisions"), 2);
     let mut conflicting = proposal.clone();
     conflicting["operations"][0]["name"] = json!("Different interpretation");
     assert_eq!(

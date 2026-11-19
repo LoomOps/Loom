@@ -1,10 +1,20 @@
 const loomReportingPriorOutcome=loomRepresentativeOutcome;
 function loomCheckpointHeadline(sweep){
- const step=sweep.selected_step??(sweep.best_steps?.length===1?sweep.best_steps[0]:null);
+ const best=sweep.best_steps||[];
+ const step=sweep.selected_step??(best.length===1?best[0]:null);
  const row=sweep.checkpoints?.find(c=>c.step===step);
- if(!row?.valid)return null;
- const label=sweep.rule==='prespecified'?'Selected':sweep.rule==='best_success_rate'?'Best':'Best observed';
- return {label:label+' · step '+loomReportNumber(row.step),numerator:row.successes,denominator:row.valid};
+ if(row?.valid){
+  const label=sweep.rule==='prespecified'?'Selected':sweep.rule==='best_success_rate'?'Best':'Best observed';
+  return {label:label+' · step '+loomReportNumber(row.step),numerator:row.successes,denominator:row.valid};
+ }
+ if(step==null&&best.length>1&&sweep.comparable){
+  const tied=(sweep.checkpoints||[]).filter(c=>best.includes(c.step));
+  const first=tied[0];
+  if(first?.valid&&tied.length===best.length&&tied.every(c=>c.valid===first.valid&&c.successes===first.successes)){
+   return {label:'Best observed · '+tied.length+' tied checkpoints',numerator:first.successes,denominator:first.valid};
+  }
+ }
+ return null;
 }
 loomRepresentativeOutcome=function(e){
  const sweep=e.reporting?.checkpoint_sweep,p=sweep?loomCheckpointHeadline(sweep):e.reporting?.primary_outcome;
@@ -132,7 +142,7 @@ function loomReportCaseGraph(e){
  if(!criteria?.length||!field)return '';
  const page=loomReportPages.get(loomReportKey(e,report,field));
  if(!page){loomReportLoad(e,report,field);return '<p class="pa-report-missing">Loading cases…</p>';}
- if(page.error)return '<p class="pa-catalog-warning">'+esc(page.error)+'</p>';
+ if(page.error)return '<p class="pa-catalog-warning">'+esc(page.error)+' <button class="pa-button" data-report-retry="'+esc(report.requirement_id)+'" data-report-field="'+esc(field.id)+'">Retry</button></p>';
  const state=loomReportState(e),index=Number(state.criterion)||0,rule=criteria[index]||criteria[0];
  const label=r=>r.pointer.split('/').at(-1).replaceAll('_',' ');
  const points=loomCheckpointRows(e,page.value).flatMap(row=>{
@@ -154,7 +164,7 @@ function loomReportCaseGraph(e){
  return loomResearchSection('Case measurements',selector+chart+criterion+loomReportPageControls(page,report,field,points.length,page.value.length));
 }
 function loomReportDistributionChart(rows,f){
- if(!rows.length)return '<p class="pa-report-missing">Unrecorded</p>';
+ if(!rows.length)return '<p class="pa-report-missing">Missing</p>';
  if(f.format==='coverage_matrix'){
   const columns=[...new Set(rows.map(cell=>cell.column))],labels=[...new Set(rows.map(cell=>cell.row))];
   const cells=new Map(rows.map(cell=>[JSON.stringify([cell.row,cell.column]),cell]));
@@ -169,11 +179,11 @@ function loomReportDistributionChart(rows,f){
  return '<div class="pa-report-bars">'+data.map(row=>'<div><span>'+esc(row.label)+'</span><progress max="'+maximum+'" value="'+row.value+'" aria-label="'+esc(row.label)+'"></progress><strong>'+esc(loomReportNumber(row.value))+(f.unit?' '+esc(f.unit):'')+'</strong></div>').join('')+'</div>';
 }
 function loomReportField(e,r,f){
- if(f.state==='missing')return '<p class="pa-report-missing">Unrecorded</p>';
+ if(f.state==='missing')return '<p class="pa-report-missing">Missing</p>';
  if(f.format==='properties')return catProperties(Object.fromEntries(Object.entries(f.value||{}).map(([k,v])=>[k,loomReportCell(v)])));
  if(!['table','series','scatter','instructions','bar','coverage_matrix'].includes(f.format))return '<dl class="pa-entity-facts"><div><dt>'+esc(f.label)+'</dt><dd>'+esc(loomReportCell(f.value))+(f.unit?' '+esc(f.unit):'')+'</dd></div></dl>';
  const key=loomReportKey(e,r,f),page=loomReportPages.get(key);if(!page){loomReportLoad(e,r,f);return '<p class="pa-report-missing">Loading…</p>';}
- if(page.error)return '<p class="pa-catalog-warning">'+esc(page.error)+'</p>';
+ if(page.error)return '<p class="pa-catalog-warning">'+esc(page.error)+' <button class="pa-button" data-report-retry="'+esc(r.requirement_id)+'" data-report-field="'+esc(f.id)+'">Retry</button></p>';
  const state=loomReportState(e),all=Array.isArray(page.value)?page.value:[];
  const bySeries=f.format==='series';
  const rows=bySeries?all.filter(row=>(state.phase==='all'||row.phase==null||String(row.phase)===state.phase)&&(state.split==='all'||row.split==null||row.split===state.split)):r.role==='evaluation_cases'&&f.format==='table'?loomCheckpointRows(e,all):all;
@@ -205,7 +215,7 @@ function loomReportContract(e){
  return catProperties({Contract:v.contract_ref.id,Revision:v.contract_ref.revision,SHA256:v.contract_ref.sha256,Activity:v.activity})+catTable(['Report','Role','Coverage','State'],rows)+(v.adaptations?.length?'<details><summary>Excluded / replaced requirements</summary>'+catTable(['Requirement','Disposition','Reason','Analysis impact'],v.adaptations.map(a=>[esc(a.requirement_id),esc(a.disposition),esc(a.reason),esc(a.analysis_impact)]))+'<pre>'+esc(JSON.stringify(v.adaptations,null,2))+'</pre></details>':'');
 }
 function loomReportSection(e,report,fields){
- if(report.state!=='recorded')return loomResearchSection(report.label,'<p class="pa-report-missing">Unrecorded</p>');
+ if(report.state!=='recorded')return loomResearchSection(report.label,'<p class="pa-report-missing">Missing</p>');
  if(!fields.length)return '';
  return loomResearchSection(report.label,fields.map(f=>{
   const needsHeading=['table','series','scatter','instructions','bar','coverage_matrix','properties'].includes(f.format)&&f.label!==report.label;
@@ -220,8 +230,24 @@ function loomPolicyLearningSection(e,report,fields){
  const metadata=details.map(f=>loomReportField(e,report,f)).join('');
  return loomResearchSection(charts[0].label,body+(metadata?'<details class="pa-report-metric-details"><summary>Metric details</summary>'+metadata+'</details>':''));
 }
+function loomReportCatalogInput(input,label){
+ return '<button class="pa-button" data-catalog-input-ref="'+esc(JSON.stringify(input.ref))+'">'+esc(label||input.label)+'</button>';
+}
+function loomReportLineage(e){
+ if(!e.catalog_inputs||!['model','experiment','run'].includes(e.kind))return '';
+ const fields=e.kind==='model'?[['datasets','Training dataset']]:[['datasets','Evaluation dataset'],['policies','Evaluated policy']];
+ const rows=fields.map(([field,label])=>[esc(label),loomCatalogInputs(e,field).map(input=>loomReportCatalogInput(input)).join(' ')||'Missing']);
+ return loomResearchSection('Catalog inputs',catTable(['Input','Record'],rows));
+}
+function loomReportRelatedPolicies(e){
+ const pins=e.evaluation_group?.policies||[],i=loomReportIdentity(e);
+ if(e.kind!=='model'||pins.length<2||!pins.some(pin=>pin.id===i.id&&pin.revision===i.revision))return '';
+ const rows=pins.map((pin,index)=>[esc('Run '+(index+1)),pin.id===i.id&&pin.revision===i.revision?'Current record':
+  loomReportCatalogInput({ref:{kind:'entity',identity:pin}},'Open training record')]);
+ return loomResearchSection('Training runs',catTable(['Run','Policy'],rows));
+}
 function loomReportOverview(e){
- const r=e.reporting,reports=r?.reports||[],parts=[loomReportOverviewBodies.get(e.id)||loomResearchOverviewContent(e)];
+ const r=e.reporting,reports=r?.reports||[],parts=[loomReportLineage(e),loomReportRelatedPolicies(e),loomReportOverviewBodies.get(e.id)||loomResearchOverviewContent(e)];
  if(r?.checkpoint_sweep)parts.unshift(loomCheckpointOverview(r.checkpoint_sweep));
  else if(['experiment','run'].includes(e.kind)){
   const outcomes=loomRepresentativeOutcome(e);
@@ -249,7 +275,8 @@ function loomReportOverview(e){
    [esc(base.revision),'<button class="pa-button" data-report-input="'+esc(base.id)+'" data-report-input-revision="'+esc(base.revision)+'" data-report-exact>Previous revision</button>','—']
   ])));
  }
- if(r?.inputs?.length)parts.push(loomResearchSection('Accepted inputs',catTable(['Input','Record','Revision'],r.inputs.map(i=>[esc(i.input),'<button class="pa-button" data-report-input="'+esc(i.id)+'" data-report-input-revision="'+esc(i.revision)+'">'+esc(catEntity(i.id)?.label||i.id)+'</button>',esc(i.revision)]))));
+ const otherInputs=(r?.inputs||[]).filter(i=>!['datasets','policies'].some(field=>loomCatalogInputs(e,field).some(({ref})=>ref.kind==='entity'&&ref.identity.id===i.id&&ref.identity.revision===i.revision)));
+ if(otherInputs.length)parts.push(loomResearchSection('Accepted inputs',catTable(['Input','Record','Revision'],otherInputs.map(i=>[esc(i.input),'<button class="pa-button" data-report-input="'+esc(i.id)+'" data-report-input-revision="'+esc(i.revision)+'">'+esc(catEntity(i.id)?.label||i.id)+'</button>',esc(i.revision)]))));
  for(const report of reports){
   const fields=report.fields||[];
   if(report.role==='policy_inputs'){
@@ -298,7 +325,7 @@ function loomReportContent(e){
   return loomReportSection(e,report,fields);
  }).join('');
  const checkpoints=tab==='results'&&sweep?loomCheckpointOverview(sweep,true):'';
- return (tab==='training'?loomReportTrainingFilters(e,reports):'')+checkpoints+(['results','cases'].includes(tab)?loomCheckpointPicker(e):'')+sections+failureBreakdown+(tab==='results'?loomReportCaseGraph(e):'')+(legacy?'<details class="pa-report-legacy"'+(sections&&tab==='training'?'':' open')+'><summary>Recorded metrics</summary>'+legacy+'</details>':'')+(!sections&&!legacy&&!checkpoints?'<p class="pa-report-missing">Unrecorded</p>':'');
+ return (tab==='training'?loomReportRelatedPolicies(e)+loomReportTrainingFilters(e,reports):'')+checkpoints+(['results','cases'].includes(tab)?loomCheckpointPicker(e):'')+sections+failureBreakdown+(tab==='results'?loomReportCaseGraph(e):'')+(legacy?'<details class="pa-report-legacy"'+(sections&&tab==='training'?'':' open')+'><summary>Recorded metrics</summary>'+legacy+'</details>':'')+(!sections&&!legacy&&!checkpoints?'<p class="pa-report-missing">Missing</p>':'');
 }
 const loomReportPreviousDetail=catalogDetail;
 catalogDetail=function(id){
@@ -313,7 +340,9 @@ catalogDetail=function(id){
   if(role?.querySelector('dd')?.textContent.toLowerCase()==='policy')role.remove();
  }
  const metrics=t.content.querySelector('[data-output-metrics]'),toolbar=t.content.querySelector('.pa-metrics-toolbar');
- loomReportLegacyMetrics.set(e.id,e.metrics?.length?(toolbar?.outerHTML||'')+(metrics?.outerHTML||''):'');
+ const legacyResults=!e.metrics?.length&&!e.reporting?.checkpoint_sweep&&['experiment','run'].includes(e.kind)?catResultMetrics(e):[];
+ const recorded=legacyResults.length?catTable(['Metric','Value','Population'],legacyResults.map(m=>[esc(m.label),resultOutcomeValue(m),esc(m.population||m.denominator_label||'—')])):'';
+ loomReportLegacyMetrics.set(e.id,e.metrics?.length?(toolbar?.outerHTML||'')+(metrics?.outerHTML||''):recorded);
  metrics?.remove();toolbar?.remove();
  loomReportOverviewBodies.set(e.id,overview.innerHTML);while(loomReportOverviewBodies.size>160){const id=loomReportOverviewBodies.keys().next().value;loomReportOverviewBodies.delete(id);loomReportLegacyMetrics.delete(id);}
  const view=loomReportState(e);const parent=document.createElement('section');parent.className='pa-report-workspace'+(policy?' pa-report-policy':e.kind==='dataset'?' pa-report-dataset':e.kind==='model'?'':' pa-report-experiment');parent.dataset.reportOutput=e.id;
@@ -324,8 +353,23 @@ root.addEventListener('click',async event=>{
  const workspace=event.target.closest('[data-report-output]'),e=workspace&&catEntity(workspace.dataset.reportOutput);if(!e)return;
  const point=event.target.closest('[data-report-case],[data-report-episode]');if(point){event.preventDefault();Object.assign(loomReportState(e),{tab:point.dataset.reportCase?'cases':'episodes',member:point.dataset.reportCase||point.dataset.reportEpisode});render();return;}
  const input=event.target.closest('[data-report-input]');if(input){try{const pin=await loomSearchAction('results','resolve_item',{native_ref:{kind:'entity',identity:{id:input.dataset.reportInput,revision:Number(input.dataset.reportInputRevision)}}});if(input.hasAttribute('data-report-exact')){await loomCatalogOpen('revision:'+pin.item_id+':'+pin.revision_id);return;}const value=await loomSearchAction('system','dashboard_entity',{item_id:pin.item_id,revision_id:pin.revision_id});loomCatalogMerge(value);if(value.entities?.[0])openView(catView(value.entities[0].id));}catch(error){input.textContent=error.message;}return;}
+ const lineage=event.target.closest('[data-catalog-input-ref]');
+ if(lineage){
+  try{
+   const pin=await loomSearchAction('results','resolve_item',{native_ref:JSON.parse(lineage.dataset.catalogInputRef)});
+   await loomCatalogOpen('revision:'+pin.item_id+':'+pin.revision_id);
+  }catch(error){lineage.textContent=error.message;}
+  return;
+ }
  const tab=event.target.closest('[data-report-tab]');if(tab){loomReportState(e).tab=tab.dataset.reportTab;render();return;}
- const more=event.target.closest('[data-report-more]');if(more){const r=e.reporting.reports.find(r=>r.requirement_id===more.dataset.reportMore),f=r.fields.find(f=>f.id===more.dataset.reportField);loomReportLoad(e,r,f,true);return;}
+ const paging=event.target.closest('[data-report-more],[data-report-retry]');
+ if(paging){
+  const r=e.reporting?.reports?.find(r=>r.requirement_id===(paging.dataset.reportMore||paging.dataset.reportRetry)),f=r?.fields?.find(f=>f.id===paging.dataset.reportField);
+  if(!f)return;
+  const retry=paging.hasAttribute('data-report-retry');
+  if(retry)loomReportPages.delete(loomReportKey(e,r,f));
+  loomReportLoad(e,r,f,!retry);return;
+ }
  const protocol=event.target.closest('[data-report-protocol]');if(protocol){
   protocol.disabled=true;const target=workspace.querySelector('[data-report-protocol-detail]');
   try{const page=await loomSearchAction('results','read_report',{...loomReportIdentity(e),requirement_id:protocol.dataset.reportProtocol,pointer:'/protocol_ref'});const p=await loomSearchAction('results','get_report_definition',{id:page.value.id,revision:page.value.revision});if(target.isConnected)target.innerHTML=catProperties({Protocol:p.label,Mode:p.definition.mode,Environment:p.definition.environment,Controller:p.definition.controller,Evaluator:p.definition.scope?.evaluator?.kind,'Policy GT':p.definition.scope?.gt_access?.policy,'Planner GT':p.definition.scope?.gt_access?.planner,'Scoring GT':p.definition.scope?.gt_access?.scoring,'Policy active during hold':p.definition.scope?.policy_active_during_hold,'Goal frame':p.definition.scope?.goal_frame})+catTable(['Measurement','Condition','Threshold','Unit'],(p.definition.predicate.all||[]).map(rule=>[esc(rule.pointer),esc(rule.op),esc(rule.op==='between'?rule.min+' – '+rule.max:rule.value),esc(rule.unit)]));}

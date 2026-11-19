@@ -41,6 +41,36 @@ class ReconciliationTests(unittest.TestCase):
   self.assertEqual(result['catalog_class'],'reference')
   self.assertEqual(result['scenario_ref']['id'],task['id'])
 
+ def test_policy_and_evaluation_imports_resolve_exact_inputs_in_the_same_task(self):
+  (self.data/'evidence.txt').write_text('source evidence')
+  def task(label):
+   t=self.call('results','register_scenario',{'key':label,'definition':{'label':label}})
+   return {'id':t['id'],'revision':1}
+  def proposal(kind,name,context,relations):
+   return {'key':name,'proposal':{'schema':'loom-reconcile/v1','operations':[{
+    'operation':'import','schema':'loom-asset/v2','source':{'system':'fixture','id':name,'revision':'1'},
+    'definition':{'kind':kind,'label':name,'scenario_ref':context,'relations':relations,
+                  'primary':{'machine_id':'fixture','storage_id':'fixture-data','ref':'evidence.txt'}}}]}}
+  def accept(request):
+   plan=self.call('results','reconcile_plan',request)
+   args={'plan_id':plan['plan_id']};self.call('results','reconcile_validate',args)
+   done=self.call('results','reconcile_apply',args)
+   return {'id':done['receipt']['operations'][0]['id'],'revision':1}
+  square=task('Square');other=task('Other')
+  dataset=accept(proposal('dataset','D1',square,[]))
+  trained={'kind':'trained_on',**dataset}
+  for request,code in [(proposal('model','unbound',square,[]),'catalog_input_required'),
+                       (proposal('model','wrong-task',other,[trained]),'catalog_input_task'),
+                       (proposal('model','wrong-revision',square,[{**trained,'revision':2}]),'catalog_input_task')]:
+   with self.assertRaises(HTTPError) as error:self.call('results','reconcile_plan',request)
+   self.assertEqual(json.load(error.exception)['code'],code)
+  policy=accept(proposal('model','BC-RNN',square,[trained]))
+  experiment=accept(proposal('experiment','Evaluation',square,[{'kind':'evaluated_on',**dataset},{'kind':'evaluated_model',**policy}]))
+  entity=self.call('results','resolve_item',{'native_ref':{'kind':'entity','identity':experiment}})
+  dto=self.call('system','dashboard_entity',{'item_id':entity['item_id'],'revision_id':entity['revision_id'],'records_only':True})['entities'][0]
+  self.assertEqual(dto['catalog_inputs']['datasets'][0]['ref']['identity'],dataset)
+  self.assertEqual(dto['catalog_inputs']['policies'][0]['ref']['identity'],policy)
+
  def import_file(self,key,name='original.txt',kind='artifact',metadata=None):
   definition={'kind':kind,'label':'Preserved '+kind,'metadata':metadata or {},'primary':{'machine_id':'fixture','storage_id':'fixture-data','ref':name}}
   op={'operation':'import','schema':'loom-asset/v2','source':{'system':'preserved-fixture','id':key,'revision':'original'},'definition':definition}
@@ -90,8 +120,7 @@ class ReconciliationTests(unittest.TestCase):
    self.assertEqual(db.execute('select count(*) from asset_revisions').fetchone()[0],1)
  def test_changed_source_between_validate_and_apply_rolls_back_entire_plan(self):
   (self.data/'original.txt').write_text('before')
-  task=self.call('results','register_scenario',{'key':'model-task','definition':{'label':'Grasp'}})
-  op={'operation':'import','schema':'loom-asset/v2','source':{'system':'fixture','id':'mutated','revision':'1'},'definition':{'kind':'model','label':'Model','catalog_class':'reference','scenario_ref':{'id':task['id'],'revision':1},'primary':{'machine_id':'fixture','storage_id':'fixture-data','ref':'original.txt'}}}
+  op={'operation':'import','schema':'loom-asset/v2','source':{'system':'fixture','id':'mutated','revision':'1'},'definition':{'kind':'artifact','label':'Evidence','primary':{'machine_id':'fixture','storage_id':'fixture-data','ref':'original.txt'}}}
   plan=self.call('results','reconcile_plan',{'key':'stale','proposal':{'schema':'loom-reconcile/v1','operations':[op]}});args={'plan_id':plan['plan_id']}
   self.call('results','reconcile_validate',args);(self.data/'original.txt').write_text('after')
   with self.assertRaises(HTTPError) as error:self.call('results','reconcile_apply',args)

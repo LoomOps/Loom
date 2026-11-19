@@ -2317,7 +2317,7 @@ Unknown historical selector, conflicting original hash, changed bytes or unavail
 
 ## reconcile_contract
 
-Read accepted source adapters, explicit operations, scopes and limits.
+Read accepted source adapters, explicit operations, scopes and limits. Policy imports require trained_on and Experiment imports require evaluated_on and evaluated_model exact revision relations under the same Task.
 
 Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reconcile.rs#reconciliation](../../rust/crates/core/src/reconcile.rs).
 
@@ -2418,7 +2418,7 @@ Index unavailable, invalid filter or expired cursor.
 
 ## reconcile_plan
 
-Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. Artifact imports can omit it. Inspect results.reconcile_contract for the import fields.
+Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. Artifact imports can omit it. Inspect results.reconcile_contract for the import fields. Policy imports require trained_on and Experiment imports require evaluated_on and evaluated_model exact revision relations under the same Task.
 
 Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reconcile.rs#reconciliation](../../rust/crates/core/src/reconcile.rs).
 

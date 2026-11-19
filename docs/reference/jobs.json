@@ -104,7 +104,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "submit",
-      "description": "Queue one physical execution using the compatibility contract. New research outcomes use jobs.submit_research. Independent supporting work uses units.submit. Profiles declaring Dataset, Policy or Experiment outputs require scenario_ref. A legacy outcome can pin direct deliverables and scientific reporting. Pilot requires pilot.preflight_for and pilot.reduced_scope.",
+      "description": "Queue one physical execution using the compatibility contract. New research outcomes use jobs.submit_research. Independent supporting work uses units.submit. Profiles declaring Dataset, Policy or Experiment outputs require scenario_ref. A legacy outcome can pin direct deliverables and scientific reporting. Pilot requires pilot.preflight_for and pilot.reduced_scope. Scientific Policy outputs require the exact Dataset and Experiment outputs require the exact evaluation Dataset and Policy under the same pinned Task.",
       "errors": [
         "Unregistered profile, parameter schema mismatch, denied input access or stopped admission.",
         "Reusing a key with different execution content causes a conflict."
@@ -2545,7 +2545,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "submit_research",
-      "description": "Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision.",
+      "description": "Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision. Scientific Policy outputs require the exact Dataset and Experiment outputs require the exact evaluation Dataset and Policy under the same pinned Task.",
       "errors": [
         "Invalid inputs, pinned software, resource request or insufficient scope."
       ],

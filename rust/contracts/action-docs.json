@@ -174,7 +174,7 @@
   },
   "jobs.submit": {
     "title": "Submit a legacy single execution",
-    "description": "Queue one physical execution using the compatibility contract. New research outcomes use jobs.submit_research. Independent supporting work uses units.submit. Profiles declaring Dataset, Policy or Experiment outputs require scenario_ref. A legacy outcome can pin direct deliverables and scientific reporting. Pilot requires pilot.preflight_for and pilot.reduced_scope.",
+    "description": "Queue one physical execution using the compatibility contract. New research outcomes use jobs.submit_research. Independent supporting work uses units.submit. Profiles declaring Dataset, Policy or Experiment outputs require scenario_ref. A legacy outcome can pin direct deliverables and scientific reporting. Pilot requires pilot.preflight_for and pilot.reduced_scope. Scientific Policy outputs require the exact Dataset and Experiment outputs require the exact evaluation Dataset and Policy under the same pinned Task.",
     "returns": "Submission · id",
     "example": {
       "key": "example-run-001",
@@ -1090,7 +1090,7 @@
   },
   "results.reconcile_contract": {
     "title": "Discover reconciliation",
-    "description": "Read accepted source adapters, explicit operations, scopes and limits.",
+    "description": "Read accepted source adapters, explicit operations, scopes and limits. Policy imports require trained_on and Experiment imports require evaluated_on and evaluated_model exact revision relations under the same Task.",
     "returns": "Contract · accepted asset adapters, operations, size/count limits and validation scope",
     "example": {},
     "errors": [],
@@ -1119,7 +1119,7 @@
   },
   "results.reconcile_plan": {
     "title": "Plan an exact reconciliation",
-    "description": "Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. Artifact imports can omit it. Inspect results.reconcile_contract for the import fields.",
+    "description": "Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. Artifact imports can omit it. Inspect results.reconcile_contract for the import fields. Policy imports require trained_on and Experiment imports require evaluated_on and evaluated_model exact revision relations under the same Task.",
     "returns": "Plan · plan_id, state, normalized proposal, validation and optional original receipt",
     "example": {
       "key": "preserved-assets-v1",
@@ -1247,7 +1247,7 @@
   },
   "system.dashboard_page": {
     "title": "Page Dashboard records",
-    "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations. Job rows include group_root and a bounded root group_summary independent of the loaded page; these are display projections, not execution mutations. Set records_only=true to omit the independent queue, host and Job contract projections.",
+    "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations. Job rows include group_root and a bounded root group_summary independent of the loaded page; these are display projections, not execution mutations. Set records_only=true to omit the independent queue, host and Job contract projections. Policy and Experiment DTOs expose exact catalog_inputs for Dataset and Policy filtering when the source evidence resolves.",
     "returns": "Browser catalog page · entities, research_tasks, next_cursor, partial, consistency and shared catalog metadata",
     "example": {
       "kinds": [
@@ -2148,7 +2148,7 @@
   },
   "jobs.submit_research": {
     "title": "Submit a research Job",
-    "description": "Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision.",
+    "description": "Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision. Scientific Policy outputs require the exact Dataset and Experiment outputs require the exact evaluation Dataset and Policy under the same pinned Task.",
     "returns": "Returns the accepted Job ID, plan revision, sealed flag and map of Unit names to independently readable execution IDs.",
     "example": {
       "key": "generate-paired",
@@ -2223,7 +2223,7 @@
   },
   "units.submit": {
     "title": "Submit a standalone Unit",
-    "description": "Submit one standalone Unit. Pin scenario_ref for task-specific work. The Task pin is required when the Profile declares Dataset, Policy or Experiment outputs, which publish as Reference. General infrastructure Units may publish Artifacts without a Task.",
+    "description": "Submit one standalone Unit. Pin scenario_ref for task-specific work. The Task pin is required when the Profile declares Dataset, Policy or Experiment outputs, which publish as Reference. General infrastructure Units may publish Artifacts without a Task. Scientific Policy outputs require the exact Dataset and Experiment outputs require the exact evaluation Dataset and Policy under the same pinned Task.",
     "returns": "Accepted identity and execution details",
     "example": {
       "key": "quick-check",

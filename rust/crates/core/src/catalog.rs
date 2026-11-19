@@ -1,8 +1,142 @@
 //! Browser DTOs preserve native/historical identity and truthful time provenance.
 use crate::query::JOB_LINKS_CTE;
 use crate::{jobs, store::*, Error, Result};
-use rusqlite::OptionalExtension;
+use rusqlite::{params, OptionalExtension};
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
+// Typed input aliases from accepted contracts and preserved catalog links.
+fn catalog_input_kind(relation: &Value, declared: &Value, output: &str) -> Option<&'static str> {
+    match relation["kind"].as_str()? {
+        "trained_on" if output == "model" => Some("dataset"),
+        "evaluated_on" if output != "model" => Some("dataset"),
+        "evaluated_model" | "evaluates" if output != "model" => Some("model"),
+        "consumes" => {
+            let input = relation["input"].as_str()?;
+            match declared[input].as_str() {
+                Some("dataset") => Some("dataset"),
+                Some("model") if output != "model" => Some("model"),
+                Some(_) => None,
+                None => match input {
+                    "dataset" | "training_dataset" if output == "model" => Some("dataset"),
+                    "dataset" | "eval_dataset" | "evaluation_dataset" if output != "model" => {
+                        Some("dataset")
+                    }
+                    "policy" | "model" | "evaluated_policy" if output != "model" => Some("model"),
+                    _ => None,
+                },
+            }
+        }
+        _ => None,
+    }
+}
+
+impl Application {
+    fn catalog_input_descriptor(
+        &self,
+        identity: &Value,
+        kind: &str,
+        history: bool,
+    ) -> Result<Option<Value>> {
+        let mut record = if history {
+            let row = rows(&self.db,
+                "SELECT revision, body FROM history_records WHERE source=? AND kind=? AND id=? AND snapshot=? AND (? IS NULL OR revision=?) LIMIT 2",
+                &[&identity["source"].as_str(), &kind, &identity["id"].as_str(),
+                    &identity["snapshot"].as_str(), &identity["revision"].as_str(), &identity["revision"].as_str()])?;
+            let [record] = row.as_slice() else {
+                return Ok(None);
+            };
+            let body: Value = serde_json::from_str(record["body"].as_str().unwrap_or("{}"))?;
+            let Some(mut entity) = body
+                .get("entity")
+                .or_else(|| body.get("original"))
+                .filter(|v| v.is_object())
+                .cloned()
+            else {
+                return Ok(None);
+            };
+            entity["loom_history"] = json!({"source":identity["source"],"snapshot":identity["snapshot"],"kind":kind,"id":identity["id"],"revision":record["revision"]});
+            entity
+        } else {
+            let manifest: Option<String> = self.db.query_row(
+                "SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=? AND kind=?",
+                params![identity["id"].as_str(),identity["revision"].as_i64(),kind], |r| r.get(0)).optional()?;
+            let Some(manifest) = manifest else {
+                return Ok(None);
+            };
+            let mut entity: Value = serde_json::from_str(&manifest)?;
+            entity["loom_registry"] = identity.clone();
+            entity
+        };
+        record["kind"] = json!(kind);
+        crate::dataset_organization::attach_context(self, &mut record)?;
+        crate::dataset_organization::attach(self, &mut record)?;
+        let native = crate::research_metadata::snapshot_target(&record).unwrap();
+        let label = record
+            .get("label")
+            .or_else(|| record.get("name"))
+            .filter(|v| v.is_string())
+            .unwrap_or(&identity["id"]);
+        Ok(Some(
+            json!({"ref":native,"label":label,"task_refs":record["task_refs"],"organization":record["dataset_organization"]}),
+        ))
+    }
+
+    fn attach_catalog_inputs(
+        &self,
+        entity: &mut Value,
+        cache: &mut BTreeMap<String, Option<Value>>,
+    ) -> Result<()> {
+        let Some(output @ ("model" | "experiment" | "run")) = entity["kind"].as_str() else {
+            return Ok(());
+        };
+        let mut datasets = Vec::new();
+        let mut policies = Vec::new();
+        for relation in entity["relations"].as_array().into_iter().flatten() {
+            let Some(kind) = catalog_input_kind(relation, &entity["catalog_input_kinds"], output)
+            else {
+                continue;
+            };
+            let Some(id) = relation["id"]
+                .as_str()
+                .or_else(|| relation["target"].as_str())
+            else {
+                continue;
+            };
+            let history = entity["loom_history"].is_object();
+            let identity = if history {
+                let source = &entity["loom_history"];
+                json!({"source":source["source"],"snapshot":source["snapshot"],"id":id,
+                    "revision":relation["revision"].as_str().map(str::to_owned).or_else(||relation["revision"].as_i64().map(|n|n.to_string()))})
+            } else {
+                json!({"id":id,"revision":relation["revision"]})
+            };
+            let key = encode(&json!([history, kind, identity]))?;
+            if !cache.contains_key(&key) {
+                cache.insert(
+                    key.clone(),
+                    self.catalog_input_descriptor(&identity, kind, history)?,
+                );
+            }
+            if let Some(descriptor) = &cache[&key] {
+                let list = if kind == "dataset" {
+                    &mut datasets
+                } else {
+                    &mut policies
+                };
+                if !list.contains(descriptor) {
+                    list.push(descriptor.clone());
+                }
+            }
+        }
+        entity["catalog_inputs"] = json!({"datasets":datasets,"policies":policies});
+        entity
+            .as_object_mut()
+            .unwrap()
+            .remove("catalog_input_kinds");
+        Ok(())
+    }
+}
+
 enum CatalogContext {
     Full,
     Records,
@@ -142,6 +276,13 @@ impl Application {
             let id = row["id"].as_str().unwrap_or("");
             entity["kind"] = row["kind"].clone();
             self.attach_evaluation_group(&mut entity)?;
+            if entity["kind"] == "model" {
+                let step = entity.pointer("/metadata/research/model/selected_step")
+                    .or_else(|| entity.pointer("/metadata/selected_step"))
+                    .or_else(|| entity.pointer("/metadata/selection/selected_step"))
+                    .and_then(Value::as_u64);
+                entity["catalog_checkpoints"] = json!(step.into_iter().collect::<Vec<_>>());
+            }
             entity["namespace"] = json!("loom");
             if entity.get("label").is_none() {
                 entity["label"] = json!(id);
@@ -177,6 +318,18 @@ impl Application {
                     .cloned()
                     .unwrap_or(json!({"scope":"research","role":"main"}));
                 entity["scenario_ref"] = record.spec["scenario_ref"].clone();
+                entity["catalog_input_kinds"] = record.spec["profile"]["reporting"]["input_kinds"].clone();
+                if entity["kind"] == "model" {
+                    let plan = &record.spec["params"];
+                    let steps: std::collections::BTreeSet<_> = plan["checkpoint_steps"]
+                        .as_array()
+                        .or_else(|| plan["updates"].as_array())
+                        .into_iter().flatten().filter_map(Value::as_u64).collect();
+                    if !steps.is_empty() {
+                        entity["catalog_checkpoints"] = json!(steps);
+                        entity["catalog_checkpoint_basis"] = json!("scheduled");
+                    }
+                }
             }
             let locations = rows(
                 &self.db,
@@ -558,8 +711,10 @@ impl Application {
             }
         }
         self.attach_task_context(&mut entities)?;
+        let mut input_descriptors = BTreeMap::new();
         for entity in &mut entities {
             crate::dataset_organization::attach(self, entity)?;
+            self.attach_catalog_inputs(entity, &mut input_descriptors)?;
         }
         let mut visible = Vec::with_capacity(entities.len());
         for entity in entities {

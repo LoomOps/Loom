@@ -481,6 +481,38 @@ fn new_reference_units_require_a_task_and_artifact_only_smoke_can_omit_it() {
 }
 
 #[test]
+fn new_catalog_admission_requires_exact_dataset_and_policy_under_the_task() {
+    let mut f = Fixture::new();
+    let job = f.submit("typed-input-producer");
+    for (id, kind, task) in [
+        ("d1", "dataset", "square"),
+        ("d2", "dataset", "other-task"),
+        ("policy", "model", "square"),
+    ] {
+        let manifest = json!({"id":id,"kind":kind,"scenario_ref":{"id":task,"revision":1}});
+        f.app
+            .db
+            .execute(
+                "INSERT INTO entity_revisions VALUES(?,1,?,?,'owner','owner',?)",
+                rusqlite::params![id, job, kind, manifest.to_string()],
+            )
+            .unwrap();
+    }
+    let mut spec = json!({
+        "scenario_ref":{"id":"square","revision":2},
+        "profile":{"outputs":{"result":"experiment"},"reporting":{"input_kinds":{"dataset":"dataset"}}},
+        "params":{"dataset":{"artifact":{"id":"d1","revision":1}}}
+    });
+    let check = |spec: &Value| reporting::validate_catalog_admission(&f.app.db, spec);
+    assert_eq!(check(&spec).unwrap_err().code, "catalog_input_required");
+    spec["profile"]["reporting"]["input_kinds"]["policy"] = json!("model");
+    spec["params"]["policy"] = json!({"artifact":{"id":"policy","revision":1}});
+    check(&spec).unwrap();
+    spec["params"]["dataset"]["artifact"]["id"] = json!("d2");
+    assert_eq!(check(&spec).unwrap_err().code, "catalog_input_task");
+}
+
+#[test]
 fn new_dynamic_outputs_cannot_bypass_reporting_and_old_accepted_outputs_are_preserved() {
     let mut f = Fixture::new();
     let job = f.submit("dynamic-output");

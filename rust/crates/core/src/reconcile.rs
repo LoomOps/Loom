@@ -59,9 +59,37 @@ fn import_task(db: &Connection, definition: &Value) -> Result<Option<Value>> {
         "Pin a Task revision for a Dataset, Policy or Experiment import",
         400,
     )?;
-    reference
+    let task = reference
         .map(|value| crate::scenario::pin(db, &serde_json::from_value(value.clone())?))
-        .transpose()
+        .transpose()?;
+    let inputs: &[(&str, &str)] = match definition["kind"].as_str() {
+        Some("model") => &[("trained_on", "dataset")],
+        Some("experiment") => &[("evaluated_on", "dataset"), ("evaluated_model", "model")],
+        _ => &[],
+    };
+    for &(relation, kind) in inputs {
+        let mut pins = definition["relations"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|r| r["kind"] == relation)
+            .peekable();
+        require(
+            pins.peek().is_some(),
+            "catalog_input_required",
+            &format!("Catalog import requires an exact {kind} {relation} relation"),
+            400,
+        )?;
+        for pin in pins {
+            crate::reporting::validate_catalog_input(
+                db,
+                pin,
+                kind,
+                &definition["scenario_ref"]["id"],
+            )?;
+        }
+    }
+    Ok(task)
 }
 fn operations(v: &Value) -> Result<&Vec<Value>> {
     let a = v["operations"]
@@ -88,7 +116,7 @@ fn normalize(v: &Value) -> Result<Value> {
         for k in ["type", "name", "properties", "primary", "members"] {
             v.as_object_mut().unwrap().remove(k);
         }
-        for k in ["scenario_ref", "catalog_class"] {
+        for k in ["scenario_ref", "catalog_class", "relations"] {
             if let Some(value) = v.as_object_mut().unwrap().remove(k) {
                 v["definition"][k] = value;
             }
@@ -183,7 +211,7 @@ impl Application {
     pub fn reconciliation(&mut self, actor: &Actor, action: &str, args: &Value) -> Result<Value> {
         match action {
             "reconcile_contract" => Ok(
-                json!({"schema":CONTRACT,"asset_schema":"loom-asset/v3","adapters":["loom-asset/v1","loom-asset/v2","loom-asset/v3"],"operations":["import","bind_file","bind_historical","adopt"],"max_operations":200,"inline_members_max":200,"producer_inventory":"loom-output-inventory/v1","catalog_import":{"kinds":["dataset","model","experiment"],"class_field":"definition.catalog_class","classes":["regular","reference"],"task_field":"definition.scenario_ref","task_reference":{"required":["id","revision"]},"required_for":["regular","reference"]},"roots":"configured registered stores; Runtime payloads require protected host grants","stages":["plan","validate","apply","verify"],"scientific_validation":"declared metadata is not a scientific acceptance claim"}),
+                json!({"schema":CONTRACT,"asset_schema":"loom-asset/v3","adapters":["loom-asset/v1","loom-asset/v2","loom-asset/v3"],"operations":["import","bind_file","bind_historical","adopt"],"max_operations":200,"inline_members_max":200,"producer_inventory":"loom-output-inventory/v1","catalog_import":{"kinds":["dataset","model","experiment"],"class_field":"definition.catalog_class","classes":["regular","reference"],"task_field":"definition.scenario_ref","task_reference":{"required":["id","revision"]},"required_for":["regular","reference"],"input_relations":{"model":{"trained_on":"dataset"},"experiment":{"evaluated_on":"dataset","evaluated_model":"model"}}},"roots":"configured registered stores; Runtime payloads require protected host grants","stages":["plan","validate","apply","verify"],"scientific_validation":"declared metadata is not a scientific acceptance claim"}),
             ),
             "reconcile_plan" => {
                 let key = field(args, "key")?;

@@ -15,7 +15,11 @@ and bind_historical for a full source/kind/id/revision/snapshot/file selector.
 For an external import, declare the source system, ID, revision, optional
 snapshot and original evidence. Use `loom-asset/v3` with
 `definition.kind/label/primary`, an exact metadata template and canonical
-`definition.metadata.research`. Each Dataset, Policy or Experiment import requires `definition.scenario_ref:{id,revision}` for both catalog classes. Generic technical evidence can be imported as an Artifact without a Task. Link exact inputs and parents when recorded.
+`definition.metadata.research`. Each Dataset, Policy or Experiment import requires `definition.scenario_ref:{id,revision}` for both catalog classes. Generic technical evidence can be imported as an Artifact without a Task. Search existing Tasks, Datasets and Policies before proposing new records. Supply
+`definition.relations` with `{kind,id,revision}` entries under the same Task:
+`trained_on` for a Policy's Dataset, and `evaluated_on` and `evaluated_model` for
+an Experiment's Dataset and Policy. Existing historical records retain their
+original identities and source metadata.
 V1/v2 remain legacy adapters. Conflicting source reuse fails.
 Candidate locators use this installation's granted machine/storage identities and
 relative refs. Optional original sha256/size must match. Stage bytes separately;

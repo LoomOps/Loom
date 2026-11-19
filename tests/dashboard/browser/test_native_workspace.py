@@ -121,7 +121,7 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.assertIn('Pilot-test',self.ui.js('return '+row+'.textContent',pilot))
   self.assertEqual(self.call('jobs','get',{'id':job})['spec']['execution_mode'],'pilot')
 
- def test_experiment_groups_and_previous_revision_keep_the_latest_list_record(self):
+ def test_experiment_rows_are_flat_and_previous_revisions_stay_in_detail(self):
   db_path=self.native_root/'state/ops.sqlite3'
   outputs=['browser-canonical-experiment','browser-comparison-experiment']
   def remove_fixture():
@@ -147,17 +147,18 @@ class NativeWorkspaceTests(unittest.TestCase):
   else:self.fail('Comparison fixture did not reach the current catalog index')
   self.ui.top();self.wd('/refresh',{});self.ui.connect()
   self.ui.nav('Experiments')
-  outcome=self.ui.wait("""return document.querySelector('[data-evaluation-group=browser-group]')?'group':
-   document.querySelector('[data-catalog-more=experiment]:not([data-catalog-restart])')?'more':false""")
+  rows="['browser-canonical-experiment','browser-comparison-experiment'].every(id=>document.querySelector('[data-output-id='+id+']'))"
+  outcome=self.ui.wait("return ("+rows+")?'shown':document.querySelector('[data-catalog-more=experiment]:not([data-catalog-restart])')?'more':false")
   if outcome=='more':self.ui.click('[data-catalog-more=experiment]')
-  self.ui.wait("return document.querySelector('[data-evaluation-group=browser-group]')?.textContent.includes('Independent evaluation')")
+  self.ui.wait("return "+rows)
+  self.assertFalse(self.ui.js("return !!document.querySelector('.pa-evaluation-group')"))
   self.ui.route(outputs[0])
   self.ui.wait("return document.querySelector('h1')?.textContent.includes('Extended evaluation')")
   self.ui.click('[data-report-exact]')
   self.ui.wait("return [...document.querySelectorAll('h1')].some(h=>h.textContent.includes('Original evaluation'))")
   self.ui.nav('Experiments')
-  self.ui.wait("return document.querySelector('[data-evaluation-group=browser-group]')?.textContent.includes('Extended evaluation')")
-  self.assertFalse(self.ui.js("return document.querySelector('[data-evaluation-group=browser-group]').textContent.includes('Original evaluation')"))
+  self.ui.wait("return document.querySelector('[data-output-id=browser-canonical-experiment]')?.textContent.includes('Extended evaluation')")
+  self.assertFalse(self.ui.js("return document.querySelector('[data-output-id=browser-canonical-experiment]').textContent.includes('Original evaluation')"))
 
  def test_presentation_parent_keeps_its_status_and_followup_has_own_row(self):
   def set_dispatch_paused(paused):
@@ -198,7 +199,8 @@ class NativeWorkspaceTests(unittest.TestCase):
   t=self.call('results','register_metadata_template',{'id':'ui.contact','key':'ui-contact-template','reason':'Browser fixture format','definition':definition});pin={k:t[k] for k in ('id','revision','sha256')}
   (self.native_root/'data/template.json').write_text('{}')
   metadata={'template_ref':pin,'research':{'robot':{'status':'recorded','model':'Franka Panda'},'collection':{'status':'recorded','count':0,'unit':'episodes','split':{'train':0,'validation':'unrecorded','test':'not_applicable'}},'extensions':{'friction':0.2}}}
-  op={'operation':'import','schema':'loom-asset/v3','source':{'system':'browser-fixture','id':'typed-contact','revision':'1'},'definition':{'kind':'dataset','label':'Contact demonstrations','metadata':metadata,'primary':{'machine_id':'browser-fixture','storage_id':'browser-data','ref':'template.json'}}}
+  task=self.call('results','register_scenario',{'key':'ui-contact-task','definition':{'label':'Contact manipulation'}})
+  op={'operation':'import','schema':'loom-asset/v3','source':{'system':'browser-fixture','id':'typed-contact','revision':'1'},'definition':{'kind':'dataset','label':'Contact demonstrations','scenario_ref':{'id':task['id'],'revision':1},'metadata':metadata,'primary':{'machine_id':'browser-fixture','storage_id':'browser-data','ref':'template.json'}}}
   plan=self.call('results','reconcile_plan',{'key':'ui-contact-import','proposal':{'schema':'loom-reconcile/v1','operations':[op]}});args={'plan_id':plan['plan_id']};self.call('results','reconcile_validate',args);self.call('results','reconcile_apply',args)
   with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:identity=db.execute("SELECT id FROM asset_revisions WHERE json_extract(manifest,'$.origin.source.id')='typed-contact'").fetchone()[0]
   ui=self.ui;ui.nav('Datasets');ui.route(identity)

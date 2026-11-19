@@ -1769,7 +1769,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "reconcile_contract",
-      "description": "Read accepted source adapters, explicit operations, scopes and limits.",
+      "description": "Read accepted source adapters, explicit operations, scopes and limits. Policy imports require trained_on and Experiment imports require evaluated_on and evaluated_model exact revision relations under the same Task.",
       "errors": [],
       "example": {},
       "group": "results",
@@ -1835,7 +1835,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "reconcile_plan",
-      "description": "Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. Artifact imports can omit it. Inspect results.reconcile_contract for the import fields.",
+      "description": "Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. Artifact imports can omit it. Inspect results.reconcile_contract for the import fields. Policy imports require trained_on and Experiment imports require evaluated_on and evaluated_model exact revision relations under the same Task.",
       "errors": [
         "Unknown source contract, conflicting source identity/key or proposal bound exceeded."
       ],

@@ -150,8 +150,6 @@
 #pai-studio .pa-work-type{display:inline-block;margin-inline-end:8px;padding:1px 7px;border:1px solid var(--pa-line);border-radius:5px;background:var(--pa-paper);color:var(--pa-ink);font-size:12px;font-weight:650;line-height:1.45;white-space:nowrap;vertical-align:1px}
 #pai-studio .pa-work-type[data-work-type="job"]{background:var(--pa-tint);color:var(--pa-selected-text)}
 #pai-studio .pa-terminal-work-queue .pa-work-type{margin-inline-end:0}
-#pai-studio .pa-evaluation-group{padding:12px;margin:8px 0 14px;border:1px solid var(--pa-line);border-radius:var(--pa-radius)}
-#pai-studio .pa-evaluation-group>h3{margin:0 0 10px;font-size:14px;font-weight:650}
 .pa-queue-position{display:block;margin-top:5px;color:var(--muted)}
 .pa-queue-control{margin-top:8px;max-width:390px}
 .pa-queue-control summary{cursor:pointer;font-size:12px}
@@ -594,13 +592,10 @@
 #pai-studio .pa-catalog-index-stack{display:grid;gap:10px;min-width:0}
 #pai-studio .pa-catalog-task-index{display:grid;gap:3px;align-self:start;min-width:0;padding:5px;border:1px solid var(--pa-line);border-radius:var(--pa-radius);background:var(--pa-side)}
 #pai-studio .pa-catalog-task-index>h2{margin:0;padding:5px 10px;color:var(--pa-muted);font-size:12px;font-weight:600;line-height:1.4}
-#pai-studio .pa-model-filter-fields.pa-policy-filter-fields{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}
+#pai-studio .pa-model-filter-fields.pa-policy-filter-fields{grid-template-columns:minmax(0,1fr)}
 #pai-studio .pa-policy-filter-fields .pa-model-filter-search{grid-column:auto}
 #pai-studio .pa-policy-filter-fields+.pa-model-filter-reset{display:block;margin:10px 0 0 auto}
 #pai-studio .pa-policy-filter-fields+.pa-model-filter-reset[hidden]{display:none}
-@container pane (max-width:440px){
- #pai-studio .pa-model-filter-fields.pa-policy-filter-fields{grid-template-columns:minmax(0,1fr)}
-}
 #pai-studio .pa-catalog-task-index button{border:0;border-radius:6px;background:none;color:var(--pa-muted);text-align:left;padding:8px 10px;cursor:pointer;overflow-wrap:anywhere}
 #pai-studio .pa-catalog-task-index button:hover,#pai-studio .pa-catalog-task-index button[aria-pressed=true]{background:var(--pa-tint);color:var(--pa-ink)}
 #pai-studio .pa-catalog-task-index button[aria-pressed=true]{font-weight:600}
@@ -610,8 +605,10 @@
 #pai-studio .pa-catalog-task-card>h3{margin:0;padding:10px 14px;background:var(--pa-side);border-bottom:1px solid var(--pa-line);font-size:15px;font-weight:600;overflow-wrap:anywhere}
 #pai-studio .pa-catalog-task-card>h3 a{color:inherit;text-decoration:none}
 #pai-studio .pa-catalog-task-card>h3 a:hover{text-decoration:underline}
-#pai-studio .pa-catalog-task-records{padding:0 14px}
-#pai-studio .pa-catalog-task-records .pa-output-task{margin:0}
+#pai-studio .pa-catalog-task-records{padding:14px}
+#pai-studio .pa-catalog-task-records>.pa-output-compact:first-child{padding-top:0}
+#pai-studio .pa-catalog-task-records>.pa-output-compact:last-child{padding-bottom:0}
+#pai-studio .pa-catalog-task-records>.pa-output-compact:last-child{border-bottom:0}
 #pai-studio .pa-dataset-subgroup{padding-block:10px;min-width:0}
 #pai-studio .pa-dataset-subgroup+.pa-dataset-subgroup{border-top:1px solid var(--pa-line)}
 #pai-studio .pa-dataset-subgroup>h4{margin:0;color:var(--pa-accent);font-size:13px;font-weight:600;overflow-wrap:anywhere}

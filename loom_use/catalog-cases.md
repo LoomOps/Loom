@@ -64,7 +64,12 @@ Check `stored:true`, then read the held-out Dataset and confirm `dataset_lineage
 
 Confirm the external source ID, release revision, published checksum and recorded metadata. Here the archive has already been staged and is usable without conversion. Search for an existing import and inspect a comparable Dataset and its exact template. In this example the external release leaves the robot and collection details unrecorded. The fixture store has a single verified archive.
 
-Find or register the Task shared by the benchmark's variants. For example, Square D0, D1 and D2 share one `Square` Task. Use the same exact Task revision in each Regular import and put the variant on the record.
+Look up the Task with `results.scenarios` and search its Datasets with
+`results.search_items` using `task_id`. For example, Square D0, D1 and D2 share
+one `Square` Task. Reuse the exact Task and a published variant if it matches.
+For a new variant, record its stable path, such as
+`metadata.research.organization.path:[{"id":"d1","label":"D1"}]`. Pin the Dataset's
+returned ID and revision in downstream contracts.
 
 ```json
 {"group":"results","action":"get_metadata_template","arguments":{"id":"loom.dataset","revision":1}}

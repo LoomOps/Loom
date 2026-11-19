@@ -42,9 +42,12 @@ Set `reporting.contracts` using `dataset`, `model`, `experiment` or
 The server supplies `reporting_pins` and `reporting_policy`.
 
 Policy Profiles declare `reporting.conditioning` as `language` or `none`.
-`reporting.input_kinds` maps declared input names to `dataset` or `model`. Training
-requires a Dataset input; evaluation requires Dataset and Policy inputs. Use exact
-artifact revisions or upstream scientific outputs for those identities.
+`reporting.input_kinds` maps declared input names to `dataset` or `model`. A Policy
+requires a Dataset input. An Experiment requires its evaluation Dataset and evaluated
+Policy. Look up the Task with `results.scenarios`, then use `results.search_items`
+with its `task_id` and the appropriate kinds. Inspect each exact revision to verify
+the variant, split or checkpoint. Reuse those IDs as artifact pins or use a declared
+upstream output under the same Task. A variant label alone cannot select an input.
 
 The built-in evaluation contract is a coverage template. Register a task-specific
 protocol with a pinned primary metric, offline/closed-loop, Sim/Real and controller
@@ -67,8 +70,9 @@ Bind case factors `update`, `checkpoint_sha256` and `reset_state_sha256`.
 Use one distinct checkpoint digest per step, and the same unique seeds and initial
 reset hashes at each step for measured ranking. Keep every case and its validity.
 The Catalog shows the selected or unique best result with its own denominator.
-A tie has no single best headline. Compare different Policies or protocols through
-separately accepted Experiments.
+For a complete matched cohort with identical best counts, the Catalog shows the
+per-checkpoint score and the number of tied checkpoints. Compare different Policies
+or protocols through separately accepted Experiments.
 
 ### Checkpoint supplements
 

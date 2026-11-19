@@ -840,6 +840,107 @@ pub fn bind_profile(db: &Connection, profile: &mut Value) -> Result<()> {
     profile["reporting_policy"] = json!(POLICY);
     Ok(())
 }
+fn upstream_report_input(
+    db: &Connection,
+    job: &str,
+    output: &str,
+) -> Result<(crate::jobs::Record, String)> {
+    let mut upstream = job.to_owned();
+    let mut output = output.to_owned();
+    if let Some(body) = db
+        .query_row("SELECT request FROM job_workflows WHERE id=?", [job], |r| {
+            r.get::<_, String>(0)
+        })
+        .optional()?
+    {
+        let request: Value = serde_json::from_str(&body)?;
+        let alias = &request["outputs"][&output];
+        upstream = db.query_row(
+            "SELECT job FROM execution_memberships WHERE root=? AND node=?",
+            params![job, alias["node"].as_str()],
+            |r| r.get(0),
+        )?;
+        output = alias["entity"].as_str().unwrap_or("").into();
+    }
+    Ok((crate::jobs::load(db, &upstream)?, output))
+}
+
+pub(crate) fn validate_catalog_input(
+    db: &Connection,
+    identity: &Value,
+    kind: &str,
+    task: &Value,
+) -> Result<()> {
+    let same_task: bool = db.query_row(
+        "SELECT EXISTS(
+            SELECT 1 FROM all_entity_revisions e
+            WHERE e.id=?1 AND e.revision=?2 AND e.kind=?3
+            AND (json_extract(e.manifest,'$.scenario_ref.id')=?4
+              OR EXISTS(SELECT 1 FROM jobs j WHERE j.id=e.job
+                AND json_extract(j.spec,'$.scenario_ref.id')=?4)
+              OR EXISTS(SELECT 1 FROM scenario_links l
+                WHERE l.scenario_id=?4 AND l.superseded_by IS NULL AND l.target_kind='entity'
+                AND json_extract(l.target,'$.id')=e.id AND json_extract(l.target,'$.revision')=e.revision)))",
+        params![identity["id"].as_str(), identity["revision"].as_i64(), kind, task.as_str()],
+        |r| r.get(0),
+    )?;
+    require(
+        same_task,
+        "catalog_input_task",
+        &format!("The exact {kind} revision must be linked to the output Task"),
+        400,
+    )
+}
+
+pub(crate) fn validate_catalog_admission(db: &Connection, spec: &Value) -> Result<()> {
+    let profile = &spec["profile"];
+    let outputs = profile["outputs"].as_object();
+    let required: &[&str] = if outputs.is_some_and(|o| o.values().any(|k| k == "experiment")) {
+        &["dataset", "model"]
+    } else if outputs.is_some_and(|o| o.values().any(|k| k == "model")) {
+        &["dataset"]
+    } else {
+        return Ok(());
+    };
+    let task = &spec["scenario_ref"]["id"];
+    let inputs = profile["reporting"]["input_kinds"].as_object();
+    for kind in required {
+        require(
+            inputs.is_some_and(|o| o.values().any(|k| k == *kind)),
+            "catalog_input_required",
+            &format!("Catalog output requires an exact {kind} input in reporting.input_kinds"),
+            400,
+        )?;
+    }
+    for (name, kind) in inputs.into_iter().flatten() {
+        let kind = kind.as_str().unwrap();
+        let value = &spec["params"][name];
+        if value["artifact"].is_object() {
+            validate_catalog_input(db, &value["artifact"], kind, task)?;
+        } else if let (Some(job), Some(output)) = (value["job"].as_str(), value["entity"].as_str())
+        {
+            let (upstream, output) = upstream_report_input(db, job, output)?;
+            let published = upstream
+                .result
+                .as_ref()
+                .and_then(|result| result["entities"].as_array())
+                .and_then(|entities| entities.iter().find(|entity| entity["id"] == output))
+                .and_then(|entity| entity.get("registry_ref"));
+            if let Some(pin) = published {
+                validate_catalog_input(db, pin, kind, task)?;
+            } else {
+                require(
+                    upstream.spec["scenario_ref"]["id"] == *task,
+                    "catalog_input_task",
+                    &format!("Upstream input {name} must publish under the output Task"),
+                    400,
+                )?;
+            }
+        }
+    }
+    Ok(())
+}
+
 pub fn validate_plan(db: &Connection, spec: &Value) -> Result<()> {
     let p = &spec["profile"];
     if p["reporting_policy"] != POLICY {
@@ -891,24 +992,8 @@ pub fn validate_plan(db: &Connection, spec: &Value) -> Result<()> {
             .optional()?
         } else if let (Some(job), Some(output)) = (value["job"].as_str(), value["entity"].as_str())
         {
-            let mut upstream = job.to_owned();
-            let mut output = output.to_owned();
-            if let Some(body) = db
-                .query_row("SELECT request FROM job_workflows WHERE id=?", [job], |r| {
-                    r.get::<_, String>(0)
-                })
-                .optional()?
-            {
-                let request: Value = serde_json::from_str(&body)?;
-                let alias = &request["outputs"][&output];
-                upstream = db.query_row(
-                    "SELECT job FROM execution_memberships WHERE root=? AND node=?",
-                    params![job, alias["node"].as_str()],
-                    |r| r.get(0),
-                )?;
-                output = alias["entity"].as_str().unwrap_or("").into();
-            }
-            crate::jobs::load(db, &upstream)?.spec["profile"]["outputs"][&output]
+            let (record, output) = upstream_report_input(db, job, output)?;
+            record.spec["profile"]["outputs"][output]
                 .as_str()
                 .map(str::to_owned)
         } else {
