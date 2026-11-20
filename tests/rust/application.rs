@@ -1293,11 +1293,10 @@ impl Fixture {
                 &tx,
                 (&config, &bulk),
                 &self.actor,
-                &root,
+                (&root, None),
                 &request,
                 unit,
                 &jobs,
-                None,
             )?;
             jobs.insert(unit.id.clone(), json!(job));
         }

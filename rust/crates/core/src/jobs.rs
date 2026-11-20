@@ -1178,12 +1178,11 @@ fn gpu_order_blocks(db: &Connection, record: &Record, runnable: bool) -> Result<
         if shared
             && (candidate["state"] == "ready"
                 || candidate["state"] == "queued" && spec["profile"].get("prepare").is_none())
-        {
-            if spec["depends_on"].as_array().is_none_or(|deps|deps.iter().all(|d|
+            && spec["depends_on"].as_array().is_none_or(|deps| deps.iter().all(|d|
                 db.query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=? AND state='complete' UNION ALL SELECT 1 FROM job_workflows WHERE id=? AND state='complete')",
-                    params![d.as_str(),d.as_str()],|r|r.get::<_,bool>(0)).unwrap_or(false))) {
-                return Ok(true);
-            }
+                    params![d.as_str(),d.as_str()],|r|r.get::<_,bool>(0)).unwrap_or(false)))
+        {
+            return Ok(true);
         }
     }
     Ok(false)
@@ -1220,11 +1219,10 @@ pub(crate) fn admit_node(
     db: &Connection,
     (config, bulk): (&Config, &std::path::Path),
     actor: &Actor,
-    root: &str,
+    (root, phase): (&str, Option<&str>),
     v: &Workflow,
     n: &contracts::Node,
     nodes: &serde_json::Map<String, Value>,
-    phase: Option<&str>,
 ) -> Result<String> {
     let mut spec = n.spec.clone();
     require(

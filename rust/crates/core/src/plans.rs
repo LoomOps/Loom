@@ -1017,11 +1017,10 @@ impl Application {
                 &tx,
                 (&config, &bulk),
                 actor,
-                &root,
+                (&root, phase),
                 &workflow,
                 &n,
                 &nodes,
-                phase,
             )?;
             let frozen = jobs::load(&tx, &child)?;
             check_execution(&doc, name, &frozen.spec)?;
