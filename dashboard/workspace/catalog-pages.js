@@ -119,7 +119,7 @@ function loomCatalogMerge(value){
  while(existing.size>4000){const id=existing.keys().next().value;if(id===state.entity){const value=existing.get(id);existing.delete(id);existing.set(id,value);}else existing.delete(id);}
  const entities=[...existing.values()];
  const selected=entities.filter(e=>catalogData.presentation_view==='all'||(catalogData.presentation_view==='builtin'?e.owner_kind==='built-in':catalogData.presentation_view==='operations'?e.presentation?.scope==='operations':e.presentation?.visible!==false));
- catalogData={...catalogData,entities:selected,all_entities:entities};
+ catalogData={...catalogData,research_tasks:incoming.research_tasks??catalogData.research_tasks,entities:selected,all_entities:entities};
 }
 async function loomCatalogLoad(kind,more=false,query=loomCatalogQuery(kind)){
  if(!catalogData.capabilities?.catalog_pages||query.catalog_classes?.length===0)return;

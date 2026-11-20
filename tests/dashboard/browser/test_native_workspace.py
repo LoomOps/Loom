@@ -487,6 +487,12 @@ class NativeWorkspaceTests(unittest.TestCase):
   with patch.object(reference.server.WebHandler,'relay',relay):
    task=self.call('results','register_scenario',{'key':'shell-pane-demand','definition':{'label':'Shell pane demand'}})
    self.link_task_policy_fixture(task,'shell-pane-policy')
+   for _ in range(100):
+    page=self.call('system','dashboard_page',{'kinds':['model'],'catalog_classes':['regular'],
+                'output_state':'current','records_only':True,'limit':50})
+    if task['id'] in page.get('task_index',[]):break
+    time.sleep(.05)
+   else:self.fail('Linked Policy did not reach the Catalog Task index')
    self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
    self.ui.wait("return [...document.querySelectorAll('[data-research-task]')].some(o=>o.textContent==='Shell pane demand')")
    self.assertNotIn('dashboard_activity',observed);self.assertNotIn('dashboard_queue',observed)

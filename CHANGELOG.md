@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0-alpha.76
+## 0.2.0-alpha.77
 
 - Show Job Units and Activity loading explicitly, retain loaded details during refresh, and estimate Unit finish times from producer progress samples when available.
 - Expose recovery on failed execution Units and verify the Job and Unit schema during managed updates.
