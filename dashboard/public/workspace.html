@@ -8486,11 +8486,10 @@ function loomCatalogProjection(catalog) {
     try{const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({group:message.group,action:message.action,arguments:args}),signal:AbortSignal.timeout(15000)});const value=await response.json();if(response.ok&&message.group==='system'&&['dashboard_page','dashboard_entity','dashboard_queue'].includes(message.action)){for(const entity of value.entities||[])catalogEntities.set(entity.id,entity);if(value.revision===catalogRevision){const records=new Map((researchIncoming?.entities||[]).map(e=>[e.id,e]));for(const entity of value.entities||[]){catalogEntities.set(entity.id,entity);records.set(entity.id,entity);}while(records.size>4000)records.delete(records.keys().next().value);researchIncoming={...researchIncoming,entities:[...records.values()]};}}emit('loom-search-result',{id:message.id,ok:response.ok,value});}catch(error){emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});}
   }
   async function resultAction(message) {
-    const catalog=message.action==='set_output_disposition';
     if(!signedIn()||typeof message.id!=='string'||message.id.length>128)return;
-    if(!catalog&&!['scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link'].includes(message.action))return;
+    if(!['scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link','set_output_disposition'].includes(message.action))return;
     try{
-      const response=await fetch(catalog?'/api/catalog/disposition':'/api/scenarios/actions',{
+      const response=await fetch('/api/scenarios/actions',{
         method:'POST',credentials:'same-origin',redirect:'error',
         headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},
         body:JSON.stringify({action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(30000)

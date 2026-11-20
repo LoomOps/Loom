@@ -147,7 +147,7 @@ class ProxyTest(unittest.TestCase):
         self.assertEqual(len(self.api.history_calls),before)
 
     def test_catalog_disposition_relay_accepts_only_the_authenticated_reversible_action(self):
-        endpoint = '/api/catalog/disposition'
+        endpoint = '/api/scenarios/actions'
         headers = {'Authorization': 'Bearer fixture'}
         payload = {'action': 'set_output_disposition', 'arguments': {
             'targets': [{'kind': 'entity', 'identity': {'id': 'dataset', 'revision': 1}}],
