@@ -732,10 +732,25 @@ impl Application {
 
     fn unit_members(&self, job: &str) -> Result<Vec<Value>> {
         let mut result = Vec::new();
-        for mut unit in rows(&self.db,
-            "SELECT u.id,u.job_id,u.name,u.label,u.phase,j.state,j.attempt,j.spec FROM execution_units u JOIN jobs j ON j.id=u.id WHERE u.job_id=? ORDER BY u.rowid", &[&job])? {
+        for mut unit in rows(
+            &self.db,
+            "SELECT u.id,u.job_id,u.name,u.label,u.phase,j.state,j.attempt,j.spec,
+             CASE WHEN r.state IN ('waiting','claimed') AND r.deadline<=? THEN 'deferred'
+                  ELSE r.state END AS recovery_state,
+             r.reason AS recovery_reason
+             FROM execution_units u JOIN jobs j ON j.id=u.id LEFT JOIN recovery r ON r.job=u.id
+             WHERE u.job_id=? ORDER BY u.rowid",
+            &[&now(), &job],
+        )? {
             let state = JobState::parse(unit["state"].as_str().unwrap())?;
-            let spec: Value = serde_json::from_str(unit.as_object_mut().unwrap().remove("spec").unwrap().as_str().unwrap())?;
+            let spec: Value = serde_json::from_str(
+                unit.as_object_mut()
+                    .unwrap()
+                    .remove("spec")
+                    .unwrap()
+                    .as_str()
+                    .unwrap(),
+            )?;
             unit["status"] = json!(state.public());
             unit["profile"] = spec["kind"].clone();
             unit["depends_on"] = spec["depends_on"].clone();
@@ -848,6 +863,9 @@ impl Application {
             d["reason"] = match d["state"].as_str() {
                 Some("running" | "preparing") => json!("executing"),
                 Some("processing") => json!("finalizing"),
+                Some("failed" | "interrupted" | "result_failed") if d["entry_type"] == "job" => {
+                    json!("unit_failed")
+                }
                 Some("failed" | "interrupted" | "result_failed") => json!("recovery_required"),
                 _ => children
                     .iter()

@@ -1,6 +1,6 @@
 //! Producer reports are presentation evidence, never scheduling or return authority.
-use crate::{Result, contracts, error::require, storage};
-use serde_json::{Value, json};
+use crate::{contracts, error::require, storage, Result};
+use serde_json::{json, Value};
 use std::{collections::BTreeMap, io::Read, path::Path};
 
 fn read_report(folder: &Path, name: &str, limit: u64) -> Result<Value> {

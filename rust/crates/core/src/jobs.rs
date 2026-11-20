@@ -806,6 +806,17 @@ impl Application {
             }
         }
         active(&tx)?;
+        let workflow: bool = tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM job_workflows WHERE id=?)",
+            [id],
+            |r| r.get(0),
+        )?;
+        require(
+            !workflow,
+            "recovery_unit_required",
+            "Select the failed execution Unit from jobs.get",
+            409,
+        )?;
         tx.execute("UPDATE recovery SET state='deferred',token=NULL,updated=? WHERE job=? AND state IN ('waiting','claimed') AND deadline<=?",params![now(),id,now()])?;
         let row = load(&tx, id)?;
         let closed:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM execution_memberships n JOIN job_workflows w ON w.id=n.root WHERE n.job=? AND json_type(w.request,'$.plan_revision')='integer' AND (w.state IN ('complete','cancelled','failed') OR json_extract(w.request,'$.cancel_requested')=1))",[id],|r|r.get(0))?;

@@ -5,6 +5,8 @@
 The Rust release applies the additive schema 5 -> 6 -> 7 chain and delivers `loom-ops`, `loom-host`, `loom-sdk`
 and `loom-migrate` from the same immutable Ops image. The cumulative migration
 requires old writers, executions, callbacks and Runtime validation owners to drain.
+Upgrades verify schema 7 and schema 8 directly. Schema 8 additionally requires the
+Job and Unit tables and the native writer fence.
 It preserves old rows/configuration/storage identities and records a private
 backup/intent/receipt. Resume verifies unchanged before/after hashes; rollback
 refuses new post-cutover records. Never start a legacy writer on a migrated native database. See ITEM-INDEX.md

@@ -14,7 +14,7 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 
 ## claim
 
-Claim a failed Job awaiting a response. Pass the returned lease to progress/resume.
+Claim the failed execution Unit awaiting a response. Find its ID in jobs.get units and pass the returned lease to progress/resume.
 
 Scope: `submit`. Owner: [recovery](../features/recovery.md). Implementation: [rust/crates/core/src/jobs.rs#recover](../../rust/crates/core/src/jobs.rs).
 
@@ -59,7 +59,7 @@ Scope: `submit`. Owner: [recovery](../features/recovery.md). Implementation: [ru
 
 ```json
 {
-  "id": "<job-id>"
+  "id": "<unit-id>"
 }
 ```
 
@@ -69,7 +69,7 @@ Scope: `submit`. Owner: [recovery](../features/recovery.md). Implementation: [ru
 
 Recovery · state, rounds, agent, deadline, hard_deadline, lease
 
-Waiting deadline expired or another agent already claimed recovery.
+A research Job ID returns recovery_unit_required. The waiting deadline can expire or another agent may already hold the Unit lease.
 
 ## progress
 
@@ -119,7 +119,7 @@ Scope: `submit`. Owner: [recovery](../features/recovery.md). Implementation: [ru
 
 ```json
 {
-  "id": "<job-id>",
+  "id": "<unit-id>",
   "lease": "<recovery-lease>"
 }
 ```
@@ -180,7 +180,7 @@ Scope: `submit`. Owner: [recovery](../features/recovery.md). Implementation: [ru
 
 ```json
 {
-  "id": "<job-id>",
+  "id": "<unit-id>",
   "lease": "<recovery-lease>",
   "patch": {},
   "reason": "Rerun after repairing the cause"
@@ -242,7 +242,7 @@ Scope: `submit`. Owner: [recovery](../features/recovery.md). Implementation: [ru
 
 ```json
 {
-  "id": "<job-id>"
+  "id": "<unit-id>"
 }
 ```
 

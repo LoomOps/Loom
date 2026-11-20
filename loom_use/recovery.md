@@ -2,6 +2,11 @@
 
 An agent reads its events through events.list(kind=all). ack confirms receipt, not repair ownership or execution completion. Unacknowledged events remain queryable after reconnecting. Preserve the event cursor and relevant Job IDs.
 
+For a research Job, call `jobs.get` and read `units[].state`, `recovery_state`,
+and `recovery_reason`. Target the exact failed Unit's `id` with recovery
+actions. A Job that owns Units returns `recovery_unit_required` when used as the
+recovery target. Standalone Units and legacy physical executions use their own IDs.
+
 On failure, the Job reserves its existing position in the execution lane for 15 minutes. This affects later run stages in the same lane, not independent Jobs moved ahead of it or CPU preparation. An ordinary hold does not reserve a lane. The responsible agent calls recovery.claim and uses the returned lease for progress/resume. The reservation expires after 15 minutes without progress or a maximum 30-minute round. Resume after correcting the cause; at most three recovery rounds are available. Opt-in automatic retries consume the same budget. The profile's max_attempts is an additional automatic-retry cap, not extra recovery budget.
 
 If no agent arrives or the limit is reached, defer the failed Job and its dependents while independent work proceeds. recovery.defer explicitly releases the reservation. A later reactivate assigns a new queue position without resetting recovery rounds. Never give another Job overlapping GPU ownership while the original process has not returned.

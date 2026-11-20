@@ -33,7 +33,10 @@ fn queue_forecast_uses_fresh_progress_for_the_current_running_unit() {
     assert_eq!(forecast["status"], "estimated");
     assert!((forecast["finish_at"].as_f64().unwrap() - (now + 1050.0)).abs() < 0.001);
     let dashboard = f.call("system", "dashboard_queue", json!({})).unwrap();
-    assert_eq!(dashboard["queue"]["unit_entries"][0]["forecast"]["finish_at"], forecast["finish_at"]);
+    assert_eq!(
+        dashboard["queue"]["unit_entries"][0]["forecast"]["finish_at"],
+        forecast["finish_at"]
+    );
     report["attempt"] = json!("old-attempt");
     fs::write(&path, report.to_string()).unwrap();
     assert!(unit(&f.app).get("forecast").is_none());
@@ -127,6 +130,47 @@ fn exhausted_research_unit_keeps_one_failed_job_and_releases_waiting_units() {
     );
     assert_eq!(f.app.queue().unwrap()["job_entries"], json!([]));
     assert_eq!(f.count("events"), 1);
+}
+
+#[test]
+fn research_recovery_names_the_failed_unit_and_rejects_the_parent() {
+    let mut f = Fixture::new();
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"recovery-task","definition":{"label":"Dataset preparation"}}),
+        )
+        .unwrap();
+    let job = f.call("jobs", "submit_research", json!({"key":"unit-repair","owner":"owner","notify":"owner",
+        "scenario_ref":{"id":task["id"],"revision":1},
+        "outcome":{"goal":"Dataset","deliverables":[{"alias":"dataset","kind":"dataset","from":{"unit":"generate","entity":"dataset"}}]},
+        "plan":{"sealed":false,"units":[{"id":"check","label":"Check","execution":{"kind":"cpu.smoke","params":{"seconds":0,"fail":true}}},
+                                        {"id":"generate","label":"Generate","depends_on":["check"]}]}})).unwrap();
+    let work = f.app.next_work(&Default::default()).unwrap().unwrap();
+    let unit = &job["units"]["check"];
+    assert_eq!(work.job, unit.as_str().unwrap());
+    f.app
+        .stage_returned(&work, 1, json!({"returned":true}))
+        .unwrap();
+    let root = f.call("jobs", "get", json!({"id":job["id"]})).unwrap();
+    assert_eq!(root["units"][0]["id"], *unit);
+    assert_eq!(root["units"][0]["recovery_state"], "waiting");
+    assert_eq!(root["units"][0]["recovery_reason"], "exit_nonzero");
+    assert_eq!(
+        f.app.queue().unwrap()["job_entries"][0]["reason"],
+        "unit_failed"
+    );
+    let error = f
+        .call("recovery", "claim", json!({"id":job["id"]}))
+        .unwrap_err();
+    assert_eq!(
+        (error.code.as_str(), error.status),
+        ("recovery_unit_required", 409)
+    );
+    f.call("recovery", "claim", json!({"id":unit})).unwrap();
+    let root = f.call("jobs", "get", json!({"id":job["id"]})).unwrap();
+    assert_eq!(root["units"][0]["recovery_state"], "claimed");
 }
 
 #[test]
@@ -584,13 +628,23 @@ fn retired_policy_revision_stays_discoverable_when_another_job_revises_it() {
     );
     let receipt = f
         .app
-        .execute(&researcher, "results", "set_output_disposition", retire.clone())
+        .execute(
+            &researcher,
+            "results",
+            "set_output_disposition",
+            retire.clone(),
+        )
         .unwrap();
     assert_eq!(receipt["changed"][0]["disposition"]["actor"], "researcher");
     assert_eq!(
         receipt,
         f.app
-            .execute(&researcher, "results", "set_output_disposition", retire.clone())
+            .execute(
+                &researcher,
+                "results",
+                "set_output_disposition",
+                retire.clone()
+            )
             .unwrap()
     );
     let mut restore = retire.clone();
@@ -598,7 +652,12 @@ fn retired_policy_revision_stays_discoverable_when_another_job_revises_it() {
     restore["state"] = json!("current");
     assert_eq!(
         f.app
-            .execute(&reader, "results", "set_output_disposition", restore.clone())
+            .execute(
+                &reader,
+                "results",
+                "set_output_disposition",
+                restore.clone()
+            )
             .unwrap_err()
             .status,
         403
@@ -622,7 +681,12 @@ fn retired_policy_revision_stays_discoverable_when_another_job_revises_it() {
     let mut retire_again = retire;
     retire_again["key"] = json!("discard-r1-again");
     f.app
-        .execute(&researcher, "results", "set_output_disposition", retire_again)
+        .execute(
+            &researcher,
+            "results",
+            "set_output_disposition",
+            retire_again,
+        )
         .unwrap();
 
     let mut request = json!({"key":"revise-policy","owner":"owner","notify":"owner","scenario_ref":task_ref,
@@ -3684,15 +3748,30 @@ fn reconciliation_import_replays_without_new_jobs_and_rejects_mutated_source_evi
         input["split"],
         json!({"train":700,"validation":150,"test":150})
     );
-    f.call("jobs","curate",json!({"key":"split-source-label","reason":"Match the dataset variant","dry_run":false,
-        "changes":[{"kind":"entity","id":dataset,"presentation":{"label":"D1"}}]})).unwrap();
+    f.call(
+        "jobs",
+        "curate",
+        json!({"key":"split-source-label","reason":"Match the dataset variant","dry_run":false,
+        "changes":[{"kind":"entity","id":dataset,"presentation":{"label":"D1"}}]}),
+    )
+    .unwrap();
     for _ in 0..8 {
         f.app.index_once().unwrap();
     }
     let pin = f
-        .call("results", "resolve_item", json!({"native_ref":input["ref"]}))
+        .call(
+            "results",
+            "resolve_item",
+            json!({"native_ref":input["ref"]}),
+        )
         .unwrap();
-    let policy_page = f.call("system", "dashboard_page", json!({"kinds":["model"],"view":"all","role":"all","records_only":true})).unwrap();
+    let policy_page = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"kinds":["model"],"view":"all","role":"all","records_only":true}),
+        )
+        .unwrap();
     let curated_input = &policy_page["entities"][0]["catalog_inputs"]["datasets"][0];
     assert_eq!(curated_input["label"], "D1");
     assert_eq!(curated_input["item_id"], pin["item_id"]);

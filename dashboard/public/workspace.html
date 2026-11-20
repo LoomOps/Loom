@@ -4606,8 +4606,16 @@ function forecastCells(entity) {
   const start = queueTimes(entity).started !== null ? &#x27;시작됨&#x27; : &#x27;산정 대기&#x27;;
   return [remaining + progress, start, loomForecastFinish(forecast)].map(cell =&gt; &#x27;&lt;div class=&quot;pa-forecast&quot;&gt;&#x27; + cell + &#x27;&lt;/div&gt;&#x27;);
 }
+function loomUnitRecoveryLabel(unit) {
+  if(![&#x27;failed&#x27;,&#x27;interrupted&#x27;,&#x27;result_failed&#x27;].includes(unit.state))return &#x27;&#x27;;
+  return ({waiting:&#x27;복구 응답 대기&#x27;,claimed:&#x27;복구 담당자 지정됨&#x27;,pending:&#x27;재시도 대기&#x27;,deferred:&#x27;복구 보류&#x27;,exhausted:&#x27;복구 횟수 소진&#x27;})[unit.recovery_state]||&#x27;&#x27;;
+}
 function loomQueueReason(row) {
   if(row.reason===&#x27;executing&#x27;)return row.state===&#x27;preparing&#x27;?&#x27;준비 중&#x27;:&#x27;실행 중&#x27;;
+  if(row.reason===&#x27;unit_failed&#x27;){
+    const failures=(row.units||[]).filter(unit=&gt;[&#x27;failed&#x27;,&#x27;interrupted&#x27;,&#x27;result_failed&#x27;].includes(unit.state));
+    return failures.map(unit=&gt;[unit.label||unit.name,loomUnitRecoveryLabel(unit)||&#x27;실행 실패&#x27;].filter(Boolean).join(&#x27; · &#x27;)).join(&#x27; / &#x27;)||&#x27;Job 실패&#x27;;
+  }
   return ({awaiting_runtime_binding:&#x27;Runtime 연결 대기&#x27;,awaiting_plan:&#x27;실행 계획 확정 대기&#x27;,awaiting_deliverables:&#x27;산출물 검증 대기&#x27;,queue_paused:&#x27;운영자가 큐를 일시 중단함&#x27;,ready:&#x27;실행 가능&#x27;,held:&#x27;보류됨&#x27;,executing:&#x27;실행 중&#x27;,finalizing:&#x27;결과 처리 중&#x27;,dependencies:&#x27;선행 결과 대기&#x27;,
     resource_busy:&#x27;실행 슬롯 대기&#x27;,retry_delay:&#x27;재시도 대기&#x27;,recovery_reservation:&#x27;앞선 Job 복구 대기&#x27;,recovery_waiting:&#x27;복구 응답 대기&#x27;,
     recovery_claimed:&#x27;복구 진행 중&#x27;,recovery_deferred:&#x27;복구 보류&#x27;,recovery_exhausted:&#x27;복구 횟수 소진&#x27;,recovery_required:&#x27;내부 실행 복구 필요&#x27;})[row.reason] || row.reason;
@@ -4700,7 +4708,7 @@ const loomQueueStateBefore=queueState;
 queueState=function(entity){
  const q=loomQueueEntry(entity.id),base=loomQueueStateBefore(entity);
  if(q?.held)return {raw:base.raw,info:[&#x27;paused&#x27;,q.state===&#x27;preparing&#x27;?&#x27;Preparing · Hold requested&#x27;:&#x27;Held&#x27;,&#x27;Ⅱ&#x27;,false]};
- if(q &amp;&amp; [&#x27;failed&#x27;,&#x27;interrupted&#x27;].includes(q.state))return {raw:q.state,info:[&#x27;recovery&#x27;,loomQueueReason(q),&#x27;!&#x27;,false]};
+ if(q &amp;&amp; [&#x27;failed&#x27;,&#x27;interrupted&#x27;,&#x27;result_failed&#x27;].includes(q.state))return {raw:q.state,info:[&#x27;recovery&#x27;,q.reason===&#x27;unit_failed&#x27;?&#x27;Unit 실패&#x27;:loomQueueReason(q),&#x27;!&#x27;,false]};
  return base;
 };
 const loomQueuePanelBefore=loomJobPanel;
@@ -4800,7 +4808,7 @@ loomJobPanel=function(job,entry){
    +(science.hypothesis?catProperties({Hypothesis:science.hypothesis.statement,Population:science.hypothesis.population,Metric:science.hypothesis.metric,Analysis:science.hypothesis.analysis}):&#x27;&#x27;));
  }
  if(record?.entry_type===&#x27;job&#x27;&amp;&amp;record.units?.length)result=panel(&#x27;Units&#x27;,catTable([&#x27;Unit&#x27;,&#x27;Phase&#x27;,&#x27;State&#x27;,&#x27;Attempt&#x27;],record.units.map(unit=&gt;[
-  catLink(unit.id,unit.label)+loomQueueControls(unit.id),esc(unit.phase),esc(unit.status),esc(unit.attempt||&#x27;—&#x27;)
+  catLink(unit.id,unit.label)+loomQueueControls(unit.id),esc(unit.phase),esc([unit.status,loomUnitRecoveryLabel(unit)].filter(Boolean).join(&#x27; · &#x27;)),esc(unit.attempt||&#x27;—&#x27;)
  ])))+result;
  else if(nodes.length)result=panel(&#x27;Related Jobs&#x27;,catTable([&#x27;Job&#x27;,&#x27;State&#x27;,&#x27;Attempts&#x27;,&#x27;Execution&#x27;],nodes.map(n=&gt;[
   esc(n.label),esc(n.state),esc(n.attempts.length),catLink(n.job,n.id)+loomQueueControls(n.job)

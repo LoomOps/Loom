@@ -38,7 +38,7 @@ loomJobPanel=function(job,entry){
    +(science.hypothesis?catProperties({Hypothesis:science.hypothesis.statement,Population:science.hypothesis.population,Metric:science.hypothesis.metric,Analysis:science.hypothesis.analysis}):''));
  }
  if(record?.entry_type==='job'&&record.units?.length)result=panel('Units',catTable(['Unit','Phase','State','Attempt'],record.units.map(unit=>[
-  catLink(unit.id,unit.label)+loomQueueControls(unit.id),esc(unit.phase),esc(unit.status),esc(unit.attempt||'—')
+  catLink(unit.id,unit.label)+loomQueueControls(unit.id),esc(unit.phase),esc([unit.status,loomUnitRecoveryLabel(unit)].filter(Boolean).join(' · ')),esc(unit.attempt||'—')
  ])))+result;
  else if(nodes.length)result=panel('Related Jobs',catTable(['Job','State','Attempts','Execution'],nodes.map(n=>[
   esc(n.label),esc(n.state),esc(n.attempts.length),catLink(n.job,n.id)+loomQueueControls(n.job)

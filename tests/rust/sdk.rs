@@ -24,11 +24,9 @@ fn producer_work_progress_is_scoped_and_rate_limited() {
     assert_eq!(report["attempt"], "attempt-one");
     assert_eq!(report["previous"]["completed"], 50);
     assert_eq!(report["sample"]["completed"], 75);
-    assert!(
-        producer
-            .report_work_progress("training", 201, 200, "updates")
-            .is_err()
-    );
+    assert!(producer
+        .report_work_progress("training", 201, 200, "updates")
+        .is_err());
     fs::remove_dir_all(root).unwrap();
 }
 

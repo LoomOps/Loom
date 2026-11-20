@@ -1030,6 +1030,7 @@
         "rust/crates/ops/src/updates.rs",
         "deploy/migrations/item_index.py",
         "deploy/migrations/reconciliation.py",
+        "deploy/migrations/reconciliation_compatibility.py",
         "rust/contracts/reconcile-schema.sql",
         "deploy/migrations/browser_relay_routes.py",
         "rust/crates/primitives/Cargo.toml",
