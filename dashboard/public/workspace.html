@@ -376,12 +376,14 @@ function loomTailscaleIcon(){return `&lt;svg class=&quot;pa-tailscale-symbol&quo
 #pai-studio .pa-report-instruction { margin:12px 0 20px; }
 #pai-studio .pa-report-instruction blockquote { margin:8px 0; padding-left:16px; border-left:2px solid var(--pa-line); overflow-wrap:anywhere; }
 #pai-studio .pa-report-missing { color:var(--pa-muted); margin:16px 0; }
-#pai-studio .pa-report-page,.pa-report-axes { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin:12px 0; color:var(--pa-muted); }
+#pai-studio .pa-report-page { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin:12px 0; color:var(--pa-muted); }
 #pai-studio .pa-report-chart { width:100%; max-width:900px; color:var(--pa-accent); }
 #pai-studio .pa-report-chart svg { display:block; width:100%; height:auto; min-height:180px; overflow:visible; }
 #pai-studio .pa-report-chart circle { fill:currentColor; }
 #pai-studio .pa-report-chart polyline { stroke:currentColor; stroke-width:2; }
 #pai-studio .pa-report-chart .pa-report-axis { stroke:var(--pa-line); stroke-width:1; }
+#pai-studio .pa-report-chart .pa-report-grid { stroke:var(--pa-line); stroke-opacity:.55; }
+#pai-studio .pa-report-chart .pa-report-axis-label { fill:var(--pa-ink); font-weight:600; }
 #pai-studio .pa-report-chart .pa-report-checkpoint { stroke:var(--pa-accent); stroke-width:1; stroke-dasharray:4 4; }
 #pai-studio .pa-report-contract { margin-top:24px; color:var(--pa-muted); }
 #pai-studio .pa-report-bars { display:grid; gap:8px; }
@@ -6406,21 +6408,29 @@ function loomReportChart(rows,f,format,selectedStep,inspectedStep,members){
  if(!points.length)return &#x27;&lt;p class=&quot;pa-report-missing&quot;&gt;Not measured&lt;/p&gt;&#x27;;
  const xs=points.map(p=&gt;p.x),ys=points.map(p=&gt;p.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),dx=maxX-minX||1,dy=maxY-minY||1;
  const pairedLength=format===&#x27;scatter&#x27;&amp;&amp;[&#x27;mm&#x27;,&#x27;cm&#x27;,&#x27;m&#x27;].includes(f.unit);
- const scale=Math.min(500/dx,180/dy),xWidth=pairedLength?dx*scale:500,yHeight=pairedLength?dy*scale:180;
- const x=v=&gt;52+(v-minX)/dx*xWidth,y=v=&gt;210-(v-minY)/dy*yHeight;
+ const left=84,bottom=206,scale=Math.min(500/dx,180/dy);
+ const xWidth=pairedLength?dx*scale:500,yHeight=pairedLength?dy*scale:180,top=bottom-yHeight;
+ const x=v=&gt;left+(v-minX)/dx*xWidth,y=v=&gt;bottom-(v-minY)/dy*yHeight;
  const groups=[...new Set(points.map(p=&gt;p.group))];if(groups.length&gt;8)return &#x27;&lt;p class=&quot;pa-report-missing&quot;&gt;Choose a subtask or split to plot these measurements.&lt;/p&gt;&#x27;;
  const line=format===&#x27;series&#x27;?groups.map((g,index)=&gt;&#x27;&lt;polyline fill=&quot;none&quot; stroke-dasharray=&quot;&#x27;+([&#x27;&#x27;,&#x27;6 3&#x27;,&#x27;2 3&#x27;,&#x27;8 2 2 2&#x27;][index%4])+&#x27;&quot; points=&quot;&#x27;+points.filter(p=&gt;p.group===g).sort((a,b)=&gt;a.x-b.x).map(p=&gt;x(p.x)+&#x27;,&#x27;+y(p.y)).join(&#x27; &#x27;)+&#x27;&quot;/&gt;&#x27;).join(&#x27;&#x27;):&#x27;&#x27;;
- const legend=groups.length&gt;1?&#x27;&lt;div class=&quot;pa-report-series&quot;&gt;&#x27;+groups.map((g,i)=&gt;&#x27;&lt;span&gt;&lt;i style=&quot;border-bottom-style:&#x27;+([&#x27;solid&#x27;,&#x27;dashed&#x27;,&#x27;dotted&#x27;,&#x27;dashed&#x27;][i%4])+&#x27;&quot;&gt;&lt;/i&gt;&#x27;+esc(g)+&#x27;&lt;/span&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;:&#x27;&#x27;;
+ const legend=format===&#x27;series&#x27;||groups.length&gt;1?&#x27;&lt;div class=&quot;pa-report-series&quot;&gt;&#x27;+groups.map((g,i)=&gt;&#x27;&lt;span&gt;&lt;i style=&quot;border-bottom-style:&#x27;+([&#x27;solid&#x27;,&#x27;dashed&#x27;,&#x27;dotted&#x27;,&#x27;dashed&#x27;][i%4])+&#x27;&quot;&gt;&lt;/i&gt;&#x27;+esc(g===&#x27;Overall&#x27;?f.label:g)+&#x27;&lt;/span&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;:&#x27;&#x27;;
  const selected=Number.isFinite(selectedStep)&amp;&amp;selectedStep&gt;=minX&amp;&amp;selectedStep&lt;=maxX;
- const marker=selected?&#x27;&lt;line class=&quot;pa-report-checkpoint&quot; x1=&quot;&#x27;+x(selectedStep)+&#x27;&quot; y1=&quot;30&quot; x2=&quot;&#x27;+x(selectedStep)+&#x27;&quot; y2=&quot;210&quot;/&gt;&#x27;:&#x27;&#x27;;
+ const marker=selected?&#x27;&lt;line class=&quot;pa-report-checkpoint&quot; x1=&quot;&#x27;+x(selectedStep)+&#x27;&quot; y1=&quot;&#x27;+top+&#x27;&quot; x2=&quot;&#x27;+x(selectedStep)+&#x27;&quot; y2=&quot;&#x27;+bottom+&#x27;&quot;/&gt;&#x27;:&#x27;&#x27;;
  const dots=points.map(p=&gt;{
   const title=p.id+&#x27; · &#x27;+p.group+&#x27; · X &#x27;+loomReportNumber(p.x)+&#x27; · Y &#x27;+loomReportNumber(p.y);
   const dot=&#x27;&lt;circle cx=&quot;&#x27;+x(p.x)+&#x27;&quot; cy=&quot;&#x27;+y(p.y)+&#x27;&quot; r=&quot;&#x27;+(p.x===inspectedStep?6:3)+&#x27;&quot;&gt;&lt;title&gt;&#x27;+esc(title)+&#x27;&lt;/title&gt;&lt;/circle&gt;&#x27;;
   const member=members?.get(p.id);
   return member?&#x27;&lt;a href=&quot;#episode&quot; data-report-episode=&quot;&#x27;+esc(loomReportMemberKey({id:member}))+&#x27;&quot; aria-label=&quot;&#x27;+esc(title)+&#x27;&quot;&gt;&#x27;+dot+&#x27;&lt;/a&gt;&#x27;:dot;
  }).join(&#x27;&#x27;);
- const unit=f.unit?&#x27; &#x27;+esc(f.unit):&#x27;&#x27;;
- return &#x27;&lt;div class=&quot;pa-report-chart&quot;&gt;&#x27;+legend+&#x27;&lt;svg viewBox=&quot;0 0 580 260&quot; role=&quot;&#x27;+(members?.size?&#x27;group&#x27;:&#x27;img&#x27;)+&#x27;&quot; aria-label=&quot;&#x27;+esc(f.label+&#x27; · &#x27;+points.length+&#x27; recorded points&#x27;)+&#x27;&quot;&gt;&lt;line class=&quot;pa-report-axis&quot; x1=&quot;52&quot; y1=&quot;210&quot; x2=&quot;&#x27;+(52+xWidth)+&#x27;&quot; y2=&quot;210&quot;/&gt;&lt;line class=&quot;pa-report-axis&quot; x1=&quot;52&quot; y1=&quot;&#x27;+(210-yHeight)+&#x27;&quot; x2=&quot;52&quot; y2=&quot;210&quot;/&gt;&#x27;+line+marker+dots+&#x27;&lt;/svg&gt;&lt;div class=&quot;pa-report-axes&quot;&gt;&lt;span&gt;&#x27;+esc(f.x_label||&#x27;X&#x27;)+&#x27; · &#x27;+esc(loomReportNumber(minX))+&#x27; – &#x27;+esc(loomReportNumber(maxX))+(pairedLength?unit:&#x27;&#x27;)+&#x27;&lt;/span&gt;&lt;span&gt;&#x27;+esc(f.y_label||&#x27;Y&#x27;)+&#x27; · &#x27;+esc(loomReportNumber(minY))+&#x27; – &#x27;+esc(loomReportNumber(maxY))+unit+&#x27;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&#x27;;
+ const ticks=(min,max,length)=&gt;min===max?[min]:Array.from({length:length&lt;100?2:5},(_,i)=&gt;min+(max-min)*i/(length&lt;100?1:4));
+ const tickLabel=v=&gt;esc(v!==0&amp;&amp;(Math.abs(v)&lt;0.001||Math.abs(v)&gt;=1e7)?v.toExponential(2):v.toLocaleString(&#x27;en-US&#x27;,{maximumSignificantDigits:4}));
+ const xTicks=ticks(minX,maxX,xWidth).map(v=&gt;&#x27;&lt;text x=&quot;&#x27;+x(v)+&#x27;&quot; y=&quot;&#x27;+(bottom+19)+&#x27;&quot; text-anchor=&quot;middle&quot;&gt;&#x27;+tickLabel(v)+&#x27;&lt;/text&gt;&#x27;).join(&#x27;&#x27;);
+ const yTicks=ticks(minY,maxY,yHeight).map(v=&gt;&#x27;&lt;line class=&quot;pa-report-grid&quot; x1=&quot;&#x27;+left+&#x27;&quot; x2=&quot;&#x27;+(left+xWidth)+&#x27;&quot; y1=&quot;&#x27;+y(v)+&#x27;&quot; y2=&quot;&#x27;+y(v)+&#x27;&quot;/&gt;&lt;text x=&quot;&#x27;+(left-8)+&#x27;&quot; y=&quot;&#x27;+y(v)+&#x27;&quot; text-anchor=&quot;end&quot; dominant-baseline=&quot;middle&quot;&gt;&#x27;+tickLabel(v)+&#x27;&lt;/text&gt;&#x27;).join(&#x27;&#x27;);
+ const unit=f.unit?&#x27; (&#x27;+f.unit+&#x27;)&#x27;:&#x27;&#x27;;
+ const xLabel=esc((f.x_label||&#x27;X&#x27;)+(pairedLength?unit:&#x27;&#x27;)),yLabel=esc((f.y_label||&#x27;Y&#x27;)+unit);
+ const axes=&#x27;&lt;line class=&quot;pa-report-axis&quot; x1=&quot;&#x27;+left+&#x27;&quot; y1=&quot;&#x27;+bottom+&#x27;&quot; x2=&quot;&#x27;+(left+xWidth)+&#x27;&quot; y2=&quot;&#x27;+bottom+&#x27;&quot;/&gt;&lt;line class=&quot;pa-report-axis&quot; x1=&quot;&#x27;+left+&#x27;&quot; y1=&quot;&#x27;+top+&#x27;&quot; x2=&quot;&#x27;+left+&#x27;&quot; y2=&quot;&#x27;+bottom+&#x27;&quot;/&gt;&#x27;;
+ const labels=&#x27;&lt;text class=&quot;pa-report-axis-label&quot; x=&quot;&#x27;+(left+xWidth/2)+&#x27;&quot; y=&quot;247&quot; text-anchor=&quot;middle&quot;&gt;&#x27;+xLabel+&#x27;&lt;/text&gt;&lt;text class=&quot;pa-report-axis-label&quot; transform=&quot;translate(14 &#x27;+(top+yHeight/2)+&#x27;) rotate(-90)&quot; text-anchor=&quot;middle&quot;&gt;&#x27;+yLabel+&#x27;&lt;/text&gt;&#x27;;
+ return &#x27;&lt;div class=&quot;pa-report-chart&quot;&gt;&#x27;+legend+&#x27;&lt;svg viewBox=&quot;0 0 620 260&quot; role=&quot;&#x27;+(members?.size?&#x27;group&#x27;:&#x27;img&#x27;)+&#x27;&quot; aria-label=&quot;&#x27;+esc(f.label+&#x27; · &#x27;+points.length+&#x27; recorded points&#x27;)+&#x27;&quot;&gt;&#x27;+yTicks+xTicks+axes+labels+line+marker+dots+&#x27;&lt;/svg&gt;&lt;/div&gt;&#x27;;
 }
 function loomReportMore(page,r,f,label){
  return page.next_offset!=null?&#x27;&lt;button class=&quot;pa-button&quot; data-report-more=&quot;&#x27;+esc(r.requirement_id)+&#x27;&quot; data-report-field=&quot;&#x27;+esc(f.id)+&#x27;&quot;&gt;&#x27;+esc(label)+&#x27;&lt;/button&gt;&#x27;:&#x27;&#x27;;

@@ -80,21 +80,29 @@ function loomReportChart(rows,f,format,selectedStep,inspectedStep,members){
  if(!points.length)return '<p class="pa-report-missing">Not measured</p>';
  const xs=points.map(p=>p.x),ys=points.map(p=>p.y),minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys),dx=maxX-minX||1,dy=maxY-minY||1;
  const pairedLength=format==='scatter'&&['mm','cm','m'].includes(f.unit);
- const scale=Math.min(500/dx,180/dy),xWidth=pairedLength?dx*scale:500,yHeight=pairedLength?dy*scale:180;
- const x=v=>52+(v-minX)/dx*xWidth,y=v=>210-(v-minY)/dy*yHeight;
+ const left=84,bottom=206,scale=Math.min(500/dx,180/dy);
+ const xWidth=pairedLength?dx*scale:500,yHeight=pairedLength?dy*scale:180,top=bottom-yHeight;
+ const x=v=>left+(v-minX)/dx*xWidth,y=v=>bottom-(v-minY)/dy*yHeight;
  const groups=[...new Set(points.map(p=>p.group))];if(groups.length>8)return '<p class="pa-report-missing">Choose a subtask or split to plot these measurements.</p>';
  const line=format==='series'?groups.map((g,index)=>'<polyline fill="none" stroke-dasharray="'+(['','6 3','2 3','8 2 2 2'][index%4])+'" points="'+points.filter(p=>p.group===g).sort((a,b)=>a.x-b.x).map(p=>x(p.x)+','+y(p.y)).join(' ')+'"/>').join(''):'';
- const legend=groups.length>1?'<div class="pa-report-series">'+groups.map((g,i)=>'<span><i style="border-bottom-style:'+(['solid','dashed','dotted','dashed'][i%4])+'"></i>'+esc(g)+'</span>').join('')+'</div>':'';
+ const legend=format==='series'||groups.length>1?'<div class="pa-report-series">'+groups.map((g,i)=>'<span><i style="border-bottom-style:'+(['solid','dashed','dotted','dashed'][i%4])+'"></i>'+esc(g==='Overall'?f.label:g)+'</span>').join('')+'</div>':'';
  const selected=Number.isFinite(selectedStep)&&selectedStep>=minX&&selectedStep<=maxX;
- const marker=selected?'<line class="pa-report-checkpoint" x1="'+x(selectedStep)+'" y1="30" x2="'+x(selectedStep)+'" y2="210"/>':'';
+ const marker=selected?'<line class="pa-report-checkpoint" x1="'+x(selectedStep)+'" y1="'+top+'" x2="'+x(selectedStep)+'" y2="'+bottom+'"/>':'';
  const dots=points.map(p=>{
   const title=p.id+' · '+p.group+' · X '+loomReportNumber(p.x)+' · Y '+loomReportNumber(p.y);
   const dot='<circle cx="'+x(p.x)+'" cy="'+y(p.y)+'" r="'+(p.x===inspectedStep?6:3)+'"><title>'+esc(title)+'</title></circle>';
   const member=members?.get(p.id);
   return member?'<a href="#episode" data-report-episode="'+esc(loomReportMemberKey({id:member}))+'" aria-label="'+esc(title)+'">'+dot+'</a>':dot;
  }).join('');
- const unit=f.unit?' '+esc(f.unit):'';
- return '<div class="pa-report-chart">'+legend+'<svg viewBox="0 0 580 260" role="'+(members?.size?'group':'img')+'" aria-label="'+esc(f.label+' · '+points.length+' recorded points')+'"><line class="pa-report-axis" x1="52" y1="210" x2="'+(52+xWidth)+'" y2="210"/><line class="pa-report-axis" x1="52" y1="'+(210-yHeight)+'" x2="52" y2="210"/>'+line+marker+dots+'</svg><div class="pa-report-axes"><span>'+esc(f.x_label||'X')+' · '+esc(loomReportNumber(minX))+' – '+esc(loomReportNumber(maxX))+(pairedLength?unit:'')+'</span><span>'+esc(f.y_label||'Y')+' · '+esc(loomReportNumber(minY))+' – '+esc(loomReportNumber(maxY))+unit+'</span></div></div>';
+ const ticks=(min,max,length)=>min===max?[min]:Array.from({length:length<100?2:5},(_,i)=>min+(max-min)*i/(length<100?1:4));
+ const tickLabel=v=>esc(v!==0&&(Math.abs(v)<0.001||Math.abs(v)>=1e7)?v.toExponential(2):v.toLocaleString('en-US',{maximumSignificantDigits:4}));
+ const xTicks=ticks(minX,maxX,xWidth).map(v=>'<text x="'+x(v)+'" y="'+(bottom+19)+'" text-anchor="middle">'+tickLabel(v)+'</text>').join('');
+ const yTicks=ticks(minY,maxY,yHeight).map(v=>'<line class="pa-report-grid" x1="'+left+'" x2="'+(left+xWidth)+'" y1="'+y(v)+'" y2="'+y(v)+'"/><text x="'+(left-8)+'" y="'+y(v)+'" text-anchor="end" dominant-baseline="middle">'+tickLabel(v)+'</text>').join('');
+ const unit=f.unit?' ('+f.unit+')':'';
+ const xLabel=esc((f.x_label||'X')+(pairedLength?unit:'')),yLabel=esc((f.y_label||'Y')+unit);
+ const axes='<line class="pa-report-axis" x1="'+left+'" y1="'+bottom+'" x2="'+(left+xWidth)+'" y2="'+bottom+'"/><line class="pa-report-axis" x1="'+left+'" y1="'+top+'" x2="'+left+'" y2="'+bottom+'"/>';
+ const labels='<text class="pa-report-axis-label" x="'+(left+xWidth/2)+'" y="247" text-anchor="middle">'+xLabel+'</text><text class="pa-report-axis-label" transform="translate(14 '+(top+yHeight/2)+') rotate(-90)" text-anchor="middle">'+yLabel+'</text>';
+ return '<div class="pa-report-chart">'+legend+'<svg viewBox="0 0 620 260" role="'+(members?.size?'group':'img')+'" aria-label="'+esc(f.label+' · '+points.length+' recorded points')+'">'+yTicks+xTicks+axes+labels+line+marker+dots+'</svg></div>';
 }
 function loomReportMore(page,r,f,label){
  return page.next_offset!=null?'<button class="pa-button" data-report-more="'+esc(r.requirement_id)+'" data-report-field="'+esc(f.id)+'">'+esc(label)+'</button>':'';

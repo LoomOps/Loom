@@ -28,12 +28,14 @@
 #pai-studio .pa-report-instruction { margin:12px 0 20px; }
 #pai-studio .pa-report-instruction blockquote { margin:8px 0; padding-left:16px; border-left:2px solid var(--pa-line); overflow-wrap:anywhere; }
 #pai-studio .pa-report-missing { color:var(--pa-muted); margin:16px 0; }
-#pai-studio .pa-report-page,.pa-report-axes { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin:12px 0; color:var(--pa-muted); }
+#pai-studio .pa-report-page { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin:12px 0; color:var(--pa-muted); }
 #pai-studio .pa-report-chart { width:100%; max-width:900px; color:var(--pa-accent); }
 #pai-studio .pa-report-chart svg { display:block; width:100%; height:auto; min-height:180px; overflow:visible; }
 #pai-studio .pa-report-chart circle { fill:currentColor; }
 #pai-studio .pa-report-chart polyline { stroke:currentColor; stroke-width:2; }
 #pai-studio .pa-report-chart .pa-report-axis { stroke:var(--pa-line); stroke-width:1; }
+#pai-studio .pa-report-chart .pa-report-grid { stroke:var(--pa-line); stroke-opacity:.55; }
+#pai-studio .pa-report-chart .pa-report-axis-label { fill:var(--pa-ink); font-weight:600; }
 #pai-studio .pa-report-chart .pa-report-checkpoint { stroke:var(--pa-accent); stroke-width:1; stroke-dasharray:4 4; }
 #pai-studio .pa-report-contract { margin-top:24px; color:var(--pa-muted); }
 #pai-studio .pa-report-bars { display:grid; gap:8px; }
