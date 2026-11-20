@@ -217,10 +217,10 @@ function loomCatalogTask(e){
   (refs.length&&refs.every(r=>r.id===refs[0].id)?refs[0]:null);
 }
 function loomCatalogTaskGroups(items,taskFor,renderItems){
- const groups=new Map();
+ const groups=new Map(),currentTasks=new Map(loomTaskOptions().map(task=>[task.id,task]));
  for(const item of items){
   const task=taskFor(item),id=task?.id||'';
-  if(!groups.has(id))groups.set(id,{task,items:[]});
+  if(!groups.has(id))groups.set(id,{task:currentTasks.get(id)||task,items:[]});
   groups.get(id).items.push(item);
  }
  if(groups.size===1&&groups.has(''))return renderItems(groups.get('').items);

@@ -1,10 +1,10 @@
 # Changelog
 
-## 0.2.0-alpha.74
+## 0.2.0-alpha.75
 
 - Show Job Units and Activity loading explicitly, retain loaded details during refresh, and estimate Unit finish times from producer progress samples when available.
 - Expose recovery on failed execution Units and verify the Job and Unit schema during managed updates.
-- Filter the catalog Task index by current dispositions and display Dataset split counts as tags while preserving exact revision links. Allow research submit scope to discard and restore catalog outputs.
+- Filter the catalog Task index by current dispositions, show current Task names on catalog groups, and display Dataset split counts as tags while preserving exact revision links. Allow research submit scope to discard and restore catalog outputs.
 - Label report chart axes, ticks and series, and pin Loom Use alpha.16.
 
 ## 0.2.0-alpha.63
