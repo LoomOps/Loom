@@ -572,7 +572,8 @@
 #pai-studio .pa-scientific-facts.is-compact dd{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:44ch}
 #pai-studio .pa-scientific-facts dd.pa-split-tags,#pai-studio .pa-catalog-inputs{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;max-width:100%;overflow:visible}
 #pai-studio button[data-catalog-input-ref]{border:0;background:none;overflow-wrap:anywhere}
-#pai-studio .pa-split-tag{display:inline-block;max-width:100%;overflow-wrap:anywhere;padding:2px 7px;border:1px solid var(--pa-line);border-radius:4px;font-size:13px}
+#pai-studio .pa-split-tag{display:inline-block;max-width:100%;overflow-wrap:anywhere;padding-inline:6px;box-shadow:inset 0 0 0 1px var(--pa-line);border-radius:4px;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;vertical-align:top}
+#pai-studio .pa-scientific-facts .pa-split-tag{font-size:inherit;line-height:inherit}
 #pai-studio .pa-scientific-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 16px;align-items:start;padding:16px 0}
 #pai-studio .pa-scientific-card .pa-output-task{margin-bottom:8px}
 #pai-studio .pa-scientific-card .pa-row-main>a,#pai-studio .pa-dataset-name [data-entity]{font-weight:600;font-size:14px}

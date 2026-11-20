@@ -682,7 +682,7 @@ const done=arguments[arguments.length-1];
         self.assertFalse(ui.js("return !![...document.querySelectorAll('[data-catalog-task-card]')].find(e=>e.dataset.catalogTaskCard==='')"))
         text=ui.js("return ['rich','legacy','annotated','conditions'].map(id=>document.querySelector('[data-output-id=dataset-'+id+']').innerText)")
         self.assertIn('Episodes\n140',text[0])
-        self.assertIn('Tag\nSplit 100/20/20',text[0])
+        self.assertIn('Tag\nsplit-100/20/20',text[0])
         self.assertEqual(ui.js("return document.querySelector('[data-output-id=dataset-rich] .pa-split-tag').title"),
                          'train 100 / validation 20 / test 20')
         self.assertIn('Episodes\nMissing',text[1])
@@ -1859,7 +1859,7 @@ const done=arguments[arguments.length-1];
         self.assertTrue(ui.js("return !!document.querySelector('.pa-dataset-subgroup [data-output-id=derive-child]')"))
         self.assertFalse(ui.js("return !!document.querySelector('[data-dataset-role],[data-dataset-filter],[data-dataset-reset]')"))
         self.assertEqual(ui.js("return document.querySelector('[data-dataset-result-count]').textContent"),'2개 데이터셋')
-        self.assertIn('validation 0',ui.js("return document.querySelector('[data-output-id=derive-child] .pa-split-tag').title"))
+        self.assertEqual(ui.js("return document.querySelector('[data-output-id=derive-child] [data-research-fact=split] dd').textContent"),'validation 0 / test N/A')
         self.assertEqual(ui.js("return document.querySelector('[data-output-id=derive-child]').dataset.datasetDepth"),'1')
         ui.route('derive-child');ui.wait("return !!document.querySelector('[data-output-sources]')")
         self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-output-source>summary')].map(x=>x.textContent)"),['Sources'])
@@ -2185,6 +2185,9 @@ const done=arguments[arguments.length-1];
         b=dataset('split-b','Franka Panda · Square D0',[variant],{'train':800,'validation':100,'test':100})
         b['presentation']={'label':b['label']}
         c=dataset('split-c','Recorded subgroup · Split 700/150/150',old_path,{'train':600,'validation':200,'test':200})
+        zero=dataset('split-zero','Recorded zero',[variant],{'train':12,'val':0})
+        invalid=dataset('split-invalid','Custom split',[variant],{'train':12,'validation window':4})
+        unrecorded=dataset('split-unrecorded','Unrecorded test',[variant],{'train':12,'validation':4,'test':'unrecorded'})
         catalog['research_tasks']=[task]
         model=next(e for e in catalog['entities'] if e['id']=='fixture-model')
         for index,record in enumerate((a,b)):
@@ -2193,36 +2196,46 @@ const done=arguments[arguments.length-1];
                    'item_id':str(index+11),'revision_id':str(index+21)}
             catalog['entities'].append({**model,'id':f'split-policy-{index}','task_refs':[task],'catalog_inputs':{'datasets':[input]}})
         catalog.setdefault('capabilities',{})['reporting']=True
-        catalog['entities'] += [a,b,c];catalog['revision']='split-tags'
+        catalog['entities'] += [a,b,c,zero,invalid,unrecorded];catalog['revision']='split-tags'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
         ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('split-tags')")
         ui.nav('Datasets')
         ui.wait("return !!document.querySelector('[data-output-id=split-b] .pa-split-tag')")
         rows=ui.js("""return ['split-a','split-b','split-c'].map(id=>{const row=document.querySelector('[data-output-id='+id+']');
             return [row.querySelector('a').textContent,row.querySelector('.pa-split-tag').textContent,row.closest('.pa-dataset-subgroup').querySelector('h4').textContent]})""")
-        self.assertEqual(rows,[[stable,'Split 700/150/150','D0'],
-                               [b['label'],'Split 800/100/100','D0'],
-                               [c['label'],'Split 600/200/200','D0 / Split 700/150/150']])
+        self.assertEqual(rows,[[stable,'split-700/150/150','D0'],
+                               [b['label'],'split-800/100/100','D0'],
+                               [c['label'],'split-600/200/200','D0 / Split 700/150/150']])
         self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=split-a] dt')].map(n=>n.textContent)"),['Tag','Episodes'])
         self.assertEqual(ui.js("return document.querySelector('[data-output-id=split-a] .pa-split-tag').title"),'train 700 / validation 150 / test 150')
+        self.assertEqual(ui.js("return document.querySelector('[data-output-id=split-zero] .pa-split-tag').textContent"),'split-12/0')
+        self.assertFalse(ui.js("return !!document.querySelector(':is([data-output-id=split-invalid],[data-output-id=split-unrecorded]) .pa-split-tag')"))
+        geometry=ui.js("""const row=document.querySelector('[data-output-id=split-a]');
+            const tag=row.querySelector('.pa-split-tag'),episodes=row.querySelector('[data-research-fact=count] dd');
+            const chip=tag.getBoundingClientRect(),value=episodes.getBoundingClientRect();
+            return {font:getComputedStyle(tag).fontFamily,top:chip.top-value.top,bottom:chip.bottom-value.bottom};""")
+        self.assertIn('monospace',geometry['font'])
+        self.assertAlmostEqual(geometry['top'],0,delta=1)
+        self.assertAlmostEqual(geometry['bottom'],0,delta=1)
         ui.click('[data-entity=split-a]')
         self.assertEqual(ui.js("return document.querySelector('.pa-heading h1').textContent"),stable)
-        self.assertEqual(ui.js("return document.querySelector('.pa-research-overview [data-research-fact=tag] .pa-split-tag').textContent"),'Split 700/150/150')
+        self.assertEqual(ui.js("return document.querySelector('.pa-research-overview [data-research-fact=tag] .pa-split-tag').textContent"),'split-700/150/150')
         ui.click('[data-output-sources]>summary');ui.click('details[data-output-record] summary')
         self.assertIn(a['label'],ui.js("return document.querySelector('details[data-output-record] pre').textContent"))
         ui.route('split-b')
         self.assertEqual(ui.js("return document.querySelector('.pa-heading h1').textContent"),b['label'])
         ui.nav('Models');ui.click('[data-research-task=split-task]')
         choices=ui.js("return [...document.querySelectorAll('[data-catalog-dataset]')].map(n=>n.textContent)")
-        self.assertEqual(choices,['All','D0 · Split 700/150/150','D0 · Split 800/100/100'])
+        self.assertEqual(choices,['All','D0 · split-700/150/150','D0 · split-800/100/100'])
+        self.assertEqual(ui.js("return document.querySelectorAll('[data-catalog-dataset] .pa-split-tag').length"),2)
         self.assertEqual(ui.js("""return [...document.querySelectorAll('[data-model-entry=split-policy-1] dd')]
-            .slice(0,2).map(n=>n.textContent)"""),['D0','Split 800/100/100'])
+            .slice(0,2).map(n=>n.textContent)"""),['D0','split-800/100/100'])
         ui.click('.pa-catalog-task-index[aria-label=Datasets] button:nth-of-type(3)')
         self.assertEqual(ui.js("return [...document.querySelectorAll('[data-model-entry]')].map(n=>n.dataset.modelEntry)"),['split-policy-1'])
         ui.click('[data-entity=split-policy-1]')
         self.assertEqual(ui.js("""const input=document.querySelector('.pa-catalog-inputs');const link=input.querySelector('a');
             return [link.textContent,link.dataset.entity,link.classList.contains('pa-button'),input.querySelector('.pa-split-tag').textContent]"""),
-            ['D0','revision:12:22',False,'Split 800/100/100'])
+            ['D0','revision:12:22',False,'split-800/100/100'])
 
     def test_catalog_marks_imports_and_only_headlines_one_checkpoint(self):
         ui=self.ui;catalog=self.api.fixture['catalog']

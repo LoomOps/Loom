@@ -5701,18 +5701,18 @@ function loomCatalogDatasetOptions(records){
   const label=loomInputLabel(input);labels.set(label,(labels.get(label)||0)+1);
  }
  const entries=[...options].map(([id,input])=&gt;{
-  const name=loomInputLabel(input),tag=labels.get(name)&gt;1&amp;&amp;loomDatasetSplitLabel(input.split);
-  return {id,label:tag?name+&#x27; · &#x27;+tag:name};
+  const label=loomInputLabel(input),tag=labels.get(label)&gt;1?loomDatasetSplitTag(input.split):null;
+  return {id,label,tag};
  });
+ const text=({label,tag,detail})=&gt;[label,tag?.text,detail].filter(Boolean).join(&#x27; · &#x27;);
  const counts=new Map();
- for(const {label} of entries)counts.set(label,(counts.get(label)||0)+1);
+ for(const entry of entries){const key=text(entry);counts.set(key,(counts.get(key)||0)+1);}
  for(const entry of entries){
-  if(counts.get(entry.label)&lt;2)continue;
+  if(counts.get(text(entry))&lt;2)continue;
   const identity=options.get(entry.id).ref.identity;
-  const detail=identity.snapshot?identity.source+&#x27; · r&#x27;+identity.revision:&#x27;r&#x27;+identity.revision+&#x27; · &#x27;+identity.id.slice(0,8);
-  entry.label+=&#x27; · &#x27;+detail;
+  entry.detail=identity.snapshot?identity.source+&#x27; · r&#x27;+identity.revision:&#x27;r&#x27;+identity.revision+&#x27; · &#x27;+identity.id.slice(0,8);
  }
- entries.sort((a,b)=&gt;a.label.localeCompare(b.label,undefined,{numeric:true}));
+ entries.sort((a,b)=&gt;text(a).localeCompare(text(b),undefined,{numeric:true}));
  return entries;
 }
 function loomMatchesCatalogInput(e,field,key){return !key||loomCatalogInputs(e,field).some(input=&gt;loomInputKey(input)===key);}
@@ -5783,7 +5783,10 @@ root.addEventListener(&#x27;click&#x27;,event=&gt;{
 });
 root.addEventListener(&#x27;input&#x27;,event=&gt;{const control=event.target.closest(&#x27;input[data-model-filter=&quot;query&quot;]&#x27;);if(control&amp;&amp;!event.isComposing)updatePolicyFilter(control);});
 function loomCatalogIndex(label,attribute,entries,selected){
- const buttons=[{id:&#x27;&#x27;,label:&#x27;All&#x27;},...entries].map(entry=&gt;&#x27;&lt;button type=&quot;button&quot; &#x27;+attribute+&#x27;=&quot;&#x27;+esc(entry.id)+&#x27;&quot; aria-pressed=&quot;&#x27;+(selected===entry.id)+&#x27;&quot;&gt;&#x27;+esc(entry.label)+&#x27;&lt;/button&gt;&#x27;).join(&#x27;&#x27;);
+ const buttons=[{id:&#x27;&#x27;,label:&#x27;All&#x27;},...entries].map(entry=&gt;{
+  const caption=esc(entry.label)+(entry.tag?&#x27; · &#x27;+loomSplitTagHTML(entry.tag):&#x27;&#x27;)+(entry.detail?&#x27; · &#x27;+esc(entry.detail):&#x27;&#x27;);
+  return &#x27;&lt;button type=&quot;button&quot; &#x27;+attribute+&#x27;=&quot;&#x27;+esc(entry.id)+&#x27;&quot; aria-pressed=&quot;&#x27;+(selected===entry.id)+&#x27;&quot;&gt;&#x27;+caption+&#x27;&lt;/button&gt;&#x27;;
+ }).join(&#x27;&#x27;);
  return &#x27;&lt;nav class=&quot;pa-catalog-task-index&quot; aria-label=&quot;&#x27;+label+&#x27;&quot;&gt;&lt;h2&gt;&#x27;+label+&#x27;&lt;/h2&gt;&#x27;+buttons+&#x27;&lt;/nav&gt;&#x27;;
 }
 function loomOutputPageComplete(page){
@@ -6106,6 +6109,10 @@ catFacts=function(e){
  return loomPriorCatalogFacts(e);
 };
 function loomSplitTagHTML(tag){return &#x27;&lt;span class=&quot;pa-split-tag&quot; title=&quot;&#x27;+esc(tag.title)+&#x27;&quot;&gt;&#x27;+esc(tag.text)+&#x27;&lt;/span&gt;&#x27;;}
+function loomDatasetSplitFact(fact){
+ const tag=fact.status===&#x27;recorded&#x27;&amp;&amp;loomDatasetSplitTag(fact.value);
+ return tag?{...fact,id:&#x27;tag&#x27;,label:&#x27;Tag&#x27;,tags:[tag]}:fact;
+}
 function loomResearchFactsHTML(facts,compact=false){
  return &#x27;&lt;dl class=&quot;pa-entity-facts pa-scientific-facts &#x27;+(compact?&#x27;is-compact&#x27;:&#x27;&#x27;)+&#x27;&quot;&gt;&#x27;+facts.map(f=&gt;{
   const value=f.tags?.length?&#x27;&lt;dd class=&quot;pa-split-tags&quot;&gt;&#x27;+f.tags.map(loomSplitTagHTML).join(&#x27;&#x27;)+&#x27;&lt;/dd&gt;&#x27;
@@ -6154,7 +6161,7 @@ function loomResearchOverviewContent(e){
   const priority=[&#x27;split&#x27;,&#x27;count&#x27;,&#x27;frames&#x27;,&#x27;train_snapshots&#x27;,&#x27;validation_snapshots&#x27;,&#x27;source_demos&#x27;,&#x27;collection_method&#x27;,&#x27;test_frames_read&#x27;,&#x27;bc_ready&#x27;,&#x27;positive_coverage&#x27;,&#x27;model_role&#x27;,&#x27;architecture&#x27;,&#x27;outputs&#x27;];
   const rank=f=&gt;priority.includes(f.id)?priority.indexOf(f.id):priority.length;
   const facts=s.facts.filter(f=&gt;f.section===id&amp;&amp;![&#x27;observation_schema&#x27;,&#x27;count_unit&#x27;,&#x27;condition_outcomes&#x27;].includes(f.id)&amp;&amp;loomResearchVisibleFact(f)&amp;&amp;!loomCheckpointPooledFact(e,f)).sort((a,b)=&gt;rank(a)-rank(b)).map(f=&gt;f.id===&#x27;count&#x27;?loomResearchCountFact(f,map.get(&#x27;count_unit&#x27;)?.value):f.id===&#x27;bc_ready&#x27;?{...f,label:&#x27;BC&#x27;}:
-   e.kind===&#x27;dataset&#x27;&amp;&amp;f.id===&#x27;split&#x27;?loomDatasetTagFact(f.status===&#x27;recorded&#x27;?[f.value]:[],loomResearchValue(f)):f);
+   e.kind===&#x27;dataset&#x27;&amp;&amp;f.id===&#x27;split&#x27;?loomDatasetSplitFact(f):f);
   if(id===&#x27;evaluation&#x27;&amp;&amp;map.has(&#x27;condition_outcomes&#x27;)&amp;&amp;!loomCheckpointPooledFact(e,map.get(&#x27;condition_outcomes&#x27;)))body+=loomResearchSection(&#x27;Condition outcomes&#x27;,loomResearchConditions(e));
   if(!facts.length)continue;
   const title=e.kind===&#x27;dataset&#x27;&amp;&amp;id===&#x27;physics&#x27;&amp;&amp;map.get(&#x27;environment&#x27;)?.value===&#x27;sim&#x27;?&#x27;Simulation&#x27;:loomResearchSections[id];
@@ -6230,30 +6237,27 @@ function loomDatasetKey(e){return e.dataset_mirror_key||e.id;}
 function loomDatasetImported(e){return e.reporting?.activity===&#x27;dataset_import&#x27;||e.origin?.type===&#x27;import&#x27;;}
 function loomDatasetOriginBadge(e){return loomDatasetImported(e)?&#x27;&lt;span class=&quot;pa-dataset-origin&quot;&gt;Imported&lt;/span&gt;&#x27;:&#x27;&#x27;;}
 function loomDatasetSplitTag(split){
- const label=loomDatasetSplitLabel(split),title=label&amp;&amp;loomResearchSplit(split);
- return title?{text:label,title}:null;
+ const counts=loomDatasetSplitCounts(split);
+ return counts?{text:&#x27;split-&#x27;+counts.join(&#x27;/&#x27;),title:loomResearchSplit(split)}:null;
 }
-function loomDatasetTagFact(splits,fallback=&#x27;Missing&#x27;){
+function loomDatasetTagFact(splits){
  const tags=new Map();
  for(const split of splits){
   const tag=loomDatasetSplitTag(split);
-  if(tag)tags.set(tag.title,tag);
+  if(tag)tags.set(tag.text,tag);
  }
- return {id:&#x27;tag&#x27;,label:&#x27;Tag&#x27;,value:fallback,status:&#x27;recorded&#x27;,tags:[...tags.values()]};
+ return {id:&#x27;tag&#x27;,label:&#x27;Tag&#x27;,value:&#x27;Missing&#x27;,status:&#x27;recorded&#x27;,tags:[...tags.values()]};
 }
 // Older producers duplicated a recorded split in both the label and subgroup.
 // Recognize that specific pair without changing the recorded identity or taxonomy.
 function loomDatasetSplitCounts(split){
  if(!split||typeof split!==&#x27;object&#x27;)return null;
+ if(!Array.isArray(split)&amp;&amp;Object.values(split).some(Array.isArray))return null;
  const items=loomResearchSplitItems(split);
- const names=items.map(x=&gt;x.id).join(&#x27;/&#x27;),counts=items.map(x=&gt;x.count??x.adopted);
- if(![&#x27;train/validation&#x27;,&#x27;train/val&#x27;,&#x27;train/validation/test&#x27;,&#x27;train/val/test&#x27;].includes(names)||!counts.every(n=&gt;Number.isSafeInteger(n)&amp;&amp;n&gt;=0))return null;
+ const [train,validation,test]=items,counts=items.map(x=&gt;x.count??x.adopted);
+ if(items.length&lt;2||items.length&gt;3||train.id!==&#x27;train&#x27;||![&#x27;validation&#x27;,&#x27;val&#x27;].includes(validation.id)
+    ||(test&amp;&amp;test.id!==&#x27;test&#x27;)||!counts.every(n=&gt;Number.isSafeInteger(n)&amp;&amp;n&gt;=0))return null;
  return counts;
-}
-function loomDatasetSplitLabel(split){
- if(!split||typeof split!==&#x27;object&#x27;)return &#x27;&#x27;;
- const counts=loomDatasetSplitCounts(split),value=counts?counts.join(&#x27;/&#x27;):loomResearchSplit(split);
- return value?&#x27;Split &#x27;+value:&#x27;&#x27;;
 }
 function loomDatasetLegacySplit(path,split){
  const counts=loomDatasetSplitCounts(split);
@@ -6276,7 +6280,7 @@ function loomDatasetRow(e,depth=0){
  const facts=loomResearchFactMap(e),unit=facts.get(&#x27;count_unit&#x27;)?.value;
  const count=!unit||/^(episodes?|demonstrations?|trajector(?:y|ies)|rollouts?)$/i.test(unit)?facts.get(&#x27;count&#x27;):null;
  const split=facts.get(&#x27;split&#x27;);
- const fields=[loomDatasetTagFact(split?.status===&#x27;recorded&#x27;?[split.value]:[],split?.status===&#x27;conflict&#x27;?&#x27;Conflicting records&#x27;:&#x27;Missing&#x27;),
+ const fields=[split?loomDatasetSplitFact(split):loomDatasetTagFact([]),
                {value:&#x27;Missing&#x27;,...count,id:&#x27;count&#x27;,label:&#x27;Episodes&#x27;}];
  return &#x27;&lt;article role=&quot;listitem&quot; class=&quot;pa-catalog-item pa-scientific-card pa-dataset-row&quot; data-output-id=&quot;&#x27;+esc(e.id)+&#x27;&quot; data-dataset-depth=&quot;&#x27;+depth+&#x27;&quot;&gt;&#x27;
   +&#x27;&lt;div class=&quot;pa-row-main pa-dataset-name&quot;&gt;&#x27;+catLink(e.id)+&#x27;&lt;/div&gt;&#x27;
@@ -7667,7 +7671,8 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
 #pai-studio .pa-scientific-facts.is-compact dd{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;max-width:44ch}
 #pai-studio .pa-scientific-facts dd.pa-split-tags,#pai-studio .pa-catalog-inputs{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;max-width:100%;overflow:visible}
 #pai-studio button[data-catalog-input-ref]{border:0;background:none;overflow-wrap:anywhere}
-#pai-studio .pa-split-tag{display:inline-block;max-width:100%;overflow-wrap:anywhere;padding:2px 7px;border:1px solid var(--pa-line);border-radius:4px;font-size:13px}
+#pai-studio .pa-split-tag{display:inline-block;max-width:100%;overflow-wrap:anywhere;padding-inline:6px;box-shadow:inset 0 0 0 1px var(--pa-line);border-radius:4px;font:12px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;vertical-align:top}
+#pai-studio .pa-scientific-facts .pa-split-tag{font-size:inherit;line-height:inherit}
 #pai-studio .pa-scientific-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 16px;align-items:start;padding:16px 0}
 #pai-studio .pa-scientific-card .pa-output-task{margin-bottom:8px}
 #pai-studio .pa-scientific-card .pa-row-main&gt;a,#pai-studio .pa-dataset-name [data-entity]{font-weight:600;font-size:14px}

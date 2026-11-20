@@ -73,7 +73,7 @@ returned ID and revision in downstream contracts.
 
 If Square D1 is split again, reuse its label and `D1` path. Publish the new
 membership manifest and record the train, validation and test counts. The
-Catalog shows the new Split tag. Resolve the exact new Dataset before using it
+Catalog shows a tag such as `split-700/150/150`. Resolve the exact new Dataset before using it
 for training or evaluation. Existing Jobs retain their accepted inputs.
 
 ```json

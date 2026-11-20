@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0-alpha.78
+
+- Derive compact, whitespace-free Dataset tags such as `split-100/20/20` from recorded counts. Align monospace tags with adjacent catalog fields and document the naming rule in Loom Use.
+
 ## 0.2.0-alpha.77
 
 - Show Job Units and Activity loading explicitly, retain loaded details during refresh, and estimate Unit finish times from producer progress samples when available.

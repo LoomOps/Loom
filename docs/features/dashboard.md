@@ -13,8 +13,9 @@ does not infer a data-parent edge from Task names or general consumes relations.
 Group counts describe loaded variants; paging does not claim a complete lineage.
 Datasets, Policies and Experiments share the scientific list and filter styles.
 The Dataset list uses the Task index and catalog class. Different splits of the
-same variant share its label and subgroup. Recorded counts appear as a Split tag
-and each entry keeps its exact link. The browser hides a legacy split suffix or
+same variant share its label and subgroup. Standard split counts appear as a
+monospace tag such as `split-100/20/20`, aligned with adjacent facts. Each entry
+keeps its exact link. The browser hides a legacy split suffix or
 subgroup only when it matches the structured split and declared path. Inputs and
 the Imported badge remain record facts. Policies and Experiments have a Family
 index. Selecting a Task also shows linked Datasets with their recorded splits in

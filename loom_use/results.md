@@ -10,8 +10,8 @@ Dataset has its own immutable ID and revision. Record a stable variant path in
 `metadata.research.organization` when a Task has variants such as D0, D1 or D2.
 Keep the Dataset label and variant path when only the split changes. Publish
 the verified membership manifest for the new split and record its counts in
-`metadata.research.collection.split`. The Catalog shows those counts as a
-Split tag. Choose the exact Dataset record to reuse by its membership manifest.
+`metadata.research.collection.split`. Choose the exact Dataset record to reuse by
+its membership manifest.
 If the organization declares `task_ref`, use the same `{id,revision}` as the
 Job or import's Task.
 Pin the exact training Dataset for a Policy and the exact evaluation Dataset and
@@ -79,6 +79,10 @@ one arbitrarily. See `metadata` for registered formats and canonical field types
 Include the discriminators needed to distinguish sibling outputs: modality,
 model family, protocol/cohort, checkpoint role or revision as appropriate.
 Keep split counts and Dataset revision numbers out of Dataset display names.
+The Catalog derives a lowercase, whitespace-free tag such as `split-100/20/20`
+from recorded integer counts in train/validation/test order. A recorded
+train/validation pair yields a two-count tag such as `split-900/100`. Supply
+structured counts and keep the tag out of the label and variant path.
 When evaluations share a protocol and cohort, include the evaluated Policy
 variant or checkpoint in each label if it distinguishes the runs.
 Keep full parameters, counts, splits, timestamps, hashes and Runtime pins in

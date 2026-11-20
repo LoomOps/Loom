@@ -70,9 +70,11 @@ The Dashboard can fold mirrored historical rows when their exact publication
 revision, normalized original record and location inventory agree. Policies use
 the current revision of each catalog identity. List fields are fixed by kind
 independently of metadata templates. Datasets show Tag and Episodes. Policies
-show Dataset, Tag, Model family and Checkpoint. The Split tag comes from the
-recorded membership counts. Overview input links open the exact Dataset or
-Policy revision. Experiment rows show Dataset, Policy,
+show Dataset, Tag, Model family and Checkpoint. The Dashboard derives tags such
+as `split-100/20/20` from recorded train/validation/test counts. The format accepts
+nonnegative integers, omits an absent test split and contains no whitespace.
+Other split records appear as named split facts. Overview input links open the
+exact Dataset or Policy revision. Experiment rows show Dataset, Policy,
 Result and Checkpoint in that order in the shared facts row. The checkpoint is the one behind the stated
 result when identifiable. Detailed metrics remain in Results.
 

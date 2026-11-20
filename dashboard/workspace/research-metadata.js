@@ -109,6 +109,10 @@ catFacts=function(e){
  return loomPriorCatalogFacts(e);
 };
 function loomSplitTagHTML(tag){return '<span class="pa-split-tag" title="'+esc(tag.title)+'">'+esc(tag.text)+'</span>';}
+function loomDatasetSplitFact(fact){
+ const tag=fact.status==='recorded'&&loomDatasetSplitTag(fact.value);
+ return tag?{...fact,id:'tag',label:'Tag',tags:[tag]}:fact;
+}
 function loomResearchFactsHTML(facts,compact=false){
  return '<dl class="pa-entity-facts pa-scientific-facts '+(compact?'is-compact':'')+'">'+facts.map(f=>{
   const value=f.tags?.length?'<dd class="pa-split-tags">'+f.tags.map(loomSplitTagHTML).join('')+'</dd>'
@@ -157,7 +161,7 @@ function loomResearchOverviewContent(e){
   const priority=['split','count','frames','train_snapshots','validation_snapshots','source_demos','collection_method','test_frames_read','bc_ready','positive_coverage','model_role','architecture','outputs'];
   const rank=f=>priority.includes(f.id)?priority.indexOf(f.id):priority.length;
   const facts=s.facts.filter(f=>f.section===id&&!['observation_schema','count_unit','condition_outcomes'].includes(f.id)&&loomResearchVisibleFact(f)&&!loomCheckpointPooledFact(e,f)).sort((a,b)=>rank(a)-rank(b)).map(f=>f.id==='count'?loomResearchCountFact(f,map.get('count_unit')?.value):f.id==='bc_ready'?{...f,label:'BC'}:
-   e.kind==='dataset'&&f.id==='split'?loomDatasetTagFact(f.status==='recorded'?[f.value]:[],loomResearchValue(f)):f);
+   e.kind==='dataset'&&f.id==='split'?loomDatasetSplitFact(f):f);
   if(id==='evaluation'&&map.has('condition_outcomes')&&!loomCheckpointPooledFact(e,map.get('condition_outcomes')))body+=loomResearchSection('Condition outcomes',loomResearchConditions(e));
   if(!facts.length)continue;
   const title=e.kind==='dataset'&&id==='physics'&&map.get('environment')?.value==='sim'?'Simulation':loomResearchSections[id];
