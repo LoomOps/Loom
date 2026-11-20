@@ -67,4 +67,10 @@ authority rather than treating `presentation.parent_job` as execution membership
 
 Typed research Jobs aggregate scheduled Units. The Dashboard Job Queue shows current outcomes, the Unit Queue shows physical work, and terminal history shows each research Job or standalone Unit once. Legacy records retain their original execution history.
 
+An optional `forecast` on a running Unit uses the current Attempt's producer
+counter. A first sample starts measurement. Estimates require observed progress
+across two samples 30 seconds to 15 minutes apart. A sample older than 15 minutes
+cannot support an estimate. Forecasts are presentation data. When a Job has a
+single active Unit, its queue row can show that Unit's measured phase estimate.
+
 Open outcomes retain their Job ID across plan revisions. Slots without an execution have no queue position or Attempt. See [outcome admission](../../loom_use/workflows.md#planning).

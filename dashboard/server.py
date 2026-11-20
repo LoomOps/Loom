@@ -388,13 +388,17 @@ class WebHandler(BaseHTTPRequestHandler):
             except (ValueError,TypeError):return self.error(400,'invalid_search_action')
             if payload['group']=='results' and payload['action']=='search_items':payload['arguments']['include_system']=False
             return self.relay('POST','/api/actions',json.dumps(payload).encode())
-        if self.path == '/api/scenarios/actions':
+        if self.path in ('/api/scenarios/actions','/api/catalog/disposition'):
+            catalog = self.path == '/api/catalog/disposition'
+            allowed = ('set_output_disposition',) if catalog else (
+                'scenarios','get_scenario','scenario_graph','register_scenario','update_scenario',
+                'archive_scenario','link_scenario','supersede_scenario_link')
             try:
                 size=int(self.headers.get('Content-Length','0'))
                 if not 0<size<=196608 or self.headers.get_content_type()!='application/json':raise ValueError()
                 payload=json.loads(self.rfile.read(size))
-                if not isinstance(payload,dict) or set(payload)!={'action','arguments'} or payload['action'] not in ('scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link') or not isinstance(payload['arguments'],dict):raise ValueError()
-            except (ValueError,TypeError):return self.error(400,'invalid_scenario_action')
+                if not isinstance(payload,dict) or set(payload)!={'action','arguments'} or payload['action'] not in allowed or not isinstance(payload['arguments'],dict):raise ValueError()
+            except (ValueError,TypeError):return self.error(400,'invalid_catalog_action' if catalog else 'invalid_scenario_action')
             return self.relay('POST','/api/actions',json.dumps({'group':'results',**payload}).encode())
         if self.path == '/api/runtimes/actions':
             try:

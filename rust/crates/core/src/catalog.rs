@@ -81,12 +81,37 @@ impl Application {
             .or_else(|| record.get("name"))
             .filter(|v| v.is_string())
             .unwrap_or(&identity["id"]);
+        let label = self.output_label(
+            if history { kind } else { "entity" },
+            identity["id"].as_str().unwrap_or(""),
+            label,
+        )?;
         let metadata = record
             .get("metadata")
             .or_else(|| record.get("properties"))
             .unwrap_or(&Value::Null);
         let mut descriptor = json!({"ref":native,"label":label,"task_refs":record["task_refs"],
             "organization":record["dataset_organization"],"dataset_mirror_key":dataset_mirror_key});
+        match self.resolve_item(&json!({"native_ref":native})) {
+            Ok(pin) => {
+                descriptor["item_id"] = pin["item_id"].clone();
+                descriptor["revision_id"] = pin["revision_id"].clone();
+            }
+            Err(error) if error.status == 404 => {} // The exact source may still be indexing.
+            Err(error) => return Err(error),
+        }
+        if kind == "dataset" {
+            let split = metadata
+                .pointer("/research/collection/split")
+                .or_else(|| metadata.get("split_clips"))
+                .or_else(|| metadata.get("splits"))
+                .or_else(|| record.pointer("/dataset_overview/splits"))
+                .or_else(|| metadata.get("split"))
+                .and_then(crate::research_metadata::canonical_split);
+            if let Some(split) = split {
+                descriptor["split"] = split;
+            }
+        }
         if kind == "model" {
             descriptor["family"] = metadata
                 .get("model_family")
@@ -955,6 +980,13 @@ impl Application {
         if query.get("include_archived").is_none() {
             query["include_archived"] = json!(false);
         }
+        if query["task_id"].is_null()
+            && query["scenario_ref"].is_null()
+            && matches!(query["kinds"].as_array().map(Vec::as_slice), Some([kind])
+                if matches!(kind.as_str(), Some("dataset" | "model" | "experiment")))
+        {
+            query["_dashboard_task_index"] = json!(true);
+        }
         let page = self.search_items(actor, &query)?;
         let selected = page["items"]
             .as_array()
@@ -969,6 +1001,9 @@ impl Application {
         catalog["partial"] = page["partial"].clone();
         catalog["consistency"] = page["consistency"].clone();
         catalog["warnings"] = page["warnings"].clone();
+        if let Some(tasks) = page.get("task_index") {
+            catalog["task_index"] = tasks.clone();
+        }
         catalog["capabilities"]["catalog_pages"] = json!(true);
         for entity in catalog["entities"].as_array_mut().unwrap() {
             let item = selected.iter().find(|item| {

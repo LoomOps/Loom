@@ -83,7 +83,9 @@ function loomJobPanel(job, entry) {
   const target=record.consolidation?.consolidated_into;
   const previous=record.previous_result;
   const prior=previous?panel('이전 결과 기록','<p>현재 Attempt의 결과가 아닙니다.</p>'+catTable(['사유','Stage','Exit code'],[[previous.reason,previous.stage,previous.exit_code].map(loomText)])):'';
-  return workTime+internal+continuity+prior+(target?panel('통합 Job',catLink(target)):'')+panel('Loom 실행 기록', '<div class="pa-loom-job-summary">' + catTable(['필드','값'], rows.map(row => row.map(loomText))) + '</div>')
+  const refreshError = entry.error ? '<p role="status">기록을 갱신하지 못했습니다. 마지막 조회 기록을 표시합니다.</p>'
+    + '<button class="pa-button" data-loom-detail-retry>다시 조회</button>' : '';
+  return workTime+internal+continuity+prior+(target?panel('통합 Job',catLink(target)):'')+panel('Loom 실행 기록', refreshError + '<div class="pa-loom-job-summary">' + catTable(['필드','값'], rows.map(row => row.map(loomText))) + '</div>')
     + (attempts.length?panel('Attempts', catTable(['Attempt','상태','시작','종료'], attempts)):'')
     + (linked ? panel('Registry 기록', '<div class="pa-loom-job-links">' + linked + '</div>') : '');
 }
@@ -154,22 +156,78 @@ function loomDescriptor(entity) {
 
 function loomRequestDetail(descriptor) {
   const key = JSON.stringify(descriptor.key);
-  if (loomEntityReads.get(descriptor.identity)?.key === key) return;
-  if (loomEntityReads.size >= 12) {
+  const previous = loomEntityReads.get(descriptor.identity);
+  const cached = previous?.key === key && previous.kind === descriptor.kind ? previous : null;
+  if (cached && (cached.requestId !== null || !cached.refresh)) return;
+  if (!previous && loomEntityReads.size >= 12) {
     const first = loomEntityReads.keys().next().value;
     loomEntityReads.delete(first);
     loomLocationPages.delete(first);
   }
   const requestId = ++loomDetailSequence;
-  loomEntityReads.set(descriptor.identity, {key, requestId, kind:descriptor.kind});
+  loomEntityReads.set(descriptor.identity, {key, requestId, kind:descriptor.kind, data:cached?.data, refresh:false});
   parent.postMessage({type:'loom-detail-request', kind:descriptor.kind, identity:descriptor.identity, requestId}, '*');
 }
 
+function loomRefreshJobDetails() {
+  for (const entry of loomEntityReads.values()) {
+    if (entry.kind === 'job') entry.refresh = true;
+  }
+}
+
 const loomCatalogDetail = catalogDetail;
-// Keep the existing share transport and route handling behind one compact menu.
 paiEntityActions = function(id) {
-  return `<details class="pa-entity-menu"><summary aria-label="항목 메뉴" title="항목 메뉴"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg></summary><div class="pa-entity-menu-items"><button data-share-route="${esc(id)}" aria-haspopup="dialog">${icon('share')}<span>공유</span></button><a href="${esc(paiEntityURL(id))}" target="_blank" rel="noopener noreferrer" data-open-route="${esc(id)}"><span aria-hidden="true">↗</span><span>새 창에서 열기</span></a></div></details>`;
+  const entity = catEntity(id);
+  const disposition = loomOutputTarget(entity) ? `<button data-output-disposition="${esc(id)}" aria-haspopup="dialog">${entity.disposition?.state === 'discarded' ? 'Restore' : 'Discard'}</button>` : '';
+  return `<details class="pa-entity-menu"><summary aria-label="항목 메뉴" title="항목 메뉴"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg></summary><div class="pa-entity-menu-items"><button data-share-route="${esc(id)}" aria-haspopup="dialog">${icon('share')}<span>공유</span></button><a href="${esc(paiEntityURL(id))}" target="_blank" rel="noopener noreferrer" data-open-route="${esc(id)}"><span aria-hidden="true">↗</span><span>새 창에서 열기</span></a>${disposition}</div></details>`;
 };
+
+function loomOutputTarget(entity) {
+  if (!catalogData.capabilities?.output_disposition || !['dataset','model','experiment','run'].includes(entity?.kind)) return null;
+  if (entity.loom_history) return {kind:'historical',identity:entity.loom_history};
+  if (entity.loom_registry) return {kind:'entity',identity:entity.loom_registry};
+  return null;
+}
+
+root.addEventListener('click', event => {
+  const button = event.target.closest('[data-output-disposition]');
+  if (!button) return;
+  const entity = catEntity(button.dataset.outputDisposition);
+  const target = loomOutputTarget(entity);
+  if (!target) return;
+  button.closest('details').open = false;
+  const restoring = entity.disposition?.state === 'discarded';
+  const label = restoring ? 'Restore' : 'Discard';
+  const dialog = loomHubDialog(label, `<form><p>${esc(entity.label)}</p><label>Reason<input name="reason" required></label><button type="submit">${label}</button></form>`);
+  const form = dialog.querySelector('form');
+  const submit = form.querySelector('button[type="submit"]');
+  const result = dialog.querySelector('[data-hub-result]');
+  // The sandboxed workspace relays writes through the parent.
+  submit.addEventListener('click', async event => {
+    event.preventDefault();
+    if (!form.reportValidity()) return;
+    const reason = new FormData(form).get('reason').trim();
+    if (!reason) { result.textContent = 'Enter a reason.'; return; }
+    submit.disabled = true;
+    result.textContent = '';
+    try {
+      const receipt = await loomResultAction('set_output_disposition',{
+        key:crypto.randomUUID(),targets:[target],state:restoring?'current':'discarded',reason
+      });
+      const current = catEntity(entity.id);
+      if (current && loomScenarioSameTarget(loomOutputTarget(current),target)) {
+        loomCatalogMerge({entities:[{...current,disposition:receipt.changed[0].disposition}]});
+        catalogRefreshViews();
+      }
+      dialog.close();
+      dialog.remove();
+    } catch (error) {
+      result.textContent = error.message;
+    } finally {
+      submit.disabled = false;
+    }
+  });
+});
 
 // Modality labels are structured types. Producer value strings describe timing,
 // shapes and collection conditions; they are not labels for list rows.
@@ -330,7 +388,10 @@ root.addEventListener('click', event => {
   const pane = ws.panes.find(item => item.id === trigger.closest('[data-pane]')?.dataset.pane);
   const id = pane && activeTab(pane).view.entity;
   if (!id) return;
-  if (trigger.hasAttribute('data-loom-detail-retry')) loomEntityReads.delete(id);
+  if (trigger.hasAttribute('data-loom-detail-retry')) {
+    const entry = loomEntityReads.get(id);
+    if (entry) entry.refresh = true;
+  }
   else loomLocationPages.set(id, Number(trigger.dataset.loomLocationPage));
   render();
 });
@@ -339,15 +400,18 @@ window.addEventListener('message', event => {
   if (event.source !== parent) return;
   const message = event.data;
   if (message?.type === 'pai-catalog-data') {
-    for (const [identity, entry] of loomEntityReads) {
-      if (entry.kind === 'job') loomEntityReads.delete(identity);
-    }
+    if (message.connected) loomRefreshJobDetails();
     return;
   }
   if (message?.type !== 'loom-detail-response') return;
   const entry = loomEntityReads.get(message.identity);
-  if (entry?.requestId !== message.requestId) return;
-  loomEntityReads.set(message.identity, {...entry, data:message.data, error:message.error});
+  if (!entry || entry.requestId === null || entry.requestId !== message.requestId) return;
+  entry.requestId = null;
+  if (message.error === 403 || message.error === 404) entry.data = undefined;
+  if (!entry.refresh || !entry.data) {
+    entry.data = message.data ?? entry.data;
+    entry.error = message.error;
+  }
   scheduleCatalogRender();
 });
 

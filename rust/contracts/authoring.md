@@ -34,6 +34,26 @@ fn main() -> loom_sdk::Result<()> {
 
 The scaffold emits a technical receipt. Implement the requested task before producing scientific outputs. Write under `request.output_dir` and use the accepted Profile for provenance. `Producer.register_inventory` supports sorted file inventories. See the `items` guide. Producer progress reports appear as observed Units. Execution and resource return have their own receipts.
 
+To enable an ETA for a running Unit, call `producer.report_work_progress("training", completed, total, "updates")` from one reporter inside the run. Use `execution` and a defined unit such as `episodes` for other counters. Supply cumulative measurements with a stable total and report throughout the measured phase. The SDK emits samples at most every 30 seconds until completion.
+
+Non-Rust producers can atomically replace `work-progress.json` in `request.output_dir`, with two successive observations of the same counter. Use `previous: null` for the first observation and reset it if the counter or total changes. Copy the job and attempt IDs from the run request. Timestamps are Unix seconds.
+
+```json
+{
+  "schema": "loom-work-progress/v1",
+  "job": "<request.job>",
+  "attempt": "<request.attempt>",
+  "stage": "run",
+  "phase": "training",
+  "unit": "updates",
+  "total": 20000,
+  "sample": {"completed": 1000, "recorded": 1700000060},
+  "previous": {"completed": 500, "recorded": 1700000000}
+}
+```
+
+Training estimates end at the training counter's total. Record evaluation and publication through their normal Unit and output contracts.
+
 ## Bind a build and register
 
 Source identity and executable identity are separate. A `loom-producer-build/v1` receipt names `producer_protocol: loom-producer/v1`, the accepted source hash, exact granted builder Runtime, target, and binary locator/hash/size. The verifier checks executable bytes, permission, ELF architecture and source identity. Current supported receipt targets are `x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu`; a matching target still needs a compatible Runtime/libc.

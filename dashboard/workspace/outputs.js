@@ -36,13 +36,21 @@ openView=function(view,...args){
 };
 function loomOutputDiscarded(){return state.resultDispositionFilter==='discarded';}
 function loomOutputRows(records){return records.filter(e=>catIsDiscarded(e)===loomOutputDiscarded());}
+function loomResetOutputFilters(view){
+ delete view.outputDataset;delete view.experimentFamily;
+ if(view.modelFilters?.family)view.modelFilters={...view.modelFilters,family:''};
+}
+function loomSetOutputDisposition(view,value){
+ if((view.resultDispositionFilter||'current')!==value)loomResetOutputFilters(view);
+ view.resultDispositionFilter=value;
+}
 function loomOutputStatusTabs(){
  const discarded=loomOutputDiscarded();
  return '<section class="pa-model-filters" aria-label="Record status"><div class="pa-model-filter-top"><div class="pa-model-role-group" role="group" aria-label="Record status">'
   +[['current','Current',false],['discarded','Discarded',true]].map(([value,label,isDiscarded])=>'<button class="pa-pill '+(discarded===isDiscarded?'active':'')+'" data-result-disposition-filter="'+value+'" aria-pressed="'+(discarded===isDiscarded)+'">'+label+'</button>').join('')+'</div></div></section>';
 }
 const loomOutputDatasets=datasets;
-datasets=function(){return loomOutputList(loomOutputDatasets());};
+datasets=function(){const tasks=loomOutputTasks('dataset');return loomOutputList(loomOutputDatasets(),tasks);};
 const policyFilterDefaults={family:'',query:''};
 function policyText(...values){return values.find(v=>typeof v==='string'&&v.trim())?.trim()||'';}
 function policyFamily(recorded){
@@ -74,27 +82,33 @@ function loomInputKey(input){
 }
 function loomCatalogInputs(e,field){return e.catalog_inputs?.[field]||[];}
 function loomInputLabel(input){
- const path=input.organization?.path||[];
- return path.length?path.map(node=>node.label).join(' / '):input.label;
+ const original=input.organization?.path||[],path=loomDatasetDisplayPath(original,input.split);
+ return path.length?path.map(node=>node.label).join(' / '):loomDatasetDisplayLabel(input.label,original,input.split);
 }
-function loomCatalogDatasetIndex(records,selected){
+function loomCatalogDatasetOptions(records){
  const options=new Map();
  for(const record of records)for(const input of loomCatalogInputs(record,'datasets')){
   if(!input.task_refs?.some(task=>task.id===state.researchTask?.id))continue;
   options.set(loomInputKey(input),input);
  }
- const counts=new Map();
+ const labels=new Map();
  for(const input of options.values()){
-  const label=loomInputLabel(input);counts.set(label,(counts.get(label)||0)+1);
+  const label=loomInputLabel(input);labels.set(label,(labels.get(label)||0)+1);
  }
  const entries=[...options].map(([id,input])=>{
-  const label=loomInputLabel(input),identity=input.ref.identity;
-  const detail=identity.snapshot?identity.source+' · r'+identity.revision:'r'+identity.revision+' · '+identity.id.slice(0,8);
-  return {id,label:counts.get(label)>1?label+' · '+detail:label};
+  const name=loomInputLabel(input),tag=labels.get(name)>1&&loomDatasetSplitLabel(input.split);
+  return {id,label:tag?name+' · '+tag:name};
  });
+ const counts=new Map();
+ for(const {label} of entries)counts.set(label,(counts.get(label)||0)+1);
+ for(const entry of entries){
+  if(counts.get(entry.label)<2)continue;
+  const identity=options.get(entry.id).ref.identity;
+  const detail=identity.snapshot?identity.source+' · r'+identity.revision:'r'+identity.revision+' · '+identity.id.slice(0,8);
+  entry.label+=' · '+detail;
+ }
  entries.sort((a,b)=>a.label.localeCompare(b.label,undefined,{numeric:true}));
- if(selected&&!options.has(selected))entries.push({id:selected,label:'Selected input'});
- return loomCatalogIndex('Datasets','data-catalog-dataset',entries,selected||'');
+ return entries;
 }
 function loomMatchesCatalogInput(e,field,key){return !key||loomCatalogInputs(e,field).some(input=>loomInputKey(input)===key);}
 function loomInputNames(e,field){return [...new Set(loomCatalogInputs(e,field).map(loomInputLabel))].join(' · ')||'Missing';}
@@ -117,22 +131,30 @@ function loomExperimentFamilies(e){
  }))];
 }
 function loomFamilyIndex(families,attribute,selected){
- const entries=[...new Set(families.concat(selected||[]))].sort((a,b)=>a.localeCompare(b))
+ const entries=[...new Set(families)].sort((a,b)=>a.localeCompare(b))
   .map(family=>({id:family,label:family==='미기록'?'Missing':family}));
  return loomCatalogIndex('Family',attribute,entries,selected);
 }
 function policyList(){
- const f=policyFilters(state),query=f.query.trim().toLowerCase(),dataset=state.outputDataset||'';
+ const tasks=loomOutputTasks('model');
+ const f=policyFilters(state),query=f.query.trim().toLowerCase();
  const records=loomUniqueCatalogSnapshots(loomOutputRows(catKind('model',true))).filter(e=>modelFilterMeta(e).role!=='Observer');
+ const complete=loomOutputPageComplete(loomCatalogPages.get(loomCatalogPageKey('model')));
+ const datasets=state.researchTask?loomCatalogDatasetOptions(records):[];
+ const families=records.map(e=>modelFilterMeta(e).family);
+ const dataset=loomOutputDatasetSelection(datasets,complete);
+ if(complete&&f.family&&!families.includes(f.family)){
+  f.family='';state.modelFilters=f;
+ }
  const shown=records.filter(e=>(!f.family||modelFilterMeta(e).family===f.family)&&loomMatchesCatalogInput(e,'datasets',dataset)&&(!query||catSearchText(e).includes(query)));
  const filters='<section class="pa-model-filters" aria-label="Policy filters"><div class="pa-model-filter-fields pa-policy-filter-fields">'
   +'<label class="pa-model-filter-field pa-model-filter-search"><span>검색</span><input type="search" data-model-filter="query" aria-label="정책 검색" placeholder="이름·계열·키워드" value="'+esc(f.query)+'" autocomplete="off"></label></div>'
   +'<button type="button" class="pa-model-filter-reset" data-model-reset'+(f.query?'':' hidden')+'>검색 초기화</button></section>';
  const rows=loomCatalogTaskGroups(shown,loomCatalogTask,items=>items.map(e=>loomCompactOutput(e,false)).join(''));
- const familyIndex=loomFamilyIndex(records.map(e=>modelFilterMeta(e).family),'data-policy-family',f.family);
- const datasetIndex=state.researchTask?loomCatalogDatasetIndex(records,dataset):'';
+ const familyIndex=loomFamilyIndex(families,'data-policy-family',f.family);
+ const datasetIndex=state.researchTask?loomCatalogIndex('Datasets','data-catalog-dataset',datasets,dataset):'';
  return loomOutputList(heading('CATALOG','Policies','')+catStatus()+loomOutputStatusTabs()+filters+panel(`<span data-model-result-count>${shown.length} / ${records.length}개 정책</span>`,
-  '<div data-model-filter-results>'+(rows||'<div class="pa-empty">'+(records.length?'조건에 맞는 정책이 없습니다.':'표시할 정책이 없습니다.')+'</div>')+'</div>')+loomCatalogPager('model','Load more policies'),datasetIndex+familyIndex);
+  '<div data-model-filter-results>'+(rows||'<div class="pa-empty">'+(records.length?'조건에 맞는 정책이 없습니다.':'표시할 정책이 없습니다.')+'</div>')+'</div>')+loomCatalogPager('model','Load more policies'),tasks,datasetIndex+familyIndex);
 }
 modelList=policyList;
 function updatePolicyFilter(control){
@@ -159,8 +181,34 @@ function loomCatalogIndex(label,attribute,entries,selected){
  const buttons=[{id:'',label:'All'},...entries].map(entry=>'<button type="button" '+attribute+'="'+esc(entry.id)+'" aria-pressed="'+(selected===entry.id)+'">'+esc(entry.label)+'</button>').join('');
  return '<nav class="pa-catalog-task-index" aria-label="'+label+'"><h2>'+label+'</h2>'+buttons+'</nav>';
 }
-function loomOutputList(body,secondaryIndex=''){
- const taskIndex=loomCatalogIndex('Tasks','data-research-task',loomTaskOptions(),state.researchTask?.id||'');
+function loomOutputPageComplete(page){
+ return !catalogData.capabilities?.catalog_pages||loomOutputClasses().length===0||page?.loaded&&!page.partial&&!page.cursor;
+}
+function loomOutputDatasetSelection(datasets,complete){
+ if(state.outputDataset&&complete&&!datasets.some(entry=>entry.id===state.outputDataset))delete state.outputDataset;
+ return state.outputDataset||'';
+}
+function loomOutputTasks(kind){
+ const query=loomCatalogQuery(kind,false),page=loomCatalogPages.get(JSON.stringify(query));
+ const paged=catalogData.capabilities?.catalog_pages&&catalogData.capabilities?.job_units;
+ const noClasses=query.catalog_classes?.length===0;
+ if(paged&&!noClasses&&!page?.loaded&&!page?.busy&&!page?.error)queueMicrotask(()=>loomCatalogLoad(kind,false,query));
+ const records=loomOutputKindRows(kind,true,page);
+ if(kind==='experiment')records.push(...loomOutputKindRows('run',true,page));
+ const visible=loomOutputRows(records).filter(e=>kind!=='model'||modelFilterMeta(e).role!=='Observer');
+ const ids=new Set(visible.flatMap(e=>(e.task_refs||[]).map(task=>task.id)));
+ const complete=!paged||loomOutputPageComplete(page);
+ const loadedTasks=complete&&kind==='model'?new Set(loomOutputRows(records).flatMap(e=>(e.task_refs||[]).map(task=>task.id))):null;
+ for(const id of page?.taskIndex||[])if(!loadedTasks?.has(id))ids.add(id);
+ if(state.researchTask&&!ids.has(state.researchTask.id)){
+  if(complete||page?.loaded&&page.taskIndex){
+   delete state.researchTask;delete state.outputDataset;delete state.experimentFamily;
+  }else ids.add(state.researchTask.id);
+ }
+ return loomTaskOptions().filter(task=>ids.has(task.id));
+}
+function loomOutputList(body,tasks,secondaryIndex=''){
+ const taskIndex=loomCatalogIndex('Tasks','data-research-task',tasks,state.researchTask?.id||'');
  return loomOutputChrome()+'<div class="pa-catalog-task-layout"><div class="pa-catalog-index-stack">'+taskIndex+secondaryIndex+'</div><div class="pa-catalog-task-content">'+loomTaskToolbar()+body+'</div></div>';
 }
 function loomCatalogTask(e){
@@ -199,20 +247,28 @@ function loomCompactOutput(e,result){
  const checkpoint=loomOutputCheckpoint(e);
  const outcome=result?loomRepresentativeOutcome(e)[0]:null;
  const family=result?null:modelFilterMeta(e).family;
- const facts=result?{'Dataset':dataset,'Policy':policy,'Result':loomCatalogOutcome(outcome),'Checkpoint':checkpoint}:
+ const fields=result?{'Dataset':dataset,'Policy':policy,'Result':loomCatalogOutcome(outcome),'Checkpoint':checkpoint}:
   {'Dataset':dataset,'Model family':family==='미기록'?'Missing':family,'Checkpoint':checkpoint};
+ const facts=Object.entries(fields).map(([label,value])=>({id:label.toLowerCase().replaceAll(' ','_'),label,value,status:'recorded',title:label==='Result'?outcome?.label:undefined}));
+ if(!result)facts.splice(1,0,loomDatasetTagFact(loomCatalogInputs(e,'datasets').map(input=>input.split)));
  return '<article class="pa-catalog-item pa-scientific-card pa-output-compact" data-output-id="'+esc(e.id)+'"'+(result?'':' data-model-entry="'+esc(e.id)+'"')+'>'
   +'<div class="pa-row-main">'+catLink(e.id)+'</div>'
-  +loomResearchFactsHTML(Object.entries(facts).map(([label,value])=>({id:label.toLowerCase().replaceAll(' ','_'),label,value,status:'recorded',title:label==='Result'?outcome?.label:undefined})),true)+'</article>';
+  +loomResearchFactsHTML(facts,true)+'</article>';
 }
 experiments=function(){
+ const tasks=loomOutputTasks('experiment');
  const records=loomUniqueCatalogSnapshots(loomOutputRows([...catKind('experiment',true),...catKind('run',true)]));
- const dataset=state.outputDataset||'',family=state.experimentFamily||'';
+ const complete=loomOutputPageComplete(loomCatalogPages.get(loomCatalogPageKey('experiment')));
+ const datasets=state.researchTask?loomCatalogDatasetOptions(records):[];
+ const dataset=loomOutputDatasetSelection(datasets,complete);
  const datasetRows=records.filter(e=>loomMatchesCatalogInput(e,'datasets',dataset));
+ const families=datasetRows.flatMap(loomExperimentFamilies);
+ if(complete&&state.experimentFamily&&!families.includes(state.experimentFamily))delete state.experimentFamily;
+ const family=state.experimentFamily||'';
  const rows=datasetRows.filter(e=>!family||loomExperimentFamilies(e).includes(family));
- const index=(state.researchTask?loomCatalogDatasetIndex(records,dataset):'')+loomFamilyIndex(datasetRows.flatMap(loomExperimentFamilies),'data-experiment-family',family);
+ const index=(state.researchTask?loomCatalogIndex('Datasets','data-catalog-dataset',datasets,dataset):'')+loomFamilyIndex(families,'data-experiment-family',family);
  return loomOutputList(heading('CATALOG','Experiments','')+catStatus()+loomOutputStatusTabs()
-  +panel(rows.length+' / '+records.length+'개 실험','<div>'+ (loomCatalogTaskGroups(rows,loomCatalogTask,items=>items.map(e=>loomCompactOutput(e,true)).join(''))||'<div class="pa-empty">표시할 실험이 없습니다.</div>')+'</div>')+loomCatalogPager('experiment'),index);
+  +panel(rows.length+' / '+records.length+'개 실험','<div>'+ (loomCatalogTaskGroups(rows,loomCatalogTask,items=>items.map(e=>loomCompactOutput(e,true)).join(''))||'<div class="pa-empty">표시할 실험이 없습니다.</div>')+'</div>')+loomCatalogPager('experiment'),tasks,index);
 };
 const loomOutputDetail=catalogDetail;
 catalogDetail=function(id){return (loomIsOutputPage(state.page)?loomOutputChrome():'')+loomOutputDetail(id);};
@@ -283,18 +339,22 @@ const loomOutputClasses=()=>Array.isArray(state.outputClasses)?state.outputClass
 const loomOutputKinds=catKind;
 catKind=function(kind,discarded=false){
  if(!['model','dataset','experiment','run'].includes(kind))return loomOutputKinds(kind,discarded);
+ return loomTaskItems(loomOutputKindRows(kind,discarded,loomCatalogPages.get(loomCatalogPageKey(kind))),kind);
+};
+function loomOutputKindRows(kind,discarded,page){
+ const entities=(catalogData.all_entities||catalogData.entities).filter(e=>e.kind===kind);
  if(catalogData.capabilities?.job_units){
-  const classes=loomOutputClasses(),page=loomCatalogPages.get(loomCatalogPageKey(kind));
+  const classes=loomOutputClasses();
   const ids=page?.committed?new Set(page.ids):null;
-  return loomTaskItems((catalogData.all_entities||catalogData.entities).filter(e=>e.kind===kind&&!e.catalog_exact&&(discarded||!catIsDiscarded(e))
-   &&(!ids||ids.has(e.id))&&classes.includes(e.catalog_class||(loomOutputDevelopment(e)?'reference':'regular'))),kind);
+  return entities.filter(e=>!e.catalog_exact&&(discarded||!catIsDiscarded(e))
+   &&(!ids||ids.has(e.id))&&classes.includes(e.catalog_class||(loomOutputDevelopment(e)?'reference':'regular')));
  }
  const view=catalogData.presentation_view||'all';
- const rows=loomTaskItems((catalogData.all_entities||catalogData.entities).filter(e=>e.kind===kind&&(discarded||!catIsDiscarded(e))&&(view==='all'||(view==='operations'?e.presentation?.scope==='operations':view==='builtin'?e.owner_kind==='built-in':e.presentation?.scope!=='operations'))),kind);
+ const rows=entities.filter(e=>(discarded||!catIsDiscarded(e))&&(view==='all'||(view==='operations'?e.presentation?.scope==='operations':view==='builtin'?e.owner_kind==='built-in':e.presentation?.scope!=='operations')));
  const purpose=loomOutputPurpose();
  return rows.filter(e=>purpose==='all'||(purpose==='development')===loomOutputDevelopment(e))
   .sort((a,b)=>Number(loomOutputDevelopment(a))-Number(loomOutputDevelopment(b))||loomOutputRank(a)-loomOutputRank(b));
-};
+}
 function loomTaskToolbar(){
  if(catalogData.capabilities?.job_units)return '<div class="pa-filter" aria-label="Catalog class">'
   +[['regular','Regular'],['reference','Reference']].map(([value,label])=>'<label class="pa-pill"><input type="checkbox" data-output-class="'+value+'"'+(loomOutputClasses().includes(value)?' checked':'')+'> '+label+'</label>').join('')+'</div>';
@@ -307,7 +367,8 @@ root.addEventListener('change',event=>{
  const pane=input.closest('[data-pane]');if(pane)ws.active=pane.dataset.pane;
  const view=activeTab().view,classes=new Set(view.outputClasses||['regular']);
  if(input.checked)classes.add(input.dataset.outputClass);else classes.delete(input.dataset.outputClass);
- view.outputClasses=['regular','reference'].filter(value=>classes.has(value));render();persist();
+ view.outputClasses=['regular','reference'].filter(value=>classes.has(value));
+ loomResetOutputFilters(view);render();persist();
 });
 
 function loomRepresentativeOutcome(e){

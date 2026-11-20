@@ -625,7 +625,7 @@ Different protocol, inputs or cohort, incomplete evidence, stale revision, exist
 
 ## set_output_disposition
 
-Set an exact batch of Dataset, Policy or Experiment revisions to current or discarded. The installation administrator applies this audited overlay atomically. Exact references, files and Job history remain available.
+Set an exact batch of Dataset, Policy or Experiment revisions to current or discarded with research submit scope. The audited batch applies atomically. Exact references, files and Job history remain available.
 
 Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/results.rs#set_output_disposition](../../rust/crates/core/src/results.rs).
 
@@ -723,7 +723,7 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 
 Receipt · state and changed exact revisions
 
-Unknown revision, invalid output kind, missing installation administration authority or changed request key.
+Unknown revision, invalid output kind, missing submit scope or changed request key.
 
 ## metadata_templates
 

@@ -5,6 +5,49 @@ use serde_json::{json, Value};
 use std::fs;
 
 #[test]
+fn queue_forecast_uses_fresh_progress_for_the_current_running_unit() {
+    let mut f = Fixture::new();
+    f.call(
+        "units",
+        "submit",
+        json!({"key":"forecast-unit","kind":"cpu.smoke",
+        "owner":"owner","notify":"owner","params":{"seconds":0,"fail":false}}),
+    )
+    .unwrap();
+    let work = f.app.next_work(&Default::default()).unwrap().unwrap();
+    let unit = |app: &Application| app.queue().unwrap()["unit_entries"][0].clone();
+    assert_eq!(unit(&f.app)["state"], "running");
+    assert!(unit(&f.app).get("forecast").is_none());
+    fs::create_dir_all(&work.folder).unwrap();
+    let path = work.folder.join("work-progress.json");
+    let now = crate::store::now();
+    let mut report = json!({"schema":"loom-work-progress/v1","job":work.job,
+        "attempt":work.attempt,"stage":"run","phase":"training","unit":"updates","total":1000,
+        "sample":{"completed":100,"recorded":now-30.0},"previous":null});
+    fs::write(&path, report.to_string()).unwrap();
+    assert_eq!(unit(&f.app)["forecast"]["status"], "measuring");
+    report["previous"] = json!({"completed":50,"recorded":now-90.0});
+    fs::write(&path, report.to_string()).unwrap();
+    let forecast = unit(&f.app)["forecast"].clone();
+    assert_eq!(forecast["phase"], "training");
+    assert_eq!(forecast["status"], "estimated");
+    assert!((forecast["finish_at"].as_f64().unwrap() - (now + 1050.0)).abs() < 0.001);
+    let dashboard = f.call("system", "dashboard_queue", json!({})).unwrap();
+    assert_eq!(dashboard["queue"]["unit_entries"][0]["forecast"]["finish_at"], forecast["finish_at"]);
+    report["attempt"] = json!("old-attempt");
+    fs::write(&path, report.to_string()).unwrap();
+    assert!(unit(&f.app).get("forecast").is_none());
+    report["attempt"] = json!(work.attempt);
+    report["sample"]["recorded"] = json!(now - 901.0);
+    fs::write(&path, report.to_string()).unwrap();
+    assert!(unit(&f.app).get("forecast").is_none());
+    report["sample"]["recorded"] = json!(now - 30.0);
+    report["previous"]["completed"] = report["sample"]["completed"].clone();
+    fs::write(path, report.to_string()).unwrap();
+    assert!(unit(&f.app).get("forecast").is_none());
+}
+
+#[test]
 fn accepted_taskless_research_can_only_replay_its_original_request() {
     let mut f = Fixture::new();
     let task = f
@@ -529,22 +572,58 @@ fn retired_policy_revision_stays_discoverable_when_another_job_revises_it() {
     let base = json!({"id":"policy","revision":1});
     let retire = json!({"key":"discard-r1","reason":"Superseded training","state":"discarded",
         "targets":[{"kind":"entity","identity":base}]});
+    let researcher = crate::auth::person_actor("researcher");
+    let mut reader = researcher.clone();
+    reader.scopes = vec!["read".into()];
     assert_eq!(
-        f.call("results", "set_output_disposition", retire.clone())
+        f.app
+            .execute(&reader, "results", "set_output_disposition", retire.clone())
             .unwrap_err()
             .status,
         403
     );
-    let admin = store::hash("disposition administrator");
-    f.actor.token_sha256 = Some(admin.clone());
-    f.app.config.actors[0].token_sha256 = Some(admin);
     let receipt = f
-        .call("results", "set_output_disposition", retire.clone())
+        .app
+        .execute(&researcher, "results", "set_output_disposition", retire.clone())
         .unwrap();
+    assert_eq!(receipt["changed"][0]["disposition"]["actor"], "researcher");
     assert_eq!(
         receipt,
-        f.call("results", "set_output_disposition", retire).unwrap()
+        f.app
+            .execute(&researcher, "results", "set_output_disposition", retire.clone())
+            .unwrap()
     );
+    let mut restore = retire.clone();
+    restore["key"] = json!("restore-r1");
+    restore["state"] = json!("current");
+    assert_eq!(
+        f.app
+            .execute(&reader, "results", "set_output_disposition", restore.clone())
+            .unwrap_err()
+            .status,
+        403
+    );
+    f.app
+        .execute(&researcher, "results", "set_output_disposition", restore)
+        .unwrap();
+    assert_eq!(
+        f.call("results", "get", base.clone()).unwrap()["disposition"]["state"],
+        "current"
+    );
+    let mut delete = retire.clone();
+    delete["state"] = json!("deleted");
+    assert_eq!(
+        f.app
+            .execute(&researcher, "results", "set_output_disposition", delete)
+            .unwrap_err()
+            .status,
+        400
+    );
+    let mut retire_again = retire;
+    retire_again["key"] = json!("discard-r1-again");
+    f.app
+        .execute(&researcher, "results", "set_output_disposition", retire_again)
+        .unwrap();
 
     let mut request = json!({"key":"revise-policy","owner":"owner","notify":"owner","scenario_ref":task_ref,
         "outcome":{"goal":"Train the next Policy revision","deliverables":[
@@ -616,10 +695,12 @@ fn retired_policy_revision_stays_discoverable_when_another_job_revises_it() {
         .unwrap();
     assert_eq!(current["entities"].as_array().unwrap().len(), 1);
     assert_eq!(current["entities"][0]["loom_registry"]["revision"], 2);
+    assert_eq!(current["task_index"], json!([task["id"]]));
     let retired = f.call("system","dashboard_page",json!({"kinds":["model"],"view":"all","role":"all","history":"all","output_state":"discarded","records_only":true})).unwrap();
     assert_eq!(retired["entities"].as_array().unwrap().len(), 1);
     assert_eq!(retired["entities"][0]["loom_registry"]["revision"], 1);
     assert_eq!(retired["entities"][0]["disposition"]["state"], "discarded");
+    assert_eq!(retired["task_index"], json!([task["id"]]));
     assert!(retired["entities"][0]["id"]
         .as_str()
         .unwrap()
@@ -3536,7 +3617,8 @@ fn reconciliation_import_replays_without_new_jobs_and_rejects_mutated_source_evi
         .unwrap();
     let source = json!({"schema":"loom-reconcile/v1","operations":[{"operation":"import","schema":"loom-asset/v2",
         "source":{"system":"preserved-fixture","id":"training-data","revision":"r1"},"definition":{"kind":"dataset","label":"Training data",
-        "scenario_ref":{"id":task["id"],"revision":1},"primary":{"machine_id":"fixture","storage_id":"fixture-data","ref":"weights.json"}}}]});
+        "scenario_ref":{"id":task["id"],"revision":1},"metadata":{"split_clips":[{"id":"train","count":700},{"id":"validation","count":150},{"id":"test","count":150}]},
+        "primary":{"machine_id":"fixture","storage_id":"fixture-data","ref":"weights.json"}}}]});
     let source = f
         .call(
             "results",
@@ -3589,6 +3671,33 @@ fn reconciliation_import_replays_without_new_jobs_and_rejects_mutated_source_evi
         .unwrap();
     assert_eq!(native["kind"], "model");
     assert!(native["job"].is_null());
+    let catalog = f.app.dashboard_catalog().unwrap();
+    let policy = catalog["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["loom_registry"]["id"] == *id)
+        .unwrap();
+    let input = &policy["catalog_inputs"]["datasets"][0];
+    assert_eq!(input["ref"]["identity"], json!({"id":dataset,"revision":1}));
+    assert_eq!(
+        input["split"],
+        json!({"train":700,"validation":150,"test":150})
+    );
+    f.call("jobs","curate",json!({"key":"split-source-label","reason":"Match the dataset variant","dry_run":false,
+        "changes":[{"kind":"entity","id":dataset,"presentation":{"label":"D1"}}]})).unwrap();
+    for _ in 0..8 {
+        f.app.index_once().unwrap();
+    }
+    let pin = f
+        .call("results", "resolve_item", json!({"native_ref":input["ref"]}))
+        .unwrap();
+    let policy_page = f.call("system", "dashboard_page", json!({"kinds":["model"],"view":"all","role":"all","records_only":true})).unwrap();
+    let curated_input = &policy_page["entities"][0]["catalog_inputs"]["datasets"][0];
+    assert_eq!(curated_input["label"], "D1");
+    assert_eq!(curated_input["item_id"], pin["item_id"]);
+    assert_eq!(curated_input["revision_id"], pin["revision_id"]);
+    assert_eq!(curated_input["split"], input["split"]);
     assert_eq!(f.call("results", "reconcile_apply", args).unwrap(), applied);
     assert_eq!(f.count("asset_revisions"), 2);
     let mut conflicting = proposal.clone();
@@ -3911,6 +4020,71 @@ fn dashboard_pages_project_only_selected_kinds_and_use_server_cursors() {
     assert_eq!(second["entities"].as_array().unwrap().len(), 2);
     assert_ne!(first["entities"][0]["id"], second["entities"][0]["id"]);
     assert!(second["next_cursor"].is_null());
+}
+
+#[test]
+fn dashboard_task_index_covers_matching_outputs_beyond_first_page() {
+    let mut f = Fixture::new();
+    let mut tasks = vec![];
+    for label in ["Current A", "Current B", "Discarded", "Empty"] {
+        let task = f
+            .call(
+                "results",
+                "register_scenario",
+                json!({"key":label,"definition":{"label":label}}),
+            )
+            .unwrap();
+        if label != "Empty" {
+            let mut manifest = json!({"id":label,"kind":"dataset","label":label,"catalog_class":"regular",
+                "scenario_ref":{"id":task["id"],"revision":1},"components":[],"relations":[]});
+            if label == "Current B" {
+                manifest.as_object_mut().unwrap().remove("scenario_ref");
+            }
+            f.app
+                .db
+                .execute(
+                    "INSERT INTO asset_revisions VALUES(?,1,NULL,'dataset','owner','owner',?)",
+                    rusqlite::params![label, manifest.to_string()],
+                )
+                .unwrap();
+            if label == "Current B" {
+                f.call("results","link_scenario",json!({"key":"link-b","scenario_ref":{"id":task["id"],"revision":1},
+                    "target":{"kind":"entity","identity":{"id":label,"revision":1}},"relation":"produced_for",
+                    "provenance":{"reason":"Exact historical link fixture"}})).unwrap();
+            }
+        }
+        tasks.push(task["id"].clone());
+    }
+    f.call(
+        "results",
+        "set_output_disposition",
+        json!({"key":"discard-dataset","reason":"Index fixture","state":"discarded",
+        "targets":[{"kind":"entity","identity":{"id":"Discarded","revision":1}}]}),
+    )
+    .unwrap();
+    for _ in 0..12 {
+        f.app.index_once().unwrap();
+    }
+    let query = json!({"kinds":["dataset"],"view":"all","role":"all","output_state":"current","catalog_classes":["regular"],"records_only":true,"limit":1});
+    let page = f.call("system", "dashboard_page", query.clone()).unwrap();
+    assert_eq!(page["entities"].as_array().unwrap().len(), 1);
+    let indexed = page["task_index"].as_array().unwrap();
+    assert_eq!(indexed.len(), 2);
+    assert!(tasks[..2].iter().all(|id| indexed.contains(id)));
+    let mut next = query.clone();
+    next["cursor"] = page["next_cursor"].clone();
+    let next = f.call("system", "dashboard_page", next).unwrap();
+    assert_eq!(next["entities"].as_array().unwrap().len(), 1);
+    assert!(next["task_index"].is_null());
+    let mut task_query = query.clone();
+    task_query["task_id"] = tasks[1].clone();
+    let linked = f.call("system", "dashboard_page", task_query).unwrap();
+    assert_eq!(linked["entities"][0]["label"], "Current B");
+    let mut discarded = query;
+    discarded["output_state"] = json!("discarded");
+    discarded["history"] = json!("all");
+    let page = f.call("system", "dashboard_page", discarded).unwrap();
+    assert_eq!(page["task_index"], json!([tasks[2]]));
 }
 
 #[test]

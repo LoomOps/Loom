@@ -69,6 +69,37 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.ui.wait("return !"+contents+".includes('Class regular')")
   self.assertIn('Class reference',self.ui.js('return '+contents))
 
+ def test_researcher_discards_and_restores_an_exact_catalog_record(self):
+  identity={'source':'catalog','kind':'dataset','id':'browser-disposition','revision':'r1','snapshot':'disposition'}
+  record={'original':{'id':identity['id'],'kind':'dataset','label':'Disposition fixture',
+                     'catalog_class':'regular','properties':{},'metrics':[],'relations':[],'artifacts':[]},
+          'record':{'created':time.time()},'locations':[]}
+  with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+   db.execute('INSERT INTO history_records(source,kind,id,revision,snapshot,body) VALUES(?,?,?,?,?,?)',
+              (*identity.values(),json.dumps(record)))
+  def cleanup():
+   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+    db.execute('DELETE FROM history_records WHERE snapshot=?',(identity['snapshot'],))
+  self.addCleanup(cleanup)
+
+  self.ui.nav('Datasets')
+  self.ui.wait("""const link=[...document.querySelectorAll('[data-output-id] [data-entity]')]
+                  .find(node=>node.textContent==='Disposition fixture');if(!link)return false;link.click();return true;""")
+  match=self.call('results','resolve_item',{'native_ref':{'kind':'historical','identity':identity}})
+  selector={'item_id':match['item_id'],'revision_id':match['revision_id'],'records_only':True}
+  for label,next_label,state in [('Discard','Restore','discarded'),('Restore','Discard','current')]:
+   self.ui.click('.pa-entity-menu summary')
+   self.ui.wait("return document.querySelector('[data-output-disposition]')?.textContent===arguments[0]",label)
+   self.ui.click('[data-output-disposition]')
+   self.ui.js("document.querySelector('dialog[open] input[name=reason]').value='Catalog curation fixture'")
+   self.ui.click('dialog[open] button[type=submit]')
+   self.ui.wait("return document.querySelector('dialog[open] [data-hub-result]')?.textContent || !document.querySelector('dialog[open]')")
+   self.assertFalse(self.ui.js("return document.querySelector('dialog[open] [data-hub-result]')?.textContent"))
+   self.ui.wait("return document.querySelector('[data-output-disposition]')?.textContent===arguments[0]",next_label)
+   page=self.call('system','dashboard_entity',selector)
+   self.assertEqual(page['entities'][0]['disposition']['state'],state)
+   self.assertEqual(self.call('results','historical',identity)['body'],record)
+
  def test_standalone_unit_is_labeled_in_queue_and_terminal_history(self):
   db_path=self.native_root/'state/ops.sqlite3'
   def set_paused(paused):
@@ -348,8 +379,17 @@ class NativeWorkspaceTests(unittest.TestCase):
   ui.wait("return JSON.parse(document.querySelector('[data-report-filter=member]').value)[1]===12")
   self.assertTrue(ui.js("return document.querySelector('[data-report-content]').textContent.includes('Recorded evidence')"))
 
+ def link_task_policy_fixture(self,task,identity):
+  record={'original':{'id':identity,'kind':'model','label':identity,'catalog_class':'regular','properties':{}},'locations':[]}
+  with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+   db.execute('INSERT INTO history_records(source,kind,id,revision,snapshot,body) VALUES(?,?,?,?,?,?)',('catalog','model',identity,'r1','task-index',json.dumps(record)))
+  self.call('results','link_scenario',{'key':'link-'+identity,'scenario_ref':{'id':task['id'],'revision':1},
+   'target':{'kind':'historical','identity':{'source':'catalog','kind':'model','id':identity,'revision':'r1','snapshot':'task-index'}},
+   'relation':'produced_for','provenance':{'reason':'Browser Task index fixture'}})
+
  def test_native_scenario_create_revision_and_render_without_injected_markup(self):
   task=self.call('results','register_scenario',{'key':'native-ui-context','definition':{'label':'Native <img src=x onerror=alert(1)>','description':'Fixture context'}})
+  self.link_task_policy_fixture(task,'escaped-task-policy')
   ui=self.ui;ui.nav('Models');self.assertFalse(ui.js("return !!document.querySelector('[data-scenario-create]')"));ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return [...document.querySelectorAll('[data-research-task]')].some(o=>o.dataset.researchTask===arguments[0])",task['id']);ui.route(task['id']);ui.wait("return !!document.querySelector('[data-scenario-edit]')");self.assertFalse(ui.js("return !!document.querySelector('#pa-content img[src=x]')"));self.assertNotIn('Unassigned',ui.js("return document.querySelector('#pa-content').textContent"))
   ui.click('[data-scenario-edit]');ui.js("const f=document.querySelector('[data-scenario-form]');f.elements.label.value='Native context revised';f.elements.reason.value='Protocol revision fixture';f.querySelector('button[type=submit]').click()");ui.wait("return !document.querySelector('[data-hub-dialog][open]')");ui.wait("return document.querySelector('[data-scenario-revision]')?.options.length===2")
   for width in (1440,500):
@@ -417,14 +457,17 @@ class NativeWorkspaceTests(unittest.TestCase):
 
  def test_native_catalog_pages_and_exact_history_are_server_backed(self):
   for n in range(65):
-   self.call('results','register_scenario',{'key':'page-scenario-'+str(n),'definition':{'label':f'Paged Scenario {n:03}'}})
+   task=self.call('results','register_scenario',{'key':'page-scenario-'+str(n),'definition':{'label':f'Paged Scenario {n:03}'}})
+   if n==64:self.link_task_policy_fixture(task,'paged-task-policy')
   self.wd('/url',{'url':self.base});self.ui.connect();self.ui.nav('Models')
-  self.ui.wait("return [...document.querySelectorAll('[data-research-task]')].filter(e=>e.textContent.startsWith('Paged Scenario')).length===65")
+  self.ui.wait("return [...document.querySelectorAll('[data-research-task]')].some(e=>e.textContent==='Paged Scenario 064')")
+  self.assertEqual(self.ui.js("return [...document.querySelectorAll('[data-research-task]')].filter(e=>e.textContent.startsWith('Paged Scenario')).length"),1)
   self.assertFalse(self.ui.js("return !!document.querySelector('#pa-nav [data-go=scenarios]')"))
   with urlopen(self.native+'/api/dashboard/bootstrap',timeout=5) as response:bootstrap=json.load(response)
   self.assertTrue(bootstrap['capabilities']['catalog_pages']);self.assertIsInstance(bootstrap['activity']['days'],list)
   with urlopen(self.native+'/api/dashboard/shell',timeout=5) as response:shell=json.load(response)
   self.assertTrue(shell['capabilities']['live_queue']);self.assertEqual(shell['entities'],[])
+  self.assertEqual(sum(task['label'].startswith('Paged Scenario') for task in shell['research_tasks']),65)
   self.assertTrue({'activity','queue','runtime_catalog','summary'}.isdisjoint(shell))
   self.ui.nav('Profiles');self.ui.wait("return document.querySelector('#pa-content').textContent.includes('browser.profile.r1')")
 
@@ -439,7 +482,8 @@ class NativeWorkspaceTests(unittest.TestCase):
      if 'dashboard_activity' in observed and 'dashboard_queue' in observed:loaded.set()
    return original(handler,method,path,body,media=media)
   with patch.object(reference.server.WebHandler,'relay',relay):
-   self.call('results','register_scenario',{'key':'shell-pane-demand','definition':{'label':'Shell pane demand'}})
+   task=self.call('results','register_scenario',{'key':'shell-pane-demand','definition':{'label':'Shell pane demand'}})
+   self.link_task_policy_fixture(task,'shell-pane-policy')
    self.ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
    self.ui.wait("return [...document.querySelectorAll('[data-research-task]')].some(o=>o.textContent==='Shell pane demand')")
    self.assertNotIn('dashboard_activity',observed);self.assertNotIn('dashboard_queue',observed)
@@ -538,6 +582,7 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.assertEqual(len(page['entities']),1)
   self.assertEqual(page['entities'][0]['loom_history']['snapshot'],'exact')
   self.wd('/url',{'url':self.base});self.ui.connect();self.ui.nav('Models')
+  self.ui.wait("return [...document.querySelectorAll('[data-research-task]')].some(b=>b.dataset.researchTask===arguments[0])",task['id'])
   self.ui.js("[...document.querySelectorAll('[data-research-task]')].find(b=>b.dataset.researchTask===arguments[0]).click()",task['id'])
   self.ui.wait("return document.querySelector('#pa-content').textContent.includes('Linked model exact')")
   self.assertNotIn('Linked model other',self.ui.js("return document.querySelector('#pa-content').textContent"))

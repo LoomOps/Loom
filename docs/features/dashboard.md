@@ -12,10 +12,13 @@ follows explicit exact lineage, retains variant names and overlapping counts, an
 does not infer a data-parent edge from Task names or general consumes relations.
 Group counts describe loaded variants; paging does not claim a complete lineage.
 Datasets, Policies and Experiments share the scientific list and filter styles.
-The Dataset list uses the Task index and catalog class. Inputs, splits and the
-Imported badge remain record facts. Named sections show related variants and exact
-parent labels. Policies and Experiments have a Family index. Selecting a Task
-also shows its linked Datasets in the index. These filters intersect. Recognized
+The Dataset list uses the Task index and catalog class. Different splits of the
+same variant share its label and subgroup. Recorded counts appear as a Split tag
+and each entry keeps its exact link. The browser hides a legacy split suffix or
+subgroup only when it matches the structured split and declared path. Inputs and
+the Imported badge remain record facts. Policies and Experiments have a Family
+index. Selecting a Task also shows linked Datasets with their recorded splits in
+the index. These filters intersect. Recognized
 variants of a recorded architecture share a family label. Policies support text search.
 Declared Observer models stay reachable by exact links and through discovery.
 They are omitted from the Policies list.
@@ -23,7 +26,7 @@ The Policies and Experiments lists fold identical preserved copies of the same
 source revision within the selected catalog context. Every exact snapshot
 remains addressable, including copies whose original records differ.
 
-The Catalog orders Datasets, Policies and Experiments. Its left Task index initially selects All. The selected Task carries across the three tabs, and All includes unlinked records. Reporting-enabled details use
+The Catalog orders Datasets, Policies and Experiments. Its left Task index initially selects All and lists Tasks with outputs of the active kind, catalog class and disposition. The index covers results beyond the first page. Switching tabs or filters keeps a selected Task while it still has matching outputs. All includes unlinked records. Reporting-enabled details use
 Overview with optional Distribution and Episodes for Datasets, Overview and
 Training for Policies, and Overview, Results and Cases for Experiments.
 Each Overview presents its metadata sections together in one standard panel,
@@ -107,9 +110,15 @@ Acceptance outside these fixtures:
 
 The browser opens the authenticated shell first. Visible Home panes then request
 queue occupants, paged history and Activity independently. Job details request
-the queue for controls. Same-revision refresh preserves loaded pages and
-parent-side detail identities. A new revision invalidates page cursors and pending
-responses before the visible list reloads. Dashboard history starts its paged Job
+the queue for controls and retain the last successful Unit list while reloading.
+The visible queue reloads every five minutes while there are running Units.
+It identifies the estimated phase and shows an unavailable state when usable
+progress is missing.
+Recent Job detail identities remain available between the shell and queue reads.
+A transient detail failure keeps the previous result and offers retry. Explicit
+denial or removal clears the old detail. Same-revision refresh preserves loaded
+pages. A new revision invalidates page cursors and outdated list responses before
+the visible list reloads. Dashboard history starts its paged Job
 read when bootstrap data patches the pane. It waits for the first complete Job
 page and keeps the previous page during refresh or partial reads. The queue
 shows current user work independently of history pagination. Runtime lists with
@@ -236,6 +245,8 @@ Activity responses from older revisions cannot overwrite the current observation
 
 An asynchronous bootstrap refresh must renew Activity for its new revision even
 when no full render occurs. Keep one in-flight request per revision/view, ignore
-older responses and retain the last verified rollup until replacement. Browser
-regression holds an old reply across a bootstrap and requires the newer request
-without a filter click or navigation.
+older responses and retain the last verified rollup until replacement. On first
+load, show a spinner until the Activity response is available, including when
+it contains zero days. A failed read offers retry. Browser regression holds an
+old reply across a bootstrap and requires the newer request without a filter
+click or navigation.

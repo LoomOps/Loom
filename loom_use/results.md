@@ -8,6 +8,10 @@ Search the existing Task, Dataset variants, and Policies with `results.scenarios
 and `results.search_items` before choosing IDs or registering replacements. Each
 Dataset has its own immutable ID and revision. Record a stable variant path in
 `metadata.research.organization` when a Task has variants such as D0, D1 or D2.
+Keep the Dataset label and variant path when only the split changes. Publish
+the verified membership manifest for the new split and record its counts in
+`metadata.research.collection.split`. The Catalog shows those counts as a
+Split tag. Choose the exact Dataset record to reuse by its membership manifest.
 If the organization declares `task_ref`, use the same `{id,revision}` as the
 Job or import's Task.
 Pin the exact training Dataset for a Policy and the exact evaluation Dataset and
@@ -30,6 +34,14 @@ Consume published artifacts through the Profile's accepted `{job,entity,member?}
 
 `results.list` includes imported historical entries with `record_type: historical` and `history_ref`. Pass that exact selector to `results.historical`; native entries use `results.get`. Recorded historical availability and current copy availability are distinct.
 
+## Discard or restore a Catalog revision
+
+Use `results.set_output_disposition` with research `submit` scope, an exact
+native or historical target, a reason, and an idempotency key. Set `state` to
+`discarded` to retire it from the Current list or to `current` to restore it.
+Files, Job history, and pinned inputs remain available. Each later revision
+starts current.
+
 ## Reconnect a restored artifact
 
 After restoring the exact bytes of an existing artifact, use `results.reconnect`
@@ -50,9 +62,14 @@ Use `<robot model> · <subject> · <variant> · <purpose> [· <revision or selec
 Omit unknown or irrelevant parts; never invent counts, stages or a selected step.
 Prefer English and keep the label under 120 characters (the SDK helper allows 200).
 
-- Dataset: Franka Panda · Grasp · RGB-D demonstrations · v2
-- Model: Franka Panda · X-VLA · RGB-D grasp policy · step 20000
+- Dataset: Franka Panda · Square D1
+- Policy: Franka Panda · Square D1 · X-VLA Pt LoRA
 - Experiment: Franka Panda · X-VLA · Closed-loop evaluation · test96
+
+Use a stable short code such as `D1` for an established variant. Keep the
+robot and Task name in the Dataset title and use the short code in its
+catalog path. Use spaces in display names such as `Square D1`. Preserve
+underscores in source identifiers when the source uses them.
 
 Robot is also a typed property, independent of the label and Task context. Use
 the recorded model; retain unknown or inapplicable status explicitly rather than
@@ -61,6 +78,7 @@ one arbitrarily. See `metadata` for registered formats and canonical field types
 
 Include the discriminators needed to distinguish sibling outputs: modality,
 model family, protocol/cohort, checkpoint role or revision as appropriate.
+Keep split counts and Dataset revision numbers out of Dataset display names.
 When evaluations share a protocol and cohort, include the evaluated Policy
 variant or checkpoint in each label if it distinguishes the runs.
 Keep full parameters, counts, splits, timestamps, hashes and Runtime pins in
@@ -71,6 +89,8 @@ alone as the display name.
 Task membership is a separate exact `scenario_ref`/context link, shown as a property
 in the Catalog. It never replaces `label`. Reuse an accepted Task when appropriate;
 do not create another Task just to name an output.
+For a new Task, prefer one distinctive word and use two when needed to avoid
+ambiguity. Record the robot model and calibration in the output metadata.
 
 With the Rust SDK, register the file/entity or inventory, then call
 `producer.set_entity_label(local_id, label)` before `finish`. For external imports,

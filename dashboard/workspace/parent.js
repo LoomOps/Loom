@@ -16,6 +16,7 @@
   let resourceBusy = false;
   let catalogLoaded = false;
   let catalogEntities = new Map();
+  const jobDetailIds = new Map();
   let mediaRequest;
   let revisionTimer;
   let catalogRevision;
@@ -56,6 +57,7 @@
     sessionUser = null;
     emit('loom-session',{user:null});
     catalogEntities.clear();
+    jobDetailIds.clear();
     status.textContent = message;
     access.hidden = false;
     frame.hidden = true;
@@ -241,15 +243,21 @@
     if (!signedIn() || typeof identity !== 'string' || !Number.isSafeInteger(requestId)) return;
     const entity = catalogEntities.get(identity);
     const signal = lifetime.signal;
+    // The compact shell can replace the index before the queue arrives.
+    const jobId = entity ? entity.loom_job?.id : jobDetailIds.get(identity);
     let path;
     if (kind === 'history' && entity?.loom_history) {
       const {source, kind, id, revision} = entity.loom_history;
       path = '/api/history/get?' + new URLSearchParams({source, kind, id, revision});
     } else if (kind === 'registry' && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/.test(entity?.loom_registry?.id || '')) {
       path = '/api/registry/' + entity.loom_registry.id;
-    } else if (kind === 'job' && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/.test(entity?.loom_job?.id || '')) {
-      path = '/api/jobs/' + entity.loom_job.id;
+    } else if (kind === 'job' && /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/.test(jobId || '')) {
+      jobDetailIds.delete(identity);
+      jobDetailIds.set(identity, jobId);
+      if (jobDetailIds.size > 32) jobDetailIds.delete(jobDetailIds.keys().next().value);
+      path = '/api/jobs/' + jobId;
     } else {
+      emit('loom-detail-response', {identity, requestId, error:503});
       return;
     }
     try {
@@ -269,9 +277,20 @@
       ? {...message.arguments,records_only:true} : message.arguments;
     try{const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({group:message.group,action:message.action,arguments:args}),signal:AbortSignal.timeout(15000)});const value=await response.json();if(response.ok&&message.group==='system'&&['dashboard_page','dashboard_entity','dashboard_queue'].includes(message.action)){for(const entity of value.entities||[])catalogEntities.set(entity.id,entity);if(value.revision===catalogRevision){const records=new Map((researchIncoming?.entities||[]).map(e=>[e.id,e]));for(const entity of value.entities||[]){catalogEntities.set(entity.id,entity);records.set(entity.id,entity);}while(records.size>4000)records.delete(records.keys().next().value);researchIncoming={...researchIncoming,entities:[...records.values()]};}}emit('loom-search-result',{id:message.id,ok:response.ok,value});}catch(error){emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});}
   }
-  async function scenarioAction(message) {
-    if(!signedIn()||!['scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link'].includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;
-    try{const response=await fetch('/api/scenarios/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(30000)});const value=await response.json();emit('loom-scenario-action-result',{id:message.id,ok:response.ok,value});if(response.ok&&!['scenarios','get_scenario','scenario_graph'].includes(message.action))refreshCatalog();}catch(error){emit('loom-scenario-action-result',{id:message.id,ok:false,value:{error:'request_unavailable'}});}
+  async function resultAction(message) {
+    const catalog=message.action==='set_output_disposition';
+    if(!signedIn()||typeof message.id!=='string'||message.id.length>128)return;
+    if(!catalog&&!['scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link'].includes(message.action))return;
+    try{
+      const response=await fetch(catalog?'/api/catalog/disposition':'/api/scenarios/actions',{
+        method:'POST',credentials:'same-origin',redirect:'error',
+        headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},
+        body:JSON.stringify({action:message.action,arguments:message.arguments}),signal:AbortSignal.timeout(30000)
+      });
+      const value=await response.json();
+      emit('loom-result-action-result',{id:message.id,ok:response.ok,value});
+      if(response.ok&&!['scenarios','get_scenario','scenario_graph'].includes(message.action))refreshCatalog();
+    }catch(error){emit('loom-result-action-result',{id:message.id,ok:false,value:{error:'request_unavailable'}});}
   }
   async function runtimeAction(message) {
     if (!signedIn() || !['inspect_profile','compare_profiles','curate','inspect_lifecycle','set_lifecycle'].includes(message.action) || typeof message.id!=='string' || message.id.length>128) return;
@@ -431,8 +450,8 @@
       updates();
     } else if(message.type==='loom-search-action'){
       searchAction(message);
-    } else if(message.type==='loom-scenario-action'){
-      scenarioAction(message);
+    } else if(message.type==='loom-result-action'){
+      resultAction(message);
     } else if (message.type === 'loom-runtime-action') {
       runtimeAction(message);
     } else if (message.type === 'loom-queue-action') {

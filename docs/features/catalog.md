@@ -69,15 +69,19 @@ visible and does not inherit the old consolidation's completion.
 The Dashboard can fold mirrored historical rows when their exact publication
 revision, normalized original record and location inventory agree. Policies use
 the current revision of each catalog identity. List fields are fixed by kind
-independently of metadata templates. Datasets show Episodes and Split. Policies
-show Dataset, Model family and Checkpoint. Experiment rows show Dataset, Policy,
+independently of metadata templates. Datasets show Tag and Episodes. Policies
+show Dataset, Tag, Model family and Checkpoint. The Split tag comes from the
+recorded membership counts. Overview input links open the exact Dataset or
+Policy revision. Experiment rows show Dataset, Policy,
 Result and Checkpoint in that order in the shared facts row. The checkpoint is the one behind the stated
 result when identifiable. Detailed metrics remain in Results.
 
 Datasets, Policies and Experiments use the same Current and Discarded filters.
-`results.set_output_disposition` applies an installation-admin overlay to exact
-revisions. Exact reads, files, Job history and existing input pins remain
-available. A later revision starts current.
+Researchers with `submit` scope can discard or restore exact revisions through
+`results.set_output_disposition` or the Dashboard item menu. The action records
+the actor and reason and only changes Catalog disposition. Exact reads, files,
+Job history and existing input pins remain available. A later revision starts
+current. The Catalog exposes no permanent deletion operation.
 
 `dashboard_page` and `dashboard_entity` expose `research_summary` for Datasets,
 Models and Experiments. The canonical fact vocabulary and extraction paths live

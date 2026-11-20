@@ -1207,7 +1207,7 @@ Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crate
 
 ### Result and failures
 
-Queue · revision, entries with position, held, reason, capabilities
+Queue · entries with position, held, reason, capabilities and optional producer progress forecast for a running Unit
 
 Shared authentication, schema, scope and handler preconditions still apply.
 

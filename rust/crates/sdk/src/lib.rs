@@ -1,6 +1,6 @@
 //! Producer-side request/progress/output contract. No scheduler or credentials.
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     fs,
@@ -101,6 +101,15 @@ pub struct Producer {
     sequence: u64,
     entities: Vec<Value>,
     metrics: Vec<Value>,
+    work_sample: Option<WorkSample>,
+}
+
+struct WorkSample {
+    phase: String,
+    unit: String,
+    total: u64,
+    completed: u64,
+    recorded: f64,
 }
 impl Producer {
     pub fn new(request: Request) -> Result<Self> {
@@ -114,6 +123,7 @@ impl Producer {
             sequence: 0,
             entities: vec![],
             metrics: vec![],
+            work_sample: None,
         })
     }
     pub fn check_cancelled(&self) -> Result<()> {
@@ -122,6 +132,58 @@ impl Producer {
         } else {
             Ok(())
         }
+    }
+    /// Report a cumulative counter for the current run. Use one reporter.
+    /// Samples are emitted at most once every 30 seconds until completion.
+    pub fn report_work_progress(
+        &mut self,
+        phase: &str,
+        completed: u64,
+        total: u64,
+        unit: &str,
+    ) -> Result<()> {
+        self.check_cancelled()?;
+        if self.request.stage != "run"
+            || self.request.job.is_empty()
+            || self.request.attempt.is_empty()
+            || !matches!(phase, "training" | "execution")
+            || total == 0
+            || completed > total
+            || unit.trim().is_empty()
+            || unit.chars().count() > 32
+            || unit.chars().any(char::is_control)
+        {
+            return Err("Invalid work progress counter".into());
+        }
+        let recorded = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs_f64();
+        let previous = self.work_sample.as_ref().filter(|sample| {
+            sample.phase == phase
+                && sample.unit == unit
+                && sample.total == total
+                && sample.completed <= completed
+                && sample.recorded < recorded
+        });
+        if completed < total && previous.is_some_and(|v| recorded - v.recorded < 30.0) {
+            return Ok(());
+        }
+        let report = json!({"schema":"loom-work-progress/v1","job":self.request.job,
+            "attempt":self.request.attempt,"stage":self.request.stage,"phase":phase,"unit":unit,"total":total,
+            "sample":{"completed":completed,"recorded":recorded},
+            "previous":previous.map(|v|json!({"completed":v.completed,"recorded":v.recorded}))});
+        atomic(
+            &inside(&self.request.output_dir, "work-progress.json")?,
+            &serde_json::to_vec(&report)?,
+        )?;
+        self.work_sample = Some(WorkSample {
+            phase: phase.into(),
+            unit: unit.into(),
+            total,
+            completed,
+            recorded,
+        });
+        Ok(())
     }
     pub fn progress(&mut self, step: &str, state: &str) -> Result<()> {
         self.check_cancelled()?;

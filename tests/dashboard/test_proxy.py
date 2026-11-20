@@ -146,6 +146,24 @@ class ProxyTest(unittest.TestCase):
             self.assertEqual(self.request('/api/search/actions',headers=headers,method='POST',body={'group':'results','action':action,'arguments':{}})[0],400)
         self.assertEqual(len(self.api.history_calls),before)
 
+    def test_catalog_disposition_relay_accepts_only_the_authenticated_reversible_action(self):
+        endpoint = '/api/catalog/disposition'
+        headers = {'Authorization': 'Bearer fixture'}
+        payload = {'action': 'set_output_disposition', 'arguments': {
+            'targets': [{'kind': 'entity', 'identity': {'id': 'dataset', 'revision': 1}}],
+            'state': 'discarded', 'reason': 'Superseded', 'key': 'catalog-test',
+        }}
+        self.assertEqual(self.request(endpoint, method='POST', body=payload)[0], 401)
+        self.assertEqual(self.request(endpoint, headers={**headers, 'Origin': 'https://other.example'},
+                                      method='POST', body=payload)[0], 403)
+        self.assertEqual(self.request(endpoint, headers=headers, method='POST',
+                                      body={**payload, 'action': 'delete_output'})[0], 400)
+        self.assertEqual(self.request('/api/search/actions', headers=headers, method='POST',
+                                      body={'group': 'results', **payload})[0], 400)
+        self.assertEqual(self.api.history_calls, [])
+        self.assertEqual(self.request(endpoint, headers=headers, method='POST', body=payload)[0], 200)
+        self.assertEqual(self.api.history_calls[-1][2], {'group': 'results', **payload})
+
     def start(self, server):
         worker = Thread(target=server.serve_forever, daemon=True)
         worker.start()

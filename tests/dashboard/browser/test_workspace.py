@@ -21,6 +21,124 @@ from verify_browser import request,FIREFOX
 from verify_workspace import Workspace
 
 class WorkspaceBrowserTests(unittest.TestCase):
+    def test_queue_reloads_phase_forecasts_without_catalog_revision_change(self):
+        job, _ = native('forecast-job')
+        job.update(entry_type='job', state='running')
+        job['properties']['state'] = 'running'
+        unit = {'id':'forecast-unit','job_id':job['id'],'entry_type':'unit',
+                'state':'running','label':'Train','reason':'executing'}
+        catalog = self.api.fixture['catalog']
+        catalog.update(entities=[job], revision='forecast-same-revision',
+                       capabilities={'catalog_pages':True,'live_queue':True,'job_units':True})
+        queue = {'entries':[unit],'logical_entries':[job],'job_entries':[job],'unit_entries':[unit]}
+        self.api.fixture['search_actions'] = {
+            'dashboard_queue':{'entities':[job],'queue':queue,'revision':catalog['revision']},
+            'dashboard_page':{'entities':[],'revision':catalog['revision']},
+            'dashboard_activity':{'days':[]},
+        }
+        def finish_cell(queue_name):
+            return ("[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith("
+                    +repr(queue_name)+"))?.querySelector('tbody tr td:last-child')")
+        job_finish = finish_cell('Job Queue')
+        unit_finish = finish_cell('Unit Queue')
+        workspace = (server.PUBLIC/'workspace.html').read_text()
+        accelerated = workspace.replace('setInterval(loomRefreshQueueProgress,300000)',
+                                        'setInterval(loomRefreshQueueProgress,250)')
+        self.assertNotEqual(workspace, accelerated)
+        with tempfile.TemporaryDirectory() as directory:
+            public = Path(directory)
+            (public/'workspace.html').write_text(accelerated)
+            (public/'icon.svg').write_bytes((server.PUBLIC/'icon.svg').read_bytes())
+            with patch.object(server, 'PUBLIC', public):
+                self.ui.top()
+                self.wd('/refresh', {})
+                self.ui.connect()
+                for cell in (job_finish, unit_finish):
+                    self.ui.wait('return '+cell+'?.textContent.includes("산정 불가")')
+                unit['forecast'] = {'status':'measuring','phase':'training','progress':100,'total':1000,'progress_unit':'updates','as_of':time.time()}
+                for cell in (job_finish, unit_finish):
+                    self.ui.wait('return '+cell+'?.textContent.includes("측정 중")')
+                unit['forecast'].update(status='estimated', finish_at=time.time()+600, remaining_s=600)
+                for cell in (job_finish, unit_finish):
+                    self.ui.wait('return '+cell+'?.textContent.includes("학습 종료 예상")')
+
+    def test_job_units_survive_shell_refresh_and_detail_retry(self):
+        job, detail = native('job-detail-refresh')
+        job.update(entry_type='job', state='running')
+        job['properties']['state'] = 'running'
+        detail.update(entry_type='job', state='running', units=[
+            {'id':'prep','label':'Verify input','phase':'prepare','status':'completed'},
+            {'id':'smoke','label':'GPU smoke','phase':'prepare','status':'completed'},
+            {'id':'train','label':'Train policy','phase':'run','status':'running'},
+        ])
+        catalog = self.api.fixture['catalog']
+        catalog.update(entities=[job], revision='job-detail-1',
+                       capabilities={'catalog_pages':True,'live_queue':True,'job_units':True})
+        self.api.fixture['jobs'][job['id']] = detail
+        queue = {'entities':[job],'queue':{'job_entries':[job],'unit_entries':[],'dispatch':{}},
+                 'revision':catalog['revision']}
+        self.api.fixture['search_actions'] = {
+            'dashboard_queue':queue,'dashboard_page':{'entities':[],'revision':catalog['revision']},
+            'dashboard_activity':{'days':[]},
+        }
+        refreshed = copy.deepcopy(detail)
+        refreshed['units'][-1]['status'] = 'completed'
+        queue_requested, detail_requested = Event(), Event()
+        release_queue, release_detail = Event(), Event()
+        def delay(handler, value, status=200):
+            if value is queue and queue['revision'] == 'job-detail-2':
+                queue_requested.set()
+                release_queue.wait(8)
+            if value is refreshed:
+                detail_requested.set()
+                release_detail.wait(8)
+            return original(handler, value, status)
+
+        original = self.api.RequestHandlerClass.send_json
+        units = "[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent==='Units')"
+        reload_catalog = "parent.postMessage({type:'pai-catalog-refresh'},'*')"
+        self.ui.top()
+        self.wd('/refresh', {})
+        self.ui.connect()
+        self.ui.route(job['id'])
+        self.ui.wait('return '+units+'?.querySelectorAll("tbody tr").length===3')
+
+        try:
+            with patch.object(self.api.RequestHandlerClass, 'send_json', delay):
+                catalog.update(entities=[], revision='job-detail-2')
+                queue['revision'] = catalog['revision']
+                self.api.fixture['jobs'][job['id']] = refreshed
+                self.ui.js(reload_catalog)
+                self.assertTrue(queue_requested.wait(5))
+                self.assertTrue(detail_requested.wait(5), 'The detail read must start before the queue restores the Job identity')
+                self.assertEqual(self.ui.js('return '+units+'.querySelectorAll("tbody tr").length'), 3)
+                self.assertIn('running', self.ui.js('return '+units+'.querySelector("tbody tr:last-child").textContent'))
+                release_detail.set()
+                self.ui.wait('return '+units+'?.querySelector("tbody tr:last-child").textContent.includes("completed")')
+                release_queue.set()
+        finally:
+            release_queue.set()
+            release_detail.set()
+
+        path = '/api/jobs/'+job['id']
+        self.api.errors[path] = 503
+        catalog['revision'] = queue['revision'] = 'job-detail-3'
+        self.ui.js(reload_catalog)
+        self.ui.wait('return !!document.querySelector("[data-loom-detail-retry]")')
+        self.assertEqual(self.ui.js('return '+units+'.querySelectorAll("tbody tr").length'), 3)
+        self.ui.wait("return document.querySelector('#pa-content').textContent.includes('마지막 조회 기록을 표시합니다.')")
+        del self.api.errors[path]
+        refreshed['units'][-1]['label'] = 'Register policy'
+        self.ui.click('[data-loom-detail-retry]')
+        self.ui.wait('return '+units+'?.textContent.includes("Register policy")')
+        self.assertFalse(self.ui.js('return !!document.querySelector("[data-loom-detail-retry]")'))
+
+        self.api.errors[path] = 403
+        catalog['revision'] = queue['revision'] = 'job-detail-4'
+        self.ui.js(reload_catalog)
+        self.ui.wait("return document.querySelector('#pa-content').textContent.includes('조회 권한이 없습니다.')")
+        self.assertFalse(self.ui.js('return !!'+units))
+
     def test_presentation_parents_do_not_shrink_history_after_paging(self):
         records=[]
         for identity in ('original-main','later-main','original-support','later-support'):
@@ -62,6 +180,39 @@ class WorkspaceBrowserTests(unittest.TestCase):
         day=time.strftime('%Y-%m-%d',time.gmtime(start+9*3600))
         self.ui.wait("return document.querySelector('[data-activity-day=\"'+arguments[0]+'\"]')?.title.includes('JOB 3개')",day)
         self.assertIn('1분 30초',self.ui.js("return document.querySelector('[data-activity-day=\"'+arguments[0]+'\"]').title",day))
+
+    def test_activity_waits_for_rollup_before_rendering_empty_days(self):
+        catalog = self.api.fixture['catalog']
+        catalog.update(entities=[], revision='activity-empty', capabilities={'catalog_pages':True})
+        catalog.pop('activity', None)
+        unavailable = {}
+        actions = self.api.fixture['search_actions'] = {
+            'dashboard_page':{'entities':[],'revision':catalog['revision']},
+            'dashboard_activity':unavailable,
+        }
+        requested, release = Event(), Event()
+        original = self.api.RequestHandlerClass.send_json
+        def delayed(handler, value, status=200):
+            if value is unavailable:
+                requested.set()
+                release.wait(5)
+            return original(handler, value, status)
+
+        self.addCleanup(release.set)
+        with patch.object(self.api.RequestHandlerClass, 'send_json', delayed):
+            self.ui.top()
+            self.wd('/refresh', {})
+            self.ui.connect()
+            self.assertTrue(requested.wait(5))
+            self.ui.wait("return document.querySelector('[data-activity-loading] i') && !document.querySelector('.pa-activity-graph')")
+            self.assertFalse(self.ui.js("return [...document.querySelectorAll('[data-activity-day]')].some(d=>d.title.includes('수집 기록 없음'))"))
+            release.set()
+            self.ui.wait("return !!document.querySelector('[data-home-retry=activity]') && !document.querySelector('[data-activity-loading]')")
+
+        actions['dashboard_activity'] = {'days':[]}
+        self.ui.click('[data-home-retry=activity]')
+        self.ui.wait("return !!document.querySelector('.pa-activity-graph') && !document.querySelector('[data-activity-loading]')")
+        self.assertTrue(self.ui.js("return [...document.querySelectorAll('[data-activity-day]')].some(d=>d.title.includes('수집 기록 없음'))"))
 
     def test_user_preparation_links_runtime_and_activity_across_output_filters(self):
         main,main_record=native('preparation-main')
@@ -1807,7 +1958,7 @@ const done=arguments[arguments.length-1];
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('scientific-summary-ui')")
         ui.nav('Datasets');ui.wait("return !!document.querySelector('[data-output-id=scientific-dataset]')")
         text=ui.js("return document.querySelector('[data-output-id=scientific-dataset]').textContent")
-        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=scientific-dataset] dt')].map(n=>n.textContent)"),['Episodes','Split'])
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=scientific-dataset] dt')].map(n=>n.textContent)"),['Tag','Episodes'])
         for value in ['240 Hz','80 Hz','20 · 40 Hz','0.125 kg']:self.assertNotIn(value,text)
         ui.route(dataset['id']);ui.wait("return !!document.querySelector('[data-research-section=physics]')")
         text=ui.js("return document.querySelector('[data-research-section=physics]').textContent")
@@ -1967,7 +2118,7 @@ const done=arguments[arguments.length-1];
         ui.click('[data-research-task=output-assembly]')
         self.assertEqual(shown(),{'assembly-xvla','assembly-smolvla','assembly-bc'})
         self.assertEqual(ui.js("return [...document.querySelectorAll('[data-model-entry=assembly-bc] dt')].map(n=>n.textContent)"),
-                         ['Dataset','Model family','Checkpoint'])
+                         ['Dataset','Tag','Model family','Checkpoint'])
         self.assertFalse(ui.js("""return !!document.querySelector('[data-policy-family="Keypoint estimator"]')"""))
         ui.click('.pa-catalog-task-index[aria-label=Datasets] button:nth-of-type(2)')
         self.assertEqual(shown(),{'assembly-xvla','assembly-smolvla'})
@@ -2018,6 +2169,59 @@ const done=arguments[arguments.length-1];
         self.assertTrue(ui.js("return !!document.querySelector('[data-hub-page=tools] svg[data-lucide=hammer]')"))
         self.assertTrue(ui.js("return !!document.querySelector('#pa-nav [data-go=issues] svg[data-lucide=wrench]')"))
 
+    def test_dataset_splits_are_tags_on_the_same_variant_with_exact_links(self):
+        ui=self.ui;catalog=self.api.fixture['catalog']
+        task={'id':'split-task','revision':1,'label':'Square'}
+        stable='Franka Panda · Square D0 · Official MimicGen core'
+        variant={'id':'d0','label':'D0'}
+        old_path=[variant,{'id':'split-700-150-150','label':'Split 700/150/150'}]
+        def dataset(id,name,path,counts):
+            return {'id':id,'kind':'dataset','label':name,'task_refs':[task],
+                    'dataset_organization':{'task_ref':task,'path':path},
+                    'properties':{'episodes':1000,'split':counts}}
+        a=dataset('split-a',stable+' · Split 700/150/150',old_path,{'train':700,'validation':150,'test':150})
+        b=dataset('split-b','Franka Panda · Square D0',[variant],{'train':800,'validation':100,'test':100})
+        b['presentation']={'label':b['label']}
+        c=dataset('split-c','Recorded subgroup · Split 700/150/150',old_path,{'train':600,'validation':200,'test':200})
+        catalog['research_tasks']=[task]
+        model=next(e for e in catalog['entities'] if e['id']=='fixture-model')
+        for index,record in enumerate((a,b)):
+            input={'ref':{'kind':'entity','identity':{'id':record['id'],'revision':1}},
+                   'label':record['label'],'task_refs':[task],'organization':record['dataset_organization'],'split':record['properties']['split'],
+                   'item_id':str(index+11),'revision_id':str(index+21)}
+            catalog['entities'].append({**model,'id':f'split-policy-{index}','task_refs':[task],'catalog_inputs':{'datasets':[input]}})
+        catalog.setdefault('capabilities',{})['reporting']=True
+        catalog['entities'] += [a,b,c];catalog['revision']='split-tags'
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('split-tags')")
+        ui.nav('Datasets')
+        ui.wait("return !!document.querySelector('[data-output-id=split-b] .pa-split-tag')")
+        rows=ui.js("""return ['split-a','split-b','split-c'].map(id=>{const row=document.querySelector('[data-output-id='+id+']');
+            return [row.querySelector('a').textContent,row.querySelector('.pa-split-tag').textContent,row.closest('.pa-dataset-subgroup').querySelector('h4').textContent]})""")
+        self.assertEqual(rows,[[stable,'Split 700/150/150','D0'],
+                               [b['label'],'Split 800/100/100','D0'],
+                               [c['label'],'Split 600/200/200','D0 / Split 700/150/150']])
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=split-a] dt')].map(n=>n.textContent)"),['Tag','Episodes'])
+        self.assertEqual(ui.js("return document.querySelector('[data-output-id=split-a] .pa-split-tag').title"),'train 700 / validation 150 / test 150')
+        ui.click('[data-entity=split-a]')
+        self.assertEqual(ui.js("return document.querySelector('.pa-heading h1').textContent"),stable)
+        self.assertEqual(ui.js("return document.querySelector('.pa-research-overview [data-research-fact=tag] .pa-split-tag').textContent"),'Split 700/150/150')
+        ui.click('[data-output-sources]>summary');ui.click('details[data-output-record] summary')
+        self.assertIn(a['label'],ui.js("return document.querySelector('details[data-output-record] pre').textContent"))
+        ui.route('split-b')
+        self.assertEqual(ui.js("return document.querySelector('.pa-heading h1').textContent"),b['label'])
+        ui.nav('Models');ui.click('[data-research-task=split-task]')
+        choices=ui.js("return [...document.querySelectorAll('[data-catalog-dataset]')].map(n=>n.textContent)")
+        self.assertEqual(choices,['All','D0 · Split 700/150/150','D0 · Split 800/100/100'])
+        self.assertEqual(ui.js("""return [...document.querySelectorAll('[data-model-entry=split-policy-1] dd')]
+            .slice(0,2).map(n=>n.textContent)"""),['D0','Split 800/100/100'])
+        ui.click('.pa-catalog-task-index[aria-label=Datasets] button:nth-of-type(3)')
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-model-entry]')].map(n=>n.dataset.modelEntry)"),['split-policy-1'])
+        ui.click('[data-entity=split-policy-1]')
+        self.assertEqual(ui.js("""const input=document.querySelector('.pa-catalog-inputs');const link=input.querySelector('a');
+            return [link.textContent,link.dataset.entity,link.classList.contains('pa-button'),input.querySelector('.pa-split-tag').textContent]"""),
+            ['D0','revision:12:22',False,'Split 800/100/100'])
+
     def test_catalog_marks_imports_and_only_headlines_one_checkpoint(self):
         ui=self.ui;catalog=self.api.fixture['catalog']
         catalog['capabilities']={'reporting':True}
@@ -2038,7 +2242,7 @@ const done=arguments[arguments.length-1];
         catalog['entities'] += [dataset,evaluation,tied];catalog['revision']='checkpoint-catalog'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('checkpoint-catalog')")
         ui.nav('Catalog');ui.wait("return !!document.querySelector('[data-output-id=imported-dataset]')")
-        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=imported-dataset] dt')].map(n=>n.textContent)"),['Episodes','Split'])
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=imported-dataset] dt')].map(n=>n.textContent)"),['Tag','Episodes'])
         self.assertTrue(ui.js("return !!document.querySelector('[data-research-task=square-task]')"))
         ui.route('imported-dataset')
         ui.wait("return !!document.querySelector('.pa-heading .pa-dataset-origin')")
@@ -2076,6 +2280,42 @@ const done=arguments[arguments.length-1];
             self.assertFalse(ui.js("return !!document.querySelector(arguments[0])",selector))
             ui.click('[data-result-disposition-filter=discarded]')
             ui.wait("return !!document.querySelector(arguments[0])",selector)
+
+    def test_catalog_task_index_follows_status_and_class(self):
+        ui=self.ui;catalog=self.api.fixture['catalog']
+        tasks=[{'id':name,'label':name,'revision':1} for name in ('current','discarded','reference','empty')]
+        catalog.update(research_tasks=tasks,capabilities={'job_units':True,'reporting':True},revision='catalog-task-filters')
+        for kind in ('dataset','model','experiment'):
+            for task in tasks[:3]:
+                name=task['id']
+                catalog['entities'].append({'id':kind+'-'+name,'kind':kind,'label':kind+' '+name,'task_refs':[task],
+                    'catalog_class':'reference' if name=='reference' else 'regular',
+                    'properties':{'model_family':name,'model_role':'policy'} if kind=='model' else {},
+                    'disposition':{'state':'discarded' if name=='discarded' else 'current'}})
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('catalog-task-filters')")
+        def options():
+            return ui.js("return [...document.querySelectorAll('.pa-document-pane.is-active [data-research-task]')].map(e=>e.dataset.researchTask)")
+        for tab in ('Datasets','Models','Experiments'):
+            ui.nav(tab)
+            ui.click('[data-result-disposition-filter=current]')
+            self.assertEqual(options(),['','current'])
+            ui.click('[data-research-task=current]')
+            if tab=='Models':ui.click('[data-policy-family=current]')
+            ui.click('[data-result-disposition-filter=discarded]')
+            self.assertEqual(options(),['','discarded'])
+            self.assertEqual(ui.js("return document.querySelector('[data-research-task][aria-pressed=true]').dataset.researchTask"),'')
+            if tab=='Models':
+                self.assertFalse(ui.js("return !!document.querySelector('[data-policy-family=current]')"))
+                self.assertTrue(ui.js("return !!document.querySelector('[data-model-entry=model-discarded]')"))
+            ui.click('[data-result-disposition-filter=current]')
+            ui.click('[data-output-class=reference]')
+            self.assertEqual(options(),['','current','reference'])
+            ui.click('[data-output-class=regular]')
+            self.assertEqual(options(),['','reference'])
+            ui.click('[data-output-class=reference]')
+            self.assertEqual(options(),[''])
+            ui.click('[data-output-class=regular]')
 
     def test_legacy_metrics_stay_in_their_tab_and_long_definitions_fit(self):
         ui=self.ui

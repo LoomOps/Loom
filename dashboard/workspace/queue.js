@@ -6,6 +6,23 @@ const loomQueueEntries = () => {
   return [...(queue.entries||[]),...(queue.logical_entries||[]).filter(row=>row.entry_type==='job'||!row.executions?.length)];
 };
 const loomQueueEntry = id => loomQueueEntries().find(row => row.id === id);
+function loomForecastFinish(forecast) {
+  if (forecast?.status === 'measuring') return '측정 중';
+  if (forecast?.status !== 'estimated' || !Number.isFinite(forecast.finish_at))
+    return '<span class="pa-subtle" title="사용할 수 있는 진행률 표본 없음">산정 불가</span>';
+  const label = forecast.phase === 'training' ? '학습 종료 예상' : 'Unit 실행 종료 예상';
+  return queueTime(queueMillis(forecast.finish_at)) + '<small>' + label + '</small>';
+}
+function forecastCells(entity) {
+  const active = (catalogData.queue?.unit_entries || []).filter(unit => unit.job_id === entity.id && unit.state === 'running');
+  const forecast = active.length === 1 ? active[0].forecast : loomQueueEntry(entity.id)?.forecast;
+  const remaining = forecast?.status === 'estimated' && Number.isFinite(forecast.finish_at)
+    ? queueDuration(Math.max(0, forecast.finish_at * 1000 - Date.now())) : '—';
+  const progress = Number.isFinite(forecast?.progress) && Number.isFinite(forecast.total) ? '<small>' + forecast.progress.toLocaleString() + ' / ' + forecast.total.toLocaleString()
+    + ' ' + esc(forecast.progress_unit) + '</small>' : '';
+  const start = queueTimes(entity).started !== null ? '시작됨' : '산정 대기';
+  return [remaining + progress, start, loomForecastFinish(forecast)].map(cell => '<div class="pa-forecast">' + cell + '</div>');
+}
 function loomQueueReason(row) {
   if(row.reason==='executing')return row.state==='preparing'?'준비 중':'실행 중';
   return ({awaiting_runtime_binding:'Runtime 연결 대기',awaiting_plan:'실행 계획 확정 대기',awaiting_deliverables:'산출물 검증 대기',queue_paused:'운영자가 큐를 일시 중단함',ready:'실행 가능',held:'보류됨',executing:'실행 중',finalizing:'결과 처리 중',dependencies:'선행 결과 대기',
@@ -123,10 +140,11 @@ function loomCurrentQueuePanel(rows,table){
    const active=(unit.progress?.steps||[]).filter(step=>step.state==='running').map(step=>esc(step.label)).join(' · ');
    const label=loomWorkTypeBadge('unit',unit.job_id)+catLink(unit.id,unit.unit?.label||unit.label)+loomQueueControls(unit.id,{reorder:false});
    const gpu=unit.gpu_access?.mode ? 'GPU · '+esc(unit.gpu_access.mode) : unit.lane==='gpu'?'GPU':'CPU';
-   return [label,unit.job_id?catLink(unit.job_id):'—',queueBadge(record(unit)),gpu,active||esc(loomQueueReason(unit))];
+   return [label,unit.job_id?catLink(unit.job_id):'—',queueBadge(record(unit)),gpu,active||esc(loomQueueReason(unit)),
+     '<div class="pa-forecast">'+loomForecastFinish(unit.forecast)+'</div>'];
   });
   return panel('Job Queue · '+jobs.length,notice+(jobs.length?table(jobs,true):queue?'<div class="pa-empty">대기 또는 실행 중인 Job이 없습니다.</div>':''))
-    +panel('Unit Queue · '+units.length,body.length?'<div class="pa-queue-table">'+catTable(['Unit','Job','상태','자원','진행'],body)+'</div>':queue?'<div class="pa-empty">대기 또는 실행 중인 Unit이 없습니다.</div>':'');
+    +panel('Unit Queue · '+units.length,body.length?'<div class="pa-queue-table">'+catTable(['Unit','Job','상태','자원','진행','완료 예정'],body)+'</div>':queue?'<div class="pa-empty">대기 또는 실행 중인 Unit이 없습니다.</div>':'');
  }
  if(waiting)return panel('현재 큐',loomHomeStatus('queue'));
  if(catalogData.capabilities?.live_queue){
@@ -156,5 +174,5 @@ window.addEventListener('message',event=>{
  loomQueueBusy=false;
  const {data,error}=event.data;
  loomQueueNotice=error===403?'이 Job을 변경할 권한이 없습니다.':error?'변경을 확인하지 못했습니다. 큐를 새로고침해 주세요.':Array.isArray(data?.entries)||data?.changed?'큐 변경 완료':data?.reason==='not_waiting'?'이미 실행되었거나 대기 상태가 아닙니다.':'이미 요청한 상태입니다.';
- loomEntityReads.clear();scheduleCatalogRender();
+ loomRefreshJobDetails();scheduleCatalogRender();
 });

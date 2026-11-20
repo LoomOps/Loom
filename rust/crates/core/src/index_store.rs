@@ -788,56 +788,75 @@ impl Application {
                 json_extract(docs.body,'$.disposition.state'),'current'){output_state}"
             )
         };
-        let sql=format!("SELECT id,body,recorded,{class} AS catalog_class,{scope} AS effective_scope,{role_field} AS effective_role,{tier} AS match_tier,COALESCE(hex(revision),'') AS revision_key FROM docs WHERE ({job_rows}) AND ({class_filter}) AND ({output_state_filter}) AND (?8!='' OR {native_current}) AND valid_from<=?1 AND ((?18=0 AND (valid_to IS NULL OR valid_to>?1)) OR (?18=1 AND NOT EXISTS(SELECT 1 FROM docs newer WHERE newer.id=docs.id AND newer.revision=docs.revision AND newer.valid_from>docs.valid_from AND newer.valid_from<=?1))) AND ({system_clause}) AND ({lifecycle_clause}) AND ({text_clause}) AND ({kind_clause}) AND ({view_clause}) AND ({role_clause}) AND (?5='all' OR COALESCE(json_extract(body,'$.archived'),0)=0) AND (?7 IS NULL OR parent=?7) AND (?8='' OR (json_extract(body,'$.scenario_ref.id')=?8 AND (?9 IS NULL OR json_extract(body,'$.scenario_ref.revision')=?9)) OR EXISTS(SELECT 1 FROM authority.scenario_links sl WHERE sl.scenario_id=?8 AND (?9 IS NULL OR sl.revision=?9) AND sl.superseded_by IS NULL AND (CASE WHEN sl.target_kind='protocol_artifact' THEN 'entity' ELSE sl.target_kind END)=json_extract(docs.body,'$.native_ref.kind') AND NOT EXISTS(SELECT 1 FROM json_each(sl.target) field WHERE json_extract(docs.body,'$.native_ref.identity.'||field.key) IS NOT field.value))) AND (?13='' OR json_extract(body,'$.owner_revision_id')=?13 OR json_extract(body,'$.revision_id')=?13) AND (kind!='file' OR ?18=1 OR ?13!='' OR EXISTS(SELECT 1 FROM docs owner WHERE owner.id=docs.parent AND owner.valid_from<=?1 AND (owner.valid_to IS NULL OR owner.valid_to>?1) AND json_extract(owner.body,'$.revision_id')=json_extract(docs.body,'$.owner_revision_id'))) AND (?14='' OR json_extract(body,'$.category')=?14) AND ((?15 IS NULL AND ?16 IS NULL) OR json_type(body,'$.recorded_at') IN('integer','real')) AND (?15 IS NULL OR recorded>=?15) AND (?16 IS NULL OR recorded<=?16) AND (?17='' OR json_extract(body,'$.availability')=?17) AND (?8!='' OR ?18=1 OR COALESCE(json_extract(body,'$.native_ref.kind'),'')!='historical' OR NOT EXISTS(SELECT 1 FROM docs h WHERE json_extract(h.body,'$.native_ref.kind')='historical' AND json_extract(h.body,'$.native_ref.identity.source')=json_extract(docs.body,'$.native_ref.identity.source') AND json_extract(h.body,'$.native_ref.identity.kind')=json_extract(docs.body,'$.native_ref.identity.kind') AND json_extract(h.body,'$.native_ref.identity.id')=json_extract(docs.body,'$.native_ref.identity.id') AND json_extract(h.body,'$.source_order')>json_extract(docs.body,'$.source_order') AND h.valid_from<=?1 AND (h.valid_to IS NULL OR h.valid_to>?1))) AND (?19='' OR json_extract(body,'$.origin_type')=?19) AND (?20='' OR json_extract(body,'$.native_ref.kind')=?20) AND (?23='' OR json_extract(body,'$.dependency_ref')=?23) AND (?24 IS NULL OR id IN (SELECT e.source FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE a.item=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25)) OR id IN(SELECT a.item FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE e.source=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25))) AND (?10 IS NULL OR match_tier>?21 OR (match_tier=?21 AND (recorded<?10 OR (recorded=?10 AND (id>?11 OR (id=?11 AND revision_key>?22)))))) ORDER BY match_tier,recorded DESC,id,revision_key LIMIT ?12");
+        let links_output = |kind: &str, identity: &str| {
+            format!(
+            "(CASE WHEN sl.target_kind='protocol_artifact' THEN 'entity' ELSE sl.target_kind END)={kind}
+             AND NOT EXISTS(SELECT 1 FROM json_each(sl.target) field WHERE json_extract({identity},'$.'||field.key) IS NOT field.value)"
+        )
+        };
+        let exact_link = links_output(
+            "json_extract(docs.body,'$.native_ref.kind')",
+            "json_extract(docs.body,'$.native_ref.identity')",
+        );
+        let task_matches = |id: &str, revision: &str| {
+            format!(
+            "((json_extract(docs.body,'$.scenario_ref.id')={id} AND ({revision} IS NULL OR json_extract(docs.body,'$.scenario_ref.revision')={revision}))
+             OR EXISTS(SELECT 1 FROM authority.scenario_links sl WHERE sl.scenario_id={id}
+              AND ({revision} IS NULL OR sl.revision={revision}) AND sl.superseded_by IS NULL
+              AND {exact_link}))"
+        )
+        };
+        let selected_task = task_matches("?8", "?9");
+        let filters=format!("({job_rows}) AND ({class_filter}) AND ({output_state_filter}) AND valid_from<=?1 AND ((?18=0 AND (valid_to IS NULL OR valid_to>?1)) OR (?18=1 AND NOT EXISTS(SELECT 1 FROM docs newer WHERE newer.id=docs.id AND newer.revision=docs.revision AND newer.valid_from>docs.valid_from AND newer.valid_from<=?1))) AND ({system_clause}) AND ({lifecycle_clause}) AND ({text_clause}) AND ({kind_clause}) AND ({view_clause}) AND ({role_clause}) AND (?5='all' OR COALESCE(json_extract(body,'$.archived'),0)=0) AND (?7 IS NULL OR parent=?7) AND (?13='' OR json_extract(body,'$.owner_revision_id')=?13 OR json_extract(body,'$.revision_id')=?13) AND (kind!='file' OR ?18=1 OR ?13!='' OR EXISTS(SELECT 1 FROM docs owner WHERE owner.id=docs.parent AND owner.valid_from<=?1 AND (owner.valid_to IS NULL OR owner.valid_to>?1) AND json_extract(owner.body,'$.revision_id')=json_extract(docs.body,'$.owner_revision_id'))) AND (?14='' OR json_extract(body,'$.category')=?14) AND ((?15 IS NULL AND ?16 IS NULL) OR json_type(body,'$.recorded_at') IN('integer','real')) AND (?15 IS NULL OR recorded>=?15) AND (?16 IS NULL OR recorded<=?16) AND (?17='' OR json_extract(body,'$.availability')=?17) AND (?19='' OR json_extract(body,'$.origin_type')=?19) AND (?20='' OR json_extract(body,'$.native_ref.kind')=?20) AND (?23='' OR json_extract(body,'$.dependency_ref')=?23) AND (?24 IS NULL OR id IN (SELECT e.source FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE a.item=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25)) OR id IN(SELECT a.item FROM relation_docs e JOIN authority.catalog_aliases a ON a.kind=e.target_kind AND a.identity=e.target_identity WHERE e.source=?24 AND e.valid_from<=?1 AND (?18=1 OR e.valid_to IS NULL OR e.valid_to>?1) AND (?25='' OR e.relation=?25)))");
+        let history_scope=format!("(?8!='' OR ({native_current}) AND (?18=1 OR COALESCE(json_extract(body,'$.native_ref.kind'),'')!='historical' OR NOT EXISTS(SELECT 1 FROM docs h WHERE json_extract(h.body,'$.native_ref.kind')='historical' AND json_extract(h.body,'$.native_ref.identity.source')=json_extract(docs.body,'$.native_ref.identity.source') AND json_extract(h.body,'$.native_ref.identity.kind')=json_extract(docs.body,'$.native_ref.identity.kind') AND json_extract(h.body,'$.native_ref.identity.id')=json_extract(docs.body,'$.native_ref.identity.id') AND json_extract(h.body,'$.source_order')>json_extract(docs.body,'$.source_order') AND h.valid_from<=?1 AND (h.valid_to IS NULL OR h.valid_to>?1))))");
+        let sql=format!("SELECT id,body,recorded,{class} AS catalog_class,{scope} AS effective_scope,{role_field} AS effective_role,{tier} AS match_tier,COALESCE(hex(revision),'') AS revision_key FROM docs WHERE {filters} AND {history_scope} AND (?8='' OR {selected_task}) AND (?10 IS NULL OR match_tier>?21 OR (match_tier=?21 AND (recorded<?10 OR (recorded=?10 AND (id>?11 OR (id=?11 AND revision_key>?22)))))) ORDER BY match_tier,recorded DESC,id,revision_key LIMIT ?12");
+        let bindings = params![
+            watermark,
+            text,
+            pattern,
+            encode(&kinds)?,
+            view,
+            role,
+            parent,
+            scenario,
+            scenario_revision,
+            last_time,
+            last_id,
+            if file_scope { 256 } else { limit + 1 },
+            args["revision_id"].as_str().unwrap_or(""),
+            args["category"].as_str().unwrap_or(""),
+            args["recorded_from"].as_f64(),
+            args["recorded_to"].as_f64(),
+            args["availability"].as_str().unwrap_or(""),
+            all_history,
+            args["origin_type"].as_str().unwrap_or(""),
+            args["native_kind"].as_str().unwrap_or(""),
+            last_tier,
+            last_revision,
+            args.get("dependency_ref")
+                .map(encode)
+                .transpose()?
+                .unwrap_or_default(),
+            args["related_to"]["item_id"]
+                .as_str()
+                .map(|v| items::parse(&json!(v)))
+                .transpose()?,
+            args["related_to"]["relation"].as_str().unwrap_or("")
+        ];
         let mut q = db.prepare(&sql)?;
         let rows = q
-            .query_map(
-                params![
-                    watermark,
-                    text,
-                    pattern,
-                    encode(&kinds)?,
-                    view,
-                    role,
-                    parent,
-                    scenario,
-                    scenario_revision,
-                    last_time,
-                    last_id,
-                    if file_scope { 256 } else { limit + 1 },
-                    args["revision_id"].as_str().unwrap_or(""),
-                    args["category"].as_str().unwrap_or(""),
-                    args["recorded_from"].as_f64(),
-                    args["recorded_to"].as_f64(),
-                    args["availability"].as_str().unwrap_or(""),
-                    all_history,
-                    args["origin_type"].as_str().unwrap_or(""),
-                    args["native_kind"].as_str().unwrap_or(""),
-                    last_tier,
-                    last_revision,
-                    args.get("dependency_ref")
-                        .map(encode)
-                        .transpose()?
-                        .unwrap_or_default(),
-                    args["related_to"]["item_id"]
-                        .as_str()
-                        .map(|v| items::parse(&json!(v)))
-                        .transpose()?,
-                    args["related_to"]["relation"].as_str().unwrap_or("")
-                ],
-                |r| {
-                    Ok((
-                        r.get::<_, Vec<u8>>(0)?,
-                        r.get::<_, String>(1)?,
-                        r.get::<_, f64>(2)?,
-                        r.get::<_, String>(3)?,
-                        r.get::<_, String>(4)?,
-                        r.get::<_, String>(5)?,
-                        r.get::<_, i64>(6)?,
-                        r.get::<_, String>(7)?,
-                    ))
-                },
-            )?
+            .query_map(bindings, |r| {
+                Ok((
+                    r.get::<_, Vec<u8>>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, f64>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, String>(4)?,
+                    r.get::<_, String>(5)?,
+                    r.get::<_, i64>(6)?,
+                    r.get::<_, String>(7)?,
+                ))
+            })?
             .collect::<std::result::Result<Vec<_>, _>>()
             .map_err(|_| Error::input("Unsupported search expression"))?;
         let mut more = if file_scope {
@@ -932,9 +951,34 @@ impl Application {
         } else {
             None
         };
-        Ok(
-            json!({"items":values,"next_cursor":next,"partial":self.search_status()?["status"]!="ready"||minimum.is_some_and(|m|checkpoint<m)||(file_scope&&!text.is_empty()),"consistency":{"generation":generation,"indexed_through":checkpoint.to_string(),"snapshot":watermark.to_string(),"at_least_satisfied":minimum.is_none_or(|m|checkpoint>=m)},"warnings":if file_scope&&!text.is_empty(){json!(["file_content_coverage_bounded"])}else{json!([])}}),
-        )
+        let mut result = json!({"items":values,"next_cursor":next,"partial":self.search_status()?["status"]!="ready"||minimum.is_some_and(|m|checkpoint<m)||(file_scope&&!text.is_empty()),"consistency":{"generation":generation,"indexed_through":checkpoint.to_string(),"snapshot":watermark.to_string(),"at_least_satisfied":minimum.is_none_or(|m|checkpoint>=m)},"warnings":if file_scope&&!text.is_empty(){json!(["file_content_coverage_bounded"])}else{json!([])}});
+        if args["_dashboard_task_index"] == true && c.is_none() && result["partial"] == false {
+            // The same authority, visibility and disposition predicates apply to
+            // the Task index before pagination. Only project matching Task IDs.
+            let exact_link = links_output("output.kind", "output.identity");
+            let facet = format!(
+                "WITH matching_outputs AS MATERIALIZED (
+                   SELECT json_extract(docs.body,'$.scenario_ref.id') AS task,
+                          json_extract(docs.body,'$.native_ref.kind') AS kind,
+                          json_extract(docs.body,'$.native_ref.identity') AS identity
+                   FROM docs WHERE {filters}
+                     AND EXISTS(SELECT 1 FROM authority.catalog_items item WHERE item.id=docs.id AND item.deleted=0)
+                 ), matching_tasks AS (
+                   SELECT task AS id FROM matching_outputs WHERE task IS NOT NULL
+                   UNION
+                   SELECT sl.scenario_id FROM authority.scenario_links sl
+                     JOIN matching_outputs output ON {exact_link}
+                     WHERE sl.superseded_by IS NULL
+                 )
+                 SELECT s.id FROM matching_tasks t JOIN authority.scenarios s ON s.id=t.id
+                   WHERE s.archived=0 ORDER BY s.id"
+            );
+            let mut tasks = db.prepare(&facet)?;
+            result["task_index"] = json!(tasks
+                .query_map(bindings, |row| row.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?);
+        }
+        Ok(result)
     }
     pub fn indexed_document(&self, id: &Value) -> Result<Value> {
         let id = items::parse(id)?;

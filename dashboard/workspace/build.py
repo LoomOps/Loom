@@ -133,9 +133,18 @@ def build(original):
     inner=replace_once(inner,"dashboard:'queue',explorer:'files',models:'models',datasets:'datasets'","dashboard:'queue',explorer:'files',outputs:'datasets',catalog:'datasets',models:'models',datasets:'datasets'")
     inner=inner.replace("'작업실 / '+viewTitle(state)","loomOutputBreadcrumb(state)")
     inner=replace_once(inner,"catalogData=catTitleSnapshot(e.data.catalog);","catalogData=loomCatalogRefresh(e.data.catalog);")
+    forecast_start = inner.index("function forecastCells(e)")
+    forecast_end = inner.index("const queueOriginalV14", forecast_start)
+    inner = inner[:forecast_start] + inner[forecast_end:]
+    inner = replace_once(inner, '<p class="pa-subtle">예정시각은 실측 진행률 기반 추정이며 KST로 표시합니다. 완료 범위가 일부인 추정은 해당 단계를 명시하고, 근거가 없는 시각은 산정 대기로 남깁니다.</p>', '')
+    inner=replace_once(inner,"catEntity(v.entity)?.label||'기록'","loomCatalogRecordLabel(catEntity(v.entity))||'기록'")
+    inner=replace_once(inner,"text=label||e?.label||id","text=label||loomCatalogRecordLabel(e)||id")
+    inner=replace_once(inner,"heading(e.kind.toUpperCase(),e.label,","heading(e.kind.toUpperCase(),loomCatalogRecordLabel(e),")
     inner=replace_once(inner,"  patchResourceNode(body,next,true);","  loomPreserveViewport(body,()=>patchResourceNode(body,next,true));")
     inner=replace_once(inner," if(n.dataset.modelFilter)return"," if(n.dataset.outputId)return 'output:'+n.dataset.outputId;\n if(n.dataset.modelFilter)return")
     # The editable list implementation lives in outputs.js.
+    inner = replace_once(inner, 'activeTab().view.resultDispositionFilter=b.dataset.resultDispositionFilter;render();persist();',
+                         'loomSetOutputDisposition(activeTab().view,b.dataset.resultDispositionFilter);render();persist();')
     model_filters_start = inner.index("// Per-document filters are projections of source metadata")
     model_filters_end = inner.index("catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');", model_filters_start)
     inner = inner[:model_filters_start] + inner[model_filters_end:]

@@ -1,5 +1,38 @@
 use super::*;
 #[test]
+fn producer_work_progress_is_scoped_and_rate_limited() {
+    let root = std::env::temp_dir().join(format!("loom-sdk-progress-{}", uuid::Uuid::new_v4()));
+    let request: Request = serde_json::from_value(json!({
+        "job":"unit-one","attempt":"attempt-one","stage":"run","output_dir":root
+    }))
+    .unwrap();
+    let mut producer = Producer::new(request).unwrap();
+    producer
+        .report_work_progress("training", 50, 200, "updates")
+        .unwrap();
+    let path = root.join("work-progress.json");
+    let initial = fs::read(&path).unwrap();
+    producer
+        .report_work_progress("training", 51, 200, "updates")
+        .unwrap();
+    assert_eq!(fs::read(&path).unwrap(), initial);
+    producer.work_sample.as_mut().unwrap().recorded -= 60.0;
+    producer
+        .report_work_progress("training", 75, 200, "updates")
+        .unwrap();
+    let report: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    assert_eq!(report["attempt"], "attempt-one");
+    assert_eq!(report["previous"]["completed"], 50);
+    assert_eq!(report["sample"]["completed"], 75);
+    assert!(
+        producer
+            .report_work_progress("training", 201, 200, "updates")
+            .is_err()
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn producer_reports_bind_frozen_coverage_context_exact_inputs_and_bytes() {
     let root = std::env::temp_dir().join(format!("loom-sdk-report-{}", uuid::Uuid::new_v4()));
     fs::create_dir(&root).unwrap();

@@ -406,9 +406,9 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "set_output_disposition",
-      "description": "Set an exact batch of Dataset, Policy or Experiment revisions to current or discarded. The installation administrator applies this audited overlay atomically. Exact references, files and Job history remain available.",
+      "description": "Set an exact batch of Dataset, Policy or Experiment revisions to current or discarded with research submit scope. The audited batch applies atomically. Exact references, files and Job history remain available.",
       "errors": [
-        "Unknown revision, invalid output kind, missing installation administration authority or changed request key."
+        "Unknown revision, invalid output kind, missing submit scope or changed request key."
       ],
       "example": {
         "key": "discard-example-policy-r1",

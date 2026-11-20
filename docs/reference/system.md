@@ -834,7 +834,7 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 
 ### Result and failures
 
-Browser catalog page · entities, research_tasks, next_cursor, partial, consistency and shared catalog metadata
+Browser catalog page · entities, research_tasks, next_cursor, partial, consistency and shared catalog metadata. The first complete page for one scientific kind without a Task filter also returns task_index, the active Task IDs matching the catalog query across pages.
 
 Unavailable index/source, incompatible filters or expired cursor.
 

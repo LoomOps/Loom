@@ -413,6 +413,22 @@ impl Application {
     pub fn record_detail(&self, row: &Record) -> Result<Value> {
         self.record_detail_for_attempt(row, None)
     }
+    fn current_attempt_folder(&self, row: &Record) -> Option<std::path::PathBuf> {
+        let attempt = row.aggregate.fence.attempt.as_ref()?;
+        let (root, _) = crate::storage::store(
+            &self.config,
+            &self.bulk,
+            row.spec["output_storage"].as_str().unwrap_or("data/0"),
+            row.spec["_output_storage_id"].as_str(),
+        )
+        .ok()?;
+        Some(
+            root.join("runs")
+                .join(row.aggregate.id.as_str())
+                .join(attempt.as_str()),
+        )
+    }
+
     fn record_detail_for_attempt(&self, row: &Record, selected: Option<&str>) -> Result<Value> {
         let id = row.aggregate.id.as_str();
         let mut spec = row.spec.clone();
@@ -495,19 +511,8 @@ impl Application {
         ) {
             previous = result.take().unwrap_or(Value::Null);
         }
-        let internal_steps = if let Some(attempt) = row.aggregate.fence.attempt.as_ref() {
-            let folder = crate::storage::store(
-                &self.config,
-                &self.bulk,
-                row.spec["output_storage"].as_str().unwrap_or("data/0"),
-                row.spec["_output_storage_id"].as_str(),
-            )
-            .ok()
-            .map(|(root, _)| root.join("runs").join(id).join(attempt.as_str()));
-            crate::progress::read(folder.as_deref(), &row.spec)
-        } else {
-            crate::progress::read(None, &row.spec)
-        };
+        let internal_steps =
+            crate::progress::read(self.current_attempt_folder(row).as_deref(), &row.spec);
         let queue_history = rows(
             &self.db,
             "SELECT actor,action,recorded,reason FROM queue_history WHERE job=? ORDER BY seq",
@@ -769,6 +774,18 @@ impl Application {
                 entry["gpu_access"] = record.spec["gpu_access"].clone();
                 entry.as_object_mut().unwrap().remove("workflow");
                 entry["progress"] = self.record_detail(&record)?["internal_steps"].clone();
+                if record.aggregate.state == JobState::Running {
+                    if let (Some(attempt), Some(folder)) = (
+                        record.aggregate.fence.attempt.as_ref(),
+                        self.current_attempt_folder(&record),
+                    ) {
+                        if let Some(forecast) =
+                            crate::progress::forecast(&folder, id, attempt.as_str(), now())
+                        {
+                            entry["forecast"] = forecast;
+                        }
+                    }
+                }
             }
             let waiting = matches!(entry["state"].as_str(), Some("queued" | "ready" | "blocked"));
             entry["position"] = if waiting {

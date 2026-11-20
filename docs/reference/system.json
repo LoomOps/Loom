@@ -388,7 +388,7 @@
         "entrypoint": "rust/crates/core/src/catalog.rs#dashboard_page",
         "feature": "catalog"
       },
-      "returns": "Browser catalog page · entities, research_tasks, next_cursor, partial, consistency and shared catalog metadata",
+      "returns": "Browser catalog page · entities, research_tasks, next_cursor, partial, consistency and shared catalog metadata. The first complete page for one scientific kind without a Task filter also returns task_index, the active Task IDs matching the catalog query across pages.",
       "schema": {
         "additionalProperties": false,
         "properties": {

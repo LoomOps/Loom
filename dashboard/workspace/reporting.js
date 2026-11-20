@@ -231,12 +231,23 @@ function loomPolicyLearningSection(e,report,fields){
  return loomResearchSection(charts[0].label,body+(metadata?'<details class="pa-report-metric-details"><summary>Metric details</summary>'+metadata+'</details>':''));
 }
 function loomReportCatalogInput(input,label){
- return '<button class="pa-button" data-catalog-input-ref="'+esc(JSON.stringify(input.ref))+'">'+esc(label||input.label)+'</button>';
+ const text=esc(label||input.label);
+ if(input.item_id&&input.revision_id){
+  const id='revision:'+input.item_id+':'+input.revision_id;
+  return '<a class="pa-table-link" href="'+esc(paiEntityURL(id))+'" data-entity="'+esc(id)+'">'+text+'</a>';
+ }
+ return '<button type="button" class="pa-table-link" data-catalog-input-ref="'+esc(JSON.stringify(input.ref))+'">'+text+'</button>';
 }
 function loomReportLineage(e){
  if(!e.catalog_inputs||!['model','experiment','run'].includes(e.kind))return '';
  const fields=e.kind==='model'?[['datasets','Training dataset']]:[['datasets','Evaluation dataset'],['policies','Evaluated policy']];
- const rows=fields.map(([field,label])=>[esc(label),loomCatalogInputs(e,field).map(input=>loomReportCatalogInput(input)).join(' ')||'Missing']);
+ const rows=fields.map(([field,label])=>{
+  const inputs=loomCatalogInputs(e,field);
+  return [esc(label),inputs.length?inputs.map(input=>{
+   const tag=field==='datasets'?loomDatasetSplitTag(input.split):null;
+   return '<div class="pa-catalog-inputs">'+loomReportCatalogInput(input,field==='datasets'?loomInputLabel(input):input.label)+(tag?loomSplitTagHTML(tag):'')+'</div>';
+  }).join(''):'Missing'];
+ });
  const previous=e.kind==='model'&&(e.relations||[]).find(relation=>relation.kind==='revises');
  if(previous)rows.push(['Previous revision',loomReportCatalogInput({ref:{kind:'entity',identity:{id:previous.id,revision:previous.revision}}},'r'+previous.revision)]);
  return loomResearchSection('Catalog inputs',catTable(['Input','Record'],rows));

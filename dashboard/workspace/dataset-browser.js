@@ -3,12 +3,55 @@
 function loomDatasetKey(e){return e.dataset_mirror_key||e.id;}
 function loomDatasetImported(e){return e.reporting?.activity==='dataset_import'||e.origin?.type==='import';}
 function loomDatasetOriginBadge(e){return loomDatasetImported(e)?'<span class="pa-dataset-origin">Imported</span>':'';}
+function loomDatasetSplitTag(split){
+ const label=loomDatasetSplitLabel(split),title=label&&loomResearchSplit(split);
+ return title?{text:label,title}:null;
+}
+function loomDatasetTagFact(splits,fallback='Missing'){
+ const tags=new Map();
+ for(const split of splits){
+  const tag=loomDatasetSplitTag(split);
+  if(tag)tags.set(tag.title,tag);
+ }
+ return {id:'tag',label:'Tag',value:fallback,status:'recorded',tags:[...tags.values()]};
+}
+// Older producers duplicated a recorded split in both the label and subgroup.
+// Recognize that specific pair without changing the recorded identity or taxonomy.
+function loomDatasetSplitCounts(split){
+ if(!split||typeof split!=='object')return null;
+ const items=loomResearchSplitItems(split);
+ const names=items.map(x=>x.id).join('/'),counts=items.map(x=>x.count??x.adopted);
+ if(!['train/validation','train/val','train/validation/test','train/val/test'].includes(names)||!counts.every(n=>Number.isSafeInteger(n)&&n>=0))return null;
+ return counts;
+}
+function loomDatasetSplitLabel(split){
+ if(!split||typeof split!=='object')return '';
+ const counts=loomDatasetSplitCounts(split),value=counts?counts.join('/'):loomResearchSplit(split);
+ return value?'Split '+value:'';
+}
+function loomDatasetLegacySplit(path,split){
+ const counts=loomDatasetSplitCounts(split);
+ if(!counts)return null;
+ const label='Split '+counts.join('/'),tail=path.at(-1);
+ return tail?.id==='split-'+counts.join('-')&&tail.label===label?label:null;
+}
+function loomDatasetDisplayPath(path,split){return loomDatasetLegacySplit(path,split)?path.slice(0,-1):path;}
+function loomDatasetDisplayLabel(label,path,split){
+ const legacy=loomDatasetLegacySplit(path,split),suffix=' · '+legacy;
+ return legacy&&typeof label==='string'&&label.endsWith(suffix)?label.slice(0,-suffix.length):label;
+}
+function loomCatalogRecordLabel(e){
+ if(e?.kind!=='dataset')return e?.label;
+ const f=loomResearchFactMap(e).get('split');
+ const split=f?.status==='recorded'?f.value:null,path=e.dataset_organization?.path||[];
+ return loomDatasetDisplayLabel(e.label,path,split);
+}
 function loomDatasetRow(e,depth=0){
  const facts=loomResearchFactMap(e),unit=facts.get('count_unit')?.value;
  const count=!unit||/^(episodes?|demonstrations?|trajector(?:y|ies)|rollouts?)$/i.test(unit)?facts.get('count'):null;
  const split=facts.get('split');
- const fields=[{value:'Missing',...count,id:'count',label:'Episodes'},
-               {value:'Missing',...split,id:'split',label:'Split'}];
+ const fields=[loomDatasetTagFact(split?.status==='recorded'?[split.value]:[],split?.status==='conflict'?'Conflicting records':'Missing'),
+               {value:'Missing',...count,id:'count',label:'Episodes'}];
  return '<article role="listitem" class="pa-catalog-item pa-scientific-card pa-dataset-row" data-output-id="'+esc(e.id)+'" data-dataset-depth="'+depth+'">'
   +'<div class="pa-row-main pa-dataset-name">'+catLink(e.id)+'</div>'
   +loomResearchFactsHTML(fields,true)+'</article>';
@@ -37,7 +80,8 @@ function loomDatasetGroups(rows){
   const groups=new Map();
   for(const e of items){
    const task=loomCatalogTask(e),organization=e.dataset_organization;
-   const path=organization?.task_ref?.id===task?.id?(organization?.path||[]):[];
+   const split=loomResearchFactMap(e).get('split');
+   const path=organization?.task_ref?.id===task?.id?loomDatasetDisplayPath(organization?.path||[],split?.status==='recorded'?split.value:null):[];
    const key=JSON.stringify(path.map(node=>node.id));
    if(!groups.has(key))groups.set(key,{label:path.map(node=>node.label).join(' / '),rows:[]});
    groups.get(key).rows.push(e);

@@ -9,7 +9,7 @@ function loomResearchSummary(e){
  for(const [id,key,label,section,unit] of [
   ['architecture','architecture','Architecture','model'],['model_role','model_role','Model type','model'],['initialization','initialization','Initialization','training'],['training_method','method','Training','training'],['selected_step','selected_step','Selected step','training','updates'],['optimizer_updates','optimizer_updates','Training steps','training','updates'],['outputs','output_semantics','Prediction','model'],
   ['physics_hz','physics_hz','Physics','physics','Hz'],['control_hz','control_hz','Control','physics','Hz'],['annotation','annotation_method','Annotation','annotations'],['source_demos','source_human_parent_count','Source demonstrations','collection'],['evaluation_mode','evaluation_scope','Evaluation','evaluation'],['evaluator','common_observer','Evaluator','evaluation'],['split','split','Split','population'],['valid','valid','Valid','population','cases'],['infra','infra','Infrastructure failures','population','cases'],['validation_mean_error','validation_mean_point_error_m','Validation point error','validation','m'],['validation_p95_error','validation_point_p95_m','Validation P95 error','validation','m']])add(id,label,p[key],section,unit);
- if(e.kind==='dataset'){add('count','Count',Object.hasOwn(d,'count')?d.count:p.episodes??p.count,'collection');add('count_unit','Unit',d.count_unit||p.count_unit||(p.episodes!=null?'episodes':null),'collection');add('frames','Frames',Object.hasOwn(d,'frames')?d.frames:p.frames,'collection');add('split','Split',d.splits?.length?d.splits:p.split_clips||p.split,'collection');}
+ if(e.kind==='dataset'){add('count','Count',Object.hasOwn(d,'count')?d.count:p.episodes??p.count,'collection');add('count_unit','Unit',d.count_unit||p.count_unit||(p.episodes!=null?'episodes':null),'collection');add('frames','Frames',Object.hasOwn(d,'frames')?d.frames:p.frames,'collection');add('split','Split',p.research?.collection?.split??(d.splits?.length?d.splits:p.split_clips||p.split),'collection');}
  const protocol=e.protocol||p.protocol||{};
  for(const [id,label,unit] of [['distance_tolerance_mm','Position tolerance','mm'],['angle_tolerance_deg','Angle tolerance','°'],['continuous_s','Continuous hold','s'],['active_hold_s','Hold window','s']])add(id,label,protocol[id],'scoring',unit);
  const inputs=e.inputs?.length?e.inputs:p.inputs?.length?p.inputs:d.inputs||[];
@@ -29,10 +29,13 @@ function loomResearchVisibleFact(f){
  return !(['annotation_source','instruction_source'].includes(f.id)&&/^(sha256:)?[a-f0-9]{64}$/i.test(String(f.value)));
 }
 function loomResearchNumber(v){return Math.abs(v)>0&&Math.abs(v)<.001?Number(v).toExponential(3):Number(v).toLocaleString('en-US',Math.abs(v)>0&&Math.abs(v)<1?{maximumSignificantDigits:4}:{maximumFractionDigits:3});}
-function loomResearchSplit(v){
+function loomResearchSplitItems(v){
  const items=Array.isArray(v)?v:Object.entries(v||{}).map(([id,value])=>({id,...(typeof value==='number'?{count:value}:Array.isArray(value)?{count:value.length}:typeof value==='string'?{status:value}:value)}));
  const rank={train:0,validation:1,val:1,test:2};
- return [...items].sort((a,b)=>(rank[a.id]??3)-(rank[b.id]??3)).map(x=>{
+ return items.filter(x=>typeof x?.id==='string'&&x.id).sort((a,b)=>(rank[a.id]??3)-(rank[b.id]??3));
+}
+function loomResearchSplit(v){
+ return loomResearchSplitItems(v).map(x=>{
   const n=x.count??x.adopted;return x.id+' '+(n==null?(x.status==='not_applicable'?'N/A':x.status==='unrecorded'?'Unrecorded':'—'):loomResearchNumber(n));
  }).join(' / ');
 }
@@ -105,7 +108,14 @@ catFacts=function(e){
  if(['model','dataset','experiment','run'].includes(e.kind))return loomResearchCardFacts(e).map(f=>({role:f.id,label:f.label,value:loomResearchValue(f,{compact:true})}));
  return loomPriorCatalogFacts(e);
 };
-function loomResearchFactsHTML(facts,compact=false){return '<dl class="pa-entity-facts pa-scientific-facts '+(compact?'is-compact':'')+'">'+facts.map(f=>'<div data-research-fact="'+esc(f.id)+'"><dt>'+esc(f.label)+'</dt><dd title="'+esc(f.title||loomResearchValue(f))+'">'+esc(loomResearchValue(f,{compact}))+'</dd></div>').join('')+'</dl>';}
+function loomSplitTagHTML(tag){return '<span class="pa-split-tag" title="'+esc(tag.title)+'">'+esc(tag.text)+'</span>';}
+function loomResearchFactsHTML(facts,compact=false){
+ return '<dl class="pa-entity-facts pa-scientific-facts '+(compact?'is-compact':'')+'">'+facts.map(f=>{
+  const value=f.tags?.length?'<dd class="pa-split-tags">'+f.tags.map(loomSplitTagHTML).join('')+'</dd>'
+   :'<dd title="'+esc(f.title||loomResearchValue(f))+'">'+esc(loomResearchValue(f,{compact}))+'</dd>';
+  return '<div data-research-fact="'+esc(f.id)+'"><dt>'+esc(f.label)+'</dt>'+value+'</div>';
+ }).join('')+'</dl>';
+}
 function loomResearchConditions(e){
  const fact=loomResearchFactMap(e).get('condition_outcomes');if(!fact||!Array.isArray(fact.value))return '';
  if(loomCheckpointPooledFact(e,fact))return '';
@@ -144,9 +154,10 @@ function loomResearchOverviewContent(e){
    if(inputs.length)body+='<div class="pa-research-input-panel">'+loomResearchSection(e.kind==='dataset'?'Observations':'Inputs',loomResearchInputsHTML(inputs))+'</div>';
    continue;
   }
-  const priority=['count','frames','split','train_snapshots','validation_snapshots','source_demos','collection_method','test_frames_read','bc_ready','positive_coverage','model_role','architecture','outputs'];
+  const priority=['split','count','frames','train_snapshots','validation_snapshots','source_demos','collection_method','test_frames_read','bc_ready','positive_coverage','model_role','architecture','outputs'];
   const rank=f=>priority.includes(f.id)?priority.indexOf(f.id):priority.length;
-  const facts=s.facts.filter(f=>f.section===id&&!['observation_schema','count_unit','condition_outcomes'].includes(f.id)&&loomResearchVisibleFact(f)&&!loomCheckpointPooledFact(e,f)).sort((a,b)=>rank(a)-rank(b)).map(f=>f.id==='count'?loomResearchCountFact(f,map.get('count_unit')?.value):f.id==='bc_ready'?{...f,label:'BC'}:f);
+  const facts=s.facts.filter(f=>f.section===id&&!['observation_schema','count_unit','condition_outcomes'].includes(f.id)&&loomResearchVisibleFact(f)&&!loomCheckpointPooledFact(e,f)).sort((a,b)=>rank(a)-rank(b)).map(f=>f.id==='count'?loomResearchCountFact(f,map.get('count_unit')?.value):f.id==='bc_ready'?{...f,label:'BC'}:
+   e.kind==='dataset'&&f.id==='split'?loomDatasetTagFact(f.status==='recorded'?[f.value]:[],loomResearchValue(f)):f);
   if(id==='evaluation'&&map.has('condition_outcomes')&&!loomCheckpointPooledFact(e,map.get('condition_outcomes')))body+=loomResearchSection('Condition outcomes',loomResearchConditions(e));
   if(!facts.length)continue;
   const title=e.kind==='dataset'&&id==='physics'&&map.get('environment')?.value==='sim'?'Simulation':loomResearchSections[id];
@@ -207,7 +218,7 @@ root.addEventListener('toggle',event=>{
  if(detail.open){opened.add(e.id);pre.textContent=loomResearchRaw(e);}else opened.delete(e.id);
  view.openOutputRecords=[...opened];persist();
 },true);
-function loomResearchRaw(e){return JSON.stringify({id:e.id,owner:e.owner_profile?.display_name||e.owner,origin:e.origin,properties:e.properties,metadata:e.metadata,dataset_overview:e.dataset_overview,protocol:e.protocol,summary:e.summary,description:e.description,revision:e.revision,relations:e.relations,dataset_lineage:e.dataset_lineage},null,2);}
+function loomResearchRaw(e){return JSON.stringify({id:e.id,label:e.label,owner:e.owner_profile?.display_name||e.owner,origin:e.origin,properties:e.properties,metadata:e.metadata,dataset_overview:e.dataset_overview,protocol:e.protocol,summary:e.summary,description:e.description,revision:e.revision,relations:e.relations,dataset_lineage:e.dataset_lineage},null,2);}
 root.addEventListener('click',async event=>{
  const button=event.target.closest('[data-dataset-parent-item]');if(!button)return;
  event.preventDefault();event.stopImmediatePropagation();const pane=button.closest('[data-pane]');if(pane)ws.active=pane.dataset.pane;

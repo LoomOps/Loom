@@ -164,7 +164,6 @@ impl Application {
     }
 
     fn set_output_disposition(&mut self, actor: &Actor, args: Value) -> Result<Value> {
-        crate::system_ownership::require_admin(&self.config, actor)?;
         let config = self.config.clone();
         let key = args["key"].as_str().unwrap_or_default();
         let operation = "results.set_output_disposition";
