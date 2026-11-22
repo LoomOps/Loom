@@ -88,7 +88,7 @@ Prefer English and keep the label under 120 characters (the SDK helper allows 20
 
 Use a stable short code such as `D1` for an established variant. Keep the
 robot and Task name in the Dataset title and use the short code in its
-catalog path. Use spaces in display names such as `Square D1`. Preserve
+catalog handle. Use spaces in display names such as `Square D1`. Preserve
 underscores in source identifiers when the source uses them.
 
 Robot is also a typed property, independent of the label and Task context. Use
@@ -99,10 +99,10 @@ one arbitrarily. See `metadata` for registered formats and canonical field types
 Include the discriminators needed to distinguish sibling outputs: modality,
 model family, protocol/cohort, checkpoint role or revision as appropriate.
 Keep split counts and Dataset revision numbers out of Dataset display names.
-The Catalog derives a lowercase, whitespace-free tag such as `split-100/20/20`
-from recorded integer counts in train/validation/test order. A recorded
-train/validation pair yields a two-count tag such as `split-900/100`. Supply
-structured counts and keep the tag out of the label and variant path.
+The Catalog shows recorded train/validation/test counts in the Split property,
+for example `100/20/20`. Every new Dataset output and typed import declares
+its split under `metadata.research.collection.split`. Use Tag for authored
+labels and keep split counts out of names, handles and tags.
 When evaluations share a protocol and cohort, include the evaluated Policy
 variant or checkpoint in each label if it distinguishes the runs.
 Keep full parameters, counts, splits, timestamps, hashes and Runtime pins in

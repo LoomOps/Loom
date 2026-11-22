@@ -81,18 +81,20 @@ separate record. Resolve the new exact input before training or evaluation.
 
 Use `metadata.research.organization.handle` for the short name of a Dataset
 variant and `metadata.research.organization.tags` for record-level labels.
-For matched conditions, use a shared handle such as `D0 · S1` and a distinct tag
-such as `A` on each record. Keep the full Dataset name in `label` and the
-train, validation and test counts in `metadata.research.collection.split`.
+For matched conditions, use handles such as `D0 · S1-A` and `D0 · S1-B`. Keep
+the full Dataset name in `label` and the train, validation and test counts in
+the required `metadata.research.collection.split` field.
 Dataset cards show the handle above each full name. Policy and Experiment
 lists show the handle and details link to the full Dataset name. Tags omit
-spaces and the Catalog derives split tags from the counts. Use an exact
+spaces and Split is a separate property. Use an exact
 ID/revision from discovery when binding an input. Update an existing record's
 presentation through `results.organize_dataset` or **Edit metadata** in the
 Dashboard. Use `properties` for arbitrary descriptive catalog properties,
 including provenance notes, responsibility or review information. Use the typed
 research contract for scientific properties. Include `path:[]` to remove a
-former subgroup heading when moving to a per-record handle.
+former subgroup heading when moving to a per-record handle. Record augmentation
+using an exact Dataset lineage edge with transformation `augment`. The Dataset
+card shows the source Dataset for that transformation.
 
 ```json
 {"group":"results","action":"get_metadata_template","arguments":{"id":"loom.dataset","revision":1}}
@@ -113,7 +115,7 @@ Use its returned `id`, `revision` and `sha256` for `template_ref`. Supply the gr
         "primary":{"machine_id":"fixture","storage_id":"fixture-data","ref":"incoming/grasp-2026-01.tar","sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
         "metadata":{
           "template_ref":{"id":"loom.dataset","revision":1,"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
-          "research":{"robot":{"status":"unrecorded"},"collection":{"status":"unrecorded"}}
+          "research":{"robot":{"status":"unrecorded"},"collection":{"status":"unrecorded","split":{"train":"unrecorded","validation":"unrecorded","test":"unrecorded"}}}
         }
       }
     }]}

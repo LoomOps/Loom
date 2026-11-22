@@ -1,21 +1,35 @@
 // Task context / subgroup taxonomy / data lineage are independent dimensions.
 // This renderer consumes declared organization; it never classifies by names.
 function loomDatasetKey(e){return e.dataset_mirror_key||e.id;}
-function loomDatasetImported(e){return e.reporting?.activity==='dataset_import'||e.origin?.type==='import';}
-function loomDatasetOriginBadge(e){return loomDatasetImported(e)?'<span class="pa-dataset-origin">Imported</span>':'';}
-function loomDatasetSplitTag(split){
- const counts=loomDatasetSplitCounts(split);
- return counts?{text:'split-'+counts.join('/'),title:loomResearchSplit(split)}:null;
+function loomDatasetOriginBadge(e){
+ const label=e.reporting?.activity==='dataset_import'?'Imported':e.origin?.type==='import'
+  ?(e.dataset_lineage?.parents?.some(p=>p.parent?.kind==='entity')?'Derived':'Imported'):null;
+ return label?'<span class="pa-dataset-origin">'+label+'</span>':'';
 }
-function loomDatasetTags(split,organization){
- const authored=(organization?.tags||[]).map(text=>({text,title:text}));
- const splitTag=loomDatasetSplitTag(split);
- return [...new Map([...authored,...(splitTag?[splitTag]:[])].map(tag=>[tag.text,tag])).values()];
+function loomDatasetTags(organization){
+ return (organization?.tags||[]).map(text=>({text,title:text}));
 }
 function loomDatasetTagFact(inputs){
  const tags=new Map();
- for(const input of inputs)for(const tag of loomDatasetTags(input.split,input.organization))tags.set(tag.text,tag);
- return {id:'tag',label:'Tag',value:'Missing',status:'recorded',tags:[...tags.values()]};
+ for(const input of inputs)for(const tag of loomDatasetTags(input.organization))tags.set(tag.text,tag);
+ return {id:'tag',label:'Tag',value:'-',status:'recorded',tags:[...tags.values()]};
+}
+function loomDatasetSplitValue(split){
+ const counts=loomDatasetSplitCounts(split);
+ return counts?counts.map(loomResearchNumber).join('/'):(loomResearchSplit(split)||'Missing');
+}
+function loomDatasetFacts(e,compact=false){
+ const facts=loomResearchFactMap(e),unit=facts.get('count_unit')?.value;
+ const count=facts.get('count');
+ const episodeCount=!unit||/^(episodes?|demonstrations?|trajector(?:y|ies)|rollouts?)$/i.test(unit)?count:null;
+ const split=facts.get('split');
+ const quantity=compact||!count?{value:'Missing',...episodeCount,id:'count',label:'Episodes'}:loomResearchCountFact(count,unit);
+ const fields=[quantity,
+  {value:'Missing',...split,id:'split',label:'Split'},loomDatasetTagFact([{organization:e.dataset_organization}])];
+ const sources=(e.dataset_lineage?.parents||[]).filter(link=>link.transformation?.kind==='augment')
+  .map(link=>link.label||loomDatasetParentEntity(link)?.label||link.parent?.identity?.id||'Missing');
+ if(sources.length)fields.push({id:'augmented',label:'Augmented from',value:[...new Set(sources)].join(' · '),status:'recorded'});
+ return fields;
 }
 // Older producers duplicated a recorded split in both the label and subgroup.
 // Recognize that specific pair without changing the recorded identity or taxonomy.
@@ -46,16 +60,11 @@ function loomCatalogRecordLabel(e){
  return loomDatasetDisplayLabel(e.label,path,split);
 }
 function loomDatasetRow(e,depth=0){
- const facts=loomResearchFactMap(e),unit=facts.get('count_unit')?.value;
- const count=!unit||/^(episodes?|demonstrations?|trajector(?:y|ies)|rollouts?)$/i.test(unit)?facts.get('count'):null;
- const split=facts.get('split');
- const fields=[loomDatasetSplitFact(split||loomDatasetTagFact([]),e.dataset_organization),
-               {value:'Missing',...count,id:'count',label:'Episodes'}];
  const handle=e.dataset_organization?.handle;
  return '<article role="listitem" class="pa-catalog-item pa-scientific-card pa-dataset-row" data-output-id="'+esc(e.id)+'" data-dataset-depth="'+depth+'">'
   +(handle?'<div class="pa-dataset-handle">'+esc(handle)+'</div>':'')
   +'<div class="pa-row-main pa-dataset-name">'+catLink(e.id)+loomDatasetOriginBadge(e)+loomOutputEditing(e)+'</div>'
-  +loomResearchFactsHTML(fields,true)+'</article>';
+  +loomResearchFactsHTML(loomDatasetFacts(e,true),true)+'</article>';
 }
 function loomDatasetTree(rows){
  const canonical=new Map(rows.map(e=>[loomDatasetKey(e),e])),parents=new Set(),children=new Map(),seen=new Set(),ordered=[];

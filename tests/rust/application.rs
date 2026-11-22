@@ -1299,6 +1299,7 @@ fn native_dataset_publication_resolves_only_declared_data_parent_inputs() {
     let mut spec = jobs::load(&f.app.db, &job).unwrap().spec;
     // The lineage boundary also applies to executions accepted before reporting.
     spec.as_object_mut().unwrap().remove("_reporting_required");
+    spec.as_object_mut().unwrap().remove("_dataset_split_required");
     spec["params"] = json!({"data":{"artifact":{"id":"source-dataset","revision":1}}});
     let task = f
         .call(

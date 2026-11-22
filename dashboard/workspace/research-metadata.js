@@ -42,7 +42,7 @@ function loomResearchSplit(v){
 function loomResearchValue(f,{compact=false}={}){
  if(f.status==='conflict')return 'Conflicting records';
  let v=f.value,unit=f.unit||'';
- if(f.id==='split'&&typeof v==='object')return loomResearchSplit(v);
+ if(f.id==='split'&&v&&typeof v==='object')return compact?loomDatasetSplitValue(v):loomResearchSplit(v);
  if(f.id==='positive_coverage'&&v&&typeof v==='object')return Object.entries(v).map(([k,n])=>k+' '+loomResearchNumber(n)).join(' / ');
  if(f.id==='bc_ready'&&typeof v==='boolean')return v?'Ready':'Not ready';
  if(compact&&f.id==='architecture'&&typeof v==='string')return v.split(':')[0];
@@ -109,10 +109,6 @@ catFacts=function(e){
  return loomPriorCatalogFacts(e);
 };
 function loomSplitTagHTML(tag){return '<span class="pa-split-tag" title="'+esc(tag.title)+'">'+esc(tag.text)+'</span>';}
-function loomDatasetSplitFact(fact,organization){
- const tags=loomDatasetTags(fact.status==='recorded'?fact.value:null,organization);
- return tags.length?{...fact,id:'tag',label:'Tag',tags}:fact;
-}
 function loomResearchFactsHTML(facts,compact=false){
  return '<dl class="pa-entity-facts pa-scientific-facts '+(compact?'is-compact':'')+'">'+facts.map(f=>{
   const value=f.datasets?.length?'<dd class="pa-split-tags">'+f.datasets.map(({label,tags})=>'<span class="pa-catalog-inputs">'+esc(label)+tags.map(loomSplitTagHTML).join('')+'</span>').join('')+'</dd>'
@@ -162,9 +158,8 @@ function loomResearchOverviewContent(e){
   }
   const priority=['split','count','frames','train_snapshots','validation_snapshots','source_demos','collection_method','test_frames_read','bc_ready','positive_coverage','model_role','architecture','outputs'];
   const rank=f=>priority.includes(f.id)?priority.indexOf(f.id):priority.length;
-  const facts=s.facts.filter(f=>f.section===id&&!['observation_schema','count_unit','condition_outcomes'].includes(f.id)&&loomResearchVisibleFact(f)&&!loomCheckpointPooledFact(e,f)).sort((a,b)=>rank(a)-rank(b)).map(f=>f.id==='count'?loomResearchCountFact(f,map.get('count_unit')?.value):f.id==='bc_ready'?{...f,label:'BC'}:
-   e.kind==='dataset'&&f.id==='split'?loomDatasetSplitFact(f,organization):f);
-  if(id==='collection'&&organization?.tags?.length&&!facts.some(f=>f.id==='tag'))facts.unshift(loomDatasetTagFact([{organization}]));
+  let facts=s.facts.filter(f=>f.section===id&&!['observation_schema','count_unit','condition_outcomes'].includes(f.id)&&loomResearchVisibleFact(f)&&!loomCheckpointPooledFact(e,f)).sort((a,b)=>rank(a)-rank(b)).map(f=>f.id==='count'?loomResearchCountFact(f,map.get('count_unit')?.value):f.id==='bc_ready'?{...f,label:'BC'}:f);
+  if(id==='collection'&&e.kind==='dataset')facts=[...loomDatasetFacts(e),...facts.filter(f=>!['count','split','tag'].includes(f.id))];
   if(id==='evaluation'&&map.has('condition_outcomes')&&!loomCheckpointPooledFact(e,map.get('condition_outcomes')))body+=loomResearchSection('Condition outcomes',loomResearchConditions(e));
   if(!facts.length)continue;
   const title=e.kind==='dataset'&&id==='physics'&&map.get('environment')?.value==='sim'?'Simulation':loomResearchSections[id];
@@ -209,7 +204,7 @@ catalogDetail=function(id){
  t.content.querySelector('[data-output-sources]')?.insertAdjacentHTML('beforeend',sources.join(''));
  for(const node of t.content.querySelectorAll('.pa-analysis-grid'))if(!node.textContent.trim())node.remove();
  if(e.kind==='dataset'){
-  if(loomDatasetImported(e))title.querySelector('.pa-eyebrow')?.insertAdjacentHTML('beforeend',loomDatasetOriginBadge(e));
+  title.querySelector('.pa-eyebrow')?.insertAdjacentHTML('beforeend',loomDatasetOriginBadge(e));
   const handle=e.dataset_organization?.handle;
   if(handle)title.querySelector('.pa-title-line')?.insertAdjacentHTML('beforebegin','<div class="pa-dataset-handle">'+esc(handle)+'</div>');
  }

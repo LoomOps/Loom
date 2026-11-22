@@ -58,7 +58,13 @@ fn fixture_report_for(
         components.push(json!(name));
         reports.push(json!({"requirement_id":id,"component":name,"sha256":hash(bytes)}));
     }
-    let manifest = json!({"entities":[{"id":"data","kind":kind,"path":"data.json","label":"Recorded scientific output","components":components,"relations":[],"reporting":{"contract_ref":reporting::reference(contract),"reports":reports}}],"metrics":[]});
+    let mut manifest = json!({"entities":[{"id":"data","kind":kind,"path":"data.json","label":"Recorded scientific output","components":components,"relations":[],"reporting":{"contract_ref":reporting::reference(contract),"reports":reports}}],"metrics":[]});
+    if kind == "dataset" {
+        let counts = payloads.iter().find_map(|(_, report)| report.get("split_counts"));
+        if let Some(counts) = counts {
+            manifest["entities"][0]["metadata"] = json!({"research":{"collection":{"split":counts}}});
+        }
+    }
     (job, folder, manifest)
 }
 #[test]
@@ -212,6 +218,10 @@ fn report_publication_is_atomic_hash_bound_and_readable_with_bounded_pages() {
     let mut f = Fixture::new();
     let contract = builtin(&mut f, "loom.report.dataset");
     let (job, folder, manifest) = fixture_report(&mut f, &contract, &[("membership", data())]);
+    let mut without_split = manifest.clone();
+    without_split["entities"][0]["metadata"]["research"]["collection"] = json!({});
+    assert_eq!(f.app.publish_result(&job, "report-attempt", without_split, &folder).unwrap_err().code,
+        "dataset_split_required");
     let mut bad = manifest.clone();
     bad["entities"][0]["reporting"]["reports"] = json!([]);
     assert!(f
@@ -566,6 +576,7 @@ fn new_dynamic_outputs_cannot_bypass_reporting_and_old_accepted_outputs_are_pres
     assert_eq!(f.count("entity_revisions"), 0);
     // A source accepted before this policy has no marker and is not retrofitted.
     spec.as_object_mut().unwrap().remove("_reporting_required");
+    spec.as_object_mut().unwrap().remove("_dataset_split_required");
     f.app
         .db
         .execute(

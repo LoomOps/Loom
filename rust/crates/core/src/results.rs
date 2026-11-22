@@ -925,6 +925,9 @@ impl Application {
                     published[key] = v.clone();
                 }
             }
+            if kind == "dataset" && row.spec["_dataset_split_required"] == true {
+                crate::metadata_templates::require_dataset_split(&published["metadata"]["research"])?;
+            }
             if let Some(pin) =
                 crate::metadata_templates::validate_output(&row.spec["profile"], entity)?
             {

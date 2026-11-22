@@ -593,6 +593,7 @@ impl Application {
         let mut spec = prepare(&self.db, &self.config, &self.bulk, actor, &raw)?;
         validate_new_execution(&self.db, &spec)?;
         spec["_reporting_required"] = json!(true);
+        spec["_dataset_split_required"] = json!(true);
         let tx = self.transaction()?;
         let id = insert(&tx, actor, &raw, &spec)?;
         if standalone {
@@ -1003,6 +1004,7 @@ impl Application {
                                     | "_output_storage_id"
                                     | "_consolidation_sources"
                                     | "_reporting_required"
+                                    | "_dataset_split_required"
                                     | "science_digest"
                             )
                         });
@@ -1012,6 +1014,9 @@ impl Application {
                         let mut spec = prepare(&tx, &config, &bulk, actor, &requested)?;
                         if let Some(flag) = row.spec.get("_reporting_required") {
                             spec["_reporting_required"] = flag.clone();
+                        }
+                        if let Some(flag) = row.spec.get("_dataset_split_required") {
+                            spec["_dataset_split_required"] = flag.clone();
                         }
                         if let Some((node,doc))=tx.query_row("SELECT n.node,w.request FROM execution_memberships n JOIN job_workflows w ON w.id=n.root WHERE n.job=? AND json_type(w.request,'$.plan_revision')='integer'",[id],|r|Ok((r.get::<_,String>(0)?,r.get::<_,String>(1)?))).optional()?{
                             crate::plans::check_execution(&serde_json::from_str(&doc)?,&node,&spec)?;
@@ -1371,6 +1376,7 @@ pub(crate) fn admit_node(
     let mut frozen = prepare(db, config, bulk, actor, &spec)?;
     validate_new_execution(db, &frozen)?;
     frozen["_reporting_required"] = json!(true);
+    frozen["_dataset_split_required"] = json!(true);
     let child = insert(db, actor, &spec, &frozen)?;
     if let Some(phase) = phase {
         db.execute(

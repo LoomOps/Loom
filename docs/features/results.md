@@ -95,7 +95,10 @@ New Dataset outputs may declare `metadata.research.organization`. Native result
 reads and Dashboard DTOs expose effective organization with its authority.
 The optional `handle` is the record's short display name. Records may share it
 within a variant. The optional `tags` array stores record-level labels and the
-Dashboard displays them alongside the split derived from collection counts.
+Dashboard displays them separately from Split. Newly accepted Dataset outputs
+and typed import plans require a nonempty declared split. Existing exact reads,
+accepted Jobs and previously accepted reconciliation plans retain their contracts.
+The Dataset list projects the augmentation source from exact `augment` lineage.
 Description and user-defined catalog properties are editable independent of
 scientific properties. Edits use source-bound previews and apply during active
 jobs. New revisions inherit the original record's current operator presentation.

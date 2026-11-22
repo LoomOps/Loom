@@ -623,7 +623,8 @@
 #pai-studio .pa-catalog-task-records>.pa-output-compact:last-child{padding-bottom:0}
 #pai-studio .pa-catalog-task-records>.pa-output-compact:last-child{border-bottom:0}
 #pai-studio .pa-dataset-subgroup{padding-block:10px;min-width:0}
-#pai-studio .pa-dataset-subgroup+.pa-dataset-subgroup{border-top:1px solid var(--pa-line)}
+#pai-studio .pa-catalog-task-records>:is(.pa-dataset-subgroup,.pa-dataset-tree)+:is(.pa-dataset-subgroup,.pa-dataset-tree){border-top:1px solid var(--pa-line);padding-top:16px}
+#pai-studio .pa-catalog-task-records>.pa-dataset-tree:has(+.pa-dataset-subgroup){padding-bottom:16px}
 #pai-studio .pa-dataset-subgroup>h4{margin:0;color:var(--pa-accent);font-size:13px;font-weight:600;overflow-wrap:anywhere}
 #pai-studio .pa-scientific-card.pa-dataset-row{min-width:0}
 #pai-studio .pa-dataset-handle{grid-column:1/-1;margin:0 0 4px;color:var(--pa-accent);font-size:13px;font-weight:600;overflow-wrap:anywhere}

@@ -235,6 +235,10 @@ class NativeWorkspaceTests(unittest.TestCase):
   metadata={'template_ref':pin,'research':{'robot':{'status':'recorded','model':'Franka Panda'},'collection':{'status':'recorded','count':0,'unit':'episodes','split':{'train':0,'validation':'unrecorded','test':'not_applicable'}},'extensions':{'friction':0.2}}}
   task=self.call('results','register_scenario',{'key':'ui-contact-task','definition':{'label':'Contact manipulation'}})
   op={'operation':'import','schema':'loom-asset/v3','source':{'system':'browser-fixture','id':'typed-contact','revision':'1'},'definition':{'kind':'dataset','label':'Contact demonstrations','scenario_ref':{'id':task['id'],'revision':1},'metadata':metadata,'primary':{'machine_id':'browser-fixture','storage_id':'browser-data','ref':'template.json'}}}
+  missing=json.loads(json.dumps(op));del missing['definition']['metadata']['research']['collection']['split']
+  with self.assertRaises(HTTPError) as error:
+   self.call('results','reconcile_plan',{'key':'ui-contact-missing-split','proposal':{'schema':'loom-reconcile/v1','operations':[missing]}})
+  self.assertIn('dataset_split_required',error.exception.read().decode())
   plan=self.call('results','reconcile_plan',{'key':'ui-contact-import','proposal':{'schema':'loom-reconcile/v1','operations':[op]}});args={'plan_id':plan['plan_id']};self.call('results','reconcile_validate',args);self.call('results','reconcile_apply',args)
   with sqlite3.connect(self.native_root/'state/ops.sqlite3') as db:identity=db.execute("SELECT id FROM asset_revisions WHERE json_extract(manifest,'$.origin.source.id')='typed-contact'").fetchone()[0]
   ui=self.ui;ui.nav('Datasets');ui.route(identity)

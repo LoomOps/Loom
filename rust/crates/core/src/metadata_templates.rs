@@ -375,6 +375,17 @@ pub fn validate(template: &Value, research: &Value, kind: &str) -> Result<()> {
     }
     Ok(())
 }
+
+pub(crate) fn require_dataset_split(research: &Value) -> Result<()> {
+    require(
+        research.pointer("/collection/split").is_some_and(|split| {
+            split.as_object().is_some_and(|counts| !counts.is_empty()) && field_value(split, "split")
+        }),
+        "dataset_split_required",
+        "Declare metadata.research.collection.split with episode counts or explicit unrecorded/not_applicable entries",
+        400,
+    )
+}
 pub fn bind_profile(db: &Connection, profile: &mut Value) -> Result<()> {
     let requested = profile
         .get("metadata_templates")
@@ -642,6 +653,9 @@ impl Application {
                     &args["research"],
                     args["kind"].as_str().unwrap_or(""),
                 )?;
+                if args["kind"] == "dataset" {
+                    require_dataset_split(&args["research"])?;
+                }
                 Ok(
                     json!({"valid":true,"template_ref":reference(&template),"summary":summary(&template,&args["research"],json!({"kind":"draft"})),"scientific_acceptance":"unverified"}),
                 )

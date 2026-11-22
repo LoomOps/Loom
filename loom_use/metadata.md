@@ -50,7 +50,9 @@ Evaluation metadata separates offline/closed-loop scope, Sim/Real environment,
 protocol/evaluator, population and success criteria. Use the selected schema for
 the exact fields and units. New fields require compatible template coverage.
 
-Use `collection.split: {"train":90,"validation":6,"test":"unrecorded"}`.
+For a new Dataset output or typed import, declare `collection.split`, for
+example `{"train":90,"validation":6,"test":"unrecorded"}`. For a known
+train-only Dataset, record zero for validation and test.
 For legacy `{id,count,frames}` split rows or nested count objects, copy the
 recorded count into this map and retain frames/member records in Sources.
 Do not replace a missing count with zero, infer a split from the label, or flatten

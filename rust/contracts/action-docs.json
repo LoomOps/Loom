@@ -1119,7 +1119,7 @@
   },
   "results.reconcile_plan": {
     "title": "Plan an exact reconciliation",
-    "description": "Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. Artifact imports can omit it. Inspect results.reconcile_contract for the import fields. Policy imports require trained_on and Experiment imports require evaluated_on and evaluated_model exact revision relations under the same Task.",
+    "description": "Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. New typed Dataset import plans require definition.metadata.research.collection.split. Artifact imports can omit the Task. Policy imports require trained_on and Experiment imports require evaluated_on and evaluated_model exact revision relations under the same Task.",
     "returns": "Plan · plan_id, state, normalized proposal, validation and optional original receipt",
     "example": {
       "key": "preserved-assets-v1",
@@ -1751,7 +1751,7 @@
   },
   "results.validate_metadata": {
     "title": "Validate output metadata",
-    "description": "Validate a draft against an exact template kind, schema and display field types. Structural validation is not scientific acceptance.",
+    "description": "Validate a draft against an exact template kind, schema and display field types. Dataset drafts require a declared collection.split. Structural validation leaves scientific acceptance unverified.",
     "returns": "Validation · valid, template_ref, summary, scientific_acceptance",
     "example": {
       "kind": "dataset",
@@ -1765,7 +1765,8 @@
           "status": "unrecorded"
         },
         "collection": {
-          "status": "unrecorded"
+          "status": "unrecorded",
+          "split": {"train":"unrecorded","validation":"unrecorded","test":"unrecorded"}
         }
       }
     },

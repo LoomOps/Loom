@@ -96,10 +96,11 @@ function loomCatalogDatasetOptions(records){
   const label=loomInputLabel(input);labels.set(label,(labels.get(label)||0)+1);
  }
  const entries=[...options].map(([id,input])=>{
-  const label=loomInputLabel(input),tags=loomDatasetTags(labels.get(label)>1?input.split:null,input.organization);
-  return {id,label,tags};
+  const label=loomInputLabel(input),tags=loomDatasetTags(input.organization);
+  const split=labels.get(label)>1&&input.split?loomDatasetSplitValue(input.split):null;
+  return {id,label,tags,split};
  });
- const text=({label,tags,detail})=>[label,...tags.map(tag=>tag.text),detail].filter(Boolean).join(' · ');
+ const text=({label,tags,split,detail})=>[label,...tags.map(tag=>tag.text),split,detail].filter(Boolean).join(' · ');
  const counts=new Map();
  for(const entry of entries){const key=text(entry);counts.set(key,(counts.get(key)||0)+1);}
  for(const entry of entries){
@@ -179,7 +180,8 @@ root.addEventListener('click',event=>{
 root.addEventListener('input',event=>{const control=event.target.closest('input[data-model-filter="query"]');if(control&&!event.isComposing)updatePolicyFilter(control);});
 function loomCatalogIndex(label,attribute,entries,selected){
  const buttons=[{id:'',label:'All'},...entries].map(entry=>{
-  const caption=esc(entry.label)+(entry.tags||[]).map(tag=>' · '+loomSplitTagHTML(tag)).join('')+(entry.detail?' · '+esc(entry.detail):'');
+  const caption=esc(entry.label)+(entry.tags||[]).map(tag=>' · '+loomSplitTagHTML(tag)).join('')
+   +(entry.split?' · '+esc(entry.split):'')+(entry.detail?' · '+esc(entry.detail):'');
   return '<button type="button" '+attribute+'="'+esc(entry.id)+'" aria-pressed="'+(selected===entry.id)+'">'+caption+'</button>';
  }).join('');
  return '<nav class="pa-catalog-task-index" aria-label="'+label+'"><h2>'+label+'</h2>'+buttons+'</nav>';
@@ -256,7 +258,7 @@ function loomCompactOutput(e,result){
  const datasets=loomCatalogInputs(e,'datasets');
  if(!result)facts.splice(1,0,loomDatasetTagFact(datasets));
  else if(datasets.some(input=>input.organization?.handle||input.organization?.tags?.length)){
-  facts[0].datasets=datasets.map(input=>({label:loomInputLabel(input),tags:loomDatasetTags(input.split,input.organization)}));
+  facts[0].datasets=datasets.map(input=>({label:loomInputLabel(input),tags:loomDatasetTags(input.organization)}));
  }
  return '<article class="pa-catalog-item pa-scientific-card pa-output-compact" data-output-id="'+esc(e.id)+'"'+(result?'':' data-model-entry="'+esc(e.id)+'"')+'>'
   +'<div class="pa-row-main">'+catLink(e.id)+loomOutputEditing(e)+'</div>'

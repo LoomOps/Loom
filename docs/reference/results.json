@@ -786,7 +786,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "validate_metadata",
-      "description": "Validate a draft against an exact template kind, schema and display field types. Structural validation is not scientific acceptance.",
+      "description": "Validate a draft against an exact template kind, schema and display field types. Dataset drafts require a declared collection.split. Structural validation leaves scientific acceptance unverified.",
       "errors": [
         "Unknown or mismatched template, invalid schema or typed metadata, changed source/revision, maintenance fence or insufficient scope."
       ],
@@ -794,6 +794,11 @@
         "kind": "dataset",
         "research": {
           "collection": {
+            "split": {
+              "test": "unrecorded",
+              "train": "unrecorded",
+              "validation": "unrecorded"
+            },
             "status": "unrecorded"
           },
           "robot": {
@@ -2087,7 +2092,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "reconcile_plan",
-      "description": "Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. Artifact imports can omit it. Inspect results.reconcile_contract for the import fields. Policy imports require trained_on and Experiment imports require evaluated_on and evaluated_model exact revision relations under the same Task.",
+      "description": "Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. New typed Dataset import plans require definition.metadata.research.collection.split. Artifact imports can omit the Task. Policy imports require trained_on and Experiment imports require evaluated_on and evaluated_model exact revision relations under the same Task.",
       "errors": [
         "Unknown source contract, conflicting source identity/key or proposal bound exceeded."
       ],

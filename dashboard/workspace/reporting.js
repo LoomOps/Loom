@@ -262,9 +262,10 @@ function loomReportLineage(e){
  const rows=fields.map(([field,label])=>{
   const inputs=loomCatalogInputs(e,field);
   return [esc(label),inputs.length?inputs.map(input=>{
-   const tags=field==='datasets'?loomDatasetTags(input.split,input.organization):[];
+   const tags=field==='datasets'?loomDatasetTags(input.organization):[];
    const label=field==='datasets'&&!input.organization?.handle?loomInputLabel(input):input.label;
-   return '<div class="pa-catalog-inputs">'+loomReportCatalogInput(input,label)+tags.map(loomSplitTagHTML).join('')+'</div>';
+   const split=field==='datasets'&&input.split?'<span title="'+esc(loomResearchSplit(input.split))+'">Split '+esc(loomDatasetSplitValue(input.split))+'</span>':'';
+   return '<div class="pa-catalog-inputs">'+loomReportCatalogInput(input,label)+split+tags.map(loomSplitTagHTML).join('')+'</div>';
   }).join(''):'Missing'];
  });
  const previous=e.kind==='model'&&(e.relations||[]).find(relation=>relation.kind==='revises');

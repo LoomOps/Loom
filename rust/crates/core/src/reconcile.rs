@@ -319,6 +319,9 @@ impl Application {
                 let source_context = context(self)?;
                 // Fail unknown targets and ambiguous sources before accepting a plan.
                 for op in &normalized {
+                    if op["operation"] == "import" && op["schema"] == "loom-asset/v3" && op["definition"]["kind"] == "dataset" {
+                        crate::metadata_templates::require_dataset_split(&op["definition"]["metadata"]["research"])?;
+                    }
                     self.reconcile_compare(op)?;
                 }
                 let tx = self.transaction()?;

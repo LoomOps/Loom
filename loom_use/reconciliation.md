@@ -20,6 +20,7 @@ snapshot and original evidence. Use `loom-asset/v3` with
 `trained_on` for a Policy's Dataset, and `evaluated_on` and `evaluated_model` for
 an Experiment's Dataset and Policy. Existing historical records retain their
 original identities and source metadata.
+New typed Dataset import plans also require `definition.metadata.research.collection.split`.
 V1/v2 remain legacy adapters. Conflicting source reuse fails.
 Candidate locators use this installation's granted machine/storage identities and
 relative refs. Optional original sha256/size must match. Stage bytes separately;

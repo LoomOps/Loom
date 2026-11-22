@@ -1103,7 +1103,7 @@ Unknown or mismatched template, invalid schema or typed metadata, changed source
 
 ## validate_metadata
 
-Validate a draft against an exact template kind, schema and display field types. Structural validation is not scientific acceptance.
+Validate a draft against an exact template kind, schema and display field types. Dataset drafts require a declared collection.split. Structural validation leaves scientific acceptance unverified.
 
 Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/metadata_templates.rs#metadata_template_action](../../rust/crates/core/src/metadata_templates.rs).
 
@@ -1174,6 +1174,11 @@ Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/c
   "kind": "dataset",
   "research": {
     "collection": {
+      "split": {
+        "test": "unrecorded",
+        "train": "unrecorded",
+        "validation": "unrecorded"
+      },
       "status": "unrecorded"
     },
     "robot": {
@@ -2718,7 +2723,7 @@ Index unavailable, invalid filter or expired cursor.
 
 ## reconcile_plan
 
-Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. Artifact imports can omit it. Inspect results.reconcile_contract for the import fields. Policy imports require trained_on and Experiment imports require evaluated_on and evaluated_model exact revision relations under the same Task.
+Normalize a bounded proposal with a stable key. Dataset, Policy and Experiment imports require definition.scenario_ref for both Regular and Reference. New typed Dataset import plans require definition.metadata.research.collection.split. Artifact imports can omit the Task. Policy imports require trained_on and Experiment imports require evaluated_on and evaluated_model exact revision relations under the same Task.
 
 Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/reconcile.rs#reconciliation](../../rust/crates/core/src/reconcile.rs).
 
