@@ -21,6 +21,98 @@ from verify_browser import request,FIREFOX
 from verify_workspace import Workspace
 
 class WorkspaceBrowserTests(unittest.TestCase):
+    def test_unit_queue_status_distinguishes_recovery_ownership_and_execution(self):
+        cases = [
+            ('claimed', 'failed', '복구 담당자 지정됨'),
+            ('pending', 'queued', '복구 예약'),
+            ('executing', 'preparing', '복구 준비 중 · 2차'),
+            ('executing', 'ready', '복구 실행 대기 · 2차'),
+            ('executing', 'running', '복구 실행 중 · 2차'),
+            ('executing', 'processing', '복구 결과 처리 중 · 2차'),
+        ]
+        parent, _ = native('unit-queue-parent')
+        parent['label'] = 'Long parent Job that should not appear in the Unit Queue ' * 8
+        units = [
+            {'id':phase,'label':('LongUnitName' * 36 if phase=='running' else phase),
+             'entry_type':'unit','state':phase,'job_id':parent['id'],
+             'reason':'ready','recovery':{'state':recovery,'rounds':2}}
+            for recovery,phase,_ in cases
+        ]
+        catalog = self.api.fixture['catalog']
+        catalog.update(entities=[parent], revision='recovery-unit-queue',
+                       capabilities={'catalog_pages':True,'live_queue':True,'job_units':True})
+        self.api.fixture['search_actions'] = {
+            'dashboard_queue':{'entities':[parent],'revision':catalog['revision'],
+                               'queue':{'entries':units,'job_entries':[],'unit_entries':units}},
+            'dashboard_page':{'entities':[],'revision':catalog['revision']},
+            'dashboard_activity':{'days':[]},
+        }
+        queue = "document.querySelector('.pa-unit-work-queue')"
+        status = queue + "?.querySelectorAll('tbody tr td:nth-child(2) .pa-job-status-label')"
+        self.ui.top()
+        self.wd('/refresh', {})
+        self.ui.connect()
+        self.ui.wait('return ('+status+')?.length===6')
+        self.assertEqual(self.ui.js('return Array.from('+status+', x=>x.textContent)'),
+                         [label for _,_,label in cases])
+        layout = self.ui.js("""
+          const wrap = document.querySelector('.pa-unit-work-queue .pa-table-wrap');
+          const headers = [...wrap.querySelectorAll('th')];
+          const row = wrap.querySelectorAll('tbody tr')[4];
+          const cells = [...row.cells];
+          return {
+            headers: headers.map(x=>x.textContent),
+            aligned: headers.every((x,i)=>Math.abs(x.offsetLeft-cells[i].offsetLeft)<1),
+            wrapWidth: [wrap.clientWidth,wrap.scrollWidth],
+            unitWidth: [cells[0].clientWidth,cells[0].scrollWidth],
+            statusWidth: cells[1].clientWidth,
+            resourceWidth: cells[2].clientWidth,
+          };
+        """)
+        self.assertEqual(layout['headers'], ['Unit','상태','자원','진행','완료 예정'])
+        self.assertTrue(layout['aligned'])
+        self.assertLessEqual(layout['wrapWidth'][1], layout['wrapWidth'][0] + 2, layout)
+        self.assertLessEqual(layout['unitWidth'][1], layout['unitWidth'][0] + 1, layout)
+        self.assertGreater(layout['statusWidth'], layout['resourceWidth'])
+        self.assertNotIn(parent['label'].strip(), self.ui.js('return '+queue+'.textContent'))
+
+    def test_deferred_publication_displays_failure_reason_and_preserves_execution_receipt(self):
+        entity, detail = native('deferred-result')
+        entity['state'] = entity['properties']['state'] = 'result_failed'
+        detail.update(state='result_failed', recovery={'state':'deferred','rounds':0})
+        detail['result'].pop('artifact_ready')
+        message = "Output 'clip' is missing required fields: relations"
+        detail['result']['publication_error'] = {
+            'code':'entity','message':message,'status':400,'retryable':False,
+        }
+        unit = {'id':entity['id'],'entry_type':'unit','job_id':None,
+                'state':'result_failed','label':entity['label'],'position':None,
+                'reason':'recovery_deferred',
+                'progress':{'steps':[{'label':'Generating clips','state':'running'}]}}
+        catalog = self.api.fixture['catalog']
+        catalog.update(entities=[entity], revision='deferred-result-1',
+                       capabilities={'catalog_pages':True,'live_queue':True,'job_units':True})
+        self.api.fixture['jobs'][entity['id']] = detail
+        self.api.fixture['search_actions'] = {
+            'dashboard_queue':{'entities':[entity],'revision':catalog['revision'],
+                               'queue':{'entries':[unit],'job_entries':[],'unit_entries':[unit]}},
+            'dashboard_page':{'entities':[],'revision':catalog['revision']},
+            'dashboard_activity':{'days':[]},
+        }
+        queue = "[...document.querySelectorAll('.pa-panel')].find(p=>p.querySelector('h2')?.textContent.startsWith('Unit Queue'))"
+        self.ui.top()
+        self.wd('/refresh', {})
+        self.ui.connect()
+        self.ui.wait('return '+queue+'?.textContent.includes("결과 처리 실패 · 복구 보류")')
+        queue_text = self.ui.js('return '+queue+'.textContent')
+        self.assertNotIn('실행 가능', queue_text)
+        self.assertNotIn('Generating clips', queue_text)
+        self.ui.route(entity['id'])
+        self.ui.wait('return document.querySelector("#pa-content")?.textContent.includes("결과 등록 오류")')
+        content = self.ui.js('return document.querySelector("#pa-content").textContent')
+        self.assertIn(message, content)
+        self.assertIn('Exit code', content)
+
     def test_queue_reloads_phase_forecasts_without_catalog_revision_change(self):
         job, _ = native('forecast-job')
         job.update(entry_type='job', state='running')

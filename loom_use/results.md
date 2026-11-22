@@ -28,7 +28,7 @@ when searching for reusable catalog inputs.
 
 Use `jobs.get` for the accepted Job and deliverable, `units.get` for Attempt and return state, and `results.get` for exact published revisions and locations. Use `events.list` with `kind:"all"` to read events. ACK records delivery. For a publication error, repair the cause and use `results.reindex` when applicable to keep the original successful Attempt.
 
-Declare measurements, units, denominators, splits and provenance in the producer's output. Reference the accepted Profile revision and source hash. Large outputs can use the Rust SDK's sealed file inventory; see `authoring` and `items`. A structural/byte check does not establish model or dataset semantics.
+Declare measurements, units, denominators and splits in the producer's output. When the execution manifest omits an output's `provenance` field, Loom fills it from the exact Profile revision and source hash frozen on the Unit. If supplied, `provenance` must match both pins. Large outputs can use the Rust SDK's sealed file inventory. See `authoring` and `items`. A structural or byte check does not establish model or dataset semantics.
 
 Consume published artifacts through the Profile's accepted `{job,entity,member?}` or exact artifact input shape. Keep original producer and consumes lineage. Current Owner is responsibility metadata and can change without rewriting the original execution.
 
@@ -230,3 +230,9 @@ names every known parent on the row. Exact parent references remain in the detai
 view, including parents outside the subgroup, page or filter.
 Never sum overlapping child counts into a family total. Family counts count logical
 Dataset entries after exact mirror grouping, not unique episodes.
+
+## Technical failure with diagnostic artifacts
+
+If technical setup prevents an intended run from satisfying its execution contract, keep its diagnostic files and declare a failed execution in `result.json`. Use only Artifact entities in this manifest. Add `"execution_outcome":{"status":"failed","code":"entry_seed_missing","planned":4,"started":0,"valid":0}` next to `entities` and `metrics`. The code is a short lowercase identifier and counts must satisfy `0 <= valid <= started <= planned`, with a positive planned count. Loom registers the diagnostics, marks the Attempt failed, and leaves dependencies blocked. In Rust, call `fail_with_diagnostics` before the producer finishes.
+
+Use the normal result contract for a valid scientific measurement, including a measured success rate of zero. Existing manifests without `execution_outcome` retain their contract.

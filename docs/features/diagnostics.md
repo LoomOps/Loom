@@ -2,7 +2,7 @@
 
 ## Boundary
 
-Collection failures never block authentication, Jobs or responses. No secret/request/exception-message capture and no automatic upload.
+Collection failures never block authentication, Jobs or responses. No secret/request/exception-message capture and no automatic upload. Execution failures also add bounded operational records to the local Troubleshooting catalog. These records carry exact execution pins and references, and lease holders may add explicit findings. Private diagnostic JSONL remains independent.
 
 ## Interfaces
 

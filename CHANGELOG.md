@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0-alpha.79
+
+- Carry the pinned Task into the native runtime and retain diagnostic artifacts when a producer reports that execution failed.
+- Record recoverable execution and publication failures in Troubleshooting. Findings and closure keep the original record and append a revision.
+- Improve Unit queue alignment and refresh behavior for running Jobs.
+
 ## 0.2.0-alpha.78
 
 - Derive compact, whitespace-free Dataset tags such as `split-100/20/20` from recorded counts. Align monospace tags with adjacent catalog fields and document the naming rule in Loom Use.

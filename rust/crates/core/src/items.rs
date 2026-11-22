@@ -226,12 +226,27 @@ fn doc(db: &Connection, topic: &str, key: &Value) -> Result<Option<(String, Valu
             } else {
                 row["kind"].clone()
             };
+            let mut logical = key.clone();
+            let mut summary = m["entity"]["summary"].clone();
+            if row["source"] == crate::diagnostics::EXECUTION_ISSUE_SOURCE && kind == "issue" {
+                logical.as_object_mut().unwrap().remove("revision");
+                summary = json!(std::iter::once(summary.as_str().unwrap_or(""))
+                    .chain(
+                        m["entity"]["properties"]["findings"]
+                            .as_array()
+                            .into_iter()
+                            .flatten()
+                            .filter_map(Value::as_str)
+                    )
+                    .collect::<Vec<_>>()
+                    .join(" "));
+            }
             (
                 "historical",
-                key.clone(),
+                logical,
                 key.clone(),
                 m.clone(),
-                json!({"kind":kind,"label":m["original"].get("label").or_else(||m["entity"].get("label")).or_else(||m["record"]["spec"]["presentation"].get("label")).unwrap_or(&row["id"]),"scope":presentation.get("scope").cloned().unwrap_or(json!("research")),"role":presentation.get("role").cloned().unwrap_or(json!("main")),"historical":true,"source_order":row["source_order"],"recorded_at":m["record"]["created"].as_f64(),"snapshot":row["snapshot"],"state":m["record"].get("state").or_else(||m["entity"].get("state")).cloned()}),
+                json!({"kind":kind,"label":m["original"].get("label").or_else(||m["entity"].get("label")).or_else(||m["record"]["spec"]["presentation"].get("label")).unwrap_or(&row["id"]),"scope":presentation.get("scope").cloned().unwrap_or(json!("research")),"role":presentation.get("role").cloned().unwrap_or(json!("main")),"summary":summary,"historical":true,"source_order":row["source_order"],"recorded_at":m["record"]["created"].as_f64(),"snapshot":row["snapshot"],"state":m["record"].get("state").or_else(||m["entity"].get("state")).cloned()}),
             )
         }
         "components" | "tools" | "execution_profiles" => {
@@ -583,10 +598,18 @@ fn adopt_descriptor(
         .as_deref()
         .and_then(|s| serde_json::from_str(s).ok())
         .unwrap_or(Value::Null);
+    let revision_number = |identity: &Value| {
+        identity["revision"].as_i64().or_else(|| {
+            (identity["source"] == crate::diagnostics::EXECUTION_ISSUE_SOURCE
+                && identity["kind"] == "issue")
+                .then(|| identity["revision"].as_str()?.parse().ok())
+                .flatten()
+        })
+    };
     let current = publish_current
         && match (
-            old_native["identity"]["revision"].as_i64(),
-            native_ref["identity"]["revision"].as_i64(),
+            revision_number(&old_native["identity"]),
+            revision_number(&native_ref["identity"]),
         ) {
             (Some(a), Some(b)) => b >= a,
             _ => true,

@@ -119,13 +119,8 @@ async fn perform_inner(
     work: Work,
 ) -> Result<()> {
     if work.publication {
-        let manifest_path = work.folder.join("result.json");
-        let manifest = tokio::task::spawn_blocking(move || read_manifest(&manifest_path))
-            .await
-            .map_err(|_| Error::new("verification", "Manifest reader stopped", 503))?
-            .unwrap_or(Value::Null);
         let prepare_folder = work.folder.clone();
-        let prepare_manifest = manifest.clone();
+        let spec = work.spec.clone();
         let state = service.state.clone();
         let data = bulk.clone();
         let software = components.clone();
@@ -134,18 +129,16 @@ async fn perform_inner(
             .as_str()
             .unwrap_or("data/0")
             .to_string();
-        let proofs = tokio::task::spawn_blocking(move || {
+        let prepared = tokio::task::spawn_blocking(move || {
+            let mut manifest = read_manifest(&prepare_folder.join("result.json"))?;
+            loom_core::results::prepare_output_manifest(&mut manifest, &spec)?;
             let app = loom_core::Application::open_read_only(&state, &data, &software, cfg)?;
-            let files = verify_outputs(&prepare_folder, &prepare_manifest)?;
+            let files = verify_outputs(&prepare_folder, &manifest)?;
             let mut prepared = loom_core::reconcile::PreparedFiles {
                 files,
                 inventories: Default::default(),
             };
-            for entity in prepare_manifest["entities"]
-                .as_array()
-                .into_iter()
-                .flatten()
-            {
+            for entity in manifest["entities"].as_array().unwrap() {
                 if entity["inventory"].is_object() {
                     let file = storage::relative(
                         &prepare_folder,
@@ -180,12 +173,12 @@ async fn perform_inner(
                     );
                 }
             }
-            Ok::<_, Error>(prepared)
+            Ok::<_, Error>((manifest, prepared))
         })
         .await
-        .map_err(|_| Error::new("verification", "Output verification task stopped", 503))?
-        .unwrap_or_default();
-        let _ = service.publish(work, manifest, proofs).await?;
+        .map_err(|_| Error::new("verification", "Output verification task stopped", 503))
+        .and_then(|result| result);
+        let _ = service.publish(work, prepared).await?;
         return Ok(());
     }
     let marker = work.folder.join(format!(".effect-{}.json", work.effect));
@@ -673,10 +666,9 @@ async fn run_builtin(service: Service, work: Work, request: &mut Value) -> Resul
 }
 
 fn read_manifest(path: &Path) -> Result<Value> {
-    Ok(serde_json::from_slice(&loom_core::file_set::bounded(
-        path,
-        8 * 1024 * 1024,
-    )?)?)
+    let bytes = loom_core::file_set::bounded(path, 8 * 1024 * 1024)?;
+    serde_json::from_slice(&bytes)
+        .map_err(|_| Error::new("manifest", "result.json is not valid JSON", 400))
 }
 
 fn verify_outputs(

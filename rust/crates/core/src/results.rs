@@ -593,7 +593,7 @@ impl Application {
         &mut self,
         job: &str,
         attempt: &str,
-        manifest: Value,
+        mut manifest: Value,
         folder: &std::path::Path,
         proofs: Option<&std::collections::BTreeMap<std::path::PathBuf, storage::VerifiedFile>>,
     ) -> Result<Value> {
@@ -627,23 +627,10 @@ impl Application {
             tx.commit()?;
             return Ok(json!({"id":job,"state":"cancelled"}));
         }
-        require(
-            manifest.as_object().is_some_and(|o| {
-                o.len() == 2 && o.contains_key("entities") && o.contains_key("metrics")
-            }),
-            "manifest",
-            "Manifest requires entities and metrics",
-            400,
-        )?;
-        let entities = manifest["entities"]
-            .as_array()
-            .ok_or_else(|| Error::input("Result entities required"))?;
-        require(
-            !entities.is_empty() && entities.len() <= 1024,
-            "manifest",
-            "At least one and at most 1024 outputs required",
-            400,
-        )?;
+        prepare_output_manifest(&mut manifest, &row.spec)?;
+        let execution_outcome = manifest.get("execution_outcome");
+        let technical_failure = execution_outcome.is_some();
+        let entities = manifest["entities"].as_array().unwrap();
         if row.spec["_reporting_required"] == true
             && entities
                 .iter()
@@ -654,16 +641,17 @@ impl Application {
         let science_plan = crate::plans::scientific_plan(&self.db, job)?;
         let missing:bool=self.db.query_row("SELECT EXISTS(SELECT 1 FROM execution_memberships n JOIN job_workflows w ON w.id=n.root JOIN json_each(w.request,'$.outcome.deliverables') d WHERE n.job=? AND json_extract(d.value,'$.from.node')=n.node AND NOT EXISTS(SELECT 1 FROM json_each(?,'$.entities') e WHERE json_extract(e.value,'$.id')=json_extract(d.value,'$.from.entity') AND json_extract(e.value,'$.kind')=json_extract(d.value,'$.kind')))",params![job,encode(&manifest)?],|r|r.get(0))?;
         require(
-            !missing
-                && row.spec["outcome"]["deliverables"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .all(|d| {
-                        entities
-                            .iter()
-                            .any(|e| e["id"] == d["entity"] && e["kind"] == d["kind"])
-                    }),
+            technical_failure
+                || (!missing
+                    && row.spec["outcome"]["deliverables"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .all(|d| {
+                            entities
+                                .iter()
+                                .any(|e| e["id"] == d["entity"] && e["kind"] == d["kind"])
+                        })),
             "deliverable",
             "Result is missing a promised output or its kind differs",
             409,
@@ -730,15 +718,6 @@ impl Application {
                 .map_err(|_| Error::input("Output outside registered root"))?
                 .to_string_lossy()
                 .to_string();
-            if row.spec["kind"] != "cpu.smoke" {
-                let expected = json!({"profile":row.spec["profile"]["revision"],"producer_sha256":row.spec["profile"]["sha256"]});
-                require(
-                    entity["provenance"] == expected,
-                    "provenance",
-                    "Producer provenance differs from accepted Profile",
-                    409,
-                )?;
-            }
             let mut member_paths = std::collections::BTreeSet::new();
             for member in entity["components"].as_array().into_iter().flatten() {
                 let member = member
@@ -1160,8 +1139,27 @@ impl Application {
             }
             outputs.push(output);
         }
-        let result = json!({"artifact_ready":true,"entities":outputs,"metrics":manifest.get("metrics").cloned().unwrap_or(json!([])),"execution":current.result.as_ref().and_then(|r|r.get("execution")).cloned().unwrap_or(json!({"process_group_returned":true})),"process_group_returned":true});
-        jobs::transition(&tx, &current, Event::Publish)?;
+        let mut result = json!({"artifact_ready":true,"entities":outputs,"metrics":manifest.get("metrics").cloned().unwrap_or(json!([])),"execution":current.result.as_ref().and_then(|r|r.get("execution")).cloned().unwrap_or(json!({"process_group_returned":true})),"process_group_returned":true});
+        if let Some(outcome) = execution_outcome {
+            result["execution_outcome"] = outcome.clone();
+            jobs::transition(&tx, &current, Event::Fail)?;
+            tx.execute("UPDATE attempts SET state='failed' WHERE id=?", [attempt])?;
+            crate::execution::open_incident(&tx, &current, "technical_failure")?;
+            let mut facts = outcome.clone();
+            facts["diagnostic_artifacts"] = json!(outputs.iter().map(|entry|
+                json!({"id":entry["id"],"registry_ref":entry["registry_ref"],"sha256":entry["sha256"]})
+            ).collect::<Vec<_>>());
+            let _ = crate::diagnostics::record_execution_issue(
+                &tx,
+                &current,
+                "run",
+                "technical_failure",
+                facts,
+            );
+        } else {
+            jobs::transition(&tx, &current, Event::Publish)?;
+            let _ = crate::diagnostics::resolve_execution_issues(&tx, job, attempt);
+        }
         tx.execute(
             "UPDATE jobs SET result=? WHERE id=? AND attempt=?",
             params![encode(&result)?, job, attempt],
@@ -1174,11 +1172,108 @@ impl Application {
             "DELETE FROM result_outbox WHERE job=? AND attempt=?",
             params![job, attempt],
         )?;
-        jobs::event(&tx, &current, "complete")?;
+        jobs::event(
+            &tx,
+            &current,
+            if technical_failure {
+                "failed"
+            } else {
+                "complete"
+            },
+        )?;
         tx.commit()?;
         Ok(result)
     }
 }
+/// Validate the manifest envelope and bind typed outputs to the accepted Profile
+/// before the worker reads payload files. Publication also checks this against
+/// the stored Job spec under the Attempt fence.
+pub fn prepare_output_manifest(manifest: &mut Value, spec: &Value) -> Result<()> {
+    require(
+        manifest.as_object().is_some_and(|fields| {
+            fields
+                .keys()
+                .all(|key| matches!(key.as_str(), "entities" | "metrics" | "execution_outcome"))
+                && fields.get("entities").is_some_and(Value::is_array)
+                && fields.get("metrics").is_some_and(Value::is_array)
+        }),
+        "manifest",
+        "result.json requires entities and metrics arrays",
+        400,
+    )?;
+    if let Some(outcome) = manifest.get("execution_outcome") {
+        let planned = outcome["planned"].as_u64();
+        let started = outcome["started"].as_u64();
+        let valid = outcome["valid"].as_u64();
+        require(
+            outcome.as_object().is_some_and(|fields| fields.len() == 5)
+                && outcome["status"] == "failed"
+                && outcome["code"].as_str().is_some_and(|code| {
+                    !code.is_empty() && code.len() <= 64
+                        && code.bytes().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'_')
+                })
+                && matches!((planned, started, valid), (Some(p), Some(s), Some(v)) if p > 0 && v <= s && s <= p)
+                && manifest["entities"].as_array().unwrap().iter().all(|entity| entity["kind"] == "artifact"),
+            "execution_outcome",
+            "A failed execution outcome requires a safe code, ordered case counts and diagnostic artifacts only",
+            400,
+        )?;
+    }
+    let entities = manifest["entities"].as_array_mut().unwrap();
+    require(
+        !entities.is_empty() && entities.len() <= 1024,
+        "manifest",
+        "At least one and at most 1024 outputs required",
+        400,
+    )?;
+    if spec["kind"] == "cpu.smoke" {
+        return Ok(());
+    }
+    let profile = &spec["profile"];
+    let expected = json!({"profile":profile["revision"],"producer_sha256":profile["sha256"]});
+    let has_pin = [&profile["revision"], &profile["sha256"]]
+        .iter()
+        .all(|value| value.as_str().is_some_and(|s| !s.is_empty()));
+    for (index, entity) in entities.iter_mut().enumerate() {
+        let id = entity["id"]
+            .as_str()
+            .filter(|id| valid_output_id(id))
+            .map(|id| format!("Output '{id}'"))
+            .unwrap_or_else(|| format!("Output #{}", index + 1));
+        let fields = entity
+            .as_object_mut()
+            .ok_or_else(|| Error::new("entity", format!("{id} must be an object"), 400))?;
+        if has_pin && !fields.contains_key("provenance") {
+            fields.insert("provenance".into(), expected.clone());
+        }
+        let missing: Vec<_> = ["id", "kind", "path", "provenance", "relations"]
+            .into_iter()
+            .filter(|key| !fields.contains_key(*key))
+            .collect();
+        require(
+            missing.is_empty(),
+            "entity",
+            &format!("{id} is missing required fields: {}", missing.join(", ")),
+            400,
+        )?;
+        require(
+            fields["provenance"] == expected,
+            "provenance",
+            &format!("{id} provenance differs from the accepted Profile"),
+            409,
+        )?;
+    }
+    Ok(())
+}
+
+fn valid_output_id(id: &str) -> bool {
+    !id.is_empty()
+        && id.len() <= 128
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b"_.-".contains(&b))
+}
+
 fn validate_output_semantics(manifest: &Value, profile: Option<&Value>) -> Result<()> {
     let entities = manifest["entities"]
         .as_array()
@@ -1195,11 +1290,7 @@ fn validate_output_semantics(manifest: &Value, profile: Option<&Value>) -> Resul
             .as_str()
             .ok_or_else(|| Error::input("Output ID required"))?;
         require(
-            !id.is_empty()
-                && id.len() <= 128
-                && id
-                    .bytes()
-                    .all(|b| b.is_ascii_alphanumeric() || b"_.-".contains(&b)),
+            valid_output_id(id),
             "entity",
             "Invalid output identity",
             400,
@@ -1207,26 +1298,23 @@ fn validate_output_semantics(manifest: &Value, profile: Option<&Value>) -> Resul
         if let Some(profile) = profile {
             require(
                 entity.as_object().is_some_and(|o| {
-                    ["id", "kind", "path", "provenance", "relations"]
-                        .iter()
-                        .all(|k| o.contains_key(*k))
-                        && o.keys().all(|k| {
-                            [
-                                "id",
-                                "kind",
-                                "path",
-                                "provenance",
-                                "relations",
-                                "components",
-                                "metadata",
-                                "label",
-                                "description",
-                                "inventory",
-                                "lineage",
-                                "reporting",
-                            ]
-                            .contains(&k.as_str())
-                        })
+                    o.keys().all(|k| {
+                        [
+                            "id",
+                            "kind",
+                            "path",
+                            "provenance",
+                            "relations",
+                            "components",
+                            "metadata",
+                            "label",
+                            "description",
+                            "inventory",
+                            "lineage",
+                            "reporting",
+                        ]
+                        .contains(&k.as_str())
+                    })
                 }),
                 "entity",
                 "Invalid typed output fields",

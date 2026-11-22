@@ -1008,7 +1008,7 @@
         "entrypoint": "rust/crates/core/src/query.rs#queue",
         "feature": "queue"
       },
-      "returns": "Queue · entries with position, held, reason, capabilities and optional producer progress forecast for a running Unit",
+      "returns": "Queue entries with position, held, reason and capabilities. Units may include recovery state and started rounds, and running Units may include a producer progress forecast.",
       "schema": {
         "additionalProperties": false,
         "properties": {},

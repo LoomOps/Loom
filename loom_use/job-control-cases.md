@@ -117,6 +117,11 @@ The process returned and the Job is awaiting recovery. The approved input revisi
 
 Use the lease returned by the claim. In this example the repair is external to the execution parameters, so the patch is empty.
 
+If `system.describe` advertises `preview` on `recovery.resume`, validate this
+request with `preview: true` first. Confirm the exact candidate and then send the
+execution request below. For code or Runtime startup failures, also verify the
+repaired entry point as described in [recovery](recovery.md).
+
 ```json
 {"group":"recovery","action":"resume","arguments":{"id":"a3000000000000000000000000000006","lease":"example-lease","patch":{},"reason":"Verified the pinned input at its repaired mount"}}
 ```

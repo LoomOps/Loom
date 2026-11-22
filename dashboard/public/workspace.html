@@ -4210,13 +4210,14 @@ function loomJobPanel(job, entry) {
   const record = entry.data;
   const result = record.result || {};
   const execution = result.execution || {};
+  const publicationError = result.publication_error;
   const current = (record.attempts || []).find(attempt =&gt; attempt.id === record.attempt);
   const index = {complete:&#x27;indexed&#x27;, processing:&#x27;pending&#x27;, result_failed:&#x27;incomplete&#x27;}[record.state];
   const rows = [
     [&#x27;Job&#x27;,record.id],[&#x27;Owner&#x27;,record.owner_profile?.display_name || record.owner],[&#x27;Status&#x27;,record.status || record.state],[&#x27;Attempt&#x27;,record.attempt],[&#x27;Attempt 상태&#x27;,current?.state],
     [&#x27;Exit code&#x27;,execution.exit_code],[&#x27;프로세스 그룹 반환&#x27;,execution.process_group_returned],
     [&#x27;Artifact 검증&#x27;,result.artifact_ready],[&#x27;Typed outputs&#x27;,Array.isArray(result.entities) ? result.entities.length : null],
-    [&#x27;Scheduling&#x27;,record.scheduling?.reason],[&#x27;Recovery&#x27;,record.recovery?.state],[&#x27;Recovery Agent&#x27;,record.recovery?.agent],
+    [&#x27;Scheduling&#x27;,record.scheduling?.waiting_reason ?? record.scheduling?.reason],[&#x27;Recovery&#x27;,record.recovery?.state],[&#x27;Recovery Agent&#x27;,record.recovery?.agent],
     [&#x27;Recovery Attempts&#x27;,record.recovery ? record.recovery.rounds + &#x27; / &#x27; + record.recovery.max_rounds : null],
     [&#x27;Reservation Deadline&#x27;,record.recovery?.deadline ? new Date(record.recovery.deadline*1000).toLocaleString() : null],
     [&#x27;Registry 색인&#x27;,index],[&#x27;Result 재시도&#x27;,record.result_processing?.retries],
@@ -4242,7 +4243,11 @@ function loomJobPanel(job, entry) {
   const prior=previous?panel(&#x27;이전 결과 기록&#x27;,&#x27;&lt;p&gt;현재 Attempt의 결과가 아닙니다.&lt;/p&gt;&#x27;+catTable([&#x27;사유&#x27;,&#x27;Stage&#x27;,&#x27;Exit code&#x27;],[[previous.reason,previous.stage,previous.exit_code].map(loomText)])):&#x27;&#x27;;
   const refreshError = entry.error ? &#x27;&lt;p role=&quot;status&quot;&gt;기록을 갱신하지 못했습니다. 마지막 조회 기록을 표시합니다.&lt;/p&gt;&#x27;
     + &#x27;&lt;button class=&quot;pa-button&quot; data-loom-detail-retry&gt;다시 조회&lt;/button&gt;&#x27; : &#x27;&#x27;;
+  const publication = publicationError?.message ? panel(&#x27;결과 등록 오류&#x27;, catTable([&#x27;코드&#x27;,&#x27;상세&#x27;],[
+    [loomText(publicationError.code),loomText(publicationError.message)]
+  ])) : &#x27;&#x27;;
   return workTime+internal+continuity+prior+(target?panel(&#x27;통합 Job&#x27;,catLink(target)):&#x27;&#x27;)+panel(&#x27;Loom 실행 기록&#x27;, refreshError + &#x27;&lt;div class=&quot;pa-loom-job-summary&quot;&gt;&#x27; + catTable([&#x27;필드&#x27;,&#x27;값&#x27;], rows.map(row =&gt; row.map(loomText))) + &#x27;&lt;/div&gt;&#x27;)
+    + publication
     + (attempts.length?panel(&#x27;Attempts&#x27;, catTable([&#x27;Attempt&#x27;,&#x27;상태&#x27;,&#x27;시작&#x27;,&#x27;종료&#x27;], attempts)):&#x27;&#x27;)
     + (linked ? panel(&#x27;Registry 기록&#x27;, &#x27;&lt;div class=&quot;pa-loom-job-links&quot;&gt;&#x27; + linked + &#x27;&lt;/div&gt;&#x27;) : &#x27;&#x27;);
 }
@@ -4508,8 +4513,31 @@ root.addEventListener(&#x27;toggle&#x27;, event =&gt; {
   if (entity &amp;&amp; pre &amp;&amp; !pre.textContent) pre.textContent = JSON.stringify({properties:entity.properties || {},dataset_overview:entity.dataset_overview || {}}, null, 2);
 }, true);
 
+function loomTroubleshootingDetail(entity) {
+  const p=entity.properties||{}, run=p.execution||{};
+  const fields=[
+    [&#x27;상태&#x27;,p.status===&#x27;resolved&#x27;?&#x27;복구 확인됨&#x27;:&#x27;미해결&#x27;],
+    [&#x27;Job&#x27;,catLink(p.job_id)],
+    [&#x27;실행 ID&#x27;,loomText(p.execution_id)],
+    [&#x27;Attempt&#x27;,loomText(p.attempt_id)],
+    [&#x27;단계&#x27;,loomText(p.stage)],
+    [&#x27;오류 코드&#x27;,loomText(run.code||p.code)],
+    [&#x27;Profile&#x27;,loomText(p.profile?.revision)],
+    [&#x27;Runtime&#x27;,loomText(p.runtime?.id&amp;&amp;[p.runtime.id,p.runtime.revision].filter(Boolean).join(&#x27; · &#x27;))],
+    [&#x27;검증된 Attempt&#x27;,loomText(p.verified_attempt_id)]
+  ];
+  if(Number.isInteger(run.planned)){
+    fields.push([&#x27;시작 / 계획&#x27;,loomText(run.started+&#x27; / &#x27;+run.planned)],[&#x27;유효&#x27;,loomText(run.valid)]);
+  }
+  const findings=(p.findings||[]).map(finding=&gt;`&lt;li&gt;${esc(finding)}&lt;/li&gt;`).join(&#x27;&#x27;);
+  return heading(&#x27;TROUBLESHOOTING&#x27;,entity.label,&#x27;&#x27;,paiEntityActions(entity.id))
+    +panel(&#x27;실행 근거&#x27;,catTable([&#x27;항목&#x27;,&#x27;기록&#x27;],fields.map(([label,value])=&gt;[esc(label),value])))
+    +(findings?panel(&#x27;복구 확인 내용&#x27;,`&lt;ul&gt;${findings}&lt;/ul&gt;`):&#x27;&#x27;);
+}
+
 catalogDetail = function(id) {
   const entity = catEntity(id);
+  if(entity?.loom_history?.source===&#x27;loom-troubleshooting&#x27;)return loomTroubleshootingDetail(entity);
   const descriptor = loomDescriptor(entity);
   // Live Jobs have their own attempts endpoint; legacy history&#x27;s empty cards
   // incorrectly suggested that these completed Jobs had no execution record.
@@ -4612,15 +4640,27 @@ function loomUnitRecoveryLabel(unit) {
   if(![&#x27;failed&#x27;,&#x27;interrupted&#x27;,&#x27;result_failed&#x27;].includes(unit.state))return &#x27;&#x27;;
   return ({waiting:&#x27;복구 응답 대기&#x27;,claimed:&#x27;복구 담당자 지정됨&#x27;,pending:&#x27;재시도 대기&#x27;,deferred:&#x27;복구 보류&#x27;,exhausted:&#x27;복구 횟수 소진&#x27;})[unit.recovery_state]||&#x27;&#x27;;
 }
+function loomUnitQueueRecoveryStatus(row) {
+  const recovery = row?.recovery;
+  if (row?.entry_type !== &#x27;unit&#x27; || !recovery) return &#x27;&#x27;;
+  if (recovery.state === &#x27;claimed&#x27;) return &#x27;복구 담당자 지정됨&#x27;;
+  if (recovery.state === &#x27;pending&#x27;) return &#x27;복구 예약&#x27;;
+  if (recovery.state !== &#x27;executing&#x27;) return &#x27;&#x27;;
+  const phase = ({preparing:&#x27;복구 준비 중&#x27;,ready:&#x27;복구 실행 대기&#x27;,running:&#x27;복구 실행 중&#x27;,processing:&#x27;복구 결과 처리 중&#x27;})[row.state];
+  return phase &amp;&amp; Number.isInteger(recovery.rounds) &amp;&amp; recovery.rounds &gt; 0
+    ? phase + &#x27; · &#x27; + recovery.rounds + &#x27;차&#x27; : phase || &#x27;&#x27;;
+}
 function loomQueueReason(row) {
   if(row.reason===&#x27;executing&#x27;)return row.state===&#x27;preparing&#x27;?&#x27;준비 중&#x27;:&#x27;실행 중&#x27;;
   if(row.reason===&#x27;unit_failed&#x27;){
     const failures=(row.units||[]).filter(unit=&gt;[&#x27;failed&#x27;,&#x27;interrupted&#x27;,&#x27;result_failed&#x27;].includes(unit.state));
     return failures.map(unit=&gt;[unit.label||unit.name,loomUnitRecoveryLabel(unit)||&#x27;실행 실패&#x27;].filter(Boolean).join(&#x27; · &#x27;)).join(&#x27; / &#x27;)||&#x27;Job 실패&#x27;;
   }
-  return ({awaiting_runtime_binding:&#x27;Runtime 연결 대기&#x27;,awaiting_plan:&#x27;실행 계획 확정 대기&#x27;,awaiting_deliverables:&#x27;산출물 검증 대기&#x27;,queue_paused:&#x27;운영자가 큐를 일시 중단함&#x27;,ready:&#x27;실행 가능&#x27;,held:&#x27;보류됨&#x27;,executing:&#x27;실행 중&#x27;,finalizing:&#x27;결과 처리 중&#x27;,dependencies:&#x27;선행 결과 대기&#x27;,
+  const reason=({awaiting_runtime_binding:&#x27;Runtime 연결 대기&#x27;,awaiting_plan:&#x27;실행 계획 확정 대기&#x27;,awaiting_deliverables:&#x27;산출물 검증 대기&#x27;,queue_paused:&#x27;운영자가 큐를 일시 중단함&#x27;,ready:&#x27;실행 가능&#x27;,held:&#x27;보류됨&#x27;,executing:&#x27;실행 중&#x27;,finalizing:&#x27;결과 처리 중&#x27;,dependencies:&#x27;선행 결과 대기&#x27;,
     resource_busy:&#x27;실행 슬롯 대기&#x27;,retry_delay:&#x27;재시도 대기&#x27;,recovery_reservation:&#x27;앞선 Job 복구 대기&#x27;,recovery_waiting:&#x27;복구 응답 대기&#x27;,
-    recovery_claimed:&#x27;복구 진행 중&#x27;,recovery_deferred:&#x27;복구 보류&#x27;,recovery_exhausted:&#x27;복구 횟수 소진&#x27;,recovery_required:&#x27;내부 실행 복구 필요&#x27;})[row.reason] || row.reason;
+    recovery_claimed:&#x27;복구 담당자 지정됨&#x27;,recovery_deferred:&#x27;복구 보류&#x27;,recovery_exhausted:&#x27;복구 횟수 소진&#x27;,recovery_required:&#x27;내부 실행 복구 필요&#x27;})[row.reason] || row.reason;
+  if(row.state===&#x27;result_failed&#x27;)return reason&amp;&amp;row.reason!==&#x27;ready&#x27;?&#x27;결과 처리 실패 · &#x27;+reason:&#x27;결과 처리 실패&#x27;;
+  return reason;
 }
 function loomQueuePosition(row) {
   const reason=loomQueueReason(row);
@@ -4710,6 +4750,8 @@ const loomQueueStateBefore=queueState;
 queueState=function(entity){
  const q=loomQueueEntry(entity.id),base=loomQueueStateBefore(entity);
  if(q?.held)return {raw:base.raw,info:[&#x27;paused&#x27;,q.state===&#x27;preparing&#x27;?&#x27;Preparing · Hold requested&#x27;:&#x27;Held&#x27;,&#x27;Ⅱ&#x27;,false]};
+ const recovery=loomUnitQueueRecoveryStatus(q);
+ if(recovery)return {raw:q.state,info:[&#x27;recovery&#x27;,recovery,&#x27;↻&#x27;,false]};
  if(q &amp;&amp; [&#x27;failed&#x27;,&#x27;interrupted&#x27;,&#x27;result_failed&#x27;].includes(q.state))return {raw:q.state,info:[&#x27;recovery&#x27;,q.reason===&#x27;unit_failed&#x27;?&#x27;Unit 실패&#x27;:loomQueueReason(q),&#x27;!&#x27;,false]};
  return base;
 };
@@ -4730,14 +4772,15 @@ function loomCurrentQueuePanel(rows,table){
   };
   const jobs=(queue?.job_entries||[]).map(record).sort(loomQueueCompare),units=queue?.unit_entries||[];
   const body=units.map(unit=&gt;{
-   const active=(unit.progress?.steps||[]).filter(step=&gt;step.state===&#x27;running&#x27;).map(step=&gt;esc(step.label)).join(&#x27; · &#x27;);
+   const active=[&#x27;preparing&#x27;,&#x27;running&#x27;].includes(unit.state)
+     ?(unit.progress?.steps||[]).filter(step=&gt;step.state===&#x27;running&#x27;).map(step=&gt;esc(step.label)).join(&#x27; · &#x27;):&#x27;&#x27;;
    const label=loomWorkTypeBadge(&#x27;unit&#x27;,unit.job_id)+catLink(unit.id,unit.unit?.label||unit.label)+loomQueueControls(unit.id,{reorder:false});
    const gpu=unit.gpu_access?.mode ? &#x27;GPU · &#x27;+esc(unit.gpu_access.mode) : unit.lane===&#x27;gpu&#x27;?&#x27;GPU&#x27;:&#x27;CPU&#x27;;
-   return [label,unit.job_id?catLink(unit.job_id):&#x27;—&#x27;,queueBadge(record(unit)),gpu,active||esc(loomQueueReason(unit)),
+   return [label,queueBadge(record(unit)),gpu,active||esc(loomQueueReason(unit)),
      &#x27;&lt;div class=&quot;pa-forecast&quot;&gt;&#x27;+loomForecastFinish(unit.forecast)+&#x27;&lt;/div&gt;&#x27;];
   });
   return panel(&#x27;Job Queue · &#x27;+jobs.length,notice+(jobs.length?table(jobs,true):queue?&#x27;&lt;div class=&quot;pa-empty&quot;&gt;대기 또는 실행 중인 Job이 없습니다.&lt;/div&gt;&#x27;:&#x27;&#x27;))
-    +panel(&#x27;Unit Queue · &#x27;+units.length,body.length?&#x27;&lt;div class=&quot;pa-queue-table&quot;&gt;&#x27;+catTable([&#x27;Unit&#x27;,&#x27;Job&#x27;,&#x27;상태&#x27;,&#x27;자원&#x27;,&#x27;진행&#x27;,&#x27;완료 예정&#x27;],body)+&#x27;&lt;/div&gt;&#x27;:queue?&#x27;&lt;div class=&quot;pa-empty&quot;&gt;대기 또는 실행 중인 Unit이 없습니다.&lt;/div&gt;&#x27;:&#x27;&#x27;);
+    +panel(&#x27;Unit Queue · &#x27;+units.length,body.length?&#x27;&lt;div class=&quot;pa-queue-table pa-unit-work-queue&quot;&gt;&#x27;+catTable([&#x27;Unit&#x27;,&#x27;상태&#x27;,&#x27;자원&#x27;,&#x27;진행&#x27;,&#x27;완료 예정&#x27;],body)+&#x27;&lt;/div&gt;&#x27;:queue?&#x27;&lt;div class=&quot;pa-empty&quot;&gt;대기 또는 실행 중인 Unit이 없습니다.&lt;/div&gt;&#x27;:&#x27;&#x27;);
  }
  if(waiting)return panel(&#x27;현재 큐&#x27;,loomHomeStatus(&#x27;queue&#x27;));
  if(catalogData.capabilities?.live_queue){
@@ -7136,6 +7179,14 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
   border-color: color-mix(in srgb, currentColor 26%, transparent);
   border-radius: 6px;
 }
+
+#pai-studio .pa-unit-work-queue table { table-layout: fixed; box-sizing: border-box; min-width: 46rem; }
+#pai-studio .pa-unit-work-queue th:nth-child(2) { width: 10rem; }
+#pai-studio .pa-unit-work-queue th:nth-child(3) { width: 6.5rem; }
+#pai-studio .pa-unit-work-queue th:nth-child(4) { width: 24%; }
+#pai-studio .pa-unit-work-queue th:nth-child(5) { width: 10rem; }
+#pai-studio .pa-unit-work-queue :is(th,td) { padding-inline: 12px; overflow-wrap: anywhere; }
+#pai-studio .pa-unit-work-queue .pa-job-status { max-width: 100%; white-space: normal; }
 
 /* Match the selected Operations desk brand and surface hierarchy. */
 #pai-studio .pa-brand { gap: 10px; align-items: center; color: var(--pa-accent); font-size: 21px; letter-spacing: -.045em; font-weight: 400; padding: 22px 10px 24px; }

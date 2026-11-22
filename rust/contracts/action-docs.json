@@ -76,7 +76,7 @@
   "jobs.queue": {
     "title": "Shared execution order",
     "description": "Read every user's waiting order and available controls.",
-    "returns": "Queue · entries with position, held, reason, capabilities and optional producer progress forecast for a running Unit",
+    "returns": "Queue entries with position, held, reason and capabilities. Units may include recovery state and started rounds, and running Units may include a producer progress forecast.",
     "example": {},
     "errors": [],
     "implementation": {
@@ -230,7 +230,7 @@
   "recovery.claim": {
     "title": "Claim recovery",
     "description": "Claim the failed execution Unit awaiting a response. Find its ID in jobs.get units and pass the returned lease to progress/resume.",
-    "returns": "Recovery · state, rounds, agent, deadline, hard_deadline, lease",
+    "returns": "Recovery · state, rounds, agent, deadline, hard_deadline, lease. Includes current and prior troubleshooting records for the selected execution.",
     "example": {
       "id": "<unit-id>"
     },
@@ -244,8 +244,8 @@
   },
   "recovery.progress": {
     "title": "Report recovery progress",
-    "description": "Report progress with a valid lease to refresh the idle deadline, without extending the round's hard deadline.",
-    "returns": "Recovery · state, rounds, agent, deadline, hard_deadline",
+    "description": "Report progress with a valid lease to refresh the idle deadline, without extending the round's hard deadline. An optional finding records a verified cause or repair check on the failed Attempt. Omit credentials, raw logs and private paths.",
+    "returns": "Recovery · state, rounds, agent, deadline, hard_deadline, troubleshooting",
     "example": {
       "id": "<unit-id>",
       "lease": "<recovery-lease>"
@@ -260,8 +260,8 @@
   },
   "recovery.resume": {
     "title": "Rerun after repair",
-    "description": "Schedule recovery at the reserved queue position using a valid lease. Inspect the live patch schema; finalization-only repair preserves the successful execution Attempt.",
-    "returns": "Recovery · state=pending, rounds, agent",
+    "description": "Schedule recovery at the reserved queue position using a valid lease. Set preview to true to validate the lease and repair patch without running the Profile or scheduling work. Finalization-only repair preserves the successful execution Attempt.",
+    "returns": "Recovery receipt with state=pending, rounds and agent. A preview returns current state, repair mode, failed Attempt, deadlines and candidate Profile, Runtime and storage references without consuming the lease or a recovery round.",
     "example": {
       "id": "<unit-id>",
       "lease": "<recovery-lease>",
@@ -1945,13 +1945,26 @@
     "description": "Set an exact batch of Dataset, Policy or Experiment revisions to current or discarded with research submit scope. The audited batch applies atomically. Exact references, files and Job history remain available.",
     "returns": "Receipt · state and changed exact revisions",
     "example": {
-      "targets": [{"kind": "entity", "identity": {"id": "example.policy", "revision": 1}}],
+      "targets": [
+        {
+          "kind": "entity",
+          "identity": {
+            "id": "example.policy",
+            "revision": 1
+          }
+        }
+      ],
       "state": "discarded",
       "reason": "Retired before retraining",
       "key": "discard-example-policy-r1"
     },
-    "errors": ["Unknown revision, invalid output kind, missing submit scope or changed request key."],
-    "implementation": {"feature": "results", "entrypoint": "rust/crates/core/src/results.rs#set_output_disposition"}
+    "errors": [
+      "Unknown revision, invalid output kind, missing submit scope or changed request key."
+    ],
+    "implementation": {
+      "feature": "results",
+      "entrypoint": "rust/crates/core/src/results.rs#set_output_disposition"
+    }
   },
   "results.group_evaluations": {
     "title": "Group comparable evaluations and their Policies",
@@ -1961,8 +1974,14 @@
       "key": "square-evaluation-family",
       "label": "Square · BC-RNN",
       "experiments": [
-        {"id": "short.evaluation", "revision": 1},
-        {"id": "long.evaluation", "revision": 1}
+        {
+          "id": "short.evaluation",
+          "revision": 1
+        },
+        {
+          "id": "long.evaluation",
+          "revision": 1
+        }
       ]
     },
     "errors": [
@@ -2087,7 +2106,10 @@
       "key": "dataset-generation",
       "owner": "researcher",
       "notify": "researcher",
-      "scenario_ref": {"id": "<task-id>", "revision": 1},
+      "scenario_ref": {
+        "id": "<task-id>",
+        "revision": 1
+      },
       "outcome": {
         "goal": "Publish generated cases",
         "deliverables": [
@@ -2165,7 +2187,10 @@
     "returns": "Returns the accepted Job ID, plan revision, sealed flag and map of Unit names to independently readable execution IDs.",
     "example": {
       "key": "generate-paired",
-      "scenario_ref": {"id": "<task-id>", "revision": 1},
+      "scenario_ref": {
+        "id": "<task-id>",
+        "revision": 1
+      },
       "owner": "owner",
       "notify": "owner",
       "outcome": {
@@ -2260,7 +2285,7 @@
   "units.get": {
     "title": "Read a Unit",
     "description": "Apply get to an exact Unit ID.",
-    "returns": "Returns current state, Stage and Attempt receipts, optional Job membership, output and scheduling evidence.",
+    "returns": "Current state, Stage and Attempt receipts, optional Job membership, output and scheduling evidence. When publication encounters an error, result.publication_error includes code, message, status and retryable alongside the retained execution receipt.",
     "example": {
       "id": "<unit-id>"
     },

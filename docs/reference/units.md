@@ -339,7 +339,7 @@ Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crate
 
 ### Result and failures
 
-Returns current state, Stage and Attempt receipts, optional Job membership, output and scheduling evidence.
+Current state, Stage and Attempt receipts, optional Job membership, output and scheduling evidence. When publication encounters an error, result.publication_error includes code, message, status and retryable alongside the retained execution receipt.
 
 The ID does not exist.
 

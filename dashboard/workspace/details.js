@@ -53,13 +53,14 @@ function loomJobPanel(job, entry) {
   const record = entry.data;
   const result = record.result || {};
   const execution = result.execution || {};
+  const publicationError = result.publication_error;
   const current = (record.attempts || []).find(attempt => attempt.id === record.attempt);
   const index = {complete:'indexed', processing:'pending', result_failed:'incomplete'}[record.state];
   const rows = [
     ['Job',record.id],['Owner',record.owner_profile?.display_name || record.owner],['Status',record.status || record.state],['Attempt',record.attempt],['Attempt 상태',current?.state],
     ['Exit code',execution.exit_code],['프로세스 그룹 반환',execution.process_group_returned],
     ['Artifact 검증',result.artifact_ready],['Typed outputs',Array.isArray(result.entities) ? result.entities.length : null],
-    ['Scheduling',record.scheduling?.reason],['Recovery',record.recovery?.state],['Recovery Agent',record.recovery?.agent],
+    ['Scheduling',record.scheduling?.waiting_reason ?? record.scheduling?.reason],['Recovery',record.recovery?.state],['Recovery Agent',record.recovery?.agent],
     ['Recovery Attempts',record.recovery ? record.recovery.rounds + ' / ' + record.recovery.max_rounds : null],
     ['Reservation Deadline',record.recovery?.deadline ? new Date(record.recovery.deadline*1000).toLocaleString() : null],
     ['Registry 색인',index],['Result 재시도',record.result_processing?.retries],
@@ -85,7 +86,11 @@ function loomJobPanel(job, entry) {
   const prior=previous?panel('이전 결과 기록','<p>현재 Attempt의 결과가 아닙니다.</p>'+catTable(['사유','Stage','Exit code'],[[previous.reason,previous.stage,previous.exit_code].map(loomText)])):'';
   const refreshError = entry.error ? '<p role="status">기록을 갱신하지 못했습니다. 마지막 조회 기록을 표시합니다.</p>'
     + '<button class="pa-button" data-loom-detail-retry>다시 조회</button>' : '';
+  const publication = publicationError?.message ? panel('결과 등록 오류', catTable(['코드','상세'],[
+    [loomText(publicationError.code),loomText(publicationError.message)]
+  ])) : '';
   return workTime+internal+continuity+prior+(target?panel('통합 Job',catLink(target)):'')+panel('Loom 실행 기록', refreshError + '<div class="pa-loom-job-summary">' + catTable(['필드','값'], rows.map(row => row.map(loomText))) + '</div>')
+    + publication
     + (attempts.length?panel('Attempts', catTable(['Attempt','상태','시작','종료'], attempts)):'')
     + (linked ? panel('Registry 기록', '<div class="pa-loom-job-links">' + linked + '</div>') : '');
 }
@@ -351,8 +356,31 @@ root.addEventListener('toggle', event => {
   if (entity && pre && !pre.textContent) pre.textContent = JSON.stringify({properties:entity.properties || {},dataset_overview:entity.dataset_overview || {}}, null, 2);
 }, true);
 
+function loomTroubleshootingDetail(entity) {
+  const p=entity.properties||{}, run=p.execution||{};
+  const fields=[
+    ['상태',p.status==='resolved'?'복구 확인됨':'미해결'],
+    ['Job',catLink(p.job_id)],
+    ['실행 ID',loomText(p.execution_id)],
+    ['Attempt',loomText(p.attempt_id)],
+    ['단계',loomText(p.stage)],
+    ['오류 코드',loomText(run.code||p.code)],
+    ['Profile',loomText(p.profile?.revision)],
+    ['Runtime',loomText(p.runtime?.id&&[p.runtime.id,p.runtime.revision].filter(Boolean).join(' · '))],
+    ['검증된 Attempt',loomText(p.verified_attempt_id)]
+  ];
+  if(Number.isInteger(run.planned)){
+    fields.push(['시작 / 계획',loomText(run.started+' / '+run.planned)],['유효',loomText(run.valid)]);
+  }
+  const findings=(p.findings||[]).map(finding=>`<li>${esc(finding)}</li>`).join('');
+  return heading('TROUBLESHOOTING',entity.label,'',paiEntityActions(entity.id))
+    +panel('실행 근거',catTable(['항목','기록'],fields.map(([label,value])=>[esc(label),value])))
+    +(findings?panel('복구 확인 내용',`<ul>${findings}</ul>`):'');
+}
+
 catalogDetail = function(id) {
   const entity = catEntity(id);
+  if(entity?.loom_history?.source==='loom-troubleshooting')return loomTroubleshootingDetail(entity);
   const descriptor = loomDescriptor(entity);
   // Live Jobs have their own attempts endpoint; legacy history's empty cards
   // incorrectly suggested that these completed Jobs had no execution record.

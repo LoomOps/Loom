@@ -101,6 +101,7 @@ pub struct Producer {
     sequence: u64,
     entities: Vec<Value>,
     metrics: Vec<Value>,
+    execution_outcome: Option<Value>,
     work_sample: Option<WorkSample>,
 }
 
@@ -123,6 +124,7 @@ impl Producer {
             sequence: 0,
             entities: vec![],
             metrics: vec![],
+            execution_outcome: None,
             work_sample: None,
         })
     }
@@ -516,9 +518,36 @@ impl Producer {
         self.metrics.push(metric);
         Ok(())
     }
+    /// Report a technical failure while retaining the registered diagnostic artifacts.
+    pub fn fail_with_diagnostics(
+        &mut self,
+        code: &str,
+        planned: u64,
+        started: u64,
+        valid: u64,
+    ) -> Result<()> {
+        if code.is_empty()
+            || code.len() > 64
+            || !code
+                .bytes()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'_')
+            || planned == 0
+            || started > planned
+            || valid > started
+        {
+            return Err("Invalid technical failure code or case counts".into());
+        }
+        self.execution_outcome = Some(json!({
+            "status":"failed","code":code,"planned":planned,"started":started,"valid":valid,
+        }));
+        Ok(())
+    }
     pub fn finish(&mut self) -> Result<()> {
         self.check_cancelled()?;
-        let manifest = json!({"entities":self.entities,"metrics":self.metrics});
+        let mut manifest = json!({"entities":self.entities,"metrics":self.metrics});
+        if let Some(outcome) = &self.execution_outcome {
+            manifest["execution_outcome"] = outcome.clone();
+        }
         atomic(
             &inside(&self.request.output_dir, "result.json")?,
             &serde_json::to_vec(&manifest)?,
@@ -530,7 +559,12 @@ impl Producer {
             .and_then(|v| v.as_array().or_else(|| v["plan"].as_array()))
             .is_none_or(|p| p.iter().any(|s| s["id"] == "run"))
         {
-            self.progress("run", "completed")
+            let state = if self.execution_outcome.is_some() {
+                "failed"
+            } else {
+                "completed"
+            };
+            self.progress("run", state)
         } else {
             Ok(())
         }

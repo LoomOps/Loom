@@ -38,6 +38,14 @@
   border-radius: 6px;
 }
 
+#pai-studio .pa-unit-work-queue table { table-layout: fixed; box-sizing: border-box; min-width: 46rem; }
+#pai-studio .pa-unit-work-queue th:nth-child(2) { width: 10rem; }
+#pai-studio .pa-unit-work-queue th:nth-child(3) { width: 6.5rem; }
+#pai-studio .pa-unit-work-queue th:nth-child(4) { width: 24%; }
+#pai-studio .pa-unit-work-queue th:nth-child(5) { width: 10rem; }
+#pai-studio .pa-unit-work-queue :is(th,td) { padding-inline: 12px; overflow-wrap: anywhere; }
+#pai-studio .pa-unit-work-queue .pa-job-status { max-width: 100%; white-space: normal; }
+
 /* Match the selected Operations desk brand and surface hierarchy. */
 #pai-studio .pa-brand { gap: 10px; align-items: center; color: var(--pa-accent); font-size: 21px; letter-spacing: -.045em; font-weight: 400; padding: 22px 10px 24px; }
 #pai-studio .pa-brand .pa-mark { display: flex; width: 33px; height: 33px; flex: none; }

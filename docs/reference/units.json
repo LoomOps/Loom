@@ -268,7 +268,7 @@
         "entrypoint": "rust/crates/core/src/query.rs#inspect_job",
         "feature": "queue"
       },
-      "returns": "Returns current state, Stage and Attempt receipts, optional Job membership, output and scheduling evidence.",
+      "returns": "Current state, Stage and Attempt receipts, optional Job membership, output and scheduling evidence. When publication encounters an error, result.publication_error includes code, message, status and retryable alongside the retained execution receipt.",
       "schema": {
         "additionalProperties": false,
         "properties": {

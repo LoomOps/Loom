@@ -13,7 +13,7 @@ remain reserved for individual Job grants.
 
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
 |---|---|---|---|---|
-| Runtime request | `rust/crates/core/src/execution.rs#request_for` | Pinned profile, Job params, stage, input locators | Resolved execution request file; invalid paths/inputs rejected before runtime | api |
+| Runtime request | `rust/crates/core/src/execution.rs#request_for` | Pinned Profile, optional Task revision, Job params, stage, input locators | Resolved execution request file with the accepted Task pin when present; invalid paths and inputs rejected before runtime | api |
 | Worker lifecycle | `rust/crates/core/src/execution.rs#next_work` | Durable queue/config/resource receipts | Preparation/run/return/result transitions; no release without resource evidence | queue, recovery, results |
 
 ## Sources and contracts
@@ -39,6 +39,8 @@ remain reserved for individual Job grants.
 - [rust/crates/ops/src/log_collector.rs](../../rust/crates/ops/src/log_collector.rs) — native implementation / contract.
 
 Host memory parsing rejects malformed Unicode without panicking. Executor credentials are bounded regular files. A log collector whose metadata cannot commit is killed and reaped before returning an error.
+The stage return receipt preserves the accepted Executor ticket so callers
+and background collection can address the same log stream after a fast exit.
 
 ## Change review
 

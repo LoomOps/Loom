@@ -413,6 +413,17 @@ impl Application {
     pub fn record_detail(&self, row: &Record) -> Result<Value> {
         self.record_detail_for_attempt(row, None)
     }
+    fn recovery_detail(&self, id: &str) -> Result<Option<Value>> {
+        Ok(rows(
+            &self.db,
+            "SELECT CASE WHEN state IN ('waiting','claimed') AND deadline<=? THEN 'deferred'
+                         ELSE state END AS state,rounds,agent,deadline,hard_deadline,reason,updated
+             FROM recovery WHERE job=?",
+            &[&now(), &id],
+        )?
+        .into_iter()
+        .next())
+    }
     fn current_attempt_folder(&self, row: &Record) -> Option<std::path::PathBuf> {
         let attempt = row.aggregate.fence.attempt.as_ref()?;
         let (root, _) = crate::storage::store(
@@ -484,8 +495,10 @@ impl Application {
             .map(|(a, b)| json!({"start":a,"end":b}))
             .collect();
         timing.extend(open_intervals);
-        let recovery=rows(&self.db,"SELECT state,rounds,agent,deadline,hard_deadline,reason,updated FROM recovery WHERE job=?",&[&id])?.into_iter().next();
+        let recovery = self.recovery_detail(id)?;
         let scheduling = self.readiness(row)?;
+        let waiting_reason = failure_queue_reason(row.aggregate.state, recovery.as_ref())
+            .or_else(|| scheduling.reason());
         let mut presentation=spec.get("presentation").cloned().unwrap_or_else(||json!({"scope":if spec["kind"]=="cpu.smoke"{"operations"}else{"research"},"role":if spec["kind"]=="cpu.smoke"{"test"}else{"main"}}));
         if let Some(overlay) = self
             .db
@@ -518,7 +531,21 @@ impl Application {
             "SELECT actor,action,recorded,reason FROM queue_history WHERE job=? ORDER BY seq",
             &[&id],
         )?;
-        let mut details = json!({"id":id,"submitter":row.submitter,"owner":row.owner,"notify":row.notify,"state":row.aggregate.state.as_str(),"status":row.aggregate.state.public(),"attempt":row.aggregate.fence.attempt.as_ref().map(|a|a.as_str()),"created":row.created,"spec":spec,"result":result,"previous_result":previous,"attempts":attempts,"stages":stages,"execution_intervals":timing,"recovery":recovery,"presentation":presentation,"category":row.spec.get("category").unwrap_or(&json!("other")),"execution_mode":row.spec["execution_mode"],"scenario_ref":row.spec["scenario_ref"],"scheduling":{"eligible":scheduling.reason().is_none(),"waiting_reason":scheduling.reason(),"dependency_failed":scheduling.dependency_failed},"cancel":row.aggregate.cancel_requested,"queue_history":queue_history,"internal_steps":internal_steps});
+        let mut details = json!({"id":id,"submitter":row.submitter,"owner":row.owner,"notify":row.notify,"state":row.aggregate.state.as_str(),"status":row.aggregate.state.public(),"attempt":row.aggregate.fence.attempt.as_ref().map(|a|a.as_str()),"created":row.created,"spec":spec,"result":result,"previous_result":previous,"attempts":attempts,"stages":stages,"execution_intervals":timing,"recovery":recovery,"presentation":presentation,"category":row.spec.get("category").unwrap_or(&json!("other")),"execution_mode":row.spec["execution_mode"],"scenario_ref":row.spec["scenario_ref"],"scheduling":{"eligible":waiting_reason.is_none(),"waiting_reason":waiting_reason,"dependency_failed":scheduling.dependency_failed},"cancel":row.aggregate.cancel_requested,"queue_history":queue_history,"internal_steps":internal_steps});
+        if let Some(attempt) = selected {
+            details["troubleshooting"] = json!(crate::diagnostics::execution_issues(
+                &self.db,
+                id,
+                Some(attempt)
+            )?);
+        } else if matches!(
+            row.aggregate.state,
+            JobState::Failed | JobState::Interrupted | JobState::ResultFailed
+        ) {
+            details["troubleshooting"] =
+                json!(crate::diagnostics::execution_issues(&self.db, id, None)?);
+        }
+
         details["execution_membership"] = rows(
             &self.db,
             "SELECT root,node FROM execution_memberships WHERE job=?",
@@ -705,7 +732,7 @@ impl Application {
             item["execution_mode"] = spec["execution_mode"].clone();
             item["scenario_ref"] = spec["scenario_ref"].clone();
             item["status"] = json!(JobState::parse(item["state"].as_str().unwrap_or(""))?.public());
-            item["recovery"]=rows(&self.db,"SELECT state,rounds,agent,deadline,hard_deadline,reason,updated FROM recovery WHERE job=?",&[&id])?.into_iter().next().unwrap_or(Value::Null);
+            item["recovery"] = self.recovery_detail(id)?.unwrap_or(Value::Null);
             let owner = item["owner"].as_str().unwrap_or("").to_string();
             items.push(self.decorate_owner("job", id, &owner, item)?);
         }
@@ -775,20 +802,37 @@ impl Application {
                 "SELECT root FROM execution_memberships WHERE job=?", [id], |r| r.get(0)
             ).optional()?;
             let (stage, lane) = record.stage_and_lane();
+            let state = record.aggregate.state;
+            let waiting = matches!(state, JobState::Queued | JobState::Ready | JobState::Blocked);
+            let unit = self.unit_summary(id)?;
+            let detail = unit.as_ref().map(|_| self.record_detail(&record)).transpose()?;
+            let recovery = if let Some(detail) = &detail {
+                detail.get("recovery").filter(|v| v.is_object()).cloned()
+            } else if matches!(state, JobState::Failed | JobState::Interrupted | JobState::ResultFailed) {
+                self.recovery_detail(id)?
+            } else {
+                None
+            };
+            let recovery_reason = failure_queue_reason(state, recovery.as_ref());
+            let waiting_reason = recovery_reason.or_else(|| ready.reason());
+            let eligible = waiting && waiting_reason.is_none();
             let mut entry = json!({
                 "id":id,"state":record.aggregate.state.as_str(),"status":record.aggregate.state.public(),
                 "owner":record.owner,"lane":lane,"category":record.spec["category"],"execution_mode":record.spec["execution_mode"],
                 "label":record.spec["presentation"].get("label").unwrap_or(&record.spec["kind"]),
                 "stage":stage,
-                "workflow":parent,"scheduling":{"eligible":ready.reason().is_none(),"waiting_reason":ready.reason(),"dependency_failed":ready.dependency_failed}
+                "workflow":parent,"scheduling":{"eligible":eligible,"waiting_reason":waiting_reason,"dependency_failed":ready.dependency_failed}
             });
-            if let Some(unit) = self.unit_summary(id)? {
+            if let Some((unit, detail)) = unit.zip(detail) {
                 entry["job_id"] = unit["job_id"].clone();
                 entry["unit"] = unit;
                 entry["entry_type"] = json!("unit");
                 entry["gpu_access"] = record.spec["gpu_access"].clone();
                 entry.as_object_mut().unwrap().remove("workflow");
-                entry["progress"] = self.record_detail(&record)?["internal_steps"].clone();
+                entry["progress"] = detail["internal_steps"].clone();
+                if let Some(recovery) = &recovery {
+                    entry["recovery"] = json!({"state":recovery["state"],"rounds":recovery["rounds"]});
+                }
                 if record.aggregate.state == JobState::Running {
                     if let (Some(attempt), Some(folder)) = (
                         record.aggregate.fence.attempt.as_ref(),
@@ -802,7 +846,6 @@ impl Application {
                     }
                 }
             }
-            let waiting = matches!(entry["state"].as_str(), Some("queued" | "ready" | "blocked"));
             entry["position"] = if waiting {
                 position += 1;
                 json!(position)
@@ -815,6 +858,8 @@ impl Application {
                     "executing"
                 } else if entry["state"] == "processing" {
                     "finalizing"
+                } else if let Some(reason) = recovery_reason {
+                    reason
                 } else {
                     match ready.reason() {
                         Some("operator_paused") => "queue_paused",
@@ -826,7 +871,7 @@ impl Application {
                     }
                 }
             );
-            entry["eligible"] = json!(waiting && ready.reason().is_none());
+            entry["eligible"] = json!(eligible);
             entry["can_reorder"] = json!(waiting);
             let holdable = waiting || record.aggregate.state == JobState::Preparing;
             entry["can_hold"] = json!(holdable && !ready.held);
@@ -1395,6 +1440,23 @@ fn unit_source(source: &mut Value) {
             fields.insert("unit".into(), unit);
         }
     }
+}
+
+fn failure_queue_reason(state: JobState, recovery: Option<&Value>) -> Option<&'static str> {
+    if !matches!(
+        state,
+        JobState::Failed | JobState::Interrupted | JobState::ResultFailed
+    ) {
+        return None;
+    }
+    Some(match recovery.and_then(|row| row["state"].as_str()) {
+        Some("waiting") => "recovery_waiting",
+        Some("claimed" | "executing") => "recovery_claimed",
+        Some("pending") => "retry_delay",
+        Some("deferred") => "recovery_deferred",
+        Some("exhausted") => "recovery_exhausted",
+        _ => "recovery_required",
+    })
 }
 
 pub(crate) fn project_queue_types(queue: &mut Value) {

@@ -8,6 +8,13 @@ Research Job readbacks expose each Unit's recovery state and reason. Recovery
 actions target the execution ID and reject a logical Job ID with 409
 `recovery_unit_required`. MCP tool errors include the application status for
 clients that reconcile definite rejection separately from an unconfirmed reply.
+Queue and Unit detail reads show expired recovery reservations as deferred.
+Failed Units remain ineligible for execution when their reservations expire.
+Unit Queue projects recovery state and started rounds alongside the actual
+execution phase. Claimed and pending recovery are distinct from an executing
+round. An optional `recovery.resume` preview validates the same lease, budget
+and repair contract and returns the candidate pins. It leaves the incident,
+effect queue and Attempt history untouched.
 
 ## Interfaces
 
@@ -39,3 +46,5 @@ Related blocks: [identity](identity.md) · [execution](execution.md).
 
 Acceptance outside these fixtures:
 - Actual external-agent reactivation and duplicate callback effects belong to client acceptance testing.
+
+Claim receipts expose Troubleshooting records for the authorized execution. A lease-authorized progress request can append a bounded explicit finding. The automatic record stores operational fields only, and a successful publication records its exact verifying Attempt.

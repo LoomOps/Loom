@@ -92,6 +92,16 @@ pub fn actions() -> Vec<Action> {
         .find(|a| a.group == "jobs" && a.action == "submit")
         .unwrap()
         .schema["properties"]["pilot"] = pilot;
+    result
+        .iter_mut()
+        .find(|a| a.group == "recovery" && a.action == "resume")
+        .expect("recovery resume schema")
+        .schema["properties"]["preview"] = json!({"type":"boolean"});
+    result
+        .iter_mut()
+        .find(|a| a.group == "recovery" && a.action == "progress")
+        .expect("recovery progress schema")
+        .schema["properties"]["finding"] = json!({"type":"string","minLength":1,"maxLength":1000});
     let workflow = &result
         .iter()
         .find(|a| a.group == "jobs" && a.action == "submit_workflow")

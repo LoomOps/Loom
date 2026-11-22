@@ -15,7 +15,7 @@
         "entrypoint": "rust/crates/core/src/jobs.rs#recover",
         "feature": "recovery"
       },
-      "returns": "Recovery · state, rounds, agent, deadline, hard_deadline, lease",
+      "returns": "Recovery · state, rounds, agent, deadline, hard_deadline, lease. Includes current and prior troubleshooting records for the selected execution.",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -43,7 +43,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "progress",
-      "description": "Report progress with a valid lease to refresh the idle deadline, without extending the round's hard deadline.",
+      "description": "Report progress with a valid lease to refresh the idle deadline, without extending the round's hard deadline. An optional finding records a verified cause or repair check on the failed Attempt. Omit credentials, raw logs and private paths.",
       "errors": [
         "Lease mismatch, claimant mismatch or expired recovery deadline."
       ],
@@ -56,10 +56,15 @@
         "entrypoint": "rust/crates/core/src/jobs.rs#recover",
         "feature": "recovery"
       },
-      "returns": "Recovery · state, rounds, agent, deadline, hard_deadline",
+      "returns": "Recovery · state, rounds, agent, deadline, hard_deadline, troubleshooting",
       "schema": {
         "additionalProperties": false,
         "properties": {
+          "finding": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
+          },
           "id": {
             "type": "string"
           },
@@ -85,7 +90,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "resume",
-      "description": "Schedule recovery at the reserved queue position using a valid lease. Inspect the live patch schema; finalization-only repair preserves the successful execution Attempt.",
+      "description": "Schedule recovery at the reserved queue position using a valid lease. Set preview to true to validate the lease and repair patch without running the Profile or scheduling work. Finalization-only repair preserves the successful execution Attempt.",
       "errors": [
         "Lease mismatch, three recovery rounds exhausted or invalid patched inputs.",
         "For finalization-only failure, retry postprocessing without a patch."
@@ -101,7 +106,7 @@
         "entrypoint": "rust/crates/core/src/jobs.rs#recover",
         "feature": "recovery"
       },
-      "returns": "Recovery · state=pending, rounds, agent",
+      "returns": "Recovery receipt with state=pending, rounds and agent. A preview returns current state, repair mode, failed Attempt, deadlines and candidate Profile, Runtime and storage references without consuming the lease or a recovery round.",
       "schema": {
         "additionalProperties": false,
         "properties": {
@@ -113,6 +118,9 @@
           },
           "patch": {
             "type": "object"
+          },
+          "preview": {
+            "type": "boolean"
           },
           "reason": {
             "type": "string"

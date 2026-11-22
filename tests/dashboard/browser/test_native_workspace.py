@@ -559,6 +559,29 @@ class NativeWorkspaceTests(unittest.TestCase):
    self.ui.click(f'[data-catalog-more={page_kind}]')
    self.ui.wait("return [...document.querySelectorAll('#pa-content [data-entity]')].filter(e=>e.textContent.startsWith(arguments[0])).length===65",f'Paged {kind}')
 
+ def test_failed_execution_troubleshooting_renders_lease_finding(self):
+  work=self.call('units','submit',{'key':'browser-troubleshooting','kind':'cpu.smoke',
+      'owner':'owner','notify':'owner','params':{'seconds':0,'fail':True}})['id']
+  def cleanup():
+   self.call('units','cancel',{'id':work})
+   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+    db.execute("DELETE FROM history_records WHERE source='loom-troubleshooting' AND id LIKE ?",(work+'.%',))
+  self.addCleanup(cleanup)
+  for _ in range(100):
+   detail=self.call('units','get',{'id':work})
+   if detail['status']=='failed':break
+   time.sleep(.05)
+  else:self.fail(detail)
+  claim=self.call('recovery','claim',{'id':work})
+  self.assertEqual(claim['troubleshooting'][0]['properties']['attempt_id'],detail['attempt'])
+  self.call('recovery','progress',{'id':work,'lease':claim['lease'],'finding':'Verified the fixture failure'})
+  self.ui.nav('Troubleshooting')
+  self.ui.wait("""const link=[...document.querySelectorAll('#pa-content [data-entity]')]
+    .find(node=>node.textContent.includes('cpu.smoke · run · exit_nonzero'));
+    if(!link)return false;link.click();return true;""")
+  self.ui.wait("""const text=document.querySelector('#pa-content').textContent;
+    return text.includes('Verified the fixture failure')&&text.includes(arguments[0]);""",detail['attempt'])
+
  def test_background_bootstrap_preserves_pages_and_reloads_after_revision_changes(self):
   self.seed_paged_research()
   for nav,kind in [('Datasets','dataset'),('Models','model'),('Experiments','run')]:

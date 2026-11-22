@@ -113,7 +113,7 @@ impl Application {
         &mut self,
         work: &Work,
         exit_code: i32,
-        evidence: Value,
+        mut evidence: Value,
     ) -> Result<Value> {
         require(
             evidence["returned"] == true,
@@ -123,13 +123,21 @@ impl Application {
         )?;
         let tx = self.transaction()?;
         let record = fence(&tx, work)?;
-        let state: String = tx.query_row(
-            "SELECT state FROM rust_effects WHERE id=?",
+        let (state, accepted): (String, Option<String>) = tx.query_row(
+            "SELECT state,evidence FROM rust_effects WHERE id=?",
             [&work.effect],
-            |r| r.get(0),
+            |r| Ok((r.get(0)?, r.get(1)?)),
         )?;
         if state == "returned" {
             return Ok(json!({"duplicate":true}));
+        }
+        // Status and cancellation replies can omit the accepted Executor ticket.
+        // Keep the log source addressable after a fast return.
+        if let Some(accepted) = accepted {
+            let accepted: Value = serde_json::from_str(&accepted)?;
+            if accepted["ticket"].is_string() {
+                evidence["ticket"] = accepted["ticket"].clone();
+            }
         }
         tx.execute(
             "UPDATE rust_effects SET state='returned',evidence=?,updated=? WHERE id=?",
@@ -200,6 +208,13 @@ impl Application {
                     "failed"
                 },
             )?;
+            let _ = crate::diagnostics::record_execution_issue(
+                &tx,
+                &record,
+                &work.stage,
+                reason,
+                json!({"exit_code":exit_code}),
+            );
             let failed = jobs::load(&tx, &work.job)?;
             enqueue_hook(&tx, &failed, "on_error")?;
             if work.stage != "finalize" {
@@ -300,26 +315,46 @@ impl Application {
         fence(&self.db, work)?;
         let result =
             self.publish_result_verified(&work.job, &work.attempt, manifest, &work.folder, proofs);
+        self.finish_publication(work, result)
+    }
+    pub fn publish_work_failed(&mut self, work: &Work, error: Error) -> Result<Value> {
+        let record = fence(&self.db, work)?;
+        require(
+            record.aggregate.state == JobState::Processing,
+            "attempt",
+            "Stale publication owner",
+            409,
+        )?;
+        if record.aggregate.cancel_requested {
+            return self.publish_work(work, Value::Null);
+        }
+        self.finish_publication(work, Err(error))
+    }
+    fn finish_publication(&mut self, work: &Work, result: Result<Value>) -> Result<Value> {
         let tx = self.transaction()?;
         let record = fence(&tx, work)?;
+        tx.execute(
+            "UPDATE rust_effects SET state='returned',updated=? WHERE id=?",
+            params![now(), work.effect],
+        )?;
         match &result {
             Ok(_) => {
-                tx.execute(
-                    "UPDATE rust_effects SET state='returned',updated=? WHERE id=?",
-                    params![now(), work.effect],
-                )?;
-                enqueue_hook(
-                    &tx,
-                    &record,
-                    if record.aggregate.state == JobState::Cancelled {
-                        "on_cancel"
-                    } else {
-                        "on_complete"
-                    },
-                )?;
-                tx.execute("UPDATE recovery SET state='closed',token=NULL,deadline=NULL,updated=? WHERE job=?",params![now(),work.job])?;
+                let hook = match record.aggregate.state {
+                    JobState::Cancelled => "on_cancel",
+                    JobState::Failed => "on_error",
+                    _ => "on_complete",
+                };
+                enqueue_hook(&tx, &record, hook)?;
+                if record.aggregate.state != JobState::Failed {
+                    tx.execute("UPDATE recovery SET state='closed',token=NULL,deadline=NULL,updated=? WHERE job=?",params![now(),work.job])?;
+                }
             }
-            Err(_) => {
+            Err(error) => {
+                let retryable = !matches!(error.status, 400 | 413)
+                    && !matches!(
+                        error.code.as_str(),
+                        "deliverable" | "provenance" | "outputs" | "report_profile_legacy"
+                    );
                 let retries: i64 = tx
                     .query_row(
                         "SELECT retries FROM result_outbox WHERE job=?",
@@ -329,15 +364,21 @@ impl Application {
                     .optional()?
                     .unwrap_or(0);
                 tx.execute(
-                    "UPDATE rust_effects SET state='returned',updated=? WHERE id=?",
-                    params![now(), work.effect],
+                    "UPDATE jobs SET result=json_set(json_remove(COALESCE(result,'{}'),'$.artifact_ready'),'$.publication_error',json(?)) WHERE id=?",
+                    params![encode(&json!({"code":error.code,"message":error.message.chars().take(1024).collect::<String>(),"status":error.status,"retryable":retryable}))?, work.job],
                 )?;
-                if retries >= 2 {
+                if !retryable || retries >= 2 {
                     if record.aggregate.state == JobState::Processing {
                         jobs::transition(&tx, &record, Event::PublicationFailed)?;
                     }
-                    tx.execute("UPDATE jobs SET result=json_remove(COALESCE(result,'{}'),'$.artifact_ready') WHERE id=?",[&work.job])?;
                     open_incident(&tx, &record, "finalization_failed")?;
+                    let _ = crate::diagnostics::record_execution_issue(
+                        &tx,
+                        &record,
+                        "publish",
+                        &error.code,
+                        json!({"status":error.status}),
+                    );
                     jobs::event(&tx, &record, "result_failed")?;
                 } else {
                     tx.execute(
@@ -349,10 +390,6 @@ impl Application {
         }
         tx.commit()?;
         result
-    }
-    pub fn publication_unreadable(&mut self, work: &Work) -> Result<()> {
-        let _ = self.publish_work(work, json!({}));
-        Ok(())
     }
     pub fn cancelled(&self, work: &Work) -> Result<bool> {
         Ok(!work.hook && jobs::load(&self.db, &work.job)?.aggregate.cancel_requested)
@@ -698,6 +735,9 @@ impl Application {
         if let Some(unit) = self.unit_summary(&work.job)? {
             request["unit_id"] = unit["id"].clone();
             request["research_job_id"] = unit["job_id"].clone();
+        }
+        if let Some(scenario) = work.spec.get("scenario_ref").filter(|pin| pin.is_object()) {
+            request["scenario_ref"] = scenario.clone();
         }
         Ok(request)
     }

@@ -11,7 +11,36 @@ On failure, the Job reserves its existing position in the execution lane for 15 
 
 If no agent arrives or the limit is reached, defer the failed Job and its dependents while independent work proceeds. recovery.defer explicitly releases the reservation. A later reactivate assigns a new queue position without resetting recovery rounds. Never give another Job overlapping GPU ownership while the original process has not returned.
 
-finalizing_failed is distinct from run failure. Use results.reindex for publication problems, or the appropriate postprocessing recovery for finalization. Do not rerun training merely to repair result presentation.
+## Recover execution after a startup failure
+
+1. Read the exact failed Unit and Attempt, including the failed stage, exit code,
+   and process return. Use `jobs.log_streams` with the Unit, Attempt and stage,
+   then `jobs.read_log` for the bounded tail. Report an unavailable log separately
+   from a confirmed execution failure.
+2. Confirm one recovery owner and claim the Unit. Repair the failing Component
+   in a new revision and pin the matching Profile. Verify the actual startup
+   entry point with the accepted Runtime, paths and input pins. Run the
+   initialization calls before expensive execution. Use the Profile's
+   `prepare` stage for checks that fit that stage. Any separate hardware smoke
+   must stay within the user's authorized scope.
+3. If the connected `recovery.resume` schema advertises `preview`, pass
+   `preview: true` with the lease and proposed patch. Inspect the Profile
+   revision and digest, Runtime, storage, repair mode and presence of a preparation
+   stage. The server validates the repair contract without scheduling or
+   consuming a round. Preview does not run startup checks or reserve resources.
+4. Resume the same Unit without `preview` once the repair is verified. Read its
+   stage and new Attempt and retain the original failure evidence. If startup
+   fails again, diagnose the new error before trying another revision. Defer
+   when the cause or scope remains unresolved. If the resume reply is lost,
+   read current state or replay the exact request with the same lease.
+
+## Repair publication
+
+For a Unit with `state=result_failed`, read `units.get.result.publication_error`
+for the error code, message, status and automatic retry eligibility when present.
+Correct the source of the rejection and resume finalization for the same Attempt
+using the recovery lease. Use `results.reindex` when only publication or index
+repair needs to run. Both paths keep the original execution Attempt.
 
 `recovery.state=executing` means a recovery round has started. Inspect the Job's
 public `status` for its actual preparing/running/finalizing phase; executing is not
@@ -27,3 +56,9 @@ The same boundary applies to finalizers and lifecycle callbacks. Callback retrie
 retain a stable event id; callback implementations must remain idempotent.
 
 Resident agents, scheduling, callbacks and multi-agent routing are caller choices. Loom provides events and recovery leases; it does not launch a particular client or mandate one supervision policy. A disconnected agent is not automatically assigned repair work without a caller action.
+
+## Troubleshooting records
+
+Claim the exact failed Unit and read the returned `troubleshooting` records before repair. They contain the original Attempt, failure stage, pinned Profile and available Runtime, and exact log arguments. Use `jobs.logs` with that execution and Attempt. Use `results.search_items` with `kinds: ["issue"]` to find related incidents by Profile or error code. Compare pins and authority before reusing a repair.
+
+After checking the exact failure or validating the repair, pass a short `finding` with `recovery.progress` and the current lease. Findings are visible to Loom readers. Include verified conclusions and omit credentials, raw logs, and private paths. A subsequent successful publication for the same execution links the verifying Attempt on its incident records.

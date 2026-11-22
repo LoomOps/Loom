@@ -247,6 +247,13 @@ fn recovery_recomputes_inferred_dependencies_and_preserves_graph_and_store_ident
             .unwrap();
     }
     let profile = json!({"schema":"loom-execution/v2","revision":"recover.input.r1","sha256":"a".repeat(64),"params_schema":{"type":"object"},"runtime":{"executor":"container","runtime_id":"cpu","lane":"cpu","command":["/bin/true"]},"inputs":{"data":"."},"outputs":null,"limits":{"max_attempts":1,"timeout_seconds":30}});
+    let mut repaired_profile = profile.clone();
+    repaired_profile["revision"] = json!("recover.input.r2");
+    repaired_profile["sha256"] = json!("b".repeat(64));
+    f.app
+        .config
+        .profiles
+        .insert("recover.input.r2".into(), repaired_profile);
     f.app
         .config
         .profiles
@@ -268,8 +275,32 @@ fn recovery_recomputes_inferred_dependencies_and_preserves_graph_and_store_ident
             loom_domain::JobState::Failed
         );
     }
-    let request =
-        json!({"id":target,"lease":lease,"patch":{"params":{"data":{"job":new,"entity":"data"}}}});
+    let request = json!({"id":target,"lease":lease,"patch":{"kind":"recover.input.r2","params":{"data":{"job":new,"entity":"data"}}}});
+    let mut preview = request.clone();
+    preview["preview"] = json!(true);
+    let unchanged = f.call("jobs", "get", json!({"id":target})).unwrap();
+    let recovery_history = f.count("recovery_history");
+    let revisions = f.count("job_revisions");
+    let candidate = f.call("recovery", "resume", preview.clone()).unwrap();
+    assert_eq!(candidate["preview"], true);
+    assert_eq!(candidate["state"], "claimed");
+    assert_eq!(candidate["attempt"], work.attempt);
+    assert_eq!(candidate["mode"], "execution");
+    assert_eq!(candidate["rounds"], 0);
+    assert_eq!(
+        candidate["candidate"]["profile_revision"],
+        "recover.input.r2"
+    );
+    assert_eq!(candidate["candidate"]["profile_sha256"], "b".repeat(64));
+    assert_eq!(candidate["candidate"]["runtime_id"], "cpu");
+    assert_eq!(candidate["candidate"]["output_storage"], "data/0");
+    assert_eq!(
+        f.call("jobs", "get", json!({"id":target})).unwrap(),
+        unchanged
+    );
+    assert_eq!(f.count("job_revisions"), revisions);
+    assert_eq!(f.count("recovery_history"), recovery_history);
+    assert!(f.app.next_work(&Default::default()).unwrap().is_none());
     f.app.config.storage_id = "replacement".into();
     fs::write(
         f.app.bulk.join(".loom-storage.json"),
@@ -277,9 +308,7 @@ fn recovery_recomputes_inferred_dependencies_and_preserves_graph_and_store_ident
     )
     .unwrap();
     assert_eq!(
-        f.call("recovery", "resume", request.clone())
-            .unwrap_err()
-            .code,
+        f.call("recovery", "resume", preview).unwrap_err().code,
         "storage"
     );
     f.app.config.storage_id = "fixture-data".into();
@@ -290,10 +319,139 @@ fn recovery_recomputes_inferred_dependencies_and_preserves_graph_and_store_ident
     .unwrap();
     f.call("recovery", "resume", request).unwrap();
     let repaired = jobs::load(&f.app.db, &target).unwrap();
+    assert_eq!(repaired.spec["kind"], "recover.input.r2");
     assert_eq!(repaired.spec["_requested_dependencies"], json!([explicit]));
     assert_eq!(repaired.spec["depends_on"], json!([explicit, new]));
     assert_eq!(repaired.spec["_output_storage_id"], "fixture-data");
     assert_eq!(f.count("attempts"), 1);
+}
+
+#[test]
+fn fast_stage_failure_preserves_the_accepted_log_ticket() {
+    let mut f = Fixture::new();
+    let id = f.submit("fast-exit");
+    let work = f.app.next_work(&Default::default()).unwrap().unwrap();
+    f.app
+        .effect_accepted(&work, json!({"ticket":"fixture.fast.run","returned":false}))
+        .unwrap();
+    f.app
+        .stage_returned(
+            &work,
+            1,
+            json!({"returned":true,"exit_code":1,"state":"exited"}),
+        )
+        .unwrap();
+    assert_eq!(
+        f.app.log_source_evidence(&work.effect).unwrap(),
+        json!({
+            "ticket":"fixture.fast.run","returned":true,"exit_code":1,"state":"exited"
+        })
+    );
+    let stream = f
+        .app
+        .log_collection_candidates("")
+        .unwrap()
+        .into_iter()
+        .find(|row| row["id"] == work.effect)
+        .unwrap();
+    let evidence: Value = serde_json::from_str(stream["evidence"].as_str().unwrap()).unwrap();
+    assert_eq!(evidence["ticket"], "fixture.fast.run");
+    let detail = f.call("jobs", "get", json!({"id":id})).unwrap();
+    assert_eq!(detail["state"], "failed");
+    assert_eq!(detail["result"]["stage"], "run");
+}
+
+#[test]
+fn diagnostic_artifact_retains_technical_failure_and_creates_searchable_recovery_evidence() {
+    let mut f = Fixture::new();
+    let id = f.submit("diagnostic-only");
+    let downstream = f
+        .call(
+            "jobs",
+            "submit",
+            json!({
+                "key":"depends-on-diagnostics","owner":"owner","notify":"owner","kind":"cpu.smoke",
+                "depends_on":[id],"params":{"seconds":0,"fail":false}
+            }),
+        )
+        .unwrap();
+    let run = f.app.next_work(&Default::default()).unwrap().unwrap();
+    f.app
+        .stage_returned(&run, 0, json!({"returned":true}))
+        .unwrap();
+    let publish = f.app.next_work(&Default::default()).unwrap().unwrap();
+    fs::create_dir_all(&publish.folder).unwrap();
+    fs::write(publish.folder.join("diagnostic.json"), b"{}").unwrap();
+    let outcome =
+        json!({"status":"failed","code":"entry_seed_missing","planned":4,"started":0,"valid":0});
+    let result = f
+        .app
+        .publish_work(
+            &publish,
+            json!({
+                "entities":[{"id":"diagnostic","kind":"artifact","path":"diagnostic.json"}],
+                "metrics":[],"execution_outcome":outcome
+            }),
+        )
+        .unwrap();
+    assert_eq!(result["artifact_ready"], true);
+    assert_eq!(result["execution_outcome"], outcome);
+    let detail = f.call("jobs", "get", json!({"id":id})).unwrap();
+    assert_eq!(detail["state"], "failed");
+    assert_eq!(detail["attempts"][0]["state"], "failed");
+    assert_eq!(detail["recovery"]["state"], "waiting");
+    let issues = &detail["troubleshooting"];
+    assert_eq!(issues.as_array().unwrap().len(), 1);
+    assert_eq!(
+        issues[0]["properties"]["execution"]["code"],
+        outcome["code"]
+    );
+    assert_eq!(
+        issues[0]["properties"]["execution"]["diagnostic_artifacts"][0]["id"],
+        "diagnostic"
+    );
+    assert_eq!(issues[0]["properties"]["logs"]["attempt"], run.attempt);
+    assert!(f.app.next_work(&Default::default()).unwrap().is_none());
+    let queue = f.app.queue().unwrap();
+    assert!(queue["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|x| x["id"] == downstream["id"] && x["scheduling"]["dependency_failed"] == true));
+    let claim = f.call("recovery", "claim", json!({"id":id})).unwrap();
+    assert_eq!(claim["troubleshooting"], *issues);
+    f.app.index_once().unwrap();
+    let initial_ref = issues[0]["historical_ref"].clone();
+    let note = json!({"id":id,"lease":claim["lease"],"finding":"Verified missing seed in the worker input"});
+    for _ in 0..2 {
+        let progress = f.call("recovery", "progress", note.clone()).unwrap();
+        assert_eq!(
+            progress["troubleshooting"][0]["properties"]["findings"],
+            json!(["Verified missing seed in the worker input"])
+        );
+    }
+    f.app.index_once().unwrap();
+    let list = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"kinds":["issue"],"view":"all","role":"all"}),
+        )
+        .unwrap();
+    let entries = list["entities"].as_array().unwrap();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0]["properties"]["attempt_id"], run.attempt);
+    assert_eq!(entries[0]["loom_history"]["revision"], "2");
+    let search = f
+        .call(
+            "results",
+            "search_items",
+            json!({"kinds":["issue"],"text":"missing seed","view":"all","role":"all"}),
+        )
+        .unwrap();
+    assert_eq!(search["items"].as_array().unwrap().len(), 1);
+    let old = f.call("results", "historical", initial_ref).unwrap();
+    assert!(old["body"]["entity"]["properties"]["findings"].is_null());
 }
 
 #[test]
@@ -1404,10 +1562,33 @@ fn accepted_job_pins_scenario_revision() {
             json!({"key":"s","definition":{"label":"Fixture"}}),
         )
         .unwrap();
-    let job=f.call("jobs","submit",json!({"key":"one","kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false},"scenario_ref":{"id":s["id"],"revision":1}})).unwrap();
+    let profile = json!({"schema":"loom-execution/v2","revision":"pinned-task.r1","sha256":"a".repeat(64),
+        "params_schema":{"type":"object"},"inputs":{},"outputs":null,
+        "prepare":{"executor":"container","runtime_id":"cpu","lane":"cpu","inputs":[],"depends_on":[],"command":["/bin/true"]},
+        "runtime":{"executor":"container","runtime_id":"cpu","lane":"cpu","command":["/bin/true"]},
+        "limits":{"max_attempts":1,"timeout_seconds":30}});
+    f.app
+        .config
+        .profiles
+        .insert("pinned-task.r1".into(), profile);
+    let job=f.call("units","submit",json!({"key":"one","kind":"pinned-task.r1","owner":"owner","notify":"owner","params":{},"scenario_ref":{"id":s["id"],"revision":1}})).unwrap();
     f.call("results","update_scenario",json!({"key":"s2","id":s["id"],"expected_revision":1,"definition":{"label":"Later"},"reason":"New protocol"})).unwrap();
-    let detail = f.call("jobs", "get", json!({"id":job["id"]})).unwrap();
-    assert_eq!(detail["scenario_ref"]["revision"], 1);
+    let detail = f.call("units", "get", json!({"id":job["id"]})).unwrap();
+    let expected = json!({"id":s["id"],"revision":1,"sha256":s["sha256"]});
+    assert_eq!(detail["scenario_ref"], expected);
+    let prepare = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(prepare.stage, "prepare");
+    assert_eq!(
+        f.app.request_for(&prepare).unwrap()["scenario_ref"],
+        expected
+    );
+    f.app
+        .stage_returned(&prepare, 0, json!({"returned":true}))
+        .unwrap();
+    let run = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(run.stage, "run");
+    assert_eq!(run.attempt, prepare.attempt);
+    assert_eq!(f.app.request_for(&run).unwrap()["scenario_ref"], expected);
 }
 #[test]
 fn submit_key_replays_and_changed_parameters_conflict() {
@@ -1554,7 +1735,9 @@ fn cancellation_wins_unreadable_publication_and_no_entities_are_registered() {
     let publish = f.app.next_work(&Default::default()).unwrap().unwrap();
     assert!(publish.publication);
     assert_eq!(
-        f.app.publish_work(&publish, Value::Null).unwrap()["state"],
+        f.app
+            .publish_work_failed(&publish, Error::input("Invalid manifest"))
+            .unwrap()["state"],
         "cancelled"
     );
     assert_eq!(f.count("entity_revisions"), 0);
@@ -1586,16 +1769,53 @@ fn publication_retry_keeps_attempt_and_execution_count() {
     f.app
         .stage_returned(&work, 0, json!({"returned":true}))
         .unwrap();
-    for _ in 0..3 {
+    for retry_number in 0..3 {
         let publication = f.app.next_work(&Default::default()).unwrap().unwrap();
         assert!(publication.publication);
-        assert!(f.app.publish_work(&publication, json!({})).is_err());
+        assert_eq!(
+            f.app
+                .publish_work_failed(
+                    &publication,
+                    Error::new("filesystem_missing", "Configured file is unavailable", 404)
+                )
+                .unwrap_err()
+                .code,
+            "filesystem_missing"
+        );
+        let detail = f.call("jobs", "get", json!({"id":id})).unwrap();
+        assert_eq!(detail["result"]["publication_error"]["retryable"], true);
+        assert_eq!(
+            detail["state"],
+            if retry_number < 2 {
+                "processing"
+            } else {
+                "result_failed"
+            }
+        );
         f.app
             .db
             .execute("UPDATE result_outbox SET next_try=0", [])
             .unwrap();
     }
     let lease = f.call("recovery", "claim", json!({"id":id})).unwrap();
+    let preview = f
+        .call(
+            "recovery",
+            "resume",
+            json!({"id":id,"lease":lease["lease"],"preview":true}),
+        )
+        .unwrap();
+    assert_eq!(preview["mode"], "finalization");
+    assert_eq!(preview["attempt"], work.attempt);
+    assert!(f.app.next_work(&Default::default()).unwrap().is_none());
+    let invalid = f
+        .call(
+            "recovery",
+            "resume",
+            json!({"id":id,"lease":lease["lease"],"preview":true,"patch":{"kind":"cpu.smoke"}}),
+        )
+        .unwrap_err();
+    assert_eq!(invalid.code, "recovery");
     f.call(
         "recovery",
         "resume",
@@ -1605,7 +1825,66 @@ fn publication_retry_keeps_attempt_and_execution_count() {
     let retry = f.app.next_work(&Default::default()).unwrap().unwrap();
     assert!(retry.publication);
     assert_eq!(retry.attempt, work.attempt);
+    fs::create_dir_all(&retry.folder).unwrap();
+    fs::write(retry.folder.join("clip.dat"), b"original execution").unwrap();
+    f.app
+        .publish_work(
+            &retry,
+            json!({"entities":[{"id":"clip","kind":"artifact","path":"clip.dat"}],"metrics":[]}),
+        )
+        .unwrap();
+    let detail = f.call("jobs", "get", json!({"id":id})).unwrap();
+    assert_eq!(detail["state"], "complete");
+    assert_eq!(detail["result"]["execution"]["exit_code"], 0);
+    assert!(detail["result"]["publication_error"].is_null());
     assert_eq!(f.count("attempts"), 1);
+    let issues = crate::diagnostics::execution_issues(&f.app.db, &id, None).unwrap();
+    assert_eq!(issues[0]["properties"]["status"], "resolved");
+    assert_eq!(issues[0]["properties"]["verified_attempt_id"], work.attempt);
+}
+#[test]
+fn permanent_publication_error_keeps_the_unit_out_of_execution_after_recovery_expires() {
+    let mut f = Fixture::new();
+    let id = f.call("units", "submit", json!({"key":"invalid-result","kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false}})).unwrap()["id"].clone();
+    let run = f.app.next_work(&Default::default()).unwrap().unwrap();
+    f.app
+        .stage_returned(&run, 0, json!({"returned":true}))
+        .unwrap();
+    let publication = f.app.next_work(&Default::default()).unwrap().unwrap();
+    let error = f.app.publish_work(&publication, json!({})).unwrap_err();
+    assert_eq!(error.code, "manifest");
+    let first = f.call("units", "get", json!({"id":id})).unwrap();
+    assert_eq!(first["state"], "result_failed");
+    assert_eq!(first["recovery"]["state"], "waiting");
+    assert_eq!(first["result"]["execution"]["exit_code"], 0);
+    assert_eq!(
+        first["result"]["publication_error"],
+        json!({
+            "code":"manifest","message":error.message,"status":400,"retryable":false
+        })
+    );
+    assert_eq!(
+        f.app.queue().unwrap()["unit_entries"][0]["reason"],
+        "recovery_waiting"
+    );
+    assert!(f.app.next_work(&Default::default()).unwrap().is_none());
+    f.app
+        .db
+        .execute("UPDATE recovery SET deadline=0 WHERE job=?", [&run.job])
+        .unwrap();
+    // Queue and detail already agree before a worker persists the expired reservation.
+    let queue = f.app.queue().unwrap();
+    let unit = &queue["unit_entries"][0];
+    assert_eq!(unit["id"], id);
+    assert_eq!(unit["reason"], "recovery_deferred");
+    assert_eq!(unit["eligible"], false);
+    assert_eq!(unit["scheduling"]["eligible"], false);
+    let detail = f.call("units", "get", json!({"id":id})).unwrap();
+    assert_eq!(detail["recovery"]["state"], "deferred");
+    assert_eq!(detail["scheduling"]["waiting_reason"], "recovery_deferred");
+    assert!(f.app.next_work(&Default::default()).unwrap().is_none());
+    assert_eq!(f.count("attempts"), 1);
+    assert_eq!(f.count("entity_revisions"), 0);
 }
 #[test]
 fn immutable_package_reconciles_rename_before_database_commit() {
@@ -1807,6 +2086,47 @@ fn preparation_family_preserves_workflow_states_pins_and_execution_membership() 
     );
     assert_eq!(f.count("jobs"), 3);
     assert_eq!(f.count("attempts"), 0);
+}
+
+#[test]
+fn unit_queue_projects_claimed_pending_and_executing_recovery() {
+    let mut f = Fixture::new();
+    let id = f.call("units", "submit", json!({"key":"queue-repair","kind":"cpu.smoke","owner":"owner","notify":"owner","params":{"seconds":0,"fail":false}})).unwrap()["id"].clone();
+    let run = f.app.next_work(&Default::default()).unwrap().unwrap();
+    f.app
+        .stage_returned(&run, 1, json!({"returned":true}))
+        .unwrap();
+    let lease = f.call("recovery", "claim", json!({"id":id})).unwrap();
+    let read = |app: &Application| app.queue().unwrap()["unit_entries"][0].clone();
+    assert_eq!(
+        read(&f.app)["recovery"],
+        json!({"state":"claimed","rounds":0})
+    );
+    f.call(
+        "recovery",
+        "resume",
+        json!({"id":id,"lease":lease["lease"]}),
+    )
+    .unwrap();
+    assert_eq!(
+        read(&f.app)["recovery"],
+        json!({"state":"pending","rounds":0})
+    );
+    let retry = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(retry.job, run.job);
+    assert_ne!(retry.attempt, run.attempt);
+    let executing = read(&f.app);
+    assert_eq!(executing["state"], "running");
+    assert_eq!(
+        executing["recovery"],
+        json!({"state":"executing","rounds":1})
+    );
+    f.app
+        .stage_returned(&retry, 0, json!({"returned":true}))
+        .unwrap();
+    let processing = read(&f.app);
+    assert_eq!(processing["state"], "processing");
+    assert_eq!(processing["recovery"], executing["recovery"]);
 }
 
 #[test]
@@ -5693,7 +6013,50 @@ fn open_outcome_binds_a_granted_runtime_after_restart_and_publishes_once() {
         .stage_returned(&run, 0, json!({"returned":true}))
         .unwrap();
     let publish = f.app.next_work(&Default::default()).unwrap().unwrap();
-    f.app.publish_work(&publish,json!({"entities":[{"id":"report","kind":"artifact","path":"report.txt","provenance":{"profile":"eval.r1","producer_sha256":"a".repeat(64)},"relations":[]}],"metrics":[]})).unwrap();
+    let report = json!({"id":"report","kind":"artifact","path":"report.txt","relations":[]});
+    let mut missing = report.clone();
+    missing.as_object_mut().unwrap().remove("relations");
+    let error = f
+        .app
+        .publish_result(
+            &run.job,
+            &run.attempt,
+            json!({"entities":[missing],"metrics":[]}),
+            &run.folder,
+        )
+        .unwrap_err();
+    assert_eq!(
+        error.message,
+        "Output 'report' is missing required fields: relations"
+    );
+    let mut wrong = report.clone();
+    wrong["provenance"] = json!({"profile":"wrong.r1","producer_sha256":"a".repeat(64)});
+    let error = f
+        .app
+        .publish_result(
+            &run.job,
+            &run.attempt,
+            json!({"entities":[wrong],"metrics":[]}),
+            &run.folder,
+        )
+        .unwrap_err();
+    assert_eq!(error.code, "provenance");
+    assert!(error.message.contains("report"));
+    assert_eq!(f.count("entity_revisions"), 0);
+    f.app
+        .publish_work(&publish, json!({"entities":[report],"metrics":[]}))
+        .unwrap();
+    let registered = f
+        .call(
+            "results",
+            "get",
+            json!({"id":format!("{}.report",run.job),"revision":1}),
+        )
+        .unwrap();
+    assert_eq!(
+        registered["provenance"],
+        json!({"profile":"eval.r1","producer_sha256":"a".repeat(64)})
+    );
     let detail = f.call("jobs", "get", json!({"id":root})).unwrap();
     assert_eq!(detail["state"], "complete");
     assert_eq!(

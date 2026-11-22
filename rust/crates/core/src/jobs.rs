@@ -795,8 +795,9 @@ impl Application {
             .ok_or_else(|| Error::input("Job ID required"))?;
         let config = self.config.clone();
         let bulk = self.bulk.clone();
+        let preview = action == "resume" && args["preview"] == true;
         let tx = self.transaction()?;
-        if action == "resume" {
+        if action == "resume" && !preview {
             let lease = args["lease"]
                 .as_str()
                 .ok_or_else(|| Error::input("Lease required"))?;
@@ -817,7 +818,9 @@ impl Application {
             "Select the failed execution Unit from jobs.get",
             409,
         )?;
-        tx.execute("UPDATE recovery SET state='deferred',token=NULL,updated=? WHERE job=? AND state IN ('waiting','claimed') AND deadline<=?",params![now(),id,now()])?;
+        if !preview {
+            tx.execute("UPDATE recovery SET state='deferred',token=NULL,updated=? WHERE job=? AND state IN ('waiting','claimed') AND deadline<=?",params![now(),id,now()])?;
+        }
         let row = load(&tx, id)?;
         let closed:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM execution_memberships n JOIN job_workflows w ON w.id=n.root WHERE n.job=? AND json_type(w.request,'$.plan_revision')='integer' AND (w.state IN ('complete','cancelled','failed') OR json_extract(w.request,'$.cancel_requested')=1))",[id],|r|r.get(0))?;
         require(
@@ -836,6 +839,39 @@ impl Application {
         let mut lease_out = None;
         match action {
             "claim" => {
+                if row.aggregate.fence.attempt.as_ref().is_some_and(|attempt| {
+                    crate::diagnostics::execution_issues(&tx, id, Some(attempt.as_str()))
+                        .is_ok_and(|issues| issues.is_empty())
+                }) {
+                    let outcome = row.result.as_ref().unwrap_or(&Value::Null);
+                    if outcome["process_group_returned"] == true {
+                        let failure_stage = match outcome["stage"].as_str() {
+                            Some("prepare") => "prepare",
+                            Some("run") => "run",
+                            Some("finalize") => "finalize",
+                            _ if row.aggregate.state == JobState::ResultFailed => "publish",
+                            _ => "run",
+                        };
+                        let failure_code = match rec["reason"].as_str() {
+                            Some("timeout") => "timeout",
+                            Some("exit_nonzero") => "exit_nonzero",
+                            Some("launch_failed") => "launch_failed",
+                            Some("interrupted") => "interrupted",
+                            Some("technical_failure") => "technical_failure",
+                            _ if row.aggregate.state == JobState::ResultFailed => {
+                                "finalization_failed"
+                            }
+                            _ => "execution_failed",
+                        };
+                        let _ = crate::diagnostics::record_execution_issue(
+                            &tx,
+                            &row,
+                            failure_stage,
+                            failure_code,
+                            json!({"exit_code":outcome["exit_code"]}),
+                        );
+                    }
+                }
                 if state == "claimed" && rec["agent"] == actor.id {
                     lease_out = rec["token"].as_str().map(String::from);
                 } else {
@@ -885,6 +921,26 @@ impl Application {
                 }
                 .authorize(&agent, token, now())?;
                 if action == "progress" {
+                    if let Some(finding) = args["finding"].as_str() {
+                        require(
+                            !finding.trim().is_empty(),
+                            "troubleshooting",
+                            "A finding cannot be blank",
+                            400,
+                        )?;
+                        let attempt = row
+                            .aggregate
+                            .fence
+                            .attempt
+                            .as_ref()
+                            .ok_or_else(|| Error::conflict("No failed Attempt"))?;
+                        crate::diagnostics::add_execution_finding(
+                            &tx,
+                            id,
+                            attempt.as_str(),
+                            finding.trim(),
+                        )?;
+                    }
                     tx.execute(
                         "UPDATE recovery SET deadline=min(?,hard_deadline),updated=? WHERE job=?",
                         params![now() + 900., now(), id],
@@ -904,18 +960,19 @@ impl Application {
                         400,
                     )?;
                     let finalization = row.aggregate.state == JobState::ResultFailed;
-                    if finalization {
+                    let retry = if finalization {
+                        Event::RetryPublication
+                    } else {
+                        Event::RetryExecution
+                    };
+                    let replacement = if finalization {
                         require(
                             patch == json!({}),
                             "recovery",
                             "Result-only retry cannot change execution inputs",
                             409,
                         )?;
-                        transition(&tx, &row, Event::RetryPublication)?;
-                        tx.execute(
-                            "UPDATE result_outbox SET retries=0,next_try=0 WHERE job=?",
-                            [id],
-                        )?;
+                        None
                     } else {
                         let mut requested = row.spec.clone();
                         // Recompute inferred inputs while retaining only the
@@ -968,7 +1025,26 @@ impl Application {
                             "Recovery inputs would create a dependency cycle",
                             409,
                         )?;
-                        transition(&tx, &row, Event::RetryExecution)?;
+                        Some(spec)
+                    };
+                    if preview {
+                        row.aggregate.decide(&row.aggregate.fence, retry)?;
+                        let spec = replacement.as_ref().unwrap_or(&row.spec);
+                        let runtime = &spec["profile"]["runtime"];
+                        return Ok(json!({
+                            "id":id,"preview":true,"state":state,"rounds":rounds,
+                            "deadline":rec["deadline"],"hard_deadline":rec["hard_deadline"],
+                            "attempt":row.aggregate.fence.attempt.as_ref().map(|a|a.as_str()),
+                            "mode":if finalization {"finalization"} else {"execution"},
+                            "candidate":{"kind":spec["kind"],"profile_revision":spec["profile"]["revision"],
+                                "profile_sha256":spec["profile"]["sha256"],"output_storage":spec["output_storage"],
+                                "runtime_id":runtime["runtime_pin"]["id"].as_str().or_else(|| runtime["runtime_id"].as_str()),
+                                "runtime_revision":runtime["runtime_pin"]["revision"],"runtime_sha256":runtime["runtime_pin"]["sha256"],
+                                "has_prepare":spec["profile"]["prepare"].is_object()}
+                        }));
+                    }
+                    transition(&tx, &row, retry)?;
+                    if let Some(spec) = replacement {
                         if let Some(old) = &row.result {
                             tx.execute(
                                 "INSERT OR IGNORE INTO attempt_results VALUES(?,?,?)",
@@ -982,6 +1058,11 @@ impl Application {
                         tx.execute(
                             "UPDATE jobs SET spec=?,result=NULL,cancel=0,available_at=0 WHERE id=?",
                             params![compat::dump(&spec), id],
+                        )?;
+                    } else {
+                        tx.execute(
+                            "UPDATE result_outbox SET retries=0,next_try=0 WHERE job=?",
+                            [id],
                         )?;
                     }
                     let revision: i64 = tx.query_row(
@@ -1016,6 +1097,10 @@ impl Application {
         }
         tx.execute("INSERT INTO recovery_history(job,action,agent,round,recorded,detail) VALUES(?,?,?,?,?,?)",params![id,action,actor.id,rounds as i64,now(),encode(&json!({"reason":args["reason"]}))?])?;
         let mut result=rows(&tx,"SELECT state,rounds,agent,deadline,hard_deadline,reason,updated FROM recovery WHERE job=?",&[&id])?.remove(0);
+        if matches!(action, "claim" | "progress") {
+            result["troubleshooting"] =
+                json!(crate::diagnostics::execution_issues(&tx, id, None).unwrap_or_default());
+        }
         if let Some(lease) = lease_out {
             result["lease"] = json!(lease);
         }

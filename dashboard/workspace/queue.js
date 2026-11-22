@@ -27,15 +27,27 @@ function loomUnitRecoveryLabel(unit) {
   if(!['failed','interrupted','result_failed'].includes(unit.state))return '';
   return ({waiting:'복구 응답 대기',claimed:'복구 담당자 지정됨',pending:'재시도 대기',deferred:'복구 보류',exhausted:'복구 횟수 소진'})[unit.recovery_state]||'';
 }
+function loomUnitQueueRecoveryStatus(row) {
+  const recovery = row?.recovery;
+  if (row?.entry_type !== 'unit' || !recovery) return '';
+  if (recovery.state === 'claimed') return '복구 담당자 지정됨';
+  if (recovery.state === 'pending') return '복구 예약';
+  if (recovery.state !== 'executing') return '';
+  const phase = ({preparing:'복구 준비 중',ready:'복구 실행 대기',running:'복구 실행 중',processing:'복구 결과 처리 중'})[row.state];
+  return phase && Number.isInteger(recovery.rounds) && recovery.rounds > 0
+    ? phase + ' · ' + recovery.rounds + '차' : phase || '';
+}
 function loomQueueReason(row) {
   if(row.reason==='executing')return row.state==='preparing'?'준비 중':'실행 중';
   if(row.reason==='unit_failed'){
     const failures=(row.units||[]).filter(unit=>['failed','interrupted','result_failed'].includes(unit.state));
     return failures.map(unit=>[unit.label||unit.name,loomUnitRecoveryLabel(unit)||'실행 실패'].filter(Boolean).join(' · ')).join(' / ')||'Job 실패';
   }
-  return ({awaiting_runtime_binding:'Runtime 연결 대기',awaiting_plan:'실행 계획 확정 대기',awaiting_deliverables:'산출물 검증 대기',queue_paused:'운영자가 큐를 일시 중단함',ready:'실행 가능',held:'보류됨',executing:'실행 중',finalizing:'결과 처리 중',dependencies:'선행 결과 대기',
+  const reason=({awaiting_runtime_binding:'Runtime 연결 대기',awaiting_plan:'실행 계획 확정 대기',awaiting_deliverables:'산출물 검증 대기',queue_paused:'운영자가 큐를 일시 중단함',ready:'실행 가능',held:'보류됨',executing:'실행 중',finalizing:'결과 처리 중',dependencies:'선행 결과 대기',
     resource_busy:'실행 슬롯 대기',retry_delay:'재시도 대기',recovery_reservation:'앞선 Job 복구 대기',recovery_waiting:'복구 응답 대기',
-    recovery_claimed:'복구 진행 중',recovery_deferred:'복구 보류',recovery_exhausted:'복구 횟수 소진',recovery_required:'내부 실행 복구 필요'})[row.reason] || row.reason;
+    recovery_claimed:'복구 담당자 지정됨',recovery_deferred:'복구 보류',recovery_exhausted:'복구 횟수 소진',recovery_required:'내부 실행 복구 필요'})[row.reason] || row.reason;
+  if(row.state==='result_failed')return reason&&row.reason!=='ready'?'결과 처리 실패 · '+reason:'결과 처리 실패';
+  return reason;
 }
 function loomQueuePosition(row) {
   const reason=loomQueueReason(row);
@@ -125,6 +137,8 @@ const loomQueueStateBefore=queueState;
 queueState=function(entity){
  const q=loomQueueEntry(entity.id),base=loomQueueStateBefore(entity);
  if(q?.held)return {raw:base.raw,info:['paused',q.state==='preparing'?'Preparing · Hold requested':'Held','Ⅱ',false]};
+ const recovery=loomUnitQueueRecoveryStatus(q);
+ if(recovery)return {raw:q.state,info:['recovery',recovery,'↻',false]};
  if(q && ['failed','interrupted','result_failed'].includes(q.state))return {raw:q.state,info:['recovery',q.reason==='unit_failed'?'Unit 실패':loomQueueReason(q),'!',false]};
  return base;
 };
@@ -145,14 +159,15 @@ function loomCurrentQueuePanel(rows,table){
   };
   const jobs=(queue?.job_entries||[]).map(record).sort(loomQueueCompare),units=queue?.unit_entries||[];
   const body=units.map(unit=>{
-   const active=(unit.progress?.steps||[]).filter(step=>step.state==='running').map(step=>esc(step.label)).join(' · ');
+   const active=['preparing','running'].includes(unit.state)
+     ?(unit.progress?.steps||[]).filter(step=>step.state==='running').map(step=>esc(step.label)).join(' · '):'';
    const label=loomWorkTypeBadge('unit',unit.job_id)+catLink(unit.id,unit.unit?.label||unit.label)+loomQueueControls(unit.id,{reorder:false});
    const gpu=unit.gpu_access?.mode ? 'GPU · '+esc(unit.gpu_access.mode) : unit.lane==='gpu'?'GPU':'CPU';
-   return [label,unit.job_id?catLink(unit.job_id):'—',queueBadge(record(unit)),gpu,active||esc(loomQueueReason(unit)),
+   return [label,queueBadge(record(unit)),gpu,active||esc(loomQueueReason(unit)),
      '<div class="pa-forecast">'+loomForecastFinish(unit.forecast)+'</div>'];
   });
   return panel('Job Queue · '+jobs.length,notice+(jobs.length?table(jobs,true):queue?'<div class="pa-empty">대기 또는 실행 중인 Job이 없습니다.</div>':''))
-    +panel('Unit Queue · '+units.length,body.length?'<div class="pa-queue-table">'+catTable(['Unit','Job','상태','자원','진행','완료 예정'],body)+'</div>':queue?'<div class="pa-empty">대기 또는 실행 중인 Unit이 없습니다.</div>':'');
+    +panel('Unit Queue · '+units.length,body.length?'<div class="pa-queue-table pa-unit-work-queue">'+catTable(['Unit','상태','자원','진행','완료 예정'],body)+'</div>':queue?'<div class="pa-empty">대기 또는 실행 중인 Unit이 없습니다.</div>':'');
  }
  if(waiting)return panel('현재 큐',loomHomeStatus('queue'));
  if(catalogData.capabilities?.live_queue){

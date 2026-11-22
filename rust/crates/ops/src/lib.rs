@@ -49,8 +49,7 @@ pub enum Message {
     Unknown(Work, oneshot::Sender<Result<()>>),
     Publish(
         Work,
-        Value,
-        loom_core::reconcile::PreparedFiles,
+        Result<(Value, loom_core::reconcile::PreparedFiles)>,
         oneshot::Sender<Result<Value>>,
     ),
     Cancelled(Work, oneshot::Sender<Result<bool>>),
@@ -137,10 +136,20 @@ impl Service {
                     Message::Unknown(w, s) => {
                         let _ = s.send(application.effect_unknown(&w));
                     }
-                    Message::Publish(w, v, proofs, s) => {
-                        application.set_file_sets(proofs.inventories);
-                        let result = application.publish_work_verified(&w, v, Some(&proofs.files));
-                        application.set_file_sets(Default::default());
+                    Message::Publish(w, prepared, s) => {
+                        let result = match prepared {
+                            Ok((manifest, proofs)) => {
+                                application.set_file_sets(proofs.inventories);
+                                let result = application.publish_work_verified(
+                                    &w,
+                                    manifest,
+                                    Some(&proofs.files),
+                                );
+                                application.set_file_sets(Default::default());
+                                result
+                            }
+                            Err(error) => application.publish_work_failed(&w, error),
+                        };
                         let _ = s.send(result);
                     }
                     Message::Cancelled(w, s) => {
@@ -406,12 +415,11 @@ impl Service {
     pub async fn publish(
         &self,
         w: Work,
-        v: Value,
-        proofs: loom_core::reconcile::PreparedFiles,
+        prepared: Result<(Value, loom_core::reconcile::PreparedFiles)>,
     ) -> Result<Value> {
         let (s, r) = oneshot::channel();
         self.send
-            .send(Message::Publish(w, v, proofs, s))
+            .send(Message::Publish(w, prepared, s))
             .await
             .map_err(|_| Error::new("unavailable", "Application stopped", 503))?;
         r.await

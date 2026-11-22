@@ -62,14 +62,17 @@ class NativeExecutorTests(unittest.TestCase):
   (self.data/'.loom-storage.json').write_text('{"storage_id":"fixture-data"}')
   credential=self.root/'credential';credential.write_text(self.token);credential.chmod(0o600)
   profile={'schema':'loom-execution/v2','revision':'fixture.live.r1','sha256':'a'*64,'params_schema':{'type':'object','additionalProperties':False},'runtime':{'executor':'container','runtime_id':'cpu','lane':'cpu','command':['/bin/sh','-c','echo LIVE-RECEIPT; sleep 20']},'inputs':{},'outputs':None,'limits':{'timeout_seconds':30,'max_attempts':1}}
-  cfg=self.root/'api.json';cfg.write_text(json.dumps({'machine_id':'fixture','storage_id':'fixture-data','profiles':{'fixture.live.r1':profile},'actors':[{'id':'owner','scopes':['read','submit','cancel','events'],'owners':['owner'],'notify':['owner'],'token_sha256':hashlib.sha256(b'http-only').hexdigest()}],'executor':{'socket':str(self.host/'socket/executor.sock'),'credential':str(credential),'host_data':str(self.data),'storage':{'data/0':str(self.data)},'host_components':str(self.components)}}))
+  fast_failure={**profile,'revision':'fixture.fast.r1','sha256':'b'*64,
+                'runtime':{**profile['runtime'],'command':['/bin/sh','-c','sleep 0.2; echo EARLY-FAILURE >&2; exit 19']}}
+  profiles={entry['revision']:entry for entry in (profile,fast_failure)}
+  cfg=self.root/'api.json';cfg.write_text(json.dumps({'machine_id':'fixture','storage_id':'fixture-data','profiles':profiles,'actors':[{'id':'owner','scopes':['read','submit','cancel','events'],'owners':['owner'],'notify':['owner'],'token_sha256':hashlib.sha256(b'http-only').hexdigest()}],'executor':{'socket':str(self.host/'socket/executor.sock'),'credential':str(credential),'host_data':str(self.data),'storage':{'data/0':str(self.data)},'host_components':str(self.components)}}))
   with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
   process=subprocess.Popen([str(native_binary('loom-ops')),'--config',str(cfg),'--state',str(self.root/'ops'),'--data',str(self.data),'--components',str(self.components),'--listen',f'127.0.0.1:{port}'],stdout=self.log,stderr=self.log)
   def stop():
    if process.poll() is None:process.terminate();process.wait(timeout=10)
   self.addCleanup(stop)
-  def call(action,args):
-   with urlopen(Request(f'http://127.0.0.1:{port}/api/actions',data=json.dumps({'group':'jobs','action':action,'arguments':args}).encode(),headers={'Authorization':'Bearer http-only','Content-Type':'application/json'}),timeout=8) as response:return json.load(response)
+  def call(action,args,group='jobs'):
+   with urlopen(Request(f'http://127.0.0.1:{port}/api/actions',data=json.dumps({'group':group,'action':action,'arguments':args}).encode(),headers={'Authorization':'Bearer http-only','Content-Type':'application/json'}),timeout=8) as response:return json.load(response)
   for _ in range(100):
    try:call('queue',{});break
    except OSError:time.sleep(.05)
@@ -91,6 +94,22 @@ class NativeExecutorTests(unittest.TestCase):
    if call('get',{'id':job})['state']=='cancelled':break
    time.sleep(.1)
   self.assertEqual(call('get',{'id':job})['state'],'cancelled')
+  scenario=call('register_scenario',{'key':'container-scenario','definition':{'label':'Fixture Task'}},group='results')
+  failed=call('submit',{'key':'fast-failure','kind':'fixture.fast.r1','owner':'owner','notify':'owner','params':{},
+                        'scenario_ref':{'id':scenario['id'],'revision':1}})['id']
+  for _ in range(100):
+   record=call('get',{'id':failed})
+   if record['state']=='failed':break
+   time.sleep(.1)
+  self.assertEqual(record['state'],'failed')
+  self.assertEqual(record['result']['exit_code'],19)
+  request=json.loads((self.data/'runs'/failed/record['attempt']/'run-request.json').read_text())
+  self.assertEqual(request['scenario_ref'],{'id':scenario['id'],'revision':1,'sha256':scenario['sha256']})
+  for _ in range(100):
+   logs=call('logs',{'id':failed,'attempt':record['attempt'],'offset':0,'limit':65536})
+   if 'EARLY-FAILURE' in logs['text']:break
+   time.sleep(.1)
+  self.assertIn('EARLY-FAILURE',logs['text'])
 
  def test_slow_log_sealing_keeps_executor_cancellation_available(self):
   import concurrent.futures,shutil

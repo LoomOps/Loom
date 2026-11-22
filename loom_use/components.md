@@ -33,11 +33,11 @@ item). Owner namespace selects the registered source identity. Reassignment pres
 
 A Component is an immutable Job lifecycle adapter: request handling, execution entry and result return. Research algorithms (planners, policy/hybrid runners, transforms) belong to independently versioned Tools, which may be called repeatedly within one Job. A profile is an execution contract binding that revision to an image, commands, inputs, outputs, defaults and limits. Use components.write to edit, components.register to register, and components.register_profile for standalone profiles. Read each action's exact fields through system.describe. New components do not require new MCP servers or tools.
 
-The runner receives a request JSON path as its final argument. The request includes params, output_dir, profile and Job context. Optional prepare/finalize/on_error/on_complete/on_cancel commands use the same runner format. External callbacks must deduplicate effects by event_id. Callback failures are reported separately from execution outcomes.
+The runner receives a request JSON path as its final argument. The request includes `params`, `output_dir`, `profile` and Job context. When the Unit has a pinned Task, Loom passes its exact `{id, revision, sha256}` in top-level `scenario_ref`. Optional prepare/finalize/on_error/on_complete/on_cancel commands use the same runner format. External callbacks must deduplicate effects by `event_id`. Callback failures are reported separately from execution outcomes.
 
 ## Outputs
 
-Write files and result.json into output_dir. Use the `results` guide and `system.contract` for entity/metric output shapes; declare IDs, kinds, paths, provenance and relations where the contract requires them. Record request.profile.revision and request.profile.sha256 as provenance.profile and provenance.producer_sha256 respectively. Declare measurements, units, denominators and splits through exact registered metadata templates in the Profile; retain metadata_schemas for additional checks. Read the metadata guide before publishing a new output format. Generic Job state transitions do not generate domain metadata automatically.
+Write files and `result.json` into `output_dir`. Use the `results` guide and `system.contract` for entity and metric output shapes. Declare the output ID, kind, path and relations. Loom fills an omitted `provenance` from the accepted Profile pins. To supply it explicitly, copy `request.profile.revision` to `provenance.profile` and `request.profile.sha256` to `provenance.producer_sha256`. Declare measurements, units, denominators and splits through exact registered metadata templates in the Profile. Retain `metadata_schemas` for additional checks. Read the metadata guide before publishing a new output format. Generic Job state transitions do not generate domain metadata automatically.
 
 ## Installation and reuse
 
@@ -177,3 +177,5 @@ manage user registrations. MCP lists include archived items by default. Prefer
 active resources for new work; an existing explicit pin remains usable. Use
 `include_archived=false` or `lifecycle_state` to filter discovery. There is no
 physical delete, uninstall or automatic cascade.
+
+Before a long container run, exercise the actual entry point in the pinned Runtime with the real request shape and declared mounts. Validate the exact Task and Profile pins, imports, input keys, output directories, and the first useful effect. For an Isaac or CUDA-specific entry path, use a reduced run that reaches the first physical step, observation or CUDA operation required by the accepted work. Reuse verified preflight evidence for unchanged pins.

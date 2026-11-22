@@ -3,6 +3,11 @@
 ## Boundary
 
 Distinguish execution completion from indexing completion. Ownership changes must not overwrite original artifact or execution provenance.
+For typed execution outputs, publication fills omitted provenance from the Profile
+revision and source hash frozen on the accepted Unit. Any explicit provenance
+must match those pins. Invalid manifest contracts enter recovery without repeating
+publication automatically. Unit details retain the latest publication error
+alongside the successful execution receipt.
 File hashing, retained inventory and storage-marker reads reject symlinks and special files without waiting for a FIFO writer. Marker metadata is bounded to 64 KiB. Registered path/media descriptors close on exec; they do not become inherited producer permissions.
 
 ## Interfaces
@@ -148,3 +153,5 @@ missing and zero remain distinct. Distribution renderers consume typed numeric
 points, category counts or precomputed bins, and matrix cells with explicit
 admitted and assigned counts. Evaluation summaries preserve the published case
 population and the pinned criteria. See [reporting](../../loom_use/reporting.md).
+
+A producer may publish an artifact-only manifest with an explicit failed execution outcome and ordered case counts. Preserve its diagnostic files, fail the execution Attempt, open recovery, and keep dependent work ineligible. A measured scientific result of zero retains the normal publication contract.

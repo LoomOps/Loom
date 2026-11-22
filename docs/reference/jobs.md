@@ -1207,7 +1207,7 @@ Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crate
 
 ### Result and failures
 
-Queue · entries with position, held, reason, capabilities and optional producer progress forecast for a running Unit
+Queue entries with position, held, reason and capabilities. Units may include recovery state and started rounds, and running Units may include a producer progress forecast.
 
 Shared authentication, schema, scope and handler preconditions still apply.
 
