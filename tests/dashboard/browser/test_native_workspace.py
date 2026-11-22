@@ -282,7 +282,9 @@ class NativeWorkspaceTests(unittest.TestCase):
    for theme in ('light','dark'):
     ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("const d=document.querySelector('[data-hub-dialog]');return d.scrollWidth<=d.clientWidth+1"))
  def test_policy_detail_shows_all_checkpoint_and_training_revisions(self):
-  job=self.call('jobs','submit',{'key':'browser-policy-revisions','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False}})['id']
+  task=self.call('results','register_scenario',{'key':'browser-policy-revision-context','definition':{'label':'Revision policy context'}})
+  scenario={'id':task['id'],'revision':1}
+  job=self.call('jobs','submit',{'key':'browser-policy-revisions','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False},'scenario_ref':scenario})['id']
   identity=job+'.revision-policy'
   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
    for revision,selected,steps in [(1,20000,list(range(1,102))+[25000]),(2,30000,[25000,30000])]:
@@ -299,7 +301,7 @@ class NativeWorkspaceTests(unittest.TestCase):
     raw=json.dumps({'schema':'loom-report/v1','data':{'points':[{'step':step,'value':revision/10} for step in steps]}}).encode()
     report=component('training.json',raw)
     fields=[{'id':'points','label':'Training loss','pointer':'/points','format':'series','unit':'','x_pointer':'/step','y_pointer':'/value','x_label':'Optimizer step','y_label':'Loss'}]
-    manifest={'id':identity,'revision':revision,'kind':'model','label':'Revision policy fixture','job':job,'catalog_class':'regular','components':components,'relations':[],
+    manifest={'id':identity,'revision':revision,'kind':'model','label':'Revision policy fixture','job':job,'catalog_class':'regular','components':components,'relations':[],'scenario_ref':scenario,
               'metadata':{'research':{'model':{'role':'policy','selected_step':selected}}},
               'reporting':{'state':'validated','reports':[{'requirement_id':'training','label':'Training','role':'learning_series','state':'recorded','component':report['ref'],'sha256':report['sha256'],'fields':fields}]}}
     db.execute("INSERT INTO entity_revisions VALUES(?,?,?,'model','owner','owner',?)",(identity,revision,job,json.dumps(manifest)))
@@ -312,6 +314,7 @@ class NativeWorkspaceTests(unittest.TestCase):
    except HTTPError:time.sleep(.05)
   else:self.fail('Policy revisions did not index')
   ui=self.ui;ui.nav('Policies')
+  ui.wait("const task=[...document.querySelectorAll('[data-research-task]')].find(node=>node.dataset.researchTask===arguments[0]);if(!task)return false;task.click();return true;",task['id'])
   ui.wait("const link=[...document.querySelectorAll('[data-output-id] [data-entity]')].find(node=>node.textContent==='Revision policy fixture');if(!link)return false;link.click();return true;")
   checkpoints_loaded="return document.querySelector('[data-report-checkpoints]')?.textContent.includes('30,000 (r2)')"
   ui.wait(checkpoints_loaded)

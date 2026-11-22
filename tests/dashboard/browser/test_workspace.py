@@ -777,8 +777,8 @@ const done=arguments[arguments.length-1];
         self.assertFalse(ui.js("return !![...document.querySelectorAll('[data-catalog-task-card]')].find(e=>e.dataset.catalogTaskCard==='')"))
         text=ui.js("return ['rich','legacy','annotated','conditions'].map(id=>document.querySelector('[data-output-id=dataset-'+id+']').innerText)")
         self.assertIn('Episodes\n140',text[0])
-        self.assertIn('Tag\nsplit-100/20/20',text[0])
-        self.assertEqual(ui.js("return document.querySelector('[data-output-id=dataset-rich] .pa-split-tag').title"),
+        self.assertIn('Split\n100/20/20\nTag\n-',text[0])
+        self.assertEqual(ui.js("return document.querySelector('[data-output-id=dataset-rich] [data-research-fact=split] dd').title"),
                          'train 100 / validation 20 / test 20')
         self.assertIn('Episodes\nMissing',text[1])
         self.assertIn('Episodes\n1',text[2])
@@ -1935,6 +1935,7 @@ const done=arguments[arguments.length-1];
         child['research_summary']['facts'][0]['unit']='cases'
         parent['task_refs']=child['task_refs']=[{'id':'test-family','revision':1,'label':'Test family · Alignment'}]
         parent['dataset_organization']=child['dataset_organization']={'task_ref':{'id':'test-family','revision':1},'path':[{'id':'cohort','label':'Cohort'}]}
+        child['dataset_organization']={**child['dataset_organization'],'description':'Catalog description for the selected conditions'}
         parent['dataset_overview']={'role':'training_observations'}
         child['dataset_overview']={'role':'evaluation_conditions'}
         parent['research_summary']['inputs']=[{'kind':'rgb','status':'present'}]
@@ -1960,6 +1961,7 @@ const done=arguments[arguments.length-1];
         self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-output-source>summary')].map(x=>x.textContent)"),['Sources'])
         visible=ui.js("return document.querySelector('#pa-content').innerText")
         self.assertNotIn('Legacy overview remains',visible);self.assertNotIn('Source metadata',visible);self.assertNotIn('개요',visible)
+        self.assertIn('Catalog description for the selected conditions',visible)
         self.assertIn('Cases',visible);self.assertIn('Conditions selected from',visible)
         self.assertEqual(ui.js("return document.querySelector('.pa-research-overview [data-research-fact=count] dd').textContent"),'2')
         self.assertNotIn('a'*64,visible)
@@ -2055,7 +2057,7 @@ const done=arguments[arguments.length-1];
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('scientific-summary-ui')")
         ui.nav('Datasets');ui.wait("return !!document.querySelector('[data-output-id=scientific-dataset]')")
         text=ui.js("return document.querySelector('[data-output-id=scientific-dataset]').textContent")
-        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=scientific-dataset] dt')].map(n=>n.textContent)"),['Tag','Episodes'])
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=scientific-dataset] dt')].map(n=>n.textContent)"),['Episodes','Split','Tag'])
         for value in ['240 Hz','80 Hz','20 · 40 Hz','0.125 kg']:self.assertNotIn(value,text)
         ui.route(dataset['id']);ui.wait("return !!document.querySelector('[data-research-section=physics]')")
         text=ui.js("return document.querySelector('[data-research-section=physics]').textContent")
