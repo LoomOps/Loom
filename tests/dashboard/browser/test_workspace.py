@@ -146,6 +146,9 @@ class WorkspaceBrowserTests(unittest.TestCase):
                 self.wd('/refresh', {})
                 self.ui.connect()
                 for cell in (job_finish, unit_finish):
+                    self.ui.wait('return '+cell+'?.textContent.includes("미지원")')
+                unit['forecast'] = {'status':'unavailable','reason':'unknown_total'}
+                for cell in (job_finish, unit_finish):
                     self.ui.wait('return '+cell+'?.textContent.includes("산정 불가")')
                 unit['forecast'] = {'status':'measuring','phase':'training','progress':100,'total':1000,'progress_unit':'updates','as_of':time.time()}
                 for cell in (job_finish, unit_finish):
