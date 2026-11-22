@@ -13,7 +13,7 @@ class ReconciliationTests(unittest.TestCase):
  def test_v3_scientific_import_selects_a_template_and_preserves_bytes(self):
   raw=b'preserved scientific fixture\n';(self.data/'template.txt').write_bytes(raw)
   t=self.call('results','get_metadata_template',{'id':'loom.dataset','revision':1});pin={k:t[k] for k in ('id','revision','sha256')}
-  definition={'kind':'dataset','label':'Source demonstrations','primary':{'machine_id':'fixture','storage_id':'fixture-data','ref':'template.txt'},'metadata':{'template_ref':pin,'research':{'robot':{'status':'recorded','model':'Franka Panda'},'collection':{'status':'recorded','count':0,'unit':'episodes'}}}}
+  definition={'kind':'dataset','label':'Source demonstrations','primary':{'machine_id':'fixture','storage_id':'fixture-data','ref':'template.txt'},'metadata':{'template_ref':pin,'research':{'robot':{'status':'recorded','model':'Franka Panda'},'collection':{'status':'recorded','count':0,'unit':'episodes','split':{'train':0,'validation':0,'test':0}}}}}
   op={'operation':'import','schema':'loom-asset/v3','source':{'system':'fixture','id':'typed-dataset','revision':'1'},'definition':definition}
   request={'key':'template-plan','proposal':{'schema':'loom-reconcile/v1','operations':[op]}}
   with self.assertRaises(HTTPError) as missing:self.call('results','reconcile_plan',request)

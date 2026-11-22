@@ -42,7 +42,7 @@ class RustServiceTests(unittest.TestCase):
  def test_metadata_templates_use_the_same_http_and_mcp_contract(self):
   listing=self.call('results','metadata_templates',{'kind':'dataset','limit':1});self.assertEqual(listing['items'][0]['id'],'loom.dataset');self.assertNotIn('definition',listing['items'][0])
   t=self.call('results','get_metadata_template',{'id':'loom.dataset','revision':1});pin={k:t[k] for k in ('id','revision','sha256')}
-  args={'kind':'dataset','template_ref':pin,'research':{'robot':{'status':'recorded','model':'Franka Panda'},'collection':{'status':'recorded','count':0,'unit':'episodes'}}}
+  args={'kind':'dataset','template_ref':pin,'research':{'robot':{'status':'recorded','model':'Franka Panda'},'collection':{'status':'recorded','count':0,'unit':'episodes','split':{'train':0,'validation':0,'test':0}}}}
   http=self.call('results','validate_metadata',args)
   reply=self.post('/mcp',{'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':'results','arguments':{'action':'validate_metadata','arguments':args}}})
   self.assertEqual(json.loads(reply['result']['content'][0]['text']),http);self.assertEqual(http['scientific_acceptance'],'unverified')
