@@ -14,6 +14,12 @@ Use a sealed plan when all bindings are ready. When a Runtime is pending, reserv
 
 Keep episodes, optimizer updates and other in-process progress in the producer's existing progress report. The SDK writes the bounded `loom-job-steps/v1` compatibility report, which the Dashboard displays as observed Units on typed execution. In a typed run request, `unit_id` identifies the scheduled execution and `research_job_id` is its optional Job. Existing physical producer and Attempt fields retain their original meaning.
 
+When intake pins a Task, the worker request carries `scenario_ref` with its ID,
+revision and SHA-256. Read that pin to validate Task-specific inputs. Legacy
+requests without an accepted Task pin can omit it. A successful process exit or
+registered diagnostic artifact alone is insufficient to establish a completed
+Unit. Check its terminal state and accepted outputs before advancing dependents.
+
 For a timed phase with a stable total, report a cumulative counter via the SDK's
 `report_work_progress` or the `loom-work-progress/v1` file. Declare
 `progress_reporting: true` in a Profile with a reporter. Use one reporter per

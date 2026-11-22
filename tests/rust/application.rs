@@ -2039,6 +2039,144 @@ fn publication_retry_keeps_attempt_and_execution_count() {
     assert_eq!(issues[0]["properties"]["status"], "resolved");
     assert_eq!(issues[0]["properties"]["verified_attempt_id"], work.attempt);
 }
+
+#[test]
+fn publication_and_its_callback_commit_together() {
+    let mut f = Fixture::new();
+    let id = f.submit("atomic-publication");
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET spec=json_set(spec,'$.profile.on_complete',json('{}')) WHERE id=?",
+            [&id],
+        )
+        .unwrap();
+    let run = f.app.next_work(&Default::default()).unwrap().unwrap();
+    f.app
+        .stage_returned(&run, 0, json!({"returned":true}))
+        .unwrap();
+    let publication = f.app.next_work(&Default::default()).unwrap().unwrap();
+    fs::create_dir_all(&publication.folder).unwrap();
+    fs::write(publication.folder.join("clip.dat"), b"once").unwrap();
+    let manifest =
+        json!({"entities":[{"id":"clip","kind":"artifact","path":"clip.dat"}],"metrics":[]});
+    f.app.db.execute_batch("CREATE TRIGGER fail_callback BEFORE INSERT ON hooks BEGIN SELECT RAISE(ABORT,'callback write failed'); END;").unwrap();
+    assert!(f.app.publish_work(&publication, manifest.clone()).is_err());
+    assert_eq!(f.count("entity_revisions"), 0);
+    assert_eq!(
+        f.call("jobs", "get", json!({"id":id})).unwrap()["state"],
+        "processing"
+    );
+    f.app
+        .db
+        .execute_batch("DROP TRIGGER fail_callback; UPDATE result_outbox SET next_try=0;")
+        .unwrap();
+    let retry = f.app.next_work(&Default::default()).unwrap().unwrap();
+    let completed = f.app.publish_work(&retry, manifest).unwrap();
+    assert_eq!(f.count("entity_revisions"), 1);
+    assert_eq!(f.count("hooks"), 1);
+    assert_eq!(f.app.publish_work(&retry, Value::Null).unwrap(), completed);
+    assert_eq!(f.count("hooks"), 1);
+}
+
+#[test]
+fn replay_acknowledges_an_already_registered_publication_without_its_files() {
+    let mut f = Fixture::new();
+    let id = f.submit("old-split-publication");
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET spec=json_set(spec,'$.profile.on_complete',json('{}')) WHERE id=?",
+            [&id],
+        )
+        .unwrap();
+    let run = f.app.next_work(&Default::default()).unwrap().unwrap();
+    f.app
+        .stage_returned(&run, 0, json!({"returned":true}))
+        .unwrap();
+    let publication = f.app.next_work(&Default::default()).unwrap().unwrap();
+    // Reproduce the old service exiting after the artifact transaction committed.
+    fs::create_dir_all(&publication.folder).unwrap();
+    let path = publication.folder.join("clip.dat");
+    fs::write(&path, b"already registered").unwrap();
+    let committed = f
+        .app
+        .publish_result(
+            &id,
+            &run.attempt,
+            json!({"entities":[{"id":"clip","kind":"artifact","path":"clip.dat"}],"metrics":[]}),
+            &publication.folder,
+        )
+        .unwrap();
+    fs::remove_file(path).unwrap();
+    assert_eq!(f.count("hooks"), 0);
+    let recovered = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(recovered.effect, publication.effect);
+    assert_eq!(
+        f.app
+            .publish_work_failed(&recovered, Error::input("manifest unavailable"))
+            .unwrap(),
+        committed
+    );
+    assert_eq!(f.count("hooks"), 1);
+    let detail = f.call("jobs", "get", json!({"id":id})).unwrap();
+    assert_eq!(detail["result"], committed);
+    assert!(detail["recovery"].is_null());
+}
+
+#[test]
+fn finalizer_retry_preserves_the_run_and_updates_the_exact_attempt_result() {
+    let mut f = Fixture::new();
+    let id = f.submit("finalizer-return");
+    f.app
+        .db
+        .execute(
+            "UPDATE jobs SET spec=json_set(spec,'$.profile.finalize',json('{}')) WHERE id=?",
+            [&id],
+        )
+        .unwrap();
+    let run = f.app.next_work(&Default::default()).unwrap().unwrap();
+    f.app
+        .stage_returned(&run, 0, json!({"returned":true}))
+        .unwrap();
+    let finalize = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(finalize.stage, "finalize");
+    f.app
+        .stage_returned(&finalize, 4, json!({"returned":true}))
+        .unwrap();
+    let failed = f.call("jobs", "get", json!({"id":id})).unwrap();
+    assert_eq!(failed["result"]["execution"]["exit_code"], 0);
+    assert_eq!(failed["result"]["exit_code"], 4);
+    let lease = f.call("recovery", "claim", json!({"id":id})).unwrap();
+    f.call(
+        "recovery",
+        "resume",
+        json!({"id":id,"lease":lease["lease"]}),
+    )
+    .unwrap();
+    let retry = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(retry.attempt, run.attempt);
+    assert_eq!(retry.result["execution"]["exit_code"], 0);
+    f.app
+        .stage_returned(&retry, 0, json!({"returned":true}))
+        .unwrap();
+    let publication = f.app.next_work(&Default::default()).unwrap().unwrap();
+    fs::create_dir_all(&publication.folder).unwrap();
+    fs::write(publication.folder.join("clip.dat"), b"finalized output").unwrap();
+    let completed = f
+        .app
+        .publish_work(
+            &publication,
+            json!({"entities":[{"id":"clip","kind":"artifact","path":"clip.dat"}],"metrics":[]}),
+        )
+        .unwrap();
+    let detail = f.call("jobs", "get", json!({"id":id})).unwrap();
+    assert_eq!(detail["attempts"][0]["state"], "complete");
+    assert_eq!(detail["attempts"][0]["result"], completed);
+    assert_eq!(completed["execution"]["exit_code"], 0);
+    assert_eq!(f.count("attempts"), 1);
+}
+
 #[test]
 fn permanent_publication_error_keeps_the_unit_out_of_execution_after_recovery_expires() {
     let mut f = Fixture::new();

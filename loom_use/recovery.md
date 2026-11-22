@@ -37,10 +37,13 @@ If no agent arrives or the limit is reached, defer the failed Job and its depend
 ## Repair publication
 
 For a Unit with `state=result_failed`, read `units.get.result.publication_error`
-for the error code, message, status and automatic retry eligibility when present.
-Correct the source of the rejection and resume finalization for the same Attempt
-using the recovery lease. Use `results.reindex` when only publication or index
-repair needs to run. Both paths keep the original execution Attempt.
+for a rejected publication. If the finalizer process failed, read the exact
+Attempt's `result.stage`, `result.exit_code` and its logs. The original run
+exit code is recorded separately in `result.execution`.
+Correct the failure and resume finalization for the same Attempt using the
+recovery lease. Use `results.reindex` for a supported publication or index
+repair. Read back the same Attempt and its registered outputs after recovery.
+On a lost publication reply, check the Unit and exact Attempt before retrying.
 
 `recovery.state=executing` means a recovery round has started. Inspect the Job's
 public `status` for its actual preparing/running/finalizing phase; executing is not

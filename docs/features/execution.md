@@ -42,6 +42,12 @@ Host memory parsing rejects malformed Unicode without panicking. Executor creden
 The stage return receipt preserves the accepted Executor ticket so callers
 and background collection can address the same log stream after a fast exit.
 
+Artifact registration commits together with the publication receipt, lifecycle
+callback reservation and recovery closure. A worker that recovers an older
+unacknowledged publication reads the committed result for the same Attempt.
+Finalization retries keep the run receipt and update the exact Attempt result
+when publication succeeds. Earlier failures remain in Troubleshooting.
+
 ## Change review
 
 When execution contracts change, verify the worker, executor, restart/idempotency behavior, cancellation, result collection and Compose mounts. Review the full installation doctor and step exit criteria when this feature changes; a local health response does not establish user-facing readiness.

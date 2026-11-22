@@ -595,7 +595,7 @@ impl Application {
         manifest: Value,
         folder: &std::path::Path,
     ) -> Result<Value> {
-        self.publish_result_verified(job, attempt, manifest, folder, None)
+        self.publish_result_verified(job, attempt, manifest, folder, None, None)
     }
     pub(crate) fn publish_result_verified(
         &mut self,
@@ -604,6 +604,7 @@ impl Application {
         mut manifest: Value,
         folder: &std::path::Path,
         proofs: Option<&std::collections::BTreeMap<std::path::PathBuf, storage::VerifiedFile>>,
+        effect: Option<&str>,
     ) -> Result<Value> {
         let row = jobs::load(&self.db, job)?;
         require(
@@ -632,6 +633,9 @@ impl Application {
                 "DELETE FROM result_outbox WHERE job=? AND attempt=?",
                 params![job, attempt],
             )?;
+            if let Some(effect) = effect {
+                crate::execution::complete_publication(&tx, job, effect)?;
+            }
             tx.commit()?;
             return Ok(json!({"id":job,"state":"cancelled"}));
         }
@@ -1195,6 +1199,7 @@ impl Application {
             );
         } else {
             jobs::transition(&tx, &current, Event::Publish)?;
+            tx.execute("UPDATE attempts SET state='complete' WHERE id=?", [attempt])?;
             let _ = crate::diagnostics::resolve_execution_issues(&tx, job, attempt);
         }
         tx.execute(
@@ -1202,7 +1207,7 @@ impl Application {
             params![encode(&result)?, job, attempt],
         )?;
         tx.execute(
-            "INSERT OR IGNORE INTO attempt_results VALUES(?,?,?)",
+            "INSERT INTO attempt_results VALUES(?,?,?) ON CONFLICT(job,attempt) DO UPDATE SET result=excluded.result",
             params![job, attempt, encode(&result)?],
         )?;
         tx.execute(
@@ -1218,6 +1223,9 @@ impl Application {
                 "complete"
             },
         )?;
+        if let Some(effect) = effect {
+            crate::execution::complete_publication(&tx, job, effect)?;
+        }
         tx.commit()?;
         Ok(result)
     }
