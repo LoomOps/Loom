@@ -113,10 +113,18 @@ SHA-256 verified report. Batch metadata stays in provenance.
 Experiments and Policies with a verified compatible evaluation context.
 Source outputs and scores remain exact.
 
-A Regular Policy Job can set `outcome.deliverables[0].revises` to the exact
-current Policy. Publication checks the owner, Task and current revision and adds
-the new output under the same ID. It stores the new Job's files and metrics and
-keeps previous revisions addressable.
+A Regular Dataset append or Policy continuation can set
+`outcome.deliverables[0].revises` and `edit_authorization` to record the user's
+explicit direction or confirmation. Loom validates the exact revision, owner
+and Task, claims a logical output for the executing Job, and rechecks the
+claim and current revision at publication. The producing Unit consumes the
+base as an exact immutable input. Dataset append checks registered memberships
+and preserves split assignment. Repartitioning is a new Dataset. Output locks
+are released when the owning Job becomes terminal; normal result recovery keeps
+the verified Attempt. A losing writer whose base changed remains blocked until
+cancelled and resubmitted with an authorized current base. Existing exact
+artifact readers keep their pin. The explicit adoption action retains existing
+producer records and locations when consolidating separately published outputs.
 
 ## Metadata templates
 

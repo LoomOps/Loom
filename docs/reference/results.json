@@ -329,6 +329,110 @@
     },
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "adopt_output_revision",
+      "description": "With the user's explicit direction, consolidate a completed Regular Dataset append or Policy continuation under the original record's next revision. Requires the submitting principal of the verified source and an exact consumed base. Original records stay addressable; the standalone continuation is retired from the Current list.",
+      "example": {
+        "authorization": {
+          "basis": "explicit_request",
+          "evidence": "<user instruction identifying both records>"
+        },
+        "base": {
+          "id": "<original-output>",
+          "revision": 1
+        },
+        "key": "adopt-reviewed-continuation",
+        "source": {
+          "id": "<completed-continuation>",
+          "revision": 1
+        }
+      },
+      "group": "results",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/output_edits.rs#adopt_output_revision",
+        "feature": "results"
+      },
+      "returns": "Returns the original ID, its new exact revision, the source revision and its disposition.",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "authorization": {
+            "additionalProperties": false,
+            "properties": {
+              "basis": {
+                "enum": [
+                  "explicit_request",
+                  "confirmed"
+                ]
+              },
+              "evidence": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "basis",
+              "evidence"
+            ],
+            "type": "object"
+          },
+          "base": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              "revision": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "revision"
+            ],
+            "type": "object"
+          },
+          "key": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "source": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "type": "string"
+              },
+              "revision": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "revision"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "base",
+          "source",
+          "authorization",
+          "key"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Adopt a published continuation"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "group_evaluations",
       "description": "Record a comparison association for current Regular Experiments with verified matching protocol, inputs and seed/reset cohort. Catalog rows stay independent. Use a checkpoint supplement to extend the same Experiment revision history.",
       "errors": [

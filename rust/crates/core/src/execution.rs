@@ -55,6 +55,7 @@ impl Application {
     let ready=jobs::readiness(&tx,&record)?;
     let prepare=record.stage_and_lane().0=="prepare";
     if ready.reason().is_some(){continue}
+    if !crate::output_edits::claim(&tx,job)?{continue}
     if record.aggregate.state==JobState::Queued {
      let attempt=crate::store::id();tx.execute("UPDATE jobs SET attempt=? WHERE id=? AND state='queued'",params![attempt,job])?;
      tx.execute("INSERT INTO attempts VALUES(?,?,'running',?,NULL)",params![attempt,job,now()])?;

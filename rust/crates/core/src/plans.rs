@@ -604,6 +604,7 @@ pub(crate) fn finish(db: &Connection, root: &str) -> Result<bool> {
         "UPDATE job_workflows SET state=? WHERE id=?",
         params![terminal, root],
     )?;
+    db.execute("DELETE FROM output_edit_claims WHERE root=?", [root])?;
     db.execute(
         "INSERT INTO events(job,target,code,created,attempt) SELECT ?1,?2,?3,?4,NULL WHERE NOT EXISTS(SELECT 1 FROM events WHERE job=?1 AND target=?2 AND code=?3 AND attempt IS NULL)",
         params![root, notify, terminal, now()],
@@ -836,16 +837,26 @@ impl Application {
                 let output = &doc["outcome"]["deliverables"][0];
                 if let Some(target) = output.get("revises") {
                     require(
-                        output["kind"] == "model" && output.get("supplements").is_none(),
-                        "policy_revision",
-                        "Only a Policy can revise a Policy",
+                        matches!(output["kind"].as_str(), Some("dataset" | "model"))
+                            && output.get("supplements").is_none(),
+                        "output_revision",
+                        "Only a Regular Dataset or Policy supports this edit",
                         400,
                     )?;
-                    crate::results::policy_revision_base(
+                    crate::output_edits::authorize(&output["edit_authorization"])?;
+                    crate::results::output_revision_base(
                         &tx,
                         target,
                         raw["owner"].as_str().unwrap(),
                         &raw["scenario_ref"],
+                        output["kind"].as_str().unwrap(),
+                    )?;
+                } else {
+                    require(
+                        output.get("edit_authorization").is_none(),
+                        "output_revision",
+                        "Edit authorization requires a revision target",
+                        400,
                     )?;
                 }
                 if let Some(target) = output.get("supplements") {

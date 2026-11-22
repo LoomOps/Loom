@@ -14,7 +14,14 @@ Use a sealed plan when all bindings are ready. When a Runtime is pending, reserv
 
 Keep episodes, optimizer updates and other in-process progress in the producer's existing progress report. The SDK writes the bounded `loom-job-steps/v1` compatibility report, which the Dashboard displays as observed Units on typed execution. In a typed run request, `unit_id` identifies the scheduled execution and `research_job_id` is its optional Job. Existing physical producer and Attempt fields retain their original meaning.
 
-For a timed phase with a stable total, report a cumulative counter via the SDK's `report_work_progress` or the `loom-work-progress/v1` file described in the `authoring` guide. Use a single reporter for each running Unit. The Dashboard can then estimate the end of that phase.
+For a timed phase with a stable total, report a cumulative counter via the SDK's
+`report_work_progress` or the `loom-work-progress/v1` file. Declare
+`progress_reporting: true` in a Profile with a reporter. Use one reporter per
+running Unit, emitting an initial sample and then about every five minutes.
+If an estimate is unavailable at entry, proceed with the Job. The producer may
+report `unknown_total` or `unstable_rate` with `report_work_unavailable` and
+start reporting measured counters later in the same Attempt. The Dashboard
+estimates the reported phase; queueing, later Units and publication are separate.
 
 For long generation, pin episode IDs, seeds, configuration and input revisions. Checkpoint completed episodes atomically with hashes and a durable manifest. On restart, verify the checkpoint against the accepted inputs and skip exactly the completed items. Use [recovery](recovery.md) for a failed Attempt or publication repair.
 

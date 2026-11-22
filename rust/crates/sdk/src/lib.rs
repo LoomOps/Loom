@@ -187,6 +187,29 @@ impl Producer {
         });
         Ok(())
     }
+    /// Record why ETA is unavailable now. A later progress sample starts measurement.
+    pub fn report_work_unavailable(&mut self, reason: &str) -> Result<()> {
+        self.check_cancelled()?;
+        if self.request.stage != "run"
+            || self.request.job.is_empty()
+            || self.request.attempt.is_empty()
+            || !matches!(reason, "unknown_total" | "unstable_rate")
+        {
+            return Err("Invalid work progress availability".into());
+        }
+        let recorded = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs_f64();
+        let report = json!({"schema":"loom-work-progress/v1","job":self.request.job,
+            "attempt":self.request.attempt,"stage":self.request.stage,
+            "unavailable_reason":reason,"recorded":recorded});
+        atomic(
+            &inside(&self.request.output_dir, "work-progress.json")?,
+            &serde_json::to_vec(&report)?,
+        )?;
+        self.work_sample = None;
+        Ok(())
+    }
     pub fn progress(&mut self, step: &str, state: &str) -> Result<()> {
         self.check_cancelled()?;
         if !matches!(state, "pending" | "running" | "completed" | "failed") {

@@ -110,6 +110,10 @@ CREATE TABLE IF NOT EXISTS rust_plan_revisions(
 );
 
 CREATE TABLE IF NOT EXISTS research_jobs(id TEXT PRIMARY KEY REFERENCES job_workflows(id));
+CREATE TABLE IF NOT EXISTS output_edit_claims(
+ target TEXT PRIMARY KEY, root TEXT NOT NULL UNIQUE REFERENCES research_jobs(id),
+ base INTEGER NOT NULL, acquired REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS execution_units(
  id TEXT PRIMARY KEY REFERENCES jobs(id),
  job_id TEXT REFERENCES research_jobs(id),

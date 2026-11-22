@@ -26,6 +26,7 @@ pub mod maintenance;
 pub mod media;
 pub mod metadata_templates;
 pub mod onboarding;
+mod output_edits;
 mod plans;
 pub mod progress;
 pub mod query;

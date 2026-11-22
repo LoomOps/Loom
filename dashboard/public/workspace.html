@@ -4621,8 +4621,12 @@ const loomQueueEntries = () =&gt; {
 const loomQueueEntry = id =&gt; loomQueueEntries().find(row =&gt; row.id === id);
 function loomForecastFinish(forecast) {
   if (forecast?.status === &#x27;measuring&#x27;) return &#x27;측정 중&#x27;;
-  if (forecast?.status !== &#x27;estimated&#x27; || !Number.isFinite(forecast.finish_at))
-    return &#x27;&lt;span class=&quot;pa-subtle&quot; title=&quot;사용할 수 있는 진행률 표본 없음&quot;&gt;산정 불가&lt;/span&gt;&#x27;;
+  if (!forecast) return &#x27;&lt;span class=&quot;pa-subtle&quot;&gt;미지원&lt;/span&gt;&#x27;;
+  if (forecast.status !== &#x27;estimated&#x27; || !Number.isFinite(forecast.finish_at)) {
+    const reason = ({unknown_total:&#x27;작업 총량 미확정&#x27;,unstable_rate:&#x27;진행 속도가 아직 안정적이지 않음&#x27;,
+      stale_samples:&#x27;최근 진행률 갱신 없음&#x27;,no_usable_sample:&#x27;유효한 진행률 표본 없음&#x27;})[forecast.reason];
+    return &#x27;&lt;span class=&quot;pa-subtle&quot; title=&quot;&#x27;+esc(reason||&#x27;사용할 수 있는 진행률 표본 없음&#x27;)+&#x27;&quot;&gt;산정 불가&lt;/span&gt;&#x27;;
+  }
   const label = forecast.phase === &#x27;training&#x27; ? &#x27;학습 종료 예상&#x27; : &#x27;Unit 실행 종료 예상&#x27;;
   return queueTime(queueMillis(forecast.finish_at)) + &#x27;&lt;small&gt;&#x27; + label + &#x27;&lt;/small&gt;&#x27;;
 }
@@ -4633,8 +4637,9 @@ function forecastCells(entity) {
     ? queueDuration(Math.max(0, forecast.finish_at * 1000 - Date.now())) : &#x27;—&#x27;;
   const progress = Number.isFinite(forecast?.progress) &amp;&amp; Number.isFinite(forecast.total) ? &#x27;&lt;small&gt;&#x27; + forecast.progress.toLocaleString() + &#x27; / &#x27; + forecast.total.toLocaleString()
     + &#x27; &#x27; + esc(forecast.progress_unit) + &#x27;&lt;/small&gt;&#x27; : &#x27;&#x27;;
-  const start = queueTimes(entity).started !== null ? &#x27;시작됨&#x27; : &#x27;산정 대기&#x27;;
-  return [remaining + progress, start, loomForecastFinish(forecast)].map(cell =&gt; &#x27;&lt;div class=&quot;pa-forecast&quot;&gt;&#x27; + cell + &#x27;&lt;/div&gt;&#x27;);
+  const started = queueTimes(entity).started !== null;
+  const finish = active.length &gt; 1 || !started &amp;&amp; !forecast ? &#x27;—&#x27; : loomForecastFinish(forecast);
+  return [remaining + progress, started?&#x27;시작됨&#x27;:&#x27;시작 전&#x27;, finish].map(cell =&gt; &#x27;&lt;div class=&quot;pa-forecast&quot;&gt;&#x27; + cell + &#x27;&lt;/div&gt;&#x27;);
 }
 function loomUnitRecoveryLabel(unit) {
   if(![&#x27;failed&#x27;,&#x27;interrupted&#x27;,&#x27;result_failed&#x27;].includes(unit.state))return &#x27;&#x27;;
@@ -4658,6 +4663,7 @@ function loomQueueReason(row) {
   }
   const reason=({awaiting_runtime_binding:&#x27;Runtime 연결 대기&#x27;,awaiting_plan:&#x27;실행 계획 확정 대기&#x27;,awaiting_deliverables:&#x27;산출물 검증 대기&#x27;,queue_paused:&#x27;운영자가 큐를 일시 중단함&#x27;,ready:&#x27;실행 가능&#x27;,held:&#x27;보류됨&#x27;,executing:&#x27;실행 중&#x27;,finalizing:&#x27;결과 처리 중&#x27;,dependencies:&#x27;선행 결과 대기&#x27;,
     resource_busy:&#x27;실행 슬롯 대기&#x27;,retry_delay:&#x27;재시도 대기&#x27;,recovery_reservation:&#x27;앞선 Job 복구 대기&#x27;,recovery_waiting:&#x27;복구 응답 대기&#x27;,
+    output_edit_reserved:&#x27;산출물 수정 점유 대기&#x27;,output_edit_base_changed:&#x27;산출물 기준 버전 변경&#x27;,
     recovery_claimed:&#x27;복구 담당자 지정됨&#x27;,recovery_deferred:&#x27;복구 보류&#x27;,recovery_exhausted:&#x27;복구 횟수 소진&#x27;,recovery_required:&#x27;내부 실행 복구 필요&#x27;})[row.reason] || row.reason;
   if(row.state===&#x27;result_failed&#x27;)return reason&amp;&amp;row.reason!==&#x27;ready&#x27;?&#x27;결과 처리 실패 · &#x27;+reason:&#x27;결과 처리 실패&#x27;;
   return reason;
@@ -4777,7 +4783,7 @@ function loomCurrentQueuePanel(rows,table){
    const label=loomWorkTypeBadge(&#x27;unit&#x27;,unit.job_id)+catLink(unit.id,unit.unit?.label||unit.label)+loomQueueControls(unit.id,{reorder:false});
    const gpu=unit.gpu_access?.mode ? &#x27;GPU · &#x27;+esc(unit.gpu_access.mode) : unit.lane===&#x27;gpu&#x27;?&#x27;GPU&#x27;:&#x27;CPU&#x27;;
    return [label,queueBadge(record(unit)),gpu,active||esc(loomQueueReason(unit)),
-     &#x27;&lt;div class=&quot;pa-forecast&quot;&gt;&#x27;+loomForecastFinish(unit.forecast)+&#x27;&lt;/div&gt;&#x27;];
+     &#x27;&lt;div class=&quot;pa-forecast&quot;&gt;&#x27;+(unit.state===&#x27;running&#x27;?loomForecastFinish(unit.forecast):&#x27;—&#x27;)+&#x27;&lt;/div&gt;&#x27;];
   });
   return panel(&#x27;Job Queue · &#x27;+jobs.length,notice+(jobs.length?table(jobs,true):queue?&#x27;&lt;div class=&quot;pa-empty&quot;&gt;대기 또는 실행 중인 Job이 없습니다.&lt;/div&gt;&#x27;:&#x27;&#x27;))
     +panel(&#x27;Unit Queue · &#x27;+units.length,body.length?&#x27;&lt;div class=&quot;pa-queue-table pa-unit-work-queue&quot;&gt;&#x27;+catTable([&#x27;Unit&#x27;,&#x27;상태&#x27;,&#x27;자원&#x27;,&#x27;진행&#x27;,&#x27;완료 예정&#x27;],body)+&#x27;&lt;/div&gt;&#x27;:queue?&#x27;&lt;div class=&quot;pa-empty&quot;&gt;대기 또는 실행 중인 Unit이 없습니다.&lt;/div&gt;&#x27;:&#x27;&#x27;);
@@ -5903,8 +5909,13 @@ function loomCompactOutput(e,result){
  const facts=Object.entries(fields).map(([label,value])=&gt;({id:label.toLowerCase().replaceAll(&#x27; &#x27;,&#x27;_&#x27;),label,value,status:&#x27;recorded&#x27;,title:label===&#x27;Result&#x27;?outcome?.label:undefined}));
  if(!result)facts.splice(1,0,loomDatasetTagFact(loomCatalogInputs(e,&#x27;datasets&#x27;).map(input=&gt;input.split)));
  return &#x27;&lt;article class=&quot;pa-catalog-item pa-scientific-card pa-output-compact&quot; data-output-id=&quot;&#x27;+esc(e.id)+&#x27;&quot;&#x27;+(result?&#x27;&#x27;:&#x27; data-model-entry=&quot;&#x27;+esc(e.id)+&#x27;&quot;&#x27;)+&#x27;&gt;&#x27;
-  +&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;+catLink(e.id)+&#x27;&lt;/div&gt;&#x27;
+  +&#x27;&lt;div class=&quot;pa-row-main&quot;&gt;&#x27;+catLink(e.id)+loomOutputEditing(e)+&#x27;&lt;/div&gt;&#x27;
   +loomResearchFactsHTML(facts,true)+&#x27;&lt;/article&gt;&#x27;;
+}
+function loomOutputEditing(e){
+ const edit=e.output_edit;
+ if(!edit?.job_id)return &#x27;&#x27;;
+ return &#x27; &lt;span class=&quot;pa-subtle&quot;&gt;수정 중 · &#x27;+catLink(edit.job_id,&#x27;Job&#x27;)+&#x27;&lt;/span&gt;&#x27;;
 }
 experiments=function(){
  const tasks=loomOutputTasks(&#x27;experiment&#x27;);
@@ -6326,7 +6337,7 @@ function loomDatasetRow(e,depth=0){
  const fields=[split?loomDatasetSplitFact(split):loomDatasetTagFact([]),
                {value:&#x27;Missing&#x27;,...count,id:&#x27;count&#x27;,label:&#x27;Episodes&#x27;}];
  return &#x27;&lt;article role=&quot;listitem&quot; class=&quot;pa-catalog-item pa-scientific-card pa-dataset-row&quot; data-output-id=&quot;&#x27;+esc(e.id)+&#x27;&quot; data-dataset-depth=&quot;&#x27;+depth+&#x27;&quot;&gt;&#x27;
-  +&#x27;&lt;div class=&quot;pa-row-main pa-dataset-name&quot;&gt;&#x27;+catLink(e.id)+&#x27;&lt;/div&gt;&#x27;
+  +&#x27;&lt;div class=&quot;pa-row-main pa-dataset-name&quot;&gt;&#x27;+catLink(e.id)+loomOutputEditing(e)+&#x27;&lt;/div&gt;&#x27;
   +loomResearchFactsHTML(fields,true)+&#x27;&lt;/article&gt;&#x27;;
 }
 function loomDatasetTree(rows){
@@ -6637,6 +6648,9 @@ function loomReportLineage(e){
 }
 function loomReportOverview(e){
  const r=e.reporting,reports=r?.reports||[],parts=[loomReportLineage(e),loomReportOverviewBodies.get(e.id)||loomResearchOverviewContent(e)];
+ if(e.policy_checkpoints?.length)parts.push(loomResearchSection(&#x27;Checkpoints&#x27;,catTable([&#x27;File&#x27;,&#x27;Version&#x27;,&#x27;Unit&#x27;,&#x27;SHA-256&#x27;],
+  e.policy_checkpoints.map(c=&gt;[esc(c.name),loomReportCatalogInput({ref:{kind:&#x27;entity&#x27;,identity:{id:e.loom_registry.id,revision:c.revision}}},&#x27;r&#x27;+c.revision),
+   c.unit?catLink(c.unit,&#x27;Unit&#x27;):&#x27;—&#x27;,&#x27;&lt;code title=&quot;&#x27;+esc(c.sha256)+&#x27;&quot;&gt;&#x27;+esc(c.sha256.slice(0,12))+&#x27;&lt;/code&gt;&#x27;]))));
  if(r?.checkpoint_sweep)parts.unshift(loomCheckpointOverview(r.checkpoint_sweep));
  else if([&#x27;experiment&#x27;,&#x27;run&#x27;].includes(e.kind)){
   const outcomes=loomRepresentativeOutcome(e);
@@ -6720,6 +6734,8 @@ const loomReportPreviousDetail=catalogDetail;
 catalogDetail=function(id){
  const e=catEntity(id),html=loomReportPreviousDetail(id);if(!e||![&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;run&#x27;].includes(e.kind)||!catalogData.capabilities?.reporting)return html;
  const t=document.createElement(&#x27;template&#x27;);t.innerHTML=html;
+ const heading=t.content.querySelector(&#x27;.pa-heading&#x27;);
+ if(heading&amp;&amp;e.output_edit)heading.insertAdjacentHTML(&#x27;beforeend&#x27;,loomOutputEditing(e));
  const role=e.kind===&#x27;model&#x27;?modelFilterMeta(e).role:null;
  const policy=role&amp;&amp;role!==&#x27;Observer&#x27;&amp;&amp;(e.reporting||[&#x27;VLA&#x27;,&#x27;Policy&#x27;].includes(role));
  if(policy){const label=t.content.querySelector(&#x27;.pa-heading .pa-eyebrow&#x27;);if(label)label.textContent=&#x27;POLICY&#x27;;}

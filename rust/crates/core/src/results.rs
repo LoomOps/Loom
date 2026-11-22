@@ -6,7 +6,11 @@ use loom_domain::{Event, JobState};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
 
-fn output_disposition_key(db: &Connection, identity: &Value, kind: &str) -> Result<String> {
+pub(crate) fn output_disposition_key(
+    db: &Connection,
+    identity: &Value,
+    kind: &str,
+) -> Result<String> {
     Ok(db.query_row(
         "SELECT json_array(?,?,?,?,?)",
         params![
@@ -23,11 +27,12 @@ fn output_disposition_key(db: &Connection, identity: &Value, kind: &str) -> Resu
     )?)
 }
 
-pub(crate) fn policy_revision_base(
+pub(crate) fn output_revision_base(
     db: &Connection,
     target: &Value,
     owner: &str,
     task: &Value,
+    kind: &str,
 ) -> Result<i64> {
     let id = target["id"].as_str();
     let revision = target["revision"].as_i64();
@@ -41,19 +46,19 @@ pub(crate) fn policy_revision_base(
                    WHERE e.id=? ORDER BY e.revision DESC LIMIT 1", &[&id])?;
     let base = row
         .first()
-        .ok_or_else(|| Error::new("policy_revision", "Policy not found", 404))?;
+        .ok_or_else(|| Error::new("output_revision", "Output not found", 404))?;
     require(
-        base["kind"] == "model"
+        base["kind"] == kind
             && base["catalog_class"] == "regular"
             && base["revision"].as_i64() == revision,
-        "policy_revision",
-        "Use the current revision of a Regular Policy",
+        "output_revision",
+        "Use the current revision of the Regular output",
         409,
     )?;
     require(
         base["owner"] == owner && owner != "system",
         "forbidden",
-        "Use the target Policy's owner",
+        "Use the target output's owner",
         403,
     )?;
     let task_id = task["id"].as_str();
@@ -64,13 +69,13 @@ pub(crate) fn policy_revision_base(
     )?;
     require(
         task_id.is_some() && (base["task"].as_str() == task_id || linked),
-        "policy_revision_task",
-        "Use the Task of the Policy being revised",
+        "output_revision_task",
+        "Use the Task of the output being revised",
         409,
     )?;
     revision
         .and_then(|rev| rev.checked_add(1))
-        .ok_or_else(|| Error::conflict("Policy revision overflow"))
+        .ok_or_else(|| Error::conflict("Output revision overflow"))
 }
 pub fn verify_target(db: &Connection, target: &Target, config: &Config) -> Result<()> {
     let v = &target.identity;
@@ -271,6 +276,7 @@ impl Application {
             return self.metadata_template_action(actor, action, args);
         }
         match action {
+            "adopt_output_revision" => self.adopt_output_revision(actor, args),
             "set_output_disposition" => self.set_output_disposition(actor, args),
             "group_evaluations" => self.group_evaluations(actor, args),
             "list" => self.results_listing(&args),
@@ -285,6 +291,8 @@ impl Application {
                     |r| r.get(0),
                 )?;
                 let mut value: Value = serde_json::from_str(&text)?;
+                self.attach_output_edit(&mut value, id)?;
+                self.attach_policy_checkpoints(&mut value, &json!({"id":id,"revision":rev}))?;
                 if let Some(class) = self.reviewed_output_class(
                     "entity",
                     value["kind"].as_str().unwrap_or(""),
@@ -802,6 +810,7 @@ impl Application {
             let mut identity = format!("{job}.{entity_id}");
             let mut supplement = None;
             let mut revises = None;
+            let mut edit_authorization = None;
             for lineage in entity["lineage"].as_array().into_iter().flatten() {
                 let input = lineage["input"].as_str().unwrap_or("");
                 let matches = relations
@@ -864,6 +873,7 @@ impl Application {
                         alias = promise["alias"].clone();
                         supplement = promise.get("supplements").cloned();
                         revises = promise.get("revises").cloned();
+                        edit_authorization = promise.get("edit_authorization").cloned();
                     }
                 }
                 published["producer"] = json!({"unit_id":job,"job_id":unit["job_id"],"attempt_id":attempt,"alias":alias});
@@ -968,8 +978,25 @@ impl Application {
                 identity = published["id"].as_str().unwrap().into();
             }
             if let Some(base) = &revises {
-                let revision =
-                    policy_revision_base(&self.db, base, &row.owner, &row.spec["scenario_ref"])?;
+                let revision = output_revision_base(
+                    &self.db,
+                    base,
+                    &row.owner,
+                    &row.spec["scenario_ref"],
+                    kind,
+                )?;
+                if let Some(authorization) = &edit_authorization {
+                    crate::output_edits::require_source(&published, base)?;
+                    published["revision_authorization"] = authorization.clone();
+                }
+                if kind == "dataset" {
+                    self.verify_dataset_append(
+                        base,
+                        &published,
+                        path.parent().unwrap(),
+                        &verified_files,
+                    )?;
+                }
                 identity = base["id"].as_str().unwrap().into();
                 published["id"] = json!(identity);
                 published["revision"] = json!(revision);
@@ -1081,7 +1108,8 @@ impl Application {
                 .flatten()
                 .find(|relation| relation["kind"] == "revises")
             {
-                policy_revision_base(&tx, base, &row.owner, &row.spec["scenario_ref"])?;
+                output_revision_base(&tx, base, &row.owner, &row.spec["scenario_ref"], &kind)?;
+                crate::output_edits::verify_claim(&tx, job, base)?;
                 let exact = json!({"id":base["id"],"revision":base["revision"]});
                 let imported: bool = tx.query_row(
                     "SELECT EXISTS(SELECT 1 FROM asset_revisions WHERE id=? AND revision=?)",

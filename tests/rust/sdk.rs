@@ -20,13 +20,22 @@ fn producer_work_progress_is_scoped_and_rate_limited() {
     producer
         .report_work_progress("training", 75, 200, "updates")
         .unwrap();
-    let report: Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+    let report: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
     assert_eq!(report["attempt"], "attempt-one");
     assert_eq!(report["previous"]["completed"], 50);
     assert_eq!(report["sample"]["completed"], 75);
     assert!(producer
         .report_work_progress("training", 201, 200, "updates")
         .is_err());
+    producer.report_work_unavailable("unknown_total").unwrap();
+    let unavailable: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert_eq!(unavailable["unavailable_reason"], "unknown_total");
+    assert_eq!(unavailable["attempt"], "attempt-one");
+    producer
+        .report_work_progress("training", 10, 100, "updates")
+        .unwrap();
+    let measured: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    assert!(measured["previous"].is_null());
     fs::remove_dir_all(root).unwrap();
 }
 

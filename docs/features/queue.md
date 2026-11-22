@@ -72,5 +72,8 @@ counter. A first sample starts measurement. Estimates require observed progress
 across two samples 30 seconds to 15 minutes apart. A sample older than 15 minutes
 cannot support an estimate. Forecasts are presentation data. When a Job has a
 single active Unit, its queue row can show that Unit's measured phase estimate.
+An opted-in Profile distinguishes missing samples from unsupported reporting.
+An Attempt can publish an unavailable reason and provide valid measured counters
+later. The visible queue refreshes every five minutes.
 
 Open outcomes retain their Job ID across plan revisions. Slots without an execution have no queue position or Attempt. See [outcome admission](../../loom_use/workflows.md#planning).

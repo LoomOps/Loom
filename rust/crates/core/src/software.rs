@@ -255,6 +255,14 @@ pub fn validate_profile(profile: &Value) -> Result<()> {
     if let Some(plan) = profile.get("steps") {
         crate::progress::validate_plan(plan)?;
     }
+    if let Some(enabled) = profile.get("progress_reporting") {
+        require(
+            enabled.is_boolean(),
+            "profile",
+            "progress_reporting must be a boolean",
+            400,
+        )?;
+    }
     require(
         profile["inputs"]
             .as_object()

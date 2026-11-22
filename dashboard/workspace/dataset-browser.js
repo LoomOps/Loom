@@ -50,7 +50,7 @@ function loomDatasetRow(e,depth=0){
  const fields=[split?loomDatasetSplitFact(split):loomDatasetTagFact([]),
                {value:'Missing',...count,id:'count',label:'Episodes'}];
  return '<article role="listitem" class="pa-catalog-item pa-scientific-card pa-dataset-row" data-output-id="'+esc(e.id)+'" data-dataset-depth="'+depth+'">'
-  +'<div class="pa-row-main pa-dataset-name">'+catLink(e.id)+'</div>'
+  +'<div class="pa-row-main pa-dataset-name">'+catLink(e.id)+loomOutputEditing(e)+'</div>'
   +loomResearchFactsHTML(fields,true)+'</article>';
 }
 function loomDatasetTree(rows){

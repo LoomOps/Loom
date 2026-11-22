@@ -20,11 +20,31 @@ input identity and evidence for reuse.
 
 Choose the Profile, metadata template and report contract before submission. The producer writes files and `result.json` under `request.output_dir` according to the accepted Profile. Compare completed Experiments by exact revision. Use the producing Unit or software revision for infrastructure validation.
 
-When new training replaces an existing Regular Policy, look up its current
-exact `{id,revision}` and pass it as `outcome.deliverables[0].revises` in
-`jobs.submit_research`. Use the same Task and owner. Publication adds a new
-revision with that Job's training evidence. Use `output_state:"current"`
-when searching for reusable catalog inputs.
+### Update an already published output
+
+Search for the exact current record before changing a Regular Dataset or Policy.
+If the user's request clearly directs you to extend that particular existing
+record, use `edit_authorization.basis: "explicit_request"`. If the target
+exists but the request leaves a separate deliverable plausible, ask whether to
+update the named record or publish a new record. Wait for their answer and use
+`basis: "confirmed"` if they choose the update. Include a short reference or
+quote from the user's actual instruction in `edit_authorization.evidence`.
+Similar titles, shared inputs, or a proposed plan do not authorize an edit.
+
+Set `outcome.deliverables[0].revises` to the exact `{id,revision}` on
+`jobs.submit_research`. Use the same Task and owner. The producing Unit must
+consume that exact base. For a Dataset append, retain the old membership and
+split assignments and publish a complete expanded Dataset with a verified
+membership report. Repartitioning a split publishes a separate Dataset with a
+derivation link. For a Policy continuation, pin the checkpoint that the new
+training consumes and publish its own checkpoints, metrics and producer evidence.
+
+Before execution the Job claims the logical record for editing. Other writers
+wait and must resolve a changed base. Readers continue using exact immutable
+versions. Publish a verified result under the same ID or cancel the edit using
+normal Job control. Use `results.adopt_output_revision` for explicit user-directed
+consolidation of a separately published continuation, using exact base and
+source IDs. Its original addresses and Job evidence remain valid.
 
 Use `jobs.get` for the accepted Job and deliverable, `units.get` for Attempt and return state, and `results.get` for exact published revisions and locations. Use `events.list` with `kind:"all"` to read events. ACK records delivery. For a publication error, repair the cause and use `results.reindex` when applicable to keep the original successful Attempt.
 

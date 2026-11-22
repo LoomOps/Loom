@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0-alpha.80
+
+- Claim existing Dataset and Policy records for explicitly authorized Job updates, while active readers retain their exact versions.
+- Consolidate a reviewed continuation without changing its original Job, files or exact links.
+- Distinguish unsupported and temporarily unavailable completion estimates, and accept progress submitted after execution begins.
+
 ## 0.2.0-alpha.79
 
 - Carry the pinned Task into the native runtime and retain diagnostic artifacts when a producer reports that execution failed.

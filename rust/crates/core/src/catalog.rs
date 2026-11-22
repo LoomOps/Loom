@@ -328,10 +328,11 @@ impl Application {
             }
             entity["properties"] = entity.get("metadata").cloned().unwrap_or(json!({}));
             entity["loom_registry"] = json!({"id":id,"revision":row["revision"]});
-            entity["loom_job"] = json!({"id":row["job"]});
+            let producer_job = row["job"].as_str().or_else(|| entity["job"].as_str()).map(str::to_owned);
+            entity["loom_job"] = json!({"id":producer_job});
             let registered: Option<f64> = self.db.query_row(
                 "SELECT MIN(created) FROM events WHERE job=? AND attempt=? AND code='complete'",
-                rusqlite::params![row["job"].as_str(), entity["attempt"].as_str()],
+                rusqlite::params![producer_job, entity["attempt"].as_str()],
                 |r| r.get(0),
             )?;
             entity["properties"]["registered_at"] = json!(registered);
@@ -764,6 +765,15 @@ impl Application {
             crate::dataset_organization::attach(self, entity)?;
             self.attach_catalog_inputs(entity, &mut input_descriptors)?;
             self.attach_output_disposition(entity)?;
+            if let Some(id) = entity["loom_registry"]["id"].as_str().map(str::to_owned) {
+                if matches!(entity["kind"].as_str(), Some("dataset" | "model")) {
+                    self.attach_output_edit(entity, &id)?;
+                    if !all {
+                        let pin = entity["loom_registry"].clone();
+                        self.attach_policy_checkpoints(entity, &pin)?;
+                    }
+                }
+            }
         }
         let mut visible = Vec::with_capacity(entities.len());
         for entity in entities {

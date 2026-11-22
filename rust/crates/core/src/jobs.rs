@@ -1148,6 +1148,7 @@ pub fn readiness(db: &Connection, record: &Record) -> Result<Readiness> {
         .optional()?
         .unwrap_or(0)
         != 0;
+    r.output_edit_blocked = crate::output_edits::wait_reason(db, record.aggregate.id.as_str())?;
     let dependencies = if record.aggregate.state == JobState::Queued
         && record.spec["profile"].get("prepare").is_some()
     {
@@ -1208,7 +1209,11 @@ pub fn readiness(db: &Connection, record: &Record) -> Result<Readiness> {
         gpu_order_blocks(
             db,
             record,
-            !r.dependency_pending && !r.held && r.admission_active && !r.operator_paused,
+            !r.dependency_pending
+                && !r.held
+                && r.admission_active
+                && !r.operator_paused
+                && r.output_edit_blocked.is_none(),
         )?
     } else if typed {
         db.query_row("SELECT COUNT(*)>=3 FROM rust_effects WHERE state IN ('pending','accepted','unknown')
@@ -1251,6 +1256,9 @@ fn gpu_order_blocks(db: &Connection, record: &Record, runnable: bool) -> Result<
         }
         if candidate["state"] == "running" {
             return Ok(true);
+        }
+        if crate::output_edits::wait_reason(db, candidate["id"].as_str().unwrap())?.is_some() {
+            continue;
         }
         if !shared
             && (

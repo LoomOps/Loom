@@ -2181,9 +2181,21 @@
       "entrypoint": "rust/crates/core/src/plans.rs#write_plan"
     }
   },
+  "results.adopt_output_revision": {
+    "title": "Adopt a published continuation",
+    "description": "With the user's explicit direction, consolidate a completed Regular Dataset append or Policy continuation under the original record's next revision. Requires the submitting principal of the verified source and an exact consumed base. Original records stay addressable; the standalone continuation is retired from the Current list.",
+    "returns": "Returns the original ID, its new exact revision, the source revision and its disposition.",
+    "example": {
+      "base": {"id": "<original-output>", "revision": 1},
+      "source": {"id": "<completed-continuation>", "revision": 1},
+      "authorization": {"basis": "explicit_request", "evidence": "<user instruction identifying both records>"},
+      "key": "adopt-reviewed-continuation"
+    },
+    "implementation": {"feature": "results", "entrypoint": "rust/crates/core/src/output_edits.rs#adopt_output_revision"}
+  },
   "jobs.submit_research": {
     "title": "Submit a research Job",
-    "description": "Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. A Policy deliverable can set revises to the exact current Regular Policy to publish the next revision with the same ID, owner and Task. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision. Scientific Policy outputs require the exact Dataset and Experiment outputs require the exact evaluation Dataset and Policy under the same pinned Task.",
+    "description": "Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. For a Dataset append or Policy continuation, revises pins the current exact base, and edit_authorization records the user's explicit request or confirmation before execution claims that record. The producing Unit consumes the pinned base. Use a new Dataset record for repartitioning. An Experiment can use supplements with an exact current Experiment after verified protocol and cohort checks. Scientific Policy outputs pin the Dataset; Experiments pin exact Dataset and Policy inputs.",
     "returns": "Returns the accepted Job ID, plan revision, sealed flag and map of Unit names to independently readable execution IDs.",
     "example": {
       "key": "generate-paired",

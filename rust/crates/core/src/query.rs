@@ -842,6 +842,8 @@ impl Application {
                             crate::progress::forecast(&folder, id, attempt.as_str(), now())
                         {
                             entry["forecast"] = forecast;
+                        } else if record.spec["profile"]["progress_reporting"] == true {
+                            entry["forecast"] = json!({"status":"unavailable","reason":"no_usable_sample"});
                         }
                     }
                 }

@@ -255,8 +255,13 @@ function loomCompactOutput(e,result){
  const facts=Object.entries(fields).map(([label,value])=>({id:label.toLowerCase().replaceAll(' ','_'),label,value,status:'recorded',title:label==='Result'?outcome?.label:undefined}));
  if(!result)facts.splice(1,0,loomDatasetTagFact(loomCatalogInputs(e,'datasets').map(input=>input.split)));
  return '<article class="pa-catalog-item pa-scientific-card pa-output-compact" data-output-id="'+esc(e.id)+'"'+(result?'':' data-model-entry="'+esc(e.id)+'"')+'>'
-  +'<div class="pa-row-main">'+catLink(e.id)+'</div>'
+  +'<div class="pa-row-main">'+catLink(e.id)+loomOutputEditing(e)+'</div>'
   +loomResearchFactsHTML(facts,true)+'</article>';
+}
+function loomOutputEditing(e){
+ const edit=e.output_edit;
+ if(!edit?.job_id)return '';
+ return ' <span class="pa-subtle">수정 중 · '+catLink(edit.job_id,'Job')+'</span>';
 }
 experiments=function(){
  const tasks=loomOutputTasks('experiment');

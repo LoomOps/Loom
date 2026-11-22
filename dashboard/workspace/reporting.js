@@ -262,6 +262,9 @@ function loomReportLineage(e){
 }
 function loomReportOverview(e){
  const r=e.reporting,reports=r?.reports||[],parts=[loomReportLineage(e),loomReportOverviewBodies.get(e.id)||loomResearchOverviewContent(e)];
+ if(e.policy_checkpoints?.length)parts.push(loomResearchSection('Checkpoints',catTable(['File','Version','Unit','SHA-256'],
+  e.policy_checkpoints.map(c=>[esc(c.name),loomReportCatalogInput({ref:{kind:'entity',identity:{id:e.loom_registry.id,revision:c.revision}}},'r'+c.revision),
+   c.unit?catLink(c.unit,'Unit'):'—','<code title="'+esc(c.sha256)+'">'+esc(c.sha256.slice(0,12))+'</code>']))));
  if(r?.checkpoint_sweep)parts.unshift(loomCheckpointOverview(r.checkpoint_sweep));
  else if(['experiment','run'].includes(e.kind)){
   const outcomes=loomRepresentativeOutcome(e);
@@ -345,6 +348,8 @@ const loomReportPreviousDetail=catalogDetail;
 catalogDetail=function(id){
  const e=catEntity(id),html=loomReportPreviousDetail(id);if(!e||!['dataset','model','experiment','run'].includes(e.kind)||!catalogData.capabilities?.reporting)return html;
  const t=document.createElement('template');t.innerHTML=html;
+ const heading=t.content.querySelector('.pa-heading');
+ if(heading&&e.output_edit)heading.insertAdjacentHTML('beforeend',loomOutputEditing(e));
  const role=e.kind==='model'?modelFilterMeta(e).role:null;
  const policy=role&&role!=='Observer'&&(e.reporting||['VLA','Policy'].includes(role));
  if(policy){const label=t.content.querySelector('.pa-heading .pa-eyebrow');if(label)label.textContent='POLICY';}

@@ -2850,7 +2850,7 @@ Reservation receipt · id, revision, sealed, execution_job, receipts and science
 
 ## submit_research
 
-Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. A Policy deliverable can set revises to the exact current Regular Policy to publish the next revision with the same ID, owner and Task. An Experiment deliverable can set supplements to the exact current Regular Experiment ID and revision. Publication checks the accepted inputs, evaluation protocol, reset cohort, selection rule and new checkpoint steps before adding its next revision. Scientific Policy outputs require the exact Dataset and Experiment outputs require the exact evaluation Dataset and Policy under the same pinned Task.
+Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. For a Dataset append or Policy continuation, revises pins the current exact base, and edit_authorization records the user's explicit request or confirmation before execution claims that record. The producing Unit consumes the pinned base. Use a new Dataset record for repartitioning. An Experiment can use supplements with an exact current Experiment after verified protocol and cohort checks. Scientific Policy outputs pin the Dataset; Experiments pin exact Dataset and Policy inputs.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/plans.rs#write_research_plan](../../rust/crates/core/src/plans.rs).
 
@@ -2904,6 +2904,27 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
               "alias": {
                 "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$",
                 "type": "string"
+              },
+              "edit_authorization": {
+                "additionalProperties": false,
+                "properties": {
+                  "basis": {
+                    "enum": [
+                      "explicit_request",
+                      "confirmed"
+                    ]
+                  },
+                  "evidence": {
+                    "maxLength": 2048,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "basis",
+                  "evidence"
+                ],
+                "type": "object"
               },
               "from": {
                 "additionalProperties": false,

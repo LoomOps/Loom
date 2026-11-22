@@ -43,11 +43,20 @@ fn queue_forecast_uses_fresh_progress_for_the_current_running_unit() {
     report["attempt"] = json!(work.attempt);
     report["sample"]["recorded"] = json!(now - 901.0);
     fs::write(&path, report.to_string()).unwrap();
-    assert!(unit(&f.app).get("forecast").is_none());
+    assert_eq!(unit(&f.app)["forecast"]["reason"], "stale_samples");
     report["sample"]["recorded"] = json!(now - 30.0);
     report["previous"]["completed"] = report["sample"]["completed"].clone();
-    fs::write(path, report.to_string()).unwrap();
-    assert!(unit(&f.app).get("forecast").is_none());
+    fs::write(&path, report.to_string()).unwrap();
+    assert_eq!(unit(&f.app)["forecast"]["reason"], "unstable_rate");
+    report["unavailable_reason"] = json!("unknown_total");
+    report["recorded"] = json!(now);
+    fs::write(&path, report.to_string()).unwrap();
+    assert_eq!(unit(&f.app)["forecast"]["reason"], "unknown_total");
+    report.as_object_mut().unwrap().remove("unavailable_reason");
+    report["sample"] = json!({"completed":150,"recorded":now-20.0});
+    report["previous"] = json!({"completed":100,"recorded":now-320.0});
+    fs::write(&path, report.to_string()).unwrap();
+    assert_eq!(unit(&f.app)["forecast"]["status"], "estimated");
 }
 
 #[test]
@@ -752,6 +761,88 @@ fn historical_policy_mirrors_use_exact_publication_and_preserve_selected_steps()
 }
 
 #[test]
+fn completed_policy_adoption_preserves_the_source_job_and_exact_files() {
+    let mut f = Fixture::new();
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"adoption-task","definition":{"label":"Train"}}),
+        )
+        .unwrap();
+    let task_ref = json!({"id":task["id"],"revision":1});
+    let job = f.submit("adoption-producer");
+    f.app
+        .db
+        .execute("UPDATE jobs SET state='complete' WHERE id=?", [&job])
+        .unwrap();
+    let base = json!({"id":"old","revision":1});
+    let old = json!({"id":"old","revision":1,"kind":"model","label":"Original",
+        "catalog_class":"regular","scenario_ref":task_ref,"relations":[],"components":[]});
+    let continuation = json!({"id":"new","revision":1,"kind":"model","label":"Continuation",
+        "job":job,"catalog_class":"regular","scenario_ref":task_ref,
+        "relations":[{"kind":"consumes","id":"old","revision":1}],
+        "components":[{"ref":"policy.safetensors","sha256":"a".repeat(64),"size":2}]});
+    f.app
+        .db
+        .execute(
+            "INSERT INTO asset_revisions VALUES('old',1,NULL,'model','owner','owner',?)",
+            [old.to_string()],
+        )
+        .unwrap();
+    f.app
+        .db
+        .execute(
+            "INSERT INTO entity_revisions VALUES('new',1,?,'model','owner','owner',?)",
+            rusqlite::params![job, continuation.to_string()],
+        )
+        .unwrap();
+    f.app.db.execute("INSERT INTO entity_locations VALUES('new',1,'policy.safetensors','test','data/0','frozen/policy.safetensors','available')",[]).unwrap();
+    let args = json!({"base":base,"source":{"id":"new","revision":1},"authorization":{
+        "basis":"confirmed","evidence":"User confirmed consolidation of the exact records"},"key":"adoption"});
+    let result = f
+        .call("results", "adopt_output_revision", args.clone())
+        .unwrap();
+    assert_eq!(result["revision"], 2);
+    assert_eq!(
+        result,
+        f.call("results", "adopt_output_revision", args).unwrap()
+    );
+    assert_eq!(
+        f.app
+            .db
+            .query_row(
+                "SELECT count(*) FROM entity_revisions WHERE job=?",
+                [&job],
+                |row| row.get::<_, i64>(0)
+            )
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        f.app
+            .db
+            .query_row(
+                "SELECT ref FROM all_entity_locations WHERE id='old' AND revision=2",
+                [],
+                |row| row.get::<_, String>(0)
+            )
+            .unwrap(),
+        "frozen/policy.safetensors"
+    );
+    assert_eq!(
+        f.call("results", "get", json!({"id":"old","revision":2}))
+            .unwrap()["label"],
+        "Original"
+    );
+    assert_eq!(
+        f.call("results", "get", json!({"id":"new","revision":1}))
+            .unwrap()["disposition"]["superseded_by"]["revision"],
+        2
+    );
+}
+
+#[test]
 fn retired_policy_revision_stays_discoverable_when_another_job_revises_it() {
     let mut f = Fixture::new();
     let task = f
@@ -851,11 +942,19 @@ fn retired_policy_revision_stays_discoverable_when_another_job_revises_it() {
         "outcome":{"goal":"Train the next Policy revision","deliverables":[
             {"alias":"policy","kind":"model","from":{"unit":"train","entity":"weights"},"revises":base}]},
         "plan":{"sealed":false,"units":[{"id":"train","label":"Training"}]}});
+    assert_eq!(
+        f.call("jobs", "submit_research", request.clone())
+            .unwrap_err()
+            .code,
+        "edit_confirmation_required"
+    );
+    request["outcome"]["deliverables"][0]["edit_authorization"] = json!({"basis":"explicit_request","evidence":"User requested continuation of this exact Policy"});
     let accepted = f.call("jobs", "submit_research", request.clone()).unwrap();
     let producer = f.submit("policy-training-attempt");
     let mut spec = jobs::load(&f.app.db, &producer).unwrap().spec;
     spec.as_object_mut().unwrap().remove("_reporting_required");
     spec["scenario_ref"] = task_ref;
+    spec["params"]["resume"] = json!({"artifact":base});
     f.app
         .db
         .execute(
@@ -870,6 +969,27 @@ fn retired_policy_revision_stays_discoverable_when_another_job_revises_it() {
             rusqlite::params![producer, accepted["id"].as_str()],
         )
         .unwrap();
+    assert!(crate::output_edits::claim(&f.app.db, &producer).unwrap());
+    assert_eq!(
+        f.call("results", "get", base.clone()).unwrap()["output_edit"]["job_id"],
+        accepted["id"]
+    );
+    let mut second = request.clone();
+    second["key"] = json!("concurrent-policy-edit");
+    let waiting = f.call("jobs", "submit_research", second).unwrap();
+    let waiting_unit = f.submit("concurrent-policy-attempt");
+    f.app
+        .db
+        .execute(
+            "INSERT INTO execution_units VALUES(?,?,'train','Training','run')",
+            rusqlite::params![waiting_unit, waiting["id"].as_str()],
+        )
+        .unwrap();
+    assert_eq!(
+        crate::output_edits::wait_reason(&f.app.db, &waiting_unit).unwrap(),
+        Some("output_edit_reserved")
+    );
+    assert!(!crate::output_edits::claim(&f.app.db, &waiting_unit).unwrap());
     let folder = f.app.bulk.join("retraining");
     fs::create_dir(&folder).unwrap();
     fs::write(folder.join("weights.json"), b"{}").unwrap();
@@ -882,6 +1002,12 @@ fn retired_policy_revision_stays_discoverable_when_another_job_revises_it() {
     assert_eq!(
         output["entities"][0]["registry_ref"],
         json!({"id":"policy","revision":2})
+    );
+    f.call("jobs", "cancel", json!({"id":accepted["id"]}))
+        .unwrap();
+    assert_eq!(
+        crate::output_edits::wait_reason(&f.app.db, &waiting_unit).unwrap(),
+        Some("output_edit_base_changed")
     );
     assert_eq!(
         f.call("results", "get", base).unwrap()["disposition"]["state"],
@@ -902,7 +1028,7 @@ fn retired_policy_revision_stays_discoverable_when_another_job_revises_it() {
     request["key"] = json!("stale-base");
     assert_eq!(
         f.call("jobs", "submit_research", request).unwrap_err().code,
-        "policy_revision"
+        "output_revision"
     );
 
     for _ in 0..12 {

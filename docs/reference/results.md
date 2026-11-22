@@ -14,6 +14,7 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 - [history](#history)
 - [historical](#historical)
 - [assign_owner](#assign_owner)
+- [adopt_output_revision](#adopt_output_revision)
 - [group_evaluations](#group_evaluations)
 - [set_output_disposition](#set_output_disposition)
 - [metadata_templates](#metadata_templates)
@@ -528,6 +529,132 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 Item · id, owner, owner_profile
 
 Unregistered profile or missing artifact.
+
+## adopt_output_revision
+
+With the user's explicit direction, consolidate a completed Regular Dataset append or Policy continuation under the original record's next revision. Requires the submitting principal of the verified source and an exact consumed base. Original records stay addressable; the standalone continuation is retired from the Current list.
+
+Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/output_edits.rs#adopt_output_revision](../../rust/crates/core/src/output_edits.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `authorization` | yes | `"object"` | `—` |
+| `base` | yes | `"object"` | `—` |
+| `key` | yes | `"string"` | `—` |
+| `source` | yes | `"object"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "authorization": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "enum": [
+            "explicit_request",
+            "confirmed"
+          ]
+        },
+        "evidence": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "basis",
+        "evidence"
+      ],
+      "type": "object"
+    },
+    "base": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "key": {
+      "maxLength": 2048,
+      "minLength": 1,
+      "type": "string"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "base",
+    "source",
+    "authorization",
+    "key"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "authorization": {
+    "basis": "explicit_request",
+    "evidence": "<user instruction identifying both records>"
+  },
+  "base": {
+    "id": "<original-output>",
+    "revision": 1
+  },
+  "key": "adopt-reviewed-continuation",
+  "source": {
+    "id": "<completed-continuation>",
+    "revision": 1
+  }
+}
+```
+
+
+
+### Result and failures
+
+Returns the original ID, its new exact revision, the source revision and its disposition.
+
+Shared authentication, schema, scope and handler preconditions still apply.
 
 ## group_evaluations
 

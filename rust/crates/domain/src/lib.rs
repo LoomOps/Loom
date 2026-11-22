@@ -227,6 +227,7 @@ pub struct Readiness {
     pub runtime_validation: bool,
     pub lane_busy: bool,
     pub delayed: bool,
+    pub output_edit_blocked: Option<&'static str>,
 }
 impl Readiness {
     pub fn reason(self) -> Option<&'static str> {
@@ -236,6 +237,8 @@ impl Readiness {
             Some("operator_paused")
         } else if self.held {
             Some("held")
+        } else if let Some(reason) = self.output_edit_blocked {
+            Some(reason)
         } else if self.dependency_pending || self.dependency_failed {
             Some("dependencies")
         } else if self.recovery_reserved {

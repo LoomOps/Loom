@@ -23,6 +23,20 @@ pub fn actions() -> Vec<Action> {
         json!({"id":string,"revision":{"type":"integer","minimum":1}}),
         &["id", "revision"],
     );
+    let edit_authorization = object(
+        json!({"basis":{"enum":["explicit_request","confirmed"]},"evidence":string}),
+        &["basis", "evidence"],
+    );
+    result.push(Action {
+        group: "results".into(),
+        action: "adopt_output_revision".into(),
+        operation: "results.adopt_output_revision".into(),
+        scope: "submit".into(),
+        schema: object(
+            json!({"base":reference,"source":reference,"authorization":edit_authorization,"key":string}),
+            &["base","source","authorization","key"],
+        ),
+    });
     result.push(Action {
         group: "results".into(),
         action: "group_evaluations".into(),
@@ -215,7 +229,7 @@ pub fn actions() -> Vec<Action> {
         "type":"array","minItems":1,"maxItems":1,
         "items":object(json!({"alias":local["id"],"kind":{"enum":["dataset","model","experiment"]},
             "from":object(json!({"unit":local["id"],"entity":local["id"]}),&["unit","entity"]),
-            "supplements":reference,"revises":reference}), &["alias","kind","from"])
+            "supplements":reference,"revises":reference,"edit_authorization":edit_authorization}), &["alias","kind","from"])
     });
     research_create["properties"]["outcome"]["required"] = json!(["goal", "deliverables"]);
     let mut preview_outcome = outcome.clone();

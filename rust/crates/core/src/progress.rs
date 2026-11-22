@@ -37,6 +37,15 @@ pub(crate) fn forecast(folder: &Path, job: &str, attempt: &str, now: f64) -> Opt
     {
         return None;
     }
+    if matches!(
+        report["unavailable_reason"].as_str(),
+        Some("unknown_total" | "unstable_rate")
+    ) {
+        let recorded = report["recorded"].as_f64()?;
+        return Some(json!({"status":"unavailable",
+            "reason":if (now-900.0..=now).contains(&recorded) { report["unavailable_reason"].clone() } else { json!("stale_samples") },
+            "as_of":recorded}));
+    }
     let phase = report["phase"].as_str()?;
     let unit = report["unit"].as_str()?;
     let total = report["total"].as_u64()?;
@@ -47,9 +56,11 @@ pub(crate) fn forecast(folder: &Path, job: &str, attempt: &str, now: f64) -> Opt
         || unit.chars().count() > 32
         || unit.chars().any(char::is_control)
         || completed >= total
-        || !(now - 900.0..=now).contains(&recorded)
     {
         return None;
+    }
+    if !(now - 900.0..=now).contains(&recorded) {
+        return Some(json!({"status":"unavailable","reason":"stale_samples","as_of":recorded}));
     }
     let mut estimate = json!({"status":"measuring","phase":phase,"progress":completed,
         "total":total,"progress_unit":unit,"as_of":recorded});
@@ -60,14 +71,18 @@ pub(crate) fn forecast(folder: &Path, job: &str, attempt: &str, now: f64) -> Opt
     let elapsed = recorded - previous["recorded"].as_f64()?;
     let delta = completed.checked_sub(previous["completed"].as_u64()?)?;
     if elapsed <= 0.0 || delta == 0 {
-        return None;
+        estimate["status"] = json!("unavailable");
+        estimate["reason"] = json!("unstable_rate");
+        return Some(estimate);
     }
     if !(30.0..=900.0).contains(&elapsed) {
         return Some(estimate);
     }
     let finish_at = recorded + (total - completed) as f64 * elapsed / delta as f64;
     if finish_at <= now || finish_at > 8.64e12 {
-        return None;
+        estimate["status"] = json!("unavailable");
+        estimate["reason"] = json!("unstable_rate");
+        return Some(estimate);
     }
     estimate["status"] = json!("estimated");
     estimate["finish_at"] = json!(finish_at);
