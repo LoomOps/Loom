@@ -659,7 +659,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "dashboard_entity",
-      "description": "Read one exact source-qualified browser record with lazy file inventories. Set records_only=true to omit the independent queue, host and Job contract projections.",
+      "description": "Read one exact source-qualified browser record with lazy file inventories. Policy details include the registered checkpoint files and exact training report descriptors across revisions of the same Policy. Dataset records and input descriptors include their effective organization, including any handle and authored tags. Set records_only=true to omit the independent queue, host and Job contract projections.",
       "errors": [
         "Missing Item/source revision or unavailable canonical metadata."
       ],

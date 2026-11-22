@@ -151,6 +151,33 @@ fn verify_append(base: &Value, next: &Value) -> Result<()> {
         "output_edit_membership", "Retain existing member IDs and splits. Publish a separate Dataset to repartition membership.", 409)
 }
 
+fn require_unused_dataset(db: &Connection, base: &Value, source: &Value, producer: &str) -> Result<()> {
+    // Read accepted inputs and source records in the publication transaction. The
+    // replacement producer necessarily consumes its base, so exclude that Unit
+    // and its published candidate, while still checking its other Units.
+    let used: bool = db.query_row(
+        "WITH documents(body) AS (
+             SELECT manifest FROM all_entity_revisions
+             WHERE id <> ?1 AND NOT (id = ?3 AND revision = ?4)
+             UNION ALL SELECT spec FROM jobs WHERE id <> ?5
+                 AND (state <> 'cancelled' OR attempt IS NOT NULL)
+             UNION ALL SELECT request FROM job_workflows w WHERE state <> 'cancelled'
+                 AND NOT EXISTS(SELECT 1 FROM execution_memberships m WHERE m.root=w.id AND m.job=?5)
+             UNION ALL SELECT json_extract(body,'$.parent') FROM rust_annotations WHERE kind='dataset_lineage'
+             UNION ALL SELECT json_extract(body,'$.entity.relations') FROM history_records
+                 WHERE kind IN ('dataset','model','experiment','run')
+             UNION ALL SELECT json_extract(body,'$.original.relations') FROM history_records
+                 WHERE kind IN ('dataset','model','experiment','run')
+         )
+         SELECT EXISTS(SELECT 1 FROM documents d JOIN json_tree(d.body) node
+             WHERE CASE WHEN node.type='object' THEN json_extract(node.value,'$.id')=?1
+               AND CAST(json_extract(node.value,'$.revision') AS TEXT)=CAST(?2 AS TEXT) ELSE 0 END)",
+        params![base["id"].as_str(), base["revision"].as_i64(), source["id"].as_str(), source["revision"].as_i64(), producer],
+        |r| r.get(0),
+    )?;
+    require(!used, "dataset_in_use", "This Dataset revision has references. Keep the completed candidate as a separate Dataset.", 409)
+}
+
 impl Application {
     fn registered_membership(&self, pin: &Value, record: &Value) -> Result<Value> {
         self.read_bound_report(
@@ -193,29 +220,80 @@ impl Application {
         Ok(())
     }
 
-    pub(crate) fn attach_policy_checkpoints(&self, record: &mut Value, pin: &Value) -> Result<()> {
-        if record["kind"] != "model" || !pin["revision"].as_i64().is_some_and(|n| n > 1) {
+    pub(crate) fn attach_policy_checkpoints(
+        &self,
+        record: &mut Value,
+        id: &str,
+        through: Option<i64>,
+    ) -> Result<()> {
+        if record["kind"] != "model" {
             return Ok(());
         }
         let mut checkpoints = Vec::new();
-        let mut seen = std::collections::BTreeSet::new();
-        for row in rows(&self.db,
-            "SELECT revision,manifest FROM all_entity_revisions WHERE id=? AND revision<=? ORDER BY revision DESC LIMIT 32",
-            &[&pin["id"].as_str(),&pin["revision"].as_i64()])? {
+        for row in rows(
+            &self.db,
+            "SELECT revision,manifest FROM all_entity_revisions WHERE id=? AND (?2 IS NULL OR revision<=?2) ORDER BY revision",
+            &[&id, &through],
+        )? {
             let source: Value = serde_json::from_str(row["manifest"].as_str().unwrap())?;
-            for component in source["components"].as_array().into_iter().flatten() {
-                let Some(name) = component["ref"].as_str() else { continue };
-                let Some(digest) = component["sha256"].as_str() else { continue };
-                if ![".safetensors", ".ckpt", ".pth"].iter().any(|suffix| name.ends_with(suffix))
-                    || !seen.insert(digest.to_owned()) { continue }
-                checkpoints.push(json!({"name":name,"sha256":digest,"revision":row["revision"],"unit":source["job"]}));
-                if checkpoints.len() == 64 { break }
+            let selected = source
+                .pointer("/metadata/research/model/selected_step")
+                .and_then(Value::as_u64);
+            let mut seen = std::collections::BTreeSet::new();
+            for (index, component) in source["components"].as_array().into_iter().flatten().enumerate() {
+                let (Some(name), Some(digest)) = (component["ref"].as_str(), component["sha256"].as_str()) else {
+                    continue;
+                };
+                let Some((stem, extension)) = name.rsplit('/').next().and_then(|file| file.rsplit_once('.')) else {
+                    continue;
+                };
+                if !matches!(extension, "safetensors" | "ckpt" | "pth") || !seen.insert(digest) {
+                    continue;
+                }
+                let named_step = stem.rsplit_once(['-', '_']).and_then(|(prefix, number)| {
+                    if matches!(prefix, "model" | "policy" | "checkpoint" | "ckpt" | "step") {
+                        number.parse::<u64>().ok()
+                    } else {
+                        None
+                    }
+                });
+                let step = if index == 0 { selected.or(named_step) } else { named_step };
+                checkpoints.push(json!({"name":name,"sha256":digest,"step":step,"revision":row["revision"],"unit":source["job"]}));
             }
-            if checkpoints.len() == 64 { break }
         }
         if !checkpoints.is_empty() {
+            checkpoints.sort_by_key(|c| (c["step"].as_u64().unwrap_or(u64::MAX), c["revision"].as_u64()));
             record["policy_checkpoints"] = json!(checkpoints);
         }
+        Ok(())
+    }
+
+    pub(crate) fn attach_policy_training_revisions(&self, record: &mut Value) -> Result<()> {
+        let Some(id) = record["loom_registry"]["id"].as_str() else {
+            return Ok(());
+        };
+        if record["kind"] != "model" {
+            return Ok(());
+        }
+        let mut revisions = Vec::new();
+        for row in rows(
+            &self.db,
+            "SELECT revision,json_extract(manifest,'$.reporting.reports') AS reports FROM all_entity_revisions WHERE id=? ORDER BY revision",
+            &[&id],
+        )? {
+            let Some(reports) = row["reports"].as_str() else { continue };
+            let reports: Vec<Value> = serde_json::from_str(reports)?;
+            let reports: Vec<Value> = reports
+                .into_iter()
+                .filter(|report| matches!(report["role"].as_str(), Some("learning_series" | "action_metrics")))
+                .collect();
+            if !reports.is_empty() {
+                revisions.push(json!({"revision":row["revision"],"reports":reports}));
+            }
+        }
+        let spans_revisions = revisions.len() > 1
+            || revisions.first().is_some_and(|history| history["revision"] != record["loom_registry"]["revision"]);
+        record["policy_training_revisions"] = if spans_revisions { json!(revisions) } else { json!([]) };
         Ok(())
     }
 
@@ -238,13 +316,18 @@ impl Application {
         let mut record = manifest(&self.db, source)?;
         require_source(&record, base)?;
         let kind = record["kind"].as_str().unwrap_or_default().to_owned();
+        let replace_unused = args["mode"] == "replace_unused";
         require(
             matches!(kind.as_str(), "dataset" | "model") && record["catalog_class"] == "regular",
             "output_revision",
             "Use a Regular Dataset or Policy",
             409,
         )?;
-        if kind == "dataset" {
+        if replace_unused {
+            require(kind == "dataset", "output_revision", "Only a Regular Dataset supports unused replacement", 400)?;
+            let report = self.registered_membership(source, &record)?;
+            members(&report)?;
+        } else if kind == "dataset" {
             let previous = manifest(&self.db, base)?;
             verify_append(
                 &self.registered_membership(base, &previous)?,
@@ -256,10 +339,10 @@ impl Application {
         if let Some(result) = replay(&tx, actor, key, operation, &args)? {
             return Ok(result);
         }
-        let (owner, submitter, state): (String, String, String) = tx.query_row(
-            "SELECT e.owner,e.submitter,j.state FROM entity_revisions e JOIN jobs j ON j.id=e.job WHERE e.id=? AND e.revision=?",
+        let (owner, submitter, state, producer): (String, String, String, String) = tx.query_row(
+            "SELECT e.owner,e.submitter,j.state,j.id FROM entity_revisions e JOIN jobs j ON j.id=e.job WHERE e.id=? AND e.revision=?",
             params![source_id,source["revision"].as_i64()],
-            |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)),
+            |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?,r.get(3)?)),
         )?;
         require(
             state == "complete" && actor.id == submitter,
@@ -295,6 +378,16 @@ impl Application {
             "Use the current revision of the completed continuation",
             409,
         )?;
+        if replace_unused {
+            let base_key = crate::results::output_disposition_key(&tx, base, &kind)?;
+            let discarded: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM rust_annotations WHERE kind='output_disposition' AND id=? AND json_extract(body,'$.state')='discarded')",
+                [base_key], |row| row.get(0),
+            )?;
+            require(!discarded, "output_revision", "Use a Current Dataset as the replacement target", 409)?;
+            require_unused_dataset(&tx, base, source, &producer)?;
+            record["revision_mode"] = json!("replace_unused");
+        }
         let source_type = if tx.query_row(
             "SELECT EXISTS(SELECT 1 FROM asset_revisions WHERE id=? AND revision=?)",
             params![base_id, base["revision"].as_i64()],
@@ -321,6 +414,9 @@ impl Application {
             "INSERT INTO asset_revisions VALUES(?,?,NULL,?,?,?,?)",
             params![base_id, revision, kind, owner, submitter, encode(&record)?],
         )?;
+        if kind == "dataset" {
+            crate::dataset_organization::retain_presentation(&tx, base, &record, &record["scenario_ref"])?;
+        }
         let copied = tx.execute("INSERT INTO asset_locations SELECT ?,?,component,machine_id,storage_id,ref,status FROM entity_locations WHERE id=? AND revision=?",
             params![base_id,revision,source_id,source["revision"].as_i64()])?;
         require(

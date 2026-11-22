@@ -184,7 +184,10 @@ const loomCatalogDetail = catalogDetail;
 paiEntityActions = function(id) {
   const entity = catEntity(id);
   const disposition = loomOutputTarget(entity) ? `<button data-output-disposition="${esc(id)}" aria-haspopup="dialog">${entity.disposition?.state === 'discarded' ? 'Restore' : 'Discard'}</button>` : '';
-  return `<details class="pa-entity-menu"><summary aria-label="항목 메뉴" title="항목 메뉴"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg></summary><div class="pa-entity-menu-items"><button data-share-route="${esc(id)}" aria-haspopup="dialog">${icon('share')}<span>공유</span></button><a href="${esc(paiEntityURL(id))}" target="_blank" rel="noopener noreferrer" data-open-route="${esc(id)}"><span aria-hidden="true">↗</span><span>새 창에서 열기</span></a>${disposition}</div></details>`;
+  const edit = catalogData.capabilities?.curate && entity?.kind === 'dataset' && loomOutputTarget(entity)
+    && (entity.dataset_organization?.task_ref || entity.task_refs?.length === 1)
+    ? `<button data-edit-dataset-metadata="${esc(id)}" aria-haspopup="dialog">Edit metadata</button>` : '';
+  return `<details class="pa-entity-menu"><summary aria-label="항목 메뉴" title="항목 메뉴"><svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="16" cy="10" r="1.5"/></svg></summary><div class="pa-entity-menu-items"><button data-share-route="${esc(id)}" aria-haspopup="dialog">${icon('share')}<span>공유</span></button><a href="${esc(paiEntityURL(id))}" target="_blank" rel="noopener noreferrer" data-open-route="${esc(id)}"><span aria-hidden="true">↗</span><span>새 창에서 열기</span></a>${edit}${disposition}</div></details>`;
 };
 
 function loomOutputTarget(entity) {

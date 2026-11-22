@@ -279,7 +279,7 @@
   }
   async function resultAction(message) {
     if(!signedIn()||typeof message.id!=='string'||message.id.length>128)return;
-    if(!['scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link','set_output_disposition'].includes(message.action))return;
+    if(!['scenarios','get_scenario','scenario_graph','register_scenario','update_scenario','archive_scenario','link_scenario','supersede_scenario_link','set_output_disposition','organize_dataset'].includes(message.action))return;
     try{
       const response=await fetch('/api/scenarios/actions',{
         method:'POST',credentials:'same-origin',redirect:'error',

@@ -196,8 +196,10 @@ render=function(){
  loomPagedRender();
  const kind=loomCatalogKinds[state.page];
  if(kind&&!state.entity)loomCatalogPager(kind);
- if(catalogData.capabilities?.catalog_pages&&state.entity&&!catEntity(state.entity)&&!loomCatalogOpening.has(state.entity)){
-  const id=state.entity;loomCatalogOpening.add(id);queueMicrotask(()=>loomCatalogOpen(id).catch(()=>{}).finally(()=>loomCatalogOpening.delete(id)));
+ const detail=state.entity&&catEntity(state.entity);
+ const policyNeedsDetail=detail?.kind==='model'&&detail.loom_registry&&!Object.hasOwn(detail,'policy_training_revisions');
+ if(catalogData.capabilities?.catalog_pages&&state.entity&&(!detail||policyNeedsDetail)&&!loomCatalogOpening.has(state.entity)){
+  const id=state.entity;loomCatalogOpening.add(id);queueMicrotask(()=>loomCatalogOpen(id,!detail).catch(()=>{}).finally(()=>loomCatalogOpening.delete(id)));
  }
  loomLoadHomeData();
 };

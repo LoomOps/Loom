@@ -162,6 +162,12 @@ report-relative JSON pointer. Arrays use `offset`/`limit`; follow `next_offset`.
 The server verifies bytes and bounds each response to 256 KiB. One page is not the
 complete measured population. Dashboard uses the same typed descriptors.
 
+The Policy detail shows the registered checkpoint files and training reports
+across revisions of the same Policy. Step labels include the revision when the
+view spans revisions. Charts stay separate by revision, and each report page
+uses the exact revision that published it. A step recorded in a report only
+has downloadable weights when the matching checkpoint file is registered.
+
 Legacy records remain readable. Do not invent old prompts, losses, spatial
 coverage, DoF or lineage to make a template appear complete.
 

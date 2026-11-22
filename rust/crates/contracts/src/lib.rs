@@ -33,7 +33,7 @@ pub fn actions() -> Vec<Action> {
         operation: "results.adopt_output_revision".into(),
         scope: "submit".into(),
         schema: object(
-            json!({"base":reference,"source":reference,"authorization":edit_authorization,"key":string}),
+            json!({"base":reference,"source":reference,"mode":{"enum":["continuation","replace_unused"],"default":"continuation"},"authorization":edit_authorization,"key":string}),
             &["base","source","authorization","key"],
         ),
     });
@@ -347,8 +347,8 @@ pub fn actions() -> Vec<Action> {
             "organize_dataset",
             "submit",
             object(
-                json!({"target":target,"task_ref":reference,"path":{"type":"array","maxItems":12,"items":object(json!({"id":{"type":"string","pattern":"^[A-Za-z0-9_.-]{1,64}$"},"label":{"type":"string","minLength":1,"maxLength":80}}),&["id","label"])},"reason":{"type":"string","minLength":1,"maxLength":2000},"dry_run":{"type":"boolean","default":true},"expected_digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},"key":string}),
-                &["target", "task_ref", "path", "reason"],
+                json!({"target":target,"task_ref":reference,"path":{"type":"array","maxItems":12,"items":object(json!({"id":{"type":"string","pattern":"^[A-Za-z0-9_.-]{1,64}$"},"label":{"type":"string","minLength":1,"maxLength":80}}),&["id","label"])},"handle":{"anyOf":[dataset_handle_schema(),{"type":"null"}]},"tags":dataset_tags_schema(),"description":dataset_description_schema(),"properties":dataset_display_properties_schema(),"reason":{"type":"string","minLength":1,"maxLength":2000},"dry_run":{"type":"boolean","default":true},"expected_digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},"key":string}),
+                &["target", "task_ref", "reason"],
             ),
         ),
         (
@@ -1032,6 +1032,24 @@ pub struct ScenarioLink {
 }
 pub fn decode<T: serde::de::DeserializeOwned>(v: Value) -> Result<T> {
     Ok(serde_json::from_value(v)?)
+}
+
+pub fn dataset_handle_schema() -> Value {
+    json!({"type":"string","minLength":1,"maxLength":64,"pattern":"^\\S(?:[^\\r\\n]*\\S)?$",
+        "not":{"pattern":"[\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029]"}})
+}
+
+pub fn dataset_tags_schema() -> Value {
+    json!({"type":"array","maxItems":24,"uniqueItems":true,"items":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9_./-]{0,63}$"}})
+}
+
+pub fn dataset_description_schema() -> Value {
+    json!({"type":"string","maxLength":4096})
+}
+
+pub fn dataset_display_properties_schema() -> Value {
+    json!({"type":"object","maxProperties":32,"propertyNames":{"minLength":1,"maxLength":96,"pattern":"\\S"},
+        "additionalProperties":{"anyOf":[{"type":"string","maxLength":1024},{"type":"number"},{"type":"boolean"}]}})
 }
 
 pub const TRANSFORMS: &[&str] = &[

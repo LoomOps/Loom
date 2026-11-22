@@ -2850,7 +2850,7 @@ Reservation receipt · id, revision, sealed, execution_job, receipts and science
 
 ## submit_research
 
-Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. For a Dataset append or Policy continuation, revises pins the current exact base, and edit_authorization records the user's explicit request or confirmation before execution claims that record. The producing Unit consumes the pinned base. Use a new Dataset record for repartitioning. An Experiment can use supplements with an exact current Experiment after verified protocol and cohort checks. Scientific Policy outputs pin the Dataset; Experiments pin exact Dataset and Policy inputs.
+Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. For a Dataset append or Policy continuation, revises pins the current exact base, and edit_authorization records the user's explicit request or confirmation before execution claims that record. The producing Unit consumes the pinned base. Publish scientific Dataset replacements as separate candidates first. Adopt a verified candidate with results.adopt_output_revision mode=replace_unused when the exact base remains unused. An Experiment can use supplements with an exact current Experiment after verified protocol and cohort checks. Scientific Policy outputs pin the Dataset; Experiments pin exact Dataset and Policy inputs.
 
 Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/plans.rs#write_research_plan](../../rust/crates/core/src/plans.rs).
 

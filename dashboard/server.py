@@ -391,7 +391,7 @@ class WebHandler(BaseHTTPRequestHandler):
         if self.path == '/api/scenarios/actions':
             allowed = (
                 'scenarios','get_scenario','scenario_graph','register_scenario','update_scenario',
-                'archive_scenario','link_scenario','supersede_scenario_link','set_output_disposition')
+                'archive_scenario','link_scenario','supersede_scenario_link','set_output_disposition','organize_dataset')
             try:
                 size=int(self.headers.get('Content-Length','0'))
                 if not 0<size<=196608 or self.headers.get_content_type()!='application/json':raise ValueError()

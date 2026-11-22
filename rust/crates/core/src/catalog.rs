@@ -768,10 +768,6 @@ impl Application {
             if let Some(id) = entity["loom_registry"]["id"].as_str().map(str::to_owned) {
                 if matches!(entity["kind"].as_str(), Some("dataset" | "model")) {
                     self.attach_output_edit(entity, &id)?;
-                    if !all {
-                        let pin = entity["loom_registry"].clone();
-                        self.attach_policy_checkpoints(entity, &pin)?;
-                    }
                 }
             }
         }
@@ -957,6 +953,10 @@ impl Application {
         };
         let mut catalog = self.catalog_projection(Some(std::slice::from_ref(&item)), mode)?;
         for entity in catalog["entities"].as_array_mut().unwrap() {
+            if let Some(id) = entity["loom_registry"]["id"].as_str().map(str::to_owned) {
+                self.attach_policy_checkpoints(entity, &id, None)?;
+            }
+            self.attach_policy_training_revisions(entity)?;
             entity["item_id"] = item["item_id"].clone();
             entity["item_revision_id"] = item["revision_id"].clone();
             if item["catalog_class"].is_string() {

@@ -292,7 +292,7 @@ impl Application {
                 )?;
                 let mut value: Value = serde_json::from_str(&text)?;
                 self.attach_output_edit(&mut value, id)?;
-                self.attach_policy_checkpoints(&mut value, &json!({"id":id,"revision":rev}))?;
+                self.attach_policy_checkpoints(&mut value, id, Some(rev))?;
                 if let Some(class) = self.reviewed_output_class(
                     "entity",
                     value["kind"].as_str().unwrap_or(""),
@@ -1154,6 +1154,12 @@ impl Application {
                         crate::compat::dump(&record)
                     ],
                 )?;
+                if kind == "dataset" {
+                    if let Some(base) = record["relations"].as_array().into_iter().flatten()
+                        .find(|relation| relation["kind"] == "revises") {
+                        crate::dataset_organization::retain_presentation(&tx, base, &record, &row.spec["scenario_ref"])?;
+                    }
+                }
                 for (component, reference) in &locations {
                     tx.execute(
                         "INSERT INTO entity_locations VALUES(?,?,?,?,?,?,'available')",

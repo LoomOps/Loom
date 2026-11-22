@@ -497,7 +497,7 @@
   },
   "results.get": {
     "title": "Artifact details",
-    "description": "Read an artifact record by exact ID and revision. Template-backed scientific records include current typed research_summary, robot and metadata_status. Additive operator normalization exposes metadata_provenance with the source digest, evidence and reason; original manifest fields and execution remain preserved.",
+    "description": "Read an artifact record by exact ID and revision. Template-backed scientific records include current typed research_summary, robot and metadata_status. Additive operator normalization exposes metadata_provenance with the source digest, evidence and reason; original manifest fields and execution remain preserved. Policy checkpoint files through the requested revision include their source revision and, when known, the step.",
     "returns": "Registry entity with current display label, immutable manifest fields, registered locations and optional template metadata/provenance",
     "example": {
       "id": "<entity-id>",
@@ -1293,7 +1293,7 @@
   },
   "system.dashboard_entity": {
     "title": "Dashboard entity",
-    "description": "Read one exact source-qualified browser record with lazy file inventories. Set records_only=true to omit the independent queue, host and Job contract projections.",
+    "description": "Read one exact source-qualified browser record with lazy file inventories. Policy details include the registered checkpoint files and exact training report descriptors across revisions of the same Policy. Dataset records and input descriptors include their effective organization, including any handle and authored tags. Set records_only=true to omit the independent queue, host and Job contract projections.",
     "returns": "Exact browser catalog projection including selected entities and common Item/revision IDs",
     "example": {
       "item_id": "2156055679491977121222771780406505881"
@@ -1631,7 +1631,7 @@
   },
   "results.organize_dataset": {
     "title": "Organize an existing Dataset",
-    "description": "Preview or apply source-bound browsing context under an already linked exact Task and a stable subgroup path. This does not declare data derivation or rewrite source records.",
+    "description": "Preview or apply Dataset presentation under an already linked exact Task. Edit the handle, authored tags, description, subgroup path and user-defined catalog properties even while the exact Dataset is in use. Omitted fields retain their current values. Use handle=null, tags=[], description=\"\" or properties={} to clear those fields. Catalog properties are separate from scientific fields and reports. A handle can be shared by records in a variant. Use exact record IDs and revisions as scientific input pins.",
     "returns": "Organization · dry_run, stored, digest, organization",
     "example": {
       "target": {
@@ -1651,6 +1651,9 @@
           "label": "Cohort"
         }
       ],
+      "handle": "D0 · S1",
+      "tags": ["A"],
+      "properties": {"Review status": "Ready"},
       "reason": "Reuse the evidenced collection context"
     },
     "errors": [
@@ -2183,7 +2186,7 @@
   },
   "results.adopt_output_revision": {
     "title": "Adopt a published continuation",
-    "description": "With the user's explicit direction, consolidate a completed Regular Dataset append or Policy continuation under the original record's next revision. Requires the submitting principal of the verified source and an exact consumed base. Original records stay addressable; the standalone continuation is retired from the Current list.",
+    "description": "With the user's explicit direction, consolidate a completed Regular Dataset append or Policy continuation under the original record's next revision. Set mode=replace_unused to adopt a verified replacement Dataset whose split, membership or other scientific content changed. The exact current base must have no other accepted or published references at apply time. If the Dataset is in use, keep the candidate as a separate Current record. Requires the submitting principal of the verified source and an exact consumed base. Original revisions stay addressable. Successful adoption retires the candidate from the Current list.",
     "returns": "Returns the original ID, its new exact revision, the source revision and its disposition.",
     "example": {
       "base": {"id": "<original-output>", "revision": 1},
@@ -2195,7 +2198,7 @@
   },
   "jobs.submit_research": {
     "title": "Submit a research Job",
-    "description": "Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. For a Dataset append or Policy continuation, revises pins the current exact base, and edit_authorization records the user's explicit request or confirmation before execution claims that record. The producing Unit consumes the pinned base. Use a new Dataset record for repartitioning. An Experiment can use supplements with an exact current Experiment after verified protocol and cohort checks. Scientific Policy outputs pin the Dataset; Experiments pin exact Dataset and Policy inputs.",
+    "description": "Admit one Regular output and its Units. scenario_ref pins a registered Task ID and revision. For a Dataset append or Policy continuation, revises pins the current exact base, and edit_authorization records the user's explicit request or confirmation before execution claims that record. The producing Unit consumes the pinned base. Publish scientific Dataset replacements as separate candidates first. Adopt a verified candidate with results.adopt_output_revision mode=replace_unused when the exact base remains unused. An Experiment can use supplements with an exact current Experiment after verified protocol and cohort checks. Scientific Policy outputs pin the Dataset; Experiments pin exact Dataset and Policy inputs.",
     "returns": "Returns the accepted Job ID, plan revision, sealed flag and map of Unit names to independently readable execution IDs.",
     "example": {
       "key": "generate-paired",

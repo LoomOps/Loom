@@ -2332,6 +2332,46 @@ const done=arguments[arguments.length-1];
             return [link.textContent,link.dataset.entity,link.classList.contains('pa-button'),input.querySelector('.pa-split-tag').textContent]"""),
             ['D0','revision:12:22',False,'split-800/100/100'])
 
+    def test_dataset_handle_and_authored_tags_are_rendered_per_record(self):
+        ui=self.ui;catalog=self.api.fixture['catalog']
+        task={'id':'condition-task','revision':1,'label':'Square'}
+        split={'train':720,'validation':0,'test':0}
+        model=next(e for e in catalog['entities'] if e['id']=='fixture-model')
+        for arm in 'ABC':
+            identity='condition-'+arm.lower()
+            label='Franka Panda · Square D0 · S1-'+arm
+            organization={'task_ref':task,'path':[],'handle':'D0 · S1','tags':[arm,'matched']}
+            catalog['entities'].append({'id':identity,'kind':'dataset','label':label,'task_refs':[task],
+                'dataset_organization':organization,'properties':{'episodes':720,'split':split}})
+            inputs={'datasets':[{'ref':{'kind':'entity','identity':{'id':identity,'revision':1}},
+                'label':label,'task_refs':[task],'organization':organization,'split':split}]}
+            catalog['entities'].append({**model,'id':'policy-'+identity,'task_refs':[task],
+                'catalog_inputs':inputs})
+            catalog['entities'].append({'id':'experiment-'+identity,'kind':'experiment','label':'Evaluation '+arm,
+                'task_refs':[task],'catalog_inputs':inputs,'properties':{},'metrics':[],'relations':[],'artifacts':[]})
+        catalog['research_tasks']=[task];catalog['revision']='condition-tags'
+        catalog.setdefault('capabilities',{})['reporting']=True
+        ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')")
+        ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('condition-tags')")
+        ui.nav('Datasets')
+        ui.wait("return !!document.querySelector('[data-output-id=condition-a] .pa-split-tag')")
+        rows=ui.js("""return ['a','b','c'].map(arm=>{const row=document.querySelector('[data-output-id=condition-'+arm+']');
+            return [row.querySelector('.pa-dataset-handle').textContent,
+                row.querySelector('a').textContent,[...row.querySelectorAll('.pa-split-tag')].map(n=>n.textContent)]})""")
+        self.assertEqual(rows,[['D0 · S1','Franka Panda · Square D0 · S1-'+arm,[arm,'matched','split-720/0/0']] for arm in 'ABC'])
+        ui.click('[data-entity=condition-b]')
+        self.assertEqual(ui.js("return document.querySelector('.pa-heading .pa-dataset-handle').textContent"),'D0 · S1')
+        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-research-overview [data-research-fact=tag] .pa-split-tag')].map(n=>n.textContent)"),['B','matched','split-720/0/0'])
+        ui.nav('Models');ui.click('[data-research-task=condition-task]')
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-catalog-dataset]')].map(n=>n.textContent)"),
+                         ['All',*[f'D0 · S1 · {arm} · matched · split-720/0/0' for arm in 'ABC']])
+        self.assertEqual(ui.js("return document.querySelector('[data-output-id=policy-condition-a] [data-research-fact=dataset] dd').textContent"),'D0 · S1')
+        ui.click('[data-entity=policy-condition-a]')
+        self.assertEqual(ui.js("return document.querySelector('.pa-catalog-inputs button').textContent"),'Franka Panda · Square D0 · S1-A')
+        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-catalog-inputs .pa-split-tag')].map(n=>n.textContent)"),['A','matched','split-720/0/0'])
+        ui.nav('Experiments')
+        self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=experiment-condition-c] [data-research-fact=dataset] .pa-split-tag')].map(n=>n.textContent)"),['C','matched','split-720/0/0'])
+
     def test_catalog_marks_imports_and_only_headlines_one_checkpoint(self):
         ui=self.ui;catalog=self.api.fixture['catalog']
         catalog['capabilities']={'reporting':True}

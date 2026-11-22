@@ -1003,7 +1003,7 @@ Unsupported view or unavailable source state.
 
 ## dashboard_entity
 
-Read one exact source-qualified browser record with lazy file inventories. Set records_only=true to omit the independent queue, host and Job contract projections.
+Read one exact source-qualified browser record with lazy file inventories. Policy details include the registered checkpoint files and exact training report descriptors across revisions of the same Policy. Dataset records and input descriptors include their effective organization, including any handle and authored tags. Set records_only=true to omit the independent queue, host and Job contract projections.
 
 Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/catalog.rs#dashboard_entity](../../rust/crates/core/src/catalog.rs).
 

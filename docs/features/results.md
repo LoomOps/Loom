@@ -93,6 +93,13 @@ apply key. Reassignment retains prior annotation history and rejects conflicting
 labels for the same active path. Original manifests and Task links are unchanged.
 New Dataset outputs may declare `metadata.research.organization`. Native result
 reads and Dashboard DTOs expose effective organization with its authority.
+The optional `handle` is the record's short display name. Records may share it
+within a variant. The optional `tags` array stores record-level labels and the
+Dashboard displays them alongside the split derived from collection counts.
+Description and user-defined catalog properties are editable independent of
+scientific properties. Edits use source-bound previews and apply during active
+jobs. New revisions inherit the original record's current operator presentation.
+Scientific input pins continue to use exact record IDs and revisions.
 `dataset-browser.js` renders families, subgroups and an iterative multi-generation
 lineage tree. Parent links across filtered or unloaded groups stay in details.
 
@@ -119,7 +126,11 @@ explicit direction or confirmation. Loom validates the exact revision, owner
 and Task, claims a logical output for the executing Job, and rechecks the
 claim and current revision at publication. The producing Unit consumes the
 base as an exact immutable input. Dataset append checks registered memberships
-and preserves split assignment. Repartitioning is a new Dataset. Output locks
+and preserves split assignment. Publish a separate verified candidate for a
+scientific replacement. `results.adopt_output_revision` with
+`mode: "replace_unused"` checks accepted and published references in the
+adoption transaction and makes the candidate the original record's next
+revision if still unused. A referenced base leaves the candidate separate. Output locks
 are released when the owning Job becomes terminal; normal result recovery keeps
 the verified Attempt. A losing writer whose base changed remains blocked until
 cancelled and resubmitted with an authorized current base. Existing exact

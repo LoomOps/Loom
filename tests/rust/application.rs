@@ -843,6 +843,63 @@ fn completed_policy_adoption_preserves_the_source_job_and_exact_files() {
 }
 
 #[test]
+fn replacing_unused_dataset_checks_references_and_retains_presentation() {
+    let mut f = Fixture::new();
+    let task = f.call("results", "register_scenario", json!({"key":"replace-task","definition":{"label":"Square"}})).unwrap();
+    let task = json!({"id":task["id"],"revision":1});
+    let base = json!({"id":"draft-dataset","revision":1});
+    let candidate = json!({"id":"validated-repartition","revision":1});
+    let base_manifest = json!({"id":base["id"],"revision":1,"kind":"dataset","label":"Original Dataset","catalog_class":"regular",
+        "scenario_ref":task,"relations":[],"components":[],"metadata":{"research":{"collection":{"split":{"train":2}}}}});
+    f.app.db.execute("INSERT INTO asset_revisions VALUES(?,1,NULL,'dataset','owner','owner',?)",
+        rusqlite::params![base["id"].as_str(),base_manifest.to_string()]).unwrap();
+    let producer = f.submit("make-replacement");
+    let reader = f.submit("queued-reader");
+    let exact_input = json!({"data":{"artifact":base}}).to_string();
+    for job in [&producer, &reader] {
+        f.app.db.execute("UPDATE jobs SET spec=json_set(spec,'$.params',json(?)) WHERE id=?",
+            rusqlite::params![exact_input,job]).unwrap();
+    }
+    f.app.db.execute("UPDATE jobs SET state='complete' WHERE id=?", [&producer]).unwrap();
+    let bytes = json!({"schema":"loom-report/v1","data":{"members":[{"id":"a","split":"train"},{"id":"b","split":"test"}]}}).to_string();
+    fs::write(f.app.bulk.join("replacement-members.json"), &bytes).unwrap();
+    let digest = hash(&bytes);
+    let next = json!({"id":candidate["id"],"revision":1,"kind":"dataset","label":"Repartitioned Dataset","catalog_class":"regular",
+        "job":producer,"scenario_ref":task,"relations":[{"kind":"consumes","id":base["id"],"revision":1}],
+        "reporting":{"reports":[{"role":"dataset_statistics","state":"recorded","component":"replacement-members.json","sha256":digest}]},
+        "components":[{"ref":"replacement-members.json","sha256":digest,"size":bytes.len()}],
+        "metadata":{"research":{"collection":{"split":{"train":1,"test":1}}}}});
+    f.app.db.execute("INSERT INTO entity_revisions VALUES(?,1,?,'dataset','owner','owner',?)",
+        rusqlite::params![candidate["id"].as_str(),producer,next.to_string()]).unwrap();
+    f.app.db.execute("INSERT INTO entity_locations VALUES(?,1,'replacement-members.json','fixture','fixture-data','replacement-members.json','available')",
+        [candidate["id"].as_str()]).unwrap();
+    let args = json!({"base":base,"source":candidate,"mode":"replace_unused",
+        "authorization":{"basis":"explicit_request","evidence":"Replace the unused Dataset"},"key":"replace"});
+    assert_eq!(f.call("results","adopt_output_revision",args.clone()).unwrap_err().code,"dataset_in_use");
+    let mut edit = json!({"target":{"kind":"entity","identity":base},"task_ref":task,"handle":"D0 · S1","tags":["A"],
+        "description":"Editorial description","properties":{"Collection owner":"team"},"reason":"Correct presentation"});
+    let preview=f.call("results","organize_dataset",edit.clone()).unwrap();
+    edit["dry_run"]=json!(false);edit["key"]=json!("description");edit["expected_digest"]=preview["digest"].clone();
+    f.call("results","organize_dataset",edit).unwrap();
+    f.app.db.execute("UPDATE jobs SET state='cancelled' WHERE id=?", [&reader]).unwrap();
+    let linked = json!({"id":"uses-draft","revision":1,"kind":"model","relations":[{"kind":"trained_on","id":base["id"],"revision":1}]});
+    f.app.db.execute("INSERT INTO asset_revisions VALUES('uses-draft',1,NULL,'model','owner','owner',?)",[linked.to_string()]).unwrap();
+    assert_eq!(f.call("results","adopt_output_revision",args.clone()).unwrap_err().code,"dataset_in_use");
+    f.app.db.execute("DELETE FROM asset_revisions WHERE id='uses-draft'",[]).unwrap();
+    let result=f.call("results","adopt_output_revision",args.clone()).unwrap();
+    assert_eq!(result["revision"],2);
+    assert_eq!(f.call("results","adopt_output_revision",args).unwrap(),result);
+    let latest=f.call("results","get",json!({"id":base["id"],"revision":2})).unwrap();
+    assert_eq!(latest["label"],"Original Dataset");
+    assert_eq!(latest["metadata"]["research"]["collection"]["split"],json!({"train":1,"test":1}));
+    assert_eq!(latest["dataset_organization"]["handle"],"D0 · S1");
+    assert_eq!(latest["dataset_organization"]["properties"]["Collection owner"],"team");
+    let original=f.call("results","get",base).unwrap();
+    assert_eq!(original["metadata"]["research"]["collection"]["split"],json!({"train":2}));
+    assert_eq!(f.call("results","get",candidate).unwrap()["disposition"]["state"],"discarded");
+}
+
+#[test]
 fn retired_policy_revision_stays_discoverable_when_another_job_revises_it() {
     let mut f = Fixture::new();
     let task = f
@@ -1078,7 +1135,7 @@ fn dataset_organization_is_source_bound_keyed_and_distinct_from_lineage() {
             .unwrap();
     }
     let target = json!({"kind":"entity","identity":{"id":"one","revision":1}});
-    let mut args = json!({"target":target,"task_ref":task_ref,"path":[{"id":"cohort","label":"Cohort"},{"id":"part","label":"Part"}],"reason":"Verified collection context"});
+    let mut args = json!({"target":target,"task_ref":task_ref,"path":[{"id":"cohort","label":"Cohort"},{"id":"part","label":"Part"}],"handle":"D0 · S1","tags":["A","matched"],"reason":"Verified collection context"});
     assert_eq!(
         f.call("results", "organize_dataset", args.clone())
             .unwrap_err()
@@ -1113,6 +1170,8 @@ fn dataset_organization_is_source_bound_keyed_and_distinct_from_lineage() {
         .as_array()
         .unwrap()
         .is_empty());
+    assert_eq!(result["dataset_organization"]["handle"], "D0 · S1");
+    assert_eq!(result["dataset_organization"]["tags"], json!(["A","matched"]));
     let mut other = args.clone();
     other["dry_run"] = json!(true);
     other["target"]["identity"]["id"] = json!("two");
@@ -1124,6 +1183,8 @@ fn dataset_organization_is_source_bound_keyed_and_distinct_from_lineage() {
         "organization_label"
     );
     let mut move_args = args.clone();
+    move_args.as_object_mut().unwrap().remove("handle");
+    move_args.as_object_mut().unwrap().remove("tags");
     move_args["path"] = json!([]);
     move_args["dry_run"] = json!(true);
     let moved_preview = f
@@ -1133,6 +1194,10 @@ fn dataset_organization_is_source_bound_keyed_and_distinct_from_lineage() {
     move_args["key"] = json!("move");
     move_args["dry_run"] = json!(false);
     f.call("results", "organize_dataset", move_args).unwrap();
+    let preview = f.call("results", "organize_dataset", json!({"target":target,"task_ref":task_ref,"tags":["B"],"reason":"Correct condition"})).unwrap();
+    assert_eq!(preview["organization"]["path"], json!([]));
+    assert_eq!(preview["organization"]["handle"], "D0 · S1");
+    assert_eq!(preview["organization"]["tags"], json!(["B"]));
     args["key"] = json!("stale-preview");
     assert_eq!(
         f.call("results", "organize_dataset", args)
@@ -1208,11 +1273,16 @@ fn historical_dataset_organization_preserves_original_and_requires_active_task_l
 fn dataset_organization_declarations_reject_ambiguous_or_unbounded_paths() {
     use crate::dataset_organization::validate_declaration as validate;
     assert!(validate(&json!({"path":[],"task_ref":{"id":"task","revision":1}})).is_ok());
+    assert!(validate(&json!({"handle":"D0 · S1","tags":["A","release/v2"]})).is_ok());
     for value in [
         json!({"path":[{"id":"space id","label":"Invalid"}]}),
         json!({"path":[{"id":"ok","label":"  "}]}),
         json!({"path":[],"task_ref":{"id":"task"}}),
         json!({"path":[],"extra":true}),
+        json!({"handle":" "}),
+        json!({"handle":"D0\nS1"}),
+        json!({"tags":["arm a"]}),
+        json!({"tags":["A","A"]}),
         json!({"path":vec![json!({"id":"group","label":"Group"});13]}),
     ] {
         assert!(validate(&value).is_err());

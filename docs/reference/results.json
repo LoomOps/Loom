@@ -33,7 +33,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "get",
-      "description": "Read an artifact record by exact ID and revision. Template-backed scientific records include current typed research_summary, robot and metadata_status. Additive operator normalization exposes metadata_provenance with the source digest, evidence and reason; original manifest fields and execution remain preserved.",
+      "description": "Read an artifact record by exact ID and revision. Template-backed scientific records include current typed research_summary, robot and metadata_status. Additive operator normalization exposes metadata_provenance with the source digest, evidence and reason; original manifest fields and execution remain preserved. Policy checkpoint files through the requested revision include their source revision and, when known, the step.",
       "errors": [
         "Missing artifact revision or read scope."
       ],
@@ -330,7 +330,7 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "adopt_output_revision",
-      "description": "With the user's explicit direction, consolidate a completed Regular Dataset append or Policy continuation under the original record's next revision. Requires the submitting principal of the verified source and an exact consumed base. Original records stay addressable; the standalone continuation is retired from the Current list.",
+      "description": "With the user's explicit direction, consolidate a completed Regular Dataset append or Policy continuation under the original record's next revision. Set mode=replace_unused to adopt a verified replacement Dataset whose split, membership or other scientific content changed. The exact current base must have no other accepted or published references at apply time. If the Dataset is in use, keep the candidate as a separate Current record. Requires the submitting principal of the verified source and an exact consumed base. Original revisions stay addressable. Successful adoption retires the candidate from the Current list.",
       "example": {
         "authorization": {
           "basis": "explicit_request",
@@ -399,6 +399,13 @@
             "maxLength": 2048,
             "minLength": 1,
             "type": "string"
+          },
+          "mode": {
+            "default": "continuation",
+            "enum": [
+              "continuation",
+              "replace_unused"
+            ]
           },
           "source": {
             "additionalProperties": false,
@@ -1006,18 +1013,25 @@
     {
       "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
       "action": "organize_dataset",
-      "description": "Preview or apply source-bound browsing context under an already linked exact Task and a stable subgroup path. This does not declare data derivation or rewrite source records.",
+      "description": "Preview or apply Dataset presentation under an already linked exact Task. Edit the handle, authored tags, description, subgroup path and user-defined catalog properties even while the exact Dataset is in use. Omitted fields retain their current values. Use handle=null, tags=[], description=\"\" or properties={} to clear those fields. Catalog properties are separate from scientific fields and reports. A handle can be shared by records in a variant. Use exact record IDs and revisions as scientific input pins.",
       "errors": [
         "Exact Dataset or linked Task missing; conflicting subgroup label; source or current assignment changed; maintenance fence."
       ],
       "example": {
+        "handle": "D0 · S1",
         "path": [
           {
             "id": "cohort",
             "label": "Cohort"
           }
         ],
+        "properties": {
+          "Review status": "Ready"
+        },
         "reason": "Reuse the evidenced collection context",
+        "tags": [
+          "A"
+        ],
         "target": {
           "identity": {
             "id": "<dataset-id>",
@@ -1040,6 +1054,10 @@
       "schema": {
         "additionalProperties": false,
         "properties": {
+          "description": {
+            "maxLength": 4096,
+            "type": "string"
+          },
           "dry_run": {
             "default": true,
             "type": "boolean"
@@ -1047,6 +1065,22 @@
           "expected_digest": {
             "pattern": "^[a-f0-9]{64}$",
             "type": "string"
+          },
+          "handle": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "not": {
+                  "pattern": "[\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029]"
+                },
+                "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "key": {
             "maxLength": 2048,
@@ -1076,10 +1110,42 @@
             "maxItems": 12,
             "type": "array"
           },
+          "properties": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "maxLength": 1024,
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            },
+            "maxProperties": 32,
+            "propertyNames": {
+              "maxLength": 96,
+              "minLength": 1,
+              "pattern": "\\S"
+            },
+            "type": "object"
+          },
           "reason": {
             "maxLength": 2000,
             "minLength": 1,
             "type": "string"
+          },
+          "tags": {
+            "items": {
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_./-]{0,63}$",
+              "type": "string"
+            },
+            "maxItems": 24,
+            "type": "array",
+            "uniqueItems": true
           },
           "target": {
             "additionalProperties": false,
@@ -1129,7 +1195,6 @@
         "required": [
           "target",
           "task_ref",
-          "path",
           "reason"
         ],
         "type": "object"

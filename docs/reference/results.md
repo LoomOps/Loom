@@ -107,7 +107,7 @@ Shared authentication, schema, scope and handler preconditions still apply.
 
 ## get
 
-Read an artifact record by exact ID and revision. Template-backed scientific records include current typed research_summary, robot and metadata_status. Additive operator normalization exposes metadata_provenance with the source digest, evidence and reason; original manifest fields and execution remain preserved.
+Read an artifact record by exact ID and revision. Template-backed scientific records include current typed research_summary, robot and metadata_status. Additive operator normalization exposes metadata_provenance with the source digest, evidence and reason; original manifest fields and execution remain preserved. Policy checkpoint files through the requested revision include their source revision and, when known, the step.
 
 Scope: `read`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/results.rs#result_action](../../rust/crates/core/src/results.rs).
 
@@ -532,7 +532,7 @@ Unregistered profile or missing artifact.
 
 ## adopt_output_revision
 
-With the user's explicit direction, consolidate a completed Regular Dataset append or Policy continuation under the original record's next revision. Requires the submitting principal of the verified source and an exact consumed base. Original records stay addressable; the standalone continuation is retired from the Current list.
+With the user's explicit direction, consolidate a completed Regular Dataset append or Policy continuation under the original record's next revision. Set mode=replace_unused to adopt a verified replacement Dataset whose split, membership or other scientific content changed. The exact current base must have no other accepted or published references at apply time. If the Dataset is in use, keep the candidate as a separate Current record. Requires the submitting principal of the verified source and an exact consumed base. Original revisions stay addressable. Successful adoption retires the candidate from the Current list.
 
 Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/output_edits.rs#adopt_output_revision](../../rust/crates/core/src/output_edits.rs).
 
@@ -543,6 +543,7 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 | `authorization` | yes | `"object"` | `—` |
 | `base` | yes | `"object"` | `—` |
 | `key` | yes | `"string"` | `—` |
+| `mode` | no | `["continuation", "replace_unused"]` | `"continuation"` |
 | `source` | yes | `"object"` | `—` |
 
 <details><summary>Exact input JSON Schema</summary>
@@ -595,6 +596,13 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
       "maxLength": 2048,
       "minLength": 1,
       "type": "string"
+    },
+    "mode": {
+      "default": "continuation",
+      "enum": [
+        "continuation",
+        "replace_unused"
+      ]
     },
     "source": {
       "additionalProperties": false,
@@ -1362,7 +1370,7 @@ Unknown or mismatched template, invalid schema or typed metadata, changed source
 
 ## organize_dataset
 
-Preview or apply source-bound browsing context under an already linked exact Task and a stable subgroup path. This does not declare data derivation or rewrite source records.
+Preview or apply Dataset presentation under an already linked exact Task. Edit the handle, authored tags, description, subgroup path and user-defined catalog properties even while the exact Dataset is in use. Omitted fields retain their current values. Use handle=null, tags=[], description="" or properties={} to clear those fields. Catalog properties are separate from scientific fields and reports. A handle can be shared by records in a variant. Use exact record IDs and revisions as scientific input pins.
 
 Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust/crates/core/src/dataset_organization.rs#organize_dataset](../../rust/crates/core/src/dataset_organization.rs).
 
@@ -1370,11 +1378,15 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 
 | Field | Required | Type / values | Default |
 |---|---|---|---|
+| `description` | no | `"string"` | `—` |
 | `dry_run` | no | `"boolean"` | `true` |
 | `expected_digest` | no | `"string"` | `—` |
+| `handle` | no | `"see schema"` | `—` |
 | `key` | no | `"string"` | `—` |
-| `path` | yes | `"array"` | `—` |
+| `path` | no | `"array"` | `—` |
+| `properties` | no | `"object"` | `—` |
 | `reason` | yes | `"string"` | `—` |
+| `tags` | no | `"array"` | `—` |
 | `target` | yes | `"object"` | `—` |
 | `task_ref` | yes | `"object"` | `—` |
 
@@ -1384,6 +1396,10 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 {
   "additionalProperties": false,
   "properties": {
+    "description": {
+      "maxLength": 4096,
+      "type": "string"
+    },
     "dry_run": {
       "default": true,
       "type": "boolean"
@@ -1391,6 +1407,22 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
     "expected_digest": {
       "pattern": "^[a-f0-9]{64}$",
       "type": "string"
+    },
+    "handle": {
+      "anyOf": [
+        {
+          "maxLength": 64,
+          "minLength": 1,
+          "not": {
+            "pattern": "[\\u0000-\\u001F\\u007F-\\u009F\\u2028\\u2029]"
+          },
+          "pattern": "^\\S(?:[^\\r\\n]*\\S)?$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "key": {
       "maxLength": 2048,
@@ -1420,10 +1452,42 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
       "maxItems": 12,
       "type": "array"
     },
+    "properties": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "maxLength": 1024,
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          }
+        ]
+      },
+      "maxProperties": 32,
+      "propertyNames": {
+        "maxLength": 96,
+        "minLength": 1,
+        "pattern": "\\S"
+      },
+      "type": "object"
+    },
     "reason": {
       "maxLength": 2000,
       "minLength": 1,
       "type": "string"
+    },
+    "tags": {
+      "items": {
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_./-]{0,63}$",
+        "type": "string"
+      },
+      "maxItems": 24,
+      "type": "array",
+      "uniqueItems": true
     },
     "target": {
       "additionalProperties": false,
@@ -1473,7 +1537,6 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
   "required": [
     "target",
     "task_ref",
-    "path",
     "reason"
   ],
   "type": "object"
@@ -1486,13 +1549,20 @@ Scope: `submit`. Owner: [results](../features/results.md). Implementation: [rust
 
 ```json
 {
+  "handle": "D0 · S1",
   "path": [
     {
       "id": "cohort",
       "label": "Cohort"
     }
   ],
+  "properties": {
+    "Review status": "Ready"
+  },
   "reason": "Reuse the evidenced collection context",
+  "tags": [
+    "A"
+  ],
   "target": {
     "identity": {
       "id": "<dataset-id>",

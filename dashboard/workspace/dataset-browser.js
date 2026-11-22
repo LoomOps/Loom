@@ -7,12 +7,14 @@ function loomDatasetSplitTag(split){
  const counts=loomDatasetSplitCounts(split);
  return counts?{text:'split-'+counts.join('/'),title:loomResearchSplit(split)}:null;
 }
-function loomDatasetTagFact(splits){
+function loomDatasetTags(split,organization){
+ const authored=(organization?.tags||[]).map(text=>({text,title:text}));
+ const splitTag=loomDatasetSplitTag(split);
+ return [...new Map([...authored,...(splitTag?[splitTag]:[])].map(tag=>[tag.text,tag])).values()];
+}
+function loomDatasetTagFact(inputs){
  const tags=new Map();
- for(const split of splits){
-  const tag=loomDatasetSplitTag(split);
-  if(tag)tags.set(tag.text,tag);
- }
+ for(const input of inputs)for(const tag of loomDatasetTags(input.split,input.organization))tags.set(tag.text,tag);
  return {id:'tag',label:'Tag',value:'Missing',status:'recorded',tags:[...tags.values()]};
 }
 // Older producers duplicated a recorded split in both the label and subgroup.
@@ -47,10 +49,12 @@ function loomDatasetRow(e,depth=0){
  const facts=loomResearchFactMap(e),unit=facts.get('count_unit')?.value;
  const count=!unit||/^(episodes?|demonstrations?|trajector(?:y|ies)|rollouts?)$/i.test(unit)?facts.get('count'):null;
  const split=facts.get('split');
- const fields=[split?loomDatasetSplitFact(split):loomDatasetTagFact([]),
+ const fields=[loomDatasetSplitFact(split||loomDatasetTagFact([]),e.dataset_organization),
                {value:'Missing',...count,id:'count',label:'Episodes'}];
+ const handle=e.dataset_organization?.handle;
  return '<article role="listitem" class="pa-catalog-item pa-scientific-card pa-dataset-row" data-output-id="'+esc(e.id)+'" data-dataset-depth="'+depth+'">'
-  +'<div class="pa-row-main pa-dataset-name">'+catLink(e.id)+loomOutputEditing(e)+'</div>'
+  +(handle?'<div class="pa-dataset-handle">'+esc(handle)+'</div>':'')
+  +'<div class="pa-row-main pa-dataset-name">'+catLink(e.id)+loomDatasetOriginBadge(e)+loomOutputEditing(e)+'</div>'
   +loomResearchFactsHTML(fields,true)+'</article>';
 }
 function loomDatasetTree(rows){
@@ -96,3 +100,40 @@ function loomDatasetList(){
 }
 const loomDatasetPriorList=catalogList;
 catalogList=function(kind){return kind==='dataset'?loomDatasetList():loomDatasetPriorList(kind);};
+
+root.addEventListener('click',event=>{
+ const button=event.target.closest('[data-edit-dataset-metadata]');
+ if(!button)return;
+ const e=catEntity(button.dataset.editDatasetMetadata),target=loomOutputTarget(e);
+ const metadata=e?.dataset_organization||{},task=metadata.task_ref||e?.task_refs?.[0];
+ if(!target||!task)return;
+ button.closest('details').open=false;
+ const dialog=loomHubDialog('Edit dataset metadata',`<form>
+  <label>Handle<input name="handle" maxlength="64" value="${esc(metadata.handle||'')}"></label>
+  <label>Tags, one per line<textarea name="tags" rows="3">${esc((metadata.tags||[]).join('\n'))}</textarea></label>
+  <label>Description<textarea name="description" rows="3" maxlength="4096">${esc(metadata.description??e.description??'')}</textarea></label>
+  <label>Custom properties (JSON)<textarea name="properties" rows="4">${esc(JSON.stringify(metadata.properties||{},null,2))}</textarea></label>
+  <button type="submit">Save</button>
+ </form>`);
+ const form=dialog.querySelector('form'),buttonSave=form.querySelector('button'),status=dialog.querySelector('[data-hub-result]');
+ buttonSave.addEventListener('click',async event=>{
+  event.preventDefault();
+  if(!form.reportValidity())return;
+  buttonSave.disabled=true;status.textContent='';
+  try{
+   const data=new FormData(form),properties=JSON.parse(data.get('properties')||'{}');
+   if(!properties||typeof properties!=='object'||Array.isArray(properties))throw Error('Enter a JSON object for custom properties.');
+   const args={target,task_ref:{id:task.id,revision:task.revision},handle:data.get('handle').trim()||null,
+    tags:data.get('tags').split('\n').map(tag=>tag.trim()).filter(Boolean),description:data.get('description'),properties,
+    reason:'Edited dataset metadata in the Dashboard'};
+   const preview=await loomResultAction('organize_dataset',{...args,dry_run:true});
+   const result=await loomResultAction('organize_dataset',{...args,dry_run:false,key:crypto.randomUUID(),expected_digest:preview.digest});
+   const current=catEntity(e.id);
+   if(current&&loomScenarioSameTarget(loomOutputTarget(current),target)){
+    loomCatalogMerge({entities:[{...current,dataset_organization:{...result.organization,authority:'operator'}}]});
+    catalogRefreshViews();
+   }
+   dialog.close();dialog.remove();
+  }catch(error){status.textContent=error.message;buttonSave.disabled=false;}
+ });
+});

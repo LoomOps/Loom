@@ -3,7 +3,11 @@
 #pai-studio :is(.pa-report-policy,.pa-report-experiment) [data-report-content],
 #pai-studio .pa-research-overview.pa-output-overview-cards { display:grid; gap:16px; min-width:0; }
 #pai-studio .pa-report-overview .pa-output-overview-cards { margin:0; }
-#pai-studio :is(.pa-report-policy,.pa-report-experiment) [data-report-content] > .pa-output-section { box-sizing:border-box; padding:16px 20px; border:1px solid var(--pa-line); border-radius:10px; background:var(--pa-paper); }
+#pai-studio :is(.pa-report-policy,.pa-report-experiment) [data-report-content] > .pa-output-section,
+#pai-studio [data-report-training-revision] > .pa-output-section { box-sizing:border-box; padding:16px 20px; border:1px solid var(--pa-line); border-radius:10px; background:var(--pa-paper); }
+#pai-studio [data-report-training-revision] { display:grid; gap:16px; min-width:0; }
+#pai-studio [data-report-training-revision] > h2 { margin:0; font-size:15px; font-weight:600; }
+#pai-studio .pa-report-overview [data-report-checkpoints] :is(th,td):last-child { text-align:right; }
 #pai-studio :is(.pa-report-policy,.pa-report-dataset .pa-report-overview,.pa-report-experiment,.pa-output-overview-cards) .pa-output-section > h2 { margin-bottom:14px; }
 #pai-studio :is(.pa-report-policy,.pa-report-dataset .pa-report-overview,.pa-report-experiment,.pa-output-overview-cards) .pa-entity-facts { margin-block:0; padding-block:0; border-block:0; }
 #pai-studio .pa-report-policy .pa-report-field { margin:0 0 12px; }

@@ -242,6 +242,19 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.assertTrue(ui.js("return [...document.querySelectorAll('.pa-research-overview [data-research-section]')][0]?.dataset.researchSection==='context'"))
   self.assertIn('train 0 / validation Unrecorded / test N/A',ui.js("return document.querySelector('.pa-research-overview').innerText"))
   self.assertIn('0.2',ui.js("return document.querySelector('[data-research-section=extensions]').textContent"))
+  ui.click('.pa-entity-menu summary');ui.click('[data-edit-dataset-metadata]')
+  ui.js('''const form=document.querySelector('dialog[open] form');
+    form.elements.handle.value='Fixture · D0';form.elements.tags.value='reviewed\\npublic';
+    form.elements.description.value='Editable catalog description';
+    form.elements.properties.value=JSON.stringify({'Review status':'Ready','Archived source':true});''')
+  ui.click('dialog[open] button[type=submit]')
+  ui.wait("return !document.querySelector('dialog[open]') || !!document.querySelector('dialog[open] [data-hub-result]').textContent")
+  self.assertFalse(ui.js("return document.querySelector('dialog[open] [data-hub-result]')?.textContent"))
+  ui.wait("return document.querySelector('.pa-heading .pa-dataset-handle')?.textContent==='Fixture · D0'")
+  value=self.call('results','get',{'id':identity,'revision':1})
+  self.assertEqual(value['dataset_organization']['tags'],['reviewed','public'])
+  self.assertTrue(value['dataset_organization']['properties']['Archived source'])
+  self.assertEqual(value['metadata']['research']['extensions']['friction'],0.2)
   ui.nav('Loom Use');ui.click('[data-metadata-templates]');ui.wait("return !!document.querySelector('[data-template-id=\"ui.contact\"]')");ui.click('[data-template-id="ui.contact"]')
   ui.wait("return !!document.querySelector('[data-template-copy]')")
   self.assertFalse(ui.js("return !!document.querySelector('[data-hub-dialog] img[src=x]')"))
@@ -264,6 +277,55 @@ class NativeWorkspaceTests(unittest.TestCase):
    ui.top();self.wd('/window/rect',{'width':width,'height':1000});ui.frame()
    for theme in ('light','dark'):
     ui.click('[data-theme='+theme+']');self.assertTrue(ui.js("const d=document.querySelector('[data-hub-dialog]');return d.scrollWidth<=d.clientWidth+1"))
+ def test_policy_detail_shows_all_checkpoint_and_training_revisions(self):
+  job=self.call('jobs','submit',{'key':'browser-policy-revisions','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False}})['id']
+  identity=job+'.revision-policy'
+  with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+   for revision,selected,steps in [(1,20000,list(range(1,102))+[25000]),(2,30000,[25000,30000])]:
+    components=[]
+    def component(name,raw):
+     path=f'policy-revision-{revision}-{name}'
+     (self.native_root/'data'/path).write_bytes(raw)
+     entry={'ref':name,'size':len(raw),'sha256':hashlib.sha256(raw).hexdigest()}
+     components.append(entry)
+     db.execute("INSERT INTO entity_locations VALUES(?,?,?,'browser-fixture','browser-data',?,'available')",(identity,revision,name,path))
+     return entry
+    component('policy.safetensors',f'primary revision {revision}'.encode())
+    if revision==2:component('model-25000.safetensors',b'intermediate checkpoint')
+    raw=json.dumps({'schema':'loom-report/v1','data':{'points':[{'step':step,'value':revision/10} for step in steps]}}).encode()
+    report=component('training.json',raw)
+    fields=[{'id':'points','label':'Training loss','pointer':'/points','format':'series','unit':'','x_pointer':'/step','y_pointer':'/value','x_label':'Optimizer step','y_label':'Loss'}]
+    manifest={'id':identity,'revision':revision,'kind':'model','label':'Revision policy fixture','job':job,'catalog_class':'regular','components':components,'relations':[],
+              'metadata':{'research':{'model':{'role':'policy','selected_step':selected}}},
+              'reporting':{'state':'validated','reports':[{'requirement_id':'training','label':'Training','role':'learning_series','state':'recorded','component':report['ref'],'sha256':report['sha256'],'fields':fields}]}}
+    db.execute("INSERT INTO entity_revisions VALUES(?,?,?,'model','owner','owner',?)",(identity,revision,job,json.dumps(manifest)))
+  self.assertEqual([c['step'] for c in self.call('results','get',{'id':identity,'revision':1})['policy_checkpoints']],[20000])
+  for _ in range(100):
+   try:
+    exact=self.call('results','resolve_item',{'native_ref':{'kind':'entity','identity':{'id':identity,'revision':1}}})
+    self.call('results','resolve_item',{'native_ref':{'kind':'entity','identity':{'id':identity,'revision':2}}})
+    break
+   except HTTPError:time.sleep(.05)
+  else:self.fail('Policy revisions did not index')
+  ui=self.ui;ui.nav('Policies')
+  ui.wait("const link=[...document.querySelectorAll('[data-output-id] [data-entity]')].find(node=>node.textContent==='Revision policy fixture');if(!link)return false;link.click();return true;")
+  checkpoints_loaded="return document.querySelector('[data-report-checkpoints]')?.textContent.includes('30,000 (r2)')"
+  ui.wait(checkpoints_loaded)
+  self.assertEqual(ui.js("return document.querySelector('[data-report-output]').dataset.reportOutput"),identity)
+  exact_route=f"revision:{exact['item_id']}:{exact['revision_id']}"
+  ui.route(exact_route)
+  ui.wait("return document.querySelector('[data-report-output]')?.dataset.reportOutput===arguments[0]",exact_route)
+  ui.wait(checkpoints_loaded)
+  self.assertEqual(ui.js("return [...document.querySelectorAll('[data-report-checkpoints] td:last-child')].map(c=>c.textContent)"),['20,000 (r1)','25,000 (r2)','30,000 (r2)'])
+  ui.click('[data-report-tab=training]')
+  ui.wait("return document.querySelectorAll('[data-report-training-revision] .pa-report-chart').length===2")
+  ui.click('[data-report-training-revision="1"] [data-report-more]')
+  ui.wait("return [...document.querySelector('[data-report-filter=step]').options].some(o=>o.textContent==='25,000 (r1)')")
+  self.assertEqual(ui.js("return [...document.querySelector('[data-report-filter=step]').options].slice(-3).map(o=>o.textContent)"),['25,000 (r1)','25,000 (r2)','30,000 (r2)'])
+  ui.js("const s=document.querySelector('[data-report-filter=step]');s.value='2:25000';s.dispatchEvent(new Event('change',{bubbles:true}))")
+  self.assertTrue(ui.js("return !!document.querySelector('[data-report-training-revision=\"2\"] circle[r=\"6\"]')"))
+  self.assertFalse(ui.js("return !!document.querySelector('[data-report-training-revision=\"1\"] circle[r=\"6\"]')"))
+
  def test_verified_report_views_show_exact_instructions_channels_and_separate_phase_curves(self):
   job=self.call('jobs','submit',{'key':'browser-reports','kind':'cpu.smoke','owner':'owner','notify':'owner','params':{'seconds':0,'fail':False}})['id'];identity=job+'.report-policy'
   def field(id,label,pointer,format,**extra):return dict(id=id,label=label,pointer=pointer,format=format,unit='',**extra)

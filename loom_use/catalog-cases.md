@@ -71,10 +71,28 @@ For a new variant, record its stable path, such as
 `metadata.research.organization.path:[{"id":"d1","label":"D1"}]`. Pin the Dataset's
 returned ID and revision in downstream contracts.
 
-If Square D1 is split again, reuse its label and `D1` path. Publish the new
-membership manifest and record the train, validation and test counts. The
-Catalog shows a tag such as `split-700/150/150`. Resolve the exact new Dataset before using it
-for training or evaluation. Existing Jobs retain their accepted inputs.
+For a changed split, membership or other scientific content, publish a verified
+candidate that consumes the exact Dataset. When the user requested replacement
+of an unused Dataset, call `results.adopt_output_revision` with `base`,
+`source`, `mode:"replace_unused"`, `authorization` and a stable `key`. A
+successful adoption keeps one Current entry and preserves both exact source
+records. If the action returns `dataset_in_use`, keep the candidate as a
+separate record. Resolve the new exact input before training or evaluation.
+
+Use `metadata.research.organization.handle` for the short name of a Dataset
+variant and `metadata.research.organization.tags` for record-level labels.
+For matched conditions, use a shared handle such as `D0 · S1` and a distinct tag
+such as `A` on each record. Keep the full Dataset name in `label` and the
+train, validation and test counts in `metadata.research.collection.split`.
+Dataset cards show the handle above each full name. Policy and Experiment
+lists show the handle and details link to the full Dataset name. Tags omit
+spaces and the Catalog derives split tags from the counts. Use an exact
+ID/revision from discovery when binding an input. Update an existing record's
+presentation through `results.organize_dataset` or **Edit metadata** in the
+Dashboard. Use `properties` for arbitrary descriptive catalog properties,
+including provenance notes, responsibility or review information. Use the typed
+research contract for scientific properties. Include `path:[]` to remove a
+former subgroup heading when moving to a per-record handle.
 
 ```json
 {"group":"results","action":"get_metadata_template","arguments":{"id":"loom.dataset","revision":1}}
