@@ -312,6 +312,22 @@ class PreservedRebuildTests(lifecycle.ReleaseLifecycleFixture):
 
 
 class AdmissionPreservationTests(unittest.TestCase):
+    def test_expired_dashboard_receipts_can_be_pruned_during_health_check(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)/'ops';admission=root/'admission';admission.mkdir(parents=True)
+            (root/'compose.env').touch()
+            path=admission/'requests.sqlite3'
+            with sqlite3.connect(path) as c:
+                c.execute('CREATE TABLE receipts(id TEXT PRIMARY KEY, subject TEXT, expires REAL)')
+                c.executemany('INSERT INTO receipts VALUES(?,?,?)',[('expired','a',9),('live','b',11)])
+            archive=Path(directory)/'snapshot';archive.mkdir()
+            saved=state_snapshot.capture(root,archive,Path(directory))
+            with sqlite3.connect(path) as c:c.execute("DELETE FROM receipts WHERE id='expired'")
+            with patch.object(state_snapshot.time,'time',return_value=10):
+                self.assertTrue(state_snapshot.verify(root,saved)['preserved'])
+                with sqlite3.connect(path) as c:c.execute("UPDATE receipts SET subject='c' WHERE id='live'")
+                with self.assertRaisesRegex(ValueError,'rows:receipts'):state_snapshot.verify(root,saved)
+
     def test_profile_access_clock_can_advance_but_identity_and_display_fields_stay_exact(self):
         with tempfile.TemporaryDirectory() as tmp:
             platform=Path(tmp);root=platform/'instance';(root/'runtime').mkdir(parents=True)

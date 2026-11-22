@@ -12,6 +12,7 @@ from pathlib import Path
 import shutil
 import sqlite3
 import stat
+import time
 from migrations import save
 
 
@@ -82,7 +83,7 @@ def databases(root):
         if header==b'SQLite format 3\x00':yield p
 
 
-def rows(c,table,columns,observations=False):
+def rows(c,table,columns,observations=False,session_time=None):
     quote=lambda s:'"'+s.replace('"','""')+'"'
     def value(item):
         return {'blob':item.hex()} if isinstance(item,bytes) else item
@@ -93,8 +94,13 @@ def rows(c,table,columns,observations=False):
             if kind in ('dependency','runtime') and row[columns.index('kind')]==kind and row[columns.index('deleted')] in (0,1):
                 row[columns.index('deleted')]=0
         return row
+    query='SELECT '+','.join(map(quote,columns))+' FROM '+quote(table)
+    args=()
+    if session_time is not None:
+        query+=" WHERE typeof(expires) NOT IN ('real','integer') OR expires>?"
+        args=(session_time,)
     return Counter(hashlib.sha256(json.dumps([value(x) for x in normalized(row)],ensure_ascii=True,separators=(',',':')).encode()).hexdigest()
-                   for row in c.execute('SELECT '+','.join(map(quote,columns))+' FROM '+quote(table)))
+                   for row in c.execute(query,args))
 
 
 def db_inventory(path):
@@ -181,7 +187,7 @@ def capture(root,archive,platform):
 def verify(root,base):
     root=Path(root);state=json.loads((Path(base)/'state.json').read_text())
     if state['root']!=str(root):raise ValueError('Snapshot belongs to another installation')
-    problems=[];current=file_inventory(root)
+    problems=[];current=file_inventory(root);session_time=time.time()
     for name,value in state['files'].items():
         if current.get(name)!=value:problems.append('instance:'+name)
     for rel,tables in state['databases'].items():
@@ -222,6 +228,11 @@ def verify(root,base):
                     columns=[k for k in columns if k not in ('updated','next_attempt')]
                     with database(Path(base)/'instance'/rel,readonly=True) as original:
                         expected_rows=rows(original,table,columns)
+                if rel=='admission/requests.sqlite3' and table=='receipts' and {'id','expires'}<=set(columns):
+                    # The gateway can prune expired sessions while health checks run.
+                    # Compare every field of sessions still valid at verification.
+                    with database(Path(base)/'instance'/rel,readonly=True) as original:
+                        expected_rows=rows(original,table,columns,session_time=session_time)
                 try:actual=rows(c,table,columns,observations=rel=='runtime/ops.sqlite3' and table=='catalog_items')
                 except sqlite3.DatabaseError:problems.append('table:'+table);continue
                 if expected_rows-actual:problems.append('rows:'+table)
