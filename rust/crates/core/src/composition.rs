@@ -59,6 +59,14 @@ impl Application {
         only: Option<&str>,
         only_sha: Option<&str>,
     ) -> Result<Value> {
+        self.profile_listing_with_runtime_snapshot(only, only_sha, &self.runtime_snapshot()?)
+    }
+    pub(crate) fn profile_listing_with_runtime_snapshot(
+        &self,
+        only: Option<&str>,
+        only_sha: Option<&str>,
+        catalog: &Value,
+    ) -> Result<Value> {
         let mut definitions: BTreeMap<String, Value> = self
             .config
             .profiles
@@ -150,7 +158,6 @@ impl Application {
             }
             definitions.insert(kind.into(), exact);
         }
-        let catalog = self.runtime_inventory()?;
         let mut items = vec![];
         for (kind, p) in definitions {
             if only.is_some_and(|value| value != kind) {
@@ -431,7 +438,7 @@ impl Application {
                     400,
                 )?;
                 require(
-                    self.runtime_inventory()?["runtimes"]
+                    self.runtime_snapshot()?["runtimes"]
                         .as_array()
                         .is_some_and(|v| v.iter().any(|r| r["id"] == id)),
                     "runtime",
@@ -611,7 +618,7 @@ impl Application {
                 "Select exact Runtime revision and Runtime metadata",
                 400,
             )?;
-            let inventory = self.runtime_inventory()?;
+            let inventory = self.runtime_snapshot()?;
             let item = inventory["runtimes"]
                 .as_array()
                 .unwrap()

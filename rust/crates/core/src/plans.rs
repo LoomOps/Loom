@@ -24,9 +24,18 @@ pub(crate) fn preview_outcome(db: &Connection, outcome: &Value) -> Result<Value>
             400,
         )?;
     }
+    let registration = promises.values().map(|promise| {
+        let base = promise.get("revises").or_else(|| promise.get("supplements"));
+        json!({"alias":promise["alias"],"kind":promise["kind"],"from":promise["from"],
+            "catalog_class":matches!(promise["kind"].as_str(),Some("dataset"|"model"|"experiment")).then_some("regular"),
+            "operation":if base.is_some() {"new_revision"} else {"new_item"},
+            "base":base,"authorization":promise.get("edit_authorization").map(|a|&a["basis"])})
+    }).collect::<Vec<_>>();
     let science = &outcome["science"];
     if science.is_null() {
-        return Ok(json!({"mode":"exploratory","coverage":{},"science_digest":null}));
+        return Ok(
+            json!({"mode":"exploratory","coverage":{},"science_digest":null,"registration":registration}),
+        );
     }
     let expectations = science["deliverables"].as_object().unwrap();
     let hypothesis = &science["hypothesis"];
@@ -118,7 +127,7 @@ pub(crate) fn preview_outcome(db: &Connection, outcome: &Value) -> Result<Value>
     }
     Ok(
         json!({"mode":if hypothesis.is_null(){"exploratory"}else{"hypothesis"},"coverage":coverage,
-        "science_digest":hash(crate::compat::seal(science))}),
+        "science_digest":hash(crate::compat::seal(science)),"registration":registration}),
     )
 }
 
@@ -1042,9 +1051,6 @@ impl Application {
                 "Dependencies lead back to the owning outcome",
                 409,
             )?;
-            if doc["held"] == true {
-                tx.execute("UPDATE jobs SET queue_held=1 WHERE id=?", [&child])?;
-            }
             nodes.insert(name.into(), json!(child));
         }
         doc["plan_revision"] = json!(revision);

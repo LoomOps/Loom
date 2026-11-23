@@ -31,6 +31,12 @@ estimates the reported phase; queueing, later Units and publication are separate
 
 For long generation, pin episode IDs, seeds, configuration and input revisions. Checkpoint completed episodes atomically with hashes and a durable manifest. On restart, verify the checkpoint against the accepted inputs and skip exactly the completed items. Use [recovery](recovery.md) for a failed Attempt or publication repair.
 
+Use explicit evaluation Units for expensive checkpoint selection and
+simulation. Declare the CPU or GPU requirements on those Units. Reserve the
+finalize stage for bounded verification and publication of the result. Use
+the [Runtime workload tuning contract](runtimes.md#discover-and-select) for
+exclusive GPU work.
+
 ## Historical execution
 
 Exact historical reads preserve workflow memberships, source Attempts and presentation links. Keep the recorded start and return times. Use `jobs.preview_history` to inspect evidence before requesting any legacy curation. Follow the connected server's advertised compatibility actions when operating an existing legacy record.

@@ -83,6 +83,20 @@ Read the queue and verify the hold. When the user says “The input is correct, 
 
 The existing execution keeps its queue position and eligibility depends on its prerequisites and lane.
 
+Job holds and direct Unit holds are independent. Releasing one does not change
+the other. Hold a Job to let its active work finish and prevent later Units from
+starting. Inspect the exact Unit to distinguish an inherited hold from a direct hold.
+
+## "Pause training at a checkpoint and later continue it."
+
+Discover `units.pause` and `units.resume_checkpoint` on the connected server.
+Read the Unit and pass its exact current Attempt with a reason. Use the pause
+action only for a Profile that supports checkpoint pause. Wait until the Unit
+reports `paused` and the executor has returned its resources. The resume action
+takes the paused Attempt. It queues a new Attempt on the same Unit with the
+retained checkpoint. Ordinary queue resume releases a hold. For an unsupported
+Profile, a Job hold lets the current Unit finish and stops later Units.
+
 ## "Run the waiting evaluation before my other waiting work."
 
 Read the current queue and identify the exact waiting evaluation Unit and reference Unit.

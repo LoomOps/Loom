@@ -15,7 +15,7 @@ impl Application {
             "Build receipt does not match source or producer protocol",
             409,
         )?;
-        let catalog = self.runtime_inventory()?;
+        let catalog = self.runtime_snapshot()?;
         require(
             catalog["status"] == "ok",
             "build",

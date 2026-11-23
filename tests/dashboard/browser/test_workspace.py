@@ -21,6 +21,32 @@ from verify_browser import request,FIREFOX
 from verify_workspace import Workspace
 
 class WorkspaceBrowserTests(unittest.TestCase):
+    def test_checkpoint_queue_controls_forward_the_exact_unit_and_attempt(self):
+        unit={'id':'checkpoint-unit','entry_type':'unit','label':'Checkpoint fixture','state':'running',
+              'attempt':'attempt-one','can_checkpoint_pause':True,'reason':'executing'}
+        queue={'entries':[unit],'job_entries':[],'unit_entries':[unit]}
+        catalog=self.api.fixture['catalog']
+        catalog.update(entities=[],queue=queue,revision='checkpoint-queue',
+                       capabilities={'catalog_pages':True,'live_queue':True,'job_units':True})
+        self.api.fixture['search_actions']={
+            'dashboard_queue':{'entities':[],'queue':queue,'revision':catalog['revision']},
+            'dashboard_page':{'entities':[],'revision':catalog['revision']},
+            'dashboard_activity':{'days':[]},
+        }
+        self.ui.top();self.wd('/refresh',{});self.ui.connect()
+        self.ui.click('.pa-unit-work-queue [data-queue-action=pause]')
+        self.ui.wait("return document.querySelector('.pa-unit-work-queue').textContent.includes('Saving checkpoint')")
+        self.assertEqual(self.api.actions[-1],{'group':'units','action':'pause','arguments':{
+            'id':unit['id'],'attempt':'attempt-one','reason':'Checkpoint pause requested in Dashboard'}})
+
+        unit.update(state='paused',reason='held',checkpoint_pause={'state':'paused'},can_resume_checkpoint=True)
+        self.ui.top();self.wd('/refresh',{});self.ui.connect()
+        self.ui.wait("return document.querySelector('.pa-unit-work-queue')?.textContent.includes('Paused')")
+        self.ui.click('.pa-unit-work-queue [data-queue-action=resume_checkpoint]')
+        self.ui.wait("return !document.querySelector('.pa-unit-work-queue [data-queue-action=resume_checkpoint]')")
+        self.assertEqual(self.api.actions[-1],{'group':'units','action':'resume_checkpoint','arguments':{
+            'id':unit['id'],'attempt':'attempt-one','reason':'Checkpoint resume requested in Dashboard'}})
+
     def test_unit_queue_status_distinguishes_recovery_ownership_and_execution(self):
         cases = [
             ('claimed', 'failed', '복구 담당자 지정됨'),
@@ -31,7 +57,12 @@ class WorkspaceBrowserTests(unittest.TestCase):
             ('executing', 'processing', '복구 결과 처리 중 · 2차'),
         ]
         parent, _ = native('unit-queue-parent')
+        parent.update(entry_type='job', state='running')
+        parent['properties']['state'] = 'running'
         parent['label'] = 'Long parent Job that should not appear in the Unit Queue ' * 8
+        finished, _ = native('unit-queue-finished')
+        finished['entry_type'] = 'unit'
+        job = {'id':parent['id'],'entry_type':'job','state':'running','reason':'executing'}
         units = [
             {'id':phase,'label':('LongUnitName' * 36 if phase=='running' else phase),
              'entry_type':'unit','state':phase,'job_id':parent['id'],
@@ -39,12 +70,12 @@ class WorkspaceBrowserTests(unittest.TestCase):
             for recovery,phase,_ in cases
         ]
         catalog = self.api.fixture['catalog']
-        catalog.update(entities=[parent], revision='recovery-unit-queue',
+        catalog.update(entities=[parent,finished], revision='recovery-unit-queue',
                        capabilities={'catalog_pages':True,'live_queue':True,'job_units':True})
         self.api.fixture['search_actions'] = {
             'dashboard_queue':{'entities':[parent],'revision':catalog['revision'],
-                               'queue':{'entries':units,'job_entries':[],'unit_entries':units}},
-            'dashboard_page':{'entities':[],'revision':catalog['revision']},
+                               'queue':{'entries':[job,*units],'job_entries':[job],'unit_entries':units}},
+            'dashboard_page':{'entities':[finished],'revision':catalog['revision']},
             'dashboard_activity':{'days':[]},
         }
         queue = "document.querySelector('.pa-unit-work-queue')"
@@ -55,26 +86,45 @@ class WorkspaceBrowserTests(unittest.TestCase):
         self.ui.wait('return ('+status+')?.length===6')
         self.assertEqual(self.ui.js('return Array.from('+status+', x=>x.textContent)'),
                          [label for _,_,label in cases])
-        layout = self.ui.js("""
+        self.ui.wait("return !!document.querySelector('.pa-terminal-work-queue tbody td:last-child')")
+        layout_script = """
           const wrap = document.querySelector('.pa-unit-work-queue .pa-table-wrap');
           const headers = [...wrap.querySelectorAll('th')];
           const row = wrap.querySelectorAll('tbody tr')[4];
           const cells = [...row.cells];
+          const tables = [...document.querySelectorAll(
+            ':is(.pa-current-work-queue, .pa-unit-work-queue, .pa-terminal-work-queue) .pa-table-wrap'
+          )];
+          if (arguments[0]) tables.forEach(table => { table.scrollLeft = table.scrollWidth; });
+          const center = cell => { const rect = cell.getBoundingClientRect(); return rect.left + rect.width / 2; };
           return {
             headers: headers.map(x=>x.textContent),
             aligned: headers.every((x,i)=>Math.abs(x.offsetLeft-cells[i].offsetLeft)<1),
-            wrapWidth: [wrap.clientWidth,wrap.scrollWidth],
-            unitWidth: [cells[0].clientWidth,cells[0].scrollWidth],
-            statusWidth: cells[1].clientWidth,
-            resourceWidth: cells[2].clientWidth,
+            widths: headers.slice(1).map(x=>x.getBoundingClientRect().width),
+            tableOverflow: tables.map(table=>table.scrollWidth-table.clientWidth),
+            lastCenters: tables.map(table=>center(table.querySelector('th:last-child'))),
+            lastCellCenters: tables.map(table=>center(table.querySelector('td:last-child'))),
+            unitOverflow: cells[0].scrollWidth-cells[0].clientWidth,
           };
-        """)
+        """
+        layout = self.ui.js(layout_script, False)
         self.assertEqual(layout['headers'], ['Unit','상태','자원','진행','완료 예정'])
         self.assertTrue(layout['aligned'])
-        self.assertLessEqual(layout['wrapWidth'][1], layout['wrapWidth'][0] + 2, layout)
-        self.assertLessEqual(layout['unitWidth'][1], layout['unitWidth'][0] + 1, layout)
-        self.assertGreater(layout['statusWidth'], layout['resourceWidth'])
+        self.assertEqual(len(layout['lastCenters']), 3, layout)
+        self.assertLessEqual(max(layout['tableOverflow']), 2, layout)
+        self.assertLessEqual(layout['unitOverflow'], 1, layout)
         self.assertNotIn(parent['label'].strip(), self.ui.js('return '+queue+'.textContent'))
+        self.ui.top()
+        self.wd('/window/rect', {'width':500,'height':1000})
+        self.ui.js("document.querySelector('iframe').style.width='500px'")
+        self.ui.frame()
+        self.ui.wait('return innerWidth===500')
+        narrow = self.ui.js(layout_script, True)
+        self.assertGreater(min(narrow['tableOverflow']), 0, narrow)
+        for measured in (layout,narrow):
+            self.assertLessEqual(max(measured['widths']) - min(measured['widths']), 1, measured)
+            centers = measured['lastCenters'] + measured['lastCellCenters']
+            self.assertLessEqual(max(centers) - min(centers), 1, measured)
 
     def test_deferred_publication_displays_failure_reason_and_preserves_execution_receipt(self):
         entity, detail = native('deferred-result')
@@ -307,6 +357,9 @@ class WorkspaceBrowserTests(unittest.TestCase):
         actions['dashboard_activity'] = {'days':[]}
         self.ui.click('[data-home-retry=activity]')
         self.ui.wait("return !!document.querySelector('.pa-activity-graph') && !document.querySelector('[data-activity-loading]')")
+        self.ui.wait("""const layout=document.querySelector('.pa-activity-dashboard');
+            return layout && !layout.classList.contains('loom-surface')
+                && [...layout.children].every(panel=>panel.querySelector(':scope > .loom-surface-skin'));""")
         self.assertTrue(self.ui.js("return [...document.querySelectorAll('[data-activity-day]')].some(d=>d.title.includes('수집 기록 없음'))"))
 
     def test_user_preparation_links_runtime_and_activity_across_output_filters(self):
@@ -1403,7 +1456,7 @@ const done=arguments[arguments.length-1];
         self.assertFalse(ui.js("return !!document.querySelector('.pa-document-pane.is-active [data-queue-action=hold]')"))
         ui.click('.pa-document-pane.is-active .pa-queue-control summary')
         ui.click('.pa-document-pane.is-active [data-queue-action=resume]')
-        ui.wait("return document.querySelector('.pa-document-pane.is-active .pa-queue-control summary')?.textContent==='순서 변경'")
+        ui.wait("return document.querySelector('.pa-document-pane.is-active .pa-queue-feedback')?.textContent==='큐 변경 완료'")
         self.assertEqual(self.api.actions[-1],{'group':'jobs','action':'resume','arguments':{'id':'fixture-waiting'}})
 
     def test_theme_cookie_defaults_to_system_and_survives_reload(self):
@@ -2340,7 +2393,8 @@ const done=arguments[arguments.length-1];
             label='Franka Panda · Square D0 · S1-'+arm
             organization={'task_ref':task,'path':[],'handle':'D0 · S1-'+arm,'tags':[arm,'matched']}
             dataset={'id':identity,'kind':'dataset','label':label,'task_refs':[task],
-                'dataset_organization':organization,'properties':{'episodes':720,'split':split},'origin':{'type':'import'}}
+                'dataset_organization':organization,'properties':{'episodes':720,'split':split},'origin':{'type':'import'},
+                'reporting':{'activity':'dataset_import','reports':[]}}
             if arm in 'BC':
                 dataset['dataset_lineage']={'parents':[{'label':'Source demonstration dataset',
                     'parent':{'kind':'entity','identity':{'id':'source','revision':1}},
@@ -2387,6 +2441,11 @@ const done=arguments[arguments.length-1];
         dataset={**shared,'id':'imported-dataset','kind':'dataset','label':'Public demonstrations','task_refs':[task],
                  'reporting':{'activity':'dataset_import','contract_ref':{'id':'loom.report.dataset','revision':1},'reports':[]}}
         dataset['research_summary']={'schema':'loom-research-summary/v1','facts':[{'id':'bc_ready','section':'quality','label':'BC ready','status':'recorded','value':True}], 'inputs':[], 'sources':[]}
+        produced={**dataset,'id':'produced-dataset','label':'Franka Panda · Square D0 · S1-tcp6 · Post-H1',
+                  'loom_job':{'id':'post-h1-producer'},
+                  'dataset_organization':{'task_ref':task,'path':[],'handle':'D0 · S1-tcp6 · Post-H1'}}
+        explicit={**dataset,'id':'explicit-dataset','label':'Dataset with recorded origin',
+                  'origin':{'type':'produced'}}
         evaluation={**shared,'id':'checkpoint-evaluation','kind':'experiment','label':'Matched resets',
                     'reporting':{'state':'validated','primary_outcome':{'label':'Pooled','numerator':23,'denominator':40},'reports':[],
                                  'contract_ref':{'id':'loom.report.checkpoint_evaluation','revision':1},
@@ -2395,11 +2454,21 @@ const done=arguments[arguments.length-1];
         tied={**evaluation,'id':'tied-evaluation','reporting':{**evaluation['reporting'],
             'checkpoint_sweep':{'selected_step':None,'comparable':True,'best_steps':[0,1000,3000,6000],
                                'checkpoints':[{'step':step,'valid':20,'executed':20,'successes':0} for step in [0,1000,3000,6000]]}}}
-        catalog['entities'] += [dataset,evaluation,tied];catalog['revision']='checkpoint-catalog'
+        catalog['entities'] += [dataset,produced,explicit,evaluation,tied];catalog['revision']='checkpoint-catalog'
         ui.js("parent.postMessage({type:'pai-catalog-refresh'},'*')");ui.wait("return document.querySelector('[data-sync-control]').textContent.includes('checkpoint-catalog')")
         ui.nav('Catalog');ui.wait("return !!document.querySelector('[data-output-id=imported-dataset]')")
         self.assertEqual(ui.js("return [...document.querySelectorAll('[data-output-id=imported-dataset] dt')].map(n=>n.textContent)"),['Episodes','Split','Tag'])
         self.assertTrue(ui.js("return !!document.querySelector('[data-research-task=square-task]')"))
+        self.assertEqual(ui.js("""const row=document.querySelector('[data-output-id=produced-dataset]');
+            return [[...row.querySelectorAll('.pa-dataset-handle')].map(node=>node.textContent),
+                !!row.closest('.pa-dataset-subgroup'),!!row.querySelector('.pa-dataset-origin')];"""),
+            [[produced['dataset_organization']['handle']],False,False])
+        self.assertFalse(ui.js("return !!document.querySelector('[data-output-id=explicit-dataset] .pa-dataset-origin')"))
+        ui.route('produced-dataset')
+        ui.wait("return !!document.querySelector('.pa-heading .pa-dataset-handle')")
+        self.assertEqual(ui.js("return [...document.querySelectorAll('.pa-heading .pa-dataset-handle')].map(node=>node.textContent)"),
+                         [produced['dataset_organization']['handle']])
+        self.assertFalse(ui.js("return !!document.querySelector('.pa-heading .pa-dataset-origin')"))
         ui.route('imported-dataset')
         ui.wait("return !!document.querySelector('.pa-heading .pa-dataset-origin')")
         self.assertFalse(ui.js("return !!document.querySelector('.pa-document-pane.is-active .pa-output-task')"))

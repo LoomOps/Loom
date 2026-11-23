@@ -29,6 +29,30 @@ Unregistered files in the configured dependency directory are not discovered her
 
 A Stage pin records the selected environment. A stage-start receipt identifies which bound Stage actually started. Build receipts separately identify the builder used to produce an executable. Reusing that executable in another Runtime preserves both identities.
 
+Before an exclusive GPU workload, reuse measured settings for the exact
+workload and current execution environment. When the conditions change or no
+measurement exists, run a bounded comparison before the full workload. Tune
+the worker or environment count, inference batch and I/O independently of
+scientific inputs, seeds, physics, camera configuration and acceptance rules.
+Select by valid cases or useful work per second within the device memory
+budget. Installation validation establishes environment readiness. Workload
+tuning belongs to the producing Component or an already available benchmark
+Tool. Repeat the benchmark when a change can invalidate its performance or
+equivalence results.
+
+GPU Profiles may declare `runtime.performance_tuning` with a `max_seconds`
+budget, `workload_params` naming the performance-sensitive Job parameters and
+a strict object `settings_schema`. The run receives `performance_tuning`.
+Apply compatible `cached.settings` if present. Otherwise compare a small
+representative workload under the same grant, apply the fastest valid
+measurement and write the report before starting the full workload. The
+report records `schema: "loom-performance-tuning/v1"`, the supplied `key`,
+`elapsed_seconds`, `applied`, and sample objects with `settings`,
+`valid`, `seconds`, `peak_vram_mib` and `equivalent`. The Rust SDK writes
+the report atomically. A fresh single-GPU observation enables automatic reuse.
+When the allocation cannot be identified from the snapshot, the request
+still supplies the tuning budget and the producer measures under its grant.
+
 New recipe dependency entries may optionally declare `catalog: true` and `category`
 (`languages`, `simulation`, `machine-learning`, `gpu`, or `libraries`). Use these for
 major software units; `catalog: false` excludes an inventory entry. Existing recipes

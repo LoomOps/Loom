@@ -175,6 +175,7 @@ pub fn validate_profile(profile: &Value) -> Result<()> {
         400,
     )?;
     contracts::check_schema(&profile["params_schema"])?;
+    crate::tuning::validate_profile(profile)?;
     for (_, schema) in profile["metadata_schemas"]
         .as_object()
         .into_iter()
@@ -206,6 +207,14 @@ pub fn validate_profile(profile: &Value) -> Result<()> {
         "on_cancel",
     ] {
         if let Some(runner) = profile.get(stage) {
+            if let Some(support) = runner.get("checkpoint_pause") {
+                require(
+                    stage == "runtime" && support.is_boolean(),
+                    "profile",
+                    "Checkpoint pause support is a boolean on the run stage",
+                    400,
+                )?;
+            }
             let argv = runner["command"]
                 .as_array()
                 .ok_or_else(|| Error::input("Stage command must be argv"))?;
@@ -226,6 +235,22 @@ pub fn validate_profile(profile: &Value) -> Result<()> {
                 "Lifecycle stages require CPU",
                 400,
             )?;
+            if let Some(inputs) = runner.get("inputs") {
+                require(
+                    matches!(stage, "runtime" | "prepare" | "finalize")
+                        && inputs.as_array().is_some_and(|aliases| {
+                            let mut seen = std::collections::BTreeSet::new();
+                            aliases.iter().all(|alias| {
+                                alias.as_str().is_some_and(|name| {
+                                    profile["inputs"].get(name).is_some() && seen.insert(name)
+                                })
+                            })
+                        }),
+                    "profile",
+                    "Stage inputs must be distinct aliases declared by the Profile",
+                    400,
+                )?;
+            }
             if let Some(env) = runner.get("env") {
                 require(
                     env.as_object()
@@ -684,7 +709,7 @@ impl Application {
         } else {
             self.components.clone()
         };
-        let catalog = self.runtime_inventory()?;
+        let catalog = self.runtime_snapshot()?;
         let config = self.config.clone();
         let component_root = self.components.clone();
         let result = (|| -> Result<Value> {
@@ -844,7 +869,7 @@ impl Application {
             400,
         )?;
         let root = self.components.clone();
-        let catalog = self.runtime_inventory()?;
+        let catalog = self.runtime_snapshot()?;
         let tx = self.transaction()?;
         active(&tx)?;
         let revision: i64 = tx.query_row(
@@ -896,7 +921,17 @@ impl Application {
         )
     }
     fn runtime_query(&self, action: &str, args: Value) -> Result<Value> {
-        let catalog = self.runtime_inventory()?;
+        let catalog = match action {
+            "runtimes" => self.runtime_inventory()?,
+            "get_runtime" => self.runtime_projection(
+                Some(&[(
+                    args["id"].as_str().unwrap_or("").into(),
+                    args["revision"].as_i64().unwrap_or(0),
+                )]),
+                true,
+            )?,
+            _ => self.runtime_projection(None, false)?,
+        };
         match action {
             "runtimes" => Ok(catalog),
             "dependencies" => Ok(catalog["dependency_catalog"].clone()),

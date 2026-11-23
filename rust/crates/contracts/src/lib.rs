@@ -295,6 +295,15 @@ pub fn actions() -> Vec<Action> {
         action.operation = format!("units.{name}");
         result.push(action);
     }
+    for name in ["pause", "resume_checkpoint"] {
+        result.push(Action {
+            group: "units".into(),
+            action: name.into(),
+            operation: format!("units.{name}"),
+            scope: "submit".into(),
+            schema: object(json!({"id":{"type":"string"},"attempt":{"type":"string"},"reason":{"type":"string","minLength":1,"maxLength":1024}}), &["id","attempt","reason"]),
+        });
+    }
     let metadata_kind = json!({"enum":["dataset","model","experiment"]});
     let definitions = [
         (

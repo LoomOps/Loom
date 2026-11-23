@@ -636,11 +636,15 @@ class NativeWorkspaceTests(unittest.TestCase):
    with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
     db.execute("DELETE FROM history_records WHERE source='loom-troubleshooting' AND id LIKE ?",(work+'.%',))
   self.addCleanup(cleanup)
-  for _ in range(100):
+  deadline=time.monotonic()+15
+  while time.monotonic()<deadline:
    detail=self.call('units','get',{'id':work})
    if detail['status']=='failed':break
    time.sleep(.05)
-  else:self.fail(detail)
+  else:
+   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+    effects=db.execute("SELECT job,stage,state FROM rust_effects WHERE state!='returned'").fetchall()
+   self.fail((detail,effects,(self.native_root/'ops.log').read_text().splitlines()[-24:]))
   claim=self.call('recovery','claim',{'id':work})
   self.assertEqual(claim['troubleshooting'][0]['properties']['attempt_id'],detail['attempt'])
   self.call('recovery','progress',{'id':work,'lease':claim['lease'],'finding':'Verified the fixture failure'})

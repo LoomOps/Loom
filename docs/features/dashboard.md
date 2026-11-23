@@ -16,8 +16,10 @@ The Dataset list uses the Task index and catalog class. Different splits of the
 same variant share its label and subgroup. Standard split counts appear as a
 monospace tag such as `split-100/20/20`, aligned with adjacent facts. Each entry
 keeps its exact link. The browser hides a legacy split suffix or
-subgroup only when it matches the structured split and declared path. Inputs and
-the Imported badge remain record facts. Policies and Experiments have a Family
+subgroup only when it matches the structured split and declared path. Dataset
+origin badges use recorded provenance. A `dataset_import` report identifies a
+legacy import only when the record has neither an explicit origin nor a producer
+Job. Policies and Experiments have a Family
 index. Selecting a Task also shows linked Datasets with their recorded splits in
 the index. These filters intersect. Recognized
 variants of a recorded architecture share a family label. Policies support text search.

@@ -385,6 +385,34 @@ impl<D: Docker> Executor<D> {
                     )
                 }
             }
+            "status_intent" => {
+                let suffix = value["ticket"]
+                    .as_str()
+                    .ok_or_else(|| Error::input("Ticket required"))?;
+                identity(suffix)?;
+                let ticket = format!("{instance}.{suffix}");
+                let row = rows(
+                    &self.db,
+                    "SELECT * FROM tickets WHERE id=? AND instance=?",
+                    &[&ticket, &instance],
+                )?
+                .into_iter()
+                .next();
+                if let Some(row) = row {
+                    require(
+                        row["request"] == compat::dump(&value),
+                        "ticket",
+                        "Ticket request conflict",
+                        409,
+                    )?;
+                    let mut state = self.observed(&row)?;
+                    state["ticket"] = json!(ticket);
+                    state["found"] = json!(true);
+                    Ok(state)
+                } else {
+                    Ok(json!({"found":false}))
+                }
+            }
             "start" => {
                 if value["lane"] == "gpu" {
                     use std::os::fd::AsRawFd;
@@ -483,7 +511,7 @@ impl<D: Docker> Executor<D> {
                         result["declared_images"] = json!(images);
                     }
                 }
-                result["protocol"] = json!({"version":1,"capabilities":["cancel_intent","log_range","log_stream_v1","runtime_ref","drain_status","gpu_access"]});
+                result["protocol"] = json!({"version":1,"capabilities":["cancel_intent","status_intent","log_range","log_stream_v1","runtime_ref","drain_status","gpu_access"]});
                 Ok(result)
             }
             "resolve_runtime" => {

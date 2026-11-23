@@ -1233,6 +1233,17 @@ impl Application {
 /// Validate the manifest envelope and bind typed outputs to the accepted Profile
 /// before the worker reads payload files. Publication also checks this against
 /// the stored Job spec under the Attempt fence.
+pub fn preflight_output_manifest(manifest: &mut Value, spec: &Value) -> Result<()> {
+    prepare_output_manifest(manifest, spec)?;
+    for entity in manifest["entities"].as_array().unwrap() {
+        if entity["kind"] == "dataset" && spec["_dataset_split_required"] == true {
+            crate::metadata_templates::require_dataset_split(&entity["metadata"]["research"])?;
+        }
+        crate::metadata_templates::validate_output(&spec["profile"], entity)?;
+    }
+    Ok(())
+}
+
 pub fn prepare_output_manifest(manifest: &mut Value, spec: &Value) -> Result<()> {
     require(
         manifest.as_object().is_some_and(|fields| {

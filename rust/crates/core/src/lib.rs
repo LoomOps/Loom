@@ -41,6 +41,7 @@ pub mod software;
 pub mod storage;
 pub mod store;
 pub mod system_ownership;
+mod tuning;
 pub use error::{Error, Result};
 pub use store::{Application, Config};
 

@@ -243,6 +243,7 @@
         "ops/runtime_contract.py",
         "ops/workflows.py",
         "rust/crates/core/src/execution.rs",
+        "rust/crates/core/src/tuning.rs",
         "rust/crates/core/src/progress.rs",
         "rust/crates/domain/Cargo.toml",
         "rust/crates/domain/src/lib.rs",

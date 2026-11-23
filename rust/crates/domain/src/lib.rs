@@ -50,7 +50,7 @@ macro_rules! vocabulary {
         }
     };
 }
-vocabulary!(JobState {Queued=>"queued",Preparing=>"preparing",Ready=>"ready",Running=>"running",Processing=>"processing",Complete=>"complete",Failed=>"failed",Interrupted=>"interrupted",Cancelled=>"cancelled",Blocked=>"blocked",ResultFailed=>"result_failed"});
+vocabulary!(JobState {Queued=>"queued",Preparing=>"preparing",Ready=>"ready",Running=>"running",Paused=>"paused",Processing=>"processing",Complete=>"complete",Failed=>"failed",Interrupted=>"interrupted",Cancelled=>"cancelled",Blocked=>"blocked",ResultFailed=>"result_failed"});
 vocabulary!(Stage {Prepare=>"prepare",Run=>"run",Finalize=>"finalize",OnComplete=>"on_complete",OnError=>"on_error",OnCancel=>"on_cancel"});
 vocabulary!(Purpose {Research=>"research",Operations=>"operations"});
 vocabulary!(PresentationRole {Main=>"main",Support=>"support",Test=>"test"});
@@ -115,6 +115,8 @@ pub enum Event {
     Interrupt,
     RetryExecution,
     RetryPublication,
+    CheckpointPaused,
+    ResumeCheckpoint,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Decision {
@@ -135,6 +137,7 @@ impl Job {
                     state,
                     JobState::Queued
                         | JobState::Blocked
+                        | JobState::Paused
                         | JobState::Ready
                         | JobState::Failed
                         | JobState::Interrupted
@@ -151,6 +154,8 @@ impl Job {
             Event::Start if matches!(state, JobState::Queued | JobState::Ready) && !cancelled => {
                 JobState::Running
             }
+            Event::CheckpointPaused if state == JobState::Running && !cancelled => JobState::Paused,
+            Event::ResumeCheckpoint if state == JobState::Paused && !cancelled => JobState::Queued,
             Event::Returned { success }
                 if matches!(state, JobState::Running | JobState::Preparing) =>
             {
@@ -221,6 +226,8 @@ pub struct Readiness {
     pub admission_active: bool,
     pub operator_paused: bool,
     pub held: bool,
+    pub local_hold: bool,
+    pub workflow_hold: bool,
     pub dependency_pending: bool,
     pub dependency_failed: bool,
     pub recovery_reserved: bool,

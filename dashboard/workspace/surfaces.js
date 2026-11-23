@@ -27,9 +27,16 @@
   }
   const pending=new Set();
   let frame=0,gradientSequence=0;
+  const eligible=card=>card.matches(widgetSelector)&&!card.matches('.pa-finder-preview > .pa-panel');
+  function release(card){
+    observer.unobserve(card);nearbyOwner.get(card)?.unobserve(card);cards.delete(card);
+    card.classList.remove('loom-surface');
+    card.querySelector(':scope > .loom-surface-skin')?.remove();
+  }
   function draw(card){
     const skin=cards.get(card);
     if(!skin || !card.isConnected)return;
+    if(!eligible(card)){release(card);return;}
     const {width:w,height:h}=card.getBoundingClientRect();
     if(!w || !h)return;
     const size=sizes.get(skin);if(size?.[0]===w&&size?.[1]===h)return;
@@ -66,8 +73,12 @@
   // empty or outdated skin visible for a frame after layout changes.
   const observer=new ResizeObserver(entries=>{for(const {target} of entries)draw(target);});
   function refresh(){
-    for(const card of root.querySelectorAll(selector)){
-      if(card.matches('.pa-finder-preview > .pa-panel'))continue;
+    for(const card of root.querySelectorAll(selector+',.pa-pane-body .loom-surface')){
+      if(!eligible(card)){
+        // In-place hydration can reuse a placeholder element as a layout wrapper.
+        release(card);
+        continue;
+      }
       if(cards.has(card) && cards.get(card).parentElement===card)continue;
       if(cards.has(card))observer.unobserve(card);
       // Reconciled/cloned cards can already carry a skin; adopt it so resize

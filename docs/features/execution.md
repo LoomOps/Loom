@@ -27,6 +27,7 @@ remain reserved for individual Job grants.
 - [ops/runtime_contract.py](../../ops/runtime_contract.py) — retained Python compatibility reference.
 - [ops/workflows.py](../../ops/workflows.py) — retained Python compatibility reference.
 - [rust/crates/core/src/execution.rs](../../rust/crates/core/src/execution.rs) — native implementation / contract.
+- [rust/crates/core/src/tuning.rs](../../rust/crates/core/src/tuning.rs) — bounded workload measurements and exact-environment reuse.
 - [rust/crates/core/src/progress.rs](../../rust/crates/core/src/progress.rs) — native implementation / contract.
 - [rust/crates/domain/Cargo.toml](../../rust/crates/domain/Cargo.toml) — native implementation / contract.
 - [rust/crates/domain/src/lib.rs](../../rust/crates/domain/src/lib.rs) — native implementation / contract.
@@ -41,10 +42,15 @@ remain reserved for individual Job grants.
 Host memory parsing rejects malformed Unicode without panicking. Executor credentials are bounded regular files. A log collector whose metadata cannot commit is killed and reaped before returning an error.
 The stage return receipt preserves the accepted Executor ticket so callers
 and background collection can address the same log stream after a fast exit.
+When Ops restarts, it reconciles the existing ticket before inspecting current
+input copies and keeps the original stage timeout. A launch that has no
+running or returned ticket still verifies the frozen inputs before starting.
 
 Artifact registration commits together with the publication receipt, lifecycle
 callback reservation and recovery closure. A worker that recovers an older
 unacknowledged publication reads the committed result for the same Attempt.
+An outstanding finalization or publication effect remains the sole owner for
+its Attempt even when another worker slot can be filled.
 Finalization retries keep the run receipt and update the exact Attempt result
 when publication succeeds. Earlier failures remain in Troubleshooting.
 

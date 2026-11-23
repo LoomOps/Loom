@@ -1,4 +1,34 @@
 use super::*;
+
+#[test]
+fn performance_tuning_applies_only_equivalent_samples_and_skips_cached_measurements() {
+    let root = std::env::temp_dir().join(format!("loom-sdk-tuning-{}", uuid::Uuid::new_v4()));
+    fs::create_dir(&root).unwrap();
+    let mut request: Request = serde_json::from_value(json!({
+        "output_dir":root,"performance_tuning":{"key":"fixture","max_seconds":10,"capacity_mib":1000}
+    }))
+    .unwrap();
+    let candidates = [1, 2, 3, 4].map(|workers| json!({"workers":workers}));
+    let selected = request
+        .tune_performance(&candidates, |settings, remaining| {
+            assert!(!remaining.is_zero());
+            let workers = settings["workers"].as_u64().unwrap();
+            Ok(json!({"valid":workers,"seconds":1,"peak_vram_mib":if workers==3 {1000} else {500},
+                "equivalent":workers!=4}))
+        })
+        .unwrap()
+        .unwrap();
+    assert_eq!(selected, candidates[1]);
+    let report: Value = serde_json::from_slice(&fs::read(root.join("performance-tuning.json")).unwrap()).unwrap();
+    assert_eq!(report["applied"], selected);
+    request.extra["performance_tuning"]["cached"] = json!({"settings":selected});
+    assert_eq!(
+        request.tune_performance(&candidates, |_, _| panic!("Cached settings must skip measurement")).unwrap(),
+        Some(selected)
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn producer_work_progress_is_scoped_and_rate_limited() {
     let root = std::env::temp_dir().join(format!("loom-sdk-progress-{}", uuid::Uuid::new_v4()));

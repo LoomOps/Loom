@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS rust_authority(id INTEGER PRIMARY KEY CHECK(id=1),epoch INTEGER NOT NULL,minimum_writer INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS rust_receipts(actor TEXT NOT NULL,key TEXT NOT NULL,operation TEXT NOT NULL,request TEXT NOT NULL,result TEXT NOT NULL,created REAL NOT NULL,PRIMARY KEY(actor,key));
 CREATE TABLE IF NOT EXISTS rust_effects(id TEXT PRIMARY KEY,job TEXT,attempt TEXT,stage TEXT,epoch INTEGER NOT NULL,state TEXT NOT NULL,request TEXT NOT NULL,evidence TEXT,created REAL NOT NULL,updated REAL NOT NULL);
+CREATE INDEX IF NOT EXISTS rust_effects_active_job ON rust_effects(job,attempt,epoch) WHERE state IN ('pending','accepted','unknown');
 CREATE TABLE IF NOT EXISTS scenarios(id TEXT PRIMARY KEY,label TEXT NOT NULL,current_revision INTEGER NOT NULL,archived INTEGER NOT NULL DEFAULT 0,created REAL NOT NULL,created_by TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS scenario_revisions(scenario_id TEXT NOT NULL,revision INTEGER NOT NULL,definition TEXT NOT NULL,sha256 TEXT NOT NULL,created REAL NOT NULL,created_by TEXT NOT NULL,reason TEXT NOT NULL,PRIMARY KEY(scenario_id,revision),FOREIGN KEY(scenario_id) REFERENCES scenarios(id));
 CREATE TABLE IF NOT EXISTS scenario_links(id TEXT PRIMARY KEY,scenario_id TEXT NOT NULL,revision INTEGER NOT NULL,target_kind TEXT NOT NULL,target TEXT NOT NULL,relation TEXT NOT NULL,provenance TEXT NOT NULL,created REAL NOT NULL,created_by TEXT NOT NULL,superseded_by TEXT,reason TEXT,FOREIGN KEY(scenario_id,revision) REFERENCES scenario_revisions(scenario_id,revision));
@@ -110,6 +111,16 @@ CREATE TABLE IF NOT EXISTS rust_plan_revisions(
 );
 
 CREATE TABLE IF NOT EXISTS research_jobs(id TEXT PRIMARY KEY REFERENCES job_workflows(id));
+CREATE TABLE IF NOT EXISTS unit_pauses(
+    job TEXT NOT NULL, attempt TEXT NOT NULL, state TEXT NOT NULL, requested REAL NOT NULL,
+    requested_by TEXT NOT NULL, reason TEXT NOT NULL, checkpoint TEXT, resume_attempt TEXT,
+    PRIMARY KEY(job,attempt)
+);
+CREATE INDEX IF NOT EXISTS unit_pauses_resume ON unit_pauses(job,resume_attempt);
+CREATE TABLE IF NOT EXISTS execution_tuning(
+    key TEXT PRIMARY KEY, settings TEXT NOT NULL, evidence TEXT NOT NULL,
+    job TEXT NOT NULL, attempt TEXT NOT NULL, recorded REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS output_edit_claims(
  target TEXT PRIMARY KEY, root TEXT NOT NULL UNIQUE REFERENCES research_jobs(id),
  base INTEGER NOT NULL, acquired REAL NOT NULL

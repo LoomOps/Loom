@@ -37,6 +37,21 @@ The runner receives a request JSON path as its final argument. The request inclu
 
 ## Outputs
 
+Optional `inputs` arrays on the prepare, runtime and finalize runners select the
+declared aliases used by each stage. When omitted, the stage retains the
+existing input behavior. Read `request.input_bindings[alias]` for the mounted
+path, SHA-256 and exact Artifact identity. `report_inputs` remains the complete
+accepted lineage.
+
+Declare `runtime.checkpoint_pause: true` when the producer can save and restore
+all state needed to continue at a safe point. The run request advertises a pause
+control file. At the next safe point, flush the checkpoint and atomically write
+the receipt with its relative file, SHA-256, Attempt and completed-work counter.
+Return from the process with the advertised control exit code. A resumed request
+provides the checkpoint as a read-only input under `request.resume`. Keep the
+accepted scientific inputs and use the restored data cursor to avoid repeating
+completed work. The Rust SDK provides request and receipt helpers.
+
 Write files and `result.json` into `output_dir`. Use the `results` guide and `system.contract` for entity and metric output shapes. Declare the output ID, kind, path and relations. Loom fills an omitted `provenance` from the accepted Profile pins. To supply it explicitly, copy `request.profile.revision` to `provenance.profile` and `request.profile.sha256` to `provenance.producer_sha256`. Declare measurements, units, denominators and splits through exact registered metadata templates in the Profile. Retain `metadata_schemas` for additional checks. Read the metadata guide before publishing a new output format. Generic Job state transitions do not generate domain metadata automatically.
 
 ## Installation and reuse

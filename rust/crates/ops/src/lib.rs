@@ -43,7 +43,7 @@ pub enum Message {
     Http(HttpRequest, oneshot::Sender<Result<HttpReply>>),
     Next(BTreeSet<String>, oneshot::Sender<Result<Option<Work>>>),
     Request(Work, oneshot::Sender<Result<Value>>),
-    Accepted(Work, Value, oneshot::Sender<Result<()>>),
+    Accepted(Work, Value, oneshot::Sender<Result<f64>>),
     Returned(Work, i32, Value, oneshot::Sender<Result<Value>>),
     Deferred(Work, oneshot::Sender<Result<()>>),
     Unknown(Work, oneshot::Sender<Result<()>>),
@@ -53,6 +53,7 @@ pub enum Message {
         oneshot::Sender<Result<Value>>,
     ),
     Cancelled(Work, oneshot::Sender<Result<bool>>),
+    PauseRequested(Work, oneshot::Sender<Result<bool>>),
 }
 #[derive(Clone)]
 pub struct Service {
@@ -61,6 +62,7 @@ pub struct Service {
     readers: Arc<tokio::sync::Semaphore>,
     heavy_readers: Arc<tokio::sync::Semaphore>,
     pending_reads: Arc<tokio::sync::Semaphore>,
+    input_proofs: Arc<worker::InputProofs>,
     pub stopping: Arc<std::sync::atomic::AtomicBool>,
 }
 impl Service {
@@ -155,6 +157,9 @@ impl Service {
                     Message::Cancelled(w, s) => {
                         let _ = s.send(application.cancelled(&w));
                     }
+                    Message::PauseRequested(w, s) => {
+                        let _ = s.send(application.pause_requested(&w));
+                    }
                 }
             }
         });
@@ -165,6 +170,7 @@ impl Service {
             readers: Arc::new(tokio::sync::Semaphore::new(4)),
             heavy_readers: Arc::new(tokio::sync::Semaphore::new(2)),
             pending_reads: Arc::new(tokio::sync::Semaphore::new(32)),
+            input_proofs: Default::default(),
         };
         if !read_only {
             log_collector::start(
@@ -376,7 +382,7 @@ impl Service {
         r.await
             .map_err(|_| Error::new("unavailable", "Application stopped", 503))?
     }
-    pub async fn accepted(&self, w: Work, v: Value) -> Result<()> {
+    pub async fn accepted(&self, w: Work, v: Value) -> Result<f64> {
         let (s, r) = oneshot::channel();
         self.send
             .send(Message::Accepted(w, v, s))
@@ -424,6 +430,16 @@ impl Service {
             .map_err(|_| Error::new("unavailable", "Application stopped", 503))?;
         r.await
             .map_err(|_| Error::new("outcome_unknown", "Publication reply lost", 503))?
+    }
+    pub async fn pause_requested(&self, work: Work) -> Result<bool> {
+        let (send, receive) = oneshot::channel();
+        self.send
+            .send(Message::PauseRequested(work, send))
+            .await
+            .map_err(|_| Error::new("unavailable", "Application stopped", 503))?;
+        receive
+            .await
+            .map_err(|_| Error::new("unavailable", "Application stopped", 503))?
     }
     pub async fn cancelled(&self, w: Work) -> Result<bool> {
         let (s, r) = oneshot::channel();

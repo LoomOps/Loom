@@ -80,8 +80,14 @@ class MockOps(BaseHTTPRequestHandler):
             if body.get('group')=='system' and body.get('action') in self.server.fixture.get('search_actions',{}):return self.send_json(self.server.fixture['search_actions'][body['action']])
             entries=self.server.fixture['catalog'].get('queue',{}).get('entries',[])
             row=next((r for r in entries if r['id']==body.get('arguments',{}).get('id')),None)
-            if row is None or body.get('group')!='jobs':return self.send_json({'error':'fixture deny'},403)
             action=body['action'];args=body['arguments']
+            if action in ('pause','resume_checkpoint') and body.get('group')=='units':
+                if row is None or row.get('attempt')!=args.get('attempt'):return self.send_json({'error':'fixture attempt mismatch'},409)
+                state='requested' if action=='pause' else 'resume_pending'
+                row['checkpoint_pause']={'state':state}
+                row['can_checkpoint_pause']=row['can_resume_checkpoint']=False
+                return self.send_json({'id':row['id'],'attempt':row['attempt'],'pause_state':state})
+            if row is None or body.get('group')!='jobs':return self.send_json({'error':'fixture deny'},403)
             if action in ('hold','resume'):
                 row['held']=action=='hold';row['can_resume']=row['held'];row['reason']='held' if row['held'] else 'ready'
             elif action=='reorder':

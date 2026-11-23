@@ -2,6 +2,7 @@
 //! Chunks are authoritative metadata; no per-member rows are inserted into the core DB.
 use crate::{error::require, inventory, storage, store::*, Error, Result};
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 pub fn root(app: &Application) -> PathBuf {
@@ -44,6 +45,22 @@ pub fn seal(
     base: &Path,
     storage_selector: &str,
     declaration: &Value,
+) -> Result<Value> {
+    seal_with_proofs(
+        app,
+        base,
+        storage_selector,
+        declaration,
+        &Default::default(),
+    )
+}
+
+pub fn seal_with_proofs(
+    app: &Application,
+    base: &Path,
+    storage_selector: &str,
+    declaration: &Value,
+    verified: &BTreeMap<PathBuf, storage::VerifiedFile>,
 ) -> Result<Value> {
     require(
         declaration["schema"] == "loom-output-inventory/v1",
@@ -127,7 +144,12 @@ pub fn seal(
                 first = name.into()
             }
             let path = storage::relative(base, key(&entry["path"])?)?;
-            let proof = storage::VerifiedFile::read(&path)?;
+            let proof = if let Some(proof) = verified.get(&path) {
+                proof.revalidate()?;
+                proof.clone()
+            } else {
+                storage::VerifiedFile::read(&path)?
+            };
             require(
                 entry["size"].as_u64() == Some(proof.size) && entry["sha256"] == proof.sha256,
                 "content_changed",

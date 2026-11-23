@@ -38,12 +38,29 @@
   border-radius: 6px;
 }
 
-#pai-studio .pa-unit-work-queue table { table-layout: fixed; box-sizing: border-box; min-width: 46rem; }
-#pai-studio .pa-unit-work-queue th:nth-child(2) { width: 10rem; }
-#pai-studio .pa-unit-work-queue th:nth-child(3) { width: 6.5rem; }
-#pai-studio .pa-unit-work-queue th:nth-child(4) { width: 24%; }
-#pai-studio .pa-unit-work-queue th:nth-child(5) { width: 10rem; }
-#pai-studio .pa-unit-work-queue :is(th,td) { padding-inline: 12px; overflow-wrap: anywhere; }
+/* Share the rightmost column and scroll width across the dashboard queues. */
+#pai-studio :is(.pa-current-work-queue, .pa-unit-work-queue, .pa-terminal-work-queue) {
+  --pa-queue-end-width: 136px;
+}
+#pai-studio :is(.pa-current-work-queue, .pa-unit-work-queue, .pa-terminal-work-queue) table {
+  table-layout: fixed;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 960px;
+}
+#pai-studio :is(.pa-current-work-queue, .pa-unit-work-queue, .pa-terminal-work-queue) :is(th, td) {
+  box-sizing: border-box;
+  padding-inline: 12px;
+}
+#pai-studio :is(.pa-current-work-queue, .pa-terminal-work-queue) th:last-child,
+#pai-studio .pa-unit-work-queue th:not(:first-child) { width: var(--pa-queue-end-width); }
+#pai-studio .pa-terminal-work-queue th:nth-child(2),
+#pai-studio .pa-terminal-work-queue th:nth-child(3) { width: 160px; }
+#pai-studio .pa-terminal-work-queue th:nth-child(4) { width: 104px; }
+#pai-studio .pa-terminal-work-queue th:nth-child(5),
+#pai-studio .pa-terminal-work-queue th:nth-child(6) { width: 124px; }
+#pai-studio :is(.pa-unit-work-queue, .pa-terminal-work-queue) :is(th, td) { overflow-wrap: anywhere; }
+#pai-studio .pa-unit-work-queue .pa-forecast { min-width: 0; }
 #pai-studio .pa-unit-work-queue .pa-job-status { max-width: 100%; white-space: normal; }
 
 /* Match the selected Operations desk brand and surface hierarchy. */

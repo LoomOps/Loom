@@ -9,6 +9,8 @@ use loom_domain::{Event, JobState};
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+pub const CHECKPOINT_PAUSE_EXIT: i32 = 75;
+const RESUME_INPUT: &str = "loom-resume-checkpoint";
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Work {
     pub effect: String,
@@ -25,8 +27,117 @@ pub struct Work {
     pub generation: i64,
     #[serde(default)]
     pub result: Value,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub resume_checkpoint: Value,
+    #[serde(default, skip_serializing_if = "Value::is_null")]
+    pub performance_tuning: Value,
 }
 impl Application {
+    pub(crate) fn checkpoint_control(
+        &mut self,
+        actor: &crate::auth::Actor,
+        action: &str,
+        args: &Value,
+    ) -> Result<Value> {
+        let job = args["id"].as_str().unwrap_or("");
+        let attempt = args["attempt"].as_str().unwrap_or("");
+        let reason = args["reason"].as_str().unwrap_or("").trim();
+        require(
+            !reason.is_empty(),
+            "checkpoint_pause",
+            "A reason is required",
+            400,
+        )?;
+        let tx = self.transaction()?;
+        let record = jobs::load(&tx, job)?;
+        require(
+            actor.id == record.owner
+                || actor.id == record.submitter
+                || actor.owners.contains(&record.owner),
+            "forbidden",
+            "Unit owner grant required",
+            403,
+        )?;
+        let state: Option<String> = tx
+            .query_row(
+                "SELECT state FROM unit_pauses WHERE job=? AND attempt=?",
+                params![job, attempt],
+                |row| row.get(0),
+            )
+            .optional()?;
+        if (action == "pause" && matches!(state.as_deref(), Some("requested" | "paused")))
+            || (action == "resume_checkpoint"
+                && matches!(state.as_deref(), Some("resume_pending" | "resumed")))
+        {
+            return Ok(json!({"id":job,"attempt":attempt,"pause_state":state}));
+        }
+        require(
+            record
+                .aggregate
+                .fence
+                .attempt
+                .as_ref()
+                .is_some_and(|a| a.as_str() == attempt)
+                && !record.aggregate.cancel_requested,
+            "attempt",
+            "Current Unit Attempt required",
+            409,
+        )?;
+        let next = if action == "pause" {
+            require(
+                record.spec["profile"]["runtime"]["checkpoint_pause"] == true,
+                "checkpoint_pause",
+                "Run Profile does not support checkpoint pause",
+                409,
+            )?;
+            let accepted: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM rust_effects WHERE job=? AND attempt=? AND stage='run' AND state='accepted')",
+                params![job,attempt], |row| row.get(0),
+            )?;
+            require(
+                record.aggregate.state == JobState::Running && accepted && state.is_none(),
+                "checkpoint_pause",
+                "An accepted running stage is required",
+                409,
+            )?;
+            tx.execute(
+                "INSERT INTO unit_pauses(job,attempt,state,requested,requested_by,reason)
+                VALUES(?,?,'requested',?,?,?)",
+                params![job, attempt, now(), actor.id, reason],
+            )?;
+            "requested"
+        } else {
+            require(
+                state.as_deref() == Some("paused"),
+                "checkpoint_pause",
+                "Verified paused checkpoint required",
+                409,
+            )?;
+            crate::store::active(&tx)?;
+            jobs::transition(&tx, &record, Event::ResumeCheckpoint)?;
+            tx.execute(
+                "UPDATE unit_pauses SET state='resume_pending' WHERE job=? AND attempt=?",
+                params![job, attempt],
+            )?;
+            "resume_pending"
+        };
+        tx.execute(
+            "INSERT INTO queue_history(job,actor,action,recorded,reason,before_order,after_order)
+            VALUES(?,?,?,?,?,'[]','[]')",
+            params![job, actor.id, action, now(), reason],
+        )?;
+        tx.commit()?;
+        Ok(json!({"id":job,"attempt":attempt,"pause_state":next}))
+    }
+
+    pub fn pause_requested(&self, work: &Work) -> Result<bool> {
+        fence(&self.db, work)?;
+        Ok(self.db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM unit_pauses WHERE job=? AND attempt=? AND state='requested')",
+            params![work.job, work.attempt], |row| row.get(0),
+        )?)
+    }
+
     pub fn next_work(
         &mut self,
         exclude: &std::collections::BTreeSet<String>,
@@ -39,6 +150,7 @@ impl Application {
         )?;
         let config = self.config.clone();
         let bulk = self.bulk.clone();
+        let gpu_observation = self.observation_path("dashboard-gpus.json");
         let tx = self.transaction()?;
         return_allowed(&tx)?;
         tx.execute("UPDATE recovery SET state='deferred',token=NULL,updated=? WHERE state IN ('waiting','claimed') AND deadline<=?",params![now(),now()])?;
@@ -49,6 +161,9 @@ impl Application {
    if record.aggregate.cancel_requested&&!publication{continue}
    let stage=if publication {
     let ready:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM result_outbox WHERE job=? AND next_try<=?)",params![job,now()],|r|r.get(0))?;if !ready{continue}
+    let active:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM rust_effects WHERE job=? AND attempt=? AND epoch=?
+        AND stage IN ('finalize','publish') AND state IN ('pending','accepted','unknown') AND json_extract(request,'$.revision')=?)",
+        params![job,record.aggregate.fence.attempt.as_ref().map(|a|a.as_str()),record.aggregate.fence.epoch as i64,record.aggregate.fence.revision as i64],|r|r.get(0))?;if active{continue}
     let finalizer:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM finalizer_receipts WHERE job=? AND attempt=?)",params![job,record.aggregate.fence.attempt.as_ref().map(|a|a.as_str())],|r|r.get(0))?;
     if !record.aggregate.cancel_requested&&record.spec["profile"].get("finalize").is_some()&&!finalizer{"finalize"}else{"publish"}
    } else {
@@ -58,6 +173,9 @@ impl Application {
     if !crate::output_edits::claim(&tx,job)?{continue}
     if record.aggregate.state==JobState::Queued {
      let attempt=crate::store::id();tx.execute("UPDATE jobs SET attempt=? WHERE id=? AND state='queued'",params![attempt,job])?;
+     tx.execute("UPDATE unit_pauses SET resume_attempt=?1,state='resumed' WHERE job=?2
+         AND ((attempt=?3 AND state='resume_pending') OR resume_attempt=?3)",
+         params![attempt,job,record.aggregate.fence.attempt.as_ref().map(|id| id.as_str())])?;
      tx.execute("INSERT INTO attempts VALUES(?,?,'running',?,NULL)",params![attempt,job,now()])?;
      tx.execute("INSERT INTO rust_attempt_starts VALUES(?,NULL)",[&attempt])?;
      tx.execute("UPDATE recovery SET state='executing',rounds=rounds+1,updated=? WHERE job=? AND state='pending'",params![now(),job])?;
@@ -65,9 +183,12 @@ impl Application {
     }
     if prepare{jobs::transition(&tx,&record,Event::Prepare)?;"prepare"}else{jobs::transition(&tx,&record,Event::Start)?;"run"}
    };
-   if stage=="finalize"&&lane_in_use(&tx,"cpu")?{continue}
+   if stage=="finalize" {
+     let typed:bool=tx.query_row("SELECT EXISTS(SELECT 1 FROM execution_units WHERE id=?)",[job],|r|r.get(0))?;
+     if (typed && cpu_slots_full(&tx)?) || (!typed && lane_in_use(&tx,"cpu")?){continue}
+   }
    if publication {tx.execute("UPDATE recovery SET state='executing',rounds=rounds+1,updated=? WHERE job=? AND state='pending'",params![now(),job])?;}
-   let work=make_work(&tx,&config,&bulk,&record,stage,stage=="publish",false)?;tx.commit()?;return Ok(Some(work))
+   let work=make_work(&tx,&config,(&bulk,&gpu_observation),&record,stage,stage=="publish",false)?;tx.commit()?;return Ok(Some(work))
   }
         if let Some(row) = rows(&tx,"SELECT h.*,j.id FROM hooks h JOIN jobs j ON j.id=h.job WHERE h.state='pending' AND h.next_try<=? ORDER BY h.next_try LIMIT 100",&[&now()])?.into_iter().next() {if lane_in_use(&tx,"cpu")?{tx.commit()?;return Ok(None)}
             let mut record=jobs::load(&tx,row["job"].as_str().unwrap_or(""))?;
@@ -76,11 +197,11 @@ impl Application {
             if let Some(owner)=row["owner_snapshot"].as_str(){record.owner=owner.into();}
                 if let Some(notify)=row["notify_snapshot"].as_str(){record.notify=notify.into();}
             record.aggregate.fence.attempt=row["attempt"].as_str().map(loom_domain::AttemptId::new).transpose()?;
-            let work=make_work(&tx,&config,&bulk,&record,row["stage"].as_str().unwrap_or("on_error"),false,true)?;tx.execute("UPDATE hooks SET state='running' WHERE job=? AND attempt=? AND stage=?",params![work.job,work.attempt,work.stage])?;tx.commit()?;return Ok(Some(work));}
+            let work=make_work(&tx,&config,(&bulk,&gpu_observation),&record,row["stage"].as_str().unwrap_or("on_error"),false,true)?;tx.execute("UPDATE hooks SET state='running' WHERE job=? AND attempt=? AND stage=?",params![work.job,work.attempt,work.stage])?;tx.commit()?;return Ok(Some(work));}
         tx.commit()?;
         Ok(None)
     }
-    pub fn effect_accepted(&mut self, work: &Work, evidence: Value) -> Result<()> {
+    pub fn effect_accepted(&mut self, work: &Work, evidence: Value) -> Result<f64> {
         let tx = self.transaction()?;
         fence(&tx, work)?;
         tx.execute("UPDATE rust_effects SET state='accepted',evidence=?,updated=? WHERE id=? AND state IN ('pending','unknown','accepted')",params![encode(&evidence)?,now(),work.effect])?;
@@ -90,11 +211,11 @@ impl Application {
                 params![now(), work.attempt],
             )?;
         }
-        if !work.publication {
-            tx.execute("UPDATE stage_runs SET started=COALESCE(started,?),state='running' WHERE job=? AND attempt=? AND stage=?",params![now(),work.job,work.attempt,work.stage])?;
-        }
+        let started = if work.publication { now() } else {
+            tx.query_row("UPDATE stage_runs SET started=COALESCE(started,?),state='running' WHERE job=? AND attempt=? AND stage=? RETURNING started",params![now(),work.job,work.attempt,work.stage],|row|row.get(0))?
+        };
         tx.commit()?;
-        Ok(())
+        Ok(started)
     }
     pub fn effect_defer(&mut self, work: &Work) -> Result<()> {
         let tx = self.transaction()?;
@@ -140,6 +261,20 @@ impl Application {
                 evidence["ticket"] = accepted["ticket"].clone();
             }
         }
+        if work.stage == "run"
+            && !record.aggregate.cancel_requested
+            && (exit_code == 0
+                || (exit_code == CHECKPOINT_PAUSE_EXIT && evidence["checkpoint_pause"].is_object()))
+        {
+            if let Some(tuning) =
+                crate::tuning::record(&tx, work, &evidence["performance_tuning_report"])?
+            {
+                evidence["performance_tuning"] = tuning;
+            }
+        }
+        if let Some(fields) = evidence.as_object_mut() {
+            fields.remove("performance_tuning_report");
+        }
         tx.execute(
             "UPDATE rust_effects SET state='returned',evidence=?,updated=? WHERE id=?",
             params![encode(&evidence)?, now(), work.effect],
@@ -154,6 +289,47 @@ impl Application {
             tx.execute("UPDATE hooks SET state=?,retries=retries+1,next_try=?,error=? WHERE job=? AND attempt=? AND stage=?",params![if exit_code==0{"complete"}else if retries>=2{"failed"}else{"pending"},now()+5.,if exit_code==0{None}else{Some("callback_failed")},work.job,work.attempt,work.stage])?;
             tx.commit()?;
             return Ok(json!({"hook":work.stage,"exit_code":exit_code}));
+        }
+        if work.stage == "run" {
+            let mut paused = false;
+            if exit_code == CHECKPOINT_PAUSE_EXIT
+                && !record.aggregate.cancel_requested
+                && record.spec["profile"]["runtime"]["checkpoint_pause"] == true
+                && evidence["checkpoint_pause"].is_object()
+            {
+                paused = tx.execute(
+                    "UPDATE unit_pauses SET state='paused',checkpoint=?
+                    WHERE job=? AND attempt=? AND state='requested'",
+                    params![
+                        encode(&evidence["checkpoint_pause"])?,
+                        work.job,
+                        work.attempt
+                    ],
+                )? == 1;
+            }
+            if paused {
+                jobs::transition(&tx, &record, Event::CheckpointPaused)?;
+                let result = json!({"checkpoint_pause":evidence["checkpoint_pause"],"process_group_returned":true});
+                tx.execute(
+                    "UPDATE jobs SET result=? WHERE id=?",
+                    params![encode(&result)?, work.job],
+                )?;
+                tx.execute(
+                    "INSERT OR REPLACE INTO attempt_results VALUES(?,?,?)",
+                    params![work.job, work.attempt, encode(&result)?],
+                )?;
+                tx.execute(
+                    "UPDATE attempts SET state='paused',ended=? WHERE id=?",
+                    params![now(), work.attempt],
+                )?;
+                tx.execute("UPDATE recovery SET state='closed',token=NULL,deadline=NULL,hard_deadline=NULL,updated=?
+                    WHERE job=? AND state='executing'", params![now(),work.job])?;
+                jobs::event(&tx, &record, "paused")?;
+                tx.commit()?;
+                return Ok(result);
+            }
+            tx.execute("UPDATE unit_pauses SET state='finished' WHERE job=? AND attempt=? AND state='requested'",
+                params![work.job,work.attempt])?;
         }
         if record.aggregate.cancel_requested {
             jobs::transition(&tx, &record, Event::ReturnCancelled)?;
@@ -183,6 +359,9 @@ impl Application {
                 )?;
             }
             let mut failure = json!({"reason":reason,"stage":work.stage,"exit_code":exit_code,"process_group_returned":true});
+            if let Some(error) = evidence.get("checkpoint_pause_error") {
+                failure["checkpoint_pause_error"] = error.clone();
+            }
             if work.stage == "finalize" {
                 if let Some(execution) = record.result.as_ref().and_then(|r| r.get("execution")) {
                     failure["execution"] = execution.clone();
@@ -225,7 +404,7 @@ impl Application {
             enqueue_hook(&tx, &failed, "on_error")?;
             if work.stage != "finalize" {
                 let attempts: i64 = tx.query_row(
-                    "SELECT count(*) FROM attempts WHERE job=?",
+                    "SELECT count(*) FROM attempts WHERE job=? AND state!='paused'",
                     [&work.job],
                     |r| r.get(0),
                 )?;
@@ -452,12 +631,13 @@ pub(crate) fn complete_publication(db: &rusqlite::Connection, job: &str, effect:
 fn make_work(
     db: &rusqlite::Connection,
     config: &Config,
-    bulk: &std::path::Path,
+    paths: (&std::path::Path, &std::path::Path),
     record: &Record,
     stage: &str,
     publication: bool,
     hook: bool,
 ) -> Result<Work> {
+    let (bulk, gpu_observation) = paths;
     let attempt = record
         .aggregate
         .fence
@@ -494,6 +674,24 @@ fn make_work(
             .join(generation.to_string());
     }
     let effect = id();
+    let resume_checkpoint = if matches!(stage, "prepare" | "run") {
+        db.query_row(
+            "SELECT checkpoint FROM unit_pauses WHERE job=? AND resume_attempt=?",
+            params![record.aggregate.id.as_str(), attempt],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?
+        .map(|value| serde_json::from_str(&value))
+        .transpose()?
+        .unwrap_or(Value::Null)
+    } else {
+        Value::Null
+    };
+    let performance_tuning = if stage == "run" {
+        crate::tuning::request(db, config, gpu_observation, &record.spec)?
+    } else {
+        Value::Null
+    };
     let work = Work {
         effect: effect.clone(),
         job: record.aggregate.id.as_str().into(),
@@ -507,6 +705,8 @@ fn make_work(
         hook,
         generation,
         result: record.result.clone().unwrap_or(Value::Null),
+        resume_checkpoint,
+        performance_tuning,
     };
     db.execute(
         "INSERT INTO rust_effects VALUES(?,?,?,?,?,'pending',?,NULL,?,?)",
@@ -593,14 +793,20 @@ impl Application {
         let profile = &work.spec["profile"];
         let mut params = work.spec["params"].clone();
         let mut inputs = serde_json::Map::new();
+        let mut bindings = serde_json::Map::new();
+        let relations = crate::results::input_relations(&self.db, &work.spec["params"])?;
+        let runner = if work.stage == "run" {
+            "runtime"
+        } else {
+            &work.stage
+        };
         for (name, prefix) in profile["inputs"].as_object().into_iter().flatten() {
             if work.hook {
                 continue;
             }
-            if work.stage == "prepare"
-                && profile["prepare"]["inputs"]
-                    .as_array()
-                    .is_some_and(|a| !a.iter().any(|v| v == name))
+            if profile[runner]["inputs"]
+                .as_array()
+                .is_some_and(|a| !a.iter().any(|v| v == name))
             {
                 continue;
             }
@@ -728,13 +934,52 @@ impl Application {
                 input["candidates"] = json!(candidates);
             }
             inputs.insert(name.clone(), input);
-            params[name] = json!(format!("/inputs/{name}"));
+            let path = format!("/inputs/{name}");
+            let relation = relations
+                .iter()
+                .find(|relation| relation["input"] == *name && relation["kind"] == "consumes");
+            bindings.insert(name.clone(), json!({
+                "path": path,
+                "sha256": inputs[name]["sha256"],
+                "artifact": relation.map(|r| json!({"id":r["id"],"revision":r["revision"],"member":r["member"]})),
+            }));
+            params[name] = json!(path);
         }
         let mut runner = if work.stage == "run" {
             profile["runtime"].clone()
         } else {
             profile[&work.stage].clone()
         };
+        let mut resume = Value::Null;
+        if work.resume_checkpoint.is_object() {
+            require(
+                !inputs.contains_key(RESUME_INPUT),
+                "checkpoint_pause",
+                "Reserved checkpoint input alias",
+                409,
+            )?;
+            let checkpoint = &work.resume_checkpoint;
+            let selector = work.spec["output_storage"].as_str().unwrap_or("data/0");
+            let (root, _) = crate::storage::store(
+                &self.config,
+                &self.bulk,
+                selector,
+                work.spec["_output_storage_id"].as_str(),
+            )?;
+            let attempt = checkpoint["attempt"]
+                .as_str()
+                .ok_or_else(|| Error::input("Checkpoint Attempt required"))?;
+            loom_domain::AttemptId::new(attempt)?;
+            let folder = root.join("runs").join(&work.job).join(attempt);
+            let path =
+                crate::storage::relative(&folder, checkpoint["file"].as_str().unwrap_or(""))?;
+            inputs.insert(RESUME_INPUT.into(), json!({
+                "path":path, "storage":selector, "ref":path.strip_prefix(&root).map_err(|_| Error::input("Checkpoint leaves storage"))?,
+                "sha256":checkpoint["sha256"],
+            }));
+            resume = json!({"attempt":attempt,"path":format!("/inputs/{RESUME_INPUT}"),
+                "sha256":checkpoint["sha256"],"progress":checkpoint["progress"]});
+        }
         let mut tool_binaries = serde_json::Map::new();
         for (alias, pin) in profile["tool_pins"].as_object().into_iter().flatten() {
             if let Some(build) = pin.get("producer_build").filter(|b| !b.is_null()) {
@@ -785,7 +1030,16 @@ impl Application {
         if work.spec["kind"] == "cpu.smoke" {
             runner = json!({"builtin":"cpu.smoke","lane":"cpu"});
         }
-        let mut request = json!({"schema":"loom-run-request/v1","job":work.job,"job_id":work.job,"attempt":work.attempt,"attempt_id":work.attempt,"stage":work.stage,"params":params,"output_dir":"/work","profile":{"revision":profile["revision"],"sha256":profile["sha256"],"reporting_policy":profile["reporting_policy"],"reporting":profile["reporting"],"reporting_pins":profile["reporting_pins"],"metadata_template_pins":profile["metadata_template_pins"]},"report_inputs":crate::results::input_relations(&self.db,&work.spec["params"])?,"event_id":format!("{}.{}.{}",work.job,work.attempt,work.stage),"result":work.result,"execution":work.spec["execution"],"tools":profile["tool_pins"],"tool_binaries":tool_binaries,"steps":profile["steps"],"runner":runner,"verified_inputs":inputs,"component_path":profile["component_path"],"source_pins":profile["source_pins"]});
+        let mut request = json!({"schema":"loom-run-request/v1","job":work.job,"job_id":work.job,"attempt":work.attempt,"attempt_id":work.attempt,"stage":work.stage,"params":params,"output_dir":"/work","profile":{"revision":profile["revision"],"sha256":profile["sha256"],"reporting_policy":profile["reporting_policy"],"reporting":profile["reporting"],"reporting_pins":profile["reporting_pins"],"metadata_template_pins":profile["metadata_template_pins"]},"report_inputs":relations,"input_bindings":bindings,"event_id":format!("{}.{}.{}",work.job,work.attempt,work.stage),"result":work.result,"execution":work.spec["execution"],"tools":profile["tool_pins"],"tool_binaries":tool_binaries,"steps":profile["steps"],"runner":runner,"verified_inputs":inputs,"component_path":profile["component_path"],"source_pins":profile["source_pins"]});
+        if work.stage == "run" && runner["checkpoint_pause"] == true {
+            request["pause_control"] = json!({"request":"/work/pause-request.json","receipt":"/work/pause-checkpoint.json","exit_code":CHECKPOINT_PAUSE_EXIT});
+        }
+        if !resume.is_null() {
+            request["resume"] = resume;
+        }
+        if work.performance_tuning.is_object() {
+            request["performance_tuning"] = work.performance_tuning.clone();
+        }
         if let Some(unit) = self.unit_summary(&work.job)? {
             request["unit_id"] = unit["id"].clone();
             request["research_job_id"] = unit["job_id"].clone();
@@ -799,4 +1053,9 @@ impl Application {
 
 pub fn lane_in_use(db: &rusqlite::Connection, lane: &str) -> Result<bool> {
     Ok(db.query_row("SELECT EXISTS(SELECT 1 FROM rust_effects WHERE state IN ('pending','accepted','unknown') AND stage!='publish' AND CASE WHEN stage='run' THEN COALESCE(json_extract(request,'$.spec.profile.runtime.lane'),'cpu') ELSE 'cpu' END=?)",[lane],|r|r.get(0))?)
+}
+pub(crate) fn cpu_slots_full(db: &rusqlite::Connection) -> Result<bool> {
+    Ok(db.query_row("SELECT COUNT(*)>=3 FROM rust_effects WHERE state IN ('pending','accepted','unknown')
+        AND stage!='publish' AND CASE WHEN stage='run' THEN COALESCE(json_extract(request,'$.spec.profile.runtime.lane'),'cpu') ELSE 'cpu' END='cpu'",
+        [], |r|r.get(0))?)
 }

@@ -206,7 +206,9 @@ function loomExecutionProfileDetail(entity){
 function loomRuntimeCard(entity){
  const item=entity.loom_runtime,manifest=item.manifest;
  const startedJobs=item.started_job_count ?? item.usage_stats?.executed_jobs;
- return `<article class="pa-extension-card" data-extension-card="${esc(entity.id)}"><div class="pa-extension-card-head">${loomExtensionBadges(entity,item.revision)}${loomRegistryBadge(entity)}<span>${esc(item.legacy?'Unverified':manifest.reconciliation?'Metadata checked':manifest.validation?.status==='passed'?'Checks passed':'Unverified')}</span></div><h3>${catLink(entity.id,item.curation?.label||entity.label)}</h3><div class="pa-profile-dependencies">${loomHubHighlights({...item,dependencies:manifest.dependencies})}</div><div class="pa-extension-card-facts"><span>Profiles ${catalogData.presentation_view==='research'&&entity.research_context?entity.research_context.profiles.length:(item.used_by_profiles||[]).length}</span>${startedJobs?`<span>Started Jobs ${startedJobs}</span>`:''}</div></article>`;
+ const profiles=catalogData.presentation_view==='research'&&entity.research_context?entity.research_context.profiles.length:item.used_by_profiles?.length;
+ const facts=(item.summary_only||profiles==null?'':`<span>Profiles ${profiles}</span>`)+(startedJobs?`<span>Started Jobs ${startedJobs}</span>`:'');
+ return `<article class="pa-extension-card" data-extension-card="${esc(entity.id)}"><div class="pa-extension-card-head">${loomExtensionBadges(entity,item.revision)}${loomRegistryBadge(entity)}<span>${esc(item.legacy?'Unverified':manifest.reconciliation?'Metadata checked':manifest.validation?.status==='passed'?'Checks passed':'Unverified')}</span></div><h3>${catLink(entity.id,item.curation?.label||entity.label)}</h3><div class="pa-profile-dependencies">${loomHubHighlights({...item,dependencies:manifest.dependencies})}</div>${facts?`<div class="pa-extension-card-facts">${facts}</div>`:''}</article>`;
 }
 function loomRuntimeDetail(entity){
  const item=entity.loom_runtime,manifest=item.manifest,policy=manifest.runtime||{},filter=state.inventoryOrigin||'managed',query=(state.inventoryQuery||'').toLowerCase();

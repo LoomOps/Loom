@@ -2864,6 +2864,8 @@ fn workflow_hold_and_resume_apply_only_to_real_waiting_members() {
     let first = f.app.next_work(&Default::default()).unwrap().unwrap();
     assert_eq!(first.job, w["nodes"]["a"]);
     f.call("jobs", "hold", json!({"id":w["id"]})).unwrap();
+    f.call("jobs", "resume", json!({"id":w["nodes"]["b"]}))
+        .unwrap();
     fs::create_dir_all(&first.folder).unwrap();
     fs::write(first.folder.join("manifest.txt"), b"verified batch").unwrap();
     f.app
@@ -2873,12 +2875,155 @@ fn workflow_hold_and_resume_apply_only_to_real_waiting_members() {
     assert!(publication.publication);
     f.app.publish_work(&publication, json!({"entities":[{"id":"observation","kind":"artifact","path":"manifest.txt"}],"metrics":[]})).unwrap();
     assert!(f.app.next_work(&Default::default()).unwrap().is_none());
+    f.call("jobs", "hold", json!({"id":w["nodes"]["b"]}))
+        .unwrap();
     f.call("jobs", "resume", json!({"id":w["id"]})).unwrap();
+    assert!(f.app.next_work(&Default::default()).unwrap().is_none());
+    f.call("jobs", "resume", json!({"id":w["nodes"]["b"]}))
+        .unwrap();
     let second = f.app.next_work(&Default::default()).unwrap().unwrap();
     assert_eq!(second.job, w["nodes"]["b"]);
     let completed = f.call("jobs", "get", json!({"id":first.job})).unwrap();
     assert_eq!(completed["state"], "complete");
     assert_eq!(completed["attempts"].as_array().unwrap().len(), 1);
+}
+#[test]
+fn checkpoint_pause_and_resume_keep_one_unit_and_a_verified_attempt_chain() {
+    let mut f = Fixture::new();
+    let profile = json!({"schema":"loom-execution/v2","revision":"pause.r1","sha256":"b".repeat(64),
+        "params_schema":{"type":"object","additionalProperties":false},
+        "runtime":{"executor":"container","runtime_id":"cpu","lane":"cpu","command":["/bin/true"],"checkpoint_pause":true},
+        "inputs":{},"outputs":null,"limits":{"max_attempts":1,"timeout_seconds":30}});
+    f.app.config.profiles.insert("pause.r1".into(), profile);
+    let unit = f
+        .call(
+            "units",
+            "submit",
+            json!({"key":"pause-unit","kind":"pause.r1","params":{},
+        "owner":"owner","notify":"owner","execution_mode":"full"}),
+        )
+        .unwrap();
+    let first = f.app.next_work(&Default::default()).unwrap().unwrap();
+    let control = json!({"id":unit["id"],"attempt":first.attempt,"reason":"Checkpoint test"});
+    assert_eq!(
+        f.call("units", "pause", control.clone()).unwrap_err().code,
+        "checkpoint_pause"
+    );
+    f.app
+        .effect_accepted(&first, json!({"ticket":"fixture"}))
+        .unwrap();
+    let requested = f.call("units", "pause", control.clone()).unwrap();
+    assert_eq!(
+        requested,
+        f.call("units", "pause", control.clone()).unwrap()
+    );
+    assert!(f.app.pause_requested(&first).unwrap());
+    fs::create_dir_all(&first.folder).unwrap();
+    let checkpoint = first.folder.join("checkpoint.tar");
+    fs::write(&checkpoint, b"verified state").unwrap();
+    let digest = crate::store::hash(b"verified state");
+    f.app.stage_returned(&first, crate::execution::CHECKPOINT_PAUSE_EXIT,
+        json!({"returned":true,"checkpoint_pause":{"attempt":first.attempt,"file":"checkpoint.tar",
+           "size":14,"sha256":digest,"progress":11}})).unwrap();
+    assert_eq!(
+        f.call("units", "get", json!({"id":unit["id"]})).unwrap()["status"],
+        "paused"
+    );
+    assert!(f.app.next_work(&Default::default()).unwrap().is_none());
+    f.call("units", "resume_checkpoint", control.clone())
+        .unwrap();
+    let second = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(second.job, first.job);
+    assert_ne!(second.attempt, first.attempt);
+    let request = f.app.request_for(&second).unwrap();
+    assert_eq!(request["resume"]["attempt"], first.attempt);
+    assert_eq!(request["resume"]["progress"], 11);
+    assert_eq!(
+        request["verified_inputs"]["loom-resume-checkpoint"]["path"],
+        json!(checkpoint)
+    );
+    assert_eq!(
+        request["verified_inputs"]["loom-resume-checkpoint"]["sha256"],
+        digest
+    );
+    assert_eq!(
+        f.call("units", "resume_checkpoint", control).unwrap()["pause_state"],
+        "resumed"
+    );
+}
+
+#[test]
+fn exclusive_tuning_reuses_only_the_fastest_equivalent_setting_for_matching_conditions() {
+    let mut f = Fixture::new();
+    let gpu = f.app.local.join("dashboard-gpus.json");
+    fs::write(
+        &gpu,
+        serde_json::to_vec(&json!({"status":"ok","observed_at":crate::store::now(),
+        "data":[{"name":"GPU","driver_version":"one","total_MiB":20000}]}))
+        .unwrap(),
+    )
+    .unwrap();
+    let manifest = json!({"runtime":{"image":format!("sha256:{}","a".repeat(64)),"lane":"gpu"}});
+    let pin = json!({"id":"gpu","revision":1,"sha256":store::hash(compat::seal(&manifest)),"manifest":manifest});
+    f.app.observe_runtimes(json!({"runtimes":[pin]})).unwrap();
+    let mut profile = json!({"schema":"loom-execution/v2","revision":"tune.r1","sha256":"c".repeat(64),
+        "params_schema":{"type":"object","properties":{"scene":{"type":"string"}},"additionalProperties":false},
+        "runtime":{"executor":"container","lane":"gpu","command":["/bin/true"],
+            "runtime_ref":{"id":"gpu","revision":1},
+            "performance_tuning":{"max_seconds":10,"workload_params":["scene"],
+                "settings_schema":{"type":"object","properties":{"workers":{"type":"integer"}},"required":["workers"],"additionalProperties":false}}},
+        "inputs":{},"outputs":null,"limits":{"max_attempts":1,"timeout_seconds":30}});
+    runtime::bind(&f.app.runtime_snapshot().unwrap(), &mut profile).unwrap();
+    f.app.config.profiles.insert("tune.r1".into(), profile);
+    let args = json!({"key":"tune-first","kind":"tune.r1","params":{"scene":"fixed"},
+        "owner":"owner","notify":"owner","gpu_access":{"mode":"exclusive"},"execution_mode":"full"});
+    f.call("units", "submit", args.clone()).unwrap();
+    let first = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert!(first.performance_tuning["key"].is_string(), "{:?}", first.performance_tuning);
+    assert!(first.performance_tuning["cached"].is_null());
+    let mut report = json!({"schema":"loom-performance-tuning/v1","key":first.performance_tuning["key"],
+        "elapsed_seconds":8,"applied":{"workers":2},"samples":[
+            {"settings":{"workers":1},"valid":5,"seconds":2,"peak_vram_mib":9000,"equivalent":true},
+            {"settings":{"workers":2},"valid":6,"seconds":2,"peak_vram_mib":15000,"equivalent":true},
+            {"settings":{"workers":4},"valid":20,"seconds":1,"peak_vram_mib":19000,"equivalent":false}]});
+    report["applied"] = json!({"workers":4});
+    assert!(crate::tuning::record(&f.app.db, &first, &report)
+        .unwrap()
+        .is_none());
+    report["applied"] = json!({"workers":2});
+    f.app
+        .stage_returned(
+            &first,
+            0,
+            json!({"returned":true,"performance_tuning_report":report}),
+        )
+        .unwrap();
+    assert_eq!(f.count("execution_tuning"), 1);
+    let mut again = args.clone();
+    again["key"] = json!("tune-second");
+    let repeated = f.call("units", "submit", again).unwrap();
+    let publication = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert!(publication.publication);
+    let second = f
+        .app
+        .next_work(&std::collections::BTreeSet::from([publication.effect]))
+        .unwrap()
+        .unwrap();
+    assert_eq!(second.job, repeated["id"]);
+    assert_eq!(second.performance_tuning["key"], first.performance_tuning["key"]);
+    assert_eq!(
+        second.performance_tuning["cached"]["settings"],
+        json!({"workers":2})
+    );
+    let mut different = args;
+    different["key"] = json!("tune-different");
+    different["params"]["scene"] = json!("changed");
+    let item = f.call("units", "submit", different).unwrap();
+    let identity = item["id"].as_str().unwrap();
+    let record = crate::jobs::load(&f.app.db, identity).unwrap();
+    let settings = crate::tuning::request(&f.app.db, &f.app.config, &gpu, &record.spec).unwrap();
+    assert_ne!(settings["key"], first.performance_tuning["key"]);
+    assert!(settings["cached"].is_null());
 }
 #[test]
 fn workflow_held_during_cpu_preparation_waits_before_gpu_run() {
@@ -2903,7 +3048,8 @@ fn workflow_held_during_cpu_preparation_waits_before_gpu_run() {
         (&member["stage"], &member["lane"]),
         (&json!("prepare"), &json!("cpu"))
     );
-    assert_eq!(member["can_resume"], true);
+    assert_eq!(member["can_resume"], false);
+    assert_eq!(member["workflow_hold"], true);
     assert_eq!(member["can_reorder"], false);
     f.app
         .stage_returned(&prepare, 0, json!({"returned":true}))
@@ -6209,7 +6355,22 @@ fn runtime_revision_links_resolve_old_exact_aliases_without_hash_fallback() {
         )
         .unwrap();
     assert_eq!(detail["entities"][0]["loom_runtime"]["revision"], 1);
+    assert!(detail["entities"][0]["loom_runtime"]["job_usage"].is_array());
     assert_eq!(detail["entities"][0]["label"], "Original Runtime");
+    let page = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"kinds":["runtime"],"view":"all","role":"all","limit":20}),
+        )
+        .unwrap();
+    assert!(!page["entities"].as_array().unwrap().is_empty());
+    assert!(page["entities"].as_array().unwrap().iter().all(|entry| {
+        let runtime = &entry["loom_runtime"];
+        runtime["summary_only"] == true
+            && runtime.get("job_usage").is_none()
+            && runtime["manifest"].get("dependencies").is_none()
+    }));
     assert!(f.call("results","resolve_item",json!({"native_ref":{"kind":"runtime","identity":{"id":"sim","revision":1,"sha256":sha2}}})).is_err());
     assert!(f
         .call(

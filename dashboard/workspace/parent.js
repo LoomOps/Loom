@@ -302,7 +302,7 @@
   }
 
   async function queueAction(message) {
-    if (!signedIn() || !['reorder','resume'].includes(message.action)) return;
+    if (!signedIn() || !['reorder','hold','resume','pause','resume_checkpoint'].includes(message.action)) return;
     const signal=lifetime.signal;
     try {
       const response=await fetch('/api/jobs/queue-actions', {method:'POST',cache:'no-store',credentials:'same-origin',redirect:'error',

@@ -310,6 +310,8 @@ impl Application {
             } else if states.contains(&JobState::Failed) || states.contains(&JobState::Interrupted)
             {
                 JobState::Failed
+            } else if states.contains(&JobState::Paused) {
+                JobState::Paused
             } else if managed && states.iter().all(|s| *s == JobState::Complete) {
                 JobState::Blocked
             } else if states.iter().all(|s| s.terminal()) {
@@ -348,6 +350,41 @@ impl Application {
             }
             let mut detail = json!({"id":id,"workflow":true,"owner":workflow["owner"],"notify":workflow["notify"],"created":workflow["created"],"state":state.as_str(),"status":state.public(),"spec":request,"executions":nodes,"execution_intervals":execution_intervals,"result":result,"errors":errors,"presentation":presentation,"scenario_ref":request["scenario_ref"]});
             if research {
+                detail["next_action"] = Value::Null;
+                if state == JobState::Blocked
+                    && request["held"] != true
+                    && request["cancel_requested"] != true
+                    && request["plan"]["sealed"] == false
+                {
+                    let complete = nodes
+                        .iter()
+                        .filter(|node| node["state"] == "complete")
+                        .filter_map(|node| node["id"].as_str())
+                        .collect::<std::collections::BTreeSet<_>>();
+                    let open = request["plan"]["units"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter(|slot| {
+                            slot["execution"].is_null()
+                                && slot["depends_on"]
+                                    .as_array()
+                                    .into_iter()
+                                    .flatten()
+                                    .all(|name| {
+                                        name.as_str().is_some_and(|name| complete.contains(name))
+                                    })
+                        })
+                        .filter_map(|slot| slot["id"].as_str())
+                        .collect::<Vec<_>>();
+                    if !open.is_empty() {
+                        detail["next_action"] = json!({"kind":"bind_plan_slot","slots":open,
+                            "plan_revision":request["plan_revision"]});
+                    }
+                }
+                if state == JobState::Paused {
+                    detail["next_action"] = json!({"kind":"resume_checkpoint"});
+                }
                 detail["entry_type"] = json!("job");
                 detail["units"] = json!(self.unit_members(id)?);
                 let fields = detail.as_object_mut().unwrap();
@@ -457,11 +494,20 @@ impl Application {
                 a["result"] = serde_json::from_str(r)?;
             }
         }
-        let stages = rows(
+        let mut stages = rows(
             &self.db,
-            "SELECT * FROM stage_runs WHERE job=? AND (? IS NULL OR attempt=?) ORDER BY started,stage",
+            "SELECT s.*,(SELECT json_extract(e.evidence,'$.input_verification') FROM rust_effects e
+                WHERE e.job=s.job AND e.attempt=s.attempt AND e.stage=s.stage ORDER BY e.created DESC LIMIT 1)
+                input_verification FROM stage_runs s WHERE job=? AND (? IS NULL OR attempt=?) ORDER BY started,stage",
             &[&id,&selected,&selected],
         )?;
+        for stage in &mut stages {
+            if let Some(verification) = stage["input_verification"].as_str() {
+                stage["input_verification"] = serde_json::from_str(verification)?;
+            } else {
+                stage.as_object_mut().unwrap().remove("input_verification");
+            }
+        }
         let mut intervals = vec![];
         let mut open_intervals = vec![];
         for s in &stages {
@@ -532,6 +578,17 @@ impl Application {
             &[&id],
         )?;
         let mut details = json!({"id":id,"submitter":row.submitter,"owner":row.owner,"notify":row.notify,"state":row.aggregate.state.as_str(),"status":row.aggregate.state.public(),"attempt":row.aggregate.fence.attempt.as_ref().map(|a|a.as_str()),"created":row.created,"spec":spec,"result":result,"previous_result":previous,"attempts":attempts,"stages":stages,"execution_intervals":timing,"recovery":recovery,"presentation":presentation,"category":row.spec.get("category").unwrap_or(&json!("other")),"execution_mode":row.spec["execution_mode"],"scenario_ref":row.spec["scenario_ref"],"scheduling":{"eligible":waiting_reason.is_none(),"waiting_reason":waiting_reason,"dependency_failed":scheduling.dependency_failed},"cancel":row.aggregate.cancel_requested,"queue_history":queue_history,"internal_steps":internal_steps});
+        if row.spec["profile"]["runtime"]["checkpoint_pause"] == true {
+            details["checkpoint_pause"] = rows(
+                &self.db,
+                "SELECT attempt,state,requested,reason,resume_attempt FROM unit_pauses
+                 WHERE job=? AND (? IS NULL OR attempt=?) ORDER BY requested DESC LIMIT 1",
+                &[&id, &selected, &selected],
+            )?
+            .into_iter()
+            .next()
+            .unwrap_or(Value::Null);
+        }
         if let Some(attempt) = selected {
             details["troubleshooting"] = json!(crate::diagnostics::execution_issues(
                 &self.db,
@@ -794,7 +851,7 @@ impl Application {
     pub(crate) fn queue_snapshot(&self, include_group_receipts: bool) -> Result<Value> {
         let mut entries = vec![];
         let mut position = 0;
-        for row in rows(&self.db,"SELECT id FROM jobs WHERE id IN (SELECT id FROM jobs WHERE (state IN ('queued','blocked','preparing','ready','running','processing') OR (state='result_failed' AND NOT EXISTS(SELECT 1 FROM recovery r WHERE r.job=jobs.id AND r.state='exhausted'))) UNION SELECT r.job FROM recovery r JOIN jobs j ON j.id=r.job WHERE r.state IN ('waiting','claimed','pending','executing') AND j.state IN ('failed','interrupted','result_failed')) ORDER BY COALESCE(queue_order,created),id",&[])? {
+        for row in rows(&self.db,"SELECT id FROM jobs WHERE id IN (SELECT id FROM jobs WHERE (state IN ('queued','blocked','preparing','ready','running','paused','processing') OR (state='result_failed' AND NOT EXISTS(SELECT 1 FROM recovery r WHERE r.job=jobs.id AND r.state='exhausted'))) UNION SELECT r.job FROM recovery r JOIN jobs j ON j.id=r.job WHERE r.state IN ('waiting','claimed','pending','executing') AND j.state IN ('failed','interrupted','result_failed')) ORDER BY COALESCE(queue_order,created),id",&[])? {
             let id = row["id"].as_str().unwrap_or("");
             let record = jobs::load(&self.db, id)?;
             let ready = self.readiness(&record)?;
@@ -828,6 +885,25 @@ impl Application {
                 entry["unit"] = unit;
                 entry["entry_type"] = json!("unit");
                 entry["gpu_access"] = record.spec["gpu_access"].clone();
+                if record.aggregate.state == JobState::Running
+                    && !detail["stages"].as_array().into_iter().flatten().any(|stage| {
+                        stage["stage"] == "run" && stage["attempt"] == detail["attempt"]
+                            && stage["started"].is_number()
+                    })
+                {
+                    entry["operation_phase"] = json!("starting");
+                }
+                if let Some(pause) = detail.get("checkpoint_pause") {
+                    entry["attempt"] = detail["attempt"].clone();
+                    entry["checkpoint_pause"] = pause.clone();
+                    let started = detail["stages"].as_array().into_iter().flatten().any(|stage| {
+                        stage["stage"] == "run" && stage["attempt"] == detail["attempt"] && stage["state"] == "running"
+                    });
+                    entry["can_checkpoint_pause"] = json!(record.aggregate.state == JobState::Running
+                        && !record.aggregate.cancel_requested && started && pause["state"] != "requested");
+                    entry["can_resume_checkpoint"] = json!(record.aggregate.state == JobState::Paused
+                        && !record.aggregate.cancel_requested);
+                }
                 entry.as_object_mut().unwrap().remove("workflow");
                 entry["progress"] = detail["internal_steps"].clone();
                 if let Some(recovery) = &recovery {
@@ -855,6 +931,8 @@ impl Application {
                 Value::Null
             };
             entry["held"] = json!(ready.held);
+            entry["local_hold"] = json!(ready.local_hold);
+            entry["workflow_hold"] = json!(ready.workflow_hold);
             entry["reason"] = json!(
                 if entry["state"] == "running" || entry["state"] == "preparing" {
                     "executing"
@@ -876,8 +954,8 @@ impl Application {
             entry["eligible"] = json!(eligible);
             entry["can_reorder"] = json!(waiting);
             let holdable = waiting || record.aggregate.state == JobState::Preparing;
-            entry["can_hold"] = json!(holdable && !ready.held);
-            entry["can_resume"] = json!(holdable && ready.held);
+            entry["can_hold"] = json!(holdable && !ready.local_hold);
+            entry["can_resume"] = json!(holdable && ready.local_hold);
             entry["presentation"] = record
                 .spec
                 .get("presentation")
@@ -1419,7 +1497,15 @@ pub fn queue_permissions(value: &mut Value, write: bool) {
         match value {
             Value::Object(fields) => {
                 for (name, value) in fields {
-                    if ["can_reorder", "can_hold", "can_resume"].contains(&name.as_str()) {
+                    if [
+                        "can_reorder",
+                        "can_hold",
+                        "can_resume",
+                        "can_checkpoint_pause",
+                        "can_resume_checkpoint",
+                    ]
+                    .contains(&name.as_str())
+                    {
                         *value = json!(false)
                     } else {
                         queue_permissions(value, write)

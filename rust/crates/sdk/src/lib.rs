@@ -47,6 +47,133 @@ impl Request {
     pub fn tool_binary(&self, alias: &str) -> Option<&str> {
         self.extra.get("tool_binaries")?.get(alias)?.as_str()
     }
+    pub fn input_binding(&self, alias: &str) -> Option<&Value> {
+        self.extra.get("input_bindings")?.get(alias)
+    }
+    pub fn resume_checkpoint(&self) -> Option<&Value> {
+        self.extra.get("resume")
+    }
+    pub fn performance_tuning(&self) -> Option<&Value> {
+        self.extra.get("performance_tuning")
+    }
+    /// Select measured runtime settings before the full workload. A benchmark
+    /// implementation must stop each candidate within the remaining time.
+    pub fn tune_performance(
+        &self,
+        candidates: &[Value],
+        mut measure: impl FnMut(&Value, std::time::Duration) -> Result<Value>,
+    ) -> Result<Option<Value>> {
+        let Some(tuning) = self.performance_tuning() else {
+            return Ok(None);
+        };
+        if let Some(settings) = tuning["cached"].get("settings") {
+            return Ok(Some(settings.clone()));
+        }
+        let budget = std::time::Duration::from_secs(
+            tuning["max_seconds"]
+                .as_u64()
+                .ok_or("Tuning budget required")?,
+        );
+        let start = std::time::Instant::now();
+        let mut samples = Vec::new();
+        let mut measured_elapsed = 0.;
+        for settings in candidates.iter().take(32) {
+            let Some(remaining) = budget.checked_sub(start.elapsed()) else {
+                break;
+            };
+            let mut sample = measure(settings, remaining)?;
+            let elapsed = start.elapsed();
+            if elapsed > budget {
+                break;
+            }
+            sample
+                .as_object_mut()
+                .ok_or("Tuning measurement must be an object")?
+                .insert("settings".into(), settings.clone());
+            samples.push(sample);
+            measured_elapsed = elapsed.as_secs_f64();
+        }
+        let selected = samples
+            .iter()
+            .filter_map(|sample| {
+                if sample["equivalent"] != true {
+                    return None;
+                }
+                let vram = sample["peak_vram_mib"].as_f64().filter(|vram| *vram > 0.)?;
+                if tuning["capacity_mib"]
+                    .as_f64()
+                    .is_some_and(|limit| vram >= limit)
+                {
+                    return None;
+                }
+                let count = sample["valid"].as_u64().filter(|count| *count > 0)?;
+                let seconds = sample["seconds"]
+                    .as_f64()
+                    .filter(|seconds| *seconds > 0. && *seconds <= budget.as_secs_f64())?;
+                let throughput = count as f64 / seconds;
+                throughput
+                    .is_finite()
+                    .then_some((throughput, &sample["settings"]))
+            })
+            .max_by(|a, b| a.0.total_cmp(&b.0))
+            .map(|(_, settings)| settings.clone());
+        if let Some(settings) = &selected {
+            self.record_performance_tuning(settings, &samples, measured_elapsed)?;
+        }
+        Ok(selected)
+    }
+    pub fn record_performance_tuning(
+        &self,
+        applied: &Value,
+        samples: &[Value],
+        elapsed_seconds: f64,
+    ) -> Result<()> {
+        let tuning = self
+            .performance_tuning()
+            .ok_or("Performance tuning is not configured")?;
+        let report = serde_json::to_vec(&json!({
+            "schema":"loom-performance-tuning/v1","key":tuning["key"],
+            "applied":applied,"samples":samples,"elapsed_seconds":elapsed_seconds
+        }))?;
+        if report.len() > 64 * 1024 {
+            return Err("Performance tuning report exceeds limit".into());
+        }
+        atomic(
+            &inside(&self.output_dir, "performance-tuning.json")?,
+            &report,
+        )
+    }
+    pub fn checkpoint_pause_requested(&self) -> Result<bool> {
+        if !self.extra.contains_key("pause_control") {
+            return Ok(false);
+        }
+        let bytes = match fs::read(inside(&self.output_dir, "pause-request.json")?) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(error) => return Err(error.into()),
+        };
+        let intent: Value = serde_json::from_slice(&bytes)?;
+        Ok(intent["schema"] == "loom-checkpoint-pause/v1" && intent["attempt"] == self.attempt)
+    }
+    /// Record an already saved checkpoint at a safe point. The caller must shut
+    /// down its own resources and exit with the returned control code.
+    pub fn acknowledge_checkpoint_pause(&self, relative_file: &str, progress: u64) -> Result<i32> {
+        if !self.checkpoint_pause_requested()? {
+            return Err("No checkpoint pause was requested for this Attempt".into());
+        }
+        let path = inside(&self.output_dir, relative_file)?;
+        let mut file = fs::File::open(path)?;
+        let mut digest = Sha256::new();
+        std::io::copy(&mut file, &mut digest)?;
+        atomic(
+            &inside(&self.output_dir, "pause-checkpoint.json")?,
+            &serde_json::to_vec(&json!({
+                "schema":"loom-checkpoint-pause/v1","attempt":self.attempt,
+                "file":relative_file,"sha256":format!("{:x}", digest.finalize()),"progress":progress
+            }))?,
+        )?;
+        Ok(75)
+    }
     pub fn from_args() -> Result<Self> {
         let path = std::env::args()
             .next_back()

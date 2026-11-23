@@ -12,6 +12,8 @@ The examples are argument shapes, not live instructions. Replace symbolic identi
 - [resume](#resume)
 - [cancel](#cancel)
 - [reorder](#reorder)
+- [pause](#pause)
+- [resume_checkpoint](#resume_checkpoint)
 
 ## submit
 
@@ -561,3 +563,125 @@ Scope: `submit`. Owner: [queue](../features/queue.md). Implementation: [rust/cra
 Updated shared queue with physical entries and logical entries
 
 Permission denied, invalid position or reference no longer waiting. A target with no waiting execution returns a queue conflict (409).
+
+## pause
+
+Request a safe checkpoint from an opted-in running Unit. The Unit is paused only after verified checkpoint and executor return evidence.
+
+Scope: `submit`. Owner: [execution](../features/execution.md). Implementation: [rust/crates/core/src/execution.rs#checkpoint_control](../../rust/crates/core/src/execution.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `attempt` | yes | `"string"` | `—` |
+| `id` | yes | `"string"` | `—` |
+| `reason` | yes | `"string"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "attempt": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "reason": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "attempt",
+    "reason"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "attempt": "<attempt-id>",
+  "id": "<unit-id>",
+  "reason": "User requested checkpoint control"
+}
+```
+
+
+
+### Result and failures
+
+Pause request state for the named Attempt
+
+A stale Attempt, unsupported Profile, or ineligible state returns 409.
+
+## resume_checkpoint
+
+Queue the same Unit with its verified checkpoint and a new Attempt. Job and Unit holds still apply.
+
+Scope: `submit`. Owner: [execution](../features/execution.md). Implementation: [rust/crates/core/src/execution.rs#checkpoint_control](../../rust/crates/core/src/execution.rs).
+
+### Inputs
+
+| Field | Required | Type / values | Default |
+|---|---|---|---|
+| `attempt` | yes | `"string"` | `—` |
+| `id` | yes | `"string"` | `—` |
+| `reason` | yes | `"string"` | `—` |
+
+<details><summary>Exact input JSON Schema</summary>
+
+```json
+{
+  "additionalProperties": false,
+  "properties": {
+    "attempt": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string"
+    },
+    "reason": {
+      "maxLength": 1024,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "attempt",
+    "reason"
+  ],
+  "type": "object"
+}
+```
+
+</details>
+
+### Example arguments
+
+```json
+{
+  "attempt": "<attempt-id>",
+  "id": "<unit-id>",
+  "reason": "User requested checkpoint control"
+}
+```
+
+
+
+### Result and failures
+
+Pause request state for the named Attempt
+
+A stale Attempt, unsupported Profile, or ineligible state returns 409.

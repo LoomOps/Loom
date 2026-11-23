@@ -414,12 +414,15 @@ class WebHandler(BaseHTTPRequestHandler):
             payload=json.loads(self.rfile.read(size))
             if not isinstance(payload,dict) or set(payload)!={'action','arguments'}:raise ValueError()
             action=payload['action'];args=payload['arguments']
-            if action not in ('reorder','hold','resume') or not isinstance(args,dict):raise ValueError()
-            allowed={'id','reason'} | ({'position','reference'} if action=='reorder' else set())
+            if action not in ('reorder','hold','resume','pause','resume_checkpoint') or not isinstance(args,dict):raise ValueError()
+            checkpoint=action in ('pause','resume_checkpoint')
+            allowed={'id','reason'} | ({'position','reference'} if action=='reorder' else {'attempt'} if checkpoint else set())
             if set(args)-allowed or not isinstance(args.get('id'),str) or not re.fullmatch(IDENTIFIER,args['id']):raise ValueError()
             if action=='reorder' and args.get('position') not in ('next','tail','before','after'):raise ValueError()
+            if checkpoint and (not isinstance(args.get('attempt'),str) or not re.fullmatch(IDENTIFIER,args['attempt'])
+                    or not isinstance(args.get('reason'),str) or not 0 < len(args['reason'].strip()) <= 1024):raise ValueError()
         except (ValueError,TypeError):return self.error(400,'invalid_queue_action')
-        return self.relay('POST','/api/actions',json.dumps({'group':'jobs',**payload}).encode())
+        return self.relay('POST','/api/actions',json.dumps({'group':'units' if checkpoint else 'jobs',**payload}).encode())
 
     def reject_write(self):self.error(405,'read_only')
     do_PUT = do_DELETE = do_PATCH = do_OPTIONS = reject_write

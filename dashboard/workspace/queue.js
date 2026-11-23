@@ -70,14 +70,17 @@ function loomTimingNotice(rows) {
 function loomQueueControls(id,{reorder=true}={}) {
   const row = loomQueueEntry(id);
   const canReorder=reorder&&row?.can_reorder;
-  if (!(canReorder || row?.can_resume)) return '';
+  const canHold=reorder&&row?.can_hold;
+  const canCheckpoint=row?.can_checkpoint_pause||row?.can_resume_checkpoint;
+  if (!(canReorder || canHold || row?.can_resume || canCheckpoint)) return '';
   const disabled=loomQueueBusy?' disabled':'';
   const button=(action,text,position='')=>'<button class="pa-button" data-queue-action="'+action+'" data-queue-id="'+esc(id)+'" data-queue-position="'+position+'"'+disabled+'>'+text+'</button>';
-  const resume=row.can_resume?button('resume','보류 해제'):'';
-  if(!canReorder)return '<div class="pa-queue-control">'+resume+'</div>';
+  const hold=row.can_resume?button('resume','보류 해제'):canHold?button('hold','보류'):'';
+  const checkpoint=row.can_checkpoint_pause?button('pause','체크포인트에서 일시정지'):row.can_resume_checkpoint?button('resume_checkpoint','체크포인트 재개'):'';
+  if(!canReorder)return '<div class="pa-queue-control">'+hold+checkpoint+'</div>';
   const choices=loomQueueEntries().filter(r=>r.id!==id && r.position!==null);
-  return '<details class="pa-queue-control"><summary>'+(resume?'큐 관리':'순서 변경')+'</summary><div class="pa-queue-control-body">'
-    +button('reorder','맨 앞으로','next')+button('reorder','맨 뒤로','tail')+resume
+  return '<details class="pa-queue-control"><summary>순서 변경</summary><div class="pa-queue-control-body">'
+    +button('reorder','맨 앞으로','next')+button('reorder','맨 뒤로','tail')+hold+checkpoint
     +(choices.length?'<label>기준 Job <select data-queue-reference aria-label="기준 Job">'+choices.map(r=>'<option value="'+esc(r.id)+'">'+esc('#'+r.position+' · '+(r.owner_profile?.display_name || r.owner)+' · '+r.id)+'</option>').join('')+'</select></label>'+button('reorder','앞에 배치','before')+button('reorder','뒤에 배치','after'):'')
     +'</div></details>';
 }
@@ -142,7 +145,10 @@ workRow=function(entity,current){
 const loomQueueStateBefore=queueState;
 queueState=function(entity){
  const q=loomQueueEntry(entity.id),base=loomQueueStateBefore(entity);
- if(q?.held)return {raw:base.raw,info:['paused',q.state==='preparing'?'Preparing · Hold requested':'Held','Ⅱ',false]};
+ if(q?.state==='paused')return {raw:base.raw,info:['paused','Paused','Ⅱ',false]};
+ if(q?.checkpoint_pause?.state==='requested')return {raw:base.raw,info:['running','Saving checkpoint','Ⅱ',false]};
+ if(q?.operation_phase==='starting')return {raw:base.raw,info:['running','Starting','▶',false]};
+ if(q?.held&&q.state!=='running'&&q.state!=='processing')return {raw:base.raw,info:['paused',q.state==='preparing'?'Preparing · Hold requested':'Held','Ⅱ',false]};
  const recovery=loomUnitQueueRecoveryStatus(q);
  if(recovery)return {raw:q.state,info:['recovery',recovery,'↻',false]};
  if(q && ['failed','interrupted','result_failed'].includes(q.state))return {raw:q.state,info:['recovery',q.reason==='unit_failed'?'Unit 실패':loomQueueReason(q),'!',false]};
@@ -190,6 +196,11 @@ root.addEventListener('click',event=>{
  const button=event.target.closest('[data-queue-action]');if(!button || loomQueueBusy)return;
  event.stopPropagation();
  const args={id:button.dataset.queueId};
+ if(['pause','resume_checkpoint'].includes(button.dataset.queueAction)){
+  args.attempt=loomQueueEntry(args.id)?.attempt;
+  if(!args.attempt)return;
+  args.reason=button.dataset.queueAction==='pause'?'Checkpoint pause requested in Dashboard':'Checkpoint resume requested in Dashboard';
+ }
  if(button.dataset.queueAction==='reorder'){
   args.position=button.dataset.queuePosition;
   if(['before','after'].includes(args.position))args.reference=button.closest('.pa-queue-control').querySelector('[data-queue-reference]').value;
@@ -202,6 +213,6 @@ window.addEventListener('message',event=>{
  if(event.source!==parent || event.data?.type!=='loom-queue-result')return;
  loomQueueBusy=false;
  const {data,error}=event.data;
- loomQueueNotice=error===403?'이 Job을 변경할 권한이 없습니다.':error?'변경을 확인하지 못했습니다. 큐를 새로고침해 주세요.':Array.isArray(data?.entries)||data?.changed?'큐 변경 완료':data?.reason==='not_waiting'?'이미 실행되었거나 대기 상태가 아닙니다.':'이미 요청한 상태입니다.';
+ loomQueueNotice=error===403?'이 Job을 변경할 권한이 없습니다.':error?'변경을 확인하지 못했습니다. 큐를 새로고침해 주세요.':data?.pause_state==='requested'?'체크포인트 저장 요청됨':data?.pause_state==='resume_pending'?'체크포인트 재개 대기':Array.isArray(data?.entries)||data?.changed?'큐 변경 완료':data?.reason==='not_waiting'?'이미 실행되었거나 대기 상태가 아닙니다.':'이미 요청한 상태입니다.';
  loomRefreshJobDetails();scheduleCatalogRender();
 });

@@ -45,6 +45,14 @@ pub struct Application {
     pub(crate) catalog_cache: std::sync::Arc<std::sync::Mutex<Option<(String, Value)>>>,
 }
 fn compatibility_views(db: &Connection, version: i64) -> Result<()> {
+    if !db.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='unit_pauses')",
+        [],
+        |row| row.get::<_, bool>(0),
+    )? {
+        db.execute_batch("CREATE TEMP VIEW unit_pauses AS SELECT NULL AS job,NULL AS attempt,NULL AS state,
+            NULL AS requested,NULL AS requested_by,NULL AS reason,NULL AS checkpoint,NULL AS resume_attempt WHERE 0;")?;
+    }
     if !job_unit_tables(db)? {
         db.execute_batch("CREATE TEMP VIEW research_jobs AS SELECT NULL AS id WHERE 0;
             CREATE TEMP VIEW execution_units AS SELECT NULL AS id,NULL AS job_id,NULL AS name,NULL AS label,NULL AS phase WHERE 0;

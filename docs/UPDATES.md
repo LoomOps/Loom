@@ -56,6 +56,12 @@ admission mode and preserves the saved dispatch pause.
 
 Do not use the release updater for development source mounts. Validate dev source changes, then pin a dev image snapshot. Temporary-filesystem/Docker mock tests are distinct from actual fresh-host, reboot and multi-client acceptance.
 
+Checkpoint pause requires matching native Ops and host executor binaries and a
+Profile with checkpoint support. A paused Unit stores a verified checkpoint
+and has no live resource owner. Before reverting to a build that predates
+checkpoint pause, resolve paused Units on the current build and use the normal
+rollback preflight to check for post-update records.
+
 Host guides remain under `loom_use`; client Skills are distributed by the independently pinned Loom Use release. Installation and updates do not create `/loom/agents` or machine entry skills. Machine access instructions and personal agent operations belong to external operators; Loom does not overwrite instructions in user homes.
 
 ## New release discovery

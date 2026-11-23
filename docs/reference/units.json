@@ -433,6 +433,92 @@
       },
       "scope": "submit",
       "title": "Reorder a waiting Unit"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "pause",
+      "description": "Request a safe checkpoint from an opted-in running Unit. The Unit is paused only after verified checkpoint and executor return evidence.",
+      "errors": [
+        "A stale Attempt, unsupported Profile, or ineligible state returns 409."
+      ],
+      "example": {
+        "attempt": "<attempt-id>",
+        "id": "<unit-id>",
+        "reason": "User requested checkpoint control"
+      },
+      "group": "units",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/execution.rs#checkpoint_control",
+        "feature": "execution"
+      },
+      "returns": "Pause request state for the named Attempt",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "attempt",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Pause a running Unit at a checkpoint"
+    },
+    {
+      "access": "Shared workspace; operation scopes, recipients and exact installation grants apply.",
+      "action": "resume_checkpoint",
+      "description": "Queue the same Unit with its verified checkpoint and a new Attempt. Job and Unit holds still apply.",
+      "errors": [
+        "A stale Attempt, unsupported Profile, or ineligible state returns 409."
+      ],
+      "example": {
+        "attempt": "<attempt-id>",
+        "id": "<unit-id>",
+        "reason": "User requested checkpoint control"
+      },
+      "group": "units",
+      "implementation": {
+        "entrypoint": "rust/crates/core/src/execution.rs#checkpoint_control",
+        "feature": "execution"
+      },
+      "returns": "Pause request state for the named Attempt",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "attempt",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "scope": "submit",
+      "title": "Resume a paused Unit from its checkpoint"
     }
   ],
   "description": "Independent execution and resource control",

@@ -44,7 +44,14 @@ class NativeExecutorTests(unittest.TestCase):
   self.rpc('status',{'ticket':accepted['ticket']},token='other-token',status=404)
   self.assertTrue(self.rpc('drain_status',{})['ready']);self.assertEqual((self.host/'executor.sqlite3').stat().st_mode&0o777,0o600)
  def test_restart_reconciles_same_container_and_cancellation_returns_owner(self):
-  request=self.request(['/bin/sh','-c','sleep 30']);first=self.rpc('start',request);self.stop();self.start();again=self.rpc('start',request);self.assertEqual(first['ticket'],again['ticket']);self.assertEqual(again['state'],'running')
+  request=self.request(['/bin/sh','-c','sleep 30'])
+  self.assertFalse(self.rpc('status_intent',request)['found'])
+  first=self.rpc('start',request);self.stop();self.start()
+  observed=self.rpc('status_intent',request)
+  self.assertTrue(observed['found']);self.assertEqual(observed['ticket'],first['ticket'])
+  self.assertEqual(observed['state'],'running')
+  self.rpc('status_intent',{**request,'command':['/bin/true']},status=409)
+  again=self.rpc('start',request);self.assertEqual(first['ticket'],again['ticket']);self.assertEqual(again['state'],'running')
   returned=self.rpc('cancel',{'ticket':first['ticket']});self.assertTrue(returned['returned']);self.assertTrue(self.rpc('drain_status',{})['ready'])
   with sqlite3.connect(self.host/'executor.sqlite3') as db:self.assertEqual(db.execute('SELECT count(*) FROM tickets').fetchone()[0],1)
  def test_native_runtime_registration_binds_verified_cpu_image(self):
@@ -185,6 +192,92 @@ class NativeExecutorTests(unittest.TestCase):
   raw=self.host/'logs'/(hashlib.sha256(accepted['ticket'].encode()).hexdigest()+'.'+page['source_generation']+'.log')
   self.assertFalse(raw.exists())
   self.assertEqual(self.rpc('status',{'ticket':accepted['ticket']})['state'],'exited')
+
+ def test_checkpoint_pause_after_ops_restart_resumes_on_new_attempt(self):
+  from urllib.request import Request,urlopen
+  (self.data/'.loom-storage.json').write_text('{"storage_id":"fixture-data"}')
+  credential=self.root/'credential';credential.write_text(self.token);credential.chmod(0o600)
+  producer = """
+import hashlib, json, sys, time
+from pathlib import Path
+r=json.loads(Path(sys.argv[-1]).read_text())
+work=Path(r['output_dir'])
+assert r['input_bindings']['fixture']['path']=='/inputs/fixture'
+assert Path(r['params']['fixture']).read_text()=='verified input'
+if 'resume' in r:
+ assert Path(r['resume']['path']).read_text()=='7'
+ assert r['resume']['progress']==7
+ (work/'final.txt').write_text('8')
+ (work/'result.json').write_text(json.dumps({'entities':[{'id':'final','kind':'artifact','path':'final.txt','relations':[]}],'metrics':[]}))
+else:
+ (work/'input-read').touch()
+ request=Path(r['pause_control']['request'])
+ while not request.exists():
+  time.sleep(.05)
+ assert json.loads(request.read_text())['attempt']==r['attempt']
+ state=work/'state.txt'
+ state.write_text('7')
+ receipt={'schema':'loom-checkpoint-pause/v1','attempt':r['attempt'],'file':'state.txt','sha256':hashlib.sha256(b'7').hexdigest(),'progress':7}
+ tmp=work/'pause.tmp'
+ tmp.write_text(json.dumps(receipt))
+ tmp.replace(r['pause_control']['receipt'])
+ sys.exit(r['pause_control']['exit_code'])
+"""
+  source=self.data/'source.txt';source.write_text('verified input')
+  locator={'machine_id':'fixture','storage_id':'fixture-data','ref':source.name,
+           'sha256':hashlib.sha256(source.read_bytes()).hexdigest()}
+  profile={'schema':'loom-execution/v2','revision':'fixture.pause.r1','sha256':'d'*64,
+           'params_schema':{'type':'object','properties':{'fixture':{'type':'object'}},'required':['fixture'],'additionalProperties':False},
+           'runtime':{'executor':'container','runtime_id':'cpu','lane':'cpu','command':['python','-c',producer],'checkpoint_pause':True},
+           'inputs':{'fixture':''},'outputs':None,'limits':{'timeout_seconds':30,'max_attempts':1}}
+  cfg=self.root/'pause-api.json'
+  cfg.write_text(json.dumps({'machine_id':'fixture','storage_id':'fixture-data','profiles':{profile['revision']:profile},
+     'actors':[{'id':'owner','scopes':['read','submit','cancel','events'],'owners':['owner'],'notify':['owner'],'token_sha256':hashlib.sha256(b'http-pause-fixture').hexdigest()}],
+     'executor':{'socket':str(self.host/'socket/executor.sock'),'credential':str(credential),'host_data':str(self.data),'storage':{'data/0':str(self.data)},'host_components':str(self.components)}}))
+  with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
+  command=[str(native_binary('loom-ops')),'--config',str(cfg),'--state',str(self.root/'ops'),
+     '--data',str(self.data),'--components',str(self.components),'--listen',f'127.0.0.1:{port}']
+  process=subprocess.Popen(command,stdout=self.log,stderr=self.log)
+  def stop_ops():
+   if process.poll() is None:process.terminate();process.wait(timeout=10)
+  self.addCleanup(stop_ops)
+  def call(group, action, args):
+   with urlopen(Request(f'http://127.0.0.1:{port}/api/actions',
+     data=json.dumps({'group':group,'action':action,'arguments':args}).encode(),
+     headers={'Authorization':'Bearer http-pause-fixture','Content-Type':'application/json'}),timeout=8) as response:return json.load(response)
+  def wait_for_ops():
+   for _ in range(100):
+    if process.poll() is not None:self.fail((self.root/'host.log').read_text())
+    try:call('jobs','queue',{});return
+    except OSError:time.sleep(.05)
+   self.fail('Ops did not start')
+  wait_for_ops()
+  unit=call('units','submit',{'key':'pause-fixture','kind':profile['revision'],'owner':'owner','notify':'owner','params':{'fixture':locator},'execution_mode':'full'})['id']
+  def wait_for(predicate):
+   for _ in range(120):
+    details=call('units','get',{'id':unit})
+    if predicate(details):return details
+    time.sleep(.1)
+   self.fail(details)
+  first=wait_for(lambda d:d['attempt'] and
+      (self.data/'runs'/unit/d['attempt']/'input-read').is_file())['attempt']
+  process.kill();process.wait(timeout=10)
+  source.unlink()
+  process=subprocess.Popen(command,stdout=self.log,stderr=self.log)
+  wait_for_ops()
+  control={'id':unit,'attempt':first,'reason':'Verify checkpoint pause'}
+  self.assertEqual(call('units','pause',control)['pause_state'],'requested')
+  paused=wait_for(lambda d:d['state']=='paused')
+  self.assertTrue(self.rpc('drain_status',{})['ready'])
+  self.assertEqual(paused['result']['checkpoint_pause']['progress'],7)
+  with sqlite3.connect(self.host/'executor.sqlite3') as db:
+   self.assertEqual(db.execute('SELECT count(*) FROM tickets').fetchone()[0],1)
+  source.write_text('verified input')
+  self.assertEqual(call('units','resume_checkpoint',control)['pause_state'],'resume_pending')
+  complete=wait_for(lambda d:d['state']=='complete')
+  self.assertNotEqual(complete['attempt'],first)
+  self.assertEqual([a['state'] for a in complete['attempts']],['paused','complete'])
+  self.assertEqual((self.data/'runs'/unit/complete['attempt']/'final.txt').read_text(),'8')
 
  def test_admin_runtime_doctor_executes_and_returns_through_native_broker(self):
   import importlib.util,sys

@@ -2373,5 +2373,39 @@
       "feature": "queue",
       "entrypoint": "rust/crates/core/src/jobs.rs#job_action"
     }
+  },
+  "units.pause": {
+    "title": "Pause a running Unit at a checkpoint",
+    "description": "Request a safe checkpoint from an opted-in running Unit. The Unit is paused only after verified checkpoint and executor return evidence.",
+    "returns": "Pause request state for the named Attempt",
+    "example": {
+      "id": "<unit-id>",
+      "attempt": "<attempt-id>",
+      "reason": "User requested checkpoint control"
+    },
+    "errors": [
+      "A stale Attempt, unsupported Profile, or ineligible state returns 409."
+    ],
+    "implementation": {
+      "feature": "execution",
+      "entrypoint": "rust/crates/core/src/execution.rs#checkpoint_control"
+    }
+  },
+  "units.resume_checkpoint": {
+    "title": "Resume a paused Unit from its checkpoint",
+    "description": "Queue the same Unit with its verified checkpoint and a new Attempt. Job and Unit holds still apply.",
+    "returns": "Pause request state for the named Attempt",
+    "example": {
+      "id": "<unit-id>",
+      "attempt": "<attempt-id>",
+      "reason": "User requested checkpoint control"
+    },
+    "errors": [
+      "A stale Attempt, unsupported Profile, or ineligible state returns 409."
+    ],
+    "implementation": {
+      "feature": "execution",
+      "entrypoint": "rust/crates/core/src/execution.rs#checkpoint_control"
+    }
   }
 }

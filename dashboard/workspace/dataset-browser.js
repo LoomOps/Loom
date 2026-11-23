@@ -2,9 +2,12 @@
 // This renderer consumes declared organization; it never classifies by names.
 function loomDatasetKey(e){return e.dataset_mirror_key||e.id;}
 function loomDatasetOriginBadge(e){
- const label=e.reporting?.activity==='dataset_import'?'Imported':e.origin?.type==='import'
-  ?(e.dataset_lineage?.parents?.some(p=>p.parent?.kind==='entity')?'Derived':'Imported'):null;
- return label?'<span class="pa-dataset-origin">'+label+'</span>':'';
+ const origin=e.origin?.type;
+ const imported=origin==='import';
+ const legacyImport=origin==null&&!e.loom_job?.id&&!e.job&&e.reporting?.activity==='dataset_import';
+ if(!imported&&!legacyImport)return '';
+ const label=imported&&e.dataset_lineage?.parents?.some(p=>p.parent?.kind==='entity')?'Derived':'Imported';
+ return '<span class="pa-dataset-origin">'+label+'</span>';
 }
 function loomDatasetTags(organization){
  return (organization?.tags||[]).map(text=>({text,title:text}));

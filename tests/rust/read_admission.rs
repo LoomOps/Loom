@@ -1,6 +1,7 @@
 use super::*;
 fn service() -> Service {
     Service {
+        input_proofs: Default::default(),
         state: Default::default(),
         send: mpsc::channel(1).0,
         readers: Arc::new(tokio::sync::Semaphore::new(4)),

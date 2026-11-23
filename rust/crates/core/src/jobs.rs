@@ -694,6 +694,7 @@ impl Application {
                 self.job_detail(id)
             }
             "reorder" | "hold" | "resume" => self.queue_mutation(actor, action, args),
+            "pause" | "resume_checkpoint" => self.checkpoint_control(actor, action, &args),
             "curate" => self.curate_research(actor, args),
             "assign_owner" => self.assign_job_owner(actor, args),
             "logs" => self.job_logs(args),
@@ -720,24 +721,58 @@ impl Application {
              AND (j.state IN ('queued','ready','blocked') OR (? AND j.state='preparing'))
              ORDER BY COALESCE(j.queue_order,j.created),j.created,j.id", &[&id,&id,&control_hold])?
             .iter().filter_map(|r|r["id"].as_str().map(String::from)).collect::<Vec<_>>();
-        let plan_hold = if control_hold {
-            tx.execute("UPDATE job_workflows SET request=json_set(request,'$.held',json(?)) WHERE id=? AND json_type(request,'$.plan_revision')='integer' AND state NOT IN ('complete','cancelled') AND NOT coalesce(json_extract(request,'$.cancel_requested'),0)",params![if action=="hold" {"true"} else {"false"},id])? > 0
+        let workflow_hold = if control_hold {
+            tx.query_row(
+                "SELECT coalesce(json_extract(request,'$.held'),0) FROM job_workflows
+                 WHERE id=? AND state NOT IN ('complete','cancelled')
+                 AND NOT coalesce(json_extract(request,'$.cancel_requested'),0)",
+                [id],
+                |row| row.get::<_, bool>(0),
+            )
+            .optional()?
         } else {
-            false
+            None
         };
         require(
-            plan_hold || !moving.is_empty(),
+            workflow_hold.is_some() || !moving.is_empty(),
             "queue",
             "Job has no waiting execution nodes",
             409,
         )?;
-        if control_hold {
-            for member in &moving {
+        let hold = action == "hold";
+        let mut workflow_changed = false;
+        if let Some(previous) = workflow_hold {
+            workflow_changed = previous != hold;
+            if workflow_changed {
+                if previous && !hold {
+                    // Old releases copied a workflow hold onto its physical members.
+                    // Release only the copies identified by the original queue receipt.
+                    tx.execute(
+                        "WITH origin AS (SELECT h.seq,h.before_order,h.after_order FROM queue_history h
+                            JOIN job_workflows w ON w.id=h.job WHERE h.job=?1 AND h.action='hold'
+                            AND json_extract(w.request,'$.independent_holds') IS NULL ORDER BY seq DESC LIMIT 1)
+                         UPDATE jobs SET queue_held=0 WHERE id IN (
+                            SELECT n.job FROM execution_memberships n JOIN origin o
+                            JOIN json_each(o.before_order) b ON json_extract(b.value,'$.id')=n.job
+                            JOIN json_each(o.after_order) a ON json_extract(a.value,'$.id')=n.job
+                            WHERE n.root=?1 AND json_extract(b.value,'$.queue_held')=0
+                              AND json_extract(a.value,'$.queue_held')=1
+                              AND NOT EXISTS (SELECT 1 FROM queue_history local WHERE local.job=n.job
+                                   AND local.seq>o.seq AND local.action IN ('hold','resume'))
+                         )",
+                        [id],
+                    )?;
+                }
                 tx.execute(
-                    "UPDATE jobs SET queue_held=? WHERE id=?",
-                    params![i64::from(action == "hold"), member],
+                    "UPDATE job_workflows SET request=json_set(request,'$.held',json(?),'$.independent_holds',json('true')) WHERE id=?",
+                    params![if hold { "true" } else { "false" }, id],
                 )?;
             }
+        } else if control_hold {
+            tx.execute(
+                "UPDATE jobs SET queue_held=? WHERE id=?",
+                params![i64::from(hold), id],
+            )?;
         } else {
             let mut ids = before
                 .as_array()
@@ -784,7 +819,7 @@ impl Application {
             }
         }
         let after = json!(queue_snapshot()?);
-        if before != after {
+        if workflow_changed || before != after {
             tx.execute("INSERT INTO queue_history(job,actor,action,recorded,reason,before_order,after_order) VALUES(?,?,?,?,?,?,?)",params![id,actor.id,action,now(),args["reason"].as_str(),encode(&before)?,encode(&after)?])?;
         }
         tx.commit()?;
@@ -1144,15 +1179,21 @@ pub fn readiness(db: &Connection, record: &Record) -> Result<Readiness> {
         .optional()?
         .unwrap_or(0)
         != 0;
-    r.held = db
+    (r.local_hold, r.workflow_hold) = db
         .query_row(
-            "SELECT queue_held FROM jobs WHERE id=?",
+            "SELECT j.queue_held, EXISTS(
+               SELECT 1 FROM execution_memberships n JOIN job_workflows w ON w.id=n.root
+               WHERE n.job=j.id AND json_extract(w.request,'$.held')=1
+             ) FROM jobs j WHERE j.id=?",
             [record.aggregate.id.as_str()],
-            |r| r.get::<_, i64>(0),
+            |row| Ok((row.get::<_, bool>(0)?, row.get::<_, bool>(1)?)),
         )
         .optional()?
-        .unwrap_or(0)
-        != 0;
+        .unwrap_or_default();
+    r.held = r.local_hold || r.workflow_hold;
+    if record.aggregate.state == JobState::Paused {
+        r.held = true;
+    }
     r.output_edit_blocked = crate::output_edits::wait_reason(db, record.aggregate.id.as_str())?;
     let dependencies = if record.aggregate.state == JobState::Queued
         && record.spec["profile"].get("prepare").is_some()
@@ -1221,9 +1262,7 @@ pub fn readiness(db: &Connection, record: &Record) -> Result<Readiness> {
                 && r.output_edit_blocked.is_none(),
         )?
     } else if typed {
-        db.query_row("SELECT COUNT(*)>=3 FROM rust_effects WHERE state IN ('pending','accepted','unknown')
-            AND stage!='publish' AND CASE WHEN stage='run' THEN COALESCE(json_extract(request,'$.spec.profile.runtime.lane'),'cpu') ELSE 'cpu' END='cpu'",
-            [], |r|r.get(0))?
+        crate::execution::cpu_slots_full(db)?
     } else {
         db.query_row("SELECT EXISTS(SELECT 1 FROM jobs WHERE id!=? AND state IN ('running','preparing') AND CASE WHEN state='preparing' THEN 'cpu' ELSE COALESCE(json_extract(spec,'$.profile.runtime.lane'),'cpu') END=?)",params![record.aggregate.id.as_str(),lane],|r|r.get::<_,bool>(0))?
             || crate::execution::lane_in_use(db, lane)?
@@ -1247,7 +1286,11 @@ fn gpu_order_blocks(db: &Connection, record: &Record, runnable: bool) -> Result<
         db,
         "SELECT j.id,j.spec,j.state,j.created
         FROM jobs j JOIN execution_units u ON u.id=j.id
-        WHERE j.cancel=0 AND j.queue_held=0 AND j.id<>?
+        WHERE j.cancel=0 AND j.id<>?
+        AND (j.state='running' OR (j.queue_held=0 AND NOT EXISTS(
+            SELECT 1 FROM execution_memberships n JOIN job_workflows w ON w.id=n.root
+            WHERE n.job=j.id AND json_extract(w.request,'$.held')=1
+        )))
         AND j.state IN ('queued','ready','preparing','running')
         AND json_extract(j.spec,'$.profile.runtime.lane')='gpu'
         ORDER BY j.created,j.id",

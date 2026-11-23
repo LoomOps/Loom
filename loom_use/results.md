@@ -35,8 +35,10 @@ Set `outcome.deliverables[0].revises` to the exact `{id,revision}` on
 `jobs.submit_research`. Use the same Task and owner. The producing Unit must
 consume that exact base. For a Dataset append, retain the old membership and
 split assignments and publish a complete expanded Dataset with a verified
-membership report. Repartitioning a split publishes a separate Dataset with a
-derivation link. For a Policy continuation, pin the checkpoint that the new
+membership report. Repartitioning publishes a verified candidate with a
+derivation link. For an explicitly requested replacement of an unused Dataset,
+follow [the candidate adoption procedure](catalog-cases.md#bring-this-external-benchmark-into-our-project-so-we-can-use-it-for-evaluation)
+to keep the existing ID. For a Policy continuation, pin the checkpoint that the new
 training consumes and publish its own checkpoints, metrics and producer evidence.
 
 Before execution the Job claims the logical record for editing. Other writers
@@ -47,6 +49,11 @@ consolidation of a separately published continuation, using exact base and
 source IDs. Its original addresses and Job evidence remain valid.
 
 Use `jobs.get` for the accepted Job and deliverable, `units.get` for Attempt and return state, and `results.get` for exact published revisions and locations. Use `events.list` with `kind:"all"` to read events. ACK records delivery. For a publication error, repair the cause and use `results.reindex` when applicable to keep the original successful Attempt.
+
+`jobs.preview_outcome` reports whether each deliverable targets a new Item
+or the next revision of an exact base. Review that target and the accepted
+publishing Unit before submitting. The Job submission remains authoritative
+for revision authorization and edit reservations.
 
 Declare measurements, units, denominators and splits in the producer's output. When the execution manifest omits an output's `provenance` field, Loom fills it from the exact Profile revision and source hash frozen on the Unit. If supplied, `provenance` must match both pins. Large outputs can use the Rust SDK's sealed file inventory. See `authoring` and `items`. A structural or byte check does not establish model or dataset semantics.
 

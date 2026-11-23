@@ -3925,7 +3925,9 @@ function loomExecutionProfileDetail(entity){
 function loomRuntimeCard(entity){
  const item=entity.loom_runtime,manifest=item.manifest;
  const startedJobs=item.started_job_count ?? item.usage_stats?.executed_jobs;
- return `&lt;article class=&quot;pa-extension-card&quot; data-extension-card=&quot;${esc(entity.id)}&quot;&gt;&lt;div class=&quot;pa-extension-card-head&quot;&gt;${loomExtensionBadges(entity,item.revision)}${loomRegistryBadge(entity)}&lt;span&gt;${esc(item.legacy?&#x27;Unverified&#x27;:manifest.reconciliation?&#x27;Metadata checked&#x27;:manifest.validation?.status===&#x27;passed&#x27;?&#x27;Checks passed&#x27;:&#x27;Unverified&#x27;)}&lt;/span&gt;&lt;/div&gt;&lt;h3&gt;${catLink(entity.id,item.curation?.label||entity.label)}&lt;/h3&gt;&lt;div class=&quot;pa-profile-dependencies&quot;&gt;${loomHubHighlights({...item,dependencies:manifest.dependencies})}&lt;/div&gt;&lt;div class=&quot;pa-extension-card-facts&quot;&gt;&lt;span&gt;Profiles ${catalogData.presentation_view===&#x27;research&#x27;&amp;&amp;entity.research_context?entity.research_context.profiles.length:(item.used_by_profiles||[]).length}&lt;/span&gt;${startedJobs?`&lt;span&gt;Started Jobs ${startedJobs}&lt;/span&gt;`:&#x27;&#x27;}&lt;/div&gt;&lt;/article&gt;`;
+ const profiles=catalogData.presentation_view===&#x27;research&#x27;&amp;&amp;entity.research_context?entity.research_context.profiles.length:item.used_by_profiles?.length;
+ const facts=(item.summary_only||profiles==null?&#x27;&#x27;:`&lt;span&gt;Profiles ${profiles}&lt;/span&gt;`)+(startedJobs?`&lt;span&gt;Started Jobs ${startedJobs}&lt;/span&gt;`:&#x27;&#x27;);
+ return `&lt;article class=&quot;pa-extension-card&quot; data-extension-card=&quot;${esc(entity.id)}&quot;&gt;&lt;div class=&quot;pa-extension-card-head&quot;&gt;${loomExtensionBadges(entity,item.revision)}${loomRegistryBadge(entity)}&lt;span&gt;${esc(item.legacy?&#x27;Unverified&#x27;:manifest.reconciliation?&#x27;Metadata checked&#x27;:manifest.validation?.status===&#x27;passed&#x27;?&#x27;Checks passed&#x27;:&#x27;Unverified&#x27;)}&lt;/span&gt;&lt;/div&gt;&lt;h3&gt;${catLink(entity.id,item.curation?.label||entity.label)}&lt;/h3&gt;&lt;div class=&quot;pa-profile-dependencies&quot;&gt;${loomHubHighlights({...item,dependencies:manifest.dependencies})}&lt;/div&gt;${facts?`&lt;div class=&quot;pa-extension-card-facts&quot;&gt;${facts}&lt;/div&gt;`:&#x27;&#x27;}&lt;/article&gt;`;
 }
 function loomRuntimeDetail(entity){
  const item=entity.loom_runtime,manifest=item.manifest,policy=manifest.runtime||{},filter=state.inventoryOrigin||&#x27;managed&#x27;,query=(state.inventoryQuery||&#x27;&#x27;).toLowerCase();
@@ -4690,14 +4692,17 @@ function loomTimingNotice(rows) {
 function loomQueueControls(id,{reorder=true}={}) {
   const row = loomQueueEntry(id);
   const canReorder=reorder&amp;&amp;row?.can_reorder;
-  if (!(canReorder || row?.can_resume)) return &#x27;&#x27;;
+  const canHold=reorder&amp;&amp;row?.can_hold;
+  const canCheckpoint=row?.can_checkpoint_pause||row?.can_resume_checkpoint;
+  if (!(canReorder || canHold || row?.can_resume || canCheckpoint)) return &#x27;&#x27;;
   const disabled=loomQueueBusy?&#x27; disabled&#x27;:&#x27;&#x27;;
   const button=(action,text,position=&#x27;&#x27;)=&gt;&#x27;&lt;button class=&quot;pa-button&quot; data-queue-action=&quot;&#x27;+action+&#x27;&quot; data-queue-id=&quot;&#x27;+esc(id)+&#x27;&quot; data-queue-position=&quot;&#x27;+position+&#x27;&quot;&#x27;+disabled+&#x27;&gt;&#x27;+text+&#x27;&lt;/button&gt;&#x27;;
-  const resume=row.can_resume?button(&#x27;resume&#x27;,&#x27;보류 해제&#x27;):&#x27;&#x27;;
-  if(!canReorder)return &#x27;&lt;div class=&quot;pa-queue-control&quot;&gt;&#x27;+resume+&#x27;&lt;/div&gt;&#x27;;
+  const hold=row.can_resume?button(&#x27;resume&#x27;,&#x27;보류 해제&#x27;):canHold?button(&#x27;hold&#x27;,&#x27;보류&#x27;):&#x27;&#x27;;
+  const checkpoint=row.can_checkpoint_pause?button(&#x27;pause&#x27;,&#x27;체크포인트에서 일시정지&#x27;):row.can_resume_checkpoint?button(&#x27;resume_checkpoint&#x27;,&#x27;체크포인트 재개&#x27;):&#x27;&#x27;;
+  if(!canReorder)return &#x27;&lt;div class=&quot;pa-queue-control&quot;&gt;&#x27;+hold+checkpoint+&#x27;&lt;/div&gt;&#x27;;
   const choices=loomQueueEntries().filter(r=&gt;r.id!==id &amp;&amp; r.position!==null);
-  return &#x27;&lt;details class=&quot;pa-queue-control&quot;&gt;&lt;summary&gt;&#x27;+(resume?&#x27;큐 관리&#x27;:&#x27;순서 변경&#x27;)+&#x27;&lt;/summary&gt;&lt;div class=&quot;pa-queue-control-body&quot;&gt;&#x27;
-    +button(&#x27;reorder&#x27;,&#x27;맨 앞으로&#x27;,&#x27;next&#x27;)+button(&#x27;reorder&#x27;,&#x27;맨 뒤로&#x27;,&#x27;tail&#x27;)+resume
+  return &#x27;&lt;details class=&quot;pa-queue-control&quot;&gt;&lt;summary&gt;순서 변경&lt;/summary&gt;&lt;div class=&quot;pa-queue-control-body&quot;&gt;&#x27;
+    +button(&#x27;reorder&#x27;,&#x27;맨 앞으로&#x27;,&#x27;next&#x27;)+button(&#x27;reorder&#x27;,&#x27;맨 뒤로&#x27;,&#x27;tail&#x27;)+hold+checkpoint
     +(choices.length?&#x27;&lt;label&gt;기준 Job &lt;select data-queue-reference aria-label=&quot;기준 Job&quot;&gt;&#x27;+choices.map(r=&gt;&#x27;&lt;option value=&quot;&#x27;+esc(r.id)+&#x27;&quot;&gt;&#x27;+esc(&#x27;#&#x27;+r.position+&#x27; · &#x27;+(r.owner_profile?.display_name || r.owner)+&#x27; · &#x27;+r.id)+&#x27;&lt;/option&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/select&gt;&lt;/label&gt;&#x27;+button(&#x27;reorder&#x27;,&#x27;앞에 배치&#x27;,&#x27;before&#x27;)+button(&#x27;reorder&#x27;,&#x27;뒤에 배치&#x27;,&#x27;after&#x27;):&#x27;&#x27;)
     +&#x27;&lt;/div&gt;&lt;/details&gt;&#x27;;
 }
@@ -4762,7 +4767,10 @@ workRow=function(entity,current){
 const loomQueueStateBefore=queueState;
 queueState=function(entity){
  const q=loomQueueEntry(entity.id),base=loomQueueStateBefore(entity);
- if(q?.held)return {raw:base.raw,info:[&#x27;paused&#x27;,q.state===&#x27;preparing&#x27;?&#x27;Preparing · Hold requested&#x27;:&#x27;Held&#x27;,&#x27;Ⅱ&#x27;,false]};
+ if(q?.state===&#x27;paused&#x27;)return {raw:base.raw,info:[&#x27;paused&#x27;,&#x27;Paused&#x27;,&#x27;Ⅱ&#x27;,false]};
+ if(q?.checkpoint_pause?.state===&#x27;requested&#x27;)return {raw:base.raw,info:[&#x27;running&#x27;,&#x27;Saving checkpoint&#x27;,&#x27;Ⅱ&#x27;,false]};
+ if(q?.operation_phase===&#x27;starting&#x27;)return {raw:base.raw,info:[&#x27;running&#x27;,&#x27;Starting&#x27;,&#x27;▶&#x27;,false]};
+ if(q?.held&amp;&amp;q.state!==&#x27;running&#x27;&amp;&amp;q.state!==&#x27;processing&#x27;)return {raw:base.raw,info:[&#x27;paused&#x27;,q.state===&#x27;preparing&#x27;?&#x27;Preparing · Hold requested&#x27;:&#x27;Held&#x27;,&#x27;Ⅱ&#x27;,false]};
  const recovery=loomUnitQueueRecoveryStatus(q);
  if(recovery)return {raw:q.state,info:[&#x27;recovery&#x27;,recovery,&#x27;↻&#x27;,false]};
  if(q &amp;&amp; [&#x27;failed&#x27;,&#x27;interrupted&#x27;,&#x27;result_failed&#x27;].includes(q.state))return {raw:q.state,info:[&#x27;recovery&#x27;,q.reason===&#x27;unit_failed&#x27;?&#x27;Unit 실패&#x27;:loomQueueReason(q),&#x27;!&#x27;,false]};
@@ -4810,6 +4818,11 @@ root.addEventListener(&#x27;click&#x27;,event=&gt;{
  const button=event.target.closest(&#x27;[data-queue-action]&#x27;);if(!button || loomQueueBusy)return;
  event.stopPropagation();
  const args={id:button.dataset.queueId};
+ if([&#x27;pause&#x27;,&#x27;resume_checkpoint&#x27;].includes(button.dataset.queueAction)){
+  args.attempt=loomQueueEntry(args.id)?.attempt;
+  if(!args.attempt)return;
+  args.reason=button.dataset.queueAction===&#x27;pause&#x27;?&#x27;Checkpoint pause requested in Dashboard&#x27;:&#x27;Checkpoint resume requested in Dashboard&#x27;;
+ }
  if(button.dataset.queueAction===&#x27;reorder&#x27;){
   args.position=button.dataset.queuePosition;
   if([&#x27;before&#x27;,&#x27;after&#x27;].includes(args.position))args.reference=button.closest(&#x27;.pa-queue-control&#x27;).querySelector(&#x27;[data-queue-reference]&#x27;).value;
@@ -4822,7 +4835,7 @@ window.addEventListener(&#x27;message&#x27;,event=&gt;{
  if(event.source!==parent || event.data?.type!==&#x27;loom-queue-result&#x27;)return;
  loomQueueBusy=false;
  const {data,error}=event.data;
- loomQueueNotice=error===403?&#x27;이 Job을 변경할 권한이 없습니다.&#x27;:error?&#x27;변경을 확인하지 못했습니다. 큐를 새로고침해 주세요.&#x27;:Array.isArray(data?.entries)||data?.changed?&#x27;큐 변경 완료&#x27;:data?.reason===&#x27;not_waiting&#x27;?&#x27;이미 실행되었거나 대기 상태가 아닙니다.&#x27;:&#x27;이미 요청한 상태입니다.&#x27;;
+ loomQueueNotice=error===403?&#x27;이 Job을 변경할 권한이 없습니다.&#x27;:error?&#x27;변경을 확인하지 못했습니다. 큐를 새로고침해 주세요.&#x27;:data?.pause_state===&#x27;requested&#x27;?&#x27;체크포인트 저장 요청됨&#x27;:data?.pause_state===&#x27;resume_pending&#x27;?&#x27;체크포인트 재개 대기&#x27;:Array.isArray(data?.entries)||data?.changed?&#x27;큐 변경 완료&#x27;:data?.reason===&#x27;not_waiting&#x27;?&#x27;이미 실행되었거나 대기 상태가 아닙니다.&#x27;:&#x27;이미 요청한 상태입니다.&#x27;;
  loomRefreshJobDetails();scheduleCatalogRender();
 });
 
@@ -5206,9 +5219,16 @@ window.addEventListener(&#x27;message&#x27;,event=&gt;{
   }
   const pending=new Set();
   let frame=0,gradientSequence=0;
+  const eligible=card=&gt;card.matches(widgetSelector)&amp;&amp;!card.matches(&#x27;.pa-finder-preview &gt; .pa-panel&#x27;);
+  function release(card){
+    observer.unobserve(card);nearbyOwner.get(card)?.unobserve(card);cards.delete(card);
+    card.classList.remove(&#x27;loom-surface&#x27;);
+    card.querySelector(&#x27;:scope &gt; .loom-surface-skin&#x27;)?.remove();
+  }
   function draw(card){
     const skin=cards.get(card);
     if(!skin || !card.isConnected)return;
+    if(!eligible(card)){release(card);return;}
     const {width:w,height:h}=card.getBoundingClientRect();
     if(!w || !h)return;
     const size=sizes.get(skin);if(size?.[0]===w&amp;&amp;size?.[1]===h)return;
@@ -5245,8 +5265,12 @@ window.addEventListener(&#x27;message&#x27;,event=&gt;{
   // empty or outdated skin visible for a frame after layout changes.
   const observer=new ResizeObserver(entries=&gt;{for(const {target} of entries)draw(target);});
   function refresh(){
-    for(const card of root.querySelectorAll(selector)){
-      if(card.matches(&#x27;.pa-finder-preview &gt; .pa-panel&#x27;))continue;
+    for(const card of root.querySelectorAll(selector+&#x27;,.pa-pane-body .loom-surface&#x27;)){
+      if(!eligible(card)){
+        // In-place hydration can reuse a placeholder element as a layout wrapper.
+        release(card);
+        continue;
+      }
       if(cards.has(card) &amp;&amp; cards.get(card).parentElement===card)continue;
       if(cards.has(card))observer.unobserve(card);
       // Reconciled/cloned cards can already carry a skin; adopt it so resize
@@ -6311,9 +6335,12 @@ root.addEventListener(&#x27;click&#x27;,async event=&gt;{
 // This renderer consumes declared organization; it never classifies by names.
 function loomDatasetKey(e){return e.dataset_mirror_key||e.id;}
 function loomDatasetOriginBadge(e){
- const label=e.reporting?.activity===&#x27;dataset_import&#x27;?&#x27;Imported&#x27;:e.origin?.type===&#x27;import&#x27;
-  ?(e.dataset_lineage?.parents?.some(p=&gt;p.parent?.kind===&#x27;entity&#x27;)?&#x27;Derived&#x27;:&#x27;Imported&#x27;):null;
- return label?&#x27;&lt;span class=&quot;pa-dataset-origin&quot;&gt;&#x27;+label+&#x27;&lt;/span&gt;&#x27;:&#x27;&#x27;;
+ const origin=e.origin?.type;
+ const imported=origin===&#x27;import&#x27;;
+ const legacyImport=origin==null&amp;&amp;!e.loom_job?.id&amp;&amp;!e.job&amp;&amp;e.reporting?.activity===&#x27;dataset_import&#x27;;
+ if(!imported&amp;&amp;!legacyImport)return &#x27;&#x27;;
+ const label=imported&amp;&amp;e.dataset_lineage?.parents?.some(p=&gt;p.parent?.kind===&#x27;entity&#x27;)?&#x27;Derived&#x27;:&#x27;Imported&#x27;;
+ return &#x27;&lt;span class=&quot;pa-dataset-origin&quot;&gt;&#x27;+label+&#x27;&lt;/span&gt;&#x27;;
 }
 function loomDatasetTags(organization){
  return (organization?.tags||[]).map(text=&gt;({text,title:text}));
@@ -7304,12 +7331,29 @@ if(globalThis.Tweak){const design={compact:false,radius:12};const tweak=new Twea
   border-radius: 6px;
 }
 
-#pai-studio .pa-unit-work-queue table { table-layout: fixed; box-sizing: border-box; min-width: 46rem; }
-#pai-studio .pa-unit-work-queue th:nth-child(2) { width: 10rem; }
-#pai-studio .pa-unit-work-queue th:nth-child(3) { width: 6.5rem; }
-#pai-studio .pa-unit-work-queue th:nth-child(4) { width: 24%; }
-#pai-studio .pa-unit-work-queue th:nth-child(5) { width: 10rem; }
-#pai-studio .pa-unit-work-queue :is(th,td) { padding-inline: 12px; overflow-wrap: anywhere; }
+/* Share the rightmost column and scroll width across the dashboard queues. */
+#pai-studio :is(.pa-current-work-queue, .pa-unit-work-queue, .pa-terminal-work-queue) {
+  --pa-queue-end-width: 136px;
+}
+#pai-studio :is(.pa-current-work-queue, .pa-unit-work-queue, .pa-terminal-work-queue) table {
+  table-layout: fixed;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 960px;
+}
+#pai-studio :is(.pa-current-work-queue, .pa-unit-work-queue, .pa-terminal-work-queue) :is(th, td) {
+  box-sizing: border-box;
+  padding-inline: 12px;
+}
+#pai-studio :is(.pa-current-work-queue, .pa-terminal-work-queue) th:last-child,
+#pai-studio .pa-unit-work-queue th:not(:first-child) { width: var(--pa-queue-end-width); }
+#pai-studio .pa-terminal-work-queue th:nth-child(2),
+#pai-studio .pa-terminal-work-queue th:nth-child(3) { width: 160px; }
+#pai-studio .pa-terminal-work-queue th:nth-child(4) { width: 104px; }
+#pai-studio .pa-terminal-work-queue th:nth-child(5),
+#pai-studio .pa-terminal-work-queue th:nth-child(6) { width: 124px; }
+#pai-studio :is(.pa-unit-work-queue, .pa-terminal-work-queue) :is(th, td) { overflow-wrap: anywhere; }
+#pai-studio .pa-unit-work-queue .pa-forecast { min-width: 0; }
 #pai-studio .pa-unit-work-queue .pa-job-status { max-width: 100%; white-space: normal; }
 
 /* Match the selected Operations desk brand and surface hierarchy. */
@@ -8692,7 +8736,7 @@ function loomCatalogProjection(catalog) {
   }
 
   async function queueAction(message) {
-    if (!signedIn() || !['reorder','resume'].includes(message.action)) return;
+    if (!signedIn() || !['reorder','hold','resume','pause','resume_checkpoint'].includes(message.action)) return;
     const signal=lifetime.signal;
     try {
       const response=await fetch('/api/jobs/queue-actions', {method:'POST',cache:'no-store',credentials:'same-origin',redirect:'error',

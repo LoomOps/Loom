@@ -4,7 +4,7 @@ use loom_core::{
     error::require,
     execution::Work,
     storage,
-    store::{hash, Config},
+    store::{hash, now, Config},
     Error, Result,
 };
 use serde_json::{json, Value};
@@ -131,7 +131,7 @@ async fn perform_inner(
             .to_string();
         let prepared = tokio::task::spawn_blocking(move || {
             let mut manifest = read_manifest(&prepare_folder.join("result.json"))?;
-            loom_core::results::prepare_output_manifest(&mut manifest, &spec)?;
+            loom_core::results::preflight_output_manifest(&mut manifest, &spec)?;
             let app = loom_core::Application::open_read_only(&state, &data, &software, cfg)?;
             let files = verify_outputs(&prepare_folder, &manifest)?;
             let mut prepared = loom_core::reconcile::PreparedFiles {
@@ -147,8 +147,13 @@ async fn perform_inner(
                             .ok_or_else(|| Error::input("Output path required"))?,
                     )?;
                     let base = file.parent().unwrap();
-                    let pin =
-                        loom_core::file_set::seal(&app, base, &selector, &entity["inventory"])?;
+                    let pin = loom_core::file_set::seal_with_proofs(
+                        &app,
+                        base,
+                        &selector,
+                        &entity["inventory"],
+                        &prepared.files,
+                    )?;
                     let primary = loom_core::file_set::lookup(
                         &app,
                         &pin,
@@ -223,17 +228,51 @@ async fn perform_inner(
             return Ok(());
         }
     }
+    // Read the broker's durable ownership before looking at current source copies.
+    // An absent ticket (or a created container which has never run) still needs
+    // verification of the original frozen request before a launch.
+    if marker.exists() {
+        let frozen: Value = serde_json::from_slice(&tokio::fs::read(&marker).await?)?;
+        let executor = config
+            .extra
+            .get("executor")
+            .ok_or_else(|| Error::input("Executor configuration required"))?;
+        match host(executor, "status_intent", frozen["request"].clone()).await {
+            Ok(state) if state["found"] == true && state["state"] == "unknown" => {
+                service.unknown(work).await?;
+                return Err(Error::new("executor", "Saved ticket ownership is unresolved", 503));
+            }
+            Ok(mut state) if state["found"] == true && state["state"] != "created" => {
+                state["input_verification"] = frozen["input_verification"].clone();
+                return observe_execution(service, work, executor, state).await;
+            }
+            Ok(_) => {}
+            Err(error) => {
+                service.unknown(work).await?;
+                return Err(error);
+            }
+        }
+    }
     let mut request = service.request(work.clone()).await?;
     tokio::fs::create_dir_all(&work.folder).await?;
     let mut verified_request = request;
+    let proofs = service.input_proofs.clone();
     let verification = tokio::task::spawn_blocking(move || {
-        verify_inputs(&mut verified_request)?;
-        Ok::<_, Error>(verified_request)
+        let start = std::time::Instant::now();
+        let checked = verify_inputs(&mut verified_request, &proofs)?;
+        Ok::<_, Error>((
+            verified_request,
+            json!({
+                "seconds":start.elapsed().as_secs_f64(),"hashed_bytes":checked.hashed_bytes,
+                "reused_files":checked.reused_files
+            }),
+        ))
     })
     .await
     .map_err(|_| Error::new("verification", "Input verification task stopped", 503))?;
-    request = match verification {
-        Ok(request) => request,
+    let input_verification;
+    (request, input_verification) = match verification {
+        Ok(result) => result,
         Err(e) => {
             if already_sent {
                 service.unknown(work).await?;
@@ -325,11 +364,6 @@ async fn perform_inner(
         request["component_path"] = json!("/component");
     }
     let name = format!("{}-request.json", work.stage);
-    storage::atomic(
-        &work.folder.join(&name),
-        &serde_json::to_vec(&request)?,
-        0o600,
-    )?;
     let argv = runner["command"]
         .as_array()
         .ok_or_else(|| Error::input("Stage command required"))?;
@@ -356,7 +390,7 @@ async fn perform_inner(
     if work.stage == "run" && work.spec["gpu_access"].is_object() {
         payload["gpu_access"] = work.spec["gpu_access"].clone();
     }
-    let payload = if already_sent {
+    let payload = if marker.exists() {
         let frozen: Value = serde_json::from_slice(&tokio::fs::read(&marker).await?)?;
         require(
             frozen["request_sha256"] == hash(serde_json::to_vec(&payload)?),
@@ -364,24 +398,51 @@ async fn perform_inner(
             "Frozen execution request changed",
             409,
         )?;
+        let previous: Value =
+            serde_json::from_slice(&tokio::fs::read(work.folder.join(&name)).await?)?;
+        if previous.get("input_bindings").is_none() {
+            request.as_object_mut().unwrap().remove("input_bindings");
+        }
+        require(
+            previous == request,
+            "effect",
+            "Frozen container request changed",
+            409,
+        )?;
         frozen["request"].clone()
     } else {
         storage::atomic(
+            &work.folder.join(&name),
+            &serde_json::to_vec(&request)?,
+            0o600,
+        )?;
+        storage::atomic(
             &marker,
             &serde_json::to_vec(
-                &json!({"request":payload,"request_sha256":hash(serde_json::to_vec(&payload)?)}),
+                &json!({"request":payload,"request_sha256":hash(serde_json::to_vec(&payload)?),
+                    "input_verification":input_verification}),
             )?,
             0o600,
         )?;
         payload
     };
-    let started = match host(executor, "start", payload).await {
+    let mut started = match host(executor, "start", payload).await {
         Ok(v) => v,
         Err(e) => {
             service.unknown(work).await?;
             return Err(e);
         }
     };
+    started["input_verification"] = input_verification;
+    observe_execution(service, work, executor, started).await
+}
+
+async fn observe_execution(
+    service: Service,
+    work: Work,
+    executor: &Value,
+    started: Value,
+) -> Result<()> {
     if started["busy"] == true {
         if service.cancelled(work.clone()).await? {
             service.returned(work,137,json!({"returned":true,"not_started":true,"reason":"cancelled_while_waiting_for_executor"})).await?;
@@ -398,20 +459,41 @@ async fn perform_inner(
         .as_str()
         .ok_or_else(|| Error::new("executor", "Missing accepted ticket", 503))?
         .to_string();
-    service.accepted(work.clone(), started.clone()).await?;
+    let accepted_at = service.accepted(work.clone(), started.clone()).await?;
     let timeout = work.spec["execution"]["timeout_seconds"]
         .as_u64()
-        .or(profile["limits"]["timeout_seconds"].as_u64())
-        .unwrap_or(30);
+        .or(work.spec["profile"]["limits"]["timeout_seconds"].as_u64())
+        .unwrap_or(30) as f64;
+    let remaining = Duration::from_secs_f64((timeout - (now() - accepted_at).max(0.)).max(0.));
     let start = std::time::Instant::now();
+    let input_verification = started["input_verification"].clone();
     let mut state = started;
+    let supports_pause =
+        work.stage == "run" && work.spec["profile"]["runtime"]["checkpoint_pause"] == true;
+    let mut pause_delivered = false;
+    let mut timed_out = false;
+    let mut stopping = false;
     loop {
         if state["returned"] == true {
             break;
         }
-        let cancellation = service.cancelled(work.clone()).await?
-            || service.stopping.load(Ordering::Acquire)
-            || start.elapsed() > Duration::from_secs(timeout);
+        timed_out |= start.elapsed() >= remaining;
+        stopping |= service.stopping.load(Ordering::Acquire);
+        let cancellation = service.cancelled(work.clone()).await? || stopping || timed_out;
+        if supports_pause
+            && !cancellation
+            && !pause_delivered
+            && service.pause_requested(work.clone()).await?
+        {
+            storage::atomic(
+                &work.folder.join("pause-request.json"),
+                &serde_json::to_vec(
+                    &json!({"schema":"loom-checkpoint-pause/v1","job":work.job,"attempt":work.attempt}),
+                )?,
+                0o600,
+            )?;
+            pause_delivered = true;
+        }
         state = match host(
             executor,
             if cancellation { "cancel" } else { "status" },
@@ -433,16 +515,117 @@ async fn perform_inner(
         .as_i64()
         .ok_or_else(|| Error::new("return", "Missing returned exit code", 503))?
         as i32;
-    if service.stopping.load(Ordering::Acquire) {
+    if stopping {
         state["interrupted"] = json!(true);
     }
-    if start.elapsed() > Duration::from_secs(timeout) {
+    if timed_out {
         state["reason"] = json!("timeout");
     }
+    if code == loom_core::execution::CHECKPOINT_PAUSE_EXIT
+        && supports_pause
+        && state.get("interrupted").is_none()
+        && state["reason"] != "timeout"
+        && service.pause_requested(work.clone()).await?
+    {
+        let folder = work.folder.clone();
+        let attempt = work.attempt.clone();
+        let proofs = service.input_proofs.clone();
+        let checkpoint = tokio::task::spawn_blocking(move || pause_checkpoint(&folder, &attempt, &proofs))
+            .await
+            .map_err(|_| Error::new("checkpoint_pause", "Checkpoint validation stopped", 503))?;
+        match checkpoint {
+            Ok(checkpoint) => state["checkpoint_pause"] = checkpoint,
+            Err(error) => state["checkpoint_pause_error"] = json!(error.code),
+        }
+    }
+    if work.performance_tuning.is_object() && (code == 0 || state["checkpoint_pause"].is_object()) {
+        if let Ok(bytes) =
+            loom_core::file_set::bounded(&work.folder.join("performance-tuning.json"), 64 * 1024)
+        {
+            if let Ok(report) = serde_json::from_slice::<Value>(&bytes) {
+                state["performance_tuning_report"] = report;
+            }
+        }
+    }
+    state["input_verification"] = input_verification;
     service.returned(work, code, state).await?;
     Ok(())
 }
-fn verify_inputs(request: &mut Value) -> Result<()> {
+
+fn pause_checkpoint(folder: &Path, attempt: &str, proofs: &InputProofs) -> Result<Value> {
+    let receipt: Value = serde_json::from_slice(&loom_core::file_set::bounded(
+        &folder.join("pause-checkpoint.json"),
+        64 * 1024,
+    )?)?;
+    require(
+        receipt["schema"] == "loom-checkpoint-pause/v1" && receipt["attempt"] == attempt,
+        "checkpoint_pause",
+        "Checkpoint receipt belongs to a different Attempt",
+        409,
+    )?;
+    let file = receipt["file"]
+        .as_str()
+        .ok_or_else(|| Error::input("Checkpoint file required"))?;
+    require(
+        !matches!(file, "pause-checkpoint.json" | "pause-request.json"),
+        "checkpoint_pause",
+        "Checkpoint must be a separate file",
+        409,
+    )?;
+    let proof = verified_input(&storage::relative(folder, file)?, proofs, &mut InputVerification::default())?;
+    require(
+        proof.size > 0 && receipt["sha256"] == proof.sha256,
+        "checkpoint_pause",
+        "Checkpoint bytes differ from the producer receipt",
+        409,
+    )?;
+    require(
+        receipt["progress"].is_u64(),
+        "checkpoint_pause",
+        "A completed work counter is required",
+        409,
+    )?;
+    Ok(
+        json!({"attempt":attempt,"file":file,"sha256":proof.sha256,"size":proof.size,"progress":receipt["progress"]}),
+    )
+}
+pub(crate) type InputProofs =
+    std::sync::Mutex<std::collections::BTreeMap<PathBuf, storage::VerifiedFile>>;
+
+#[derive(Debug, Default)]
+struct InputVerification {
+    hashed_bytes: u64,
+    reused_files: u64,
+}
+
+fn verified_input(
+    path: &Path,
+    proofs: &InputProofs,
+    stats: &mut InputVerification,
+) -> Result<storage::VerifiedFile> {
+    let cached = proofs
+        .lock()
+        .ok()
+        .and_then(|cache| cache.get(path).cloned());
+    if let Some(proof) = cached {
+        if proof.revalidate().is_ok() {
+            stats.reused_files += 1;
+            return Ok(proof);
+        }
+    }
+    let proof = storage::VerifiedFile::read(path)?;
+    stats.hashed_bytes = stats.hashed_bytes.saturating_add(proof.size);
+    if let Ok(mut cache) = proofs.lock() {
+        if cache.len() >= 512 {
+            cache.pop_first();
+        }
+        cache.insert(path.to_owned(), proof.clone());
+    }
+    Ok(proof)
+}
+
+fn verify_inputs(request: &mut Value, proofs: &InputProofs) -> Result<InputVerification> {
+    let mut stats = InputVerification::default();
     for (_, item) in request["verified_inputs"]
         .as_object_mut()
         .into_iter()
@@ -460,7 +643,9 @@ fn verify_inputs(request: &mut Value) -> Result<()> {
                     .as_str()
                     .ok_or_else(|| Error::input("Input path required"))?,
             );
-            if storage::file_hash(path).is_ok_and(|(_, sha)| candidate["sha256"] == sha) {
+            if verified_input(path, proofs, &mut stats)
+                .is_ok_and(|proof| candidate["sha256"] == proof.sha256)
+            {
                 selected = Some(candidate);
                 break;
             }
@@ -476,7 +661,7 @@ fn verify_inputs(request: &mut Value) -> Result<()> {
     if let Some(path) = request["component_path"].as_str() {
         for (name, digest) in request["source_pins"].as_object().into_iter().flatten() {
             let path = storage::relative(Path::new(path), name)?;
-            let (_, sha) = storage::file_hash(&path)?;
+            let sha = verified_input(&path, proofs, &mut stats)?.sha256;
             require(
                 digest == &json!(sha),
                 "source",
@@ -488,7 +673,12 @@ fn verify_inputs(request: &mut Value) -> Result<()> {
     for (_, pin) in request["tools"].as_object().into_iter().flatten() {
         if let Some(root) = pin["path"].as_str() {
             for (name, digest) in pin["source_pins"].as_object().into_iter().flatten() {
-                let (_, sha) = storage::file_hash(&storage::relative(Path::new(root), name)?)?;
+                let sha = verified_input(
+                    &storage::relative(Path::new(root), name)?,
+                    proofs,
+                    &mut stats,
+                )?
+                .sha256;
                 require(
                     digest == &json!(sha),
                     "source",
@@ -498,7 +688,7 @@ fn verify_inputs(request: &mut Value) -> Result<()> {
             }
         }
     }
-    Ok(())
+    Ok(stats)
 }
 async fn run_builtin(service: Service, work: Work, request: &mut Value) -> Result<()> {
     request["output_dir"] = json!(work.folder);

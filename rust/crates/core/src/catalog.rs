@@ -186,6 +186,7 @@ impl Application {
 
 enum CatalogContext {
     Full,
+    SoftwareList,
     Records,
     Queue(Value),
 }
@@ -491,6 +492,20 @@ impl Application {
                 entities.push(entity);
             }
         }
+        let software_list = matches!(context, CatalogContext::SoftwareList);
+        let has_profile_selection = selected.is_some_and(|items| {
+            items.iter().any(|item| {
+                matches!(
+                    item["native_ref"]["kind"].as_str(),
+                    Some("profile" | "component" | "tool" | "runtime")
+                )
+            })
+        });
+        let profile_runtimes = if has_profile_selection {
+            self.runtime_snapshot()?
+        } else {
+            Value::Null
+        };
         let mut profiles = if all {
             self.profile_listing()?
         } else {
@@ -506,11 +521,12 @@ impl Application {
                     .or_else(|| item["profile_kind"].as_str())
                 {
                     profiles.extend(
-                        self.profile_listing_qualified(
+                        self.profile_listing_with_runtime_snapshot(
                             Some(kind),
                             native["sha256"]
                                 .as_str()
                                 .or_else(|| item["profile_sha256"].as_str()),
+                            &profile_runtimes,
                         )?
                         .as_array()
                         .cloned()
@@ -520,7 +536,7 @@ impl Application {
             }
             json!(profiles)
         };
-        if !all {
+        if !all && !software_list {
             let mut related = std::collections::BTreeMap::new();
             for item in selected.unwrap_or_default().iter().filter(|v| {
                 matches!(
@@ -545,7 +561,11 @@ impl Application {
                     .iter()
                     .any(|p| p["kind"] == kind)
                 {
-                    if let Ok(value) = self.profile_listing_qualified(Some(&kind), sha.as_deref()) {
+                    if let Ok(value) = self.profile_listing_with_runtime_snapshot(
+                        Some(&kind),
+                        sha.as_deref(),
+                        &profile_runtimes,
+                    ) {
                         profiles
                             .as_array_mut()
                             .unwrap()
@@ -562,17 +582,28 @@ impl Application {
         }
         let software = self.extension_inventory_selected(&profiles, selected)?;
         entities.extend(software.clone());
-        let wants_runtime = matches!(context, CatalogContext::Full)
-            || selected.is_none_or(|items| {
-                items.iter().any(|item| {
-                    matches!(
-                        item["native_ref"]["kind"].as_str(),
-                        Some("runtime" | "dependency")
-                    )
-                })
-            });
+        let wants_runtime = selected.is_none_or(|items| {
+            items.iter().any(|item| {
+                matches!(
+                    item["native_ref"]["kind"].as_str(),
+                    Some("runtime" | "dependency")
+                )
+            })
+        });
         let mut runtime_catalog = if wants_runtime {
-            self.runtime_inventory()?
+            let pins = selected.map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| {
+                        if item["native_ref"]["kind"] != "runtime" {
+                            return None;
+                        }
+                        let pin = &item["native_ref"]["identity"];
+                        Some((pin["id"].as_str()?.to_owned(), pin["revision"].as_i64()?))
+                    })
+                    .collect::<Vec<_>>()
+            });
+            self.runtime_projection(pins.as_deref(), !software_list)?
         } else {
             json!({"runtimes":[],"dependency_catalog":{"dependencies":[]}})
         };
@@ -649,6 +680,12 @@ impl Application {
                 }
             }
             item["used_by_profiles"] = json!(consumers);
+            if software_list {
+                item["summary_only"] = json!(true);
+                item["manifest"]
+                    .as_object_mut()
+                    .map(|manifest| manifest.remove("dependencies"));
+            }
             entities.push(json!({"id":format!("runtime:{}:{}",item["id"].as_str().unwrap_or(""),item["revision"].as_i64().map(|n|n.to_string()).unwrap_or("legacy".into())),"kind":"runtime","namespace":"loom","label":item["curation"].get("label").or_else(||item["manifest"].get("label")).unwrap_or(&item["id"]),"summary":item["manifest"]["description"].as_str().unwrap_or(""),"loom_runtime":item,"properties":{"revision":item["revision"]},"relations":[],"artifacts":[]}));
         }
         for dependency in runtime_catalog["dependency_catalog"]["dependencies"]
@@ -857,7 +894,7 @@ impl Application {
                     serde_json::from_str(include_str!("../../../contracts/job-contract.json"))?;
                 value["runtime_catalog"] = runtime_catalog;
             }
-            CatalogContext::Records => {
+            CatalogContext::Records | CatalogContext::SoftwareList => {
                 value["research_tasks"] = self.dashboard_tasks()?;
                 if wants_runtime {
                     value["runtime_catalog"] = runtime_catalog;
@@ -1003,6 +1040,15 @@ impl Application {
             .ok_or_else(|| Error::input("Search page missing"))?;
         let mode = if records_only {
             CatalogContext::Records
+        } else if query["kinds"].as_array().is_some_and(|kinds| {
+            kinds.iter().all(|kind| {
+                matches!(
+                    kind.as_str(),
+                    Some("profile" | "component" | "tool" | "runtime" | "dependency")
+                )
+            })
+        }) {
+            CatalogContext::SoftwareList
         } else {
             CatalogContext::Full
         };
