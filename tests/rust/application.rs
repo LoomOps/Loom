@@ -845,22 +845,41 @@ fn completed_policy_adoption_preserves_the_source_job_and_exact_files() {
 #[test]
 fn replacing_unused_dataset_checks_references_and_retains_presentation() {
     let mut f = Fixture::new();
-    let task = f.call("results", "register_scenario", json!({"key":"replace-task","definition":{"label":"Square"}})).unwrap();
+    let task = f
+        .call(
+            "results",
+            "register_scenario",
+            json!({"key":"replace-task","definition":{"label":"Square"}}),
+        )
+        .unwrap();
     let task = json!({"id":task["id"],"revision":1});
     let base = json!({"id":"draft-dataset","revision":1});
     let candidate = json!({"id":"validated-repartition","revision":1});
     let base_manifest = json!({"id":base["id"],"revision":1,"kind":"dataset","label":"Original Dataset","catalog_class":"regular",
         "scenario_ref":task,"relations":[],"components":[],"metadata":{"research":{"collection":{"split":{"train":2}}}}});
-    f.app.db.execute("INSERT INTO asset_revisions VALUES(?,1,NULL,'dataset','owner','owner',?)",
-        rusqlite::params![base["id"].as_str(),base_manifest.to_string()]).unwrap();
+    f.app
+        .db
+        .execute(
+            "INSERT INTO asset_revisions VALUES(?,1,NULL,'dataset','owner','owner',?)",
+            rusqlite::params![base["id"].as_str(), base_manifest.to_string()],
+        )
+        .unwrap();
     let producer = f.submit("make-replacement");
     let reader = f.submit("queued-reader");
     let exact_input = json!({"data":{"artifact":base}}).to_string();
     for job in [&producer, &reader] {
-        f.app.db.execute("UPDATE jobs SET spec=json_set(spec,'$.params',json(?)) WHERE id=?",
-            rusqlite::params![exact_input,job]).unwrap();
+        f.app
+            .db
+            .execute(
+                "UPDATE jobs SET spec=json_set(spec,'$.params',json(?)) WHERE id=?",
+                rusqlite::params![exact_input, job],
+            )
+            .unwrap();
     }
-    f.app.db.execute("UPDATE jobs SET state='complete' WHERE id=?", [&producer]).unwrap();
+    f.app
+        .db
+        .execute("UPDATE jobs SET state='complete' WHERE id=?", [&producer])
+        .unwrap();
     let bytes = json!({"schema":"loom-report/v1","data":{"members":[{"id":"a","split":"train"},{"id":"b","split":"test"}]}}).to_string();
     fs::write(f.app.bulk.join("replacement-members.json"), &bytes).unwrap();
     let digest = hash(&bytes);
@@ -869,34 +888,82 @@ fn replacing_unused_dataset_checks_references_and_retains_presentation() {
         "reporting":{"reports":[{"role":"dataset_statistics","state":"recorded","component":"replacement-members.json","sha256":digest}]},
         "components":[{"ref":"replacement-members.json","sha256":digest,"size":bytes.len()}],
         "metadata":{"research":{"collection":{"split":{"train":1,"test":1}}}}});
-    f.app.db.execute("INSERT INTO entity_revisions VALUES(?,1,?,'dataset','owner','owner',?)",
-        rusqlite::params![candidate["id"].as_str(),producer,next.to_string()]).unwrap();
+    f.app
+        .db
+        .execute(
+            "INSERT INTO entity_revisions VALUES(?,1,?,'dataset','owner','owner',?)",
+            rusqlite::params![candidate["id"].as_str(), producer, next.to_string()],
+        )
+        .unwrap();
     f.app.db.execute("INSERT INTO entity_locations VALUES(?,1,'replacement-members.json','fixture','fixture-data','replacement-members.json','available')",
         [candidate["id"].as_str()]).unwrap();
     let args = json!({"base":base,"source":candidate,"mode":"replace_unused",
         "authorization":{"basis":"explicit_request","evidence":"Replace the unused Dataset"},"key":"replace"});
-    assert_eq!(f.call("results","adopt_output_revision",args.clone()).unwrap_err().code,"dataset_in_use");
+    assert_eq!(
+        f.call("results", "adopt_output_revision", args.clone())
+            .unwrap_err()
+            .code,
+        "dataset_in_use"
+    );
     let mut edit = json!({"target":{"kind":"entity","identity":base},"task_ref":task,"handle":"D0 · S1","tags":["A"],
         "description":"Editorial description","properties":{"Collection owner":"team"},"reason":"Correct presentation"});
-    let preview=f.call("results","organize_dataset",edit.clone()).unwrap();
-    edit["dry_run"]=json!(false);edit["key"]=json!("description");edit["expected_digest"]=preview["digest"].clone();
-    f.call("results","organize_dataset",edit).unwrap();
-    f.app.db.execute("UPDATE jobs SET state='cancelled' WHERE id=?", [&reader]).unwrap();
+    let preview = f.call("results", "organize_dataset", edit.clone()).unwrap();
+    edit["dry_run"] = json!(false);
+    edit["key"] = json!("description");
+    edit["expected_digest"] = preview["digest"].clone();
+    f.call("results", "organize_dataset", edit).unwrap();
+    f.app
+        .db
+        .execute("UPDATE jobs SET state='cancelled' WHERE id=?", [&reader])
+        .unwrap();
     let linked = json!({"id":"uses-draft","revision":1,"kind":"model","relations":[{"kind":"trained_on","id":base["id"],"revision":1}]});
-    f.app.db.execute("INSERT INTO asset_revisions VALUES('uses-draft',1,NULL,'model','owner','owner',?)",[linked.to_string()]).unwrap();
-    assert_eq!(f.call("results","adopt_output_revision",args.clone()).unwrap_err().code,"dataset_in_use");
-    f.app.db.execute("DELETE FROM asset_revisions WHERE id='uses-draft'",[]).unwrap();
-    let result=f.call("results","adopt_output_revision",args.clone()).unwrap();
-    assert_eq!(result["revision"],2);
-    assert_eq!(f.call("results","adopt_output_revision",args).unwrap(),result);
-    let latest=f.call("results","get",json!({"id":base["id"],"revision":2})).unwrap();
-    assert_eq!(latest["label"],"Original Dataset");
-    assert_eq!(latest["metadata"]["research"]["collection"]["split"],json!({"train":1,"test":1}));
-    assert_eq!(latest["dataset_organization"]["handle"],"D0 · S1");
-    assert_eq!(latest["dataset_organization"]["properties"]["Collection owner"],"team");
-    let original=f.call("results","get",base).unwrap();
-    assert_eq!(original["metadata"]["research"]["collection"]["split"],json!({"train":2}));
-    assert_eq!(f.call("results","get",candidate).unwrap()["disposition"]["state"],"discarded");
+    f.app
+        .db
+        .execute(
+            "INSERT INTO asset_revisions VALUES('uses-draft',1,NULL,'model','owner','owner',?)",
+            [linked.to_string()],
+        )
+        .unwrap();
+    assert_eq!(
+        f.call("results", "adopt_output_revision", args.clone())
+            .unwrap_err()
+            .code,
+        "dataset_in_use"
+    );
+    f.app
+        .db
+        .execute("DELETE FROM asset_revisions WHERE id='uses-draft'", [])
+        .unwrap();
+    let result = f
+        .call("results", "adopt_output_revision", args.clone())
+        .unwrap();
+    assert_eq!(result["revision"], 2);
+    assert_eq!(
+        f.call("results", "adopt_output_revision", args).unwrap(),
+        result
+    );
+    let latest = f
+        .call("results", "get", json!({"id":base["id"],"revision":2}))
+        .unwrap();
+    assert_eq!(latest["label"], "Original Dataset");
+    assert_eq!(
+        latest["metadata"]["research"]["collection"]["split"],
+        json!({"train":1,"test":1})
+    );
+    assert_eq!(latest["dataset_organization"]["handle"], "D0 · S1");
+    assert_eq!(
+        latest["dataset_organization"]["properties"]["Collection owner"],
+        "team"
+    );
+    let original = f.call("results", "get", base).unwrap();
+    assert_eq!(
+        original["metadata"]["research"]["collection"]["split"],
+        json!({"train":2})
+    );
+    assert_eq!(
+        f.call("results", "get", candidate).unwrap()["disposition"]["state"],
+        "discarded"
+    );
 }
 
 #[test]
@@ -1171,7 +1238,10 @@ fn dataset_organization_is_source_bound_keyed_and_distinct_from_lineage() {
         .unwrap()
         .is_empty());
     assert_eq!(result["dataset_organization"]["handle"], "D0 · S1");
-    assert_eq!(result["dataset_organization"]["tags"], json!(["A","matched"]));
+    assert_eq!(
+        result["dataset_organization"]["tags"],
+        json!(["A", "matched"])
+    );
     let mut other = args.clone();
     other["dry_run"] = json!(true);
     other["target"]["identity"]["id"] = json!("two");
@@ -1194,7 +1264,13 @@ fn dataset_organization_is_source_bound_keyed_and_distinct_from_lineage() {
     move_args["key"] = json!("move");
     move_args["dry_run"] = json!(false);
     f.call("results", "organize_dataset", move_args).unwrap();
-    let preview = f.call("results", "organize_dataset", json!({"target":target,"task_ref":task_ref,"tags":["B"],"reason":"Correct condition"})).unwrap();
+    let preview = f
+        .call(
+            "results",
+            "organize_dataset",
+            json!({"target":target,"task_ref":task_ref,"tags":["B"],"reason":"Correct condition"}),
+        )
+        .unwrap();
     assert_eq!(preview["organization"]["path"], json!([]));
     assert_eq!(preview["organization"]["handle"], "D0 · S1");
     assert_eq!(preview["organization"]["tags"], json!(["B"]));
@@ -1299,7 +1375,9 @@ fn native_dataset_publication_resolves_only_declared_data_parent_inputs() {
     let mut spec = jobs::load(&f.app.db, &job).unwrap().spec;
     // The lineage boundary also applies to executions accepted before reporting.
     spec.as_object_mut().unwrap().remove("_reporting_required");
-    spec.as_object_mut().unwrap().remove("_dataset_split_required");
+    spec.as_object_mut()
+        .unwrap()
+        .remove("_dataset_split_required");
     spec["params"] = json!({"data":{"artifact":{"id":"source-dataset","revision":1}}});
     let task = f
         .call(
@@ -2979,7 +3057,11 @@ fn exclusive_tuning_reuses_only_the_fastest_equivalent_setting_for_matching_cond
         "owner":"owner","notify":"owner","gpu_access":{"mode":"exclusive"},"execution_mode":"full"});
     f.call("units", "submit", args.clone()).unwrap();
     let first = f.app.next_work(&Default::default()).unwrap().unwrap();
-    assert!(first.performance_tuning["key"].is_string(), "{:?}", first.performance_tuning);
+    assert!(
+        first.performance_tuning["key"].is_string(),
+        "{:?}",
+        first.performance_tuning
+    );
     assert!(first.performance_tuning["cached"].is_null());
     let mut report = json!({"schema":"loom-performance-tuning/v1","key":first.performance_tuning["key"],
         "elapsed_seconds":8,"applied":{"workers":2},"samples":[
@@ -3010,7 +3092,10 @@ fn exclusive_tuning_reuses_only_the_fastest_equivalent_setting_for_matching_cond
         .unwrap()
         .unwrap();
     assert_eq!(second.job, repeated["id"]);
-    assert_eq!(second.performance_tuning["key"], first.performance_tuning["key"]);
+    assert_eq!(
+        second.performance_tuning["key"],
+        first.performance_tuning["key"]
+    );
     assert_eq!(
         second.performance_tuning["cached"]["settings"],
         json!({"workers":2})

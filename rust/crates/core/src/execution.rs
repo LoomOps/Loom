@@ -211,7 +211,9 @@ impl Application {
                 params![now(), work.attempt],
             )?;
         }
-        let started = if work.publication { now() } else {
+        let started = if work.publication {
+            now()
+        } else {
             tx.query_row("UPDATE stage_runs SET started=COALESCE(started,?),state='running' WHERE job=? AND attempt=? AND stage=? RETURNING started",params![now(),work.job,work.attempt,work.stage],|row|row.get(0))?
         };
         tx.commit()?;
@@ -609,11 +611,16 @@ impl Application {
         Ok(!work.hook && jobs::load(&self.db, &work.job)?.aggregate.cancel_requested)
     }
 }
-pub(crate) fn complete_publication(db: &rusqlite::Connection, job: &str, effect: &str) -> Result<()> {
+pub(crate) fn complete_publication(
+    db: &rusqlite::Connection,
+    job: &str,
+    effect: &str,
+) -> Result<()> {
     if db.execute(
         "UPDATE rust_effects SET state='returned',updated=? WHERE id=? AND state!='returned'",
         params![now(), effect],
-    )? == 0 {
+    )? == 0
+    {
         return Ok(());
     }
     let record = jobs::load(db, job)?;
@@ -624,7 +631,10 @@ pub(crate) fn complete_publication(db: &rusqlite::Connection, job: &str, effect:
     };
     enqueue_hook(db, &record, hook)?;
     if record.aggregate.state != JobState::Failed {
-        db.execute("UPDATE recovery SET state='closed',token=NULL,deadline=NULL,updated=? WHERE job=?",params![now(),job])?;
+        db.execute(
+            "UPDATE recovery SET state='closed',token=NULL,deadline=NULL,updated=? WHERE job=?",
+            params![now(), job],
+        )?;
     }
     Ok(())
 }

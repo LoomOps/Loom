@@ -13,17 +13,24 @@ fn performance_tuning_applies_only_equivalent_samples_and_skips_cached_measureme
         .tune_performance(&candidates, |settings, remaining| {
             assert!(!remaining.is_zero());
             let workers = settings["workers"].as_u64().unwrap();
-            Ok(json!({"valid":workers,"seconds":1,"peak_vram_mib":if workers==3 {1000} else {500},
-                "equivalent":workers!=4}))
+            Ok(
+                json!({"valid":workers,"seconds":1,"peak_vram_mib":if workers==3 {1000} else {500},
+                "equivalent":workers!=4}),
+            )
         })
         .unwrap()
         .unwrap();
     assert_eq!(selected, candidates[1]);
-    let report: Value = serde_json::from_slice(&fs::read(root.join("performance-tuning.json")).unwrap()).unwrap();
+    let report: Value =
+        serde_json::from_slice(&fs::read(root.join("performance-tuning.json")).unwrap()).unwrap();
     assert_eq!(report["applied"], selected);
     request.extra["performance_tuning"]["cached"] = json!({"settings":selected});
     assert_eq!(
-        request.tune_performance(&candidates, |_, _| panic!("Cached settings must skip measurement")).unwrap(),
+        request
+            .tune_performance(&candidates, |_, _| panic!(
+                "Cached settings must skip measurement"
+            ))
+            .unwrap(),
         Some(selected)
     );
     fs::remove_dir_all(root).unwrap();

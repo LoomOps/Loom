@@ -240,7 +240,11 @@ async fn perform_inner(
         match host(executor, "status_intent", frozen["request"].clone()).await {
             Ok(state) if state["found"] == true && state["state"] == "unknown" => {
                 service.unknown(work).await?;
-                return Err(Error::new("executor", "Saved ticket ownership is unresolved", 503));
+                return Err(Error::new(
+                    "executor",
+                    "Saved ticket ownership is unresolved",
+                    503,
+                ));
             }
             Ok(mut state) if state["found"] == true && state["state"] != "created" => {
                 state["input_verification"] = frozen["input_verification"].clone();
@@ -530,9 +534,12 @@ async fn observe_execution(
         let folder = work.folder.clone();
         let attempt = work.attempt.clone();
         let proofs = service.input_proofs.clone();
-        let checkpoint = tokio::task::spawn_blocking(move || pause_checkpoint(&folder, &attempt, &proofs))
-            .await
-            .map_err(|_| Error::new("checkpoint_pause", "Checkpoint validation stopped", 503))?;
+        let checkpoint =
+            tokio::task::spawn_blocking(move || pause_checkpoint(&folder, &attempt, &proofs))
+                .await
+                .map_err(|_| {
+                    Error::new("checkpoint_pause", "Checkpoint validation stopped", 503)
+                })?;
         match checkpoint {
             Ok(checkpoint) => state["checkpoint_pause"] = checkpoint,
             Err(error) => state["checkpoint_pause_error"] = json!(error.code),
@@ -572,7 +579,11 @@ fn pause_checkpoint(folder: &Path, attempt: &str, proofs: &InputProofs) -> Resul
         "Checkpoint must be a separate file",
         409,
     )?;
-    let proof = verified_input(&storage::relative(folder, file)?, proofs, &mut InputVerification::default())?;
+    let proof = verified_input(
+        &storage::relative(folder, file)?,
+        proofs,
+        &mut InputVerification::default(),
+    )?;
     require(
         proof.size > 0 && receipt["sha256"] == proof.sha256,
         "checkpoint_pause",

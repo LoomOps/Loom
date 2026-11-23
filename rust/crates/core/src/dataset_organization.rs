@@ -39,13 +39,14 @@ pub fn validate_path(path: &Value) -> Result<()> {
 }
 pub fn validate_declaration(value: &Value) -> Result<()> {
     require(
-        value
-            .as_object()
-            .is_some_and(|o| {
-                !o.is_empty() && o.keys().all(|k| {
-                    matches!(k.as_str(), "path" | "task_ref") || DISPLAY_FIELDS.contains(&k.as_str())
-                }) && o.keys().any(|k| k != "task_ref")
-            }),
+        value.as_object().is_some_and(|o| {
+            !o.is_empty()
+                && o.keys().all(|k| {
+                    matches!(k.as_str(), "path" | "task_ref")
+                        || DISPLAY_FIELDS.contains(&k.as_str())
+                })
+                && o.keys().any(|k| k != "task_ref")
+        }),
         "organization",
         "Declare Dataset presentation metadata or a subgroup path under the Task",
         400,
@@ -54,10 +55,16 @@ pub fn validate_declaration(value: &Value) -> Result<()> {
         validate_path(path)?;
     }
     for (field, schema) in [
-        ("handle", loom_contracts::dataset_handle_schema as fn() -> Value),
+        (
+            "handle",
+            loom_contracts::dataset_handle_schema as fn() -> Value,
+        ),
         ("tags", loom_contracts::dataset_tags_schema),
         ("description", loom_contracts::dataset_description_schema),
-        ("properties", loom_contracts::dataset_display_properties_schema),
+        (
+            "properties",
+            loom_contracts::dataset_display_properties_schema,
+        ),
     ] {
         if let Some(entry) = value.get(field) {
             crate::contracts::validate(&schema(), entry)?;
@@ -89,7 +96,8 @@ pub(crate) fn validate_task(organization: &Value, task: &Value) -> Result<()> {
 }
 
 fn saved(db: &rusqlite::Connection, target: &Target) -> Result<Value> {
-    let text: Option<String> = db.query_row(
+    let text: Option<String> = db
+        .query_row(
             "SELECT body FROM rust_annotations WHERE kind='dataset_organization' AND id=?",
             [research_metadata::snapshot_key(target)?],
             |r| r.get(0),
@@ -117,8 +125,11 @@ pub(crate) fn retain_presentation(
         return Ok(());
     }
     let manifest = |pin: &Value| -> Result<String> {
-        Ok(db.query_row("SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=?",
-            params![pin["id"].as_str(), pin["revision"].as_i64()], |row| row.get(0))?)
+        Ok(db.query_row(
+            "SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=?",
+            params![pin["id"].as_str(), pin["revision"].as_i64()],
+            |row| row.get(0),
+        )?)
     };
     if overlay["source_sha256"] != hash(manifest(base)?) || overlay["target"] != json!(original) {
         return Ok(());
@@ -129,8 +140,14 @@ pub(crate) fn retain_presentation(
     carried["source_sha256"] = json!(hash(manifest(next)?));
     carried["task_ref"] = json!({"id":task["id"],"revision":task["revision"]});
     carried["inherited_from"] = json!(original);
-    db.execute("INSERT OR IGNORE INTO rust_annotations VALUES('dataset_organization',?,?,?)",
-        params![research_metadata::snapshot_key(&target)?, encode(&carried)?, now()])?;
+    db.execute(
+        "INSERT OR IGNORE INTO rust_annotations VALUES('dataset_organization',?,?,?)",
+        params![
+            research_metadata::snapshot_key(&target)?,
+            encode(&carried)?,
+            now()
+        ],
+    )?;
     Ok(())
 }
 pub fn attach_context(app: &Application, entity: &mut Value) -> Result<()> {
@@ -228,12 +245,20 @@ impl Application {
         }
         let target: Target = crate::contracts::decode(args["target"].clone())?;
         let sha = crate::dataset_lineage::exact(self, &target)?;
-        require(args.get("path").is_some() || DISPLAY_FIELDS.iter().any(|field| args.get(field).is_some()),
-            "organization", "Supply Dataset presentation metadata or a subgroup path", 400)?;
+        require(
+            args.get("path").is_some()
+                || DISPLAY_FIELDS.iter().any(|field| args.get(field).is_some()),
+            "organization",
+            "Supply Dataset presentation metadata or a subgroup path",
+            400,
+        )?;
         let task = &args["task_ref"];
         let mut entity = record_with_context(self, &target)?;
         require(
-            entity["task_refs"].as_array().into_iter().flatten()
+            entity["task_refs"]
+                .as_array()
+                .into_iter()
+                .flatten()
                 .any(|r| r["id"] == task["id"] && r["revision"] == task["revision"]),
             "organization_task",
             "Reuse a Task already linked to this exact Dataset",
@@ -242,8 +267,13 @@ impl Application {
         attach(self, &mut entity)?;
         let current = &entity["dataset_organization"];
         let empty_path = json!([]);
-        let same_task = current["task_ref"]["id"] == task["id"] && current["task_ref"]["revision"] == task["revision"];
-        let path = args.get("path").unwrap_or(if same_task { &current["path"] } else { &empty_path });
+        let same_task = current["task_ref"]["id"] == task["id"]
+            && current["task_ref"]["revision"] == task["revision"];
+        let path = args.get("path").unwrap_or(if same_task {
+            &current["path"]
+        } else {
+            &empty_path
+        });
         validate_path(path)?;
         // Stable path IDs cannot silently acquire conflicting display labels.
         for row in rows(
@@ -308,7 +338,10 @@ impl Application {
             tx.execute("INSERT OR IGNORE INTO rust_annotations VALUES('dataset_organization_history',?,?,?)",params![hash(encode(&previous)?),encode(&previous)?,now()])?;
         }
         tx.execute("INSERT INTO rust_annotations VALUES('dataset_organization',?,?,?) ON CONFLICT(kind,id) DO UPDATE SET body=excluded.body,updated=excluded.updated",params![key,encode(&record)?,now()])?;
-        tx.execute("UPDATE rust_projection_version SET version=version+1 WHERE id=1", [])?;
+        tx.execute(
+            "UPDATE rust_projection_version SET version=version+1 WHERE id=1",
+            [],
+        )?;
         result["stored"] = json!(true);
         receipt(
             &tx,

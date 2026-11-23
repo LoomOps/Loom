@@ -930,7 +930,9 @@ impl Application {
                 }
             }
             if kind == "dataset" && row.spec["_dataset_split_required"] == true {
-                crate::metadata_templates::require_dataset_split(&published["metadata"]["research"])?;
+                crate::metadata_templates::require_dataset_split(
+                    &published["metadata"]["research"],
+                )?;
             }
             if let Some(pin) =
                 crate::metadata_templates::validate_output(&row.spec["profile"], entity)?
@@ -1162,9 +1164,18 @@ impl Application {
                     ],
                 )?;
                 if kind == "dataset" {
-                    if let Some(base) = record["relations"].as_array().into_iter().flatten()
-                        .find(|relation| relation["kind"] == "revises") {
-                        crate::dataset_organization::retain_presentation(&tx, base, &record, &row.spec["scenario_ref"])?;
+                    if let Some(base) = record["relations"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .find(|relation| relation["kind"] == "revises")
+                    {
+                        crate::dataset_organization::retain_presentation(
+                            &tx,
+                            base,
+                            &record,
+                            &row.spec["scenario_ref"],
+                        )?;
                     }
                 }
                 for (component, reference) in &locations {

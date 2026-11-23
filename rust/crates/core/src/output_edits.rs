@@ -151,7 +151,12 @@ fn verify_append(base: &Value, next: &Value) -> Result<()> {
         "output_edit_membership", "Retain existing member IDs and splits. Publish a separate Dataset to repartition membership.", 409)
 }
 
-fn require_unused_dataset(db: &Connection, base: &Value, source: &Value, producer: &str) -> Result<()> {
+fn require_unused_dataset(
+    db: &Connection,
+    base: &Value,
+    source: &Value,
+    producer: &str,
+) -> Result<()> {
     // Read accepted inputs and source records in the publication transaction. The
     // replacement producer necessarily consumes its base, so exclude that Unit
     // and its published candidate, while still checking its other Units.
@@ -175,7 +180,12 @@ fn require_unused_dataset(db: &Connection, base: &Value, source: &Value, produce
         params![base["id"].as_str(), base["revision"].as_i64(), source["id"].as_str(), source["revision"].as_i64(), producer],
         |r| r.get(0),
     )?;
-    require(!used, "dataset_in_use", "This Dataset revision has references. Keep the completed candidate as a separate Dataset.", 409)
+    require(
+        !used,
+        "dataset_in_use",
+        "This Dataset revision has references. Keep the completed candidate as a separate Dataset.",
+        409,
+    )
 }
 
 impl Application {
@@ -262,7 +272,12 @@ impl Application {
             }
         }
         if !checkpoints.is_empty() {
-            checkpoints.sort_by_key(|c| (c["step"].as_u64().unwrap_or(u64::MAX), c["revision"].as_u64()));
+            checkpoints.sort_by_key(|c| {
+                (
+                    c["step"].as_u64().unwrap_or(u64::MAX),
+                    c["revision"].as_u64(),
+                )
+            });
             record["policy_checkpoints"] = json!(checkpoints);
         }
         Ok(())
@@ -292,8 +307,14 @@ impl Application {
             }
         }
         let spans_revisions = revisions.len() > 1
-            || revisions.first().is_some_and(|history| history["revision"] != record["loom_registry"]["revision"]);
-        record["policy_training_revisions"] = if spans_revisions { json!(revisions) } else { json!([]) };
+            || revisions
+                .first()
+                .is_some_and(|history| history["revision"] != record["loom_registry"]["revision"]);
+        record["policy_training_revisions"] = if spans_revisions {
+            json!(revisions)
+        } else {
+            json!([])
+        };
         Ok(())
     }
 
@@ -324,7 +345,12 @@ impl Application {
             409,
         )?;
         if replace_unused {
-            require(kind == "dataset", "output_revision", "Only a Regular Dataset supports unused replacement", 400)?;
+            require(
+                kind == "dataset",
+                "output_revision",
+                "Only a Regular Dataset supports unused replacement",
+                400,
+            )?;
             let report = self.registered_membership(source, &record)?;
             members(&report)?;
         } else if kind == "dataset" {
@@ -384,7 +410,12 @@ impl Application {
                 "SELECT EXISTS(SELECT 1 FROM rust_annotations WHERE kind='output_disposition' AND id=? AND json_extract(body,'$.state')='discarded')",
                 [base_key], |row| row.get(0),
             )?;
-            require(!discarded, "output_revision", "Use a Current Dataset as the replacement target", 409)?;
+            require(
+                !discarded,
+                "output_revision",
+                "Use a Current Dataset as the replacement target",
+                409,
+            )?;
             require_unused_dataset(&tx, base, source, &producer)?;
             record["revision_mode"] = json!("replace_unused");
         }
@@ -415,7 +446,12 @@ impl Application {
             params![base_id, revision, kind, owner, submitter, encode(&record)?],
         )?;
         if kind == "dataset" {
-            crate::dataset_organization::retain_presentation(&tx, base, &record, &record["scenario_ref"])?;
+            crate::dataset_organization::retain_presentation(
+                &tx,
+                base,
+                &record,
+                &record["scenario_ref"],
+            )?;
         }
         let copied = tx.execute("INSERT INTO asset_locations SELECT ?,?,component,machine_id,storage_id,ref,status FROM entity_locations WHERE id=? AND revision=?",
             params![base_id,revision,source_id,source["revision"].as_i64()])?;
