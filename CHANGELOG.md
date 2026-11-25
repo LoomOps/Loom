@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0-alpha.87
+
+- Pin Loom Use alpha.18 with updated guidance for early specialist delegation and Job preparation.
+
 ## 0.2.0-alpha.86
 
 - Load Dashboard resource scopes separately and page terminal history in finish order. Defer detailed Runtime usage, registered files and training reports until requested.
