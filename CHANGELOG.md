@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0-alpha.86
+
+- Load Dashboard resource scopes separately and page terminal history in finish order. Defer detailed Runtime usage, registered files and training reports until requested.
+- Keep catalog summaries and comparisons tied to exact revision records and refresh the views affected by each change.
+- Preserve execution and log evidence during container return, and prioritize live log collection.
+- Pin Loom Use alpha.17, which adds optional Agent Workflows for an existing Codex parent conversation.
+
 ## 0.2.0-alpha.80
 
 - Claim existing Dataset and Policy records for explicitly authorized Job updates, while active readers retain their exact versions.

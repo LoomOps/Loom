@@ -326,6 +326,7 @@
       "contracts": [
         "rust/crates/core/src/jobs.rs",
         "rust/crates/core/src/query.rs",
+        "loom_use/recovery.md",
         "ops/access.py",
         "ops/recovery.py"
       ],

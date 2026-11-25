@@ -371,6 +371,32 @@ fn fast_stage_failure_preserves_the_accepted_log_ticket() {
 }
 
 #[test]
+fn live_log_collection_does_not_wait_for_the_returned_history_cursor() {
+    let mut f = Fixture::new();
+    f.submit("returned-first");
+    let old = f.app.next_work(&Default::default()).unwrap().unwrap();
+    f.app
+        .effect_accepted(&old, json!({"ticket":"old-ticket"}))
+        .unwrap();
+    f.app
+        .stage_returned(&old, 1, json!({"returned":true}))
+        .unwrap();
+    let live_job = f.submit("live-second");
+    let live = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_eq!(live.job, live_job);
+    f.app
+        .effect_accepted(&live, json!({"ticket":"live-ticket"}))
+        .unwrap();
+
+    let batch = f.app.log_collection_candidates("").unwrap();
+    assert_eq!(batch[0]["id"], live.effect);
+    assert_eq!(batch[1]["id"], old.effect);
+    let after = f.app.log_collection_candidates("\u{10ffff}").unwrap();
+    assert_eq!(after.len(), 1);
+    assert_eq!(after[0]["id"], live.effect);
+}
+
+#[test]
 fn diagnostic_artifact_retains_technical_failure_and_creates_searchable_recovery_evidence() {
     let mut f = Fixture::new();
     let id = f.submit("diagnostic-only");
@@ -461,6 +487,106 @@ fn diagnostic_artifact_retains_technical_failure_and_creates_searchable_recovery
     assert_eq!(search["items"].as_array().unwrap().len(), 1);
     let old = f.call("results", "historical", initial_ref).unwrap();
     assert!(old["body"]["entity"]["properties"]["findings"].is_null());
+}
+
+#[test]
+fn recovered_attempt_publishes_a_new_diagnostic_revision_and_reindexes_it() {
+    let mut f = Fixture::new();
+    let id = f.submit("retry-diagnostic-output");
+    let manifest = json!({"entities":[{"id":"diagnostic","kind":"artifact","path":"diagnostic.json"}],"metrics":[]});
+    let mut failed_manifest = manifest.clone();
+    failed_manifest["execution_outcome"] =
+        json!({"status":"failed","code":"missing_input","planned":1,"started":0,"valid":0});
+    let first_run = f.app.next_work(&Default::default()).unwrap().unwrap();
+    f.app
+        .stage_returned(&first_run, 0, json!({"returned":true}))
+        .unwrap();
+    let first_publish = f.app.next_work(&Default::default()).unwrap().unwrap();
+    fs::create_dir_all(&first_publish.folder).unwrap();
+    fs::write(
+        first_publish.folder.join("diagnostic.json"),
+        br#"{"status":"failed"}"#,
+    )
+    .unwrap();
+    f.app.publish_work(&first_publish, failed_manifest).unwrap();
+    let artifact = format!("{id}.diagnostic");
+    let old = f
+        .call("results", "get", json!({"id":artifact,"revision":1}))
+        .unwrap();
+    assert_eq!(old["attempt"], first_run.attempt);
+
+    let claim = f.call("recovery", "claim", json!({"id":id})).unwrap();
+    f.call(
+        "recovery",
+        "resume",
+        json!({"id":id,"lease":claim["lease"]}),
+    )
+    .unwrap();
+    let second_run = f.app.next_work(&Default::default()).unwrap().unwrap();
+    assert_ne!(second_run.attempt, first_run.attempt);
+    f.app
+        .stage_returned(&second_run, 0, json!({"returned":true}))
+        .unwrap();
+    let second_publish = f.app.next_work(&Default::default()).unwrap().unwrap();
+    fs::create_dir_all(&second_publish.folder).unwrap();
+    fs::write(
+        second_publish.folder.join("diagnostic.json"),
+        br#"{"status":"complete"}"#,
+    )
+    .unwrap();
+    f.app
+        .publish_work_failed(
+            &second_publish,
+            crate::Error::new("outputs", "Failed publication fixture", 409),
+        )
+        .unwrap_err();
+    assert_eq!(
+        f.call("jobs", "get", json!({"id":id})).unwrap()["state"],
+        "result_failed"
+    );
+
+    let key = json!({"id":id,"attempt":second_run.attempt});
+    for _ in 0..2 {
+        f.call("results", "reindex", key.clone()).unwrap();
+        let publish = f.app.next_work(&Default::default()).unwrap().unwrap();
+        let result = f.app.publish_work(&publish, manifest.clone()).unwrap();
+        assert_eq!(publish.attempt, second_run.attempt);
+        assert_eq!(
+            result["entities"][0]["registry_ref"],
+            json!({"id":artifact,"revision":2})
+        );
+    }
+    let current = f
+        .call("results", "get", json!({"id":artifact,"revision":2}))
+        .unwrap();
+    assert_eq!(current["attempt"], second_run.attempt);
+    assert_ne!(
+        current["components"][0]["sha256"],
+        old["components"][0]["sha256"]
+    );
+    assert_eq!(
+        f.call("results", "get", json!({"id":artifact,"revision":1}))
+            .unwrap(),
+        old
+    );
+    assert_eq!(f.count("entity_revisions"), 2);
+    let detail = f.call("jobs", "get", json!({"id":id})).unwrap();
+    assert_eq!(detail["state"], "complete");
+    assert_eq!(detail["recovery"]["state"], "closed");
+    assert_eq!(detail["attempts"].as_array().unwrap().len(), 2);
+
+    f.call("results", "reindex", key).unwrap();
+    let publish = f.app.next_work(&Default::default()).unwrap().unwrap();
+    fs::write(publish.folder.join("diagnostic.json"), b"changed").unwrap();
+    assert_eq!(
+        f.app.publish_work(&publish, manifest).unwrap_err().code,
+        "immutable"
+    );
+    assert_eq!(
+        f.call("results", "get", json!({"id":artifact,"revision":2}))
+            .unwrap(),
+        current
+    );
 }
 
 #[test]
@@ -2637,6 +2763,96 @@ fn runtime_usage_uses_frozen_stage_receipts_even_for_failed_operational_jobs() {
     );
 }
 #[test]
+fn dashboard_history_orders_terminal_rows_before_paging_and_keeps_exact_links() {
+    let mut f = Fixture::new();
+    let base = store::now() - 1000.;
+    let mut expect = Vec::new();
+    for n in 0..12 {
+        let id = f.submit(&format!("history-page-{n}"));
+        f.app
+            .db
+            .execute("UPDATE jobs SET state='complete' WHERE id=?", [&id])
+            .unwrap();
+        f.app
+            .db
+            .execute(
+                "INSERT INTO stage_runs VALUES(?,'run-receipt','run',?,?,'returned')",
+                rusqlite::params![id, base + n as f64 * 2., base + n as f64 * 2. + 1.],
+            )
+            .unwrap();
+        expect.insert(0, id);
+    }
+    let running = f.submit("history-page-active");
+    f.app
+        .db
+        .execute("UPDATE jobs SET state='running' WHERE id=?", [&running])
+        .unwrap();
+    let first = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"projection":"history","limit":10}),
+        )
+        .unwrap();
+    let second = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"projection":"history","limit":10,"cursor":first["next_cursor"]}),
+        )
+        .unwrap();
+    let ids = |page: &Value| {
+        page["entities"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["id"].as_str().unwrap().to_owned())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(ids(&first), expect[..10]);
+    assert_eq!(ids(&second), expect[10..]);
+    let row = &first["entities"][0];
+    assert_eq!(row["loom_job"]["id"], expect[0]);
+    assert_eq!(row["summary_only"], true);
+    assert!(row.get("attempts").is_none());
+    assert_eq!(
+        f.app.job_detail(&expect[0]).unwrap()["stages"][0]["stage"],
+        "run"
+    );
+    assert!(second["next_cursor"].is_null());
+}
+
+#[test]
+fn dashboard_inspector_and_revision_domains_are_independent_of_detailed_queue_reads() {
+    let mut f = Fixture::new();
+    let before = f.app.dashboard_domains().unwrap();
+    let id = f.submit("scoped-inspector");
+    let after = f.app.dashboard_domains().unwrap();
+    assert_ne!(before["work"], after["work"]);
+    for key in ["history", "outputs", "software", "tasks"] {
+        assert_eq!(before[key], after[key]);
+    }
+    assert_ne!(before["software_usage"], after["software_usage"]);
+    let value = f.app.dashboard_resources("inspector").unwrap();
+    assert_eq!(value["sections"]["leases"]["data"]["queued_jobs"], 1);
+    assert!(value.get("leases").is_none());
+    assert!(value["sections"]["leases"]["data"].get("entries").is_none());
+    assert!(f.app.dashboard_resources("host").unwrap()["sections"]
+        .as_object()
+        .unwrap()
+        .is_empty());
+    assert!(f.app.dashboard_resources("storage").unwrap()["sections"]["storage"].is_object());
+    f.app
+        .db
+        .execute("UPDATE jobs SET state='complete' WHERE id=?", [&id])
+        .unwrap();
+    assert_ne!(
+        after["history"],
+        f.app.dashboard_domains().unwrap()["history"]
+    );
+}
+
+#[test]
 fn group_summary_tracks_later_nested_execution_without_rewriting_the_completed_root() {
     let mut f = Fixture::new();
     let main = f.submit("group-original");
@@ -4760,6 +4976,40 @@ fn inventory_publication_and_exact_member_inputs_do_not_expand_the_core_registry
         .unwrap();
     assert_eq!(page["items"].as_array().unwrap().len(), 200);
     assert!(page["next_cursor"].is_string());
+    let location: String = f
+        .app
+        .db
+        .query_row(
+            "SELECT ref FROM entity_locations WHERE id=?",
+            [&native],
+            |r| r.get(0),
+        )
+        .unwrap();
+    let directory = format!("data/0/{}", location.rsplit_once('/').unwrap().0);
+    let files = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"projection":"files","directory":directory,"limit":5}),
+        )
+        .unwrap();
+    assert_eq!(files["children"].as_array().unwrap().len(), 5);
+    assert_eq!(files["children"][0]["name"], "f0000.txt");
+    assert_eq!(
+        files["children"][0]["entity"]["item_revision_id"],
+        item["revision_id"]
+    );
+    assert_eq!(files["next_offset"], 5);
+    assert_eq!(
+        f.call(
+            "system",
+            "dashboard_page",
+            json!({"projection":"files","directory":"data/0/../other"})
+        )
+        .unwrap_err()
+        .status,
+        400
+    );
     assert!(f.count("catalog_items") < 10);
     fs::remove_dir_all(crate::index_store::directory(&f.app.local, &f.app.config)).unwrap();
     let input = f
@@ -5661,6 +5911,42 @@ fn dashboard_keeps_frozen_consolidation_and_does_not_hide_a_new_source_attempt()
         detail["internal_steps"]["steps"][0]["source_execution"]["started"],
         110.
     );
+    // Group timing includes the frozen Attempt's fallback interval even with
+    // callback receipts, and does not pick up the source's later running Attempt.
+    f.app
+        .db
+        .execute(
+            "INSERT INTO stage_runs VALUES(?,'preserved-attempt','on_complete',200,210,'returned')",
+            [&source],
+        )
+        .unwrap();
+    let followup = f.submit("followup-timing");
+    f.call(
+        "jobs",
+        "curate",
+        json!({"key":"followup-group","reason":"Follow-up to the same outcome",
+        "dry_run":false,"changes":[{"kind":"job","id":followup,
+            "presentation":{"parent_job":root,"label":"Curated follow-up"}}]}),
+    )
+    .unwrap();
+    f.app
+        .db
+        .execute("UPDATE jobs SET state='complete' WHERE id=?", [&followup])
+        .unwrap();
+    f.app
+        .db
+        .execute(
+            "INSERT INTO stage_runs VALUES(?,'followup-attempt','run',350,380,'returned')",
+            [&followup],
+        )
+        .unwrap();
+    let group = f.app.job_group_summary(&root).unwrap();
+    assert_eq!(
+        group["execution_intervals"],
+        json!([{"start":110.,"end":200.},{"start":300.,"end":340.},{"start":350.,"end":380.}])
+    );
+    assert_eq!(group["latest_job"]["label"], "Curated follow-up");
+    assert_eq!(group["last_ended"], 380.);
     let listing = f.call("jobs", "list", json!({"view":"all"})).unwrap();
     assert!(
         listing
@@ -5897,7 +6183,7 @@ fn scientific_summary_does_not_confuse_validation_checks_with_policy_success_or_
 
 #[test]
 fn scientific_json_enrichment_checks_hashes_and_preserves_original_database_rows() {
-    let f = Fixture::new();
+    let mut f = Fixture::new();
     let data = f.root.join("data");
     let raw=br#"{"physics_hz":240,"sampling_clocks_hz":{"command":80,"RGB":20},"totals":{"adopted":4},"hdf5":{"rgb":"obs/rgb","action":"actions"}}"#;
     fs::write(data.join("scientific.json"), raw).unwrap();
@@ -5937,6 +6223,45 @@ fn scientific_json_enrichment_checks_hashes_and_preserves_original_database_rows
         )
         .unwrap();
     assert_eq!(serde_json::from_str::<Value>(&original).unwrap(), manifest);
+    for _ in 0..5 {
+        f.app.index_once().unwrap();
+    }
+    let (revision, target) = f
+        .app
+        .pending_browse_summaries(std::iter::empty::<&[u8]>())
+        .unwrap()
+        .into_iter()
+        .find(|(_, target)| target["identity"]["id"] == "scientific")
+        .unwrap();
+    assert!(f
+        .app
+        .pending_browse_summaries(std::iter::once(&revision))
+        .unwrap()
+        .into_iter()
+        .all(|(_, target)| target["identity"]["id"] != "scientific"));
+    let prepared = f.app.prepare_browse_summary(revision, target).unwrap();
+    f.app.commit_browse_summary(prepared).unwrap();
+    assert_eq!(f.count("rust_browse_summaries"), 1);
+    let browse = f
+        .call(
+            "system",
+            "dashboard_page",
+            json!({"projection":"list","kinds":["dataset"]}),
+        )
+        .unwrap();
+    let card = browse["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["id"] == "scientific")
+        .unwrap();
+    assert_eq!(card["summary_only"], true);
+    assert!(card["loom_files"].is_null());
+    assert!(card["research_summary"]["facts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|v| v["id"] == "physics_hz" && v["value"] == 240));
     // A selected page always revalidates bytes, independently of the whole-catalog cache.
     fs::write(data.join("scientific.json"), vec![b' '; raw.len()]).unwrap();
     let selected =
@@ -5957,6 +6282,14 @@ fn scientific_json_enrichment_checks_hashes_and_preserves_original_database_rows
         .unwrap()
         .iter()
         .any(|v| v["id"] == "physics_hz"));
+    f.app
+        .db
+        .execute(
+            "UPDATE asset_locations SET status='unavailable' WHERE id='scientific'",
+            [],
+        )
+        .unwrap();
+    assert_eq!(f.count("rust_browse_summaries"), 0);
 }
 
 #[test]

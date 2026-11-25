@@ -21,6 +21,10 @@ pub enum Message {
         oneshot::Sender<Result<Value>>,
     ),
     CatalogTick(oneshot::Sender<Result<Value>>),
+    BrowseSummary(
+        loom_core::research_metadata::PreparedBrowseSummary,
+        oneshot::Sender<Result<()>>,
+    ),
     Inventory(
         loom_core::inventory::PreparedInventory,
         oneshot::Sender<Result<()>>,
@@ -88,6 +92,9 @@ impl Service {
                     }
                     Message::CatalogTick(s) => {
                         let _ = s.send(application.catalog_tick());
+                    }
+                    Message::BrowseSummary(prepared, s) => {
+                        let _ = s.send(application.commit_browse_summary(prepared));
                     }
                     Message::Inventory(p, s) => {
                         let _ = s.send(application.commit_inventory(p));

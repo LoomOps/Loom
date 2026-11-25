@@ -24,7 +24,7 @@ Call `system.status` to confirm the target, principal and admission state. `syst
 
 Use the IDs returned by this server's index; older engines may expose fewer topics.
 
-MCP exposes jobs, units, recovery, events, components, results and system at `/mcp`. HTTP uses the same operations at `POST /api/actions`. A client connects using the URL and authentication method supplied for that installation; setup belongs to the independent [Loom-Use installer](https://github.com/LoomOps/Loom-Use/blob/main/INSTALL.md).
+Discover the MCP tools available to the connected principal at `/mcp`. HTTP uses the same operations at `POST /api/actions`. A client connects using the URL and authentication method supplied for that installation; setup belongs to the independent [Loom-Use installer](https://github.com/LoomOps/Loom-Use/blob/main/INSTALL.md).
 
 The response's onboarding identity distinguishes contract and guide changes. Refresh affected schemas/guides when it changes; keep accepted Job IDs, original request keys and execution pins. New documentation does not prove that another installation has the same features. No resident agent hierarchy is required.
 

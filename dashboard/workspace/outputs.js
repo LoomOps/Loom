@@ -299,7 +299,7 @@ const loomOutputComparison=comparison;
 comparison=function(){
  // Comparison can be entered directly, before either list has been loaded.
  const pages=['model','experiment'].map(kind=>loomCatalogPager(kind,kind==='model'?'Load more policies':'Load more experiments')).join('');
- const pending=(state.compareRuns||[]).filter(id=>!catEntity(id)),selected=[...(state.compareRuns||[])],base=state.compareBase;
+ const pending=(state.compareRuns||[]).filter(id=>!catEntity(id)||catEntity(id).summary_only),selected=[...(state.compareRuns||[])],base=state.compareBase;
  for(const id of pending)if(!loomCatalogOpening.has(id)){
   loomCatalogOpening.add(id);
   queueMicrotask(()=>loomCatalogOpen(id,false).catch(error=>{

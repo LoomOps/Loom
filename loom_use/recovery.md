@@ -62,6 +62,6 @@ Resident agents, scheduling, callbacks and multi-agent routing are caller choice
 
 ## Troubleshooting records
 
-Claim the exact failed Unit and read the returned `troubleshooting` records before repair. They contain the original Attempt, failure stage, pinned Profile and available Runtime, and exact log arguments. Use `jobs.logs` with that execution and Attempt. Use `results.search_items` with `kinds: ["issue"]` to find related incidents by Profile or error code. Compare pins and authority before reusing a repair.
+Claim the exact failed Unit and read the returned `troubleshooting` records before repair. They contain the original Attempt, failure stage, pinned Profile and available Runtime. Use `jobs.log_streams` for that Unit, Attempt and stage, then `jobs.read_log` for the exact stream. Use `results.search_items` with `kinds: ["issue"]` to find related incidents by Profile or error code. Compare pins and authority before reusing a repair.
 
 After checking the exact failure or validating the repair, pass a short `finding` with `recovery.progress` and the current lease. Findings are visible to Loom readers. Include verified conclusions and omit credentials, raw logs, and private paths. A subsequent successful publication for the same execution links the verifying Attempt on its incident records.

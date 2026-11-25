@@ -19,7 +19,10 @@ For a connected installation, `system.guide` supplies that binary's task guides 
 
 ## Design and migration records
 
-The [scientific Output and Experimental Setup proposal](metadata-templates/OUTPUT-EVIDENCE.md) defines analysis coverage, evidence ownership and Sim–Real comparison.
+The [scientific Output and Experimental Setup proposal](metadata-templates/OUTPUT-EVIDENCE.md)
+records the design for analysis coverage, evidence ownership and Sim–Real
+comparison. Use the [reporting guide](../loom_use/reporting.md) for current
+publishing contracts.
 
 The [current Job and Unit boundaries](jobs/BOUNDARIES.md) describe research outcomes, scheduling and catalog publication. The [original design and rollout record](jobs/JOB-UNIT-DESIGN.md) explains how those boundaries were chosen.
 

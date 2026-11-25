@@ -1,7 +1,54 @@
+const loomExplorerPages=new Map();
+function loomExplorerKey(directory){return JSON.stringify([loomCatalogStamp('outputs'),directory]);}
+function loomLoadExplorerFolder(folder,more=false,retry=false){
+ if(!folder.startsWith('storage/data/'))return;
+ const directory=folder.slice('storage/'.length),key=loomExplorerKey(directory);
+ const previous=loomExplorerPages.get(key);
+ if(previous?.pending||more&&previous?.next==null||previous&&!more&&!retry)return;
+ const page={children:more?previous.children:[],next:more?previous.next:null,pending:true};
+ loomExplorerPages.set(key,page);
+ loomSearchAction('system','dashboard_page',{projection:'files',directory,limit:50,offset:more?previous.next:0}).then(result=>{
+  page.children.push(...result.children);page.next=result.next_offset;
+ }).catch(error=>{page.error=error.message;}).finally(()=>{
+  page.pending=false;
+  while(loomExplorerPages.size>48)loomExplorerPages.delete(loomExplorerPages.keys().next().value);
+  if(root.querySelector('.pa-finder'))scheduleCatalogRender();
+ });
+}
+function loomExplorerFolderStatus(folder){
+ if(!catalogData.capabilities?.compact_lists||folder.id==='storage')return {loading:false,footer:''};
+ const page=loomExplorerPages.get(loomExplorerKey(folder.id.slice('storage/'.length)));
+ if(!page)queueMicrotask(()=>loomLoadExplorerFolder(folder.id));
+ if(!page||page.pending&&!page.children.length)return {loading:true,footer:''};
+ const footer=page.error?'<button data-explorer-retry="'+esc(folder.id)+'">Retry</button>'
+  :page.next!=null?'<button data-explorer-more="'+esc(folder.id)+'"'+(page.pending?' disabled':'')+'>더보기</button>':'';
+ return {loading:false,footer};
+}
 function loomRebuildExplorer() {
   const nodes=new Map([['storage',{id:'storage',name:'Data Storage',folder:true}]]);
   const observed=resourceData?.sections?.storage?.data;
   const roots=new Set(Array.isArray(observed)?observed.map(item=>item.path).filter(path=>/^data\/[^/]+$/.test(path)):[]);
+  if(catalogData.capabilities?.compact_lists){
+    for(const path of [...roots].sort())nodes.set('storage/'+path,{id:'storage/'+path,name:path,parent:'storage',folder:true});
+    const selected=state.fileSelected||'storage';
+    const trail=selected.match(/^(storage\/data\/[^/]+)(?:\/(.*))?$/);
+    const parents=[];
+    if(trail&&nodes.has(trail[1])){
+      let parent=trail[1];parents.push(parent);
+      for(const label of (trail[2]||'').split('/').filter(Boolean)){parent+='/'+label;parents.push(parent);}
+    }
+    for(const parent of parents){
+      if(!nodes.get(parent)?.folder)break;
+      const page=loomExplorerPages.get(loomExplorerKey(parent.slice('storage/'.length)));
+      if(!page){queueMicrotask(()=>loomLoadExplorerFolder(parent));break;}
+      for(const entry of page.children){
+        const id=parent+'/'+entry.name;
+        nodes.set(id,{id,name:entry.name,parent,folder:entry.folder,entries:entry.file?[{file:entry.file,entity:entry.entity}]:[]});
+      }
+    }
+    fileNodes.splice(0,fileNodes.length,...nodes.values());
+    return;
+  }
   const files=(catalogData.all_entities||catalogData.entities).flatMap(entity=>(entity.loom_files||[]).map(file=>({file,entity})));
   // The catalog indexes registered files, not the host's arbitrary filesystem.
   if(!Array.isArray(observed))for(const {file} of files){
@@ -25,7 +72,7 @@ function loomRebuildExplorer() {
   fileNodes.splice(0,fileNodes.length,...nodes.values());
 }
 const loomExplorerRefresh=catalogRefreshViews;
-catalogRefreshViews=function(...args) {const result=loomExplorerRefresh(...args);loomRebuildExplorer();return result;};
+catalogRefreshViews=function(...args) {return loomExplorerRefresh(...args);};
 
 function loomFileStatus(status) {
   return ({available:'사용 가능',intentionally_not_migrated:'이관 제외',missing:'파일 없음',corrupt:'무결성 불일치',too_large:'미리보기 용량 초과'})[status]||status||'미확인';
@@ -43,13 +90,25 @@ files=function() {
     : '<dt>항목</dt><dd>'+fileNodes.filter(node=>node.parent===current.id).length+'</dd>';
   const previews=chosen?.entity.loom_media?.filter(item=>item.id===chosen.file.preview_id);
   const preview=previews?.length?loomMediaPanel(chosen.entity,previews):'';
+  const folderBody=folder=>{
+   const status=loomExplorerFolderStatus(folder);
+   const entries=fileNodes.filter(node=>node.parent===folder.id);
+   if(status.loading)return '<div class="pa-empty-column" role="status">Loading…</div>';
+   const list=entries.sort((a,b)=>Number(b.folder)-Number(a.folder)||a.name.localeCompare(b.name)).map(node=>
+     `<button class="pa-column-node ${current.id===node.id?'is-current':''}" role="option" aria-selected="${selected.has(node.id)}" data-column-node="${esc(node.id)}" title="${esc(node.name)}">${icon(node.folder?'folder':'file-text')}<span>${esc(node.name)}</span>${node.folder?icon('chevron-right'):''}</button>`).join('');
+   return list+status.footer||'<div class="pa-empty-column">등록된 파일이 없습니다.</div>';
+  };
   let body=heading('WORKSPACE','Explorer','')
-    +`<section class="pa-finder"><div class="pa-finder-toolbar"><span>${icon('columns-3')} 열 보기</span><span class="pa-muted-label">읽기 전용 · 선택한 파일만 불러옵니다</span></div><div class="pa-finder-dock"><aside class="pa-finder-favorites">${favorites.map(node=>`<button data-column-node="${esc(node.id)}" class="${selected.has(node.id)?'active':''}">${icon('folder')}${esc(node.name==='references'?'이관되지 않은 참조':node.name)}</button>`).join('')}</aside><div class="pa-columns-strip" aria-label="폴더 열 탐색">${trail.filter(node=>node.folder).slice(-2).map(folder=>`<div class="pa-finder-column"><div class="pa-column-title">${esc(folder.name)}</div><div class="pa-column-items" role="listbox" aria-label="${esc(folder.name)} 항목">${fileNodes.filter(node=>node.parent===folder.id).sort((a,b)=>Number(b.folder)-Number(a.folder)||a.name.localeCompare(b.name)).map(node=>`<button class="pa-column-node ${current.id===node.id?'is-current':''}" role="option" aria-selected="${selected.has(node.id)}" data-column-node="${esc(node.id)}" title="${esc(node.name)}">${icon(node.folder?'folder':'file-text')}<span>${esc(node.name)}</span>${node.folder?icon('chevron-right'):''}</button>`).join('')||'<div class="pa-empty-column">등록된 파일이 없습니다.</div>'}</div></div>`).join('')}<aside class="pa-finder-preview" aria-label="선택 항목 정보">${preview}<div class="pa-file-symbol">${icon(current.folder?'folder':'file-text')}</div><h3>${esc(current.name)}</h3><dl class="pa-props">${description}</dl>${chosen?`<button class="pa-button" data-loom-explorer-entity="${esc(chosen.entity.id)}">연결된 ${esc(chosen.entity.label||'기록')} 열기</button>`:''}</aside></div></div><div class="pa-finder-path" aria-label="현재 경로">${trail.map(node=>`<button data-column-node="${esc(node.id)}">${esc(node.name)}</button>`).join('<span>›</span>')}</div></section>`;
+    +`<section class="pa-finder"><div class="pa-finder-toolbar"><span>${icon('columns-3')} 열 보기</span><span class="pa-muted-label">읽기 전용 · 선택한 파일만 불러옵니다</span></div><div class="pa-finder-dock"><aside class="pa-finder-favorites">${favorites.map(node=>`<button data-column-node="${esc(node.id)}" class="${selected.has(node.id)?'active':''}">${icon('folder')}${esc(node.name==='references'?'이관되지 않은 참조':node.name)}</button>`).join('')}</aside><div class="pa-columns-strip" aria-label="폴더 열 탐색">${trail.filter(node=>node.folder).slice(-2).map(folder=>`<div class="pa-finder-column"><div class="pa-column-title">${esc(folder.name)}</div><div class="pa-column-items" role="listbox" aria-label="${esc(folder.name)} 항목">${folderBody(folder)}</div></div>`).join('')}<aside class="pa-finder-preview" aria-label="선택 항목 정보">${preview}<div class="pa-file-symbol">${icon(current.folder?'folder':'file-text')}</div><h3>${esc(current.name)}</h3><dl class="pa-props">${description}</dl>${chosen?`<button class="pa-button" data-loom-explorer-entity="${esc(chosen.entity.id)}">연결된 ${esc(chosen.entity.label||'기록')} 열기</button>`:''}</aside></div></div><div class="pa-finder-path" aria-label="현재 경로">${trail.map(node=>`<button data-column-node="${esc(node.id)}">${esc(node.name)}</button>`).join('<span>›</span>')}</div></section>`;
   return body;
 };
 root.addEventListener('click',event=>{
+  const more=event.target.closest('[data-explorer-more],[data-explorer-retry]');
+  if(more){loomLoadExplorerFolder(more.dataset.explorerMore||more.dataset.explorerRetry,!!more.dataset.explorerMore,!!more.dataset.explorerRetry);return;}
   const button=event.target.closest('[data-loom-explorer-entity]');if(!button)return;
-  const entity=catEntity(button.dataset.loomExplorerEntity);if(!entity)return;
+  const id=button.dataset.loomExplorerEntity;
+  const entity=catEntity(id)||fileNodes.flatMap(node=>node.entries||[]).find(entry=>entry.entity.id===id)?.entity;
+  if(!entity)return;
   const page={model:'models',dataset:'datasets',experiment:'experiments'}[entity.kind]||'queue';
   openView({page,entity:entity.id});
 });

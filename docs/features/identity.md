@@ -2,7 +2,10 @@
 
 ## Boundary
 
-Ownership does not restrict access. Browser sessions and MCP authentication are independent; invalidated browser sessions cannot be reused.
+The principal's `read` scope controls shared discovery. Mutation authority is
+checked by each action, including owner and administrator checks where required.
+Browser sessions and MCP authentication are independent. Invalidated browser
+sessions cannot be reused.
 Signed Dashboard claims and trusted Tailscale ingress resolve configured user bindings with the same Unicode casefolding. A change of transport cannot select a different principal solely through email casing.
 Relay trust keys are bounded regular files; unavailable or special-file keys fail authentication without waiting for a writer.
 

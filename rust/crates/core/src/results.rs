@@ -1035,24 +1035,6 @@ impl Application {
                 409,
             )?;
         }
-        // Intra-result links name a producer's local output alias. Resolve that
-        // alias to its exact registry revision even when it supplements an Experiment.
-        if let Some((pos, (identity, _, revision, ..))) = prepared
-            .iter()
-            .enumerate()
-            .find(|(_, (_, _, r, ..))| r["revision"].as_i64().is_some_and(|rev| rev > 1))
-        {
-            let local = format!("{job}.{}", entities[pos]["id"].as_str().unwrap());
-            let pin = (identity.clone(), revision["revision"].clone());
-            for (_, _, record, ..) in &mut prepared {
-                for relation in record["relations"].as_array_mut().into_iter().flatten() {
-                    if relation["id"] == local {
-                        relation["id"] = json!(pin.0);
-                        relation["revision"] = pin.1.clone();
-                    }
-                }
-            }
-        }
         let machine = self.config.machine_id.clone();
         let tx = self.transaction()?;
         return_allowed(&tx)?;
@@ -1103,6 +1085,37 @@ impl Application {
             "Published output identities changed",
             409,
         )?;
+        let mut revised_outputs = std::collections::BTreeMap::new();
+        for ((identity, kind, record, ..), entity) in prepared.iter_mut().zip(entities) {
+            if !published.is_empty() && kind == "artifact" && record["revision"] == 1 {
+                record["revision"] = json!(artifact_attempt_revision(&tx, identity, job, attempt)?);
+            }
+            if record["revision"]
+                .as_i64()
+                .is_some_and(|revision| revision > 1)
+            {
+                let alias = format!("{job}.{}", entity["id"].as_str().unwrap());
+                revised_outputs.insert(alias, (identity.clone(), record["revision"].clone()));
+            }
+        }
+        // Only the producer's intra-result links follow its local aliases.
+        for ((_, _, record, ..), entity) in prepared.iter_mut().zip(entities) {
+            let local_links = entity["relations"].as_array().map_or(0, Vec::len);
+            for relation in record["relations"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .take(local_links)
+            {
+                if let Some((id, revision)) = relation["id"]
+                    .as_str()
+                    .and_then(|id| revised_outputs.get(id))
+                {
+                    relation["id"] = json!(id);
+                    relation["revision"] = revision.clone();
+                }
+            }
+        }
         let mut outputs = vec![];
         for ((identity, kind, record, reference, locations, sha, size), entity) in
             prepared.into_iter().zip(entities)
@@ -1241,6 +1254,33 @@ impl Application {
         Ok(result)
     }
 }
+
+fn artifact_attempt_revision(db: &Connection, id: &str, job: &str, attempt: &str) -> Result<i64> {
+    let previous = db
+        .query_row(
+            "SELECT e.revision,json_extract(e.manifest,'$.attempt')=? AS same_attempt,
+                COALESCE(json_extract(a.result,'$.execution_outcome.status')='failed',0)
+         FROM entity_revisions e LEFT JOIN attempt_results a
+           ON a.job=e.job AND a.attempt=json_extract(e.manifest,'$.attempt')
+         WHERE e.id=? AND e.job=? AND e.kind='artifact'
+         ORDER BY same_attempt DESC,e.revision DESC LIMIT 1",
+            params![attempt, id, job],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, Option<bool>>(1)?,
+                    row.get::<_, bool>(2)?,
+                ))
+            },
+        )
+        .optional()?;
+    Ok(match previous {
+        Some((revision, Some(true), _)) => revision,
+        Some((revision, Some(false), true)) => revision + 1,
+        _ => 1,
+    })
+}
+
 /// Validate the manifest envelope and bind typed outputs to the accepted Profile
 /// before the worker reads payload files. Publication also checks this against
 /// the stored Job spec under the Attempt fence.

@@ -82,7 +82,10 @@ impl Application {
         self.system_native(&native)
     }
     pub(crate) fn dashboard_queue(&self) -> Result<Value> {
-        let mut queue = self.queue_snapshot(false)?;
+        self.dashboard_queue_with_detail(false)
+    }
+    pub(crate) fn dashboard_queue_with_detail(&self, compact: bool) -> Result<Value> {
+        let mut queue = self.queue_snapshot(false, compact)?;
         for key in ["entries", "logical_entries"] {
             if let Some(entries) = queue[key].as_array_mut() {
                 let mut visible = Vec::with_capacity(entries.len());

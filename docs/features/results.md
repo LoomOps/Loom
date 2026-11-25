@@ -8,6 +8,10 @@ revision and source hash frozen on the accepted Unit. Any explicit provenance
 must match those pins. Invalid manifest contracts enter recovery without repeating
 publication automatically. Unit details retain the latest publication error
 alongside the successful execution receipt.
+When a technical failure publishes a diagnostic Artifact, a later Attempt can
+publish the same output alias as the next immutable revision. A publication
+retry for the same Attempt reuses its revision and checks the original bytes.
+The earlier diagnostic evidence remains readable at its exact revision.
 File hashing, retained inventory and storage-marker reads reject symlinks and special files without waiting for a FIFO writer. Marker metadata is bounded to 64 KiB. Registered path/media descriptors close on exec; they do not become inherited producer permissions.
 
 ## Interfaces

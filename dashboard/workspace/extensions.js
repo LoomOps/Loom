@@ -199,7 +199,7 @@ function loomExecutionProfileDetail(entity){
   +panel('실행 흐름',`${software.length?`<div class="pa-profile-software">${p.component?software[0]:''}${p.tools?.length?`<section class="pa-profile-tools"><h3>Tools</h3><div>${software.slice(p.component?1:0).join('')}</div></section>`:''}</div>`:''}<ol class="pa-profile-flow">${stages||'<li class="pa-subtle">Stage 미기록</li>'}</ol>`)
   +(requirements.length?`<details class="pa-execution-options"><summary>소프트웨어 요구사항</summary>${catTable(['소프트웨어','Dependency','Version'],requirements.map(row=>row.map(esc)))}</details>`:'')
   +`<details class="pa-execution-options"><summary>입출력 · 실행 설정</summary>${contracts}</details>`
-  +`<details class="pa-execution-options"><summary>실행 기록 · ${(p.jobs||[]).length}</summary>${observed?`<div class="pa-profile-purposes" data-profile-observed title="실제 Job에 기록된 분류">${loomProfilePurpose(p,true)}</div>`:''}${jobs.length?catTable(['실행 기록','논리 Job','상태','용도','모드','현재 pin'],jobs):'<p class="pa-empty">사용 기록이 없습니다.</p>'}</details>`
+  +(entity.deferred_software_sections?loomDeferredSoftwareSection(entity,'profile_usage','실행 기록'):`<details class="pa-execution-options"><summary>실행 기록 · ${(p.jobs||[]).length}</summary>${observed?`<div class="pa-profile-purposes" data-profile-observed title="실제 Job에 기록된 분류">${loomProfilePurpose(p,true)}</div>`:''}${jobs.length?catTable(['실행 기록','논리 Job','상태','용도','모드','현재 pin'],jobs):'<p class="pa-empty">사용 기록이 없습니다.</p>'}</details>`)
   +`<details class="pa-execution-options"><summary>등록 정보</summary>${catProperties({Kind:p.kind,SHA256:p.sha256||'—',Namespace:p.namespace,'등록 경로':p.origin.type,Description:p.description||'—'})}</details>`;
 }
 
@@ -210,26 +210,97 @@ function loomRuntimeCard(entity){
  const facts=(item.summary_only||profiles==null?'':`<span>Profiles ${profiles}</span>`)+(startedJobs?`<span>Started Jobs ${startedJobs}</span>`:'');
  return `<article class="pa-extension-card" data-extension-card="${esc(entity.id)}"><div class="pa-extension-card-head">${loomExtensionBadges(entity,item.revision)}${loomRegistryBadge(entity)}<span>${esc(item.legacy?'Unverified':manifest.reconciliation?'Metadata checked':manifest.validation?.status==='passed'?'Checks passed':'Unverified')}</span></div><h3>${catLink(entity.id,item.curation?.label||entity.label)}</h3><div class="pa-profile-dependencies">${loomHubHighlights({...item,dependencies:manifest.dependencies})}</div>${facts?`<div class="pa-extension-card-facts">${facts}</div>`:''}</article>`;
 }
+function loomRuntimeJobTable(items){
+ return catTable(['Execution','Job group','Profile','Pinned stages','Started stages','State'],items.map(j=>{
+  const started=[...new Set((j.execution_receipts||[]).map(receipt=>receipt.stage))];
+  const stages=values=>(values||[]).map(stage=>stage==='runtime'?'run':stage).join(' · ')||'—';
+  return [loomJobInventoryLink(j.id),loomJobInventoryLink(j.group_root),catLink('profile:'+j.profile,j.profile),
+   esc(stages(j.stages)),esc(stages(started)),esc(j.state)];
+ }));
+}
+function loomPackageTable(items){
+ return catTable(['Package','Version','Scope','Origin'],items.map(d=>[esc(d.name),esc(d.version),esc(d.scope||'—'),esc(loomHubOrigin(d))]));
+}
+const loomSoftwareSectionPages=new Map();
+const loomSoftwareSectionInputs=new WeakMap();
+function loomDeferredSoftwareSection(entity,section,label,controls=''){
+ const key=entity.id+':'+section;
+ const opened=state.softwareSections?.includes(key);
+ return '<details class="pa-execution-options" data-exact-software="'+esc(section)+'" data-software-id="'+esc(entity.id)+'"'+(opened?' open':'')+'>'
+  +'<summary>'+esc(label)+'</summary>'+controls+'<div data-software-section-body></div></details>';
+}
+function loomReadSoftwareSection(details,more=false,refresh=false){
+ const name=details.dataset.exactSoftware,entity=catEntity(details.dataset.softwareId);
+ if(!details.open||!entity?.item_id)return;
+ const body=details.querySelector('[data-software-section-body]');
+ const filters=name==='runtime_inventory'?{origin:details.querySelector('[data-exact-inventory-origin]').value,text:details.querySelector('[data-exact-inventory-query]').value.trim().slice(0,256)}:{};
+ const key=JSON.stringify([entity.item_revision_id,name,loomCatalogStamp(name==='runtime_inventory'?'software':'work'),filters]);
+ const old=loomSoftwareSectionPages.get(key);
+ const draw=state=>{
+  if(!details.isConnected||details.dataset.softwareSectionKey!==key)return;
+  const items=state.items||[];
+  const content=name==='runtime_usage'?loomRuntimeJobTable(items):name==='runtime_inventory'?loomPackageTable(items)
+   :catTable(['Execution','Job group','State','Category','Execution mode'],items.map(j=>[loomJobInventoryLink(j.id),loomJobInventoryLink(j.logical_job),esc(j.state),esc(j.category||'—'),esc(j.execution_mode||'—')]));
+  body.innerHTML=items.length?content:state.pending?'<span role="status">Loading…</span>':state.error?'':'<span>—</span>';
+  if(state.error)body.insertAdjacentHTML('beforeend','<button data-software-section-retry>Retry</button>');
+  else if(state.next!=null)body.insertAdjacentHTML('beforeend','<button data-software-section-more'+(state.pending?' disabled':'')+'>More</button>');
+ };
+ details.dataset.softwareSectionKey=key;
+ if(old&&!refresh&&!more){
+  draw(old);
+  old.promise?.then(draw,()=>{});
+  return;
+ }
+ if(more&&(old?.pending||old?.next==null))return;
+ const page={items:more?old.items:[],next:more?old.next:null,pending:true};
+ loomSoftwareSectionPages.set(key,page);draw(page);
+ page.promise=loomSearchAction('system','dashboard_entity',{item_id:entity.item_id,revision_id:entity.item_revision_id,
+   section:name,offset:more?old.next:0,limit:50,...filters}).then(result=>{
+  page.items=[...page.items,...result.items];page.next=result.next_offset;return page;
+ }).catch(()=>{page.error=true;return page;}).finally(()=>{
+  page.pending=false;draw(page);
+  while(loomSoftwareSectionPages.size>64)loomSoftwareSectionPages.delete(loomSoftwareSectionPages.keys().next().value);
+ });
+}
+root.addEventListener('toggle',event=>{
+ const details=event.target;
+ if(!details.matches?.('[data-exact-software]'))return;
+ const pane=ws.panes.find(p=>p.id===details.closest('[data-pane]')?.dataset.pane);
+ if(!pane)return;
+ const view=activeTab(pane).view,key=details.dataset.softwareId+':'+details.dataset.exactSoftware;
+ const open=new Set(view.softwareSections||[]);
+ if(details.open){open.add(key);loomReadSoftwareSection(details);}
+ else open.delete(key);
+ view.softwareSections=[...open];
+},true);
+root.addEventListener('click',event=>{
+ const button=event.target.closest('[data-software-section-more],[data-software-section-retry]');
+ if(button)loomReadSoftwareSection(button.closest('[data-exact-software]'),button.hasAttribute('data-software-section-more'),button.hasAttribute('data-software-section-retry'));
+});
+for(const eventName of ['change','input'])root.addEventListener(eventName,event=>{
+ const input=event.target;
+ if(!input.matches?.('[data-exact-inventory-query],[data-exact-inventory-origin]')||event.isComposing)return;
+ const details=input.closest('[data-exact-software]');
+ clearTimeout(loomSoftwareSectionInputs.get(details));
+ loomSoftwareSectionInputs.set(details,setTimeout(()=>loomReadSoftwareSection(details),eventName==='change'?0:240));
+});
 function loomRuntimeDetail(entity){
  const item=entity.loom_runtime,manifest=item.manifest,policy=manifest.runtime||{},filter=state.inventoryOrigin||'managed',query=(state.inventoryQuery||'').toLowerCase();
  const deps=(manifest.dependencies||[]).filter(d=>(filter==='all'||loomHubOrigin(d)===filter)&&[d.name,d.version,d.scope].join(' ').toLowerCase().includes(query));
- const dependencies=catTable(['Package','Version','Scope','Origin'],deps.map(d=>[esc(d.name),esc(d.version),esc(d.scope||'—'),esc(loomHubOrigin(d))]));
- const profiles=(item.used_by_profiles||[]).map(p=>`<div class="pa-row">${catLink('profile:'+p.kind,loomProfileName(catEntity('profile:'+p.kind)?.loom_execution_profile||{kind:p.kind,label:p.kind}))}<span>${esc(p.stages.join(', '))}</span></div>`).join('')||'<p class="pa-empty">No linked profiles</p>';
- const jobs=item.job_usage?catTable(['Execution','Job group','Profile','Pinned stages','Started stages','State'],item.job_usage.map(j=>{
-   const started=[...new Set((j.execution_receipts||[]).map(receipt=>receipt.stage))];
-   const stages=values=>values.map(stage=>stage==='runtime'?'run':stage).join(' · ')||'—';
-   return [loomJobInventoryLink(j.id),loomJobInventoryLink(j.group_root),catLink('profile:'+j.profile,j.profile),
-    esc(stages(j.stages)),esc(stages(started)),esc(j.state)];
- }))+(item.jobs_complete===false?'<p class="pa-subtle">Showing 200 records</p>':''):(item.executed_jobs||[]).map(loomJobInventoryLink).join(' · ')||'—';
+ const profiles=(item.used_by_profiles||[]).map(p=>`<div class="pa-row">${catLink('profile:'+p.kind,loomProfileName(catEntity('profile:'+p.kind)?.loom_execution_profile||{kind:p.kind,label:p.kind}))}<span>${esc(p.stages.join(', '))}</span></div>`).join('')||'<div class="pa-empty">—</div>';
+ const jobs=item.job_usage?loomRuntimeJobTable(item.job_usage)+(item.jobs_complete===false?'<p class="pa-subtle">Showing 200 records</p>':''):(item.executed_jobs||[]).map(loomJobInventoryLink).join(' · ')||'—';
+ const deferred=entity.deferred_software_sections;
+ const inventoryControls=`<div class="pa-extension-toolbar"><input type="search" ${deferred?'data-exact-inventory-query':'data-inventory-query'} placeholder="Search packages" aria-label="Inventory search" value="${esc(state.inventoryQuery||'')}"><select ${deferred?'data-exact-inventory-origin':'data-inventory-origin'} aria-label="Inventory origin">${Object.entries({managed:'Managed directory',image:'Image',external:'External mounts',deprecated:'Deprecated',unknown:'Unclassified',all:'All'}).map(([value,label])=>`<option value="${value}" ${filter===value?'selected':''}>${label}</option>`).join('')}</select></div>`;
  const versions=loomExtensionRows().filter(e=>e.kind==='runtime'&&e.loom_runtime.id===item.id);
  return loomHubTabs()+heading('RUNTIME',item.curation?.label||entity.label,'','<button class="pa-button" data-extension-home>Runtimes</button>')+catStatus()
   +`<div class="pa-hub-actions">${catalogData.capabilities?.curate&&item.revision?'<button class="pa-button" data-hub-edit>Edit</button>':''}</div>`
   +panel('Dependencies',`<div class="pa-profile-dependencies">${loomHubHighlights({...item,dependencies:manifest.dependencies})}</div>`)
   +panel('Profiles',profiles)
-  +`<details class="pa-execution-options"><summary>Pinned Job executions</summary>${jobs}</details>`
+  +(deferred?loomDeferredSoftwareSection(entity,'runtime_usage','Pinned Job executions'):`<details class="pa-execution-options"><summary>Pinned Job executions</summary>${jobs}</details>`)
   +`<details class="pa-execution-options"><summary>Revisions</summary>${versions.map(e=>catLink(e.id,'r'+(e.loom_runtime.revision||'—')+(e.loom_runtime.aliases?.length?' · Current':''))).join(' · ')}</details>`
   +`<details class="pa-execution-options"><summary>Checks</summary><pre>${esc(JSON.stringify({installation:manifest.installation,validation:manifest.validation},null,2))}</pre></details>`
-  +`<details class="pa-execution-options" data-runtime-inventory><summary>Installed inventory</summary><div class="pa-extension-toolbar"><input type="search" data-inventory-query placeholder="Search packages" aria-label="Inventory search" value="${esc(state.inventoryQuery||'')}"><select data-inventory-origin aria-label="Inventory origin">${Object.entries({managed:'Managed directory',image:'Image',external:'External mounts',deprecated:'Deprecated',unknown:'Unclassified',all:'All'}).map(([value,label])=>`<option value="${value}" ${filter===value?'selected':''}>${label}</option>`).join('')}</select></div>${dependencies}</details>`
+  +(deferred?loomDeferredSoftwareSection(entity,'runtime_inventory','Installed inventory',inventoryControls)
+    :`<details class="pa-execution-options" data-runtime-inventory><summary>Installed inventory</summary>${inventoryControls}${loomPackageTable(deps)}</details>`)
   +`<details class="pa-execution-options"><summary>Runtime settings</summary>${catProperties({ID:item.id,Revision:item.revision??'—',SHA256:item.sha256||'—',Image:policy.image,Network:policy.network||'none',CPU:policy.cpus,Memory:policy.memory})}</details>`;
 }
 
@@ -270,7 +341,8 @@ root.addEventListener('click',event=>{
 function loomExtensionInput(event){
  const field=event.target.closest('[data-extension-query],[data-extension-owner],[data-extension-source-query]');if(!field)return;
  const view=loomExtensionView(field),name=field.hasAttribute('data-extension-query')?'extensionQuery':field.hasAttribute('data-extension-owner')?'extensionOwner':'extensionSourceQuery';
- view[name]=field.value;const start=field.selectionStart,end=field.selectionEnd,selector=field.hasAttribute('data-extension-query')?'[data-extension-query]':field.hasAttribute('data-extension-source-query')?'[data-extension-source-query]':'[data-extension-owner]';
+ if(name==='extensionQuery')loomDebounceCatalogText(view,name,field.value);else view[name]=field.value;
+ const start=field.selectionStart,end=field.selectionEnd,selector=field.hasAttribute('data-extension-query')?'[data-extension-query]':field.hasAttribute('data-extension-source-query')?'[data-extension-source-query]':'[data-extension-owner]';
  render();persist();const next=root.querySelector('.pa-document-pane.is-active '+selector);next?.focus();if(next?.type==='search'&&start!=null)next.setSelectionRange(start,end);
 }
 root.addEventListener('input',event=>{if(!event.isComposing&&event.target.matches('[data-extension-query],[data-extension-source-query]'))loomExtensionInput(event);});

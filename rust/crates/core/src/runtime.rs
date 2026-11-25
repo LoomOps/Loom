@@ -135,6 +135,20 @@ pub fn dependencies(catalog: &Value) -> Value {
     let categories:Vec<_>=[("languages","Languages"),("simulation","Simulation"),("machine-learning","Machine Learning"),("gpu","GPU & Drivers"),("libraries","Libraries & Tools")].into_iter().map(|(id,label)|json!({"id":id,"label":label,"count":deps.iter().filter(|d|d["category"]==id).count()})).collect();
     json!({"status":catalog["status"],"dependencies":deps,"categories":categories,"basis":"declared software units; membership does not prove execution use"})
 }
+// Match actual stage receipts to the exact submitted Runtime in both the
+// inventory counters and detailed usage pages.
+const FROZEN_RECEIPT_SPEC: &str = r#"COALESCE(
+                            h.spec_snapshot,
+                            CASE WHEN NOT EXISTS(SELECT 1 FROM job_revisions WHERE job=s.job AND revision>0)
+                                 THEN j.spec
+                                 ELSE COALESCE(
+                                     (SELECT json_extract(e.request,'$.spec') FROM rust_effects e
+                                      WHERE e.job=s.job AND e.attempt=s.attempt AND e.stage=s.stage
+                                      ORDER BY e.created DESC LIMIT 1),
+                                     (SELECT r.spec FROM job_revisions r WHERE r.job=s.job AND r.created<=a.started
+                                      ORDER BY r.revision DESC LIMIT 1)) END
+                        )"#;
+
 impl Application {
     pub fn observe_runtimes(&mut self, observation: Value) -> Result<()> {
         require(
@@ -225,7 +239,45 @@ impl Application {
         catalog["dependency_catalog"] = dependencies(&catalog);
         Ok(catalog)
     }
+    pub(crate) fn runtime_started_counts(&self, runtimes: &[Value]) -> Result<Vec<Value>> {
+        let pins = runtimes
+            .iter()
+            .filter(|r| r["sha256"].is_string())
+            .map(|r| json!({"id":r["id"],"revision":r["revision"],"sha256":r["sha256"]}))
+            .collect::<Vec<_>>();
+        if pins.is_empty() {
+            return Ok(Vec::new());
+        }
+        let sql = format!("WITH starts AS MATERIALIZED (
+            SELECT s.job,s.attempt,s.stage,CASE s.stage WHEN 'run' THEN 'runtime' ELSE s.stage END runtime_stage,
+                {FROZEN_RECEIPT_SPEC} spec
+            FROM stage_runs s JOIN jobs j ON j.id=s.job
+            LEFT JOIN attempts a ON a.id=s.attempt AND a.job=s.job
+            LEFT JOIN hooks h ON h.job=s.job AND h.attempt=s.attempt AND h.stage=s.stage
+            WHERE s.started IS NOT NULL
+        ), bound AS (
+            SELECT job,json_extract(spec,'$.profile.'||runtime_stage||'.runtime_pin') pin FROM starts
+        )
+        SELECT json_extract(w.value,'$.id') id,json_extract(w.value,'$.revision') revision,
+            count(DISTINCT COALESCE(m.root,b.job)) started
+        FROM bound b JOIN json_each(?) w ON
+            json_extract(b.pin,'$.id')=json_extract(w.value,'$.id')
+            AND json_extract(b.pin,'$.revision')=json_extract(w.value,'$.revision')
+            AND json_extract(b.pin,'$.sha256')=json_extract(w.value,'$.sha256')
+        LEFT JOIN execution_memberships m ON m.job=b.job
+        GROUP BY w.value");
+        rows(&self.db, &sql, &[&encode(&json!(pins))?])
+    }
+
     fn attach_runtime_usage(&self, item: &mut Value) -> Result<()> {
+        self.attach_runtime_usage_page(item, 0, 200)
+    }
+    pub(crate) fn attach_runtime_usage_page(
+        &self,
+        item: &mut Value,
+        offset: usize,
+        limit: usize,
+    ) -> Result<()> {
         // Frozen submissions, not current Profile definitions or UI scope,
         // are the authority for an environment's actual consumers.
         let consumers = rows(&self.db,
@@ -251,11 +303,11 @@ impl Application {
                      AND json_extract(p.value,'$.runtime_pin.sha256')=?3) stages,
                     coalesce(w.root,j.id) execution_owner
              FROM matches m JOIN jobs j ON j.id=m.job LEFT JOIN execution_memberships w ON w.job=j.id
-             WHERE m.preferred=1 ORDER BY j.created DESC,j.id LIMIT 201",
-            &[&item["id"].as_str(),&item["revision"].as_i64(),&item["sha256"].as_str()])?;
-        item["jobs_complete"] = json!(consumers.len() <= 200);
+             WHERE m.preferred=1 ORDER BY j.created DESC,j.id LIMIT ?4 OFFSET ?5",
+            &[&item["id"].as_str(),&item["revision"].as_i64(),&item["sha256"].as_str(),&((limit+1) as i64),&(offset as i64)])?;
+        item["jobs_complete"] = json!(consumers.len() <= limit);
         let mut jobs = vec![];
-        for row in consumers.into_iter().take(200) {
+        for row in consumers.into_iter().take(limit) {
             let stages: Vec<String> = serde_json::from_str(row["stages"].as_str().unwrap_or("[]"))?;
             let stages: Vec<_> = STAGES
                 .iter()
@@ -265,19 +317,9 @@ impl Application {
             // A recovery may switch Profile before the next Attempt. Resolve
             // each start against its own frozen work (or its original revision).
             let executed = rows(&self.db,
-                "WITH starts AS (
+                &format!("WITH starts AS (
                     SELECT s.attempt,CASE s.stage WHEN 'run' THEN 'runtime' ELSE s.stage END stage,s.started,
-                        COALESCE(
-                            h.spec_snapshot,
-                            CASE WHEN NOT EXISTS(SELECT 1 FROM job_revisions WHERE job=s.job AND revision>0)
-                                 THEN j.spec
-                                 ELSE COALESCE(
-                                     (SELECT json_extract(e.request,'$.spec') FROM rust_effects e
-                                      WHERE e.job=s.job AND e.attempt=s.attempt AND e.stage=s.stage
-                                      ORDER BY e.created DESC LIMIT 1),
-                                     (SELECT r.spec FROM job_revisions r WHERE r.job=s.job AND r.created<=a.started
-                                      ORDER BY r.revision DESC LIMIT 1)) END
-                        ) spec
+                        {FROZEN_RECEIPT_SPEC} spec
                     FROM stage_runs s JOIN jobs j ON j.id=s.job
                     LEFT JOIN attempts a ON a.id=s.attempt AND a.job=s.job
                     LEFT JOIN hooks h ON h.job=s.job AND h.attempt=s.attempt AND h.stage=s.stage
@@ -288,7 +330,7 @@ impl Application {
                  WHERE json_extract(spec,'$.profile.'||stage||'.runtime_pin.id')=?
                    AND json_extract(spec,'$.profile.'||stage||'.runtime_pin.revision')=?
                    AND json_extract(spec,'$.profile.'||stage||'.runtime_pin.sha256')=?
-                 ORDER BY started,stage",
+                 ORDER BY started,stage"),
                 &[&row["id"].as_str(), &item["id"].as_str(), &item["revision"].as_i64(), &item["sha256"].as_str()])?;
             jobs.push(json!({"id":row["id"],"attempt":row["attempt"],"state":row["state"],"execution_owner":row["execution_owner"],"executed":!executed.is_empty(),"execution_receipts":executed,"group_root":self.job_family_root(row["id"].as_str().unwrap())?,"profile":row["profile"],"profile_sha256":row["profile_sha256"],"stages":stages}));
         }
@@ -297,7 +339,7 @@ impl Application {
             .filter(|j| j["executed"] == true)
             .map(|j| j["id"].clone())
             .collect::<Vec<_>>());
-        if item["jobs_complete"] == true {
+        if offset == 0 && item["jobs_complete"] == true {
             let owners: BTreeSet<_> = jobs
                 .iter()
                 .filter(|j| j["executed"] == true)

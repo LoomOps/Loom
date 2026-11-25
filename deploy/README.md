@@ -40,6 +40,12 @@ helpers for the numbered installation workflow and scoped maintenance. Running a
 subset does not constitute a supported installation. Use the full installer and
 doctor; do not substitute a token-only Dashboard or omit Gateway/identity.
 
+Current releases build Ops from `ops/Dockerfile.rust` and install the matching
+`loom-host` broker. The Python Ops image and executor remain available for
+reference fixtures and older release layouts. The Python Dashboard relay and
+administrator Runtime helpers are still part of the supported installation.
+Check the exact release's binaries and database writer schema before a rollback.
+
 The host installer creates/reuses `loom:loom` and applies numeric UID/GID to Compose.
 It refuses conflicting existing accounts and preserves existing data ownership.
 Account creation is host-side, not a privileged Compose bootstrap container.

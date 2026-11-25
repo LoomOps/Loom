@@ -240,36 +240,47 @@ impl Application {
             return Ok(());
         }
         let mut checkpoints = Vec::new();
+        let mut seen = std::collections::BTreeSet::new();
         for row in rows(
             &self.db,
-            "SELECT revision,manifest FROM all_entity_revisions WHERE id=? AND (?2 IS NULL OR revision<=?2) ORDER BY revision",
+            "SELECT revision, json_extract(manifest,'$.job') AS unit,
+                    json_extract(manifest,'$.metadata.research.model.selected_step') AS selected_step,
+                    component.key AS component_index,
+                    json_extract(component.value,'$.ref') AS name,
+                    json_extract(component.value,'$.sha256') AS digest
+             FROM all_entity_revisions, json_each(manifest,'$.components') AS component
+             WHERE all_entity_revisions.id=? AND (?2 IS NULL OR revision<=?2)
+               AND (name GLOB '*.safetensors' OR name GLOB '*.ckpt' OR name GLOB '*.pth')
+             ORDER BY revision, component.key",
             &[&id, &through],
         )? {
-            let source: Value = serde_json::from_str(row["manifest"].as_str().unwrap())?;
-            let selected = source
-                .pointer("/metadata/research/model/selected_step")
-                .and_then(Value::as_u64);
-            let mut seen = std::collections::BTreeSet::new();
-            for (index, component) in source["components"].as_array().into_iter().flatten().enumerate() {
-                let (Some(name), Some(digest)) = (component["ref"].as_str(), component["sha256"].as_str()) else {
-                    continue;
-                };
-                let Some((stem, extension)) = name.rsplit('/').next().and_then(|file| file.rsplit_once('.')) else {
-                    continue;
-                };
-                if !matches!(extension, "safetensors" | "ckpt" | "pth") || !seen.insert(digest) {
-                    continue;
-                }
-                let named_step = stem.rsplit_once(['-', '_']).and_then(|(prefix, number)| {
-                    if matches!(prefix, "model" | "policy" | "checkpoint" | "ckpt" | "step") {
-                        number.parse::<u64>().ok()
-                    } else {
-                        None
-                    }
-                });
-                let step = if index == 0 { selected.or(named_step) } else { named_step };
-                checkpoints.push(json!({"name":name,"sha256":digest,"step":step,"revision":row["revision"],"unit":source["job"]}));
+            let (Some(revision), Some(name), Some(digest)) = (
+                row["revision"].as_u64(),
+                row["name"].as_str(),
+                row["digest"].as_str(),
+            ) else {
+                continue;
+            };
+            let Some((stem, _)) = name.rsplit('/').next().and_then(|file| file.rsplit_once('.'))
+            else {
+                continue;
+            };
+            if !seen.insert((revision, digest.to_owned())) {
+                continue;
             }
+            let named_step = stem.rsplit_once(['-', '_']).and_then(|(prefix, number)| {
+                if matches!(prefix, "model" | "policy" | "checkpoint" | "ckpt" | "step") {
+                    number.parse::<u64>().ok()
+                } else {
+                    None
+                }
+            });
+            let step = if row["component_index"] == 0 {
+                row["selected_step"].as_u64().or(named_step)
+            } else {
+                named_step
+            };
+            checkpoints.push(json!({"name":name,"sha256":digest,"step":step,"revision":revision,"unit":row["unit"]}));
         }
         if !checkpoints.is_empty() {
             checkpoints.sort_by_key(|c| {

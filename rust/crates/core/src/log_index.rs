@@ -446,7 +446,22 @@ impl Application {
 
 impl Application {
     pub fn log_collection_candidates(&self, after: &str) -> Result<Vec<Value>> {
-        rows(&self.db,"SELECT id,request,evidence FROM rust_effects WHERE id>? AND stage!='publish' AND state IN('accepted','unknown','returned') ORDER BY id LIMIT 32",&[&after])
+        rows(
+            &self.db,
+            "WITH live AS (
+                SELECT id, request, evidence, state FROM rust_effects
+                WHERE state IN ('pending','accepted','unknown') AND state!='pending'
+                  AND stage!='publish' AND json_type(evidence,'$.ticket')='text'
+                ORDER BY id LIMIT 32
+             ), history AS (
+                SELECT id, request, evidence, state FROM rust_effects
+                WHERE id>? AND state='returned' AND stage!='publish'
+                  AND json_type(evidence,'$.ticket')='text'
+                ORDER BY id LIMIT 32
+             ) SELECT * FROM (SELECT * FROM live UNION ALL SELECT * FROM history)
+               ORDER BY state='returned',id",
+            &[&after],
+        )
     }
 }
 

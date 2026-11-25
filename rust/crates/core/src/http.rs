@@ -157,9 +157,14 @@ impl Application {
         ) {
             actor.require("read")?;
             let value = if path.ends_with("revision") {
-                json!({"revision":self.dashboard_revision()?})
+                json!({"revision":self.dashboard_revision()?,"domains":self.dashboard_domains()?})
             } else if path.ends_with("resources") {
-                self.resources()?
+                match r.path.split_once('?').map(|(_, query)| query) {
+                    Some("scope=inspector") => self.dashboard_resources("inspector")?,
+                    Some("scope=storage") => self.dashboard_resources("storage")?,
+                    Some("scope=host") => self.dashboard_resources("host")?,
+                    _ => self.resources()?,
+                }
             } else {
                 let mut catalog = if path.ends_with("/shell") {
                     self.dashboard_shell()?
@@ -711,9 +716,10 @@ pub fn is_read(r: &HttpRequest) -> bool {
             )
 }
 pub fn is_heavy_read(r: &HttpRequest) -> bool {
-    (r.path.starts_with("/api/dashboard/")
+    let path = r.path.split('?').next().unwrap_or(&r.path);
+    (path.starts_with("/api/dashboard/")
         && !matches!(
-            r.path.as_str(),
+            path,
             "/api/dashboard/resources" | "/api/dashboard/revision" | "/api/dashboard/shell"
         ))
         || r.path.starts_with("/api/items/")
@@ -724,7 +730,7 @@ pub fn is_heavy_read(r: &HttpRequest) -> bool {
                 (group, action),
                 (
                     "results",
-                    "search_items" | "item_files" | "read_file" | "get_file"
+                    "search_items" | "item_files" | "read_file" | "get_file" | "read_report"
                 ) | ("jobs", "logs" | "read_log" | "search_logs")
                     | (
                         "system",

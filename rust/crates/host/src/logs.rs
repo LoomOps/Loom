@@ -36,32 +36,50 @@ type Collectors = BTreeMap<PathBuf, Arc<Mutex<Collector>>>;
 const MAX_CAPTURE_BYTES: u64 = 256 * 1024 * 1024;
 static REAPER: Once = Once::new();
 static COLLECTORS: OnceLock<Mutex<Collectors>> = OnceLock::new();
+
+pub(crate) fn sealed_archive(path: &Path) -> Option<fs::File> {
+    let bytes =
+        loom_primitives::file_set::bounded(&path.with_extension("source.json"), 8192).ok()?;
+    let stamp: Value = serde_json::from_slice(&bytes).ok()?;
+    if stamp["closed"] != true || stamp["available"] != true || stamp["gap"] != false {
+        return None;
+    }
+    let generation = uuid::Uuid::parse_str(stamp["generation"].as_str()?).ok()?;
+    let raw = path.with_extension(format!("{generation}.log"));
+    let seal = loom_primitives::file_set::bounded(&raw.with_extension("json"), 8192).ok()?;
+    let seal: Value = serde_json::from_slice(&seal).ok()?;
+    if seal != stamp {
+        return None;
+    }
+    storage::open_regular(&raw).ok()
+}
+
 pub fn follow(container: &str, path: &Path, returned: bool) -> Result<Source> {
     use std::os::unix::{fs::OpenOptionsExt, process::CommandExt};
     let map = COLLECTORS.get_or_init(|| Mutex::new(BTreeMap::new()));
     let pointer = path.with_extension("source.json");
     start_reaper();
-    if pointer.is_file() {
-        let saved: Value = serde_json::from_slice(&fs::read(&pointer)?)?;
-        if saved["closed"] == true {
-            let generation = saved["generation"]
-                .as_str()
-                .ok_or_else(|| Error::input("Log generation missing"))?
-                .to_string();
-            let id = uuid::Uuid::parse_str(&generation)
-                .map_err(|_| Error::input("Invalid saved generation"))?;
-            return Ok(Source {
-                path: path.with_extension(format!("{id}.log")),
-                generation,
-                closed: true,
-                gap: saved["gap"] == true,
-            });
-        }
-    }
     let collector = {
         let mut map = map
             .lock()
             .map_err(|_| Error::new("logs", "Collector unavailable", 503))?;
+        if pointer.is_file() {
+            let saved: Value = serde_json::from_slice(&fs::read(&pointer)?)?;
+            if saved["closed"] == true {
+                let generation = saved["generation"]
+                    .as_str()
+                    .ok_or_else(|| Error::input("Log generation missing"))?
+                    .to_string();
+                let id = uuid::Uuid::parse_str(&generation)
+                    .map_err(|_| Error::input("Invalid saved generation"))?;
+                return Ok(Source {
+                    path: path.with_extension(format!("{id}.log")),
+                    generation,
+                    closed: true,
+                    gap: saved["gap"] == true,
+                });
+            }
+        }
         if let Some(c) = map.get(path) {
             c.clone()
         } else {
@@ -204,12 +222,9 @@ pub fn follow(container: &str, path: &Path, returned: bool) -> Result<Source> {
             .is_some_and(|current| Arc::ptr_eq(current, &collector))
         {
             let state = json!({"generation":source.generation,"gap":source.gap,"closed":true,"available":true});
-            storage::atomic(&pointer, &serde_json::to_vec(&state)?, 0o600)?;
-            storage::atomic(
-                &source.path.with_extension("json"),
-                &serde_json::to_vec(&state)?,
-                0o600,
-            )?;
+            let bytes = serde_json::to_vec(&state)?;
+            storage::atomic(&source.path.with_extension("json"), &bytes, 0o600)?;
+            storage::atomic(&pointer, &bytes, 0o600)?;
             registry.remove(path);
         }
     }

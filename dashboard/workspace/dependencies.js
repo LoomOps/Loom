@@ -20,6 +20,6 @@ root.addEventListener('click',event=>{
 });
 root.addEventListener('input',event=>{
  if(!event.target.matches('[data-dependency-query]')||event.isComposing)return;
- const input=event.target,start=input.selectionStart;loomExtensionView(input);state.dependencyQuery=input.value;render();persist();
+ const input=event.target,start=input.selectionStart;loomExtensionView(input);loomDebounceCatalogText(state,'dependencyQuery',input.value);render();persist();
  const next=root.querySelector('.pa-document-pane.is-active [data-dependency-query]');next?.focus();next?.setSelectionRange(start,start);
 });

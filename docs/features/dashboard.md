@@ -13,8 +13,9 @@ does not infer a data-parent edge from Task names or general consumes relations.
 Group counts describe loaded variants; paging does not claim a complete lineage.
 Datasets, Policies and Experiments share the scientific list and filter styles.
 The Dataset list uses the Task index and catalog class. Different splits of the
-same variant share its label and subgroup. Standard split counts appear as a
-monospace tag such as `split-100/20/20`, aligned with adjacent facts. Each entry
+same variant can share its label and subgroup. Standard split counts appear in
+the Split field as `100/20/20`. The separate Tag field displays declared labels
+in monospace, aligned with adjacent facts. Each entry
 keeps its exact link. The browser hides a legacy split suffix or
 subgroup only when it matches the structured split and declared path. Dataset
 origin badges use recorded provenance. A `dataset_import` report identifies a
@@ -41,6 +42,22 @@ remain available in each learning chart's disclosure.
 Exact Template and Contract references live in the Overview footer. Reports
 choose typed series, scatter, bar and coverage-matrix renderers. Distribution
 charts identify their measured or assigned population and preserve paging.
+
+## Bounded workspace reads
+
+The shell advertises compact list support. The backend separates queue and
+terminal history reads from scientific output and software lists. History
+orders terminal records before returning each ten-row page. Exact references
+stay addressable when a row carries only presentation fields. The Linux
+Inspector uses a compact resource scope and computes its slot counts directly
+from live execution state. The persistent sidebar uses the host scope, while
+Explorer uses storage observation and indexed registered-directory pages.
+
+Software inventories, pinned executions, output files and Training revisions
+are read when their sections open. Browser refreshes use authority domain
+versions for work, history, outputs, software, software usage and Tasks. They retain the last
+complete view during a refresh. Search input is debounced and superseded
+software queries can cancel their browser requests.
 
 ## Interfaces
 

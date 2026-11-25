@@ -1340,6 +1340,167 @@ pub fn attach_materialized(app: &Application, entity: &mut Value) -> crate::Resu
     summary["materialized"] = json!({"source_sha256":sha,"captured_at":saved["captured_at"],"captured_by":saved["captured_by"]});
     Ok(())
 }
+/// A derived list projection of an exact catalog revision. File I/O stays on
+/// the indexing worker and the authority lane only accepts the pinned result.
+pub struct PreparedBrowseSummary {
+    revision: Vec<u8>,
+    target: crate::contracts::Target,
+    source_sha256: String,
+    summary: Value,
+}
+
+impl Application {
+    pub fn pending_browse_summaries(
+        &self,
+        deferred: impl ExactSizeIterator<Item = impl AsRef<[u8]>>,
+    ) -> crate::Result<Vec<(Vec<u8>, Value)>> {
+        let placeholders = std::iter::repeat_n("?", deferred.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        let mut query = self.db.prepare(&format!(
+            "SELECT r.id,r.native_ref FROM catalog_items i JOIN catalog_revisions r ON r.id=i.current_revision
+             WHERE i.deleted=0 AND i.kind IN ('dataset','model','experiment','run')
+               AND i.native_kind IN ('entity','historical')
+               AND NOT EXISTS(SELECT 1 FROM rust_browse_summaries s WHERE s.revision=r.id AND s.extractor=?1)
+               AND r.id NOT IN ({placeholders})
+             ORDER BY r.rowid ASC LIMIT 16"))?;
+        let bindings = std::iter::once(rusqlite::types::Value::Integer(EXTRACTOR_VERSION as i64))
+            .chain(deferred.map(|id| rusqlite::types::Value::Blob(id.as_ref().to_vec())));
+        let rows = query
+            .query_map(rusqlite::params_from_iter(bindings), |r| {
+                Ok((r.get(0)?, r.get::<_, String>(1)?))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        rows.into_iter()
+            .map(|(revision, target)| Ok((revision, serde_json::from_str(&target)?)))
+            .collect()
+    }
+
+    pub fn prepare_browse_summary(
+        &self,
+        revision: Vec<u8>,
+        target: Value,
+    ) -> crate::Result<PreparedBrowseSummary> {
+        use crate::store::rows;
+        use rusqlite::params;
+        let target: crate::contracts::Target = crate::contracts::decode(target)?;
+        let pin = &target.identity;
+        let (source_sha256, kind) = source_identity(self, &target)?;
+        let (mut entity, file_manifest, locations) = if target.kind == "entity" {
+            let manifest: String = self.db.query_row(
+                "SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=?",
+                params![pin["id"].as_str(), pin["revision"].as_i64()],
+                |r| r.get(0),
+            )?;
+            let manifest: Value = serde_json::from_str(&manifest)?;
+            let locations = rows(
+                &self.db,
+                "SELECT * FROM all_entity_locations WHERE id=? AND revision=?",
+                &[&pin["id"].as_str(), &pin["revision"].as_i64()],
+            )?;
+            let mut entity = manifest.clone();
+            entity["loom_registry"] = pin.clone();
+            entity["loom_job"] = json!({"id":manifest["job"]});
+            (entity, manifest, locations)
+        } else {
+            let body: String = self.db.query_row(
+                "SELECT body FROM history_records WHERE source=? AND kind=? AND id=? AND revision=? AND snapshot=?",
+                params![pin["source"].as_str(),pin["kind"].as_str(),pin["id"].as_str(),pin["revision"].as_str(),pin["snapshot"].as_str()], |r|r.get(0))?;
+            let body: Value = serde_json::from_str(&body)?;
+            let mut entity = body
+                .get("entity")
+                .or_else(|| body.get("original"))
+                .filter(|e| e.is_object())
+                .cloned()
+                .unwrap_or(json!({}));
+            entity["loom_history"] = pin.clone();
+            let (manifest, locations) = self.historical_files(pin)?;
+            (entity, manifest, locations)
+        };
+        entity["kind"] = json!(kind);
+        let (files, _) = crate::media::file_dtos(pin, &file_manifest, &locations, &self.config);
+        entity["loom_files"] = files;
+        enrich(self, &mut entity);
+        let mut summary = entity["research_summary"].take();
+        if serde_json::to_vec(&summary)?.len() > 1024 * 1024 {
+            summary = Value::Null;
+        }
+        Ok(PreparedBrowseSummary {
+            revision,
+            target,
+            source_sha256,
+            summary,
+        })
+    }
+
+    pub fn commit_browse_summary(&mut self, prepared: PreparedBrowseSummary) -> crate::Result<()> {
+        use crate::store::encode;
+        use rusqlite::params;
+        if source_identity(self, &prepared.target)?.0 != prepared.source_sha256 {
+            return Ok(());
+        }
+        let tx = self.transaction()?;
+        let changed = tx.execute("INSERT INTO rust_browse_summaries
+            (revision,source_id,source_sha256,summary,extractor)
+            SELECT id,?, ?, ?, ? FROM catalog_revisions WHERE id=? AND native_ref=?
+            ON CONFLICT(revision) DO UPDATE SET source_sha256=excluded.source_sha256,
+              summary=excluded.summary,extractor=excluded.extractor WHERE extractor!=excluded.extractor",
+            params![prepared.target.identity["id"].as_str(),
+              prepared.source_sha256, encode(&prepared.summary)?, EXTRACTOR_VERSION as i64,
+              prepared.revision, encode(&serde_json::to_value(&prepared.target)?)?])?;
+        if changed > 0 {
+            tx.execute(
+                "UPDATE rust_dashboard_versions SET version=version+1 WHERE domain='outputs'",
+                [],
+            )?;
+        }
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub(crate) fn attach_browse_summary(
+        &self,
+        entity: &mut Value,
+        item_revision: &Value,
+    ) -> crate::Result<()> {
+        use rusqlite::{params, OptionalExtension};
+        let Some(target) = snapshot_target(entity) else {
+            return Ok(());
+        };
+        let Some(id) = item_revision.as_str() else {
+            return Ok(());
+        };
+        let entry: Option<(String,String)> = self.db.query_row(
+            "SELECT source_sha256,summary FROM rust_browse_summaries WHERE revision=? AND extractor=?",
+            params![crate::items::parse(&json!(id))?, EXTRACTOR_VERSION as i64], |r|Ok((r.get(0)?,r.get(1)?))).optional()?;
+        let Some((sha, summary)) = entry else {
+            return Ok(());
+        };
+        if source_identity(self, &target)?.0 != sha {
+            return Ok(());
+        }
+        let saved: Value = serde_json::from_str(&summary)?;
+        for field in ["facts", "inputs"] {
+            let values = entity["research_summary"][field].as_array_mut();
+            if let Some(values) = values {
+                for item in saved[field].as_array().into_iter().flatten() {
+                    let exists = values.iter().any(|v| {
+                        if field == "facts" {
+                            v["id"] == item["id"]
+                        } else {
+                            v["kind"] == item["kind"] && v["label"] == item["label"]
+                        }
+                    });
+                    if !exists {
+                        values.push(item.clone());
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 impl Application {
     pub fn refresh_research_metadata(
         &mut self,

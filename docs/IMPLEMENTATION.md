@@ -5,7 +5,7 @@
 | Pure state transitions and execution vocabulary | `rust/crates/domain` | Typed aggregate/events; no HTTP or filesystem |
 | Serialized transactional commands | `rust/crates/core/src/store.rs#execute` | Authenticate, validate action scope/schema and call the feature handler |
 | Action inputs | `rust/crates/core/src/contracts.rs`, `rust/contracts/legacy-actions.json` | Native registry combines retained input shapes and typed native additions |
-| HTTP and six-group MCP | `rust/crates/core/src/http.rs`, `rust/crates/ops` | Same application operations; bounded transport, query workers and errors |
+| HTTP and grouped MCP | `rust/crates/core/src/http.rs`, `rust/crates/ops` | Same application operations; bounded transport, query workers and errors |
 | Queue / recovery / events | `jobs.rs`, `execution.rs`, `query.rs` in core | Durable eligibility, lease and execution evidence; domain owns transitions |
 | Software / Profile combinations | `software.rs`, `composition.rs`, `authoring.rs` in core | Sealed source and build receipts; registration does not execute code |
 | Scenario context | `scenario.rs` in core | Accepted revisions and explicit immutable links |

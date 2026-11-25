@@ -64,16 +64,24 @@ ready artifacts. Research history can include support work without expanding
 those source executions into separate main Jobs. A later source Attempt remains
 visible and does not inherit the old consolidation's completion.
 
+Compact list projections include display facts and exact Item revision
+identities. The index worker prepares scientific browse facts from bounded,
+verified source files off the authority lane. A source-qualified result is
+reused only for the same exact catalog revision and extractor version.
+Publication metadata and explicit research metadata annotations remain
+authoritative. Registered-directory pages expose local inventory metadata
+and open content through the existing registered-file checks.
+
 ## Scientific metadata projection
 
 The Dashboard can fold mirrored historical rows when their exact publication
 revision, normalized original record and location inventory agree. Policies use
 the current revision of each catalog identity. List fields are fixed by kind
-independently of metadata templates. Datasets show Tag and Episodes. Policies
-show Dataset, Tag, Model family and Checkpoint. The Dashboard derives tags such
-as `split-100/20/20` from recorded train/validation/test counts. The format accepts
-nonnegative integers, omits an absent test split and contains no whitespace.
-Other split records appear as named split facts. Overview input links open the
+independently of metadata templates. Datasets show Episodes, Split and Tag in
+that order, followed by Augmented from when the Dataset has recorded augmentation
+lineage. Split shows recorded train/validation/test counts or named split facts.
+Tag shows the Dataset's declared labels and uses `-` when it has none. Policies
+show Dataset, Tag, Model family and Checkpoint. Overview input links open the
 exact Dataset or Policy revision. Experiment rows show Dataset, Policy,
 Result and Checkpoint in that order in the shared facts row. The checkpoint is the one behind the stated
 result when identifiable. Detailed metrics remain in Results.
@@ -161,5 +169,10 @@ Runtime. Exact Dashboard projection must use the resolved revision, including
 older granted environments referenced by recorded Jobs.
 
 Native catalog reads discover Job group parents once and aggregate only roots with actual children. Singleton Jobs retain a null group summary; their presence must not cause one full family scan per record. The 5,001-item read fixture preserves the independent two-second mutation-lane assertion.
+
+Job group and workflow timing reads share the Attempt and stage interval rules
+used by exact Job details. These aggregates use execution receipts and frozen
+source Attempt pins without rebuilding child Job scheduling, progress or
+troubleshooting payloads.
 
 Runtime inventory observation retains exact dependency version aliases across Runtime revisions. Repeated or reordered snapshots publish one current descriptor per logical Item and preserve historical pins.

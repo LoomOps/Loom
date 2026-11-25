@@ -4,7 +4,19 @@ The authority is a single durable controller scoped to one relocation. It
 stores the archive manifest digest, the currently authorized role, epoch
 and worker session. A role credential is bound to an explicit machine and
 storage identity. It is issued independently of the archive and mounted
-only in the worker. API/user credentials remain separate.
+only in the Ops service. API/user credentials remain separate.
+
+Native Ops uses a dedicated writer lock and keeps the authority session receipt
+in `remote-worker-session.json` under its local state directory. It reuses that
+receipt across restarts and checks the grant before dispatch. A changed binding
+requires operator reconciliation. See the [portability feature](../docs/features/portability.md)
+for the current boundary and live acceptance scope.
+
+## Retained Python handoff workflow
+
+The sequence and commands below describe the Python worker and its relocation
+receipts. Use the native installation's matching migration and handoff procedures
+for a migrated instance.
 
 1. Prepare the source worker with an authority grant before execution.
    Stop it normally and verify the local worker lock and process return.
@@ -50,7 +62,7 @@ after rollback. Stale activation, duplicate worker claims using the same
 machine credential and authority reset were denied. The data copies
 were independent. All verification processes were stopped.
 
-## Operator command shape
+### Python operator command shape
 
 Initialize the authority once with its own mode-0600 policy file. The
 policy maps source and target to the SHA-256 digest of separate machine

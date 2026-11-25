@@ -37,9 +37,58 @@ function loomCloseMedia() {
   loomMediaDisplay = null;
 }
 
+const loomOutputFilePages=new Map();
+function loomOutputFileSection(entity){
+ const key=entity.item_revision_id;
+ return `<details data-output-files="${esc(entity.id)}"${state.outputFilePanels?.includes(key)?' open':''}>
+  <summary>등록 파일</summary><div data-output-file-body></div></details>`;
+}
+function loomLoadOutputFiles(section,more=false){
+ const entity=catEntity(section.dataset.outputFiles);
+ if(!section.open||!entity?.item_id)return;
+ const key=JSON.stringify([entity.item_revision_id,loomCatalogStamp('outputs')]);
+ const body=section.querySelector('[data-output-file-body]');
+ const draw=page=>{
+  if(!section.isConnected)return;
+  const rows=page.items||[],media=page.media||[];
+  body.innerHTML=rows.length?catTable(['File','Location','Status'],rows.map(f=>[esc(f.label),esc(f.path),esc(loomFileStatus(f.status))]))
+   :page.pending?'<span role="status">Loading…</span>':'';
+  if(media.length)body.insertAdjacentHTML('beforeend',loomMediaPanel(entity,media));
+  if(page.error)body.insertAdjacentHTML('beforeend','<button data-output-files-retry>Retry</button>');
+  else if(page.next!=null)body.insertAdjacentHTML('beforeend','<button data-output-files-more'+(page.pending?' disabled':'')+'>More</button>');
+  else if(!page.pending&&!rows.length)body.textContent='등록된 파일이 없습니다.';
+ };
+ const previous=loomOutputFilePages.get(key);
+ if(previous&&!more&&!previous.error){draw(previous);previous.promise?.then(draw);return;}
+ if(more&&(!previous||previous.pending||previous.next==null))return;
+ const page={items:more?previous.items:[],media:more?previous.media:[],next:more?previous.next:null,pending:true};
+ loomOutputFilePages.set(key,page);draw(page);
+ page.promise=loomSearchAction('system','dashboard_entity',{item_id:entity.item_id,revision_id:entity.item_revision_id,section:'files',
+   offset:more?previous.next:0,limit:50}).then(result=>{
+  page.items=[...page.items,...result.items];page.media=[...page.media,...(result.media||[])];page.next=result.next_offset;return page;
+ }).catch(()=>{page.error=true;return page;}).finally(()=>{
+  page.pending=false;draw(page);
+  while(loomOutputFilePages.size>32)loomOutputFilePages.delete(loomOutputFilePages.keys().next().value);
+ });
+}
+root.addEventListener('toggle',event=>{
+ const details=event.target;
+ if(!details.matches?.('[data-output-files]'))return;
+ const entity=catEntity(details.dataset.outputFiles),pane=ws.panes.find(p=>p.id===details.closest('[data-pane]')?.dataset.pane);
+ if(!entity||!pane)return;
+ const view=activeTab(pane).view,open=new Set(view.outputFilePanels||[]);
+ if(details.open){open.add(entity.item_revision_id);loomLoadOutputFiles(details);}
+ else open.delete(entity.item_revision_id);
+ view.outputFilePanels=[...open];
+},true);
+root.addEventListener('click',event=>{
+ const button=event.target.closest('[data-output-files-more],[data-output-files-retry]');
+ if(button)loomLoadOutputFiles(button.closest('[data-output-files]'),button.hasAttribute('data-output-files-more'));
+});
 const loomDetailWithLocation = catalogDetail;
 catalogDetail = function(id) {
-  return loomDetailWithLocation(id) + loomMediaPanel(catEntity(id));
+  const entity=catEntity(id);
+  return loomDetailWithLocation(id)+(entity?.deferred_output_sections?loomOutputFileSection(entity):loomMediaPanel(entity));
 };
 
 root.addEventListener('click', event => {

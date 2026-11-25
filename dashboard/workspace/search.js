@@ -1,14 +1,80 @@
 // Server-backed discovery. IDs stay decimal strings throughout browser navigation.
 const loomSearchPending=new Map(),loomSearchFilePages=new Map(),loomSearchRelationPages=new Map();let loomSearchDetailSequence=0;let loomSearchSequence=0,loomSearchState={query:{},items:[],cursor:null,busy:false};
-function loomSearchAction(group,action,args={}){const id='search-'+(++loomSearchSequence);return new Promise((resolve,reject)=>{const timeout=setTimeout(()=>{loomSearchPending.delete(id);reject(Error('Request timed out'));},15000);loomSearchPending.set(id,{resolve,reject,timeout});parent.postMessage({type:'loom-search-action',id,group,action,arguments:args},'*');});}
-window.addEventListener('message',event=>{if(event.source!==parent||event.data?.type!=='loom-search-result')return;const p=loomSearchPending.get(event.data.id);if(!p)return;clearTimeout(p.timeout);loomSearchPending.delete(event.data.id);event.data.ok?p.resolve(event.data.value):p.reject(Object.assign(Error(event.data.value?.message||event.data.value?.error||'Search unavailable'),{code:event.data.value?.code||event.data.value?.error}));});
+function loomSearchAction(group,action,args={},signal){
+ const id='search-'+(++loomSearchSequence);
+ return new Promise((resolve,reject)=>{
+  const finish=()=>{
+   clearTimeout(timeout);loomSearchPending.delete(id);signal?.removeEventListener('abort',abort);
+  };
+  const abort=()=>{
+   finish();parent.postMessage({type:'loom-search-cancel',id},'*');
+   reject(new DOMException('Request cancelled','AbortError'));
+  };
+  if(signal?.aborted){reject(new DOMException('Request cancelled','AbortError'));return;}
+  const timeout=setTimeout(()=>{finish();parent.postMessage({type:'loom-search-cancel',id},'*');reject(Error('Request timed out'));},15000);
+  signal?.addEventListener('abort',abort,{once:true});
+  loomSearchPending.set(id,{resolve,reject,finish});
+  parent.postMessage({type:'loom-search-action',id,group,action,arguments:args},'*');
+ });
+}
+window.addEventListener('message',event=>{
+ if(event.source!==parent||event.data?.type!=='loom-search-result')return;
+ const p=loomSearchPending.get(event.data.id);if(!p)return;p.finish();
+ event.data.ok?p.resolve(event.data.value):p.reject(Object.assign(Error(event.data.value?.error||'Search unavailable'),{code:event.data.value?.code}));
+});
 function loomInstallSearchLauncher(){const launcher=root.querySelector('[data-command-open]');if(launcher){if(catalogData.capabilities?.item_search)launcher.dataset.itemSearch='';else delete launcher.dataset.itemSearch;}}
 const loomSearchRender=render;render=function(){loomSearchRender();loomInstallSearchLauncher();};
 const loomSearchCatalogRefresh=catalogRefreshViews;catalogRefreshViews=function(){const result=loomSearchCatalogRefresh();loomInstallSearchLauncher();return result;};
 
 function loomSearchOpen(){++loomSearchDetailSequence;loomSearchFilePages.clear();loomSearchRelationPages.clear();loomSearchState={query:{},items:[],cursor:null,busy:false};loomHubDialog('Search',`<div class="pa-item-search"><form data-item-search-form><input name="text" aria-label="Search items" maxlength="1024" autofocus><select name="kind" aria-label="Item kind"><option value="">All kinds</option>${['scenario','job','dataset','model','experiment','artifact','profile','component','tool','runtime','dependency','file'].map(k=>`<option value="${k}">${esc(k==='scenario'?'Task':k)}</option>`).join('')}</select><select name="view" aria-label="View"><option value="research">Research</option><option value="all">All</option><option value="operations">Operations</option></select><select name="history" aria-label="Revisions"><option value="current">Current</option><option value="all">All revisions</option></select><button type="submit">Search</button></form><div data-search-status role="status"></div><div data-search-results></div><button type="button" data-search-more hidden>More</button><div data-search-detail></div></div>`);}
 async function loomSearchRun(more=false){const area=document.querySelector('.pa-item-search');if(!area||loomSearchState.busy)return;const form=area.querySelector('form'),fields=new FormData(form);if(!more)loomSearchState.query={include_archived:false,include_system:false,text:fields.get('text'),history:fields.get('history')||'current',kinds:fields.get('kind')?[fields.get('kind')]:[],view:fields.get('view'),role:fields.get('view')==='all'?'all':'main',limit:50};loomSearchState.busy=true;const state=loomSearchState;const status=area.querySelector('[data-search-status]');status.textContent='…';try{const result=await loomSearchAction('results','search_items',{...loomSearchState.query,...(more?{cursor:loomSearchState.cursor}:{})});if(state!==loomSearchState)return;loomSearchState.items=more?[...loomSearchState.items,...result.items]:result.items;loomSearchState.cursor=result.next_cursor;area.querySelector('[data-search-results]').innerHTML=catTable(['Name','Kind'],loomSearchState.items.map(v=>[`<button type="button" class="pa-search-result" data-search-item="${esc(v.item_id)}" data-search-revision="${esc(v.revision_id||'')}">${esc(v.label||v.path||v.item_id)}</button>`,esc(v.kind)]));area.querySelector('[data-search-more]').hidden=!result.next_cursor;status.textContent=result.partial?'Partial results':result.items.length?'':'No results';}catch(error){if(state===loomSearchState)status.textContent=error.message;}finally{state.busy=false;}}
-async function loomSearchDetail(id,kind,revision){const sequence=++loomSearchDetailSequence;const area=document.querySelector('[data-search-detail]');if(!area)return;area.innerHTML='…';try{const hit=loomSearchState.items.find(v=>v.item_id===id&&(!revision||v.revision_id===revision));let isFile=(kind||hit?.kind)==='file';const item=await loomSearchAction('results',isFile?'get_file':'get_item',isFile?{file_item_id:id}:{item_id:id,...(revision?{revision_id:revision}:{})});if(sequence!==loomSearchDetailSequence)return;if(item.kind==='file')isFile=true;area.innerHTML=`<h3>${esc(item.label||item.path||id)}</h3><dl><dt>ID</dt><dd>${esc(item.item_id)}</dd><dt>Revision</dt><dd>${esc(item.revision_id||'—')}</dd></dl>${item.summary?`<p>${esc(item.summary)}</p>`:''}<div data-search-related></div>`;const related=area.querySelector('[data-search-related]');if(isFile){const text=/\.(jsonl?|txt|md|rs|py|toml|ya?ml|csv|log)$/i.test(item.path||'');related.innerHTML=`<dl>${item.size!=null?`<dt>Bytes</dt><dd>${esc(item.size)}</dd>`:''}${item.sha256?`<dt>SHA-256</dt><dd>${esc(item.sha256)}</dd>`:''}</dl>`+(text?`<button data-search-read="${esc(id)}">Preview</button><pre data-search-preview></pre>`:'');return;}const files=await loomSearchAction('results','item_files',{item_id:id,revision_id:item.revision_id,limit:50});if(sequence!==loomSearchDetailSequence)return;loomSearchFilePages.set(id,{revision:item.revision_id,items:files.items,cursor:files.next_cursor});related.innerHTML=`<div data-search-file-list>${loomSearchFileTable(id)}</div><div data-search-relations></div>`;const relations=await loomSearchAction('results','item_relations',{item_id:id,revision_id:item.revision_id});if(sequence!==loomSearchDetailSequence)return;const declared=related.querySelector('[data-search-relations]');loomSearchRelationPages.set(id,{revision:item.revision_id,items:relations.items,cursor:relations.next_cursor});declared.innerHTML=loomSearchRelationTable(id);if(item.kind==='job'&&item.native_ref?.kind==='job'&&item.native_ref?.identity?.id){const streams=await loomSearchAction('jobs','log_streams',{id:item.native_ref.identity.id,limit:50});if(sequence!==loomSearchDetailSequence)return;related.innerHTML+='<h4>Logs</h4>'+streams.items.map(s=>`<button data-search-log="${esc(s.item_id)}">${esc(s.stage)} · ${esc(s.attempt)}</button>`).join('')+'<pre data-search-preview></pre>';}}catch(error){if(sequence===loomSearchDetailSequence)area.textContent=error.message;}}
+let loomSelectedSearchItem=null;
+async function loomSearchDetail(id,kind,revision){
+ const sequence=++loomSearchDetailSequence,area=document.querySelector('[data-search-detail]');
+ if(!area)return;
+ area.textContent='…';loomSelectedSearchItem=null;
+ try{
+  const hit=loomSearchState.items.find(v=>v.item_id===id&&(!revision||v.revision_id===revision));
+  const isFile=(kind||hit?.kind)==='file';
+  const item=await loomSearchAction('results',isFile?'get_file':'get_item',isFile?{file_item_id:id}:{item_id:id,...(revision?{revision_id:revision}:{})});
+  if(sequence!==loomSearchDetailSequence)return;
+  loomSelectedSearchItem=item;
+  area.innerHTML=`<h3>${esc(item.label||item.path||id)}</h3><dl><dt>ID</dt><dd>${esc(item.item_id)}</dd><dt>Revision</dt><dd>${esc(item.revision_id||'—')}</dd></dl>${item.summary?`<p>${esc(item.summary)}</p>`:''}<div data-search-related></div>`;
+  const related=area.querySelector('[data-search-related]');
+  if(isFile||item.kind==='file'){
+   const text=/\.(jsonl?|txt|md|rs|py|toml|ya?ml|csv|log)$/i.test(item.path||'');
+   related.innerHTML=`<dl>${item.size!=null?`<dt>Bytes</dt><dd>${esc(item.size)}</dd>`:''}${item.sha256?`<dt>SHA-256</dt><dd>${esc(item.sha256)}</dd>`:''}</dl>`+(text?`<button data-search-read="${esc(id)}">Preview</button><pre data-search-preview></pre>`:'');
+   return;
+  }
+  const section=(kind,label)=>`<details data-search-lazy="${kind}"><summary>${label}</summary><div data-search-${kind}></div></details>`;
+  related.innerHTML=section('file-list','Files')+section('relations','Relations')
+   +(item.kind==='job'&&item.native_ref?.kind==='job'&&item.native_ref?.identity?.id?section('log-list','Logs'):'');
+ }catch(error){if(sequence===loomSearchDetailSequence)area.textContent=error.message;}
+}
+async function loomLoadSearchSection(details){
+ const name=details.dataset.searchLazy,item=loomSelectedSearchItem,sequence=loomSearchDetailSequence;
+ if(!details.open||!item||details.dataset.loaded)return;
+ details.dataset.loaded='pending';
+ const area=details.querySelector('[data-search-'+name+']');
+ area.textContent='Loading…';
+ try{
+  const args={item_id:item.item_id,revision_id:item.revision_id,limit:50};
+  const result=name==='log-list'?await loomSearchAction('jobs','log_streams',{id:item.native_ref.identity.id,limit:50})
+   :await loomSearchAction('results',name==='file-list'?'item_files':'item_relations',args);
+  if(sequence!==loomSearchDetailSequence||!details.isConnected)return;
+  const page={revision:item.revision_id,items:result.items,cursor:result.next_cursor};
+  if(name==='file-list'){loomSearchFilePages.set(item.item_id,page);area.innerHTML=loomSearchFileTable(item.item_id);}
+  else if(name==='relations'){loomSearchRelationPages.set(item.item_id,page);area.innerHTML=loomSearchRelationTable(item.item_id);}
+  else area.innerHTML=page.items.map(s=>`<button data-search-log="${esc(s.item_id)}">${esc(s.stage)} · ${esc(s.attempt)}</button>`).join('')+'<pre data-search-preview></pre>';
+  if(!area.textContent.trim())area.textContent='—';
+  details.dataset.loaded='true';
+ }catch(error){
+  if(sequence===loomSearchDetailSequence){area.textContent=error.message;delete details.dataset.loaded;}
+ }
+}
+document.addEventListener('toggle',event=>{
+ if(event.target.matches?.('[data-search-lazy]'))loomLoadSearchSection(event.target);
+},true);
 root.addEventListener('click',event=>{if(event.target.closest('[data-item-search]')){event.preventDefault();event.stopImmediatePropagation();loomSearchOpen();}},true);
 window.addEventListener('keydown',event=>{if(catalogData.capabilities?.item_search&&(event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();event.stopImmediatePropagation();loomSearchOpen();}},true);
 document.addEventListener('click',async event=>{const b=event.target.closest('[data-item-search-form] button,[data-search-more],[data-search-files-more],[data-search-relations-more],[data-search-item],[data-search-file],[data-search-read],[data-search-log]');if(!b)return;event.preventDefault();if(b.closest('[data-item-search-form]'))return loomSearchRun();if(b.hasAttribute('data-search-more'))return loomSearchRun(true);if(b.dataset.searchFilesMore)return loomSearchMoreFiles(b);if(b.dataset.searchRelationsMore)return loomSearchMoreRelations(b);if(b.dataset.searchItem)return loomSearchDetail(b.dataset.searchItem,undefined,b.dataset.searchRevision);if(b.dataset.searchFile)return loomSearchDetail(b.dataset.searchFile,'file');const preview=document.querySelector('[data-search-preview]');if(!preview)return;preview.textContent='…';try{if(b.dataset.searchRead){const v=await loomSearchAction('results','read_file',{file_item_id:b.dataset.searchRead,limit:65536});preview.textContent=new TextDecoder().decode(Uint8Array.from(atob(v.data_base64),c=>c.charCodeAt(0)));}else{const v=await loomSearchAction('jobs','read_log',{stream_id:b.dataset.searchLog,tail:true,limit:65536});preview.textContent=v.text||'';}}catch(error){preview.textContent=error.message;}});

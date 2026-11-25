@@ -1,5 +1,39 @@
 //! Hash verification runs outside the application writer lane.
 use super::*;
+
+#[test]
+fn quiet_log_pages_preserve_the_pointer_and_commit_close_or_crash_repair() {
+    use crate::log_collector::commit_page;
+    use std::os::unix::fs::MetadataExt;
+    let root = std::env::temp_dir().join(format!("loom-log-page-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&root).unwrap();
+    let path = root.join("stream.log");
+    let live = json!({"generation":"one","offset":3,"closed":false,"gap":false});
+    assert_eq!(
+        commit_page(&path, &Value::Null, 0, b"log", &live).unwrap(),
+        0
+    );
+    let pointer = path.with_extension("json");
+    let original = std::fs::File::open(&pointer).unwrap();
+    assert_eq!(commit_page(&path, &live, 3, b"", &live).unwrap(), 3);
+    assert_eq!(
+        std::fs::metadata(&pointer).unwrap().ino(),
+        original.metadata().unwrap().ino()
+    );
+
+    std::fs::write(&path, b"log-tail").unwrap();
+    assert_eq!(commit_page(&path, &live, 3, b"", &live).unwrap(), 8);
+    assert_eq!(std::fs::read(&path).unwrap(), b"log");
+    let mut sealed = live.clone();
+    sealed["closed"] = json!(true);
+    assert_eq!(commit_page(&path, &live, 3, b"", &sealed).unwrap(), 3);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&std::fs::read(&pointer).unwrap()).unwrap(),
+        sealed
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn registered_input_copies_skip_missing_and_corrupt_bytes_without_rebinding_identity() {
     let root = std::env::temp_dir().join(format!("loom-copy-test-{}", uuid::Uuid::new_v4()));

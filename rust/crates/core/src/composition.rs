@@ -67,6 +67,69 @@ impl Application {
         only_sha: Option<&str>,
         catalog: &Value,
     ) -> Result<Value> {
+        self.project_profiles(only, only_sha, catalog, None, false)
+    }
+
+    pub(crate) fn browse_profile_usage(
+        &self,
+        pins: &[(String, Option<String>)],
+    ) -> Result<BTreeMap<(String, Option<String>), Value>> {
+        if pins.is_empty() {
+            return Ok(BTreeMap::new());
+        }
+        let sql = format!("{}, requested AS MATERIALIZED (
+            SELECT value->>0 kind,value->>1 sha FROM json_each(?)
+        ), uses AS MATERIALIZED (
+            SELECT p.kind,p.sha,j.id,row_number() OVER(PARTITION BY p.kind,p.sha ORDER BY j.created DESC,j.id) recent,
+                j.spec->>'$.category' category,j.spec->>'$.execution_mode' mode,
+                COALESCE((SELECT target FROM consolidation_roots WHERE source=j.id
+                  AND source_attempt IS j.attempt AND j.state='complete' ORDER BY target LIMIT 1),w.root,j.id) logical,
+                EXISTS(SELECT 1 FROM attempts a LEFT JOIN rust_attempt_starts s ON s.attempt=a.id
+                  WHERE a.job=j.id AND CASE WHEN s.attempt IS NOT NULL THEN s.accepted ELSE a.started END IS NOT NULL) executed
+            FROM jobs j JOIN requested p ON p.kind=j.spec->>'$.kind'
+                AND (p.sha IS NULL OR p.sha=j.spec->>'$.profile.sha256')
+            LEFT JOIN execution_memberships w ON w.job=j.id
+        ) SELECT kind,sha,count(*) recorded_jobs,count(DISTINCT logical) logical_jobs,
+            count(DISTINCT CASE WHEN executed=1 THEN logical END) executed_jobs,
+            sum(executed) recorded_executions,
+            json_group_array(DISTINCT category) FILTER(WHERE recent<=200 AND category IS NOT NULL) categories,
+            json_group_array(DISTINCT mode) FILTER(WHERE recent<=200 AND mode IS NOT NULL) execution_modes
+            FROM uses GROUP BY kind,sha",crate::query::CONSOLIDATION_CTE);
+        let mut usage = BTreeMap::new();
+        for mut row in rows(&self.db, &sql, &[&encode(&json!(pins))?])? {
+            let kind = row["kind"].as_str().unwrap_or("").to_owned();
+            let sha = row["sha"].as_str().map(str::to_owned);
+            let mut observed = serde_json::Map::new();
+            for name in ["categories", "execution_modes"] {
+                let values: BTreeSet<String> =
+                    serde_json::from_str(row[name].as_str().unwrap_or("[]"))?;
+                observed.insert(name.to_owned(), json!(values));
+            }
+            row["observed_usage"] = Value::Object(observed);
+            usage.insert((kind, sha), row);
+        }
+        Ok(usage)
+    }
+
+    pub(crate) fn browse_profile(
+        &self,
+        kind: &str,
+        sha: Option<&str>,
+        catalog: &Value,
+        usage: &Value,
+        cards_only: bool,
+    ) -> Result<Value> {
+        self.project_profiles(Some(kind), sha, catalog, Some(usage), cards_only)
+    }
+
+    fn project_profiles(
+        &self,
+        only: Option<&str>,
+        only_sha: Option<&str>,
+        catalog: &Value,
+        browse_usage: Option<&Value>,
+        cards_only: bool,
+    ) -> Result<Value> {
         let mut definitions: BTreeMap<String, Value> = self
             .config
             .profiles
@@ -236,16 +299,21 @@ impl Application {
             if kind == "cpu.smoke" {
                 stages.push(json!({"stage":"runtime","lane":"cpu","environment":{"type":"builtin","id":"Rust producer","dependencies":[],"primary_dependencies":[],"dependency_count":0},"storage":[],"inputs":[]}));
             }
-            let job_sql = format!(
-                r#"{} SELECT j.id,j.state,j.created,json_extract(j.spec,'$.category') category,json_extract(j.spec,'$.execution_mode') execution_mode,json_extract(j.spec,'$.profile.sha256') profile_sha256,COALESCE((SELECT target FROM consolidation_roots WHERE source=j.id AND source_attempt IS j.attempt AND j.state='complete' ORDER BY target LIMIT 1),w.root,j.id) logical_job,EXISTS(SELECT 1 FROM attempts a LEFT JOIN rust_attempt_starts s ON s.attempt=a.id WHERE a.job=j.id AND (CASE WHEN s.attempt IS NOT NULL THEN s.accepted ELSE a.started END) IS NOT NULL) executed FROM jobs j LEFT JOIN execution_memberships w ON w.job=j.id WHERE json_extract(j.spec,'$.kind')=? AND (? IS NULL OR json_extract(j.spec,'$.profile.sha256')=?)"#,
-                crate::query::CONSOLIDATION_CTE
-            );
-            let jobs = rows(
-                &self.db,
-                &format!("{job_sql} ORDER BY created DESC LIMIT 200"),
-                &[&kind, &only_sha, &only_sha],
-            )?;
-            let counts=rows(&self.db,&format!("SELECT count(*) recorded_jobs,count(DISTINCT logical_job) logical_jobs,count(DISTINCT CASE WHEN executed=1 THEN logical_job END) executed_jobs,COALESCE(sum(executed),0) recorded_executions FROM ({job_sql})"),&[&kind,&only_sha,&only_sha])?.into_iter().next().unwrap_or(json!({}));
+            let (jobs, counts) = if let Some(usage) = browse_usage {
+                (Vec::new(), usage.clone())
+            } else {
+                let job_sql = format!(
+                    r#"{} SELECT j.id,j.state,j.created,json_extract(j.spec,'$.category') category,json_extract(j.spec,'$.execution_mode') execution_mode,json_extract(j.spec,'$.profile.sha256') profile_sha256,COALESCE((SELECT target FROM consolidation_roots WHERE source=j.id AND source_attempt IS j.attempt AND j.state='complete' ORDER BY target LIMIT 1),w.root,j.id) logical_job,EXISTS(SELECT 1 FROM attempts a LEFT JOIN rust_attempt_starts s ON s.attempt=a.id WHERE a.job=j.id AND (CASE WHEN s.attempt IS NOT NULL THEN s.accepted ELSE a.started END) IS NOT NULL) executed FROM jobs j LEFT JOIN execution_memberships w ON w.job=j.id WHERE json_extract(j.spec,'$.kind')=? AND (? IS NULL OR json_extract(j.spec,'$.profile.sha256')=?)"#,
+                    crate::query::CONSOLIDATION_CTE
+                );
+                let jobs = rows(
+                    &self.db,
+                    &format!("{job_sql} ORDER BY created DESC LIMIT 200"),
+                    &[&kind, &only_sha, &only_sha],
+                )?;
+                let counts=rows(&self.db,&format!("SELECT count(*) recorded_jobs,count(DISTINCT logical_job) logical_jobs,count(DISTINCT CASE WHEN executed=1 THEN logical_job END) executed_jobs,COALESCE(sum(executed),0) recorded_executions FROM ({job_sql})"),&[&kind,&only_sha,&only_sha])?.into_iter().next().unwrap_or(json!({}));
+                (jobs, counts)
+            };
             let logical_count = counts["logical_jobs"].as_u64().unwrap_or(0);
             let run_count = counts["executed_jobs"].as_u64().unwrap_or(0);
             let family = if origin["type"] == "standalone" {
@@ -283,6 +351,26 @@ impl Application {
                 .and_then(Value::as_str)
                 .unwrap_or(&kind);
             let mut item = json!({"kind":kind,"label":label,"sha256":p["sha256"],"family":family,"origin":origin,"curation":curation,"group":curation["group"].as_str().or_else(||usage["group"].as_str()).unwrap_or(if kind=="cpu.smoke"{"platform-check"}else{"research"}),"description":usage["description"].as_str().unwrap_or(""),"usage":usage,"usage_status":if p.get("usage").is_some(){"declared"}else{"unrecorded"},"component":component,"tools":tools,"stages":stages,"limits":p.get("limits").cloned().unwrap_or(json!({})),"inputs":p.get("inputs").cloned().unwrap_or(json!({})),"outputs":p["outputs"],"metadata_policy":p["metadata_policy"],"metadata_template_pins":p["metadata_template_pins"],"reporting_pins":p["reporting_pins"],"reporting_policy":p["reporting_policy"],"steps":p.get("steps").cloned().unwrap_or(json!([])),"jobs":jobs,"jobs_complete":counts["recorded_jobs"].as_u64().unwrap_or(0)<=200,"used_by_jobs":logical_count,"usage_stats":{"recorded_jobs":counts["recorded_jobs"],"logical_jobs":logical_count,"executed_jobs":run_count,"reuses":run_count.saturating_sub(1),"recorded_executions":counts["recorded_executions"]},"params_schema":p["params_schema"],"defaults":p.get("defaults").cloned().unwrap_or(json!({})),"observed_usage":{"categories":jobs.iter().filter_map(|j|j["category"].as_str()).collect::<BTreeSet<_>>(),"execution_modes":jobs.iter().filter_map(|j|j["execution_mode"].as_str()).collect::<BTreeSet<_>>()}});
+            if let Some(usage) = browse_usage {
+                if cards_only {
+                    for key in [
+                        "params_schema",
+                        "defaults",
+                        "reporting_policy",
+                        "metadata_policy",
+                        "metadata_template_pins",
+                        "reporting_pins",
+                        "steps",
+                    ] {
+                        item.as_object_mut().unwrap().remove(key);
+                    }
+                }
+                item.as_object_mut().unwrap().remove("jobs");
+                item.as_object_mut().unwrap().remove("jobs_complete");
+                if let Some(observed) = usage.get("observed_usage") {
+                    item["observed_usage"] = observed.clone();
+                }
+            }
             item.as_object_mut()
                 .unwrap()
                 .extend(owner.as_object().unwrap().clone());

@@ -220,6 +220,7 @@ pub fn serve<D: Docker + 'static>(executor: Executor<D>) -> Result<()> {
             503,
         )?;
     }
+    let _container_reaper = executor.start_container_reaper();
     let shared = Arc::new(Mutex::new(executor));
     let (send, receive) = std::sync::mpsc::sync_channel::<UnixStream>(32);
     let receive = Arc::new(Mutex::new(receive));

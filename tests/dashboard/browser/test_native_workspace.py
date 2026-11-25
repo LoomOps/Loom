@@ -714,6 +714,38 @@ class NativeWorkspaceTests(unittest.TestCase):
   self.ui.wait("return !!document.querySelector('.pa-finder-favorites [data-column-node=\\\"storage/data/0\\\"]')")
   self.assertFalse(self.ui.js("return !!document.querySelector('[data-resource-panel]')"))
 
+ def test_deferred_output_files_preview_uses_the_exact_registered_key(self):
+  identity='exact-file-preview-revision-fixture'
+  directory='registered-file-preview-path-segment-'+'x'*72
+  filename='metadata-verification-fixture.json'
+  relative=f'{directory}/{filename}'
+  data=b'{"fixture_value":"Exact output preview"}'
+  location=self.native_root/'data'/relative
+  location.parent.mkdir()
+  location.write_bytes(data)
+  manifest={'id':identity,'revision':1,'kind':'dataset','label':'Exact file preview dataset',
+            'components':[{'ref':filename,'size':len(data),'sha256':hashlib.sha256(data).hexdigest()}],'relations':[]}
+  def remove_fixture():
+   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+    db.execute('DELETE FROM asset_locations WHERE id=?',(identity,))
+    db.execute('DELETE FROM asset_revisions WHERE id=?',(identity,))
+  self.addCleanup(remove_fixture)
+  with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:
+   db.execute("INSERT INTO asset_revisions VALUES(?,1,NULL,'dataset','owner','owner',?)",(identity,json.dumps(manifest)))
+   db.execute("INSERT INTO asset_locations VALUES(?,1,?,'browser-fixture','browser-data',?,'available')",(identity,filename,relative))
+  for _ in range(100):
+   try:
+    exact=self.call('results','resolve_item',{'native_ref':{'kind':'entity','identity':{'id':identity,'revision':1}}})
+    break
+   except HTTPError:time.sleep(.05)
+  else:self.fail('Exact output did not index')
+  ui=self.ui;ui.route(f"revision:{exact['item_id']}:{exact['revision_id']}")
+  ui.wait("return !!document.querySelector('[data-output-files] summary')")
+  ui.click('[data-output-files] summary')
+  ui.wait("return document.querySelector('[data-output-files] [data-loom-media]')?.dataset.loomMedia.length>160")
+  ui.click('[data-output-files] [data-loom-media]')
+  ui.wait("return document.querySelector('[data-output-files] [data-loom-media-display]')?.textContent.includes('Exact output preview')")
+
  def test_open_history_detail_survives_a_new_bootstrap_revision(self):
   identity={'source':'catalog','kind':'model','id':'detail-refresh-model','revision':'r1','snapshot':'detail'}
   with sqlite3.connect(self.native_root/'state/ops.sqlite3',timeout=10) as db:

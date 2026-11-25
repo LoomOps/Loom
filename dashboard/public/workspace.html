@@ -2429,7 +2429,7 @@ function resourceContents(){
  return `&lt;div class=&quot;pa-resource-heading&quot;&gt;&lt;div&gt;&lt;b&gt;Inspector&lt;/b&gt;${catHostLabel(resourceData?.host||catalogData.host)}&lt;/div&gt;&lt;small&gt;${resourceError?&#x27;연결 끊김 · 마지막 계측 유지&#x27;:resourceData?&#x27;2초 갱신&#x27;:&#x27;연결 중&#x27;} · ${resourceData?resTime(resourceData.observed_at):&#x27;—&#x27;}&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;pa-resource-grid&quot;&gt;${cpu+ram+gpu+storage}&lt;/div&gt;&lt;div class=&quot;pa-resource-reservations&quot;&gt;&lt;b&gt;이 환경의 실행 슬롯&lt;/b&gt; ${reservations}${l?` · 대기 ${l.queued_jobs}건 · 조회 권한 내 작업`:&#x27;&#x27;}${l?.unregistered_reservations?` · 미등록 예약 ${l.unregistered_reservations}건`:&#x27;&#x27;} ${resStatus(s.leases)}&lt;/div&gt;`;
 }
 function resourcePanel(){return `&lt;section class=&quot;pa-resources&quot; aria-label=&quot;Inspector&quot; data-resource-panel&gt;${resourceContents()}&lt;/section&gt;`;}
-function resourceInterest(){const interested=!!root.querySelector(&#x27;[data-resource-panel],.pa-finder,.pa-sidebar-bottom&#x27;);if(interested!==resourceInterested){resourceInterested=interested;parent.postMessage({type:&#x27;pai-resource-interest&#x27;,active:interested},&#x27;*&#x27;);}}
+function resourceInterest(){const interested=root.querySelector(&#x27;[data-resource-panel]&#x27;)?&#x27;inspector&#x27;:root.querySelector(&#x27;.pa-finder&#x27;)?&#x27;storage&#x27;:root.querySelector(&#x27;.pa-sidebar-bottom&#x27;)?&#x27;host&#x27;:null;if(interested!==resourceInterested){resourceInterested=interested;parent.postMessage({type:&#x27;pai-resource-interest&#x27;,scope:interested,active:!!interested},&#x27;*&#x27;);}}
 const renderBeforeResources=render;render=function(){renderBeforeResources();resourceInterest();};
 // Reconcile only the small telemetry subtree. Preserve unchanged reservation links,
 // node identities and scroll anchors instead of deleting the entire Inspector.
@@ -2771,7 +2771,7 @@ queue=function(){
  const counts=[[&#x27;running&#x27;,&#x27;Running&#x27;],[&#x27;ready&#x27;,&#x27;Ready&#x27;],[&#x27;waiting&#x27;,&#x27;Wait&#x27;],[&#x27;paused&#x27;,&#x27;Paused&#x27;],[&#x27;blocked&#x27;,&#x27;Blocked&#x27;],[&#x27;complete&#x27;,&#x27;Complete&#x27;],[&#x27;failed&#x27;,&#x27;Failed&#x27;]].map(([key,label])=&gt;({key,label,n:(ended||[]).concat(current).filter(e=&gt;queueState(e).info[0]===key).length}));
  const summary=`&lt;div class=&quot;pa-queue-counts&quot;&gt;${counts.filter(x=&gt;x.n).map(x=&gt;`&lt;div class=&quot;pa-queue-count pa-job-${x.key}&quot;&gt;&lt;span&gt;${x.label}&lt;/span&gt;&lt;strong&gt;${x.n}&lt;/strong&gt;&lt;/div&gt;`).join(&#x27;&#x27;)}&lt;/div&gt;`;
  const table=(items,isCurrent)=&gt;`&lt;div class=&quot;pa-queue-table${isCurrent?&#x27; pa-current-work-queue&#x27;:&#x27;&#x27;}&quot;&gt;${catTable(isCurrent?[&#x27;Job&#x27;,&#x27;상태&#x27;,&#x27;Task Level&#x27;,&#x27;실행 시간&#x27;,&#x27;남은 예상 시간&#x27;,&#x27;시작 예정&#x27;,&#x27;완료 예정&#x27;]:[&#x27;Job&#x27;,&#x27;상태&#x27;,&#x27;Task Level&#x27;,&#x27;실행 시작&#x27;,&#x27;실행 종료&#x27;,&#x27;실행 시간&#x27;],items.map(e=&gt;workRow(e,isCurrent)))}&lt;/div&gt;`;
- const history=ended?.length?loomTerminalWorkTable(ended.slice(0,state.queueHistoryLimits?.all||10),table)+loomHistoryMore(ended.length)
+ const history=ended?.length?loomTerminalWorkTable(catalogData.capabilities?.compact_lists?ended:ended.slice(0,state.queueHistoryLimits?.all||10),table)+loomHistoryMore(ended.length)
    :ended?&#x27;&lt;div class=&quot;pa-empty&quot;&gt;종료된 Job이 없습니다.&lt;/div&gt;&#x27;:&#x27;&#x27;;
  return heading(&#x27;WORKSPACE&#x27;,&#x27;Dashboard&#x27;,&#x27;&#x27;)+catStatus()+resourcePanel()+summary+loomQueueFeedback()
    +`&lt;div class=&quot;pa-queue-caption&quot;&gt;사용자 목표 기준 · KST · 대기 제외 · Job 내부 중복 실행시간 제외&lt;/div&gt;`
@@ -3348,6 +3348,7 @@ window.addEventListener(&#x27;message&#x27;, event =&gt; {
 let loomDockerState = null;
 let loomDockerError = null;
 let loomDockerOpen = false;
+const loomDockerLimits = new Map(),loomDockerExpanded=new Set();
 let loomMcpState = null;
 let loomMcpError = null;
 let loomMcpOpen = false;
@@ -3384,18 +3385,20 @@ function loomDockerView() {
       + rows.filter(row =&gt; row.state === &#x27;running&#x27;).length + &#x27;개&lt;/p&gt;&#x27;
       + groups.filter(([, items]) =&gt; items.length).map(([label, items]) =&gt; {
         const head = [&#x27;컨테이너&#x27;,&#x27;Compose / 서비스&#x27;,&#x27;상태&#x27;,&#x27;Health&#x27;,&#x27;이미지&#x27;,&#x27;CPU&#x27;,&#x27;메모리&#x27;];
-        const body = items.map(row =&gt; {
+        const limit = loomDockerLimits.get(label)||50;
+        const body = items.slice(0,limit).map(row =&gt; {
           const values = [esc(row.name), esc(row.compose_project || &#x27;—&#x27;) + &#x27;&lt;small&gt;&#x27; + esc(row.compose_service || &#x27;—&#x27;) + &#x27;&lt;/small&gt;&#x27;,
             &#x27;&lt;span class=&quot;pa-container-state&quot; data-state=&quot;&#x27;+esc(row.state)+&#x27;&quot;&gt;&#x27;+esc(row.state)+&#x27;&lt;/span&gt;&#x27;,
             esc(row.health === &#x27;not_configured&#x27; ? &#x27;미설정&#x27; : row.health),
             esc(row.image), esc(row.stats?.cpu_percent == null ? &#x27;—&#x27; : String(row.stats.cpu_percent).replace(/%+$/, &#x27;&#x27;) + &#x27;%&#x27;),
             esc(row.stats?.memory_usage || &#x27;—&#x27;)];
-          return &#x27;&lt;tr data-container-row=&quot;&#x27;+esc(row.name)+&#x27;&quot; tabindex=&quot;0&quot; aria-expanded=&quot;false&quot; aria-label=&quot;&#x27;+esc(row.name)+&#x27; 상세&quot;&gt;&#x27;+values.map(v=&gt;&#x27;&lt;td&gt;&#x27;+v+&#x27;&lt;/td&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/tr&gt;&#x27;
-            + &#x27;&lt;tr hidden data-container-extra=&quot;&#x27;+esc(row.id)+&#x27;&quot;&gt;&lt;td colspan=&quot;7&quot;&gt;&#x27;+loomContainerDetails(row)+&#x27;&lt;/td&gt;&lt;/tr&gt;&#x27;;
+          const open=loomDockerExpanded.has(row.id);
+          return &#x27;&lt;tr data-container-row=&quot;&#x27;+esc(row.name)+&#x27;&quot; data-container-id=&quot;&#x27;+esc(row.id)+&#x27;&quot; tabindex=&quot;0&quot; aria-expanded=&quot;&#x27;+open+&#x27;&quot; aria-label=&quot;&#x27;+esc(row.name)+&#x27; 상세&quot;&gt;&#x27;+values.map(v=&gt;&#x27;&lt;td&gt;&#x27;+v+&#x27;&lt;/td&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/tr&gt;&#x27;
+            +(open?&#x27;&lt;tr data-container-extra=&quot;&#x27;+esc(row.id)+&#x27;&quot;&gt;&lt;td colspan=&quot;7&quot;&gt;&#x27;+loomContainerDetails(row)+&#x27;&lt;/td&gt;&lt;/tr&gt;&#x27;:&#x27;&#x27;);
         }).join(&#x27;&#x27;);
         return panel(esc(label) + &#x27; &lt;small&gt;&#x27; + items.length + &#x27;&lt;/small&gt;&#x27;, &#x27;&lt;div class=&quot;pa-table-wrap&quot; tabindex=&quot;0&quot; aria-label=&quot;&#x27;+esc(label)+&#x27; 컨테이너 목록&quot;&gt;&lt;table class=&quot;pa-container-table&quot;&gt;&lt;colgroup&gt;&#x27;
           + [23,14,9,10,23,7,14].map(w=&gt;&#x27;&lt;col style=&quot;width:&#x27;+w+&#x27;%&quot;&gt;&#x27;).join(&#x27;&#x27;)
-          + &#x27;&lt;/colgroup&gt;&lt;thead&gt;&lt;tr&gt;&#x27;+head.map(h=&gt;&#x27;&lt;th&gt;&#x27;+esc(h)+&#x27;&lt;/th&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&#x27;+body+&#x27;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&#x27;);
+          + &#x27;&lt;/colgroup&gt;&lt;thead&gt;&lt;tr&gt;&#x27;+head.map(h=&gt;&#x27;&lt;th&gt;&#x27;+esc(h)+&#x27;&lt;/th&gt;&#x27;).join(&#x27;&#x27;)+&#x27;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&#x27;+body+&#x27;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;&#x27;+(items.length&gt;limit?&#x27;&lt;button class=&quot;pa-button&quot; data-loom-docker-more=&quot;&#x27;+esc(label)+&#x27;&quot;&gt;더보기&lt;/button&gt;&#x27;:&#x27;&#x27;));
       }).join(&#x27;&#x27;);
     if (!(docker.containers || []).length) body += &#x27;&lt;p&gt;표시할 컨테이너 관측값이 없습니다.&lt;/p&gt;&#x27;;
   }
@@ -3415,8 +3418,16 @@ render = function() {
   loomMcpOpen = mcpOpen;
 };
 function loomToggleContainer(row) {
-  const detail = row.nextElementSibling;
+  let detail = row.nextElementSibling;
+  if(detail?.dataset.containerExtra!==row.dataset.containerId){
+    const observed=loomDockerState?.containers?.find(item=&gt;item.id===row.dataset.containerId);
+    if(!observed)return;
+    row.insertAdjacentHTML(&#x27;afterend&#x27;,&#x27;&lt;tr hidden data-container-extra=&quot;&#x27;+esc(observed.id)+&#x27;&quot;&gt;&lt;td colspan=&quot;7&quot;&gt;&#x27;+loomContainerDetails(observed)+&#x27;&lt;/td&gt;&lt;/tr&gt;&#x27;);
+    detail=row.nextElementSibling;
+  }
   detail.hidden = !detail.hidden;
+  if(detail.hidden)loomDockerExpanded.delete(row.dataset.containerId);
+  else loomDockerExpanded.add(row.dataset.containerId);
   row.setAttribute(&#x27;aria-expanded&#x27;, String(!detail.hidden));
 }
 root.addEventListener(&#x27;keydown&#x27;, event =&gt; {
@@ -3425,6 +3436,8 @@ root.addEventListener(&#x27;keydown&#x27;, event =&gt; {
   loomToggleContainer(event.target);
 });
 root.addEventListener(&#x27;click&#x27;, event =&gt; {
+  const more=event.target.closest(&#x27;[data-loom-docker-more]&#x27;);
+  if(more){const key=more.dataset.loomDockerMore;loomDockerLimits.set(key,(loomDockerLimits.get(key)||50)+50);refreshCatalogPanes();return;}
   const row = event.target.closest(&#x27;[data-container-row]&#x27;);
   if (row &amp;&amp; !event.target.closest(&#x27;a,button,input&#x27;) &amp;&amp; !window.getSelection()?.toString()) loomToggleContainer(row);
   if (event.target.closest(&#x27;[data-loom-docker-refresh]&#x27;)) parent.postMessage({type:&#x27;loom-docker-request&#x27;}, &#x27;*&#x27;);
@@ -3497,11 +3510,13 @@ catHostRefresh();
 function loomHistoryRows() {
   const page=loomCatalogPages.get(loomCatalogPageKey(&#x27;job&#x27;));
   if(catalogData.capabilities?.catalog_pages &amp;&amp; !page?.committed)return null;
+  if(page?.query.projection===&#x27;history&#x27;)return page.ids.map(id=&gt;catEntity(id)).filter(Boolean);
   const ids=catalogData.capabilities?.catalog_pages?new Set(page.ids):null;
   return workItems(ids).filter(item=&gt;queueState(item).info[3])
     .sort((a,b)=&gt;(queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).ended??queueTimes(a).exited??0));
 }
 function loomHistoryMore(total) {
+  if(catalogData.capabilities?.compact_lists)return &#x27;&#x27;;
   const limit=state.queueHistoryLimits?.all||10;
   if(total&lt;=10)return &#x27;&#x27;;
   return &#x27;&lt;div class=&quot;pa-history-more&quot;&gt;&#x27;
@@ -3918,7 +3933,7 @@ function loomExecutionProfileDetail(entity){
   +panel(&#x27;실행 흐름&#x27;,`${software.length?`&lt;div class=&quot;pa-profile-software&quot;&gt;${p.component?software[0]:&#x27;&#x27;}${p.tools?.length?`&lt;section class=&quot;pa-profile-tools&quot;&gt;&lt;h3&gt;Tools&lt;/h3&gt;&lt;div&gt;${software.slice(p.component?1:0).join(&#x27;&#x27;)}&lt;/div&gt;&lt;/section&gt;`:&#x27;&#x27;}&lt;/div&gt;`:&#x27;&#x27;}&lt;ol class=&quot;pa-profile-flow&quot;&gt;${stages||&#x27;&lt;li class=&quot;pa-subtle&quot;&gt;Stage 미기록&lt;/li&gt;&#x27;}&lt;/ol&gt;`)
   +(requirements.length?`&lt;details class=&quot;pa-execution-options&quot;&gt;&lt;summary&gt;소프트웨어 요구사항&lt;/summary&gt;${catTable([&#x27;소프트웨어&#x27;,&#x27;Dependency&#x27;,&#x27;Version&#x27;],requirements.map(row=&gt;row.map(esc)))}&lt;/details&gt;`:&#x27;&#x27;)
   +`&lt;details class=&quot;pa-execution-options&quot;&gt;&lt;summary&gt;입출력 · 실행 설정&lt;/summary&gt;${contracts}&lt;/details&gt;`
-  +`&lt;details class=&quot;pa-execution-options&quot;&gt;&lt;summary&gt;실행 기록 · ${(p.jobs||[]).length}&lt;/summary&gt;${observed?`&lt;div class=&quot;pa-profile-purposes&quot; data-profile-observed title=&quot;실제 Job에 기록된 분류&quot;&gt;${loomProfilePurpose(p,true)}&lt;/div&gt;`:&#x27;&#x27;}${jobs.length?catTable([&#x27;실행 기록&#x27;,&#x27;논리 Job&#x27;,&#x27;상태&#x27;,&#x27;용도&#x27;,&#x27;모드&#x27;,&#x27;현재 pin&#x27;],jobs):&#x27;&lt;p class=&quot;pa-empty&quot;&gt;사용 기록이 없습니다.&lt;/p&gt;&#x27;}&lt;/details&gt;`
+  +(entity.deferred_software_sections?loomDeferredSoftwareSection(entity,&#x27;profile_usage&#x27;,&#x27;실행 기록&#x27;):`&lt;details class=&quot;pa-execution-options&quot;&gt;&lt;summary&gt;실행 기록 · ${(p.jobs||[]).length}&lt;/summary&gt;${observed?`&lt;div class=&quot;pa-profile-purposes&quot; data-profile-observed title=&quot;실제 Job에 기록된 분류&quot;&gt;${loomProfilePurpose(p,true)}&lt;/div&gt;`:&#x27;&#x27;}${jobs.length?catTable([&#x27;실행 기록&#x27;,&#x27;논리 Job&#x27;,&#x27;상태&#x27;,&#x27;용도&#x27;,&#x27;모드&#x27;,&#x27;현재 pin&#x27;],jobs):&#x27;&lt;p class=&quot;pa-empty&quot;&gt;사용 기록이 없습니다.&lt;/p&gt;&#x27;}&lt;/details&gt;`)
   +`&lt;details class=&quot;pa-execution-options&quot;&gt;&lt;summary&gt;등록 정보&lt;/summary&gt;${catProperties({Kind:p.kind,SHA256:p.sha256||&#x27;—&#x27;,Namespace:p.namespace,&#x27;등록 경로&#x27;:p.origin.type,Description:p.description||&#x27;—&#x27;})}&lt;/details&gt;`;
 }
 
@@ -3929,26 +3944,97 @@ function loomRuntimeCard(entity){
  const facts=(item.summary_only||profiles==null?&#x27;&#x27;:`&lt;span&gt;Profiles ${profiles}&lt;/span&gt;`)+(startedJobs?`&lt;span&gt;Started Jobs ${startedJobs}&lt;/span&gt;`:&#x27;&#x27;);
  return `&lt;article class=&quot;pa-extension-card&quot; data-extension-card=&quot;${esc(entity.id)}&quot;&gt;&lt;div class=&quot;pa-extension-card-head&quot;&gt;${loomExtensionBadges(entity,item.revision)}${loomRegistryBadge(entity)}&lt;span&gt;${esc(item.legacy?&#x27;Unverified&#x27;:manifest.reconciliation?&#x27;Metadata checked&#x27;:manifest.validation?.status===&#x27;passed&#x27;?&#x27;Checks passed&#x27;:&#x27;Unverified&#x27;)}&lt;/span&gt;&lt;/div&gt;&lt;h3&gt;${catLink(entity.id,item.curation?.label||entity.label)}&lt;/h3&gt;&lt;div class=&quot;pa-profile-dependencies&quot;&gt;${loomHubHighlights({...item,dependencies:manifest.dependencies})}&lt;/div&gt;${facts?`&lt;div class=&quot;pa-extension-card-facts&quot;&gt;${facts}&lt;/div&gt;`:&#x27;&#x27;}&lt;/article&gt;`;
 }
+function loomRuntimeJobTable(items){
+ return catTable([&#x27;Execution&#x27;,&#x27;Job group&#x27;,&#x27;Profile&#x27;,&#x27;Pinned stages&#x27;,&#x27;Started stages&#x27;,&#x27;State&#x27;],items.map(j=&gt;{
+  const started=[...new Set((j.execution_receipts||[]).map(receipt=&gt;receipt.stage))];
+  const stages=values=&gt;(values||[]).map(stage=&gt;stage===&#x27;runtime&#x27;?&#x27;run&#x27;:stage).join(&#x27; · &#x27;)||&#x27;—&#x27;;
+  return [loomJobInventoryLink(j.id),loomJobInventoryLink(j.group_root),catLink(&#x27;profile:&#x27;+j.profile,j.profile),
+   esc(stages(j.stages)),esc(stages(started)),esc(j.state)];
+ }));
+}
+function loomPackageTable(items){
+ return catTable([&#x27;Package&#x27;,&#x27;Version&#x27;,&#x27;Scope&#x27;,&#x27;Origin&#x27;],items.map(d=&gt;[esc(d.name),esc(d.version),esc(d.scope||&#x27;—&#x27;),esc(loomHubOrigin(d))]));
+}
+const loomSoftwareSectionPages=new Map();
+const loomSoftwareSectionInputs=new WeakMap();
+function loomDeferredSoftwareSection(entity,section,label,controls=&#x27;&#x27;){
+ const key=entity.id+&#x27;:&#x27;+section;
+ const opened=state.softwareSections?.includes(key);
+ return &#x27;&lt;details class=&quot;pa-execution-options&quot; data-exact-software=&quot;&#x27;+esc(section)+&#x27;&quot; data-software-id=&quot;&#x27;+esc(entity.id)+&#x27;&quot;&#x27;+(opened?&#x27; open&#x27;:&#x27;&#x27;)+&#x27;&gt;&#x27;
+  +&#x27;&lt;summary&gt;&#x27;+esc(label)+&#x27;&lt;/summary&gt;&#x27;+controls+&#x27;&lt;div data-software-section-body&gt;&lt;/div&gt;&lt;/details&gt;&#x27;;
+}
+function loomReadSoftwareSection(details,more=false,refresh=false){
+ const name=details.dataset.exactSoftware,entity=catEntity(details.dataset.softwareId);
+ if(!details.open||!entity?.item_id)return;
+ const body=details.querySelector(&#x27;[data-software-section-body]&#x27;);
+ const filters=name===&#x27;runtime_inventory&#x27;?{origin:details.querySelector(&#x27;[data-exact-inventory-origin]&#x27;).value,text:details.querySelector(&#x27;[data-exact-inventory-query]&#x27;).value.trim().slice(0,256)}:{};
+ const key=JSON.stringify([entity.item_revision_id,name,loomCatalogStamp(name===&#x27;runtime_inventory&#x27;?&#x27;software&#x27;:&#x27;work&#x27;),filters]);
+ const old=loomSoftwareSectionPages.get(key);
+ const draw=state=&gt;{
+  if(!details.isConnected||details.dataset.softwareSectionKey!==key)return;
+  const items=state.items||[];
+  const content=name===&#x27;runtime_usage&#x27;?loomRuntimeJobTable(items):name===&#x27;runtime_inventory&#x27;?loomPackageTable(items)
+   :catTable([&#x27;Execution&#x27;,&#x27;Job group&#x27;,&#x27;State&#x27;,&#x27;Category&#x27;,&#x27;Execution mode&#x27;],items.map(j=&gt;[loomJobInventoryLink(j.id),loomJobInventoryLink(j.logical_job),esc(j.state),esc(j.category||&#x27;—&#x27;),esc(j.execution_mode||&#x27;—&#x27;)]));
+  body.innerHTML=items.length?content:state.pending?&#x27;&lt;span role=&quot;status&quot;&gt;Loading…&lt;/span&gt;&#x27;:state.error?&#x27;&#x27;:&#x27;&lt;span&gt;—&lt;/span&gt;&#x27;;
+  if(state.error)body.insertAdjacentHTML(&#x27;beforeend&#x27;,&#x27;&lt;button data-software-section-retry&gt;Retry&lt;/button&gt;&#x27;);
+  else if(state.next!=null)body.insertAdjacentHTML(&#x27;beforeend&#x27;,&#x27;&lt;button data-software-section-more&#x27;+(state.pending?&#x27; disabled&#x27;:&#x27;&#x27;)+&#x27;&gt;More&lt;/button&gt;&#x27;);
+ };
+ details.dataset.softwareSectionKey=key;
+ if(old&amp;&amp;!refresh&amp;&amp;!more){
+  draw(old);
+  old.promise?.then(draw,()=&gt;{});
+  return;
+ }
+ if(more&amp;&amp;(old?.pending||old?.next==null))return;
+ const page={items:more?old.items:[],next:more?old.next:null,pending:true};
+ loomSoftwareSectionPages.set(key,page);draw(page);
+ page.promise=loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:entity.item_id,revision_id:entity.item_revision_id,
+   section:name,offset:more?old.next:0,limit:50,...filters}).then(result=&gt;{
+  page.items=[...page.items,...result.items];page.next=result.next_offset;return page;
+ }).catch(()=&gt;{page.error=true;return page;}).finally(()=&gt;{
+  page.pending=false;draw(page);
+  while(loomSoftwareSectionPages.size&gt;64)loomSoftwareSectionPages.delete(loomSoftwareSectionPages.keys().next().value);
+ });
+}
+root.addEventListener(&#x27;toggle&#x27;,event=&gt;{
+ const details=event.target;
+ if(!details.matches?.(&#x27;[data-exact-software]&#x27;))return;
+ const pane=ws.panes.find(p=&gt;p.id===details.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);
+ if(!pane)return;
+ const view=activeTab(pane).view,key=details.dataset.softwareId+&#x27;:&#x27;+details.dataset.exactSoftware;
+ const open=new Set(view.softwareSections||[]);
+ if(details.open){open.add(key);loomReadSoftwareSection(details);}
+ else open.delete(key);
+ view.softwareSections=[...open];
+},true);
+root.addEventListener(&#x27;click&#x27;,event=&gt;{
+ const button=event.target.closest(&#x27;[data-software-section-more],[data-software-section-retry]&#x27;);
+ if(button)loomReadSoftwareSection(button.closest(&#x27;[data-exact-software]&#x27;),button.hasAttribute(&#x27;data-software-section-more&#x27;),button.hasAttribute(&#x27;data-software-section-retry&#x27;));
+});
+for(const eventName of [&#x27;change&#x27;,&#x27;input&#x27;])root.addEventListener(eventName,event=&gt;{
+ const input=event.target;
+ if(!input.matches?.(&#x27;[data-exact-inventory-query],[data-exact-inventory-origin]&#x27;)||event.isComposing)return;
+ const details=input.closest(&#x27;[data-exact-software]&#x27;);
+ clearTimeout(loomSoftwareSectionInputs.get(details));
+ loomSoftwareSectionInputs.set(details,setTimeout(()=&gt;loomReadSoftwareSection(details),eventName===&#x27;change&#x27;?0:240));
+});
 function loomRuntimeDetail(entity){
  const item=entity.loom_runtime,manifest=item.manifest,policy=manifest.runtime||{},filter=state.inventoryOrigin||&#x27;managed&#x27;,query=(state.inventoryQuery||&#x27;&#x27;).toLowerCase();
  const deps=(manifest.dependencies||[]).filter(d=&gt;(filter===&#x27;all&#x27;||loomHubOrigin(d)===filter)&amp;&amp;[d.name,d.version,d.scope].join(&#x27; &#x27;).toLowerCase().includes(query));
- const dependencies=catTable([&#x27;Package&#x27;,&#x27;Version&#x27;,&#x27;Scope&#x27;,&#x27;Origin&#x27;],deps.map(d=&gt;[esc(d.name),esc(d.version),esc(d.scope||&#x27;—&#x27;),esc(loomHubOrigin(d))]));
- const profiles=(item.used_by_profiles||[]).map(p=&gt;`&lt;div class=&quot;pa-row&quot;&gt;${catLink(&#x27;profile:&#x27;+p.kind,loomProfileName(catEntity(&#x27;profile:&#x27;+p.kind)?.loom_execution_profile||{kind:p.kind,label:p.kind}))}&lt;span&gt;${esc(p.stages.join(&#x27;, &#x27;))}&lt;/span&gt;&lt;/div&gt;`).join(&#x27;&#x27;)||&#x27;&lt;p class=&quot;pa-empty&quot;&gt;No linked profiles&lt;/p&gt;&#x27;;
- const jobs=item.job_usage?catTable([&#x27;Execution&#x27;,&#x27;Job group&#x27;,&#x27;Profile&#x27;,&#x27;Pinned stages&#x27;,&#x27;Started stages&#x27;,&#x27;State&#x27;],item.job_usage.map(j=&gt;{
-   const started=[...new Set((j.execution_receipts||[]).map(receipt=&gt;receipt.stage))];
-   const stages=values=&gt;values.map(stage=&gt;stage===&#x27;runtime&#x27;?&#x27;run&#x27;:stage).join(&#x27; · &#x27;)||&#x27;—&#x27;;
-   return [loomJobInventoryLink(j.id),loomJobInventoryLink(j.group_root),catLink(&#x27;profile:&#x27;+j.profile,j.profile),
-    esc(stages(j.stages)),esc(stages(started)),esc(j.state)];
- }))+(item.jobs_complete===false?&#x27;&lt;p class=&quot;pa-subtle&quot;&gt;Showing 200 records&lt;/p&gt;&#x27;:&#x27;&#x27;):(item.executed_jobs||[]).map(loomJobInventoryLink).join(&#x27; · &#x27;)||&#x27;—&#x27;;
+ const profiles=(item.used_by_profiles||[]).map(p=&gt;`&lt;div class=&quot;pa-row&quot;&gt;${catLink(&#x27;profile:&#x27;+p.kind,loomProfileName(catEntity(&#x27;profile:&#x27;+p.kind)?.loom_execution_profile||{kind:p.kind,label:p.kind}))}&lt;span&gt;${esc(p.stages.join(&#x27;, &#x27;))}&lt;/span&gt;&lt;/div&gt;`).join(&#x27;&#x27;)||&#x27;&lt;div class=&quot;pa-empty&quot;&gt;—&lt;/div&gt;&#x27;;
+ const jobs=item.job_usage?loomRuntimeJobTable(item.job_usage)+(item.jobs_complete===false?&#x27;&lt;p class=&quot;pa-subtle&quot;&gt;Showing 200 records&lt;/p&gt;&#x27;:&#x27;&#x27;):(item.executed_jobs||[]).map(loomJobInventoryLink).join(&#x27; · &#x27;)||&#x27;—&#x27;;
+ const deferred=entity.deferred_software_sections;
+ const inventoryControls=`&lt;div class=&quot;pa-extension-toolbar&quot;&gt;&lt;input type=&quot;search&quot; ${deferred?&#x27;data-exact-inventory-query&#x27;:&#x27;data-inventory-query&#x27;} placeholder=&quot;Search packages&quot; aria-label=&quot;Inventory search&quot; value=&quot;${esc(state.inventoryQuery||&#x27;&#x27;)}&quot;&gt;&lt;select ${deferred?&#x27;data-exact-inventory-origin&#x27;:&#x27;data-inventory-origin&#x27;} aria-label=&quot;Inventory origin&quot;&gt;${Object.entries({managed:&#x27;Managed directory&#x27;,image:&#x27;Image&#x27;,external:&#x27;External mounts&#x27;,deprecated:&#x27;Deprecated&#x27;,unknown:&#x27;Unclassified&#x27;,all:&#x27;All&#x27;}).map(([value,label])=&gt;`&lt;option value=&quot;${value}&quot; ${filter===value?&#x27;selected&#x27;:&#x27;&#x27;}&gt;${label}&lt;/option&gt;`).join(&#x27;&#x27;)}&lt;/select&gt;&lt;/div&gt;`;
  const versions=loomExtensionRows().filter(e=&gt;e.kind===&#x27;runtime&#x27;&amp;&amp;e.loom_runtime.id===item.id);
  return loomHubTabs()+heading(&#x27;RUNTIME&#x27;,item.curation?.label||entity.label,&#x27;&#x27;,&#x27;&lt;button class=&quot;pa-button&quot; data-extension-home&gt;Runtimes&lt;/button&gt;&#x27;)+catStatus()
   +`&lt;div class=&quot;pa-hub-actions&quot;&gt;${catalogData.capabilities?.curate&amp;&amp;item.revision?&#x27;&lt;button class=&quot;pa-button&quot; data-hub-edit&gt;Edit&lt;/button&gt;&#x27;:&#x27;&#x27;}&lt;/div&gt;`
   +panel(&#x27;Dependencies&#x27;,`&lt;div class=&quot;pa-profile-dependencies&quot;&gt;${loomHubHighlights({...item,dependencies:manifest.dependencies})}&lt;/div&gt;`)
   +panel(&#x27;Profiles&#x27;,profiles)
-  +`&lt;details class=&quot;pa-execution-options&quot;&gt;&lt;summary&gt;Pinned Job executions&lt;/summary&gt;${jobs}&lt;/details&gt;`
+  +(deferred?loomDeferredSoftwareSection(entity,&#x27;runtime_usage&#x27;,&#x27;Pinned Job executions&#x27;):`&lt;details class=&quot;pa-execution-options&quot;&gt;&lt;summary&gt;Pinned Job executions&lt;/summary&gt;${jobs}&lt;/details&gt;`)
   +`&lt;details class=&quot;pa-execution-options&quot;&gt;&lt;summary&gt;Revisions&lt;/summary&gt;${versions.map(e=&gt;catLink(e.id,&#x27;r&#x27;+(e.loom_runtime.revision||&#x27;—&#x27;)+(e.loom_runtime.aliases?.length?&#x27; · Current&#x27;:&#x27;&#x27;))).join(&#x27; · &#x27;)}&lt;/details&gt;`
   +`&lt;details class=&quot;pa-execution-options&quot;&gt;&lt;summary&gt;Checks&lt;/summary&gt;&lt;pre&gt;${esc(JSON.stringify({installation:manifest.installation,validation:manifest.validation},null,2))}&lt;/pre&gt;&lt;/details&gt;`
-  +`&lt;details class=&quot;pa-execution-options&quot; data-runtime-inventory&gt;&lt;summary&gt;Installed inventory&lt;/summary&gt;&lt;div class=&quot;pa-extension-toolbar&quot;&gt;&lt;input type=&quot;search&quot; data-inventory-query placeholder=&quot;Search packages&quot; aria-label=&quot;Inventory search&quot; value=&quot;${esc(state.inventoryQuery||&#x27;&#x27;)}&quot;&gt;&lt;select data-inventory-origin aria-label=&quot;Inventory origin&quot;&gt;${Object.entries({managed:&#x27;Managed directory&#x27;,image:&#x27;Image&#x27;,external:&#x27;External mounts&#x27;,deprecated:&#x27;Deprecated&#x27;,unknown:&#x27;Unclassified&#x27;,all:&#x27;All&#x27;}).map(([value,label])=&gt;`&lt;option value=&quot;${value}&quot; ${filter===value?&#x27;selected&#x27;:&#x27;&#x27;}&gt;${label}&lt;/option&gt;`).join(&#x27;&#x27;)}&lt;/select&gt;&lt;/div&gt;${dependencies}&lt;/details&gt;`
+  +(deferred?loomDeferredSoftwareSection(entity,&#x27;runtime_inventory&#x27;,&#x27;Installed inventory&#x27;,inventoryControls)
+    :`&lt;details class=&quot;pa-execution-options&quot; data-runtime-inventory&gt;&lt;summary&gt;Installed inventory&lt;/summary&gt;${inventoryControls}${loomPackageTable(deps)}&lt;/details&gt;`)
   +`&lt;details class=&quot;pa-execution-options&quot;&gt;&lt;summary&gt;Runtime settings&lt;/summary&gt;${catProperties({ID:item.id,Revision:item.revision??&#x27;—&#x27;,SHA256:item.sha256||&#x27;—&#x27;,Image:policy.image,Network:policy.network||&#x27;none&#x27;,CPU:policy.cpus,Memory:policy.memory})}&lt;/details&gt;`;
 }
 
@@ -3989,7 +4075,8 @@ root.addEventListener(&#x27;click&#x27;,event=&gt;{
 function loomExtensionInput(event){
  const field=event.target.closest(&#x27;[data-extension-query],[data-extension-owner],[data-extension-source-query]&#x27;);if(!field)return;
  const view=loomExtensionView(field),name=field.hasAttribute(&#x27;data-extension-query&#x27;)?&#x27;extensionQuery&#x27;:field.hasAttribute(&#x27;data-extension-owner&#x27;)?&#x27;extensionOwner&#x27;:&#x27;extensionSourceQuery&#x27;;
- view[name]=field.value;const start=field.selectionStart,end=field.selectionEnd,selector=field.hasAttribute(&#x27;data-extension-query&#x27;)?&#x27;[data-extension-query]&#x27;:field.hasAttribute(&#x27;data-extension-source-query&#x27;)?&#x27;[data-extension-source-query]&#x27;:&#x27;[data-extension-owner]&#x27;;
+ if(name===&#x27;extensionQuery&#x27;)loomDebounceCatalogText(view,name,field.value);else view[name]=field.value;
+ const start=field.selectionStart,end=field.selectionEnd,selector=field.hasAttribute(&#x27;data-extension-query&#x27;)?&#x27;[data-extension-query]&#x27;:field.hasAttribute(&#x27;data-extension-source-query&#x27;)?&#x27;[data-extension-source-query]&#x27;:&#x27;[data-extension-owner]&#x27;;
  render();persist();const next=root.querySelector(&#x27;.pa-document-pane.is-active &#x27;+selector);next?.focus();if(next?.type===&#x27;search&#x27;&amp;&amp;start!=null)next.setSelectionRange(start,end);
 }
 root.addEventListener(&#x27;input&#x27;,event=&gt;{if(!event.isComposing&amp;&amp;event.target.matches(&#x27;[data-extension-query],[data-extension-source-query]&#x27;))loomExtensionInput(event);});
@@ -4097,7 +4184,7 @@ root.addEventListener(&#x27;click&#x27;,event=&gt;{
 });
 root.addEventListener(&#x27;input&#x27;,event=&gt;{
  if(!event.target.matches(&#x27;[data-dependency-query]&#x27;)||event.isComposing)return;
- const input=event.target,start=input.selectionStart;loomExtensionView(input);state.dependencyQuery=input.value;render();persist();
+ const input=event.target,start=input.selectionStart;loomExtensionView(input);loomDebounceCatalogText(state,&#x27;dependencyQuery&#x27;,input.value);render();persist();
  const next=root.querySelector(&#x27;.pa-document-pane.is-active [data-dependency-query]&#x27;);next?.focus();next?.setSelectionRange(start,start);
 });
 
@@ -4305,9 +4392,9 @@ workRow = function(entity, current) {
   const row = loomLegacyWorkRow(entity, current);
   if (entity.properties?.record_role === &#x27;loom_job&#x27;) {
     const preserved=entity.reviewed_executions ?? (entity.internal_steps?.status===&#x27;preserved_execution&#x27; ? entity.internal_steps.steps : null);
-    const steps=entity.properties.internal_step_count || (entity.steps || []).length;
+    const steps=entity.properties.unit_count || entity.properties.internal_step_count || (entity.steps || []).length;
     const [count,unit]=Array.isArray(preserved) ? [preserved.length,&#x27;Execution&#x27;]
-      : steps ? [steps,&#x27;Step&#x27;] : [(entity.attempts || []).length,&#x27;Attempt&#x27;];
+      : steps ? [steps,&#x27;Step&#x27;] : [entity.properties.attempt_count??(entity.attempts || []).length,&#x27;Attempt&#x27;];
     const summary=count+&#x27; &#x27;+unit+(count===1?&#x27;&#x27;:&#x27;s&#x27;);
     row[0] = &#x27;&lt;div class=&quot;pa-queue-name&quot;&gt;&#x27; + catLink(entity.id) + &#x27;&lt;small&gt;&#x27;
       + summary + &#x27;&lt;/small&gt;&lt;/div&gt;&#x27;;
@@ -4555,7 +4642,7 @@ catalogDetail = function(id) {
     ? heading(&#x27;JOB&#x27;, entity.label, &#x27;&#x27;, paiEntityActions(id))
       + panel(&#x27;실행&#x27;, catTable([&#x27;등록&#x27;,&#x27;실행 시작&#x27;,&#x27;실행 종료&#x27;,&#x27;실행 시간&#x27;], [queueRow(entity).slice(2)]))
     : loomCatalogDetail(id), id);
-  if (!descriptor) return base;
+  if (!descriptor || (entity.summary_only || entity.deferred_output_sections) &amp;&amp; descriptor.kind === &#x27;registry&#x27;) return base;
   loomRequestDetail(descriptor);
   const entry = loomEntityReads.get(id);
   const detail = entity?.loom_imported_job ? loomJobPanel({id:entity.id}, {...entry, data:entry?.data?.body?.record})
@@ -4590,11 +4677,14 @@ root.addEventListener(&#x27;click&#x27;, event =&gt; {
   render();
 });
 
+let loomLastWorkStamp=null;
 window.addEventListener(&#x27;message&#x27;, event =&gt; {
   if (event.source !== parent) return;
   const message = event.data;
   if (message?.type === &#x27;pai-catalog-data&#x27;) {
-    if (message.connected) loomRefreshJobDetails();
+    const stamp=message.catalog?.domains?.work??message.catalog?.revision;
+    if (message.connected &amp;&amp; stamp!==loomLastWorkStamp) loomRefreshJobDetails();
+    loomLastWorkStamp=stamp;
     return;
   }
   if (message?.type !== &#x27;loom-detail-response&#x27;) return;
@@ -4800,8 +4890,8 @@ function loomCurrentQueuePanel(rows,table){
    return [label,queueBadge(record(unit)),gpu,active||esc(loomQueueReason(unit)),
      &#x27;&lt;div class=&quot;pa-forecast&quot;&gt;&#x27;+(unit.state===&#x27;running&#x27;?loomForecastFinish(unit.forecast):&#x27;—&#x27;)+&#x27;&lt;/div&gt;&#x27;];
   });
-  return panel(&#x27;Job Queue · &#x27;+jobs.length,notice+(jobs.length?table(jobs,true):queue?&#x27;&lt;div class=&quot;pa-empty&quot;&gt;대기 또는 실행 중인 Job이 없습니다.&lt;/div&gt;&#x27;:&#x27;&#x27;))
-    +panel(&#x27;Unit Queue · &#x27;+units.length,body.length?&#x27;&lt;div class=&quot;pa-queue-table pa-unit-work-queue&quot;&gt;&#x27;+catTable([&#x27;Unit&#x27;,&#x27;상태&#x27;,&#x27;자원&#x27;,&#x27;진행&#x27;,&#x27;완료 예정&#x27;],body)+&#x27;&lt;/div&gt;&#x27;:queue?&#x27;&lt;div class=&quot;pa-empty&quot;&gt;대기 또는 실행 중인 Unit이 없습니다.&lt;/div&gt;&#x27;:&#x27;&#x27;);
+  return panel(&#x27;Job Queue&#x27;+(queue?&#x27; · &#x27;+jobs.length:&#x27;&#x27;),notice+(jobs.length?table(jobs,true):queue?&#x27;&lt;div class=&quot;pa-empty&quot;&gt;대기 또는 실행 중인 Job이 없습니다.&lt;/div&gt;&#x27;:&#x27;&#x27;))
+    +panel(&#x27;Unit Queue&#x27;+(queue?&#x27; · &#x27;+units.length:&#x27;&#x27;),body.length?&#x27;&lt;div class=&quot;pa-queue-table pa-unit-work-queue&quot;&gt;&#x27;+catTable([&#x27;Unit&#x27;,&#x27;상태&#x27;,&#x27;자원&#x27;,&#x27;진행&#x27;,&#x27;완료 예정&#x27;],body)+&#x27;&lt;/div&gt;&#x27;:queue?&#x27;&lt;div class=&quot;pa-empty&quot;&gt;대기 또는 실행 중인 Unit이 없습니다.&lt;/div&gt;&#x27;:&#x27;&#x27;);
  }
  if(waiting)return panel(&#x27;현재 큐&#x27;,loomHomeStatus(&#x27;queue&#x27;));
  if(catalogData.capabilities?.live_queue){
@@ -5063,9 +5153,58 @@ function loomCloseMedia() {
   loomMediaDisplay = null;
 }
 
+const loomOutputFilePages=new Map();
+function loomOutputFileSection(entity){
+ const key=entity.item_revision_id;
+ return `&lt;details data-output-files=&quot;${esc(entity.id)}&quot;${state.outputFilePanels?.includes(key)?&#x27; open&#x27;:&#x27;&#x27;}&gt;
+  &lt;summary&gt;등록 파일&lt;/summary&gt;&lt;div data-output-file-body&gt;&lt;/div&gt;&lt;/details&gt;`;
+}
+function loomLoadOutputFiles(section,more=false){
+ const entity=catEntity(section.dataset.outputFiles);
+ if(!section.open||!entity?.item_id)return;
+ const key=JSON.stringify([entity.item_revision_id,loomCatalogStamp(&#x27;outputs&#x27;)]);
+ const body=section.querySelector(&#x27;[data-output-file-body]&#x27;);
+ const draw=page=&gt;{
+  if(!section.isConnected)return;
+  const rows=page.items||[],media=page.media||[];
+  body.innerHTML=rows.length?catTable([&#x27;File&#x27;,&#x27;Location&#x27;,&#x27;Status&#x27;],rows.map(f=&gt;[esc(f.label),esc(f.path),esc(loomFileStatus(f.status))]))
+   :page.pending?&#x27;&lt;span role=&quot;status&quot;&gt;Loading…&lt;/span&gt;&#x27;:&#x27;&#x27;;
+  if(media.length)body.insertAdjacentHTML(&#x27;beforeend&#x27;,loomMediaPanel(entity,media));
+  if(page.error)body.insertAdjacentHTML(&#x27;beforeend&#x27;,&#x27;&lt;button data-output-files-retry&gt;Retry&lt;/button&gt;&#x27;);
+  else if(page.next!=null)body.insertAdjacentHTML(&#x27;beforeend&#x27;,&#x27;&lt;button data-output-files-more&#x27;+(page.pending?&#x27; disabled&#x27;:&#x27;&#x27;)+&#x27;&gt;More&lt;/button&gt;&#x27;);
+  else if(!page.pending&amp;&amp;!rows.length)body.textContent=&#x27;등록된 파일이 없습니다.&#x27;;
+ };
+ const previous=loomOutputFilePages.get(key);
+ if(previous&amp;&amp;!more&amp;&amp;!previous.error){draw(previous);previous.promise?.then(draw);return;}
+ if(more&amp;&amp;(!previous||previous.pending||previous.next==null))return;
+ const page={items:more?previous.items:[],media:more?previous.media:[],next:more?previous.next:null,pending:true};
+ loomOutputFilePages.set(key,page);draw(page);
+ page.promise=loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:entity.item_id,revision_id:entity.item_revision_id,section:&#x27;files&#x27;,
+   offset:more?previous.next:0,limit:50}).then(result=&gt;{
+  page.items=[...page.items,...result.items];page.media=[...page.media,...(result.media||[])];page.next=result.next_offset;return page;
+ }).catch(()=&gt;{page.error=true;return page;}).finally(()=&gt;{
+  page.pending=false;draw(page);
+  while(loomOutputFilePages.size&gt;32)loomOutputFilePages.delete(loomOutputFilePages.keys().next().value);
+ });
+}
+root.addEventListener(&#x27;toggle&#x27;,event=&gt;{
+ const details=event.target;
+ if(!details.matches?.(&#x27;[data-output-files]&#x27;))return;
+ const entity=catEntity(details.dataset.outputFiles),pane=ws.panes.find(p=&gt;p.id===details.closest(&#x27;[data-pane]&#x27;)?.dataset.pane);
+ if(!entity||!pane)return;
+ const view=activeTab(pane).view,open=new Set(view.outputFilePanels||[]);
+ if(details.open){open.add(entity.item_revision_id);loomLoadOutputFiles(details);}
+ else open.delete(entity.item_revision_id);
+ view.outputFilePanels=[...open];
+},true);
+root.addEventListener(&#x27;click&#x27;,event=&gt;{
+ const button=event.target.closest(&#x27;[data-output-files-more],[data-output-files-retry]&#x27;);
+ if(button)loomLoadOutputFiles(button.closest(&#x27;[data-output-files]&#x27;),button.hasAttribute(&#x27;data-output-files-more&#x27;));
+});
 const loomDetailWithLocation = catalogDetail;
 catalogDetail = function(id) {
-  return loomDetailWithLocation(id) + loomMediaPanel(catEntity(id));
+  const entity=catEntity(id);
+  return loomDetailWithLocation(id)+(entity?.deferred_output_sections?loomOutputFileSection(entity):loomMediaPanel(entity));
 };
 
 root.addEventListener(&#x27;click&#x27;, event =&gt; {
@@ -5130,10 +5269,57 @@ window.addEventListener(&#x27;message&#x27;, async event =&gt; {
 
 window.addEventListener(&#x27;pagehide&#x27;, loomCloseMedia);
 
+const loomExplorerPages=new Map();
+function loomExplorerKey(directory){return JSON.stringify([loomCatalogStamp(&#x27;outputs&#x27;),directory]);}
+function loomLoadExplorerFolder(folder,more=false,retry=false){
+ if(!folder.startsWith(&#x27;storage/data/&#x27;))return;
+ const directory=folder.slice(&#x27;storage/&#x27;.length),key=loomExplorerKey(directory);
+ const previous=loomExplorerPages.get(key);
+ if(previous?.pending||more&amp;&amp;previous?.next==null||previous&amp;&amp;!more&amp;&amp;!retry)return;
+ const page={children:more?previous.children:[],next:more?previous.next:null,pending:true};
+ loomExplorerPages.set(key,page);
+ loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_page&#x27;,{projection:&#x27;files&#x27;,directory,limit:50,offset:more?previous.next:0}).then(result=&gt;{
+  page.children.push(...result.children);page.next=result.next_offset;
+ }).catch(error=&gt;{page.error=error.message;}).finally(()=&gt;{
+  page.pending=false;
+  while(loomExplorerPages.size&gt;48)loomExplorerPages.delete(loomExplorerPages.keys().next().value);
+  if(root.querySelector(&#x27;.pa-finder&#x27;))scheduleCatalogRender();
+ });
+}
+function loomExplorerFolderStatus(folder){
+ if(!catalogData.capabilities?.compact_lists||folder.id===&#x27;storage&#x27;)return {loading:false,footer:&#x27;&#x27;};
+ const page=loomExplorerPages.get(loomExplorerKey(folder.id.slice(&#x27;storage/&#x27;.length)));
+ if(!page)queueMicrotask(()=&gt;loomLoadExplorerFolder(folder.id));
+ if(!page||page.pending&amp;&amp;!page.children.length)return {loading:true,footer:&#x27;&#x27;};
+ const footer=page.error?&#x27;&lt;button data-explorer-retry=&quot;&#x27;+esc(folder.id)+&#x27;&quot;&gt;Retry&lt;/button&gt;&#x27;
+  :page.next!=null?&#x27;&lt;button data-explorer-more=&quot;&#x27;+esc(folder.id)+&#x27;&quot;&#x27;+(page.pending?&#x27; disabled&#x27;:&#x27;&#x27;)+&#x27;&gt;더보기&lt;/button&gt;&#x27;:&#x27;&#x27;;
+ return {loading:false,footer};
+}
 function loomRebuildExplorer() {
   const nodes=new Map([[&#x27;storage&#x27;,{id:&#x27;storage&#x27;,name:&#x27;Data Storage&#x27;,folder:true}]]);
   const observed=resourceData?.sections?.storage?.data;
   const roots=new Set(Array.isArray(observed)?observed.map(item=&gt;item.path).filter(path=&gt;/^data\/[^/]+$/.test(path)):[]);
+  if(catalogData.capabilities?.compact_lists){
+    for(const path of [...roots].sort())nodes.set(&#x27;storage/&#x27;+path,{id:&#x27;storage/&#x27;+path,name:path,parent:&#x27;storage&#x27;,folder:true});
+    const selected=state.fileSelected||&#x27;storage&#x27;;
+    const trail=selected.match(/^(storage\/data\/[^/]+)(?:\/(.*))?$/);
+    const parents=[];
+    if(trail&amp;&amp;nodes.has(trail[1])){
+      let parent=trail[1];parents.push(parent);
+      for(const label of (trail[2]||&#x27;&#x27;).split(&#x27;/&#x27;).filter(Boolean)){parent+=&#x27;/&#x27;+label;parents.push(parent);}
+    }
+    for(const parent of parents){
+      if(!nodes.get(parent)?.folder)break;
+      const page=loomExplorerPages.get(loomExplorerKey(parent.slice(&#x27;storage/&#x27;.length)));
+      if(!page){queueMicrotask(()=&gt;loomLoadExplorerFolder(parent));break;}
+      for(const entry of page.children){
+        const id=parent+&#x27;/&#x27;+entry.name;
+        nodes.set(id,{id,name:entry.name,parent,folder:entry.folder,entries:entry.file?[{file:entry.file,entity:entry.entity}]:[]});
+      }
+    }
+    fileNodes.splice(0,fileNodes.length,...nodes.values());
+    return;
+  }
   const files=(catalogData.all_entities||catalogData.entities).flatMap(entity=&gt;(entity.loom_files||[]).map(file=&gt;({file,entity})));
   // The catalog indexes registered files, not the host&#x27;s arbitrary filesystem.
   if(!Array.isArray(observed))for(const {file} of files){
@@ -5157,7 +5343,7 @@ function loomRebuildExplorer() {
   fileNodes.splice(0,fileNodes.length,...nodes.values());
 }
 const loomExplorerRefresh=catalogRefreshViews;
-catalogRefreshViews=function(...args) {const result=loomExplorerRefresh(...args);loomRebuildExplorer();return result;};
+catalogRefreshViews=function(...args) {return loomExplorerRefresh(...args);};
 
 function loomFileStatus(status) {
   return ({available:&#x27;사용 가능&#x27;,intentionally_not_migrated:&#x27;이관 제외&#x27;,missing:&#x27;파일 없음&#x27;,corrupt:&#x27;무결성 불일치&#x27;,too_large:&#x27;미리보기 용량 초과&#x27;})[status]||status||&#x27;미확인&#x27;;
@@ -5175,13 +5361,25 @@ files=function() {
     : &#x27;&lt;dt&gt;항목&lt;/dt&gt;&lt;dd&gt;&#x27;+fileNodes.filter(node=&gt;node.parent===current.id).length+&#x27;&lt;/dd&gt;&#x27;;
   const previews=chosen?.entity.loom_media?.filter(item=&gt;item.id===chosen.file.preview_id);
   const preview=previews?.length?loomMediaPanel(chosen.entity,previews):&#x27;&#x27;;
+  const folderBody=folder=&gt;{
+   const status=loomExplorerFolderStatus(folder);
+   const entries=fileNodes.filter(node=&gt;node.parent===folder.id);
+   if(status.loading)return &#x27;&lt;div class=&quot;pa-empty-column&quot; role=&quot;status&quot;&gt;Loading…&lt;/div&gt;&#x27;;
+   const list=entries.sort((a,b)=&gt;Number(b.folder)-Number(a.folder)||a.name.localeCompare(b.name)).map(node=&gt;
+     `&lt;button class=&quot;pa-column-node ${current.id===node.id?&#x27;is-current&#x27;:&#x27;&#x27;}&quot; role=&quot;option&quot; aria-selected=&quot;${selected.has(node.id)}&quot; data-column-node=&quot;${esc(node.id)}&quot; title=&quot;${esc(node.name)}&quot;&gt;${icon(node.folder?&#x27;folder&#x27;:&#x27;file-text&#x27;)}&lt;span&gt;${esc(node.name)}&lt;/span&gt;${node.folder?icon(&#x27;chevron-right&#x27;):&#x27;&#x27;}&lt;/button&gt;`).join(&#x27;&#x27;);
+   return list+status.footer||&#x27;&lt;div class=&quot;pa-empty-column&quot;&gt;등록된 파일이 없습니다.&lt;/div&gt;&#x27;;
+  };
   let body=heading(&#x27;WORKSPACE&#x27;,&#x27;Explorer&#x27;,&#x27;&#x27;)
-    +`&lt;section class=&quot;pa-finder&quot;&gt;&lt;div class=&quot;pa-finder-toolbar&quot;&gt;&lt;span&gt;${icon(&#x27;columns-3&#x27;)} 열 보기&lt;/span&gt;&lt;span class=&quot;pa-muted-label&quot;&gt;읽기 전용 · 선택한 파일만 불러옵니다&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;pa-finder-dock&quot;&gt;&lt;aside class=&quot;pa-finder-favorites&quot;&gt;${favorites.map(node=&gt;`&lt;button data-column-node=&quot;${esc(node.id)}&quot; class=&quot;${selected.has(node.id)?&#x27;active&#x27;:&#x27;&#x27;}&quot;&gt;${icon(&#x27;folder&#x27;)}${esc(node.name===&#x27;references&#x27;?&#x27;이관되지 않은 참조&#x27;:node.name)}&lt;/button&gt;`).join(&#x27;&#x27;)}&lt;/aside&gt;&lt;div class=&quot;pa-columns-strip&quot; aria-label=&quot;폴더 열 탐색&quot;&gt;${trail.filter(node=&gt;node.folder).slice(-2).map(folder=&gt;`&lt;div class=&quot;pa-finder-column&quot;&gt;&lt;div class=&quot;pa-column-title&quot;&gt;${esc(folder.name)}&lt;/div&gt;&lt;div class=&quot;pa-column-items&quot; role=&quot;listbox&quot; aria-label=&quot;${esc(folder.name)} 항목&quot;&gt;${fileNodes.filter(node=&gt;node.parent===folder.id).sort((a,b)=&gt;Number(b.folder)-Number(a.folder)||a.name.localeCompare(b.name)).map(node=&gt;`&lt;button class=&quot;pa-column-node ${current.id===node.id?&#x27;is-current&#x27;:&#x27;&#x27;}&quot; role=&quot;option&quot; aria-selected=&quot;${selected.has(node.id)}&quot; data-column-node=&quot;${esc(node.id)}&quot; title=&quot;${esc(node.name)}&quot;&gt;${icon(node.folder?&#x27;folder&#x27;:&#x27;file-text&#x27;)}&lt;span&gt;${esc(node.name)}&lt;/span&gt;${node.folder?icon(&#x27;chevron-right&#x27;):&#x27;&#x27;}&lt;/button&gt;`).join(&#x27;&#x27;)||&#x27;&lt;div class=&quot;pa-empty-column&quot;&gt;등록된 파일이 없습니다.&lt;/div&gt;&#x27;}&lt;/div&gt;&lt;/div&gt;`).join(&#x27;&#x27;)}&lt;aside class=&quot;pa-finder-preview&quot; aria-label=&quot;선택 항목 정보&quot;&gt;${preview}&lt;div class=&quot;pa-file-symbol&quot;&gt;${icon(current.folder?&#x27;folder&#x27;:&#x27;file-text&#x27;)}&lt;/div&gt;&lt;h3&gt;${esc(current.name)}&lt;/h3&gt;&lt;dl class=&quot;pa-props&quot;&gt;${description}&lt;/dl&gt;${chosen?`&lt;button class=&quot;pa-button&quot; data-loom-explorer-entity=&quot;${esc(chosen.entity.id)}&quot;&gt;연결된 ${esc(chosen.entity.label||&#x27;기록&#x27;)} 열기&lt;/button&gt;`:&#x27;&#x27;}&lt;/aside&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;pa-finder-path&quot; aria-label=&quot;현재 경로&quot;&gt;${trail.map(node=&gt;`&lt;button data-column-node=&quot;${esc(node.id)}&quot;&gt;${esc(node.name)}&lt;/button&gt;`).join(&#x27;&lt;span&gt;›&lt;/span&gt;&#x27;)}&lt;/div&gt;&lt;/section&gt;`;
+    +`&lt;section class=&quot;pa-finder&quot;&gt;&lt;div class=&quot;pa-finder-toolbar&quot;&gt;&lt;span&gt;${icon(&#x27;columns-3&#x27;)} 열 보기&lt;/span&gt;&lt;span class=&quot;pa-muted-label&quot;&gt;읽기 전용 · 선택한 파일만 불러옵니다&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;pa-finder-dock&quot;&gt;&lt;aside class=&quot;pa-finder-favorites&quot;&gt;${favorites.map(node=&gt;`&lt;button data-column-node=&quot;${esc(node.id)}&quot; class=&quot;${selected.has(node.id)?&#x27;active&#x27;:&#x27;&#x27;}&quot;&gt;${icon(&#x27;folder&#x27;)}${esc(node.name===&#x27;references&#x27;?&#x27;이관되지 않은 참조&#x27;:node.name)}&lt;/button&gt;`).join(&#x27;&#x27;)}&lt;/aside&gt;&lt;div class=&quot;pa-columns-strip&quot; aria-label=&quot;폴더 열 탐색&quot;&gt;${trail.filter(node=&gt;node.folder).slice(-2).map(folder=&gt;`&lt;div class=&quot;pa-finder-column&quot;&gt;&lt;div class=&quot;pa-column-title&quot;&gt;${esc(folder.name)}&lt;/div&gt;&lt;div class=&quot;pa-column-items&quot; role=&quot;listbox&quot; aria-label=&quot;${esc(folder.name)} 항목&quot;&gt;${folderBody(folder)}&lt;/div&gt;&lt;/div&gt;`).join(&#x27;&#x27;)}&lt;aside class=&quot;pa-finder-preview&quot; aria-label=&quot;선택 항목 정보&quot;&gt;${preview}&lt;div class=&quot;pa-file-symbol&quot;&gt;${icon(current.folder?&#x27;folder&#x27;:&#x27;file-text&#x27;)}&lt;/div&gt;&lt;h3&gt;${esc(current.name)}&lt;/h3&gt;&lt;dl class=&quot;pa-props&quot;&gt;${description}&lt;/dl&gt;${chosen?`&lt;button class=&quot;pa-button&quot; data-loom-explorer-entity=&quot;${esc(chosen.entity.id)}&quot;&gt;연결된 ${esc(chosen.entity.label||&#x27;기록&#x27;)} 열기&lt;/button&gt;`:&#x27;&#x27;}&lt;/aside&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;pa-finder-path&quot; aria-label=&quot;현재 경로&quot;&gt;${trail.map(node=&gt;`&lt;button data-column-node=&quot;${esc(node.id)}&quot;&gt;${esc(node.name)}&lt;/button&gt;`).join(&#x27;&lt;span&gt;›&lt;/span&gt;&#x27;)}&lt;/div&gt;&lt;/section&gt;`;
   return body;
 };
 root.addEventListener(&#x27;click&#x27;,event=&gt;{
+  const more=event.target.closest(&#x27;[data-explorer-more],[data-explorer-retry]&#x27;);
+  if(more){loomLoadExplorerFolder(more.dataset.explorerMore||more.dataset.explorerRetry,!!more.dataset.explorerMore,!!more.dataset.explorerRetry);return;}
   const button=event.target.closest(&#x27;[data-loom-explorer-entity]&#x27;);if(!button)return;
-  const entity=catEntity(button.dataset.loomExplorerEntity);if(!entity)return;
+  const id=button.dataset.loomExplorerEntity;
+  const entity=catEntity(id)||fileNodes.flatMap(node=&gt;node.entries||[]).find(entry=&gt;entry.entity.id===id)?.entity;
+  if(!entity)return;
   const page={model:&#x27;models&#x27;,dataset:&#x27;datasets&#x27;,experiment:&#x27;experiments&#x27;}[entity.kind]||&#x27;queue&#x27;;
   openView({page,entity:entity.id});
 });
@@ -5310,15 +5508,81 @@ window.addEventListener(&#x27;message&#x27;,event=&gt;{
 
 // Server-backed discovery. IDs stay decimal strings throughout browser navigation.
 const loomSearchPending=new Map(),loomSearchFilePages=new Map(),loomSearchRelationPages=new Map();let loomSearchDetailSequence=0;let loomSearchSequence=0,loomSearchState={query:{},items:[],cursor:null,busy:false};
-function loomSearchAction(group,action,args={}){const id=&#x27;search-&#x27;+(++loomSearchSequence);return new Promise((resolve,reject)=&gt;{const timeout=setTimeout(()=&gt;{loomSearchPending.delete(id);reject(Error(&#x27;Request timed out&#x27;));},15000);loomSearchPending.set(id,{resolve,reject,timeout});parent.postMessage({type:&#x27;loom-search-action&#x27;,id,group,action,arguments:args},&#x27;*&#x27;);});}
-window.addEventListener(&#x27;message&#x27;,event=&gt;{if(event.source!==parent||event.data?.type!==&#x27;loom-search-result&#x27;)return;const p=loomSearchPending.get(event.data.id);if(!p)return;clearTimeout(p.timeout);loomSearchPending.delete(event.data.id);event.data.ok?p.resolve(event.data.value):p.reject(Object.assign(Error(event.data.value?.message||event.data.value?.error||&#x27;Search unavailable&#x27;),{code:event.data.value?.code||event.data.value?.error}));});
+function loomSearchAction(group,action,args={},signal){
+ const id=&#x27;search-&#x27;+(++loomSearchSequence);
+ return new Promise((resolve,reject)=&gt;{
+  const finish=()=&gt;{
+   clearTimeout(timeout);loomSearchPending.delete(id);signal?.removeEventListener(&#x27;abort&#x27;,abort);
+  };
+  const abort=()=&gt;{
+   finish();parent.postMessage({type:&#x27;loom-search-cancel&#x27;,id},&#x27;*&#x27;);
+   reject(new DOMException(&#x27;Request cancelled&#x27;,&#x27;AbortError&#x27;));
+  };
+  if(signal?.aborted){reject(new DOMException(&#x27;Request cancelled&#x27;,&#x27;AbortError&#x27;));return;}
+  const timeout=setTimeout(()=&gt;{finish();parent.postMessage({type:&#x27;loom-search-cancel&#x27;,id},&#x27;*&#x27;);reject(Error(&#x27;Request timed out&#x27;));},15000);
+  signal?.addEventListener(&#x27;abort&#x27;,abort,{once:true});
+  loomSearchPending.set(id,{resolve,reject,finish});
+  parent.postMessage({type:&#x27;loom-search-action&#x27;,id,group,action,arguments:args},&#x27;*&#x27;);
+ });
+}
+window.addEventListener(&#x27;message&#x27;,event=&gt;{
+ if(event.source!==parent||event.data?.type!==&#x27;loom-search-result&#x27;)return;
+ const p=loomSearchPending.get(event.data.id);if(!p)return;p.finish();
+ event.data.ok?p.resolve(event.data.value):p.reject(Object.assign(Error(event.data.value?.error||&#x27;Search unavailable&#x27;),{code:event.data.value?.code}));
+});
 function loomInstallSearchLauncher(){const launcher=root.querySelector(&#x27;[data-command-open]&#x27;);if(launcher){if(catalogData.capabilities?.item_search)launcher.dataset.itemSearch=&#x27;&#x27;;else delete launcher.dataset.itemSearch;}}
 const loomSearchRender=render;render=function(){loomSearchRender();loomInstallSearchLauncher();};
 const loomSearchCatalogRefresh=catalogRefreshViews;catalogRefreshViews=function(){const result=loomSearchCatalogRefresh();loomInstallSearchLauncher();return result;};
 
 function loomSearchOpen(){++loomSearchDetailSequence;loomSearchFilePages.clear();loomSearchRelationPages.clear();loomSearchState={query:{},items:[],cursor:null,busy:false};loomHubDialog(&#x27;Search&#x27;,`&lt;div class=&quot;pa-item-search&quot;&gt;&lt;form data-item-search-form&gt;&lt;input name=&quot;text&quot; aria-label=&quot;Search items&quot; maxlength=&quot;1024&quot; autofocus&gt;&lt;select name=&quot;kind&quot; aria-label=&quot;Item kind&quot;&gt;&lt;option value=&quot;&quot;&gt;All kinds&lt;/option&gt;${[&#x27;scenario&#x27;,&#x27;job&#x27;,&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;,&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;,&#x27;dependency&#x27;,&#x27;file&#x27;].map(k=&gt;`&lt;option value=&quot;${k}&quot;&gt;${esc(k===&#x27;scenario&#x27;?&#x27;Task&#x27;:k)}&lt;/option&gt;`).join(&#x27;&#x27;)}&lt;/select&gt;&lt;select name=&quot;view&quot; aria-label=&quot;View&quot;&gt;&lt;option value=&quot;research&quot;&gt;Research&lt;/option&gt;&lt;option value=&quot;all&quot;&gt;All&lt;/option&gt;&lt;option value=&quot;operations&quot;&gt;Operations&lt;/option&gt;&lt;/select&gt;&lt;select name=&quot;history&quot; aria-label=&quot;Revisions&quot;&gt;&lt;option value=&quot;current&quot;&gt;Current&lt;/option&gt;&lt;option value=&quot;all&quot;&gt;All revisions&lt;/option&gt;&lt;/select&gt;&lt;button type=&quot;submit&quot;&gt;Search&lt;/button&gt;&lt;/form&gt;&lt;div data-search-status role=&quot;status&quot;&gt;&lt;/div&gt;&lt;div data-search-results&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; data-search-more hidden&gt;More&lt;/button&gt;&lt;div data-search-detail&gt;&lt;/div&gt;&lt;/div&gt;`);}
 async function loomSearchRun(more=false){const area=document.querySelector(&#x27;.pa-item-search&#x27;);if(!area||loomSearchState.busy)return;const form=area.querySelector(&#x27;form&#x27;),fields=new FormData(form);if(!more)loomSearchState.query={include_archived:false,include_system:false,text:fields.get(&#x27;text&#x27;),history:fields.get(&#x27;history&#x27;)||&#x27;current&#x27;,kinds:fields.get(&#x27;kind&#x27;)?[fields.get(&#x27;kind&#x27;)]:[],view:fields.get(&#x27;view&#x27;),role:fields.get(&#x27;view&#x27;)===&#x27;all&#x27;?&#x27;all&#x27;:&#x27;main&#x27;,limit:50};loomSearchState.busy=true;const state=loomSearchState;const status=area.querySelector(&#x27;[data-search-status]&#x27;);status.textContent=&#x27;…&#x27;;try{const result=await loomSearchAction(&#x27;results&#x27;,&#x27;search_items&#x27;,{...loomSearchState.query,...(more?{cursor:loomSearchState.cursor}:{})});if(state!==loomSearchState)return;loomSearchState.items=more?[...loomSearchState.items,...result.items]:result.items;loomSearchState.cursor=result.next_cursor;area.querySelector(&#x27;[data-search-results]&#x27;).innerHTML=catTable([&#x27;Name&#x27;,&#x27;Kind&#x27;],loomSearchState.items.map(v=&gt;[`&lt;button type=&quot;button&quot; class=&quot;pa-search-result&quot; data-search-item=&quot;${esc(v.item_id)}&quot; data-search-revision=&quot;${esc(v.revision_id||&#x27;&#x27;)}&quot;&gt;${esc(v.label||v.path||v.item_id)}&lt;/button&gt;`,esc(v.kind)]));area.querySelector(&#x27;[data-search-more]&#x27;).hidden=!result.next_cursor;status.textContent=result.partial?&#x27;Partial results&#x27;:result.items.length?&#x27;&#x27;:&#x27;No results&#x27;;}catch(error){if(state===loomSearchState)status.textContent=error.message;}finally{state.busy=false;}}
-async function loomSearchDetail(id,kind,revision){const sequence=++loomSearchDetailSequence;const area=document.querySelector(&#x27;[data-search-detail]&#x27;);if(!area)return;area.innerHTML=&#x27;…&#x27;;try{const hit=loomSearchState.items.find(v=&gt;v.item_id===id&amp;&amp;(!revision||v.revision_id===revision));let isFile=(kind||hit?.kind)===&#x27;file&#x27;;const item=await loomSearchAction(&#x27;results&#x27;,isFile?&#x27;get_file&#x27;:&#x27;get_item&#x27;,isFile?{file_item_id:id}:{item_id:id,...(revision?{revision_id:revision}:{})});if(sequence!==loomSearchDetailSequence)return;if(item.kind===&#x27;file&#x27;)isFile=true;area.innerHTML=`&lt;h3&gt;${esc(item.label||item.path||id)}&lt;/h3&gt;&lt;dl&gt;&lt;dt&gt;ID&lt;/dt&gt;&lt;dd&gt;${esc(item.item_id)}&lt;/dd&gt;&lt;dt&gt;Revision&lt;/dt&gt;&lt;dd&gt;${esc(item.revision_id||&#x27;—&#x27;)}&lt;/dd&gt;&lt;/dl&gt;${item.summary?`&lt;p&gt;${esc(item.summary)}&lt;/p&gt;`:&#x27;&#x27;}&lt;div data-search-related&gt;&lt;/div&gt;`;const related=area.querySelector(&#x27;[data-search-related]&#x27;);if(isFile){const text=/\.(jsonl?|txt|md|rs|py|toml|ya?ml|csv|log)$/i.test(item.path||&#x27;&#x27;);related.innerHTML=`&lt;dl&gt;${item.size!=null?`&lt;dt&gt;Bytes&lt;/dt&gt;&lt;dd&gt;${esc(item.size)}&lt;/dd&gt;`:&#x27;&#x27;}${item.sha256?`&lt;dt&gt;SHA-256&lt;/dt&gt;&lt;dd&gt;${esc(item.sha256)}&lt;/dd&gt;`:&#x27;&#x27;}&lt;/dl&gt;`+(text?`&lt;button data-search-read=&quot;${esc(id)}&quot;&gt;Preview&lt;/button&gt;&lt;pre data-search-preview&gt;&lt;/pre&gt;`:&#x27;&#x27;);return;}const files=await loomSearchAction(&#x27;results&#x27;,&#x27;item_files&#x27;,{item_id:id,revision_id:item.revision_id,limit:50});if(sequence!==loomSearchDetailSequence)return;loomSearchFilePages.set(id,{revision:item.revision_id,items:files.items,cursor:files.next_cursor});related.innerHTML=`&lt;div data-search-file-list&gt;${loomSearchFileTable(id)}&lt;/div&gt;&lt;div data-search-relations&gt;&lt;/div&gt;`;const relations=await loomSearchAction(&#x27;results&#x27;,&#x27;item_relations&#x27;,{item_id:id,revision_id:item.revision_id});if(sequence!==loomSearchDetailSequence)return;const declared=related.querySelector(&#x27;[data-search-relations]&#x27;);loomSearchRelationPages.set(id,{revision:item.revision_id,items:relations.items,cursor:relations.next_cursor});declared.innerHTML=loomSearchRelationTable(id);if(item.kind===&#x27;job&#x27;&amp;&amp;item.native_ref?.kind===&#x27;job&#x27;&amp;&amp;item.native_ref?.identity?.id){const streams=await loomSearchAction(&#x27;jobs&#x27;,&#x27;log_streams&#x27;,{id:item.native_ref.identity.id,limit:50});if(sequence!==loomSearchDetailSequence)return;related.innerHTML+=&#x27;&lt;h4&gt;Logs&lt;/h4&gt;&#x27;+streams.items.map(s=&gt;`&lt;button data-search-log=&quot;${esc(s.item_id)}&quot;&gt;${esc(s.stage)} · ${esc(s.attempt)}&lt;/button&gt;`).join(&#x27;&#x27;)+&#x27;&lt;pre data-search-preview&gt;&lt;/pre&gt;&#x27;;}}catch(error){if(sequence===loomSearchDetailSequence)area.textContent=error.message;}}
+let loomSelectedSearchItem=null;
+async function loomSearchDetail(id,kind,revision){
+ const sequence=++loomSearchDetailSequence,area=document.querySelector(&#x27;[data-search-detail]&#x27;);
+ if(!area)return;
+ area.textContent=&#x27;…&#x27;;loomSelectedSearchItem=null;
+ try{
+  const hit=loomSearchState.items.find(v=&gt;v.item_id===id&amp;&amp;(!revision||v.revision_id===revision));
+  const isFile=(kind||hit?.kind)===&#x27;file&#x27;;
+  const item=await loomSearchAction(&#x27;results&#x27;,isFile?&#x27;get_file&#x27;:&#x27;get_item&#x27;,isFile?{file_item_id:id}:{item_id:id,...(revision?{revision_id:revision}:{})});
+  if(sequence!==loomSearchDetailSequence)return;
+  loomSelectedSearchItem=item;
+  area.innerHTML=`&lt;h3&gt;${esc(item.label||item.path||id)}&lt;/h3&gt;&lt;dl&gt;&lt;dt&gt;ID&lt;/dt&gt;&lt;dd&gt;${esc(item.item_id)}&lt;/dd&gt;&lt;dt&gt;Revision&lt;/dt&gt;&lt;dd&gt;${esc(item.revision_id||&#x27;—&#x27;)}&lt;/dd&gt;&lt;/dl&gt;${item.summary?`&lt;p&gt;${esc(item.summary)}&lt;/p&gt;`:&#x27;&#x27;}&lt;div data-search-related&gt;&lt;/div&gt;`;
+  const related=area.querySelector(&#x27;[data-search-related]&#x27;);
+  if(isFile||item.kind===&#x27;file&#x27;){
+   const text=/\.(jsonl?|txt|md|rs|py|toml|ya?ml|csv|log)$/i.test(item.path||&#x27;&#x27;);
+   related.innerHTML=`&lt;dl&gt;${item.size!=null?`&lt;dt&gt;Bytes&lt;/dt&gt;&lt;dd&gt;${esc(item.size)}&lt;/dd&gt;`:&#x27;&#x27;}${item.sha256?`&lt;dt&gt;SHA-256&lt;/dt&gt;&lt;dd&gt;${esc(item.sha256)}&lt;/dd&gt;`:&#x27;&#x27;}&lt;/dl&gt;`+(text?`&lt;button data-search-read=&quot;${esc(id)}&quot;&gt;Preview&lt;/button&gt;&lt;pre data-search-preview&gt;&lt;/pre&gt;`:&#x27;&#x27;);
+   return;
+  }
+  const section=(kind,label)=&gt;`&lt;details data-search-lazy=&quot;${kind}&quot;&gt;&lt;summary&gt;${label}&lt;/summary&gt;&lt;div data-search-${kind}&gt;&lt;/div&gt;&lt;/details&gt;`;
+  related.innerHTML=section(&#x27;file-list&#x27;,&#x27;Files&#x27;)+section(&#x27;relations&#x27;,&#x27;Relations&#x27;)
+   +(item.kind===&#x27;job&#x27;&amp;&amp;item.native_ref?.kind===&#x27;job&#x27;&amp;&amp;item.native_ref?.identity?.id?section(&#x27;log-list&#x27;,&#x27;Logs&#x27;):&#x27;&#x27;);
+ }catch(error){if(sequence===loomSearchDetailSequence)area.textContent=error.message;}
+}
+async function loomLoadSearchSection(details){
+ const name=details.dataset.searchLazy,item=loomSelectedSearchItem,sequence=loomSearchDetailSequence;
+ if(!details.open||!item||details.dataset.loaded)return;
+ details.dataset.loaded=&#x27;pending&#x27;;
+ const area=details.querySelector(&#x27;[data-search-&#x27;+name+&#x27;]&#x27;);
+ area.textContent=&#x27;Loading…&#x27;;
+ try{
+  const args={item_id:item.item_id,revision_id:item.revision_id,limit:50};
+  const result=name===&#x27;log-list&#x27;?await loomSearchAction(&#x27;jobs&#x27;,&#x27;log_streams&#x27;,{id:item.native_ref.identity.id,limit:50})
+   :await loomSearchAction(&#x27;results&#x27;,name===&#x27;file-list&#x27;?&#x27;item_files&#x27;:&#x27;item_relations&#x27;,args);
+  if(sequence!==loomSearchDetailSequence||!details.isConnected)return;
+  const page={revision:item.revision_id,items:result.items,cursor:result.next_cursor};
+  if(name===&#x27;file-list&#x27;){loomSearchFilePages.set(item.item_id,page);area.innerHTML=loomSearchFileTable(item.item_id);}
+  else if(name===&#x27;relations&#x27;){loomSearchRelationPages.set(item.item_id,page);area.innerHTML=loomSearchRelationTable(item.item_id);}
+  else area.innerHTML=page.items.map(s=&gt;`&lt;button data-search-log=&quot;${esc(s.item_id)}&quot;&gt;${esc(s.stage)} · ${esc(s.attempt)}&lt;/button&gt;`).join(&#x27;&#x27;)+&#x27;&lt;pre data-search-preview&gt;&lt;/pre&gt;&#x27;;
+  if(!area.textContent.trim())area.textContent=&#x27;—&#x27;;
+  details.dataset.loaded=&#x27;true&#x27;;
+ }catch(error){
+  if(sequence===loomSearchDetailSequence){area.textContent=error.message;delete details.dataset.loaded;}
+ }
+}
+document.addEventListener(&#x27;toggle&#x27;,event=&gt;{
+ if(event.target.matches?.(&#x27;[data-search-lazy]&#x27;))loomLoadSearchSection(event.target);
+},true);
 root.addEventListener(&#x27;click&#x27;,event=&gt;{if(event.target.closest(&#x27;[data-item-search]&#x27;)){event.preventDefault();event.stopImmediatePropagation();loomSearchOpen();}},true);
 window.addEventListener(&#x27;keydown&#x27;,event=&gt;{if(catalogData.capabilities?.item_search&amp;&amp;(event.metaKey||event.ctrlKey)&amp;&amp;event.key.toLowerCase()===&#x27;k&#x27;){event.preventDefault();event.stopImmediatePropagation();loomSearchOpen();}},true);
 document.addEventListener(&#x27;click&#x27;,async event=&gt;{const b=event.target.closest(&#x27;[data-item-search-form] button,[data-search-more],[data-search-files-more],[data-search-relations-more],[data-search-item],[data-search-file],[data-search-read],[data-search-log]&#x27;);if(!b)return;event.preventDefault();if(b.closest(&#x27;[data-item-search-form]&#x27;))return loomSearchRun();if(b.hasAttribute(&#x27;data-search-more&#x27;))return loomSearchRun(true);if(b.dataset.searchFilesMore)return loomSearchMoreFiles(b);if(b.dataset.searchRelationsMore)return loomSearchMoreRelations(b);if(b.dataset.searchItem)return loomSearchDetail(b.dataset.searchItem,undefined,b.dataset.searchRevision);if(b.dataset.searchFile)return loomSearchDetail(b.dataset.searchFile,&#x27;file&#x27;);const preview=document.querySelector(&#x27;[data-search-preview]&#x27;);if(!preview)return;preview.textContent=&#x27;…&#x27;;try{if(b.dataset.searchRead){const v=await loomSearchAction(&#x27;results&#x27;,&#x27;read_file&#x27;,{file_item_id:b.dataset.searchRead,limit:65536});preview.textContent=new TextDecoder().decode(Uint8Array.from(atob(v.data_base64),c=&gt;c.charCodeAt(0)));}else{const v=await loomSearchAction(&#x27;jobs&#x27;,&#x27;read_log&#x27;,{stream_id:b.dataset.searchLog,tail:true,limit:65536});preview.textContent=v.text||&#x27;&#x27;;}}catch(error){preview.textContent=error.message;}});
@@ -5390,25 +5654,26 @@ const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityVi
 function loomHomeVisible(){
  return ws.panes.some(p=&gt;{const v=activeTab(p).view;return !v.entity&amp;&amp;[&#x27;home&#x27;,&#x27;queue&#x27;].includes(v.page);});
 }
-let loomQueueRevision=null,loomQueueRequest=null,loomHomeErrors={};
+let loomQueueRevision=null,loomQueueRequest=null,loomHomeErrors={},loomWasHomeVisible=false;
 function loomLoadHomeData(refreshQueue=false){
  if(!catalogData.capabilities?.catalog_pages)return;
- const revision=catalogData.revision;
- if(loomHomeVisible())loomCatalogActivity();
- const needsQueue=loomHomeVisible()||ws.panes.some(p=&gt;{
+ const revision=loomCatalogStamp(&#x27;work&#x27;),home=loomHomeVisible();
+ const enteredHome=home&amp;&amp;!loomWasHomeVisible;loomWasHomeVisible=home;
+ if(home)loomCatalogActivity();
+ const needsQueue=home||ws.panes.some(p=&gt;{
   const v=activeTab(p).view;return v.entity&amp;&amp;(v.page===&#x27;queue&#x27;||catEntity(v.entity)?.kind===&#x27;job&#x27;);
  });
  if(!needsQueue||!catalogData.capabilities.live_queue||loomQueueRequest?.revision===revision
-   ||(!refreshQueue&amp;&amp;loomQueueRevision===revision))return;
+   ||(!refreshQueue&amp;&amp;!enteredHome&amp;&amp;loomQueueRevision===revision))return;
  const request={revision};loomQueueRequest=request;
  loomQueueRevision=revision;delete loomHomeErrors.queue;
- loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_queue&#x27;).then(value=&gt;{
-  if(loomQueueRequest!==request||catalogData.revision!==revision)return;
+ loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_queue&#x27;,catalogData.capabilities?.compact_lists?{compact:true}:{}).then(value=&gt;{
+  if(loomQueueRequest!==request||loomCatalogStamp(&#x27;work&#x27;)!==revision)return;
   catalogData.queue=value.queue;
   loomCatalogMerge(value);
   catalogRefreshViews();
  }).catch(()=&gt;{
-  if(loomQueueRequest===request&amp;&amp;catalogData.revision===revision){loomHomeErrors.queue=true;catalogRefreshViews();}
+  if(loomQueueRequest===request&amp;&amp;loomCatalogStamp(&#x27;work&#x27;)===revision){loomHomeErrors.queue=true;catalogRefreshViews();}
  }).finally(()=&gt;{
   if(loomQueueRequest===request)loomQueueRequest=null;
  });
@@ -5419,13 +5684,13 @@ function loomRefreshQueueProgress(){
 }
 setInterval(loomRefreshQueueProgress,300000);
 function loomCatalogActivity(){
- const view=&#x27;all&#x27;,revision=catalogData.revision,key=JSON.stringify([revision,view]);
+ const view=&#x27;all&#x27;,revision=loomActivityStamp(),key=JSON.stringify([revision,view]);
  if(!loomHomeVisible()||!catalogData.capabilities?.catalog_pages||loomActivityView===key)return;
  loomActivityView=key;delete loomHomeErrors.activity;
  queueMicrotask(async()=&gt;{
   try{
    const activity=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_activity&#x27;,{view});
-   if(loomActivityView!==key||catalogData.revision!==revision)return;
+   if(loomActivityView!==key||loomActivityStamp()!==revision)return;
    if(!Array.isArray(activity?.days))throw new Error(&#x27;Invalid Activity response&#x27;);
    catalogData.activity={...activity,view};catalogRefreshViews();
   }catch{if(loomActivityView===key){loomHomeErrors.activity=true;catalogRefreshViews();}}
@@ -5450,23 +5715,58 @@ dashboardActivity=function(){
   return panel(&#x27;Activity&#x27;,loomHomeStatus(&#x27;activity&#x27;));
  return loomHomeActivityPanel();
 };
+function loomCatalogStamp(domain){return catalogData.domains?.[domain]??catalogData.revision;}
+function loomActivityStamp(){return JSON.stringify([loomCatalogStamp(&#x27;work&#x27;),loomCatalogStamp(&#x27;outputs&#x27;),loomCatalogStamp(&#x27;history&#x27;)]);}
+function loomPageDomains(kind){
+ if(kind===&#x27;job&#x27;)return [&#x27;history&#x27;,&#x27;tasks&#x27;];
+ if(kind===&#x27;scenario&#x27;)return [&#x27;tasks&#x27;];
+ if(kind===&#x27;runtime&#x27;||kind===&#x27;profile&#x27;)return [&#x27;software&#x27;,&#x27;runtime_fresh&#x27;,&#x27;software_usage&#x27;,&#x27;tasks&#x27;];
+ if(loomSoftwareListKinds.has(kind))return [&#x27;software&#x27;,&#x27;runtime_fresh&#x27;,&#x27;tasks&#x27;];
+ return [&#x27;outputs&#x27;,&#x27;tasks&#x27;];
+}
+const loomCatalogTextEdits=new WeakMap();
+function loomDebounceCatalogText(view,field,value){
+ let pending=loomCatalogTextEdits.get(view);
+ if(!pending){pending={value:view[field]||&#x27;&#x27;,timer:null};loomCatalogTextEdits.set(view,pending);}
+ clearTimeout(pending.timer);view[field]=value;
+ pending.timer=setTimeout(()=&gt;{
+  loomCatalogTextEdits.delete(view);
+  if(ws.panes.some(p=&gt;activeTab(p).view===view))render();
+ },240);
+}
+const loomSoftwareListKinds=new Set([&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;,&#x27;dependency&#x27;]);
 const loomCatalogKinds={models:&#x27;model&#x27;,datasets:&#x27;dataset&#x27;,experiments:&#x27;experiment&#x27;,issues:&#x27;issue&#x27;,profiles:&#x27;profile&#x27;,components:&#x27;component&#x27;,tools:&#x27;tool&#x27;,runtimes:&#x27;runtime&#x27;,dependencies:&#x27;dependency&#x27;,scenarios:&#x27;scenario&#x27;,queue:&#x27;job&#x27;,files:&#x27;explorer&#x27;};
 function loomCatalogQuery(kind,filterTask=true){
+ const projection=catalogData.capabilities?.compact_lists?{projection:&#x27;list&#x27;}:{};
  if(catalogData.capabilities?.job_units&amp;&amp;[&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;].includes(kind)){
-  return {kinds:[kind],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50,records_only:true,catalog_classes:loomOutputClasses(),...(catalogData.capabilities.output_disposition?{output_state:loomOutputDiscarded()?&#x27;discarded&#x27;:&#x27;current&#x27;,...(loomOutputDiscarded()?{history:&#x27;all&#x27;}:{})}:{}),...(filterTask&amp;&amp;state.researchTask?{task_id:state.researchTask.id}:{})};
- }if(kind===&#x27;job&#x27;)return {kinds:[&#x27;job&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};if(kind===&#x27;explorer&#x27;)return {kinds:[&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};const view=catalogData.presentation_view||&#x27;all&#x27;;return {...([&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;].includes(kind)?{...loomRegistryArgs(state.registryFilter||&#x27;current&#x27;),...(state.registryFilter===&#x27;archived&#x27;?{history:&#x27;all&#x27;}:{})}:{}),kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:[&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)?((state.outputPurpose||(view===&#x27;research&#x27;?&#x27;research&#x27;:&#x27;all&#x27;))===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;):kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...([&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)&amp;&amp;state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
+  return {kinds:[kind],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50,records_only:true,...projection,catalog_classes:loomOutputClasses(),...(catalogData.capabilities.output_disposition?{output_state:loomOutputDiscarded()?&#x27;discarded&#x27;:&#x27;current&#x27;,...(loomOutputDiscarded()?{history:&#x27;all&#x27;}:{})}:{}),...(filterTask&amp;&amp;state.researchTask?{task_id:state.researchTask.id}:{})};
+ }if(kind===&#x27;job&#x27;)return {kinds:[&#x27;job&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,...(catalogData.capabilities?.compact_lists?{projection:&#x27;history&#x27;,limit:10}:{limit:50})};if(kind===&#x27;explorer&#x27;)return {kinds:[&#x27;dataset&#x27;,&#x27;model&#x27;,&#x27;experiment&#x27;,&#x27;artifact&#x27;],view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:50};const view=catalogData.presentation_view||&#x27;all&#x27;,text=loomCatalogTextEdits.get(state)?.value??(state.extensionQuery||state.dependencyQuery);return {...([&#x27;profile&#x27;,&#x27;component&#x27;,&#x27;tool&#x27;,&#x27;runtime&#x27;].includes(kind)?{...loomRegistryArgs(state.registryFilter||&#x27;current&#x27;),...(state.registryFilter===&#x27;archived&#x27;?{history:&#x27;all&#x27;}:{})}:{}),...(loomSoftwareListKinds.has(kind)?projection:{}),kinds:[kind],view:view===&#x27;builtin&#x27;?&#x27;all&#x27;:view,role:[&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)?((state.outputPurpose||(view===&#x27;research&#x27;?&#x27;research&#x27;:&#x27;all&#x27;))===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;):kind===&#x27;dependency&#x27;||view===&#x27;research&#x27;?&#x27;main&#x27;:&#x27;all&#x27;,...(view===&#x27;builtin&#x27;?{origin_type:&#x27;builtin&#x27;}:{}),...([&#x27;model&#x27;,&#x27;dataset&#x27;,&#x27;experiment&#x27;].includes(kind)&amp;&amp;state.researchTask?{task_id:state.researchTask.id}:{}),...(text?{text}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 // A bootstrap is a bounded seed, never a replacement for pages from its revision.
 function loomCatalogRefresh(value){
- const changed=loomCatalogRevision!==value.revision;
+ const changed=loomCatalogRevision!==value.revision||
+   value.domains&amp;&amp;JSON.stringify(value.domains)!==JSON.stringify(catalogData.domains);
  const previous=catalogData.all_entities||catalogData.entities||[];
  const open=new Set(ws.panes.map(p=&gt;activeTab(p).view.entity).filter(Boolean));
  if(changed){
-  // A revision invalidates cursors, not the last complete visible list.
-  for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],taskIndex:page.taskIndex,committed:page.committed,desired:Math.min(4000,page.ids?.length||page.query.limit||50),loaded:false,busy:false,cursor:null,error:null});
-  loomScenarioGraphs.clear();loomCatalogRevision=value.revision;loomActivityView=null;
+  const scoped=value.domains&amp;&amp;catalogData.domains;
+  const priorDomains=catalogData.domains;
+  const affected=domains=&gt;!scoped||domains.some(domain=&gt;value.domains[domain]!==priorDomains[domain]);
+  for(const [key,page] of loomCatalogPages){
+   const kind=page.query.projection===&#x27;history&#x27;?&#x27;job&#x27;:page.query.kinds?.[0];
+   if(!affected(loomPageDomains(kind)))continue;
+   page.controller?.abort();
+   // Preserve the last complete page while refreshing only the first page.
+   loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],taskIndex:page.taskIndex,committed:page.committed,desired:kind===&#x27;job&#x27;&amp;&amp;value.capabilities?.compact_lists?undefined:
+    Math.min(value.capabilities?.compact_lists?100:4000,page.ids?.length||page.query.limit||50),loaded:false,busy:false,cursor:null,error:null});
+  }
+  if(affected([&#x27;tasks&#x27;]))loomScenarioGraphs.clear();
+  loomCatalogRevision=value.revision;
   for(const id of open)queueMicrotask(async()=&gt;{
-   if(!catalogData.capabilities?.catalog_pages||loomCatalogOpening.has(id))return;
+   const kind=catEntity(id)?.kind;
+   if(!catalogData.capabilities?.catalog_pages||loomCatalogOpening.has(id)
+      ||kind&amp;&amp; !affected(kind===&#x27;job&#x27;?[&#x27;work&#x27;,&#x27;history&#x27;,&#x27;tasks&#x27;]:loomPageDomains(kind===&#x27;execution_profile&#x27;?&#x27;profile&#x27;:kind)))return;
+   if(kind===&#x27;job&#x27; &amp;&amp; catEntity(id)?.loom_job)return;
    loomCatalogOpening.add(id);
    try{await loomCatalogOpen(id,false);}catch(error){
     // Keep the last good detail on a transient transport failure; an explicit
@@ -5496,11 +5796,21 @@ function loomCatalogRetainResearch(previous,incoming,sameRevision){
  }
  return incoming;
 }
+function loomMergeCatalogRecord(previous,incoming){
+ if(!previous||!incoming.summary_only||previous.summary_only||!previous.item_revision_id
+    ||previous.item_revision_id!==incoming.item_revision_id)return incoming;
+ // The exact detail and the compact row share identity. A refresh of the
+ // row must preserve the already opened sections and their source references.
+ const value={...previous,...incoming,properties:{...previous.properties,...incoming.properties},
+  summary_only:false};
+ if(previous.reporting)value.reporting={...previous.reporting,...incoming.reporting};
+ return loomCatalogRetainResearch(previous,value,true);
+}
 function loomCatalogMerge(value){
  const existing=new Map((catalogData.all_entities||catalogData.entities).map(e=&gt;[e.id,e]));
  loomPresentationView=catalogData.presentation_view||&#x27;all&#x27;;
  const incoming=loomCatalogProjection(value);
- for(const e of incoming.all_entities||incoming.entities){const old=existing.get(e.id);existing.set(e.id,old?.kind===&#x27;scenario&#x27;&amp;&amp;old.loom_scenario.revision&gt;e.loom_scenario?.revision?old:e);}
+ for(const e of incoming.all_entities||incoming.entities){const old=existing.get(e.id);existing.set(e.id,old?.kind===&#x27;scenario&#x27;&amp;&amp;old.loom_scenario.revision&gt;e.loom_scenario?.revision?old:loomMergeCatalogRecord(old,e));}
  // Old list pages can be refetched; keep the current record and recent browsing bounded.
  while(existing.size&gt;4000){const id=existing.keys().next().value;if(id===state.entity){const value=existing.get(id);existing.delete(id);existing.set(id,value);}else existing.delete(id);}
  const entities=[...existing.values()];
@@ -5508,17 +5818,19 @@ function loomCatalogMerge(value){
  catalogData={...catalogData,research_tasks:incoming.research_tasks??catalogData.research_tasks,entities:selected,all_entities:entities};
 }
 async function loomCatalogLoad(kind,more=false,query=loomCatalogQuery(kind)){
- if(!catalogData.capabilities?.catalog_pages||query.catalog_classes?.length===0)return;
+ if(!catalogData.capabilities?.catalog_pages||query.catalog_classes?.length===0
+    ||kind===&#x27;explorer&#x27;&amp;&amp;catalogData.capabilities?.compact_lists)return;
  const key=JSON.stringify(query);
  let page=loomCatalogPages.get(key);
  if(page?.busy||page?.loaded&amp;&amp;!more||more&amp;&amp;!page?.cursor)return;
  if(!page){page={query,cursor:null,busy:false,loaded:false,error:null,ids:[]};loomCatalogPages.set(key,page);}
  page.busy=true;page.error=null;
+ const controller=new AbortController();page.controller=controller;
  try{
   let cursor=more?page.cursor:null,result,entities=[],taskIndex;
   const desired=more?query.limit:page.desired||query.limit;
   do{
-   result=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_page&#x27;,{...page.query,...(cursor?{cursor}:{})});
+   result=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_page&#x27;,{...page.query,...(cursor?{cursor}:{})},controller.signal);
    if(loomCatalogPages.get(key)!==page)return;
    if(!cursor&amp;&amp;!result.partial)taskIndex=result.task_index;
    entities.push(...result.entities);cursor=result.next_cursor;
@@ -5541,13 +5853,17 @@ async function loomCatalogLoad(kind,more=false,query=loomCatalogQuery(kind)){
    if(kind===&#x27;job&#x27;)page.error=&#x27;종료 이력을 불러오지 못했습니다.&#x27;;
   }
  }catch(error){
+  if(controller.signal.aborted)return;
   page.error=error.message;
   // A projection can advance between cursor pages. Retain the last complete
   // list and restart from the first page; never splice incompatible snapshots.
   if((page.failures||0)&lt;3){page.failures=(page.failures||0)+1;setTimeout(()=&gt;{
    if(loomCatalogPages.get(key)!==page)return;page.loaded=false;page.error=null;loomCatalogLoad(kind,false,page.query);
   },250*2**(page.failures-1));}
- }finally{page.busy=false;if(loomCatalogPages.get(key)===page)catalogRefreshViews();}
+ }finally{
+  page.busy=false;if(page.controller===controller)delete page.controller;
+  if(!controller.signal.aborted&amp;&amp;loomCatalogPages.get(key)===page)catalogRefreshViews();
+ }
 }
 function loomRegistryListStatus(kind){
  if(!catalogData.capabilities?.catalog_pages)return &#x27;&#x27;;
@@ -5559,6 +5875,7 @@ function loomRegistryListStatus(kind){
  return &#x27;&lt;div class=&quot;pa-registry-status&quot; role=&quot;status&quot;&gt;&#x27;+(retry?&#x27;&#x27;:&#x27;&lt;i aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&#x27;)+esc(label)+(retry?&#x27; &lt;button data-catalog-restart data-catalog-more=&quot;&#x27;+esc(kind)+&#x27;&quot;&gt;Retry&lt;/button&gt;&#x27;:&#x27;&#x27;)+&#x27;&lt;/div&gt;&#x27;;
 }
 function loomCatalogPager(kind,label=&quot;More&quot;,inlineStatus=false){
+ if(kind===&#x27;job&#x27;&amp;&amp;catalogData.capabilities?.compact_lists)label=&#x27;더보기&#x27;;
  if(!catalogData.capabilities?.catalog_pages)return &#x27;&#x27;;
  const query=loomCatalogQuery(kind),key=JSON.stringify(query),page=loomCatalogPages.get(key);
  if(!page?.loaded&amp;&amp;!page?.busy&amp;&amp;!page?.error)queueMicrotask(()=&gt;loomCatalogLoad(kind,false,query));
@@ -5578,16 +5895,30 @@ const loomPagedScenarios=loomScenarioView;
 loomScenarioView=function(){return loomPagedScenarios()+loomCatalogPager(&#x27;scenario&#x27;);};
 const loomPagedRender=render;
 render=function(){
- if(loomCatalogRevision!==catalogData.revision){for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],taskIndex:page.taskIndex,committed:page.committed,desired:Math.min(4000,page.ids?.length||50),loaded:false,busy:false,cursor:null});loomCatalogRevision=catalogData.revision;loomActivityView=null;}
+ if(loomCatalogRevision!==catalogData.revision)loomCatalogRevision=catalogData.revision;
  loomPagedRender();
  const kind=loomCatalogKinds[state.page];
  if(kind&amp;&amp;!state.entity)loomCatalogPager(kind);
  const detail=state.entity&amp;&amp;catEntity(state.entity);
- const policyNeedsDetail=detail?.kind===&#x27;model&#x27;&amp;&amp;detail.loom_registry&amp;&amp;!Object.hasOwn(detail,&#x27;policy_training_revisions&#x27;);
- if(catalogData.capabilities?.catalog_pages&amp;&amp;state.entity&amp;&amp;(!detail||policyNeedsDetail)&amp;&amp;!loomCatalogOpening.has(state.entity)){
+ const needsDetail=(detail?.summary_only&amp;&amp;!(detail.kind===&#x27;job&#x27;&amp;&amp;detail.loom_job))||detail?.kind===&#x27;model&#x27;&amp;&amp;detail.loom_registry&amp;&amp;!detail.deferred_output_sections&amp;&amp;!Object.hasOwn(detail,&#x27;policy_training_revisions&#x27;);
+ if(catalogData.capabilities?.catalog_pages&amp;&amp;state.entity&amp;&amp;(!detail||needsDetail)&amp;&amp;!loomCatalogOpening.has(state.entity)){
   const id=state.entity;loomCatalogOpening.add(id);queueMicrotask(()=&gt;loomCatalogOpen(id,!detail).catch(()=&gt;{}).finally(()=&gt;loomCatalogOpening.delete(id)));
  }
  loomLoadHomeData();
+ const visible=new Set();
+ const view=state;
+ for(const pane of ws.panes){
+  state=activeTab(pane).view;
+  if(state.entity)continue;
+  const kind=loomCatalogKinds[state.page];
+  if(kind)visible.add(loomCatalogPageKey(kind));
+  if(state.page===&#x27;comparison&#x27;)for(const kind of [&#x27;model&#x27;,&#x27;experiment&#x27;])visible.add(loomCatalogPageKey(kind));
+ }
+ state=view;
+ for(const [key,page] of loomCatalogPages){
+  const kind=page.query.kinds?.[0];
+  if(page.query.text&amp;&amp;loomSoftwareListKinds.has(kind)&amp;&amp;page.busy&amp;&amp;!visible.has(key))page.controller?.abort();
+ }
 };
 document.addEventListener(&#x27;click&#x27;,event=&gt;{const b=event.target.closest(&#x27;[data-catalog-more]&#x27;);if(!b)return;event.preventDefault();const pane=b.closest(&#x27;[data-pane]&#x27;);if(pane)ws.active=pane.dataset.pane;state=activeTab().view;const kind=b.dataset.catalogMore,page=loomCatalogPages.get(loomCatalogPageKey(kind));if(page?.error||page?.partial){page.loaded=false;page.error=null;page.failures=0;page.retries=0;page.indexRetryExhausted=false;}loomCatalogLoad(kind,!!page?.cursor&amp;&amp;!b.hasAttribute(&#x27;data-catalog-restart&#x27;));});
 const loomPagedActivitySummary=activitySummary;
@@ -5603,19 +5934,20 @@ activitySummary=function(entities,clock=Date.now(),through=clock){
 };
 async function loomCatalogOpen(id,navigate=true){
  const tabKeyBefore=activeTab().id,known=catEntity(id);
+ const section=catalogData.capabilities?.compact_lists?{section:&#x27;overview&#x27;}:{};
  const exact=/^revision:([0-9]+):([0-9]+)$/.exec(id);
  if(exact){
-  const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:exact[1],revision_id:exact[2],records_only:true});
+  const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:exact[1],revision_id:exact[2],records_only:true,...section});
   loomCatalogMerge({...value,entities:value.entities.map(e=&gt;({...e,id,catalog_exact:known?.catalog_exact??true}))});
   if(navigate&amp;&amp;activeTab().id===tabKeyBefore&amp;&amp;catEntity(id))openView(catView(id));
   catalogRefreshViews();return;
  }
  if(known?.item_id){
-  const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:known.item_id,...(known.item_revision_id&amp;&amp;known.kind!==&#x27;scenario&#x27;?{revision_id:known.item_revision_id}:{})});
+  const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:known.item_id,...section,...(known.item_revision_id&amp;&amp;known.kind!==&#x27;scenario&#x27;?{revision_id:known.item_revision_id}:{})});
   loomCatalogMerge(value);if(navigate&amp;&amp;activeTab().id===tabKeyBefore)openView(catView(id));catalogRefreshViews();return;
  }
  if(/^(history|dependency):[0-9]+$/.test(id)){
-  const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:id.slice(id.indexOf(&#x27;:&#x27;)+1)});
+  const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:id.slice(id.indexOf(&#x27;:&#x27;)+1),...section});
   loomCatalogMerge(value);if(navigate&amp;&amp;activeTab().id===tabKeyBefore)openView(catView(value.entities[0]?.id||id));catalogRefreshViews();return;
  }
  let native=null;
@@ -5635,7 +5967,7 @@ async function loomCatalogOpen(id,navigate=true){
  for(const candidate of candidates){try{hit=await loomSearchAction(&#x27;results&#x27;,&#x27;resolve_item&#x27;,{native_ref:candidate});break;}catch{}}
  if(!hit){const name=native?.identity?.id||native?.identity?.kind||id;const page=await loomSearchAction(&#x27;results&#x27;,&#x27;search_items&#x27;,{text:name,view:&#x27;all&#x27;,role:&#x27;all&#x27;,limit:10});hit=page.items.find(e=&gt;(e.native_ref?.identity?.id===name||e.native_ref?.identity?.kind===name)&amp;&amp;(!native?.identity?.revision||e.native_ref.identity.revision===native.identity.revision));}
  if(!hit)throw Error(&#x27;Record unavailable&#x27;);
- const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:hit.item_id,...(hit.revision_id?{revision_id:hit.revision_id}:{})});
+ const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:hit.item_id,...section,...(hit.revision_id?{revision_id:hit.revision_id}:{})});
  loomCatalogMerge(value);if(navigate&amp;&amp;activeTab().id===tabKeyBefore)openView(catView(catEntity(id)?id:value.entities[0]?.id||id));catalogRefreshViews();
 }
 root.addEventListener(&#x27;click&#x27;,event=&gt;{const b=event.target.closest(&#x27;[data-entity]&#x27;);if(!catalogData.capabilities?.catalog_pages||!b||catEntity(b.dataset.entity))return;event.preventDefault();event.stopImmediatePropagation();loomCatalogOpen(b.dataset.entity).catch(error=&gt;{b.title=error.message;});},true);
@@ -5986,7 +6318,7 @@ const loomOutputComparison=comparison;
 comparison=function(){
  // Comparison can be entered directly, before either list has been loaded.
  const pages=[&#x27;model&#x27;,&#x27;experiment&#x27;].map(kind=&gt;loomCatalogPager(kind,kind===&#x27;model&#x27;?&#x27;Load more policies&#x27;:&#x27;Load more experiments&#x27;)).join(&#x27;&#x27;);
- const pending=(state.compareRuns||[]).filter(id=&gt;!catEntity(id)),selected=[...(state.compareRuns||[])],base=state.compareBase;
+ const pending=(state.compareRuns||[]).filter(id=&gt;!catEntity(id)||catEntity(id).summary_only),selected=[...(state.compareRuns||[])],base=state.compareBase;
  for(const id of pending)if(!loomCatalogOpening.has(id)){
   loomCatalogOpening.add(id);
   queueMicrotask(()=&gt;loomCatalogOpen(id,false).catch(error=&gt;{
@@ -6813,8 +7145,22 @@ function loomReportOverview(e){
  const footer=&#x27;&lt;details class=&quot;pa-report-contract&quot;&gt;&lt;summary&gt;Template · &#x27;+esc(template?template.id+&#x27; · r&#x27;+template.revision:&#x27;Unrecorded&#x27;)+&#x27; / Contract · &#x27;+esc(contract?contract.id+&#x27; · r&#x27;+contract.revision:&#x27;Unrecorded&#x27;)+&#x27;&lt;/summary&gt;&#x27;+loomReportContract(e)+&#x27;&lt;/details&gt;&#x27;;
  return loomResearchOverviewCard(parts.join(&#x27;&#x27;))+footer;
 }
+const loomTrainingRevisionPages=new Map();
+function loomLoadTrainingRevisions(entity,retry=false){
+ const key=entity.item_revision_id+&#x27;:&#x27;+loomCatalogStamp(&#x27;outputs&#x27;);
+ let page=loomTrainingRevisionPages.get(key);
+ if(page&amp;&amp;(!retry||page.pending))return page;
+ page={pending:true};loomTrainingRevisionPages.set(key,page);
+ loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:entity.item_id,revision_id:entity.item_revision_id,section:&#x27;training&#x27;})
+  .then(result=&gt;{page.items=result.items||[];}).catch(()=&gt;{page.error=true;}).finally(()=&gt;{
+   page.pending=false;loomReportRefresh(entity);
+   while(loomTrainingRevisionPages.size&gt;64)loomTrainingRevisionPages.delete(loomTrainingRevisionPages.keys().next().value);
+  });
+ return page;
+}
 function loomReportTrainingSources(e){
- if(e.policy_training_revisions?.length)return e.policy_training_revisions.map(({revision,reports})=&gt;({...e,
+ const revisions=e.policy_training_revisions||loomTrainingRevisionPages.get(e.item_revision_id+&#x27;:&#x27;+loomCatalogStamp(&#x27;outputs&#x27;))?.items;
+ if(revisions?.length)return revisions.map(({revision,reports})=&gt;({...e,
   loom_registry:{...loomReportIdentity(e),revision},trainingRevision:revision,reporting:{reports}}));
  return [e];
 }
@@ -6842,6 +7188,11 @@ function loomReportTrainingFilters(e,views){
 function loomReportContent(e){
  const {tab}=loomReportState(e),r=e.reporting;
  if(tab===&#x27;overview&#x27;)return &#x27;&lt;div class=&quot;pa-report-overview&quot;&gt;&#x27;+loomReportOverview(e)+&#x27;&lt;/div&gt;&#x27;;
+ if(tab===&#x27;training&#x27;&amp;&amp;e.deferred_output_sections&amp;&amp;e.loom_registry?.id&amp;&amp;e.item_id){
+  const page=loomLoadTrainingRevisions(e);
+  if(page.pending)return &#x27;&lt;p role=&quot;status&quot;&gt;Loading…&lt;/p&gt;&#x27;;
+  if(page.error)return &#x27;&lt;button data-training-revisions-retry&gt;Retry&lt;/button&gt;&#x27;;
+ }
  const roles={training:[&#x27;learning_series&#x27;,&#x27;action_metrics&#x27;],results:[&#x27;evaluation_cases&#x27;,&#x27;evaluation_metrics&#x27;],cases:[&#x27;evaluation_cases&#x27;],episodes:[&#x27;dataset_statistics&#x27;],distribution:[&#x27;sdg_conditions&#x27;,&#x27;sdg_readback&#x27;,&#x27;distribution&#x27;]};
  const sources=tab===&#x27;training&#x27;?loomReportTrainingSources(e):[e];
  const views=sources.map(source=&gt;({source,reports:(source.reporting?.reports||[]).filter(report=&gt;roles[tab]?.includes(report.role))}));
@@ -6889,6 +7240,7 @@ catalogDetail=function(id){
 };
 root.addEventListener(&#x27;click&#x27;,async event=&gt;{
  const workspace=event.target.closest(&#x27;[data-report-output]&#x27;),e=workspace&amp;&amp;catEntity(workspace.dataset.reportOutput);if(!e)return;
+ if(event.target.closest(&#x27;[data-training-revisions-retry]&#x27;)){loomLoadTrainingRevisions(e,true);loomReportRefresh(e);return;}
  const point=event.target.closest(&#x27;[data-report-case],[data-report-episode]&#x27;);if(point){event.preventDefault();Object.assign(loomReportState(e),{tab:point.dataset.reportCase?&#x27;cases&#x27;:&#x27;episodes&#x27;,member:point.dataset.reportCase||point.dataset.reportEpisode});render();return;}
  const input=event.target.closest(&#x27;[data-report-input]&#x27;);if(input){try{const pin=await loomSearchAction(&#x27;results&#x27;,&#x27;resolve_item&#x27;,{native_ref:{kind:&#x27;entity&#x27;,identity:{id:input.dataset.reportInput,revision:Number(input.dataset.reportInputRevision)}}});if(input.hasAttribute(&#x27;data-report-exact&#x27;)){await loomCatalogOpen(&#x27;revision:&#x27;+pin.item_id+&#x27;:&#x27;+pin.revision_id);return;}const value=await loomSearchAction(&#x27;system&#x27;,&#x27;dashboard_entity&#x27;,{item_id:pin.item_id,revision_id:pin.revision_id});loomCatalogMerge(value);if(value.entities?.[0])openView(catView(value.entities[0].id));}catch(error){input.textContent=error.message;}return;}
  const lineage=event.target.closest(&#x27;[data-catalog-input-ref]&#x27;);
@@ -8445,12 +8797,14 @@ function loomCatalogProjection(catalog) {
   const signedIn = () => authenticated;
   let lifetime = new AbortController();
   let catalogRequest;
-  let resourceInterest = false;
+  let resourceInterest = null;
   let resourceTimer;
   let resourceBusy = false;
   let catalogLoaded = false;
   let catalogEntities = new Map();
   const jobDetailIds = new Map();
+  const searchRequests = new Map();
+  const explorerMedia = new Map();
   let mediaRequest;
   let revisionTimer;
   let catalogRevision;
@@ -8483,6 +8837,8 @@ function loomCatalogProjection(catalog) {
 
   function reset(message = '') {
     lifetime.abort();
+    searchRequests.clear();
+    explorerMedia.clear();
     lifetime = new AbortController();
     clearTimeout(resourceTimer);
     clearTimeout(revisionTimer);
@@ -8543,7 +8899,7 @@ function loomCatalogProjection(catalog) {
       if (signal.aborted) return;
       if (!Array.isArray(incoming.entities)) throw new Error('Invalid catalog response');
       const sameRevision=catalogRevision===incoming.revision;
-      const records=new Map((sameRevision?researchIncoming?.entities||[]:[]).map(e=>[e.id,e]));
+      const records=new Map((sameRevision||incoming.domains?researchIncoming?.entities||[]:[]).map(e=>[e.id,e]));
       for(const entity of incoming.entities)records.set(entity.id,entity);
       catalogRevision = incoming.revision;
       researchIncoming={...incoming,entities:[...records.values()]};
@@ -8581,8 +8937,9 @@ function loomCatalogProjection(catalog) {
     revisionTimer = setTimeout(async () => {
       const signal = lifetime.signal;
       try {
-        const {revision} = await read('/api/dashboard/revision', signal);
-        if (!signal.aborted && revision !== catalogRevision) await refreshCatalog();
+        const {revision,domains} = await read('/api/dashboard/revision', signal);
+        if (!signal.aborted && (revision !== catalogRevision ||
+           domains && JSON.stringify(domains)!==JSON.stringify(researchIncoming?.domains))) await refreshCatalog();
       } catch (error) {
         if (signal.aborted) return;
         if (authError(error)) return reset('현재 credential로 다시 연결해 주세요.');
@@ -8597,20 +8954,25 @@ function loomCatalogProjection(catalog) {
     clearTimeout(resourceTimer);
     if (!signedIn() || !resourceInterest || document.hidden || resourceBusy) return;
     resourceBusy = true;
-    const signal = lifetime.signal;
-    let delay = 2000;
+    const scope = resourceInterest, signal = lifetime.signal;
+    let delay = scope === 'inspector' ? 2000 : 30000;
     try {
-      const resources = await read('/api/dashboard/resources', signal);
-      if (!signal.aborted && resourceInterest) emit('pai-resource-data', {resources: {...resources, host:loomHost(resources.host)}});
+      let resources;
+      try {resources = await read('/api/dashboard/resources?scope='+scope, signal);}
+      catch (error) {
+        if (error.status !== 404) throw error;
+        resources = await read('/api/dashboard/resources', signal);
+      }
+      if (!signal.aborted && resourceInterest === scope) emit('pai-resource-data', {resources: {...resources, host:loomHost(resources.host)}});
     } catch (error) {
       if (signal.aborted) return;
       if (authError(error)) return reset('현재 credential로 다시 연결해 주세요.');
-      emit('pai-resource-error', {status: error.status});
+      if (resourceInterest === scope) emit('pai-resource-error', {status: error.status});
       delay = 10000;
     } finally {
       resourceBusy = false;
       if (!signal.aborted && signedIn() && resourceInterest && !document.hidden) {
-        resourceTimer = setTimeout(resources, delay);
+        resourceTimer = setTimeout(resources, resourceInterest === scope ? delay : 0);
       }
     }
   }
@@ -8707,9 +9069,40 @@ function loomCatalogProjection(catalog) {
   async function searchAction(message) {
     const allowed={results:['search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file','metadata_templates','get_metadata_template','validate_metadata','report_contracts','get_report_contract','report_definitions','get_report_definition','get_report_evidence','validate_report_contract','read_report'],jobs:['log_streams','read_log','search_logs'],system:['search_status','dashboard_summary','dashboard_page','dashboard_queue','dashboard_activity','dashboard_entity']};
     if(!signedIn()||!allowed[message.group]?.includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;
-    const args = researchIncoming?.capabilities?.live_queue && message.group==='system' && ['dashboard_page','dashboard_entity'].includes(message.action)
-      ? {...message.arguments,records_only:true} : message.arguments;
-    try{const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({group:message.group,action:message.action,arguments:args}),signal:AbortSignal.timeout(15000)});const value=await response.json();if(response.ok&&message.group==='system'&&['dashboard_page','dashboard_entity','dashboard_queue'].includes(message.action)){for(const entity of value.entities||[])catalogEntities.set(entity.id,entity);if(value.revision===catalogRevision){const records=new Map((researchIncoming?.entities||[]).map(e=>[e.id,e]));for(const entity of value.entities||[]){catalogEntities.set(entity.id,entity);records.set(entity.id,entity);}while(records.size>4000)records.delete(records.keys().next().value);researchIncoming={...researchIncoming,entities:[...records.values()]};}}emit('loom-search-result',{id:message.id,ok:response.ok,value});}catch(error){emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});}
+    const scoped=message.group==='system'&&['dashboard_page','dashboard_entity'].includes(message.action);
+    let args=message.arguments;
+    if(scoped&&researchIncoming?.capabilities?.live_queue&&!args?.projection)args={...args,records_only:true};
+    if(scoped&&message.action==='dashboard_entity'&&researchIncoming?.capabilities?.compact_lists&&!args?.section)args={...args,section:'overview'};
+    const controller = new AbortController();
+    searchRequests.set(message.id,controller);
+    const signal = AbortSignal.any([lifetime.signal,controller.signal,AbortSignal.timeout(15000)]);
+    try {
+      const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',
+        headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},
+        body:JSON.stringify({group:message.group,action:message.action,arguments:args}),signal});
+      const value=await response.json();
+      if(signal.aborted)return;
+      if(response.ok&&message.group==='system'&&['dashboard_page','dashboard_entity','dashboard_queue'].includes(message.action)){
+        for(const node of value.children||[])for(const media of node.entity?.loom_media||[])
+          explorerMedia.set(media.id,media);
+        for(const media of value.section==='files'?value.media||[]:[])explorerMedia.set(media.id,media);
+        while(explorerMedia.size>1000)explorerMedia.delete(explorerMedia.keys().next().value);
+        for(const entity of value.entities||[])catalogEntities.set(entity.id,entity);
+        while(catalogEntities.size>4000)catalogEntities.delete(catalogEntities.keys().next().value);
+        if(value.revision===catalogRevision){
+          const records=new Map((researchIncoming?.entities||[]).map(e=>[e.id,e]));
+          for(const entity of value.entities||[])records.set(entity.id,entity);
+          while(records.size>4000)records.delete(records.keys().next().value);
+          researchIncoming={...researchIncoming,entities:[...records.values()]};
+        }
+      }
+      emit('loom-search-result',{id:message.id,ok:response.ok,value});
+    } catch(error) {
+      if(!controller.signal.aborted&&!lifetime.signal.aborted)
+        emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});
+    } finally {
+      if(searchRequests.get(message.id)===controller)searchRequests.delete(message.id);
+    }
   }
   async function resultAction(message) {
     if(!signedIn()||typeof message.id!=='string'||message.id.length>128)return;
@@ -8757,8 +9150,9 @@ function loomCatalogProjection(catalog) {
   }
 
   async function media({entity, id}, download = false) {
-    if (!signedIn() || typeof entity !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/.test(id || '')) return;
-    const item = catalogEntities.get(entity)?.loom_media?.find(item => item.id === id);
+    if (!signedIn() || typeof entity !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,8191}$/.test(id || '')) return;
+    const item = catalogEntities.get(entity)?.loom_media?.find(item => item.id === id)
+      || explorerMedia.get(id);
     if (!item || item.status !== 'available') return;
     mediaRequest?.abort();
     mediaRequest = new AbortController();
@@ -8875,12 +9269,14 @@ function loomCatalogProjection(catalog) {
     } else if (['loom-access-request','loom-access-decision','loom-share-revoke','loom-token-issue','loom-token-revoke','loom-ssh-change'].includes(message.type)) {
       accessAdmin(message);
     } else if (message.type === 'pai-resource-interest') {
-      resourceInterest = message.active === true;
+      resourceInterest = ['inspector','storage','host'].includes(message.scope) ? message.scope : message.active === true ? 'inspector' : null;
       resources();
     } else if (message.type === 'pai-catalog-ready' || message.type === 'pai-catalog-refresh') {
       showBuild(buildInfo);
       refreshCatalog();
       updates();
+    } else if(message.type==='loom-search-cancel'){
+      searchRequests.get(message.id)?.abort();
     } else if(message.type==='loom-search-action'){
       searchAction(message);
     } else if(message.type==='loom-result-action'){

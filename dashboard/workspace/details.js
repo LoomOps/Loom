@@ -142,9 +142,9 @@ workRow = function(entity, current) {
   const row = loomLegacyWorkRow(entity, current);
   if (entity.properties?.record_role === 'loom_job') {
     const preserved=entity.reviewed_executions ?? (entity.internal_steps?.status==='preserved_execution' ? entity.internal_steps.steps : null);
-    const steps=entity.properties.internal_step_count || (entity.steps || []).length;
+    const steps=entity.properties.unit_count || entity.properties.internal_step_count || (entity.steps || []).length;
     const [count,unit]=Array.isArray(preserved) ? [preserved.length,'Execution']
-      : steps ? [steps,'Step'] : [(entity.attempts || []).length,'Attempt'];
+      : steps ? [steps,'Step'] : [entity.properties.attempt_count??(entity.attempts || []).length,'Attempt'];
     const summary=count+' '+unit+(count===1?'':'s');
     row[0] = '<div class="pa-queue-name">' + catLink(entity.id) + '<small>'
       + summary + '</small></div>';
@@ -392,7 +392,7 @@ catalogDetail = function(id) {
     ? heading('JOB', entity.label, '', paiEntityActions(id))
       + panel('실행', catTable(['등록','실행 시작','실행 종료','실행 시간'], [queueRow(entity).slice(2)]))
     : loomCatalogDetail(id), id);
-  if (!descriptor) return base;
+  if (!descriptor || (entity.summary_only || entity.deferred_output_sections) && descriptor.kind === 'registry') return base;
   loomRequestDetail(descriptor);
   const entry = loomEntityReads.get(id);
   const detail = entity?.loom_imported_job ? loomJobPanel({id:entity.id}, {...entry, data:entry?.data?.body?.record})
@@ -427,11 +427,14 @@ root.addEventListener('click', event => {
   render();
 });
 
+let loomLastWorkStamp=null;
 window.addEventListener('message', event => {
   if (event.source !== parent) return;
   const message = event.data;
   if (message?.type === 'pai-catalog-data') {
-    if (message.connected) loomRefreshJobDetails();
+    const stamp=message.catalog?.domains?.work??message.catalog?.revision;
+    if (message.connected && stamp!==loomLastWorkStamp) loomRefreshJobDetails();
+    loomLastWorkStamp=stamp;
     return;
   }
   if (message?.type !== 'loom-detail-response') return;

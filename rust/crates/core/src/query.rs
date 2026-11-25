@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 // Follow only completed, frozen Attempt membership. UNION terminates even if a
 // separately imported/corrupt graph contains a cycle; a cycle has no terminal root.
 pub(crate) const CONSOLIDATION_CTE: &str = r#"WITH RECURSIVE
-consolidation_edges(source,source_attempt,target,target_attempt) AS (
+consolidation_edges(source,source_attempt,target,target_attempt) AS MATERIALIZED (
  SELECT json_extract(src.value,'$.job'),json_extract(src.value,'$.attempt'),j.id,j.attempt
  FROM jobs j,json_each(j.spec,'$._consolidation_sources') src
  WHERE j.state='complete' AND json_extract(j.result,'$.artifact_ready')=1
@@ -26,12 +26,19 @@ consolidation_edges(source,source_attempt,target,target_attempt) AS (
  SELECT p.* FROM consolidation_paths p WHERE NOT EXISTS(
  SELECT 1 FROM consolidation_edges e WHERE e.source=p.target AND e.source_attempt IS p.target_attempt)
 )"#;
-pub(crate) const JOB_LINKS_CTE: &str = r#"job_links AS (
+pub(crate) const JOB_LINKS_CTE: &str = r#"job_links AS MATERIALIZED (
  SELECT j.id,COALESCE(w.root,json_extract(json_patch(COALESCE(json_extract(j.spec,'$.presentation'),'{}'),COALESCE(o.presentation,'{}')),'$.parent_job')) parent
  FROM (SELECT id,spec FROM jobs UNION ALL SELECT id,request FROM job_workflows) j
  LEFT JOIN research_overlays o ON o.kind='job' AND o.id=j.id
  LEFT JOIN execution_memberships w ON w.job=j.id
 )"#;
+struct FrozenExecution {
+    job: String,
+    attempt: Option<loom_domain::AttemptId>,
+    created: f64,
+    label: Value,
+}
+
 impl Application {
     // Presentation links describe an outcome's preparation/follow-up history.
     // They never become scheduler dependencies or accepted execution membership.
@@ -115,7 +122,23 @@ impl Application {
     // A browsing group is not a new execution. Aggregate physical receipts once;
     // workflow wrappers retain their original state and never add execution time.
     pub(crate) fn job_group_summary(&self, root: &str) -> Result<Value> {
-        let members = rows(&self.db, &format!("WITH RECURSIVE {JOB_LINKS_CTE}, family(id) AS (SELECT ? UNION SELECT l.id FROM job_links l JOIN family f ON l.parent=f.id) SELECT j.id,(SELECT count(*) FROM family) members FROM family f JOIN jobs j ON j.id=f.id ORDER BY j.id LIMIT 201"), &[&root])?;
+        let members = rows(
+            &self.db,
+            &format!("WITH RECURSIVE {JOB_LINKS_CTE},
+                family(id) AS (SELECT ? UNION SELECT l.id FROM job_links l JOIN family f ON l.parent=f.id)
+                SELECT j.id,j.state,j.created,j.attempt,(SELECT count(*) FROM family) members,
+                    COALESCE(
+                        CASE WHEN json_type(j.spec,'$.presentation') IS NULL
+                               OR json_type(j.spec,'$.presentation')='object'
+                             THEN o.presentation -> '$.label' END,
+                        j.spec -> '$.presentation.label',j.spec -> '$.label',j.spec -> '$.kind'
+                    ) AS label,
+                    j.spec -> '$._consolidation_sources' AS sources
+                FROM family f JOIN jobs j ON j.id=f.id
+                LEFT JOIN research_overlays o ON o.kind='job' AND o.id=j.id
+                ORDER BY j.id LIMIT 201"),
+            &[&root],
+        )?;
         if members.is_empty() || members[0]["members"].as_u64().unwrap_or(0) <= 1 {
             return Ok(Value::Null);
         }
@@ -130,13 +153,23 @@ impl Application {
             if self.system_job(id)? {
                 continue;
             }
-            let d = self.job_detail(id)?;
-            let state = d["state"].as_str().unwrap_or("unknown");
+            let state = JobState::parse(member["state"].as_str().unwrap_or(""))?.as_str();
+            let attempts = self.attempt_receipts(id, None, false)?;
+            let timing = self.combined_execution_intervals(
+                id,
+                member["attempt"].as_str(),
+                &member["sources"]
+                    .as_str()
+                    .map(serde_json::from_str)
+                    .transpose()?
+                    .unwrap_or(Value::Null),
+                &attempts,
+            )?;
             *states.entry(state.into()).or_default() += 1;
             let mut started: Option<f64> = None;
             let mut ended: Option<f64> = None;
             let mut observed: Option<f64> = None;
-            for i in d["execution_intervals"].as_array().into_iter().flatten() {
+            for i in &timing {
                 let Some(a) = i["start"].as_f64() else {
                     continue;
                 };
@@ -153,10 +186,16 @@ impl Application {
                     open.push(json!({"start":a,"end":null,"unknown_exit":true}));
                 }
             }
-            let time = observed.unwrap_or_else(|| d["created"].as_f64().unwrap_or(0.));
+            let time = observed.unwrap_or_else(|| member["created"].as_f64().unwrap_or(0.));
             if time > latest_time {
                 latest_time = time;
-                latest = json!({"id":id,"label":d["presentation"].get("label").or_else(||d["spec"].get("label")).or_else(||d["spec"].get("kind")),"state":state,"started":started,"ended":ended});
+                let label = member["label"]
+                    .as_str()
+                    .map(serde_json::from_str)
+                    .transpose()?
+                    .unwrap_or(Value::Null);
+                latest =
+                    json!({"id":id,"label":label,"state":state,"started":started,"ended":ended});
             }
         }
         if states.is_empty() {
@@ -236,51 +275,70 @@ impl Application {
             let mut states = vec![];
             let mut outputs = serde_json::Map::new();
             let mut errors = vec![];
+            let output_nodes = encode(&json!(request["outputs"]
+                .as_object()
+                .into_iter()
+                .flat_map(|outputs| outputs.values())
+                .filter_map(|output| output["node"].as_str())
+                .collect::<std::collections::BTreeSet<_>>()))?;
             for n in rows(
                 &self.db,
-                "SELECT node,label,job FROM execution_memberships WHERE root=? ORDER BY rowid",
-                &[&id],
+                "SELECT m.node,m.label,m.job,u.phase,j.id record,j.state,j.attempt,
+                    j.spec -> '$.kind' profile,j.spec -> '$._consolidation_sources' sources,
+                    CASE WHEN j.state IN ('failed','result_failed')
+                           OR m.node IN (SELECT value FROM json_each(?))
+                         THEN j.result END result
+                 FROM execution_memberships m
+                 LEFT JOIN jobs j ON j.id=m.job
+                 LEFT JOIN execution_units u ON u.id=m.job
+                 WHERE m.root=? ORDER BY m.rowid",
+                &[&output_nodes, &id],
             )? {
                 let child = n["job"].as_str().unwrap_or("");
-                let row = jobs::load(&self.db, child)?;
-                let detail = self.record_detail(&row)?;
-                let phase = detail["unit"]["phase"].as_str();
-                states.push(if research && row.aggregate.state == JobState::Running {
+                require(n["record"].is_string(), "job", "Job not found", 404)?;
+                let state = JobState::parse(n["state"].as_str().unwrap_or(""))?;
+                let attempt = n["attempt"].as_str();
+                let sources = n["sources"]
+                    .as_str()
+                    .map(serde_json::from_str)
+                    .transpose()?
+                    .unwrap_or(Value::Null);
+                let result: Option<Value> =
+                    n["result"].as_str().map(serde_json::from_str).transpose()?;
+                let profile: Option<Value> = n["profile"]
+                    .as_str()
+                    .map(serde_json::from_str)
+                    .transpose()?;
+                let attempts = self.attempt_receipts(child, None, !research)?;
+                let timing =
+                    self.combined_execution_intervals(child, attempt, &sources, &attempts)?;
+                let phase = n["phase"].as_str();
+                states.push(if research && state == JobState::Running {
                     match phase {
                         Some("prepare") => JobState::Preparing,
                         Some("finalize") => JobState::Processing,
-                        _ => row.aggregate.state,
+                        _ => state,
                     }
                 } else {
-                    row.aggregate.state
+                    state
                 });
-                open_intervals.extend(
-                    detail["execution_intervals"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .filter(|i| i["start"].is_number() && i["end"].is_null())
-                        .cloned(),
-                );
                 intervals.extend(
-                    detail["execution_intervals"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
+                    timing
+                        .iter()
                         .filter_map(|i| Some((i["start"].as_f64()?, i["end"].as_f64()?))),
                 );
-                if row.aggregate.state == JobState::Failed
-                    || row.aggregate.state == JobState::ResultFailed
-                {
-                    errors.push(
-                        json!({"job":child,"attempt":detail["attempt"],"result":detail["result"]}),
-                    );
+                open_intervals.extend(
+                    timing
+                        .into_iter()
+                        .filter(|i| i["start"].is_number() && i["end"].is_null()),
+                );
+                if matches!(state, JobState::Failed | JobState::ResultFailed) {
+                    errors.push(json!({"job":child,"attempt":attempt,"result":result}));
                 }
-                nodes.push(json!({"id":n["node"],"job":child,"label":n["label"],"state":detail["state"],"status":detail["status"],"attempt":detail["attempt"],"attempts":detail["attempts"],"profile":row.spec["kind"]}));
+                nodes.push(json!({"id":n["node"],"job":child,"label":n["label"],"state":state.as_str(),"status":state.public(),"attempt":attempt,"attempts":attempts,"profile":profile}));
                 for (alias, ref_) in request["outputs"].as_object().into_iter().flatten() {
                     if ref_["node"] == n["node"] {
-                        if let Some(output) = row
-                            .result
+                        if let Some(output) = result
                             .as_ref()
                             .and_then(|r| r["entities"].as_array())
                             .and_then(|e| e.iter().find(|e| e["id"] == ref_["entity"]))
@@ -450,6 +508,71 @@ impl Application {
     pub fn record_detail(&self, row: &Record) -> Result<Value> {
         self.record_detail_for_attempt(row, None)
     }
+    pub(crate) fn history_job_detail(&self, id: &str) -> Result<Value> {
+        let row = jobs::load(&self.db, id)?;
+        let mut presentation = row.spec["presentation"].clone();
+        if !presentation.is_object() {
+            presentation = json!({"scope":if row.spec["kind"]=="cpu.smoke"{"operations"}else{"research"},
+                "role":if row.spec["kind"]=="cpu.smoke"{"test"}else{"main"}});
+        }
+        if let Some(overlay) = self
+            .db
+            .query_row(
+                "SELECT presentation FROM research_overlays WHERE kind='job' AND id=?",
+                [id],
+                |r| r.get::<_, String>(0),
+            )
+            .optional()?
+        {
+            let overlay: serde_json::Map<String, Value> = serde_json::from_str(&overlay)?;
+            presentation.as_object_mut().unwrap().extend(overlay);
+        }
+        let attempt = row.aggregate.fence.attempt.as_ref().map(|a| a.as_str());
+        let attempts = self.attempt_receipts(id, None, false)?;
+        let intervals = self.combined_execution_intervals(
+            id,
+            attempt,
+            &row.spec["_consolidation_sources"],
+            &attempts,
+        )?;
+        let (started, ended) = if row.spec["_consolidation_sources"].is_array() {
+            let mut accepted = attempts.clone();
+            for source in
+                self.frozen_execution_sources(id, attempt, &row.spec["_consolidation_sources"])?
+            {
+                accepted.extend(self.attempt_receipts(
+                    &source.job,
+                    Some(source.attempt.as_ref().map_or("", |a| a.as_str())),
+                    false,
+                )?);
+            }
+            (
+                accepted
+                    .iter()
+                    .filter_map(|a| a["started"].as_f64())
+                    .min_by(f64::total_cmp),
+                if accepted.iter().all(|a| a["ended"].is_number()) {
+                    accepted
+                        .iter()
+                        .filter_map(|a| a["ended"].as_f64())
+                        .max_by(f64::total_cmp)
+                } else {
+                    None
+                },
+            )
+        } else {
+            (
+                attempts.first().and_then(|a| a["started"].as_f64()),
+                attempts.last().and_then(|a| a["ended"].as_f64()),
+            )
+        };
+        self.decorate_owner("job", id, &row.owner, json!({"id":id,"owner":row.owner,
+            "state":row.aggregate.state.as_str(),"status":row.aggregate.state.public(),"attempt":attempt,
+            "created":row.created,"spec":row.spec,"result":row.result,"presentation":presentation,
+            "category":row.spec["category"],"execution_mode":row.spec["execution_mode"],"scenario_ref":row.spec["scenario_ref"],
+            "attempt_count":attempts.len(),"execution_intervals":intervals,
+            "work_timeline":{"started":started,"ended":ended}}))
+    }
     fn recovery_detail(&self, id: &str) -> Result<Option<Value>> {
         Ok(rows(
             &self.db,
@@ -477,6 +600,150 @@ impl Application {
         )
     }
 
+    fn attempt_receipts(
+        &self,
+        id: &str,
+        selected: Option<&str>,
+        include_results: bool,
+    ) -> Result<Vec<Value>> {
+        // The accepted start can explicitly be NULL. Preserve it instead of
+        // falling back to the reserved timestamp in that case.
+        let (fields, result_join) = if include_results {
+            (
+                "a.*,a.started reserved_at,r.result,",
+                "LEFT JOIN attempt_results r ON r.job=a.job AND r.attempt=a.id",
+            )
+        } else {
+            ("a.id,a.ended,", "")
+        };
+        let mut attempts = rows(&self.db, &format!(
+            "SELECT {fields} CASE WHEN s.attempt IS NOT NULL THEN s.accepted ELSE a.started END started
+             FROM attempts a LEFT JOIN rust_attempt_starts s ON s.attempt=a.id {result_join}
+             WHERE a.job=? AND (? IS NULL OR a.id=?) ORDER BY a.started,a.id"),
+            &[&id, &selected, &selected])?;
+        if include_results {
+            for a in &mut attempts {
+                if let Some(r) = a["result"].as_str() {
+                    a["result"] = serde_json::from_str(r)?;
+                }
+            }
+        }
+        Ok(attempts)
+    }
+
+    fn stage_receipts(
+        &self,
+        id: &str,
+        selected: Option<&str>,
+        include_verification: bool,
+    ) -> Result<Vec<Value>> {
+        let (fields, stages) = if include_verification {
+            ("s.*,(SELECT json_extract(e.evidence,'$.input_verification') FROM rust_effects e
+                WHERE e.job=s.job AND e.attempt=s.attempt AND e.stage=s.stage ORDER BY e.created DESC LIMIT 1)
+                input_verification", "")
+        } else {
+            (
+                "s.attempt,s.stage,s.started,s.ended",
+                "AND s.stage IN ('prepare','run')",
+            )
+        };
+        let mut receipts = rows(
+            &self.db,
+            &format!(
+            "SELECT {fields} FROM stage_runs s WHERE job=? AND (? IS NULL OR attempt=?) {stages}
+             ORDER BY started,stage"),
+            &[&id, &selected, &selected],
+        )?;
+        if include_verification {
+            for stage in &mut receipts {
+                if let Some(verification) = stage["input_verification"].as_str() {
+                    stage["input_verification"] = serde_json::from_str(verification)?;
+                } else {
+                    stage.as_object_mut().unwrap().remove("input_verification");
+                }
+            }
+        }
+        Ok(receipts)
+    }
+
+    // Follow the exact saved Attempt across nested consolidations. Both full
+    // details and dashboard summaries use this traversal and the same receipts.
+    fn frozen_execution_sources(
+        &self,
+        id: &str,
+        attempt: Option<&str>,
+        sources: &Value,
+    ) -> Result<Vec<FrozenExecution>> {
+        let Some(sources) = sources.as_array() else {
+            return Ok(Vec::new());
+        };
+        let mut pending = std::collections::VecDeque::from(sources.clone());
+        let mut visited =
+            std::collections::BTreeSet::from([(id.to_owned(), attempt.map(str::to_owned))]);
+        let mut records = Vec::new();
+        while let Some(pin) = pending.pop_front() {
+            let Some(id) = pin["job"].as_str() else {
+                continue;
+            };
+            let attempt = pin["attempt"].as_str();
+            if !visited.insert((id.to_owned(), attempt.map(str::to_owned))) {
+                continue;
+            }
+            let record = rows(
+                &self.db,
+                "SELECT created,spec -> '$._consolidation_sources' sources,
+                        COALESCE(spec -> '$.presentation.label',spec -> '$.kind') label
+                 FROM jobs WHERE id=?",
+                &[&id],
+            )?
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::new("job", "Job not found", 404))?;
+            let parents: Option<Value> = record["sources"]
+                .as_str()
+                .map(serde_json::from_str)
+                .transpose()?;
+            pending.extend(
+                parents
+                    .as_ref()
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .cloned(),
+            );
+            records.push(FrozenExecution {
+                job: id.to_owned(),
+                attempt: attempt.map(loom_domain::AttemptId::new).transpose()?,
+                created: record["created"].as_f64().unwrap_or(0.),
+                label: record["label"]
+                    .as_str()
+                    .map(serde_json::from_str)
+                    .transpose()?
+                    .unwrap_or(Value::Null),
+            });
+        }
+        Ok(records)
+    }
+
+    fn combined_execution_intervals(
+        &self,
+        id: &str,
+        attempt: Option<&str>,
+        sources: &Value,
+        attempts: &[Value],
+    ) -> Result<Vec<Value>> {
+        let mut timing = execution_intervals(attempts, &self.stage_receipts(id, None, false)?)?;
+        for source in self.frozen_execution_sources(id, attempt, sources)? {
+            // An unrecorded pin selects no receipt, never the source's current Attempt.
+            let selected = Some(source.attempt.as_ref().map_or("", |a| a.as_str()));
+            timing.extend(execution_intervals(
+                &self.attempt_receipts(&source.job, selected, false)?,
+                &self.stage_receipts(&source.job, selected, false)?,
+            )?);
+        }
+        Ok(timing)
+    }
+
     fn record_detail_for_attempt(&self, row: &Record, selected: Option<&str>) -> Result<Value> {
         let id = row.aggregate.id.as_str();
         let mut spec = row.spec.clone();
@@ -488,59 +755,9 @@ impl Application {
         ] {
             spec.as_object_mut().unwrap().remove(k);
         }
-        let mut attempts=rows(&self.db,"SELECT a.*,a.started reserved_at,CASE WHEN s.attempt IS NOT NULL THEN s.accepted ELSE a.started END started,r.result FROM attempts a LEFT JOIN rust_attempt_starts s ON s.attempt=a.id LEFT JOIN attempt_results r ON r.job=a.job AND r.attempt=a.id WHERE a.job=? AND (? IS NULL OR a.id=?) ORDER BY a.started,a.id",&[&id,&selected,&selected])?;
-        for a in &mut attempts {
-            if let Some(r) = a["result"].as_str() {
-                a["result"] = serde_json::from_str(r)?;
-            }
-        }
-        let mut stages = rows(
-            &self.db,
-            "SELECT s.*,(SELECT json_extract(e.evidence,'$.input_verification') FROM rust_effects e
-                WHERE e.job=s.job AND e.attempt=s.attempt AND e.stage=s.stage ORDER BY e.created DESC LIMIT 1)
-                input_verification FROM stage_runs s WHERE job=? AND (? IS NULL OR attempt=?) ORDER BY started,stage",
-            &[&id,&selected,&selected],
-        )?;
-        for stage in &mut stages {
-            if let Some(verification) = stage["input_verification"].as_str() {
-                stage["input_verification"] = serde_json::from_str(verification)?;
-            } else {
-                stage.as_object_mut().unwrap().remove("input_verification");
-            }
-        }
-        let mut intervals = vec![];
-        let mut open_intervals = vec![];
-        for s in &stages {
-            if !matches!(s["stage"].as_str(), Some("run" | "prepare")) {
-                continue;
-            }
-            if let Some(start) = s["started"].as_f64() {
-                if s["ended"].is_null() {
-                    open_intervals.push(json!({"start":start,"end":null,"stage":s["stage"],"count_runtime":true,"authority":"stage_receipt"}));
-                }
-            }
-            if let (Some(a), Some(b)) = (s["started"].as_f64(), s["ended"].as_f64()) {
-                intervals.push((a, b));
-            }
-        }
-        for a in &attempts {
-            if !stages.iter().any(|s| {
-                s["attempt"] == a["id"] && matches!(s["stage"].as_str(), Some("run" | "prepare"))
-            }) {
-                if let Some(start) = a["started"].as_f64() {
-                    if let Some(end) = a["ended"].as_f64() {
-                        intervals.push((start, end));
-                    } else {
-                        open_intervals.push(json!({"start":start,"end":null,"count_runtime":true,"may_include_waiting":true,"authority":"attempt_receipt"}));
-                    }
-                }
-            }
-        }
-        let mut timing: Vec<_> = union_intervals(&intervals)?
-            .iter()
-            .map(|(a, b)| json!({"start":a,"end":b}))
-            .collect();
-        timing.extend(open_intervals);
+        let attempts = self.attempt_receipts(id, selected, true)?;
+        let stages = self.stage_receipts(id, selected, true)?;
+        let timing = execution_intervals(&attempts, &stages)?;
         let recovery = self.recovery_detail(id)?;
         let scheduling = self.readiness(row)?;
         let waiting_reason = failure_queue_reason(row.aggregate.state, recovery.as_ref())
@@ -628,52 +845,28 @@ impl Application {
             details["annotations"] = json!(annotations);
         }
         details["consolidation"] = json!({"consolidated_into":self.consolidation_target(id)?,"sources":row.spec["_consolidation_sources"].as_array().into_iter().flatten().map(|s|json!({"job":s["job"],"attempt":s["attempt"]})).collect::<Vec<_>>()});
-        if let Some(sources) = row.spec["_consolidation_sources"]
-            .as_array()
-            .filter(|_| selected.is_none())
-        {
+        if selected.is_none() && row.spec["_consolidation_sources"].is_array() {
             let mut executions = vec![];
             let mut timeline_executions = vec![];
-            let mut pending = std::collections::VecDeque::from(sources.clone());
-            let mut visited = std::collections::BTreeSet::from([(
-                id.to_string(),
-                row.aggregate
-                    .fence
-                    .attempt
-                    .as_ref()
-                    .map(|a| a.as_str().to_string()),
-            )]);
-            while let Some(source_pin) = pending.pop_front() {
-                if let Some(id) = source_pin["job"].as_str() {
-                    let attempt = source_pin["attempt"].as_str();
-                    if !visited.insert((id.to_string(), attempt.map(str::to_string))) {
-                        continue;
-                    }
-                    let mut source = jobs::load(&self.db, id)?;
-                    pending.extend(
-                        source.spec["_consolidation_sources"]
-                            .as_array()
-                            .into_iter()
-                            .flatten()
-                            .cloned(),
-                    );
-                    source.aggregate.fence.attempt =
-                        attempt.map(loom_domain::AttemptId::new).transpose()?;
-                    source.aggregate.state = JobState::Complete;
-                    source.result = source_pin.get("result").cloned();
-                    let detail =
-                        self.record_detail_for_attempt(&source, Some(attempt.unwrap_or("")))?;
-                    let label = source.spec["presentation"]
-                        .get("label")
-                        .unwrap_or(&source.spec["kind"]);
-                    if detail["attempts"].as_array().is_none_or(Vec::is_empty) {
-                        timeline_executions.push(json!({"job":id,"attempt":attempt,"role":"source","label":label,"state":"unrecorded","started":null,"ended":null}));
-                    }
-                    for a in detail["attempts"].as_array().into_iter().flatten() {
-                        timeline_executions.push(json!({"job":id,"attempt":a["id"],"role":"source","label":label,"state":a["state"],"started":a["started"],"ended":a["ended"]}));
-                    }
-                    executions.push(json!({"job":id,"attempt":attempt,"label":label,"attempts":detail["attempts"],"stages":detail["stages"],"state":detail["state"],"execution_intervals":detail["execution_intervals"],"created":detail["created"],"source":"preserved execution"}));
+            for source in self.frozen_execution_sources(
+                id,
+                row.aggregate.fence.attempt.as_ref().map(|a| a.as_str()),
+                &row.spec["_consolidation_sources"],
+            )? {
+                let id = &source.job;
+                let attempt = source.attempt.as_ref().map(|a| a.as_str());
+                let selected = Some(attempt.unwrap_or(""));
+                let attempts = self.attempt_receipts(id, selected, true)?;
+                let stages = self.stage_receipts(id, selected, true)?;
+                let timing = execution_intervals(&attempts, &stages)?;
+                let label = &source.label;
+                if attempts.is_empty() {
+                    timeline_executions.push(json!({"job":id,"attempt":attempt,"role":"source","label":label,"state":"unrecorded","started":null,"ended":null}));
                 }
+                for a in &attempts {
+                    timeline_executions.push(json!({"job":id,"attempt":a["id"],"role":"source","label":label,"state":a["state"],"started":a["started"],"ended":a["ended"]}));
+                }
+                executions.push(json!({"job":id,"attempt":attempt,"label":label,"attempts":attempts,"stages":stages,"state":"complete","execution_intervals":timing,"created":source.created,"source":"preserved execution"}));
             }
             for a in details["attempts"].as_array().into_iter().flatten() {
                 timeline_executions.push(json!({"job":id,"attempt":a["id"],"role":"continuation","label":details["presentation"].get("label").unwrap_or(&details["spec"]["kind"]),"state":a["state"],"started":a["started"],"ended":a["ended"]}));
@@ -818,7 +1011,9 @@ impl Application {
         let mut result = Vec::new();
         for mut unit in rows(
             &self.db,
-            "SELECT u.id,u.job_id,u.name,u.label,u.phase,j.state,j.attempt,j.spec,
+            "SELECT u.id,u.job_id,u.name,u.label,u.phase,j.state,j.attempt,
+             json_object('profile',j.spec -> '$.kind','depends_on',j.spec -> '$.depends_on',
+                         'gpu_access',j.spec -> '$.gpu_access') AS execution,
              CASE WHEN r.state IN ('waiting','claimed') AND r.deadline<=? THEN 'deferred'
                   ELSE r.state END AS recovery_state,
              r.reason AS recovery_reason
@@ -827,28 +1022,56 @@ impl Application {
             &[&now(), &job],
         )? {
             let state = JobState::parse(unit["state"].as_str().unwrap())?;
-            let spec: Value = serde_json::from_str(
+            let execution: serde_json::Map<String, Value> = serde_json::from_str(
                 unit.as_object_mut()
                     .unwrap()
-                    .remove("spec")
+                    .remove("execution")
                     .unwrap()
                     .as_str()
                     .unwrap(),
             )?;
             unit["status"] = json!(state.public());
-            unit["profile"] = spec["kind"].clone();
-            unit["depends_on"] = spec["depends_on"].clone();
-            unit["gpu_access"] = spec["gpu_access"].clone();
+            unit.as_object_mut().unwrap().extend(execution);
             result.push(unit);
         }
         Ok(result)
     }
+    fn queue_unit_detail(&self, row: &Record) -> Result<Value> {
+        let id = row.aggregate.id.as_str();
+        let attempt = row.aggregate.fence.attempt.as_ref().map(|a| a.as_str());
+        let stages = rows(
+            &self.db,
+            "SELECT attempt,stage,started,state FROM stage_runs
+            WHERE job=? AND attempt=? AND stage='run'",
+            &[&id, &attempt],
+        )?;
+        let progress =
+            crate::progress::read(self.current_attempt_folder(row).as_deref(), &row.spec);
+        let mut value = json!({"attempt":attempt,"stages":stages,"internal_steps":progress,"recovery":self.recovery_detail(id)?});
+        if row.spec["profile"]["runtime"]["checkpoint_pause"] == true {
+            value["checkpoint_pause"] = rows(
+                &self.db,
+                "SELECT attempt,state,requested,reason,resume_attempt
+                FROM unit_pauses WHERE job=? ORDER BY requested DESC LIMIT 1",
+                &[&id],
+            )?
+            .into_iter()
+            .next()
+            .unwrap_or(Value::Null);
+        }
+        Ok(value)
+    }
+
     pub fn queue(&self) -> Result<Value> {
-        let mut queue = self.queue_snapshot(true)?;
+        let mut queue = self.queue_snapshot(true, false)?;
         project_queue_types(&mut queue);
         Ok(queue)
     }
-    pub(crate) fn queue_snapshot(&self, include_group_receipts: bool) -> Result<Value> {
+    pub(crate) fn queue_snapshot(
+        &self,
+        include_group_receipts: bool,
+        compact: bool,
+    ) -> Result<Value> {
         let mut entries = vec![];
         let mut position = 0;
         for row in rows(&self.db,"SELECT id FROM jobs WHERE id IN (SELECT id FROM jobs WHERE (state IN ('queued','blocked','preparing','ready','running','paused','processing') OR (state='result_failed' AND NOT EXISTS(SELECT 1 FROM recovery r WHERE r.job=jobs.id AND r.state='exhausted'))) UNION SELECT r.job FROM recovery r JOIN jobs j ON j.id=r.job WHERE r.state IN ('waiting','claimed','pending','executing') AND j.state IN ('failed','interrupted','result_failed')) ORDER BY COALESCE(queue_order,created),id",&[])? {
@@ -862,7 +1085,9 @@ impl Application {
             let state = record.aggregate.state;
             let waiting = matches!(state, JobState::Queued | JobState::Ready | JobState::Blocked);
             let unit = self.unit_summary(id)?;
-            let detail = unit.as_ref().map(|_| self.record_detail(&record)).transpose()?;
+            let detail = unit.as_ref().map(|_| if compact {
+                self.queue_unit_detail(&record)
+            } else { self.record_detail(&record) }).transpose()?;
             let recovery = if let Some(detail) = &detail {
                 detail.get("recovery").filter(|v| v.is_object()).cloned()
             } else if matches!(state, JobState::Failed | JobState::Interrupted | JobState::ResultFailed) {
@@ -1492,6 +1717,43 @@ impl Application {
 }
 
 /// Capability projection never grants mutation authority.
+fn execution_intervals(attempts: &[Value], stages: &[Value]) -> Result<Vec<Value>> {
+    let mut intervals = vec![];
+    let mut open_intervals = vec![];
+    for s in stages {
+        if !matches!(s["stage"].as_str(), Some("run" | "prepare")) {
+            continue;
+        }
+        if let Some(start) = s["started"].as_f64() {
+            if s["ended"].is_null() {
+                open_intervals.push(json!({"start":start,"end":null,"stage":s["stage"],"count_runtime":true,"authority":"stage_receipt"}));
+            }
+        }
+        if let (Some(a), Some(b)) = (s["started"].as_f64(), s["ended"].as_f64()) {
+            intervals.push((a, b));
+        }
+    }
+    for a in attempts {
+        if !stages.iter().any(|s| {
+            s["attempt"] == a["id"] && matches!(s["stage"].as_str(), Some("run" | "prepare"))
+        }) {
+            if let Some(start) = a["started"].as_f64() {
+                if let Some(end) = a["ended"].as_f64() {
+                    intervals.push((start, end));
+                } else {
+                    open_intervals.push(json!({"start":start,"end":null,"count_runtime":true,"may_include_waiting":true,"authority":"attempt_receipt"}));
+                }
+            }
+        }
+    }
+    let mut timing: Vec<_> = union_intervals(&intervals)?
+        .iter()
+        .map(|(a, b)| json!({"start":a,"end":b}))
+        .collect();
+    timing.extend(open_intervals);
+    Ok(timing)
+}
+
 pub fn queue_permissions(value: &mut Value, write: bool) {
     if !write {
         match value {

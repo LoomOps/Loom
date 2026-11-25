@@ -60,6 +60,7 @@ window.addEventListener('message', event => {
 let loomDockerState = null;
 let loomDockerError = null;
 let loomDockerOpen = false;
+const loomDockerLimits = new Map(),loomDockerExpanded=new Set();
 let loomMcpState = null;
 let loomMcpError = null;
 let loomMcpOpen = false;
@@ -96,18 +97,20 @@ function loomDockerView() {
       + rows.filter(row => row.state === 'running').length + '개</p>'
       + groups.filter(([, items]) => items.length).map(([label, items]) => {
         const head = ['컨테이너','Compose / 서비스','상태','Health','이미지','CPU','메모리'];
-        const body = items.map(row => {
+        const limit = loomDockerLimits.get(label)||50;
+        const body = items.slice(0,limit).map(row => {
           const values = [esc(row.name), esc(row.compose_project || '—') + '<small>' + esc(row.compose_service || '—') + '</small>',
             '<span class="pa-container-state" data-state="'+esc(row.state)+'">'+esc(row.state)+'</span>',
             esc(row.health === 'not_configured' ? '미설정' : row.health),
             esc(row.image), esc(row.stats?.cpu_percent == null ? '—' : String(row.stats.cpu_percent).replace(/%+$/, '') + '%'),
             esc(row.stats?.memory_usage || '—')];
-          return '<tr data-container-row="'+esc(row.name)+'" tabindex="0" aria-expanded="false" aria-label="'+esc(row.name)+' 상세">'+values.map(v=>'<td>'+v+'</td>').join('')+'</tr>'
-            + '<tr hidden data-container-extra="'+esc(row.id)+'"><td colspan="7">'+loomContainerDetails(row)+'</td></tr>';
+          const open=loomDockerExpanded.has(row.id);
+          return '<tr data-container-row="'+esc(row.name)+'" data-container-id="'+esc(row.id)+'" tabindex="0" aria-expanded="'+open+'" aria-label="'+esc(row.name)+' 상세">'+values.map(v=>'<td>'+v+'</td>').join('')+'</tr>'
+            +(open?'<tr data-container-extra="'+esc(row.id)+'"><td colspan="7">'+loomContainerDetails(row)+'</td></tr>':'');
         }).join('');
         return panel(esc(label) + ' <small>' + items.length + '</small>', '<div class="pa-table-wrap" tabindex="0" aria-label="'+esc(label)+' 컨테이너 목록"><table class="pa-container-table"><colgroup>'
           + [23,14,9,10,23,7,14].map(w=>'<col style="width:'+w+'%">').join('')
-          + '</colgroup><thead><tr>'+head.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>');
+          + '</colgroup><thead><tr>'+head.map(h=>'<th>'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+body+'</tbody></table></div>'+(items.length>limit?'<button class="pa-button" data-loom-docker-more="'+esc(label)+'">더보기</button>':''));
       }).join('');
     if (!(docker.containers || []).length) body += '<p>표시할 컨테이너 관측값이 없습니다.</p>';
   }
@@ -127,8 +130,16 @@ render = function() {
   loomMcpOpen = mcpOpen;
 };
 function loomToggleContainer(row) {
-  const detail = row.nextElementSibling;
+  let detail = row.nextElementSibling;
+  if(detail?.dataset.containerExtra!==row.dataset.containerId){
+    const observed=loomDockerState?.containers?.find(item=>item.id===row.dataset.containerId);
+    if(!observed)return;
+    row.insertAdjacentHTML('afterend','<tr hidden data-container-extra="'+esc(observed.id)+'"><td colspan="7">'+loomContainerDetails(observed)+'</td></tr>');
+    detail=row.nextElementSibling;
+  }
   detail.hidden = !detail.hidden;
+  if(detail.hidden)loomDockerExpanded.delete(row.dataset.containerId);
+  else loomDockerExpanded.add(row.dataset.containerId);
   row.setAttribute('aria-expanded', String(!detail.hidden));
 }
 root.addEventListener('keydown', event => {
@@ -137,6 +148,8 @@ root.addEventListener('keydown', event => {
   loomToggleContainer(event.target);
 });
 root.addEventListener('click', event => {
+  const more=event.target.closest('[data-loom-docker-more]');
+  if(more){const key=more.dataset.loomDockerMore;loomDockerLimits.set(key,(loomDockerLimits.get(key)||50)+50);refreshCatalogPanes();return;}
   const row = event.target.closest('[data-container-row]');
   if (row && !event.target.closest('a,button,input') && !window.getSelection()?.toString()) loomToggleContainer(row);
   if (event.target.closest('[data-loom-docker-refresh]')) parent.postMessage({type:'loom-docker-request'}, '*');
@@ -209,11 +222,13 @@ catHostRefresh();
 function loomHistoryRows() {
   const page=loomCatalogPages.get(loomCatalogPageKey('job'));
   if(catalogData.capabilities?.catalog_pages && !page?.committed)return null;
+  if(page?.query.projection==='history')return page.ids.map(id=>catEntity(id)).filter(Boolean);
   const ids=catalogData.capabilities?.catalog_pages?new Set(page.ids):null;
   return workItems(ids).filter(item=>queueState(item).info[3])
     .sort((a,b)=>(queueTimes(b).ended??queueTimes(b).exited??0)-(queueTimes(a).ended??queueTimes(a).exited??0));
 }
 function loomHistoryMore(total) {
+  if(catalogData.capabilities?.compact_lists)return '';
   const limit=state.queueHistoryLimits?.all||10;
   if(total<=10)return '';
   return '<div class="pa-history-more">'

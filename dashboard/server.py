@@ -28,11 +28,12 @@ IDENTIFIER = r"[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}"
 READ_ROUTES = (
     "/api/guide", r"/api/guide/[a-z][a-z-]{0,40}",
     "/api/status", "/api/runtimes", "/api/ssh", "/api/updates", "/api/docker", "/api/principal", "/api/jobs", "/api/events", "/api/registry",
-    "/api/dashboard/catalog", "/api/dashboard/bootstrap", "/api/dashboard/shell", "/api/dashboard/resources", "/api/dashboard/revision",
+    "/api/dashboard/catalog", "/api/dashboard/bootstrap", "/api/dashboard/shell", r"/api/dashboard/resources(?:\?scope=(?:host|storage|inspector))?", "/api/dashboard/revision",
     rf"/api/registry/{IDENTIFIER}",
     rf"/api/jobs/{IDENTIFIER}",
 )
-MEDIA_ROUTE = rf"/api/dashboard/media/{IDENTIFIER}"
+# Registered media keys encode the exact record and its file location.
+MEDIA_ROUTE = r"/api/dashboard/media/[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,8191}"
 MEDIA_TYPES = {"image/png", "image/jpeg", "image/webp", "video/mp4", "video/webm"}
 TEXT_TYPES = {"text/markdown", "text/plain", "application/json", "application/x-ndjson"}
 MEDIA_TYPES.update(TEXT_TYPES)

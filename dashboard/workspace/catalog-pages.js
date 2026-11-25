@@ -4,25 +4,26 @@ const loomCatalogPages=new Map();let loomCatalogRevision=null;let loomActivityVi
 function loomHomeVisible(){
  return ws.panes.some(p=>{const v=activeTab(p).view;return !v.entity&&['home','queue'].includes(v.page);});
 }
-let loomQueueRevision=null,loomQueueRequest=null,loomHomeErrors={};
+let loomQueueRevision=null,loomQueueRequest=null,loomHomeErrors={},loomWasHomeVisible=false;
 function loomLoadHomeData(refreshQueue=false){
  if(!catalogData.capabilities?.catalog_pages)return;
- const revision=catalogData.revision;
- if(loomHomeVisible())loomCatalogActivity();
- const needsQueue=loomHomeVisible()||ws.panes.some(p=>{
+ const revision=loomCatalogStamp('work'),home=loomHomeVisible();
+ const enteredHome=home&&!loomWasHomeVisible;loomWasHomeVisible=home;
+ if(home)loomCatalogActivity();
+ const needsQueue=home||ws.panes.some(p=>{
   const v=activeTab(p).view;return v.entity&&(v.page==='queue'||catEntity(v.entity)?.kind==='job');
  });
  if(!needsQueue||!catalogData.capabilities.live_queue||loomQueueRequest?.revision===revision
-   ||(!refreshQueue&&loomQueueRevision===revision))return;
+   ||(!refreshQueue&&!enteredHome&&loomQueueRevision===revision))return;
  const request={revision};loomQueueRequest=request;
  loomQueueRevision=revision;delete loomHomeErrors.queue;
- loomSearchAction('system','dashboard_queue').then(value=>{
-  if(loomQueueRequest!==request||catalogData.revision!==revision)return;
+ loomSearchAction('system','dashboard_queue',catalogData.capabilities?.compact_lists?{compact:true}:{}).then(value=>{
+  if(loomQueueRequest!==request||loomCatalogStamp('work')!==revision)return;
   catalogData.queue=value.queue;
   loomCatalogMerge(value);
   catalogRefreshViews();
  }).catch(()=>{
-  if(loomQueueRequest===request&&catalogData.revision===revision){loomHomeErrors.queue=true;catalogRefreshViews();}
+  if(loomQueueRequest===request&&loomCatalogStamp('work')===revision){loomHomeErrors.queue=true;catalogRefreshViews();}
  }).finally(()=>{
   if(loomQueueRequest===request)loomQueueRequest=null;
  });
@@ -33,13 +34,13 @@ function loomRefreshQueueProgress(){
 }
 setInterval(loomRefreshQueueProgress,300000);
 function loomCatalogActivity(){
- const view='all',revision=catalogData.revision,key=JSON.stringify([revision,view]);
+ const view='all',revision=loomActivityStamp(),key=JSON.stringify([revision,view]);
  if(!loomHomeVisible()||!catalogData.capabilities?.catalog_pages||loomActivityView===key)return;
  loomActivityView=key;delete loomHomeErrors.activity;
  queueMicrotask(async()=>{
   try{
    const activity=await loomSearchAction('system','dashboard_activity',{view});
-   if(loomActivityView!==key||catalogData.revision!==revision)return;
+   if(loomActivityView!==key||loomActivityStamp()!==revision)return;
    if(!Array.isArray(activity?.days))throw new Error('Invalid Activity response');
    catalogData.activity={...activity,view};catalogRefreshViews();
   }catch{if(loomActivityView===key){loomHomeErrors.activity=true;catalogRefreshViews();}}
@@ -64,23 +65,58 @@ dashboardActivity=function(){
   return panel('Activity',loomHomeStatus('activity'));
  return loomHomeActivityPanel();
 };
+function loomCatalogStamp(domain){return catalogData.domains?.[domain]??catalogData.revision;}
+function loomActivityStamp(){return JSON.stringify([loomCatalogStamp('work'),loomCatalogStamp('outputs'),loomCatalogStamp('history')]);}
+function loomPageDomains(kind){
+ if(kind==='job')return ['history','tasks'];
+ if(kind==='scenario')return ['tasks'];
+ if(kind==='runtime'||kind==='profile')return ['software','runtime_fresh','software_usage','tasks'];
+ if(loomSoftwareListKinds.has(kind))return ['software','runtime_fresh','tasks'];
+ return ['outputs','tasks'];
+}
+const loomCatalogTextEdits=new WeakMap();
+function loomDebounceCatalogText(view,field,value){
+ let pending=loomCatalogTextEdits.get(view);
+ if(!pending){pending={value:view[field]||'',timer:null};loomCatalogTextEdits.set(view,pending);}
+ clearTimeout(pending.timer);view[field]=value;
+ pending.timer=setTimeout(()=>{
+  loomCatalogTextEdits.delete(view);
+  if(ws.panes.some(p=>activeTab(p).view===view))render();
+ },240);
+}
+const loomSoftwareListKinds=new Set(['profile','component','tool','runtime','dependency']);
 const loomCatalogKinds={models:'model',datasets:'dataset',experiments:'experiment',issues:'issue',profiles:'profile',components:'component',tools:'tool',runtimes:'runtime',dependencies:'dependency',scenarios:'scenario',queue:'job',files:'explorer'};
 function loomCatalogQuery(kind,filterTask=true){
+ const projection=catalogData.capabilities?.compact_lists?{projection:'list'}:{};
  if(catalogData.capabilities?.job_units&&['dataset','model','experiment'].includes(kind)){
-  return {kinds:[kind],view:'all',role:'all',limit:50,records_only:true,catalog_classes:loomOutputClasses(),...(catalogData.capabilities.output_disposition?{output_state:loomOutputDiscarded()?'discarded':'current',...(loomOutputDiscarded()?{history:'all'}:{})}:{}),...(filterTask&&state.researchTask?{task_id:state.researchTask.id}:{})};
- }if(kind==='job')return {kinds:['job'],view:'all',role:'all',limit:50};if(kind==='explorer')return {kinds:['dataset','model','experiment','artifact'],view:'all',role:'all',limit:50};const view=catalogData.presentation_view||'all';return {...(['profile','component','tool','runtime'].includes(kind)?{...loomRegistryArgs(state.registryFilter||'current'),...(state.registryFilter==='archived'?{history:'all'}:{})}:{}),kinds:[kind],view:view==='builtin'?'all':view,role:['model','dataset','experiment'].includes(kind)?((state.outputPurpose||(view==='research'?'research':'all'))==='research'?'main':'all'):kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(['model','dataset','experiment'].includes(kind)&&state.researchTask?{task_id:state.researchTask.id}:{}),...(state.extensionQuery||state.dependencyQuery?{text:state.extensionQuery||state.dependencyQuery}:{}),limit:50};}
+  return {kinds:[kind],view:'all',role:'all',limit:50,records_only:true,...projection,catalog_classes:loomOutputClasses(),...(catalogData.capabilities.output_disposition?{output_state:loomOutputDiscarded()?'discarded':'current',...(loomOutputDiscarded()?{history:'all'}:{})}:{}),...(filterTask&&state.researchTask?{task_id:state.researchTask.id}:{})};
+ }if(kind==='job')return {kinds:['job'],view:'all',role:'all',...(catalogData.capabilities?.compact_lists?{projection:'history',limit:10}:{limit:50})};if(kind==='explorer')return {kinds:['dataset','model','experiment','artifact'],view:'all',role:'all',limit:50};const view=catalogData.presentation_view||'all',text=loomCatalogTextEdits.get(state)?.value??(state.extensionQuery||state.dependencyQuery);return {...(['profile','component','tool','runtime'].includes(kind)?{...loomRegistryArgs(state.registryFilter||'current'),...(state.registryFilter==='archived'?{history:'all'}:{})}:{}),...(loomSoftwareListKinds.has(kind)?projection:{}),kinds:[kind],view:view==='builtin'?'all':view,role:['model','dataset','experiment'].includes(kind)?((state.outputPurpose||(view==='research'?'research':'all'))==='research'?'main':'all'):kind==='dependency'||view==='research'?'main':'all',...(view==='builtin'?{origin_type:'builtin'}:{}),...(['model','dataset','experiment'].includes(kind)&&state.researchTask?{task_id:state.researchTask.id}:{}),...(text?{text}:{}),limit:50};}
 function loomCatalogPageKey(kind){return JSON.stringify(loomCatalogQuery(kind));}
 // A bootstrap is a bounded seed, never a replacement for pages from its revision.
 function loomCatalogRefresh(value){
- const changed=loomCatalogRevision!==value.revision;
+ const changed=loomCatalogRevision!==value.revision||
+   value.domains&&JSON.stringify(value.domains)!==JSON.stringify(catalogData.domains);
  const previous=catalogData.all_entities||catalogData.entities||[];
  const open=new Set(ws.panes.map(p=>activeTab(p).view.entity).filter(Boolean));
  if(changed){
-  // A revision invalidates cursors, not the last complete visible list.
-  for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],taskIndex:page.taskIndex,committed:page.committed,desired:Math.min(4000,page.ids?.length||page.query.limit||50),loaded:false,busy:false,cursor:null,error:null});
-  loomScenarioGraphs.clear();loomCatalogRevision=value.revision;loomActivityView=null;
+  const scoped=value.domains&&catalogData.domains;
+  const priorDomains=catalogData.domains;
+  const affected=domains=>!scoped||domains.some(domain=>value.domains[domain]!==priorDomains[domain]);
+  for(const [key,page] of loomCatalogPages){
+   const kind=page.query.projection==='history'?'job':page.query.kinds?.[0];
+   if(!affected(loomPageDomains(kind)))continue;
+   page.controller?.abort();
+   // Preserve the last complete page while refreshing only the first page.
+   loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],taskIndex:page.taskIndex,committed:page.committed,desired:kind==='job'&&value.capabilities?.compact_lists?undefined:
+    Math.min(value.capabilities?.compact_lists?100:4000,page.ids?.length||page.query.limit||50),loaded:false,busy:false,cursor:null,error:null});
+  }
+  if(affected(['tasks']))loomScenarioGraphs.clear();
+  loomCatalogRevision=value.revision;
   for(const id of open)queueMicrotask(async()=>{
-   if(!catalogData.capabilities?.catalog_pages||loomCatalogOpening.has(id))return;
+   const kind=catEntity(id)?.kind;
+   if(!catalogData.capabilities?.catalog_pages||loomCatalogOpening.has(id)
+      ||kind&& !affected(kind==='job'?['work','history','tasks']:loomPageDomains(kind==='execution_profile'?'profile':kind)))return;
+   if(kind==='job' && catEntity(id)?.loom_job)return;
    loomCatalogOpening.add(id);
    try{await loomCatalogOpen(id,false);}catch(error){
     // Keep the last good detail on a transient transport failure; an explicit
@@ -110,11 +146,21 @@ function loomCatalogRetainResearch(previous,incoming,sameRevision){
  }
  return incoming;
 }
+function loomMergeCatalogRecord(previous,incoming){
+ if(!previous||!incoming.summary_only||previous.summary_only||!previous.item_revision_id
+    ||previous.item_revision_id!==incoming.item_revision_id)return incoming;
+ // The exact detail and the compact row share identity. A refresh of the
+ // row must preserve the already opened sections and their source references.
+ const value={...previous,...incoming,properties:{...previous.properties,...incoming.properties},
+  summary_only:false};
+ if(previous.reporting)value.reporting={...previous.reporting,...incoming.reporting};
+ return loomCatalogRetainResearch(previous,value,true);
+}
 function loomCatalogMerge(value){
  const existing=new Map((catalogData.all_entities||catalogData.entities).map(e=>[e.id,e]));
  loomPresentationView=catalogData.presentation_view||'all';
  const incoming=loomCatalogProjection(value);
- for(const e of incoming.all_entities||incoming.entities){const old=existing.get(e.id);existing.set(e.id,old?.kind==='scenario'&&old.loom_scenario.revision>e.loom_scenario?.revision?old:e);}
+ for(const e of incoming.all_entities||incoming.entities){const old=existing.get(e.id);existing.set(e.id,old?.kind==='scenario'&&old.loom_scenario.revision>e.loom_scenario?.revision?old:loomMergeCatalogRecord(old,e));}
  // Old list pages can be refetched; keep the current record and recent browsing bounded.
  while(existing.size>4000){const id=existing.keys().next().value;if(id===state.entity){const value=existing.get(id);existing.delete(id);existing.set(id,value);}else existing.delete(id);}
  const entities=[...existing.values()];
@@ -122,17 +168,19 @@ function loomCatalogMerge(value){
  catalogData={...catalogData,research_tasks:incoming.research_tasks??catalogData.research_tasks,entities:selected,all_entities:entities};
 }
 async function loomCatalogLoad(kind,more=false,query=loomCatalogQuery(kind)){
- if(!catalogData.capabilities?.catalog_pages||query.catalog_classes?.length===0)return;
+ if(!catalogData.capabilities?.catalog_pages||query.catalog_classes?.length===0
+    ||kind==='explorer'&&catalogData.capabilities?.compact_lists)return;
  const key=JSON.stringify(query);
  let page=loomCatalogPages.get(key);
  if(page?.busy||page?.loaded&&!more||more&&!page?.cursor)return;
  if(!page){page={query,cursor:null,busy:false,loaded:false,error:null,ids:[]};loomCatalogPages.set(key,page);}
  page.busy=true;page.error=null;
+ const controller=new AbortController();page.controller=controller;
  try{
   let cursor=more?page.cursor:null,result,entities=[],taskIndex;
   const desired=more?query.limit:page.desired||query.limit;
   do{
-   result=await loomSearchAction('system','dashboard_page',{...page.query,...(cursor?{cursor}:{})});
+   result=await loomSearchAction('system','dashboard_page',{...page.query,...(cursor?{cursor}:{})},controller.signal);
    if(loomCatalogPages.get(key)!==page)return;
    if(!cursor&&!result.partial)taskIndex=result.task_index;
    entities.push(...result.entities);cursor=result.next_cursor;
@@ -155,13 +203,17 @@ async function loomCatalogLoad(kind,more=false,query=loomCatalogQuery(kind)){
    if(kind==='job')page.error='종료 이력을 불러오지 못했습니다.';
   }
  }catch(error){
+  if(controller.signal.aborted)return;
   page.error=error.message;
   // A projection can advance between cursor pages. Retain the last complete
   // list and restart from the first page; never splice incompatible snapshots.
   if((page.failures||0)<3){page.failures=(page.failures||0)+1;setTimeout(()=>{
    if(loomCatalogPages.get(key)!==page)return;page.loaded=false;page.error=null;loomCatalogLoad(kind,false,page.query);
   },250*2**(page.failures-1));}
- }finally{page.busy=false;if(loomCatalogPages.get(key)===page)catalogRefreshViews();}
+ }finally{
+  page.busy=false;if(page.controller===controller)delete page.controller;
+  if(!controller.signal.aborted&&loomCatalogPages.get(key)===page)catalogRefreshViews();
+ }
 }
 function loomRegistryListStatus(kind){
  if(!catalogData.capabilities?.catalog_pages)return '';
@@ -173,6 +225,7 @@ function loomRegistryListStatus(kind){
  return '<div class="pa-registry-status" role="status">'+(retry?'':'<i aria-hidden="true"></i>')+esc(label)+(retry?' <button data-catalog-restart data-catalog-more="'+esc(kind)+'">Retry</button>':'')+'</div>';
 }
 function loomCatalogPager(kind,label="More",inlineStatus=false){
+ if(kind==='job'&&catalogData.capabilities?.compact_lists)label='더보기';
  if(!catalogData.capabilities?.catalog_pages)return '';
  const query=loomCatalogQuery(kind),key=JSON.stringify(query),page=loomCatalogPages.get(key);
  if(!page?.loaded&&!page?.busy&&!page?.error)queueMicrotask(()=>loomCatalogLoad(kind,false,query));
@@ -192,16 +245,30 @@ const loomPagedScenarios=loomScenarioView;
 loomScenarioView=function(){return loomPagedScenarios()+loomCatalogPager('scenario');};
 const loomPagedRender=render;
 render=function(){
- if(loomCatalogRevision!==catalogData.revision){for(const [key,page] of loomCatalogPages)loomCatalogPages.set(key,{query:page.query,ids:page.ids||[],taskIndex:page.taskIndex,committed:page.committed,desired:Math.min(4000,page.ids?.length||50),loaded:false,busy:false,cursor:null});loomCatalogRevision=catalogData.revision;loomActivityView=null;}
+ if(loomCatalogRevision!==catalogData.revision)loomCatalogRevision=catalogData.revision;
  loomPagedRender();
  const kind=loomCatalogKinds[state.page];
  if(kind&&!state.entity)loomCatalogPager(kind);
  const detail=state.entity&&catEntity(state.entity);
- const policyNeedsDetail=detail?.kind==='model'&&detail.loom_registry&&!Object.hasOwn(detail,'policy_training_revisions');
- if(catalogData.capabilities?.catalog_pages&&state.entity&&(!detail||policyNeedsDetail)&&!loomCatalogOpening.has(state.entity)){
+ const needsDetail=(detail?.summary_only&&!(detail.kind==='job'&&detail.loom_job))||detail?.kind==='model'&&detail.loom_registry&&!detail.deferred_output_sections&&!Object.hasOwn(detail,'policy_training_revisions');
+ if(catalogData.capabilities?.catalog_pages&&state.entity&&(!detail||needsDetail)&&!loomCatalogOpening.has(state.entity)){
   const id=state.entity;loomCatalogOpening.add(id);queueMicrotask(()=>loomCatalogOpen(id,!detail).catch(()=>{}).finally(()=>loomCatalogOpening.delete(id)));
  }
  loomLoadHomeData();
+ const visible=new Set();
+ const view=state;
+ for(const pane of ws.panes){
+  state=activeTab(pane).view;
+  if(state.entity)continue;
+  const kind=loomCatalogKinds[state.page];
+  if(kind)visible.add(loomCatalogPageKey(kind));
+  if(state.page==='comparison')for(const kind of ['model','experiment'])visible.add(loomCatalogPageKey(kind));
+ }
+ state=view;
+ for(const [key,page] of loomCatalogPages){
+  const kind=page.query.kinds?.[0];
+  if(page.query.text&&loomSoftwareListKinds.has(kind)&&page.busy&&!visible.has(key))page.controller?.abort();
+ }
 };
 document.addEventListener('click',event=>{const b=event.target.closest('[data-catalog-more]');if(!b)return;event.preventDefault();const pane=b.closest('[data-pane]');if(pane)ws.active=pane.dataset.pane;state=activeTab().view;const kind=b.dataset.catalogMore,page=loomCatalogPages.get(loomCatalogPageKey(kind));if(page?.error||page?.partial){page.loaded=false;page.error=null;page.failures=0;page.retries=0;page.indexRetryExhausted=false;}loomCatalogLoad(kind,!!page?.cursor&&!b.hasAttribute('data-catalog-restart'));});
 const loomPagedActivitySummary=activitySummary;
@@ -217,19 +284,20 @@ activitySummary=function(entities,clock=Date.now(),through=clock){
 };
 async function loomCatalogOpen(id,navigate=true){
  const tabKeyBefore=activeTab().id,known=catEntity(id);
+ const section=catalogData.capabilities?.compact_lists?{section:'overview'}:{};
  const exact=/^revision:([0-9]+):([0-9]+)$/.exec(id);
  if(exact){
-  const value=await loomSearchAction('system','dashboard_entity',{item_id:exact[1],revision_id:exact[2],records_only:true});
+  const value=await loomSearchAction('system','dashboard_entity',{item_id:exact[1],revision_id:exact[2],records_only:true,...section});
   loomCatalogMerge({...value,entities:value.entities.map(e=>({...e,id,catalog_exact:known?.catalog_exact??true}))});
   if(navigate&&activeTab().id===tabKeyBefore&&catEntity(id))openView(catView(id));
   catalogRefreshViews();return;
  }
  if(known?.item_id){
-  const value=await loomSearchAction('system','dashboard_entity',{item_id:known.item_id,...(known.item_revision_id&&known.kind!=='scenario'?{revision_id:known.item_revision_id}:{})});
+  const value=await loomSearchAction('system','dashboard_entity',{item_id:known.item_id,...section,...(known.item_revision_id&&known.kind!=='scenario'?{revision_id:known.item_revision_id}:{})});
   loomCatalogMerge(value);if(navigate&&activeTab().id===tabKeyBefore)openView(catView(id));catalogRefreshViews();return;
  }
  if(/^(history|dependency):[0-9]+$/.test(id)){
-  const value=await loomSearchAction('system','dashboard_entity',{item_id:id.slice(id.indexOf(':')+1)});
+  const value=await loomSearchAction('system','dashboard_entity',{item_id:id.slice(id.indexOf(':')+1),...section});
   loomCatalogMerge(value);if(navigate&&activeTab().id===tabKeyBefore)openView(catView(value.entities[0]?.id||id));catalogRefreshViews();return;
  }
  let native=null;
@@ -249,7 +317,7 @@ async function loomCatalogOpen(id,navigate=true){
  for(const candidate of candidates){try{hit=await loomSearchAction('results','resolve_item',{native_ref:candidate});break;}catch{}}
  if(!hit){const name=native?.identity?.id||native?.identity?.kind||id;const page=await loomSearchAction('results','search_items',{text:name,view:'all',role:'all',limit:10});hit=page.items.find(e=>(e.native_ref?.identity?.id===name||e.native_ref?.identity?.kind===name)&&(!native?.identity?.revision||e.native_ref.identity.revision===native.identity.revision));}
  if(!hit)throw Error('Record unavailable');
- const value=await loomSearchAction('system','dashboard_entity',{item_id:hit.item_id,...(hit.revision_id?{revision_id:hit.revision_id}:{})});
+ const value=await loomSearchAction('system','dashboard_entity',{item_id:hit.item_id,...section,...(hit.revision_id?{revision_id:hit.revision_id}:{})});
  loomCatalogMerge(value);if(navigate&&activeTab().id===tabKeyBefore)openView(catView(catEntity(id)?id:value.entities[0]?.id||id));catalogRefreshViews();
 }
 root.addEventListener('click',event=>{const b=event.target.closest('[data-entity]');if(!catalogData.capabilities?.catalog_pages||!b||catEntity(b.dataset.entity))return;event.preventDefault();event.stopImmediatePropagation();loomCatalogOpen(b.dataset.entity).catch(error=>{b.title=error.message;});},true);

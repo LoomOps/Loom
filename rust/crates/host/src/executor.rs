@@ -4,7 +4,7 @@ use loom_primitives::{
     store::{hash, rows},
     Error, Result,
 };
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -13,6 +13,7 @@ use std::{
     io::Read,
     path::{Path, PathBuf},
     process::Command,
+    time::Duration,
 };
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Instance {
@@ -274,7 +275,153 @@ fn inside(root: &Path, value: &str) -> Result<PathBuf> {
 fn strings(values: &[&str]) -> Vec<String> {
     values.iter().map(|s| s.to_string()).collect()
 }
+
+fn matches_ticket(db: &Connection, row: &Value, inspected: &Value) -> Result<bool> {
+    let labels: Option<String> = db
+        .query_row(
+            "SELECT labels FROM ticket_launches WHERE ticket=?",
+            [row["id"].as_str()],
+            |r| r.get(0),
+        )
+        .optional()?;
+    let expected: BTreeMap<String, String> = if let Some(labels) = labels {
+        serde_json::from_str(&labels)?
+    } else {
+        let request: Value = serde_json::from_str(row["request"].as_str().unwrap_or("{}"))?;
+        BTreeMap::from([
+            (
+                "loom.instance".into(),
+                row["instance"].as_str().unwrap_or("").into(),
+            ),
+            (
+                "loom.ticket".into(),
+                row["id"].as_str().unwrap_or("").into(),
+            ),
+            (
+                "loom.job".into(),
+                request["job"].as_str().unwrap_or("").into(),
+            ),
+            (
+                "loom.stage".into(),
+                request["stage"].as_str().unwrap_or("").into(),
+            ),
+            ("loom.request-sha256".into(), hash(compat::dump(&request))),
+        ])
+    };
+    Ok(expected
+        .iter()
+        .all(|(key, value)| inspected["Config"]["Labels"][key] == *value))
+}
+
+fn reap_returned(root: &Path, docker: &impl Docker, after: &mut String) -> Result<()> {
+    let listed = docker.call(&strings(&[
+        "ps",
+        "-a",
+        "--no-trunc",
+        "--filter",
+        "label=loom.ticket",
+        "--filter",
+        "status=exited",
+        "--format",
+        "{{.ID}}\t{{.Names}}\t{{.Label \"loom.ticket\"}}",
+    ]))?;
+    let db = Connection::open_with_flags(
+        root.join("executor.sqlite3"),
+        OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )?;
+    db.busy_timeout(Duration::from_secs(2))?;
+    let mut entries: Vec<_> = listed.lines().collect();
+    entries.sort_unstable();
+    let start = entries.partition_point(|line| *line <= after.as_str());
+    entries.rotate_left(start);
+    let mut checked = 0;
+    let mut captures = 0;
+    for line in entries {
+        if checked >= 16 {
+            break;
+        }
+        line.clone_into(after);
+        let Some((id, entry)) = line.split_once('\t') else {
+            continue;
+        };
+        let Some((name, ticket)) = entry.split_once('\t') else {
+            continue;
+        };
+        let digest = hash(ticket);
+        if id.len() != 64
+            || !id.bytes().all(|byte| byte.is_ascii_hexdigit())
+            || name != format!("loom-{digest}")
+        {
+            continue;
+        }
+        let path = root.join("logs").join(format!("{digest}.log"));
+        let sealed = crate::logs::sealed_archive(&path);
+        let can_capture = captures < 2
+            && path
+                .with_extension("source.json")
+                .symlink_metadata()
+                .is_err_and(|error| error.kind() == std::io::ErrorKind::NotFound);
+        if sealed.is_none() && !can_capture {
+            continue;
+        }
+        let Some(row) = rows(&db,
+            "SELECT id,instance,request,exit_code,image_id FROM tickets WHERE id=? AND container=? AND state='returned' AND exit_code IS NOT NULL",
+            &[&ticket, &name],
+        )?.into_iter().next() else { continue };
+        checked += 1;
+        let Ok(raw) = docker.call(&strings(&["inspect", id])) else {
+            continue;
+        };
+        let Ok(data) = serde_json::from_str::<Value>(&raw) else {
+            continue;
+        };
+        let inspected = &data[0];
+        if inspected["Id"] != id
+            || inspected["State"]["Status"] != "exited"
+            || inspected["State"]["ExitCode"] != row["exit_code"]
+            || row["image_id"].is_string() && inspected["Image"] != row["image_id"]
+            || !matches_ticket(&db, &row, inspected).unwrap_or(false)
+        {
+            continue;
+        }
+        if let Some(archive) = sealed {
+            // Removing a container must leave a durable source for subsequent log reads.
+            if archive.sync_all().is_ok() {
+                let _ = docker.call(&strings(&["rm", id]));
+            }
+        } else if can_capture {
+            captures += 1;
+            if let Err(error) = loom_primitives::index_store::secure_dir(path.parent().unwrap()) {
+                eprintln!("Loom container cleanup: {}", error.code);
+                continue;
+            }
+            // Start capture without waiting. The next sweep will see the sealed log.
+            let _ = docker.log_source(id, &path, false);
+        }
+    }
+    Ok(())
+}
+
 impl<D: Docker> Executor<D> {
+    pub(crate) fn start_container_reaper(&self) -> std::sync::mpsc::Sender<()>
+    where
+        D: 'static,
+    {
+        let root = self.root.clone();
+        let docker = self.docker.clone();
+        let (stop, receive) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let mut after = String::new();
+            while receive.recv_timeout(Duration::from_secs(3))
+                == Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+            {
+                if let Err(error) = reap_returned(&root, docker.as_ref(), &mut after) {
+                    eprintln!("Loom container cleanup: {}", error.code);
+                }
+            }
+        });
+        stop
+    }
     pub fn open(root: &Path, config: Config, docker: D) -> Result<Self> {
         require(
             config.instances.values().all(|i| i.uid > 0 && i.gid > 0),
@@ -1177,42 +1324,8 @@ impl<D: Docker> Executor<D> {
             Err(_) => return Ok(json!({"state":"unknown","returned":false})),
         };
         let data: Value = serde_json::from_str(&inspect)?;
-        let labels: Option<String> = self
-            .db
-            .query_row(
-                "SELECT labels FROM ticket_launches WHERE ticket=?",
-                [row["id"].as_str()],
-                |r| r.get(0),
-            )
-            .optional()?;
-        let expected: BTreeMap<String, String> = if let Some(labels) = labels {
-            serde_json::from_str(&labels)?
-        } else {
-            let request: Value = serde_json::from_str(row["request"].as_str().unwrap_or("{}"))?;
-            BTreeMap::from([
-                (
-                    "loom.instance".into(),
-                    row["instance"].as_str().unwrap_or("").into(),
-                ),
-                (
-                    "loom.ticket".into(),
-                    row["id"].as_str().unwrap_or("").into(),
-                ),
-                (
-                    "loom.job".into(),
-                    request["job"].as_str().unwrap_or("").into(),
-                ),
-                (
-                    "loom.stage".into(),
-                    request["stage"].as_str().unwrap_or("").into(),
-                ),
-                ("loom.request-sha256".into(), hash(compat::dump(&request))),
-            ])
-        };
         require(
-            expected
-                .iter()
-                .all(|(k, v)| data[0]["Config"]["Labels"][k] == *v),
+            matches_ticket(&self.db, row, &data[0])?,
             "container_identity",
             "Container identity changed; resource owner retained",
             409,

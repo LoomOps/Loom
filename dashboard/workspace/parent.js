@@ -11,12 +11,14 @@
   const signedIn = () => authenticated;
   let lifetime = new AbortController();
   let catalogRequest;
-  let resourceInterest = false;
+  let resourceInterest = null;
   let resourceTimer;
   let resourceBusy = false;
   let catalogLoaded = false;
   let catalogEntities = new Map();
   const jobDetailIds = new Map();
+  const searchRequests = new Map();
+  const explorerMedia = new Map();
   let mediaRequest;
   let revisionTimer;
   let catalogRevision;
@@ -49,6 +51,8 @@
 
   function reset(message = '') {
     lifetime.abort();
+    searchRequests.clear();
+    explorerMedia.clear();
     lifetime = new AbortController();
     clearTimeout(resourceTimer);
     clearTimeout(revisionTimer);
@@ -109,7 +113,7 @@
       if (signal.aborted) return;
       if (!Array.isArray(incoming.entities)) throw new Error('Invalid catalog response');
       const sameRevision=catalogRevision===incoming.revision;
-      const records=new Map((sameRevision?researchIncoming?.entities||[]:[]).map(e=>[e.id,e]));
+      const records=new Map((sameRevision||incoming.domains?researchIncoming?.entities||[]:[]).map(e=>[e.id,e]));
       for(const entity of incoming.entities)records.set(entity.id,entity);
       catalogRevision = incoming.revision;
       researchIncoming={...incoming,entities:[...records.values()]};
@@ -147,8 +151,9 @@
     revisionTimer = setTimeout(async () => {
       const signal = lifetime.signal;
       try {
-        const {revision} = await read('/api/dashboard/revision', signal);
-        if (!signal.aborted && revision !== catalogRevision) await refreshCatalog();
+        const {revision,domains} = await read('/api/dashboard/revision', signal);
+        if (!signal.aborted && (revision !== catalogRevision ||
+           domains && JSON.stringify(domains)!==JSON.stringify(researchIncoming?.domains))) await refreshCatalog();
       } catch (error) {
         if (signal.aborted) return;
         if (authError(error)) return reset('현재 credential로 다시 연결해 주세요.');
@@ -163,20 +168,25 @@
     clearTimeout(resourceTimer);
     if (!signedIn() || !resourceInterest || document.hidden || resourceBusy) return;
     resourceBusy = true;
-    const signal = lifetime.signal;
-    let delay = 2000;
+    const scope = resourceInterest, signal = lifetime.signal;
+    let delay = scope === 'inspector' ? 2000 : 30000;
     try {
-      const resources = await read('/api/dashboard/resources', signal);
-      if (!signal.aborted && resourceInterest) emit('pai-resource-data', {resources: {...resources, host:loomHost(resources.host)}});
+      let resources;
+      try {resources = await read('/api/dashboard/resources?scope='+scope, signal);}
+      catch (error) {
+        if (error.status !== 404) throw error;
+        resources = await read('/api/dashboard/resources', signal);
+      }
+      if (!signal.aborted && resourceInterest === scope) emit('pai-resource-data', {resources: {...resources, host:loomHost(resources.host)}});
     } catch (error) {
       if (signal.aborted) return;
       if (authError(error)) return reset('현재 credential로 다시 연결해 주세요.');
-      emit('pai-resource-error', {status: error.status});
+      if (resourceInterest === scope) emit('pai-resource-error', {status: error.status});
       delay = 10000;
     } finally {
       resourceBusy = false;
       if (!signal.aborted && signedIn() && resourceInterest && !document.hidden) {
-        resourceTimer = setTimeout(resources, delay);
+        resourceTimer = setTimeout(resources, resourceInterest === scope ? delay : 0);
       }
     }
   }
@@ -273,9 +283,40 @@
   async function searchAction(message) {
     const allowed={results:['search_items','get_item','resolve_item','item_relations','item_files','get_file','read_file','metadata_templates','get_metadata_template','validate_metadata','report_contracts','get_report_contract','report_definitions','get_report_definition','get_report_evidence','validate_report_contract','read_report'],jobs:['log_streams','read_log','search_logs'],system:['search_status','dashboard_summary','dashboard_page','dashboard_queue','dashboard_activity','dashboard_entity']};
     if(!signedIn()||!allowed[message.group]?.includes(message.action)||typeof message.id!=='string'||message.id.length>128)return;
-    const args = researchIncoming?.capabilities?.live_queue && message.group==='system' && ['dashboard_page','dashboard_entity'].includes(message.action)
-      ? {...message.arguments,records_only:true} : message.arguments;
-    try{const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},body:JSON.stringify({group:message.group,action:message.action,arguments:args}),signal:AbortSignal.timeout(15000)});const value=await response.json();if(response.ok&&message.group==='system'&&['dashboard_page','dashboard_entity','dashboard_queue'].includes(message.action)){for(const entity of value.entities||[])catalogEntities.set(entity.id,entity);if(value.revision===catalogRevision){const records=new Map((researchIncoming?.entities||[]).map(e=>[e.id,e]));for(const entity of value.entities||[]){catalogEntities.set(entity.id,entity);records.set(entity.id,entity);}while(records.size>4000)records.delete(records.keys().next().value);researchIncoming={...researchIncoming,entities:[...records.values()]};}}emit('loom-search-result',{id:message.id,ok:response.ok,value});}catch(error){emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});}
+    const scoped=message.group==='system'&&['dashboard_page','dashboard_entity'].includes(message.action);
+    let args=message.arguments;
+    if(scoped&&researchIncoming?.capabilities?.live_queue&&!args?.projection)args={...args,records_only:true};
+    if(scoped&&message.action==='dashboard_entity'&&researchIncoming?.capabilities?.compact_lists&&!args?.section)args={...args,section:'overview'};
+    const controller = new AbortController();
+    searchRequests.set(message.id,controller);
+    const signal = AbortSignal.any([lifetime.signal,controller.signal,AbortSignal.timeout(15000)]);
+    try {
+      const response=await fetch('/api/search/actions',{method:'POST',credentials:'same-origin',redirect:'error',
+        headers:{'Content-Type':'application/json','X-Loom-CSRF':csrf},
+        body:JSON.stringify({group:message.group,action:message.action,arguments:args}),signal});
+      const value=await response.json();
+      if(signal.aborted)return;
+      if(response.ok&&message.group==='system'&&['dashboard_page','dashboard_entity','dashboard_queue'].includes(message.action)){
+        for(const node of value.children||[])for(const media of node.entity?.loom_media||[])
+          explorerMedia.set(media.id,media);
+        for(const media of value.section==='files'?value.media||[]:[])explorerMedia.set(media.id,media);
+        while(explorerMedia.size>1000)explorerMedia.delete(explorerMedia.keys().next().value);
+        for(const entity of value.entities||[])catalogEntities.set(entity.id,entity);
+        while(catalogEntities.size>4000)catalogEntities.delete(catalogEntities.keys().next().value);
+        if(value.revision===catalogRevision){
+          const records=new Map((researchIncoming?.entities||[]).map(e=>[e.id,e]));
+          for(const entity of value.entities||[])records.set(entity.id,entity);
+          while(records.size>4000)records.delete(records.keys().next().value);
+          researchIncoming={...researchIncoming,entities:[...records.values()]};
+        }
+      }
+      emit('loom-search-result',{id:message.id,ok:response.ok,value});
+    } catch(error) {
+      if(!controller.signal.aborted&&!lifetime.signal.aborted)
+        emit('loom-search-result',{id:message.id,ok:false,value:{error:'search_unavailable'}});
+    } finally {
+      if(searchRequests.get(message.id)===controller)searchRequests.delete(message.id);
+    }
   }
   async function resultAction(message) {
     if(!signedIn()||typeof message.id!=='string'||message.id.length>128)return;
@@ -323,8 +364,9 @@
   }
 
   async function media({entity, id}, download = false) {
-    if (!signedIn() || typeof entity !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,159}$/.test(id || '')) return;
-    const item = catalogEntities.get(entity)?.loom_media?.find(item => item.id === id);
+    if (!signedIn() || typeof entity !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,8191}$/.test(id || '')) return;
+    const item = catalogEntities.get(entity)?.loom_media?.find(item => item.id === id)
+      || explorerMedia.get(id);
     if (!item || item.status !== 'available') return;
     mediaRequest?.abort();
     mediaRequest = new AbortController();
@@ -441,12 +483,14 @@
     } else if (['loom-access-request','loom-access-decision','loom-share-revoke','loom-token-issue','loom-token-revoke','loom-ssh-change'].includes(message.type)) {
       accessAdmin(message);
     } else if (message.type === 'pai-resource-interest') {
-      resourceInterest = message.active === true;
+      resourceInterest = ['inspector','storage','host'].includes(message.scope) ? message.scope : message.active === true ? 'inspector' : null;
       resources();
     } else if (message.type === 'pai-catalog-ready' || message.type === 'pai-catalog-refresh') {
       showBuild(buildInfo);
       refreshCatalog();
       updates();
+    } else if(message.type==='loom-search-cancel'){
+      searchRequests.get(message.id)?.abort();
     } else if(message.type==='loom-search-action'){
       searchAction(message);
     } else if(message.type==='loom-result-action'){

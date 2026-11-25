@@ -632,6 +632,9 @@ pub fn actions() -> Vec<Action> {
     search["properties"]["output_state"] = json!({"enum":["current","discarded","all"]});
     let mut page = search.clone();
     page["properties"]["records_only"] = json!({"type":"boolean"});
+    page["properties"]["projection"] = json!({"enum":["list","history","files"]});
+    page["properties"]["directory"] = json!({"type":"string","maxLength":1024});
+    page["properties"]["offset"] = json!({"type":"integer","minimum":0,"maximum":1000000});
     let mut files = search.clone();
     files["properties"]
         .as_object_mut()
@@ -681,7 +684,11 @@ pub fn actions() -> Vec<Action> {
                 &["item_id"],
             ),
         ),
-        ("system", "dashboard_queue", object(json!({}), &[])),
+        (
+            "system",
+            "dashboard_queue",
+            object(json!({"compact":{"type":"boolean"}}), &[]),
+        ),
         ("system", "dashboard_summary", object(json!({}), &[])),
         (
             "system",
@@ -695,7 +702,12 @@ pub fn actions() -> Vec<Action> {
             "system",
             "dashboard_entity",
             object(
-                json!({"item_id":item_id,"revision_id":item_id,"records_only":{"type":"boolean"}}),
+                json!({"item_id":item_id,"revision_id":item_id,"records_only":{"type":"boolean"},
+                    "section":{"enum":["overview","runtime_usage","runtime_inventory","profile_usage","files","training"]},
+                    "offset":{"type":"integer","minimum":0,"maximum":1000000},
+                    "limit":{"type":"integer","minimum":1,"maximum":200},
+                    "text":{"type":"string","maxLength":256},
+                    "origin":{"enum":["all","managed","external","image","deprecated","unknown"]}}),
                 &["item_id"],
             ),
         ),

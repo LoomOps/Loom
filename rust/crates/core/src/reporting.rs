@@ -9,11 +9,14 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     io::Read,
     path::Path,
-    sync::{Mutex, OnceLock},
+    sync::{Arc, Mutex, OnceLock},
 };
 
 pub const POLICY: &str = "loom-reporting/v1";
 const MAX_REPORT: usize = 8 * 1024 * 1024;
+type ReportCache = std::collections::VecDeque<(storage::VerifiedFile, Arc<Value>)>;
+static BROWSE_REPORTS: OnceLock<Mutex<ReportCache>> = OnceLock::new();
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Field {
@@ -2083,26 +2086,22 @@ impl Application {
         )?;
         let merged = crate::experiment_supplements::is_series_report(&entity, report);
         let payload = if merged {
-            self.evaluation_series_payload(&entity)?
+            Arc::new(self.evaluation_series_payload(&entity)?)
         } else {
-            self.read_bound_report(id, revision, report)?
+            self.bound_report(id, revision, report, true)?
         };
         let pointer = args["pointer"].as_str().unwrap_or("");
-        let mut value = payload["data"]
+        let field = payload["data"]
             .pointer(pointer)
-            .cloned()
             .ok_or_else(|| Error::input("Report field not found"))?;
-        let total = value.as_array().map(Vec::len);
+        let total = field.as_array().map(Vec::len);
         let offset = args["offset"].as_u64().unwrap_or(0) as usize;
         let limit = args["limit"].as_u64().unwrap_or(100).clamp(1, 500) as usize;
-        if let Some(rows) = value.as_array() {
-            value = json!(rows
-                .iter()
-                .skip(offset)
-                .take(limit)
-                .cloned()
-                .collect::<Vec<_>>());
-        }
+        let value = if let Some(rows) = field.as_array() {
+            json!(&rows[offset.min(rows.len())..offset.saturating_add(limit).min(rows.len())])
+        } else {
+            field.clone()
+        };
         require(
             serde_json::to_vec(&value)?.len() <= 256 * 1024,
             "report_page_size",
@@ -2120,16 +2119,47 @@ impl Application {
         revision: u64,
         report: &Value,
     ) -> Result<Value> {
+        Ok(Arc::unwrap_or_clone(
+            self.bound_report(id, revision, report, false)?,
+        ))
+    }
+
+    fn bound_report(
+        &self,
+        id: &str,
+        revision: u64,
+        report: &Value,
+        browse: bool,
+    ) -> Result<Arc<Value>> {
         let locations=rows(&self.db,"SELECT storage_id,ref FROM all_entity_locations WHERE id=? AND revision=? AND component=? AND status='available' ORDER BY storage_id,ref",&[&id,&(revision as i64),&report["component"].as_str()])?;
         let mut data = None;
         let mut last_error = None;
         for l in locations {
-            let read = (|| -> Result<Value> {
+            let read = (|| -> Result<Arc<Value>> {
                 let path = storage::locator(
                     &self.config,
                     &self.bulk,
                     &json!({"machine_id":self.config.machine_id,"storage_id":l["storage_id"],"ref":l["ref"]}),
                 )?;
+                // Every hit still resolves an allowed registered copy and
+                // checks the current regular-file identity before using it.
+                let cache = browse.then(|| BROWSE_REPORTS.get_or_init(Default::default));
+                if let Some(cache) = cache {
+                    let cached = cache.lock().ok().and_then(|entries| {
+                        entries
+                            .iter()
+                            .rev()
+                            .find(|(proof, _)| {
+                                proof.path == path && report["sha256"] == proof.sha256
+                            })
+                            .cloned()
+                    });
+                    if let Some((proof, value)) = cached {
+                        if proof.revalidate().is_ok() {
+                            return Ok(value);
+                        }
+                    }
+                }
                 let proof = storage::VerifiedFile::read(&path)?;
                 require(
                     report["sha256"] == proof.sha256,
@@ -2137,7 +2167,18 @@ impl Application {
                     "Stored report bytes changed",
                     409,
                 )?;
-                read_json(&path, &proof)
+                let value = Arc::new(read_json(&path, &proof)?);
+                if let Some(mut entries) = cache.and_then(|c| c.lock().ok()) {
+                    entries.retain(|(entry, _)| entry.path != path);
+                    entries.push_back((proof, value.clone()));
+                    while entries.len() > 16
+                        || entries.iter().map(|(entry, _)| entry.size).sum::<u64>()
+                            > 24 * 1024 * 1024
+                    {
+                        entries.pop_front();
+                    }
+                }
+                Ok(value)
             })();
             match read {
                 Ok(value) => {

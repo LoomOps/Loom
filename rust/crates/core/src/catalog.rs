@@ -187,8 +187,13 @@ impl Application {
 enum CatalogContext {
     Full,
     SoftwareList,
+    SoftwareOverview,
+    OutputList,
+    OutputOverview,
+    History,
     Records,
     Queue(Value),
+    CompactQueue(Value),
 }
 
 impl Application {
@@ -214,6 +219,33 @@ impl Application {
             fresh
         ]))?))
     }
+    pub(crate) fn dashboard_domains(&self) -> Result<Value> {
+        if !self.db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='rust_dashboard_versions')",
+            [],
+            |r| r.get::<_, bool>(0),
+        )? {
+            return Ok(Value::Null);
+        }
+        let mut versions = serde_json::Map::new();
+        for row in rows(
+            &self.db,
+            "SELECT domain,version FROM rust_dashboard_versions",
+            &[],
+        )? {
+            versions.insert(
+                row["domain"].as_str().unwrap_or("").to_owned(),
+                row["version"].clone(),
+            );
+        }
+        let fresh: bool = self.db.query_row(
+            "SELECT EXISTS(SELECT 1 FROM rust_runtime_observation WHERE observed>?)",
+            [now() - 30.],
+            |r| r.get(0),
+        )?;
+        versions.insert("runtime_fresh".into(), json!(fresh));
+        Ok(Value::Object(versions))
+    }
     pub fn dashboard_catalog(&self) -> Result<Value> {
         self.dashboard_catalog_selected(None)
     }
@@ -227,6 +259,14 @@ impl Application {
         context: CatalogContext,
     ) -> Result<Value> {
         let all = selected.is_none();
+        let output_list = matches!(context, CatalogContext::OutputList);
+        let output_overview = matches!(context, CatalogContext::OutputOverview);
+        let history = matches!(context, CatalogContext::History);
+        let compact_queue = if let CatalogContext::CompactQueue(ref queue) = context {
+            Some(queue)
+        } else {
+            None
+        };
         let ids_for = |kind: &str| -> Result<String> {
             encode(&json!(selected
                 .unwrap_or_default()
@@ -254,7 +294,7 @@ impl Application {
         let mut ids = std::collections::BTreeSet::new();
         for r in rows(&self.db, "SELECT id FROM jobs WHERE ? OR id IN(SELECT value FROM json_each(?)) ORDER BY created,id", &[&all,&job_ids])? {
             let id = r["id"].as_str().unwrap_or("");
-            let d = self.job_detail(id)?;
+            let d = if history { self.history_job_detail(id)? } else { self.job_detail(id)? };
             let spec = &d["spec"];
             let attempts = d["attempts"].as_array().cloned().unwrap_or_default();
             let started = attempts
@@ -271,7 +311,7 @@ impl Application {
                     r.get(0)
                 })
                 .optional()?;
-            entities.push(json!({"id":id,"kind":"job","namespace":"loom","label":d["presentation"]["label"].as_str().unwrap_or(spec["kind"].as_str().unwrap_or(id)),"state":d["state"],"created":d["created"],"attempt":d["attempt"],"properties":{"id":id,"state":d["state"],"status":d["status"],"created":d["created"],"attempt":d["attempt"],"owner":d["owner"],"record_role":"loom_job","category":d["category"],"execution_mode":d["execution_mode"],"pilot":spec["pilot"],"queued_at":d["created"],"started_at":d["work_timeline"].get("started").or_else(||d["timeline"].get("started")).unwrap_or(&started),"process_exited_at":d["work_timeline"].get("ended").or_else(||d["timeline"].get("ended")).unwrap_or(&ended),"artifact_ready":d["result"]["artifact_ready"],"recovery":d["recovery"],"output_storage":spec["output_storage"],"consolidated_into":d["consolidation"]["consolidated_into"],"internal_step_count":d["internal_steps"]["steps"].as_array().map(|a|a.len()).unwrap_or(0),"workflow_root":root},"attempts":attempts,"internal_steps":d["internal_steps"],"execution_intervals":d["execution_intervals"],"loom_job":{"id":id},"presentation":d["presentation"],"scenario_ref":d["scenario_ref"],"relations":[],"artifacts":[]}));
+            entities.push(json!({"id":id,"kind":"job","namespace":"loom","label":d["presentation"]["label"].as_str().unwrap_or(spec["kind"].as_str().unwrap_or(id)),"state":d["state"],"created":d["created"],"attempt":d["attempt"],"properties":{"id":id,"state":d["state"],"status":d["status"],"created":d["created"],"attempt":d["attempt"],"owner":d["owner"],"record_role":"loom_job","category":d["category"],"execution_mode":d["execution_mode"],"pilot":spec["pilot"],"queued_at":d["created"],"started_at":d["work_timeline"].get("started").or_else(||d["timeline"].get("started")).unwrap_or(&started),"process_exited_at":d["work_timeline"].get("ended").or_else(||d["timeline"].get("ended")).unwrap_or(&ended),"artifact_ready":d["result"]["artifact_ready"],"recovery":d["recovery"],"output_storage":spec["output_storage"],"consolidated_into":d["consolidation"]["consolidated_into"],"internal_step_count":d["internal_steps"]["steps"].as_array().map(|a|a.len()).unwrap_or(0),"attempt_count":d["attempt_count"],"workflow_root":root},"attempts":attempts,"internal_steps":d["internal_steps"],"execution_intervals":d["execution_intervals"],"loom_job":{"id":id},"presentation":d["presentation"],"scenario_ref":d["scenario_ref"],"relations":[],"artifacts":[]}));
             if let Some(entity) = entities.last_mut() {
                 for key in ["owner", "owner_name", "owner_profile"] {
                     entity[key] = d[key].clone();
@@ -285,7 +325,10 @@ impl Application {
             &[&all,&job_ids],
         )? {
             let id = w["id"].as_str().unwrap_or("");
-            let d = self.job_detail(id)?;
+            let d = if let Some(queue) = compact_queue {
+                queue["logical_entries"].as_array().into_iter().flatten()
+                    .find(|entry| entry["id"]==id).cloned().unwrap_or(Value::Null)
+            } else { self.job_detail(id)? };
             let members = d.get("units").unwrap_or(&d["executions"]);
             let node_count = members.as_array().map(Vec::len).unwrap_or(0);
             entities.push(json!({"id":id,"kind":"job","namespace":"loom","label":d["spec"]["label"],"state":d["state"],"created":d["created"],"properties":{"record_role":"loom_job","id":id,"state":d["state"],"status":d["status"],"queued_at":d["created"],"started_at":d["execution_intervals"].as_array().and_then(|a|a.iter().filter_map(|i|i["start"].as_f64()).min_by(f64::total_cmp)),"process_exited_at":if d["state"]=="complete"{d["execution_intervals"].as_array().and_then(|a|a.iter().filter_map(|i|i["end"].as_f64()).max_by(f64::total_cmp))}else{None},"owner":d["owner"],"execution_node_count":node_count,"internal_step_count":node_count},"loom_workflow":d,"loom_job":{"id":id},"steps":members,"execution_intervals":d["execution_intervals"],"presentation":d["presentation"],"scenario_ref":d["scenario_ref"],"relations":[],"artifacts":[]}));
@@ -298,21 +341,23 @@ impl Application {
         }
         // Discover actual groups once. Running the recursive family query for
         // every unrelated Job makes a flat catalog quadratic in its Job count.
-        let parents_with_children: std::collections::BTreeSet<String> = rows(
+        if !history && compact_queue.is_none() {
+            let parents_with_children: std::collections::BTreeSet<String> = rows(
             &self.db,
             &format!("WITH {JOB_LINKS_CTE} SELECT DISTINCT parent FROM job_links WHERE parent IS NOT NULL"),
             &[],
         )?.into_iter().filter_map(|r| r["parent"].as_str().map(String::from)).collect();
-        for entity in &mut entities {
-            let id = entity["id"].as_str().unwrap_or("").to_string();
-            let root = self.job_family_root(&id)?;
-            entity["group_root"] = json!(root);
-            if root == id {
-                entity["group_summary"] = if parents_with_children.contains(&id) {
-                    self.job_group_summary(&id)?
-                } else {
-                    Value::Null
-                };
+            for entity in &mut entities {
+                let id = entity["id"].as_str().unwrap_or("").to_string();
+                let root = self.job_family_root(&id)?;
+                entity["group_root"] = json!(root);
+                if root == id {
+                    entity["group_summary"] = if parents_with_children.contains(&id) {
+                        self.job_group_summary(&id)?
+                    } else {
+                        Value::Null
+                    };
+                }
             }
         }
         for row in rows(
@@ -361,6 +406,7 @@ impl Application {
                 entity["scenario_ref"] = record.spec["scenario_ref"].clone();
                 entity["catalog_input_kinds"] = record.spec["profile"]["reporting"]["input_kinds"].clone();
             }
+            if !output_list && !output_overview {
             let locations = rows(
                 &self.db,
                 "SELECT * FROM all_entity_locations WHERE id=? AND revision=?",
@@ -374,6 +420,7 @@ impl Application {
             );
             entity["loom_files"] = files;
             entity["loom_media"] = media;
+            }
             let entity =
                 self.decorate_owner("entity", id, row["owner"].as_str().unwrap_or(""), entity)?;
             entities.push(entity);
@@ -468,16 +515,18 @@ impl Application {
                 if !entity["label"].is_string() {
                     entity["label"] = identity["id"].clone();
                 }
-                let (mut manifest, locations) = self.historical_files(identity)?;
-                let count = manifest["components"].as_array().map(Vec::len).unwrap_or(0);
-                if let Some(components) = manifest["components"].as_array_mut() {
-                    components.truncate(200);
+                if !output_list && !output_overview && !history {
+                    let (mut manifest, locations) = self.historical_files(identity)?;
+                    let count = manifest["components"].as_array().map(Vec::len).unwrap_or(0);
+                    if let Some(components) = manifest["components"].as_array_mut() {
+                        components.truncate(200);
+                    }
+                    let (files, media) =
+                        crate::media::file_dtos(identity, &manifest, &locations, &self.config);
+                    entity["loom_files"] = files;
+                    entity["loom_media"] = media;
+                    entity["files_complete"] = json!(count <= 200);
                 }
-                let (files, media) =
-                    crate::media::file_dtos(identity, &manifest, &locations, &self.config);
-                entity["loom_files"] = files;
-                entity["loom_media"] = media;
-                entity["files_complete"] = json!(count <= 200);
                 let who = entity["owner"]
                     .as_str()
                     .or_else(|| entity["properties"]["owner"].as_str())
@@ -493,6 +542,7 @@ impl Application {
             }
         }
         let software_list = matches!(context, CatalogContext::SoftwareList);
+        let software_overview = matches!(context, CatalogContext::SoftwareOverview);
         let has_profile_selection = selected.is_some_and(|items| {
             items.iter().any(|item| {
                 matches!(
@@ -506,32 +556,55 @@ impl Application {
         } else {
             Value::Null
         };
+        let profile_pins: Vec<_> = selected
+            .unwrap_or_default()
+            .iter()
+            .filter(|item| item["native_ref"]["kind"] == "profile")
+            .filter_map(|item| {
+                let native = &item["native_ref"]["identity"];
+                Some((
+                    native["kind"]
+                        .as_str()
+                        .or_else(|| item["profile_kind"].as_str())?
+                        .to_owned(),
+                    native["sha256"]
+                        .as_str()
+                        .or_else(|| item["profile_sha256"].as_str())
+                        .map(str::to_owned),
+                ))
+            })
+            .collect();
+        let profile_usage = if software_list || software_overview {
+            self.browse_profile_usage(&profile_pins)?
+        } else {
+            BTreeMap::new()
+        };
         let mut profiles = if all {
             self.profile_listing()?
         } else {
             let mut profiles = vec![];
-            for item in selected
-                .unwrap_or_default()
-                .iter()
-                .filter(|v| v["native_ref"]["kind"] == "profile")
-            {
-                let native = &item["native_ref"]["identity"];
-                if let Some(kind) = native["kind"]
-                    .as_str()
-                    .or_else(|| item["profile_kind"].as_str())
-                {
-                    profiles.extend(
-                        self.profile_listing_with_runtime_snapshot(
-                            Some(kind),
-                            native["sha256"]
-                                .as_str()
-                                .or_else(|| item["profile_sha256"].as_str()),
-                            &profile_runtimes,
-                        )?
-                        .as_array()
-                        .cloned()
-                        .unwrap_or_default(),
-                    );
+            for (kind, sha) in profile_pins {
+                let value = if software_list || software_overview {
+                    let empty = json!({});
+                    let usage = profile_usage
+                        .get(&(kind.clone(), sha.clone()))
+                        .unwrap_or(&empty);
+                    self.browse_profile(
+                        &kind,
+                        sha.as_deref(),
+                        &profile_runtimes,
+                        usage,
+                        software_list,
+                    )?
+                } else {
+                    self.profile_listing_with_runtime_snapshot(
+                        Some(&kind),
+                        sha.as_deref(),
+                        &profile_runtimes,
+                    )?
+                };
+                if let Value::Array(items) = value {
+                    profiles.extend(items);
                 }
             }
             json!(profiles)
@@ -603,7 +676,7 @@ impl Application {
                     })
                     .collect::<Vec<_>>()
             });
-            self.runtime_projection(pins.as_deref(), !software_list)?
+            self.runtime_projection(pins.as_deref(), !(software_list || software_overview))?
         } else {
             json!({"runtimes":[],"dependency_catalog":{"dependencies":[]}})
         };
@@ -662,7 +735,18 @@ impl Application {
             }
             runtime_catalog["dependency_catalog"]["dependencies"] = json!(dependencies);
         }
+        let runtime_counts = if software_list {
+            self.runtime_started_counts(runtime_catalog["runtimes"].as_array().unwrap())?
+        } else {
+            Vec::new()
+        };
         for item in runtime_catalog["runtimes"].as_array_mut().unwrap() {
+            if let Some(count) = runtime_counts
+                .iter()
+                .find(|r| r["id"] == item["id"] && r["revision"] == item["revision"])
+            {
+                item["started_job_count"] = count["started"].clone();
+            }
             let mut consumers = vec![];
             for profile in profiles.as_array().unwrap() {
                 let stages: Vec<_> = profile["stages"]
@@ -680,8 +764,10 @@ impl Application {
                 }
             }
             item["used_by_profiles"] = json!(consumers);
-            if software_list {
-                item["summary_only"] = json!(true);
+            if software_list || software_overview {
+                if software_list {
+                    item["summary_only"] = json!(true);
+                }
                 item["manifest"]
                     .as_object_mut()
                     .map(|manifest| manifest.remove("dependencies"));
@@ -775,7 +861,7 @@ impl Application {
         // Whole-catalog compatibility/curation reads stay metadata-only. File
         // enrichment belongs to bounded pages on the independent query lane.
         for entity in &mut entities {
-            if all {
+            if all || output_list || output_overview {
                 if matches!(
                     entity["kind"].as_str(),
                     Some("model" | "dataset" | "experiment" | "run")
@@ -794,6 +880,24 @@ impl Application {
                 crate::research_metadata::attach_materialized(self, entity)?;
                 crate::metadata_templates::attach(self, entity)?;
                 crate::dataset_lineage::attach(self, entity)?;
+            }
+        }
+        if (output_list || output_overview)
+            && self.db.query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='rust_browse_summaries')",
+                [],
+                |r| r.get::<_, bool>(0),
+            )?
+        {
+            for entity in &mut entities {
+                if let Some(target) = crate::research_metadata::snapshot_target(entity) {
+                    if let Some(item) = selected.unwrap_or_default().iter().find(|item| {
+                        item["native_ref"]["kind"] == target.kind
+                            && item["native_ref"]["identity"] == target.identity
+                    }) {
+                        self.attach_browse_summary(entity, &item["revision_id"])?;
+                    }
+                }
             }
         }
         self.attach_task_context(&mut entities)?;
@@ -881,6 +985,112 @@ impl Application {
         if let Some(runtimes) = runtime_catalog["runtimes"].as_array_mut() {
             runtimes.retain(|r| r["owner_kind"] != "system");
         }
+        if compact_queue.is_some() {
+            for entity in &mut entities {
+                let fields = entity.as_object_mut().unwrap();
+                for key in ["loom_workflow", "steps", "attempts", "internal_steps"] {
+                    fields.remove(key);
+                }
+                fields.insert("summary_only".into(), json!(true));
+            }
+        }
+        if software_list {
+            for entity in &mut entities {
+                entity["summary_only"] = json!(true);
+            }
+        }
+        if output_list {
+            for entity in &mut entities {
+                let fields = entity.as_object_mut().unwrap();
+                fields.retain(|key, _| {
+                    matches!(
+                        key.as_str(),
+                        "id" | "kind"
+                            | "label"
+                            | "namespace"
+                            | "presentation"
+                            | "origin"
+                            | "summary"
+                            | "keywords"
+                            | "owner"
+                            | "owner_name"
+                            | "owner_kind"
+                            | "owner_profile"
+                            | "loom_registry"
+                            | "loom_history"
+                            | "loom_job"
+                            | "migration"
+                            | "scenario_ref"
+                            | "task_refs"
+                            | "catalog_inputs"
+                            | "relations"
+                            | "catalog_mirror_key"
+                            | "dataset_organization"
+                            | "dataset_lineage"
+                            | "dataset_overview"
+                            | "dataset_mirror_key"
+                            | "disposition"
+                            | "output_edit"
+                            | "research_summary"
+                            | "properties"
+                            | "reporting"
+                            | "comparison"
+                            | "stage_sequence"
+                            | "outcome_highlights"
+                            | "model_role"
+                            | "metrics"
+                    )
+                });
+                if let Some(properties) =
+                    fields.get_mut("properties").and_then(Value::as_object_mut)
+                {
+                    properties.retain(|key, _| {
+                        matches!(
+                            key.as_str(),
+                            "model_family"
+                                | "family"
+                                | "architecture"
+                                | "policy_type"
+                                | "model_role"
+                                | "role"
+                                | "importance"
+                                | "registered_at"
+                                | "selected_step"
+                        )
+                    });
+                }
+                if let Some(relations) = fields.get_mut("relations").and_then(Value::as_array_mut) {
+                    relations.retain(|relation| {
+                        matches!(
+                            relation["kind"].as_str(),
+                            Some("evaluated_model" | "evaluates" | "evaluated_on" | "consumes")
+                        )
+                    });
+                }
+                if let Some(reporting) = fields.get_mut("reporting").and_then(Value::as_object_mut)
+                {
+                    reporting.retain(|key, _| {
+                        matches!(
+                            key.as_str(),
+                            "checkpoint_sweep" | "primary_outcome" | "origin" | "activity"
+                        )
+                    });
+                }
+                if let Some(overview) = fields
+                    .get_mut("dataset_overview")
+                    .and_then(Value::as_object_mut)
+                {
+                    overview.retain(|key, _| key == "role");
+                }
+                if let Some(summary) = fields
+                    .get_mut("research_summary")
+                    .and_then(Value::as_object_mut)
+                {
+                    summary.remove("sources");
+                }
+                fields.insert("summary_only".into(), json!(true));
+            }
+        }
         let mut value = json!({"entities":entities,"revision":revision});
         match context {
             CatalogContext::Full => {
@@ -894,13 +1104,47 @@ impl Application {
                     serde_json::from_str(include_str!("../../../contracts/job-contract.json"))?;
                 value["runtime_catalog"] = runtime_catalog;
             }
-            CatalogContext::Records | CatalogContext::SoftwareList => {
+            CatalogContext::Records
+            | CatalogContext::SoftwareList
+            | CatalogContext::SoftwareOverview
+            | CatalogContext::OutputList
+            | CatalogContext::OutputOverview => {
                 value["research_tasks"] = self.dashboard_tasks()?;
                 if wants_runtime {
                     value["runtime_catalog"] = runtime_catalog;
                 }
             }
+            CatalogContext::History => {}
             CatalogContext::Queue(queue) => value["queue"] = queue,
+            CatalogContext::CompactQueue(mut queue) => {
+                for field in ["entries", "logical_entries", "job_entries", "unit_entries"] {
+                    for entry in queue[field].as_array_mut().into_iter().flatten() {
+                        let fields = entry.as_object_mut().unwrap();
+                        if let Some(spec) = fields.remove("spec") {
+                            fields.insert("label".into(), spec["label"].clone());
+                        }
+                        for key in [
+                            "result",
+                            "errors",
+                            "execution_intervals",
+                            "executions",
+                            "annotations",
+                        ] {
+                            fields.remove(key);
+                        }
+                        if let Some(progress) = fields.get_mut("progress") {
+                            let steps = progress["steps"]
+                                .as_array()
+                                .into_iter()
+                                .flatten()
+                                .map(|s| json!({"label":s["label"],"state":s["state"]}))
+                                .collect::<Vec<_>>();
+                            *progress = json!({"steps":steps});
+                        }
+                    }
+                }
+                value["queue"] = queue;
+            }
         }
         self.decorate_registry(&mut value)?;
         if all {
@@ -915,16 +1159,23 @@ impl Application {
     /// Login and revision refresh need no Job, Activity, file or runtime projection.
     pub fn dashboard_shell(&self) -> Result<Value> {
         Ok(json!({
-            "revision":self.dashboard_revision()?, "entities":[], "host":self.dashboard_host()?,
+            "revision":self.dashboard_revision()?, "domains":self.dashboard_domains()?, "entities":[], "host":self.dashboard_host()?,
             "research_tasks":self.dashboard_tasks()?, "sources":[{"id":"loom-ops","status":"ok"},{"id":"catalog","status":"ok"}],
             "job_contract":serde_json::from_str::<Value>(include_str!("../../../contracts/job-contract.json"))?,
-            "capabilities":{"catalog_pages":true,"live_queue":true,"job_units":true,"scenarios":true,"item_search":true,"metadata_templates":true,"reporting":true,"output_disposition":true},
+            "capabilities":{"catalog_pages":true,"live_queue":true,"job_units":true,"scenarios":true,"item_search":true,"metadata_templates":true,"reporting":true,"output_disposition":true,"compact_lists":true},
             "initial_page_complete":false
         }))
     }
 
     pub fn dashboard_occupancy(&self, actor: &crate::auth::Actor) -> Result<Value> {
-        let mut queue = self.dashboard_queue()?;
+        self.dashboard_occupancy_with_detail(actor, false)
+    }
+    pub(crate) fn dashboard_occupancy_with_detail(
+        &self,
+        actor: &crate::auth::Actor,
+        compact: bool,
+    ) -> Result<Value> {
+        let mut queue = self.dashboard_queue_with_detail(compact)?;
         crate::query::queue_permissions(
             &mut queue,
             !self.read_only && actor.scopes.iter().any(|s| s == "submit"),
@@ -942,7 +1193,12 @@ impl Application {
         if selected.is_empty() {
             return Ok(json!({"queue":queue,"entities":[],"revision":self.dashboard_revision()?}));
         }
-        self.catalog_projection(Some(&selected), CatalogContext::Queue(queue))
+        let context = if compact {
+            CatalogContext::CompactQueue(queue)
+        } else {
+            CatalogContext::Queue(queue)
+        };
+        self.catalog_projection(Some(&selected), context)
     }
 
     pub fn dashboard_bootstrap(&self) -> Result<Value> {
@@ -983,17 +1239,53 @@ impl Application {
     }
     pub fn dashboard_entity(&self, args: &Value) -> Result<Value> {
         let item = self.get_item(args)?;
-        let mode = if args["records_only"] == true {
+        let section = args["section"].as_str();
+        if let Some(section) = section.filter(|section| *section != "overview") {
+            if self.system_native(&item["native_ref"])? {
+                return Err(Error::new("not_found", "Item not found", 404));
+            }
+            return match section {
+                "files" | "training" => self.dashboard_output_section(&item, section, args),
+                _ => self.dashboard_software_section(&item, section, args),
+            };
+        }
+        let software_overview = section == Some("overview")
+            && matches!(
+                item["native_ref"]["kind"].as_str(),
+                Some("runtime" | "profile")
+            );
+        let output_overview = section == Some("overview")
+            && matches!(
+                item["kind"].as_str(),
+                Some("dataset" | "model" | "experiment" | "run")
+            )
+            && matches!(
+                item["native_ref"]["kind"].as_str(),
+                Some("entity" | "historical")
+            );
+        let mode = if software_overview {
+            CatalogContext::SoftwareOverview
+        } else if output_overview {
+            CatalogContext::OutputOverview
+        } else if args["records_only"] == true || section == Some("overview") {
             CatalogContext::Records
         } else {
             CatalogContext::Full
         };
         let mut catalog = self.catalog_projection(Some(std::slice::from_ref(&item)), mode)?;
         for entity in catalog["entities"].as_array_mut().unwrap() {
+            if software_overview {
+                entity["deferred_software_sections"] = json!(true);
+            }
+            if output_overview {
+                entity["deferred_output_sections"] = json!(true);
+            }
             if let Some(id) = entity["loom_registry"]["id"].as_str().map(str::to_owned) {
                 self.attach_policy_checkpoints(entity, &id, None)?;
             }
-            self.attach_policy_training_revisions(entity)?;
+            if !output_overview {
+                self.attach_policy_training_revisions(entity)?;
+            }
             entity["item_id"] = item["item_id"].clone();
             entity["item_revision_id"] = item["revision_id"].clone();
             if item["catalog_class"].is_string() {
@@ -1002,9 +1294,440 @@ impl Application {
         }
         Ok(catalog)
     }
+    fn dashboard_output_section(&self, item: &Value, section: &str, args: &Value) -> Result<Value> {
+        let native = &item["native_ref"];
+        let pin = &native["identity"];
+        if section == "training" && native["kind"] == "entity" && item["kind"] == "model" {
+            let mut model = json!({"kind":"model","loom_registry":pin});
+            self.attach_policy_training_revisions(&mut model)?;
+            return Ok(json!({"section":section,"items":model["policy_training_revisions"]}));
+        }
+        if section != "files" || !matches!(native["kind"].as_str(), Some("entity" | "historical")) {
+            return Err(Error::input("Section does not belong to the selected Item"));
+        }
+        let offset = args["offset"].as_u64().unwrap_or(0).min(1_000_000) as usize;
+        let limit = args["limit"].as_u64().unwrap_or(50).clamp(1, 100) as usize;
+        let (manifest, mut locations) = if native["kind"] == "entity" {
+            let manifest: String = self.db.query_row(
+                "SELECT manifest FROM all_entity_revisions WHERE id=? AND revision=?",
+                rusqlite::params![pin["id"].as_str(), pin["revision"].as_i64()],
+                |r| r.get(0),
+            )?;
+            let locations = rows(
+                &self.db,
+                "SELECT * FROM all_entity_locations WHERE id=? AND revision=?
+                ORDER BY component,storage_id,machine_id,ref LIMIT ? OFFSET ?",
+                &[
+                    &pin["id"].as_str(),
+                    &pin["revision"].as_i64(),
+                    &((limit + 1) as i64),
+                    &(offset as i64),
+                ],
+            )?;
+            (serde_json::from_str(&manifest)?, locations)
+        } else {
+            let (manifest, mut locations) = self.historical_files(pin)?;
+            locations.sort_by(|a, b| {
+                [
+                    a["component"].as_str(),
+                    a["storage_id"].as_str(),
+                    a["ref"].as_str(),
+                ]
+                .cmp(&[
+                    b["component"].as_str(),
+                    b["storage_id"].as_str(),
+                    b["ref"].as_str(),
+                ])
+            });
+            (
+                manifest,
+                locations.into_iter().skip(offset).take(limit + 1).collect(),
+            )
+        };
+        let next = (locations.len() > limit).then_some(offset + limit);
+        locations.truncate(limit);
+        let (files, media) = crate::media::file_dtos(pin, &manifest, &locations, &self.config);
+        Ok(json!({"section":section,"items":files,"media":media,"next_offset":next}))
+    }
+
+    fn dashboard_software_section(
+        &self,
+        item: &Value,
+        section: &str,
+        args: &Value,
+    ) -> Result<Value> {
+        let native = &item["native_ref"];
+        let pin = &native["identity"];
+        let offset = args["offset"].as_u64().unwrap_or(0).min(1_000_000) as usize;
+        let limit = args["limit"].as_u64().unwrap_or(50).clamp(1, 200) as usize;
+        if section == "profile_usage" && native["kind"] == "profile" {
+            let kind = pin["kind"]
+                .as_str()
+                .or_else(|| item["profile_kind"].as_str())
+                .ok_or_else(|| Error::input("Profile identity required"))?;
+            let profiles = self.profile_listing_qualified(Some(kind), pin["sha256"].as_str())?;
+            let profile = &profiles[0];
+            let jobs = profile["jobs"].as_array().map(Vec::as_slice).unwrap_or(&[]);
+            return Ok(
+                json!({"section":section,"items":jobs.iter().skip(offset).take(limit).collect::<Vec<_>>(),
+                "next_offset":(offset+limit<jobs.len()).then_some(offset+limit),
+                "complete":profile["jobs_complete"]}),
+            );
+        }
+        if native["kind"] != "runtime" || !matches!(section, "runtime_usage" | "runtime_inventory")
+        {
+            return Err(Error::input("Section does not belong to the selected Item"));
+        }
+        let snapshot = self.runtime_snapshot()?;
+        let mut runtime = snapshot["runtimes"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|r| {
+                r["id"] == pin["id"]
+                    && r["revision"] == pin["revision"]
+                    && (!pin["sha256"].is_string() || r["sha256"] == pin["sha256"])
+            })
+            .cloned()
+            .ok_or_else(|| Error::new("not_found", "Runtime revision is unavailable", 404))?;
+        if section == "runtime_usage" {
+            self.attach_runtime_usage_page(&mut runtime, offset, limit)?;
+            return Ok(json!({"section":section,"items":runtime["job_usage"],
+                "next_offset":(runtime["jobs_complete"]==false).then_some(offset+limit)}));
+        }
+        let origin = args["origin"].as_str().unwrap_or("managed");
+        let text = args["text"].as_str().unwrap_or("").to_lowercase();
+        let matching = runtime["manifest"]["dependencies"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|d| {
+                let source = match (
+                    d["deprecated"].as_bool(),
+                    d["origin"]["type"].as_str(),
+                    d["scope"].as_str(),
+                ) {
+                    (Some(true), _, _) => "deprecated",
+                    (_, Some("managed-directory"), _) => "managed",
+                    (_, Some("external-mount"), _) => "external",
+                    (_, Some("image" | "bundled-extension"), _)
+                    | (_, _, Some("image" | "image-os" | "isaac-extension")) => "image",
+                    _ => "unknown",
+                };
+                (origin == "all" || origin == source)
+                    && (text.is_empty()
+                        || ["name", "version", "scope"]
+                            .into_iter()
+                            .filter_map(|key| d[key].as_str())
+                            .collect::<Vec<_>>()
+                            .join(" ")
+                            .to_lowercase()
+                            .contains(&text))
+            })
+            .skip(offset)
+            .take(limit + 1)
+            .collect::<Vec<_>>();
+        Ok(
+            json!({"section":section,"items":matching.iter().take(limit).collect::<Vec<_>>(),
+            "next_offset":(matching.len()>limit).then_some(offset+limit)}),
+        )
+    }
+
+    fn dashboard_directory(&self, args: &Value) -> Result<Value> {
+        let directory = args["directory"].as_str().unwrap_or("");
+        let mut parts = directory.splitn(3, '/');
+        let selector = match (parts.next(), parts.next()) {
+            (Some("data"), Some(name)) => format!("data/{name}"),
+            _ => return Err(Error::input("Registered storage selector required")),
+        };
+        let prefix = parts.next().unwrap_or("");
+        crate::error::require(
+            !prefix.contains('\0')
+                && (prefix.is_empty()
+                    || prefix
+                        .split('/')
+                        .all(|part| !matches!(part, "" | "." | ".."))),
+            "input",
+            "Invalid directory",
+            400,
+        )?;
+        let prefix = if prefix.is_empty() {
+            "".to_owned()
+        } else {
+            format!("{prefix}/")
+        };
+        let storage_id = if selector == "data/0" {
+            self.config.storage_id.as_str()
+        } else {
+            self.config
+                .data_stores
+                .get(&selector)
+                .and_then(|store| store["storage_id"].as_str())
+                .ok_or_else(|| Error::input("Unknown storage selector"))?
+        };
+        let db = crate::index_store::read(self)?;
+        let system = crate::system_ownership::native_sql(
+            "json_extract(parent.body,'$.native_ref')",
+            "authority.",
+        );
+        let offset = args["offset"].as_u64().unwrap_or(0).min(1_000_000) as i64;
+        let limit = args["limit"].as_u64().unwrap_or(50).clamp(1, 100) as i64;
+        let sql = format!("WITH local_files AS (
+            SELECT substr(json_extract(c.value,'$.ref'),length(?1)+1) relative,
+                   json_extract(parent.body,'$.native_ref') native_ref,
+                   json_extract(parent.body,'$.item_id') item_id,json_extract(parent.body,'$.revision_id') revision_id,
+                   parent.kind,parent.label,
+                   json_extract(f.body,'$.entry_key') component,json_extract(f.body,'$.size') size,
+                   json_extract(c.value,'$.ref') ref,json_extract(c.value,'$.status') status,
+                   f.recorded, f.id file_id
+            FROM docs f JOIN docs parent ON parent.id=f.parent AND parent.valid_to IS NULL
+            JOIN authority.catalog_items current ON current.id=parent.id AND current.deleted=0 AND current.current_revision=parent.revision
+            JOIN json_each(f.body,'$.copies') c WHERE f.kind='file' AND f.valid_to IS NULL
+              AND parent.kind IN ('dataset','model','experiment','artifact','run')
+              AND json_extract(f.body,'$.owner_revision_id')=json_extract(parent.body,'$.revision_id')
+              AND json_extract(c.value,'$.machine_id')=?2 AND json_extract(c.value,'$.storage_id')=?3
+              AND substr(json_extract(c.value,'$.ref'),1,length(?1))=?1
+              AND NOT COALESCE(({system}),0)
+        ), children AS (
+            SELECT CASE WHEN instr(relative,'/')>0 THEN substr(relative,1,instr(relative,'/')-1)
+                        ELSE relative END name, instr(relative,'/')>0 folder,local_files.* FROM local_files
+        ), chosen AS (
+            SELECT *,row_number() OVER(PARTITION BY name,folder ORDER BY (status='available') DESC,recorded DESC,file_id) n
+            FROM children WHERE name NOT IN ('','.','..')
+        ) SELECT name,folder,native_ref,item_id,revision_id,kind,label,component,size,ref,status
+          FROM chosen WHERE n=1 ORDER BY folder DESC,name LIMIT ?4 OFFSET ?5");
+        let candidates = rows(
+            &db,
+            &sql,
+            &[
+                &prefix,
+                &self.config.machine_id,
+                &storage_id,
+                &(limit + 1),
+                &offset,
+            ],
+        )?;
+        let mut children = Vec::new();
+        for row in candidates.iter().take(limit as usize) {
+            if row["folder"] == 1 {
+                children.push(json!({"name":row["name"],"folder":true}));
+                continue;
+            }
+            let native: Value = serde_json::from_str(row["native_ref"].as_str().unwrap_or("{}"))?;
+            let (files, media) = crate::media::file_dtos(
+                &native["identity"],
+                &json!({"components":[{"ref":row["component"],"size":row["size"]}]}),
+                &[
+                    json!({"ref":row["ref"],"component":row["component"],"storage_id":storage_id,
+                         "machine_id":self.config.machine_id,"status":row["status"]}),
+                ],
+                &self.config,
+            );
+            children.push(json!({"name":row["name"],"folder":false,"file":files[0],
+                "entity":{"id":format!("revision:{}:{}",row["item_id"].as_str().unwrap_or(""),row["revision_id"].as_str().unwrap_or("")),
+                    "item_id":row["item_id"],"item_revision_id":row["revision_id"],"kind":row["kind"],
+                    "label":row["label"],"loom_media":media,"summary_only":true}}));
+        }
+        Ok(
+            json!({"directory":directory,"children":children,"next_offset":
+            (candidates.len()>limit as usize).then_some(offset+limit)}),
+        )
+    }
+
+    fn dashboard_history(&self, actor: &crate::auth::Actor, args: &Value) -> Result<Value> {
+        use rusqlite::named_params;
+        let (key, access) = crate::index_store::context(self, actor)?;
+        let cursor = args["cursor"]
+            .as_str()
+            .map(|text| crate::index_store::cursor(text, &key))
+            .transpose()?;
+        let clock = now();
+        if let Some(cursor) = &cursor {
+            crate::error::require(
+                cursor["projection"] == "history"
+                    && cursor["access"] == access
+                    && cursor["expires"].as_f64().is_some_and(|t| t >= clock),
+                "cursor_expired",
+                "History page expired",
+                409,
+            )?;
+        }
+        let as_of = cursor
+            .as_ref()
+            .and_then(|c| c["as_of"].as_f64())
+            .unwrap_or(clock);
+        let time = cursor.as_ref().and_then(|c| c["time"].as_f64());
+        let last = cursor.as_ref().and_then(|c| c["id"].as_str()).unwrap_or("");
+        let limit = args["limit"].as_u64().unwrap_or(10).clamp(1, 50) as usize;
+        let system = crate::system_ownership::native_sql(
+            "json_object('kind','job','identity',json_object('id',candidates.id))",
+            "",
+        );
+        let sql = format!("{}, finishes AS MATERIALIZED (
+            SELECT job,attempt,ended FROM stage_runs WHERE stage IN ('prepare','run')
+            UNION ALL
+            SELECT a.job,a.id,a.ended FROM attempts a
+             WHERE NOT EXISTS(SELECT 1 FROM stage_runs s WHERE s.job=a.job AND s.attempt=a.id AND s.stage IN ('prepare','run'))
+        ), own_finish AS MATERIALIZED (
+            SELECT job,max(ended) finish FROM finishes GROUP BY job
+        ), frozen_finish AS MATERIALIZED (
+            SELECT c.target job,max(f.ended) finish FROM consolidation_paths c JOIN finishes f
+              ON f.job=c.source AND f.attempt=c.source_attempt GROUP BY c.target
+        ), workflow_finish AS MATERIALIZED (
+            SELECT m.root,max(max(COALESCE(t.finish,0),COALESCE(f.finish,0))) finish
+            FROM execution_memberships m LEFT JOIN own_finish t ON t.job=m.job
+            LEFT JOIN frozen_finish f ON f.job=m.job GROUP BY m.root
+        ), preserved AS (
+            SELECT h.id,h.source,h.revision,h.snapshot,
+                COALESCE(json_extract(h.body,'$.entity.properties.state'),json_extract(h.body,'$.record.state')) state,
+                COALESCE(json_extract(h.body,'$.entity.properties.process_exited_at'),
+                         json_extract(h.body,'$.entity.properties.ended_at'),
+                         json_extract(h.body,'$.entity.properties.completed_at'),
+                         json_extract(h.body,'$.entity.properties.finished_at')) ended,
+                COALESCE(json_extract(h.body,'$.entity.created'),json_extract(h.body,'$.record.created'),0) created,
+                row_number() OVER(PARTITION BY h.id ORDER BY (h.source='queue') DESC,h.rowid DESC) preferred
+            FROM history_records h WHERE h.kind='job_view' AND h.source IN ('queue','loom-ops','catalog')
+                AND json_extract(h.body,'$.entity.properties.record_role') IN ('work','loom_job')
+                AND NOT EXISTS(SELECT 1 FROM jobs j WHERE j.id=h.id)
+                AND NOT EXISTS(SELECT 1 FROM job_workflows w WHERE w.id=h.id)
+        ), candidates AS (
+            SELECT j.id,NULL source,NULL revision,NULL snapshot,j.created,
+                   NULLIF(max(COALESCE(o.finish,0),COALESCE(f.finish,0)),0) ended
+            FROM jobs j LEFT JOIN execution_units u ON u.id=j.id
+            LEFT JOIN own_finish o ON o.job=j.id LEFT JOIN frozen_finish f ON f.job=j.id
+            WHERE j.state IN ('complete','failed','interrupted','cancelled','result_failed')
+                AND u.job_id IS NULL
+                AND (j.state IN ('complete','cancelled') OR NOT EXISTS(
+                  SELECT 1 FROM recovery r WHERE r.job=j.id AND r.state IN ('pending','waiting','claimed','executing')))
+                AND NOT EXISTS(SELECT 1 FROM consolidation_roots c WHERE c.source=j.id
+                    AND c.source_attempt IS j.attempt AND j.state='complete')
+            UNION ALL
+            SELECT w.id,NULL,NULL,NULL,w.created,NULLIF(f.finish,0)
+            FROM job_workflows w LEFT JOIN workflow_finish f ON f.root=w.id
+            WHERE (EXISTS(SELECT 1 FROM research_jobs r WHERE r.id=w.id)
+                   OR COALESCE((SELECT visible FROM reviewed_work r WHERE r.id=w.id),0)=1
+                   OR NOT EXISTS(SELECT 1 FROM execution_memberships m WHERE m.root=w.id))
+                AND (w.state IN ('complete','failed','cancelled') OR
+                   (json_type(w.request,'$.plan_revision') IS NULL AND NOT EXISTS(
+                     SELECT 1 FROM execution_memberships m JOIN jobs j ON j.id=m.job
+                     WHERE m.root=w.id AND j.state NOT IN ('complete','failed','interrupted','cancelled','result_failed'))))
+                AND NOT EXISTS(SELECT 1 FROM execution_memberships m JOIN recovery r ON r.job=m.job
+                     WHERE m.root=w.id AND r.state IN ('pending','waiting','claimed','executing'))
+            UNION ALL
+            SELECT id,source,revision,snapshot,created,ended FROM preserved
+             WHERE preferred=1 AND state IN ('complete','completed','succeeded','success','failed','interrupted','cancelled','canceled','result_failed','timed_out','stopped','aborted')
+        ), visible AS (
+            SELECT id,source,revision,snapshot,COALESCE(
+                CASE WHEN typeof(ended) IN ('integer','real') THEN ended / CASE WHEN ended>=100000000000 THEN 1000. ELSE 1. END
+                     ELSE CAST(strftime('%s',ended) AS REAL) END,
+                CASE WHEN typeof(created) IN ('integer','real') THEN created / CASE WHEN created>=100000000000 THEN 1000. ELSE 1. END
+                     ELSE CAST(strftime('%s',created) AS REAL) END,0) sort_time
+            FROM candidates WHERE NOT COALESCE(({system}),0)
+              AND NOT EXISTS(SELECT 1 FROM reviewed_work r WHERE r.id=candidates.id
+                  AND (r.visible=0 OR (r.entry_type='unit' AND r.job_id IS NOT NULL)))
+        ) SELECT * FROM visible WHERE sort_time<=:as_of AND (:time IS NULL OR sort_time<:time OR (sort_time=:time AND id>:last))
+          ORDER BY sort_time DESC,id LIMIT :limit", crate::query::CONSOLIDATION_CTE);
+        let mut query = self.db.prepare(&sql)?;
+        let rows = query
+            .query_map(
+                named_params! {":as_of":as_of,":time":time,":last":last,":limit":(limit+1) as i64},
+                json_row,
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let mut selected = Vec::new();
+        let mut order = BTreeMap::new();
+        for (position, row) in rows.iter().take(limit).enumerate() {
+            let id = row["id"].as_str().unwrap_or("");
+            if row["source"].is_string() {
+                let identity = json!({"source":row["source"],"kind":"job_view","id":id,
+                    "revision":row["revision"],"snapshot":row["snapshot"]});
+                let native = json!({"kind":"historical","identity":identity});
+                let item = self.resolve_item(&json!({"native_ref":native}));
+                match item {
+                    Ok(item) => {
+                        order.insert(
+                            format!("history:{}", item["item_id"].as_str().unwrap_or("")),
+                            position,
+                        );
+                        selected.push(item);
+                    }
+                    Err(error) if error.status == 404 => continue,
+                    Err(error) => return Err(error),
+                }
+            } else {
+                order.insert(id.to_owned(), position);
+                selected
+                    .push(json!({"kind":"job","native_ref":{"kind":"job","identity":{"id":id}}}));
+            }
+        }
+        let mut catalog = self.catalog_projection(Some(&selected), CatalogContext::History)?;
+        let entities = catalog["entities"].as_array_mut().unwrap();
+        entities.sort_by_key(|e| {
+            order
+                .get(e["id"].as_str().unwrap_or(""))
+                .copied()
+                .unwrap_or(usize::MAX)
+        });
+        for entity in entities {
+            if let Some(hist) = entity.get("loom_history") {
+                if let Some(item) = selected
+                    .iter()
+                    .find(|i| &i["native_ref"]["identity"] == hist)
+                {
+                    entity["item_id"] = item["item_id"].clone();
+                    entity["item_revision_id"] = item["revision_id"].clone();
+                }
+            }
+            let fields = entity.as_object_mut().unwrap();
+            fields.retain(|k, _| {
+                matches!(
+                    k.as_str(),
+                    "id" | "kind"
+                        | "namespace"
+                        | "label"
+                        | "properties"
+                        | "state"
+                        | "owner"
+                        | "owner_name"
+                        | "owner_profile"
+                        | "presentation"
+                        | "loom_history"
+                        | "loom_job"
+                        | "entry_type"
+                        | "unit"
+                        | "execution_intervals"
+                        | "task_refs"
+                        | "scenario_ref"
+                        | "item_id"
+                        | "item_revision_id"
+                )
+            });
+            fields.insert("summary_only".into(), json!(true));
+        }
+        if rows.len() > limit {
+            let last = &rows[limit - 1];
+            catalog["next_cursor"] = json!(crate::index_store::sign(
+                &json!({"projection":"history","access":access,
+                "as_of":as_of,"expires":cursor.as_ref().map_or(clock+300.,|c|c["expires"].as_f64().unwrap_or(clock)),
+                "time":last["sort_time"],"id":last["id"]}),
+                &key
+            )?);
+        }
+        catalog["partial"] = json!(false);
+        Ok(catalog)
+    }
+
     /// List DTOs are projected only for the selected index page; payload trees stay lazy.
     pub fn dashboard_page(&self, actor: &crate::auth::Actor, args: &Value) -> Result<Value> {
+        if args["projection"] == "history" {
+            return self.dashboard_history(actor, args);
+        }
+        if args["projection"] == "files" {
+            return self.dashboard_directory(args);
+        }
         let mut query = args.clone();
+        let list =
+            query.as_object_mut().and_then(|v| v.remove("projection")) == Some(json!("list"));
         let records_only =
             query.as_object_mut().and_then(|v| v.remove("records_only")) == Some(json!(true));
         if query["kinds"].as_array().is_none_or(Vec::is_empty) {
@@ -1038,17 +1761,20 @@ impl Application {
         let selected = page["items"]
             .as_array()
             .ok_or_else(|| Error::input("Search page missing"))?;
-        let mode = if records_only {
-            CatalogContext::Records
-        } else if query["kinds"].as_array().is_some_and(|kinds| {
-            kinds.iter().all(|kind| {
-                matches!(
-                    kind.as_str(),
-                    Some("profile" | "component" | "tool" | "runtime" | "dependency")
-                )
+        let all_kinds = |allowed: &[&str]| {
+            query["kinds"].as_array().is_some_and(|kinds| {
+                kinds
+                    .iter()
+                    .all(|kind| kind.as_str().is_some_and(|kind| allowed.contains(&kind)))
             })
-        }) {
+        };
+        let software = all_kinds(&["profile", "component", "tool", "runtime", "dependency"]);
+        let mode = if software && (list || !records_only) {
             CatalogContext::SoftwareList
+        } else if list && all_kinds(&["dataset", "model", "experiment", "run"]) {
+            CatalogContext::OutputList
+        } else if records_only || list {
+            CatalogContext::Records
         } else {
             CatalogContext::Full
         };
@@ -1127,15 +1853,17 @@ impl Application {
             .unwrap_or_else(|| self.local.clone())
             .join(name)
     }
-    pub fn docker_observation(&self) -> Result<Value> {
-        let path = self
-            .config
+    fn docker_observation_path(&self) -> std::path::PathBuf {
+        self.config
             .extra
             .get("docker_observation")
             .and_then(Value::as_str)
             .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| self.observation_path("docker-status.json"));
-        let mut value = std::fs::read(path)
+            .unwrap_or_else(|| self.observation_path("docker-status.json"))
+    }
+
+    pub fn docker_observation(&self) -> Result<Value> {
+        let mut value = std::fs::read(self.docker_observation_path())
             .ok()
             .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
             .filter(Value::is_object)
@@ -1159,9 +1887,31 @@ impl Application {
         let mut host = json!({"machine_id":self.config.machine_id,"name":self.config.machine_id,
             "hostname":null,"inventory":{},
             "status":"unavailable"});
-        let observation = self.docker_observation()?;
+        #[derive(serde::Deserialize)]
+        struct DockerHeader {
+            #[serde(default)]
+            observed_at: Value,
+            #[serde(default)]
+            host: Value,
+            #[serde(default)]
+            engine: DockerEngine,
+        }
+        #[derive(Default, serde::Deserialize)]
+        struct DockerEngine {
+            #[serde(default)]
+            version: Value,
+        }
+        let docker = std::fs::read(self.docker_observation_path())
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<DockerHeader>(&bytes).ok());
+        let observation = docker.as_ref().map_or(
+            Value::Null,
+            |docker| json!({"observed_at":docker.observed_at,"host":docker.host}),
+        );
         if observation_fresh(&observation, now()) {
-            host["inventory"]["docker_engine"] = observation["engine"]["version"].clone();
+            if let Some(docker) = docker {
+                host["inventory"]["docker_engine"] = docker.engine.version;
+            }
         }
         if let Ok(bytes) = std::fs::read(self.observation_path("dashboard-gpus.json")) {
             if let Ok(gpus) = serde_json::from_slice::<Value>(&bytes) {
@@ -1203,6 +1953,23 @@ impl Application {
         Ok(host)
     }
     pub fn resources(&self) -> Result<Value> {
+        self.resource_snapshot(None)
+    }
+
+    pub(crate) fn dashboard_resources(&self, scope: &str) -> Result<Value> {
+        self.resource_snapshot(Some(scope))
+    }
+
+    fn resource_snapshot(&self, scope: Option<&str>) -> Result<Value> {
+        if scope == Some("host") {
+            return Ok(json!({"observed_at":now(),"host":self.dashboard_host()?,"sections":{}}));
+        }
+        let storage = self.observed_storage()?;
+        if scope == Some("storage") {
+            return Ok(
+                json!({"observed_at":now(),"host":self.dashboard_host()?,"sections":{"storage":storage}}),
+            );
+        }
         let memory = std::fs::read_to_string("/proc/meminfo").ok();
         let cpu = std::fs::read_to_string("/proc/loadavg").ok().and_then(|s| {
             s.split_whitespace()
@@ -1227,7 +1994,7 @@ impl Application {
         } else {
             json!({"status":"unavailable","data":null})
         };
-        let mut result = json!({"observed_at":now(),"cpu":{"status":if cpu.is_some(){"ok"}else{"unavailable"},"source":"linux:/proc/loadavg","data":{"load_1m":cpu,"logical_cpus":std::thread::available_parallelism().ok().map(|n|n.get())}},"memory":mem,"gpus":{"status":"unavailable","data":null},"storage":{"status":"unavailable","data":null},"sensors":{"status":"unavailable","data":null},"leases":{"status":"ok","data":self.queue()?}});
+        let mut result = json!({"observed_at":now(),"cpu":{"status":if cpu.is_some(){"ok"}else{"unavailable"},"source":"linux:/proc/loadavg","data":{"load_1m":cpu,"logical_cpus":std::thread::available_parallelism().ok().map(|n|n.get())}},"memory":mem,"gpus":{"status":"unavailable","data":null},"storage":storage,"sensors":{"status":"unavailable","data":null}});
         for (file, section) in [
             ("dashboard-gpus.json", "gpus"),
             ("dashboard-host-metrics.json", ""),
@@ -1256,6 +2023,34 @@ impl Application {
                 }
             }
         }
+        if scope == Some("inspector") {
+            result["leases"] = json!({"status":"ok","data":self.dashboard_slots()?});
+            let observed_at = result.as_object_mut().unwrap().remove("observed_at");
+            return Ok(
+                json!({"observed_at":observed_at,"sections":result,"host":self.dashboard_host()?}),
+            );
+        }
+
+        result["leases"] = json!({"status":"ok","data":self.queue()?});
+        // The workspace consumes the established sections envelope. Retain the
+        // native flat fields for callers released before the Dashboard adapter.
+        let mut sections = result.clone();
+        sections.as_object_mut().unwrap().remove("observed_at");
+        let queue = &result["leases"]["data"];
+        let entries = queue["entries"].as_array().cloned().unwrap_or_default();
+        let registered: Vec<_> = entries.iter().filter(|entry| matches!(entry["state"].as_str(),
+            Some("running" | "preparing" | "processing"))).map(|entry| json!({
+                "job_id":entry["id"],"label":entry.get("label").unwrap_or(&entry["id"]),
+                "resource":format!("{} 실행 슬롯",entry["lane"].as_str().unwrap_or("cpu").to_uppercase()),"units":1
+            })).collect();
+        sections["leases"]["data"] = json!({"registered":registered,
+            "queued_jobs":entries.iter().filter(|entry| matches!(entry["state"].as_str(),Some("queued" | "ready" | "blocked"))).count(),
+            "scope":"visible_node_jobs","mechanism":"worker_lanes"});
+        result["sections"] = sections;
+        result["host"] = self.dashboard_host()?;
+        Ok(result)
+    }
+    fn observed_storage(&self) -> Result<Value> {
         let mut stores = vec!["data/0".to_string()];
         stores.extend(
             self.config
@@ -1279,24 +2074,27 @@ impl Application {
             }
             disks.push(json!({"path":selector,"status":"unavailable"}));
         }
-        result["storage"] = json!({"status":if disks.iter().any(|v|v["status"]=="ok"){"ok"}else{"unavailable"},"source":"linux:statvfs","data":disks});
-        // The workspace consumes the established sections envelope. Retain the
-        // native flat fields for callers released before the Dashboard adapter.
-        let mut sections = result.clone();
-        sections.as_object_mut().unwrap().remove("observed_at");
-        let queue = &result["leases"]["data"];
-        let entries = queue["entries"].as_array().cloned().unwrap_or_default();
-        let registered: Vec<_> = entries.iter().filter(|entry| matches!(entry["state"].as_str(),
-            Some("running" | "preparing" | "processing"))).map(|entry| json!({
-                "job_id":entry["id"],"label":entry.get("label").unwrap_or(&entry["id"]),
-                "resource":format!("{} 실행 슬롯",entry["lane"].as_str().unwrap_or("cpu").to_uppercase()),"units":1
-            })).collect();
-        sections["leases"]["data"] = json!({"registered":registered,
-            "queued_jobs":entries.iter().filter(|entry| matches!(entry["state"].as_str(),Some("queued" | "ready" | "blocked"))).count(),
-            "scope":"visible_node_jobs","mechanism":"worker_lanes"});
-        result["sections"] = sections;
-        result["host"] = self.dashboard_host()?;
-        Ok(result)
+        Ok(
+            json!({"status": if disks.iter().any(|v|v["status"]=="ok") {"ok"} else {"unavailable"},
+            "source":"linux:statvfs","data":disks}),
+        )
+    }
+
+    fn dashboard_slots(&self) -> Result<Value> {
+        let registered = rows(&self.db,
+            "SELECT id AS job_id,COALESCE(json_extract(spec,'$.presentation.label'),json_extract(spec,'$.kind'),id) AS label,
+                upper(CASE WHEN state IN ('preparing','processing') THEN 'cpu'
+                           ELSE COALESCE(json_extract(spec,'$.profile.runtime.lane'),'cpu') END)
+                    || ' 실행 슬롯' AS resource,1 AS units
+             FROM jobs WHERE state IN ('running','preparing','processing')
+             ORDER BY COALESCE(queue_order,created),id", &[])?;
+        let queued_jobs: i64 = self.db.query_row(
+            "SELECT count(*) FROM jobs WHERE state IN ('queued','ready','blocked')",
+            [],
+            |r| r.get(0),
+        )?;
+        Ok(json!({"registered":registered,"queued_jobs":queued_jobs,
+            "scope":"visible_node_jobs","mechanism":"worker_lanes"}))
     }
 }
 

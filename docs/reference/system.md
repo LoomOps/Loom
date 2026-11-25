@@ -611,7 +611,7 @@ Task missing or owned by another actor.
 
 ## dashboard_page
 
-Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations. Job rows include group_root and a bounded root group_summary independent of the loaded page; these are display projections, not execution mutations. Set records_only=true to omit the independent queue, host and Job contract projections. Policy and Experiment DTOs expose exact catalog_inputs for Dataset and Policy filtering when the source evidence resolves. output_state filters Current or Discarded revisions before pagination.
+The optional projection selects compact list rows, terminal execution history, or a registered storage directory. Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations. Job rows include group_root and a bounded root group_summary independent of the loaded page; these are display projections, not execution mutations. Set records_only=true to omit the independent queue, host and Job contract projections. Policy and Experiment DTOs expose exact catalog_inputs for Dataset and Policy filtering when the source evidence resolves. output_state filters Current or Discarded revisions before pagination.
 
 Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/catalog.rs#dashboard_page](../../rust/crates/core/src/catalog.rs).
 
@@ -625,6 +625,7 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 | `category` | no | `"string"` | `—` |
 | `cursor` | no | `"string"` | `—` |
 | `dependency_ref` | no | `"object"` | `—` |
+| `directory` | no | `"string"` | `—` |
 | `history` | no | `["current", "all"]` | `—` |
 | `include_archived` | no | `"boolean"` | `true` |
 | `include_system` | no | `"boolean"` | `true` |
@@ -632,9 +633,11 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 | `lifecycle_state` | no | `["active", "archived", "deprecated"]` | `—` |
 | `limit` | no | `"integer"` | `—` |
 | `native_kind` | no | `"string"` | `—` |
+| `offset` | no | `"integer"` | `—` |
 | `origin_type` | no | `"string"` | `—` |
 | `output_state` | no | `["current", "discarded", "all"]` | `—` |
 | `parent_item_id` | no | `"string"` | `—` |
+| `projection` | no | `["list", "history", "files"]` | `—` |
 | `recorded_from` | no | `"number"` | `—` |
 | `recorded_to` | no | `"number"` | `—` |
 | `records_only` | no | `"boolean"` | `—` |
@@ -685,6 +688,10 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
     "dependency_ref": {
       "type": "object"
     },
+    "directory": {
+      "maxLength": 1024,
+      "type": "string"
+    },
     "history": {
       "enum": [
         "current",
@@ -722,6 +729,11 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
       "maxLength": 128,
       "type": "string"
     },
+    "offset": {
+      "maximum": 1000000,
+      "minimum": 0,
+      "type": "integer"
+    },
     "origin_type": {
       "maxLength": 128,
       "type": "string"
@@ -736,6 +748,13 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
     "parent_item_id": {
       "pattern": "^[1-9][0-9]{0,38}$",
       "type": "string"
+    },
+    "projection": {
+      "enum": [
+        "list",
+        "history",
+        "files"
+      ]
     },
     "recorded_from": {
       "type": "number"
@@ -878,7 +897,7 @@ Shared authentication, schema, scope and handler preconditions still apply.
 
 ## dashboard_queue
 
-Read visible queue occupants and their Job rows independently of paginated history. Queue controls follow the authenticated user's permissions.
+Read visible queue occupants and their Job rows independently of paginated history. Use compact=true for the workspace row and control fields. Queue controls follow the authenticated user's permissions.
 
 Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crates/core/src/catalog.rs#dashboard_occupancy](../../rust/crates/core/src/catalog.rs).
 
@@ -886,13 +905,18 @@ Scope: `read`. Owner: [queue](../features/queue.md). Implementation: [rust/crate
 
 | Field | Required | Type / values | Default |
 |---|---|---|---|
+| `compact` | no | `"boolean"` | `—` |
 
 <details><summary>Exact input JSON Schema</summary>
 
 ```json
 {
   "additionalProperties": false,
-  "properties": {},
+  "properties": {
+    "compact": {
+      "type": "boolean"
+    }
+  },
   "required": [],
   "type": "object"
 }
@@ -1003,7 +1027,7 @@ Unsupported view or unavailable source state.
 
 ## dashboard_entity
 
-Read one exact source-qualified browser record with lazy file inventories. Policy details include the registered checkpoint files and exact training report descriptors across revisions of the same Policy. Dataset records and input descriptors include their effective organization, including any handle and authored tags. Set records_only=true to omit the independent queue, host and Job contract projections.
+Use the optional section for a compact overview, software inventory or execution pages, registered files, or Policy training revisions. Read one exact source-qualified browser record with lazy file inventories. Policy details include the registered checkpoint files and exact training report descriptors across revisions of the same Policy. Dataset records and input descriptors include their effective organization, including any handle and authored tags. Set records_only=true to omit the independent queue, host and Job contract projections.
 
 Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/crates/core/src/catalog.rs#dashboard_entity](../../rust/crates/core/src/catalog.rs).
 
@@ -1012,8 +1036,13 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 | Field | Required | Type / values | Default |
 |---|---|---|---|
 | `item_id` | yes | `"string"` | `—` |
+| `limit` | no | `"integer"` | `—` |
+| `offset` | no | `"integer"` | `—` |
+| `origin` | no | `["all", "managed", "external", "image", "deprecated", "unknown"]` | `—` |
 | `records_only` | no | `"boolean"` | `—` |
 | `revision_id` | no | `"string"` | `—` |
+| `section` | no | `["overview", "runtime_usage", "runtime_inventory", "profile_usage", "files", "training"]` | `—` |
+| `text` | no | `"string"` | `—` |
 
 <details><summary>Exact input JSON Schema</summary>
 
@@ -1025,11 +1054,45 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
       "pattern": "^[1-9][0-9]{0,38}$",
       "type": "string"
     },
+    "limit": {
+      "maximum": 200,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "offset": {
+      "maximum": 1000000,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "origin": {
+      "enum": [
+        "all",
+        "managed",
+        "external",
+        "image",
+        "deprecated",
+        "unknown"
+      ]
+    },
     "records_only": {
       "type": "boolean"
     },
     "revision_id": {
       "pattern": "^[1-9][0-9]{0,38}$",
+      "type": "string"
+    },
+    "section": {
+      "enum": [
+        "overview",
+        "runtime_usage",
+        "runtime_inventory",
+        "profile_usage",
+        "files",
+        "training"
+      ]
+    },
+    "text": {
+      "maxLength": 256,
       "type": "string"
     }
   },
@@ -1054,6 +1117,6 @@ Scope: `read`. Owner: [catalog](../features/catalog.md). Implementation: [rust/c
 
 ### Result and failures
 
-Exact browser catalog projection including selected entities and common Item/revision IDs
+Exact browser catalog projection including common Item/revision IDs, or an independently bounded section with items and an optional next_offset
 
 Missing Item/source revision or unavailable canonical metadata.

@@ -32,17 +32,41 @@ class NativeExecutorTests(unittest.TestCase):
    stream.settimeout(30);stream.connect(str(self.host/'socket/executor.sock'));stream.sendall(('POST /'+action+' HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer '+(token or self.token)+'\r\nContent-Length: '+str(len(raw))+'\r\n\r\n').encode()+raw);parts=[]
    while chunk:=stream.recv(65536):parts.append(chunk)
   header,body=b''.join(parts).split(b'\r\n\r\n',1);self.assertEqual(int(header.split()[1]),status,body);return json.loads(body)
- def request(self,command):return {'ticket':'job.attempt.run','job':'job','stage':'run','lane':'cpu','runtime_id':'cpu','command':command,'host_output':str(self.data)}
+ def request(self,command):return {'ticket':self.root.name+'.job.attempt.run','job':'job','stage':'run','lane':'cpu','runtime_id':'cpu','command':command,'host_output':str(self.data)}
  def wait(self,ticket):
   for _ in range(100):
    state=self.rpc('status',{'ticket':ticket})
    if state['returned']:return state
    time.sleep(.05)
   self.fail(state)
+ def container_exists(self,ticket):
+  name='loom-'+hashlib.sha256(ticket.encode()).hexdigest()
+  return bool(subprocess.check_output(['docker','ps','-aq','--filter',f'name=^/{name}$'],timeout=5).strip())
+ def wait_container_removed(self,ticket):
+  deadline=time.monotonic()+15
+  while self.container_exists(ticket):
+   if time.monotonic()>=deadline:self.fail(f'Container still exists for {ticket}')
+   time.sleep(.2)
  def test_real_cpu_return_and_private_ticket_scope(self):
   accepted=self.rpc('start',self.request(['/bin/sh','-c','printf actual > /work/receipt.txt']));state=self.wait(accepted['ticket']);self.assertEqual(state['exit_code'],0);self.assertEqual((self.data/'receipt.txt').read_text(),'actual')
   self.rpc('status',{'ticket':accepted['ticket']},token='other-token',status=404)
   self.assertTrue(self.rpc('drain_status',{})['ready']);self.assertEqual((self.host/'executor.sqlite3').stat().st_mode&0o777,0o600)
+ def test_returned_containers_are_removed_without_a_log_reader(self):
+  for code in (0,19):
+   with self.subTest(exit_code=code):
+    request=self.request(['/bin/sh','-c',f'echo ARCHIVED-{code}; echo STDERR-{code} >&2; touch /work/result-{code}; exit {code}'])
+    request['ticket']+=f'.exit-{code}'
+    ticket=self.rpc('start',request)['ticket']
+    self.assertEqual(self.wait(ticket)['exit_code'],code)
+    self.wait_container_removed(ticket)
+    self.assertTrue((self.data/f'result-{code}').is_file())
+    replay=self.rpc('status_intent',request)
+    self.assertTrue(replay['found']);self.assertEqual(replay['exit_code'],code)
+    self.assertEqual(self.rpc('start',request)['exit_code'],code)
+    self.assertFalse(self.container_exists(ticket))
+    page=self.rpc('log_range',{'ticket':ticket})
+    self.assertTrue(page['closed']);self.assertFalse(page['gap'])
+    self.assertIn(f'ARCHIVED-{code}',page['text']);self.assertIn(f'STDERR-{code}',page['text'])
  def test_restart_reconciles_same_container_and_cancellation_returns_owner(self):
   request=self.request(['/bin/sh','-c','sleep 30'])
   self.assertFalse(self.rpc('status_intent',request)['found'])
@@ -53,6 +77,8 @@ class NativeExecutorTests(unittest.TestCase):
   self.rpc('status_intent',{**request,'command':['/bin/true']},status=409)
   again=self.rpc('start',request);self.assertEqual(first['ticket'],again['ticket']);self.assertEqual(again['state'],'running')
   returned=self.rpc('cancel',{'ticket':first['ticket']});self.assertTrue(returned['returned']);self.assertTrue(self.rpc('drain_status',{})['ready'])
+  self.wait_container_removed(first['ticket'])
+  self.assertTrue(self.rpc('status',{'ticket':first['ticket']})['returned'])
   with sqlite3.connect(self.host/'executor.sqlite3') as db:self.assertEqual(db.execute('SELECT count(*) FROM tickets').fetchone()[0],1)
  def test_native_runtime_registration_binds_verified_cpu_image(self):
   first=self.rpc('start',self.request(['/bin/true']));self.assertEqual(self.wait(first['ticket'])['exit_code'],0)
@@ -122,7 +148,7 @@ class NativeExecutorTests(unittest.TestCase):
   import concurrent.futures,shutil
   first=self.rpc('start',self.request(['/bin/true']));self.wait(first['ticket'])
   command=['python','-c',"import signal,time,sys; signal.signal(signal.SIGTERM,lambda *a:sys.exit(0)); open('/work/signal-ready','w').write('ready'); time.sleep(30)"]
-  request=self.request(command);request['ticket']='second.attempt.run';request['job']='second';second=self.rpc('start',request)
+  request=self.request(command);request['ticket']+='.second';request['job']='second';second=self.rpc('start',request)
   for _ in range(100):
    if (self.data/'signal-ready').exists():break
    time.sleep(.05)
@@ -163,6 +189,8 @@ class NativeExecutorTests(unittest.TestCase):
   self.assertEqual(page['total_bytes'],256*1024*1024);self.assertTrue(page['closed']);self.assertTrue(page['gap'])
   self.assertEqual(page['data_base64'],'AAAAAAAAAAAAAAAAAAAAAA==');self.assertTrue(self.rpc('drain_status',{})['ready'])
   self.assertEqual(self.rpc('log_range',{'ticket':accepted['ticket'],'limit':16})['source_generation'],page['source_generation'])
+  time.sleep(3.5)
+  self.assertTrue(self.container_exists(accepted['ticket']))
 
  def test_capture_pointer_failure_does_not_leak_a_provider_process(self):
   import shutil

@@ -328,8 +328,22 @@ function loomReportOverview(e){
  const footer='<details class="pa-report-contract"><summary>Template · '+esc(template?template.id+' · r'+template.revision:'Unrecorded')+' / Contract · '+esc(contract?contract.id+' · r'+contract.revision:'Unrecorded')+'</summary>'+loomReportContract(e)+'</details>';
  return loomResearchOverviewCard(parts.join(''))+footer;
 }
+const loomTrainingRevisionPages=new Map();
+function loomLoadTrainingRevisions(entity,retry=false){
+ const key=entity.item_revision_id+':'+loomCatalogStamp('outputs');
+ let page=loomTrainingRevisionPages.get(key);
+ if(page&&(!retry||page.pending))return page;
+ page={pending:true};loomTrainingRevisionPages.set(key,page);
+ loomSearchAction('system','dashboard_entity',{item_id:entity.item_id,revision_id:entity.item_revision_id,section:'training'})
+  .then(result=>{page.items=result.items||[];}).catch(()=>{page.error=true;}).finally(()=>{
+   page.pending=false;loomReportRefresh(entity);
+   while(loomTrainingRevisionPages.size>64)loomTrainingRevisionPages.delete(loomTrainingRevisionPages.keys().next().value);
+  });
+ return page;
+}
 function loomReportTrainingSources(e){
- if(e.policy_training_revisions?.length)return e.policy_training_revisions.map(({revision,reports})=>({...e,
+ const revisions=e.policy_training_revisions||loomTrainingRevisionPages.get(e.item_revision_id+':'+loomCatalogStamp('outputs'))?.items;
+ if(revisions?.length)return revisions.map(({revision,reports})=>({...e,
   loom_registry:{...loomReportIdentity(e),revision},trainingRevision:revision,reporting:{reports}}));
  return [e];
 }
@@ -357,6 +371,11 @@ function loomReportTrainingFilters(e,views){
 function loomReportContent(e){
  const {tab}=loomReportState(e),r=e.reporting;
  if(tab==='overview')return '<div class="pa-report-overview">'+loomReportOverview(e)+'</div>';
+ if(tab==='training'&&e.deferred_output_sections&&e.loom_registry?.id&&e.item_id){
+  const page=loomLoadTrainingRevisions(e);
+  if(page.pending)return '<p role="status">Loading…</p>';
+  if(page.error)return '<button data-training-revisions-retry>Retry</button>';
+ }
  const roles={training:['learning_series','action_metrics'],results:['evaluation_cases','evaluation_metrics'],cases:['evaluation_cases'],episodes:['dataset_statistics'],distribution:['sdg_conditions','sdg_readback','distribution']};
  const sources=tab==='training'?loomReportTrainingSources(e):[e];
  const views=sources.map(source=>({source,reports:(source.reporting?.reports||[]).filter(report=>roles[tab]?.includes(report.role))}));
@@ -404,6 +423,7 @@ catalogDetail=function(id){
 };
 root.addEventListener('click',async event=>{
  const workspace=event.target.closest('[data-report-output]'),e=workspace&&catEntity(workspace.dataset.reportOutput);if(!e)return;
+ if(event.target.closest('[data-training-revisions-retry]')){loomLoadTrainingRevisions(e,true);loomReportRefresh(e);return;}
  const point=event.target.closest('[data-report-case],[data-report-episode]');if(point){event.preventDefault();Object.assign(loomReportState(e),{tab:point.dataset.reportCase?'cases':'episodes',member:point.dataset.reportCase||point.dataset.reportEpisode});render();return;}
  const input=event.target.closest('[data-report-input]');if(input){try{const pin=await loomSearchAction('results','resolve_item',{native_ref:{kind:'entity',identity:{id:input.dataset.reportInput,revision:Number(input.dataset.reportInputRevision)}}});if(input.hasAttribute('data-report-exact')){await loomCatalogOpen('revision:'+pin.item_id+':'+pin.revision_id);return;}const value=await loomSearchAction('system','dashboard_entity',{item_id:pin.item_id,revision_id:pin.revision_id});loomCatalogMerge(value);if(value.entities?.[0])openView(catView(value.entities[0].id));}catch(error){input.textContent=error.message;}return;}
  const lineage=event.target.closest('[data-catalog-input-ref]');

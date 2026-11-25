@@ -4,6 +4,7 @@ use loom_core::{inventory, Application, Config};
 use std::{path::PathBuf, sync::atomic::Ordering, time::Duration};
 pub fn start(service: Service, config: Config, local: PathBuf, bulk: PathBuf, components: PathBuf) {
     std::thread::spawn(move || {
+        let mut browse_retry = std::collections::BTreeMap::new();
         while !service.stopping.load(Ordering::Acquire) {
             let result = (|| -> loom_core::Result<()> {
                 let (send, receive) = tokio::sync::oneshot::channel();
@@ -36,6 +37,30 @@ pub fn start(service: Service, config: Config, local: PathBuf, bulk: PathBuf, co
                         return Ok(());
                     }
                     let _ = receive.blocking_recv();
+                }
+                let clock = std::time::Instant::now();
+                browse_retry.retain(|_, retry| *retry > clock);
+                for (revision, target) in app.pending_browse_summaries(browse_retry.keys())? {
+                    match app.prepare_browse_summary(revision.clone(), target) {
+                        Ok(prepared) => {
+                            let (send, receive) = tokio::sync::oneshot::channel();
+                            if service
+                                .send
+                                .blocking_send(Message::BrowseSummary(prepared, send))
+                                .is_err()
+                            {
+                                return Ok(());
+                            }
+                            if !matches!(receive.blocking_recv(), Ok(Ok(()))) {
+                                browse_retry.insert(revision, clock + Duration::from_secs(30));
+                            }
+                            break;
+                        }
+                        Err(error) => {
+                            browse_retry.insert(revision, clock + Duration::from_secs(30));
+                            eprintln!("Loom browse projection: {}", error.code);
+                        }
+                    }
                 }
                 if let Some(task) = app.pending_maintenance()? {
                     let budget = if task["kind"] == "rebuild" {

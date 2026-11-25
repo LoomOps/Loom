@@ -178,8 +178,8 @@ function loomCurrentQueuePanel(rows,table){
    return [label,queueBadge(record(unit)),gpu,active||esc(loomQueueReason(unit)),
      '<div class="pa-forecast">'+(unit.state==='running'?loomForecastFinish(unit.forecast):'—')+'</div>'];
   });
-  return panel('Job Queue · '+jobs.length,notice+(jobs.length?table(jobs,true):queue?'<div class="pa-empty">대기 또는 실행 중인 Job이 없습니다.</div>':''))
-    +panel('Unit Queue · '+units.length,body.length?'<div class="pa-queue-table pa-unit-work-queue">'+catTable(['Unit','상태','자원','진행','완료 예정'],body)+'</div>':queue?'<div class="pa-empty">대기 또는 실행 중인 Unit이 없습니다.</div>':'');
+  return panel('Job Queue'+(queue?' · '+jobs.length:''),notice+(jobs.length?table(jobs,true):queue?'<div class="pa-empty">대기 또는 실행 중인 Job이 없습니다.</div>':''))
+    +panel('Unit Queue'+(queue?' · '+units.length:''),body.length?'<div class="pa-queue-table pa-unit-work-queue">'+catTable(['Unit','상태','자원','진행','완료 예정'],body)+'</div>':queue?'<div class="pa-empty">대기 또는 실행 중인 Unit이 없습니다.</div>':'');
  }
  if(waiting)return panel('현재 큐',loomHomeStatus('queue'));
  if(catalogData.capabilities?.live_queue){

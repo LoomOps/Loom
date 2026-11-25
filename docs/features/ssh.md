@@ -9,7 +9,7 @@ Admin-only mutations; never adopt existing accounts or grant sudo/Docker. Disabl
 | Boundary | Owning entry point | Input | Result / failure | Consumers |
 |---|---|---|---|---|
 | Host account authority | `deploy/ssh_host.py#Accounts` | Restricted owner/action/username over protected Unix socket | Managed personal account state or failure; no arbitrary command execution | dashboard, installation |
-| SSH connection | `ops/ssh_info.py#connection` | Authenticated principal | Only that principal connection metadata | api, onboarding |
+| SSH connection | `rust/crates/core/src/query.rs#system_action` (`system.ssh`) | Authenticated principal | That principal's connection metadata and the machine access descriptor | api, onboarding |
 
 ## Sources and contracts
 

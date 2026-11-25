@@ -42,6 +42,16 @@ remain reserved for individual Job grants.
 Host memory parsing rejects malformed Unicode without panicking. Executor credentials are bounded regular files. A log collector whose metadata cannot commit is killed and reaped before returning an error.
 The stage return receipt preserves the accepted Executor ticket so callers
 and background collection can address the same log stream after a fast exit.
+The Ops collector reads live streams before each bounded page of returned
+streams. It calculates spool usage once per batch and writes a quiet page only
+when its committed state changes or an uncommitted tail needs repair.
+The host Executor removes its exited Job containers in the background after
+verifying the durable ticket return, the exact Docker container identity and
+a sealed log generation with no reported gap. The same cleanup applies to
+successful, failed and cancelled stages. Incomplete log capture keeps the
+source container available. Cleanup retains the ticket, archived logs and
+bind-mounted work files, so replay, log reads and result recovery can use
+the original Attempt after container removal.
 When Ops restarts, it reconciles the existing ticket before inspecting current
 input copies and keeps the original stage timeout. A launch that has no
 running or returned ticket still verifies the frozen inputs before starting.

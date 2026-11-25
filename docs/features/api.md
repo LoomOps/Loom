@@ -39,7 +39,9 @@ Public actions and input schemas are in the generated [API reference](../referen
 
 ## Change review
 
-When public inputs or responses change, check schemas, examples, API revision, guides and Dashboard consumers. Since ops.py contains multiple feature entry points, narrow impact to the affected functions.
+When public inputs or responses change, check schemas, examples, API revision,
+guides and Dashboard consumers. Trace the native action to its handler before
+using the retained Python contract as a compatibility comparison.
 
 Related blocks: [identity](identity.md) · [queue](queue.md) · [execution](execution.md) · [recovery](recovery.md) · [results](results.md) · [extensions](extensions.md) · [catalog](catalog.md) · [diagnostics](diagnostics.md).
 

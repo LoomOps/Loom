@@ -1247,7 +1247,7 @@
   },
   "system.dashboard_page": {
     "title": "Page Dashboard records",
-    "description": "Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations. Job rows include group_root and a bounded root group_summary independent of the loaded page; these are display projections, not execution mutations. Set records_only=true to omit the independent queue, host and Job contract projections. Policy and Experiment DTOs expose exact catalog_inputs for Dataset and Policy filtering when the source evidence resolves. output_state filters Current or Discarded revisions before pagination.",
+    "description": "The optional projection selects compact list rows, terminal execution history, or a registered storage directory. Project only selected metadata records into browser DTOs using the same filters and cursor as item search. Returns compact task_refs and research_tasks independently of the bootstrap. scenario_ref selects accepted pins or active exact typed links. task_id groups every revision of one Task; use scenario_ref for one exact revision and never supply both. Lifecycle metadata is additive. MCP discovery includes archived revisions by default; include_archived=false hides archived entries, and lifecycle_state selects an exact state before pagination. Dashboard defaults to hiding archived registrations. Job rows include group_root and a bounded root group_summary independent of the loaded page; these are display projections, not execution mutations. Set records_only=true to omit the independent queue, host and Job contract projections. Policy and Experiment DTOs expose exact catalog_inputs for Dataset and Policy filtering when the source evidence resolves. output_state filters Current or Discarded revisions before pagination.",
     "returns": "Browser catalog page · entities, research_tasks, next_cursor, partial, consistency and shared catalog metadata. The first complete page for one scientific kind without a Task filter also returns task_index, the active Task IDs matching the catalog query across pages.",
     "example": {
       "kinds": [
@@ -1265,7 +1265,7 @@
   },
   "system.dashboard_queue": {
     "title": "Read current Dashboard queue",
-    "description": "Read visible queue occupants and their Job rows independently of paginated history. Queue controls follow the authenticated user's permissions.",
+    "description": "Read visible queue occupants and their Job rows independently of paginated history. Use compact=true for the workspace row and control fields. Queue controls follow the authenticated user's permissions.",
     "returns": "Revision, queue and matching Job entities",
     "example": {},
     "errors": [
@@ -1293,8 +1293,8 @@
   },
   "system.dashboard_entity": {
     "title": "Dashboard entity",
-    "description": "Read one exact source-qualified browser record with lazy file inventories. Policy details include the registered checkpoint files and exact training report descriptors across revisions of the same Policy. Dataset records and input descriptors include their effective organization, including any handle and authored tags. Set records_only=true to omit the independent queue, host and Job contract projections.",
-    "returns": "Exact browser catalog projection including selected entities and common Item/revision IDs",
+    "description": "Use the optional section for a compact overview, software inventory or execution pages, registered files, or Policy training revisions. Read one exact source-qualified browser record with lazy file inventories. Policy details include the registered checkpoint files and exact training report descriptors across revisions of the same Policy. Dataset records and input descriptors include their effective organization, including any handle and authored tags. Set records_only=true to omit the independent queue, host and Job contract projections.",
+    "returns": "Exact browser catalog projection including common Item/revision IDs, or an independently bounded section with items and an optional next_offset",
     "example": {
       "item_id": "2156055679491977121222771780406505881"
     },

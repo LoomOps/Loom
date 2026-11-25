@@ -149,7 +149,8 @@ def build(original):
     model_filters_end = inner.index("catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');", model_filters_start)
     inner = inner[:model_filters_start] + inner[model_filters_end:]
 
-    inner=replace_once(inner,"const interested=!!root.querySelector('[data-resource-panel]');","const interested=!!root.querySelector('[data-resource-panel],.pa-finder,.pa-sidebar-bottom');")
+    inner=replace_once(inner,"const interested=!!root.querySelector('[data-resource-panel]');","const interested=root.querySelector('[data-resource-panel]')?'inspector':root.querySelector('.pa-finder')?'storage':root.querySelector('.pa-sidebar-bottom')?'host':null;")
+    inner=replace_once(inner,"type:'pai-resource-interest',active:interested", "type:'pai-resource-interest',scope:interested,active:!!interested")
     inner=replace_once(inner,"const catKind=(k,includeDiscarded=false)=>catalogData.entities.filter(e=>e.kind===k&&(includeDiscarded||!catIsDiscarded(e)));","let catKind=(k,includeDiscarded=false)=>loomTaskItems(catalogData.entities.filter(e=>e.kind===k&&(includeDiscarded||!catIsDiscarded(e))),k);")
     inner=replace_once(inner,"return {page:e?.kind==='model'?", "return {page:e?.kind==='scenario'?'scenarios':e?.kind==='dependency'?'dependencies':e?.kind==='execution_profile'?'profiles':e?.kind==='component'?'components':e?.kind==='runtime'?'runtimes':e?.kind==='tool'?'tools':e?.kind==='model'?")
     inner=replace_once(inner,"const catEntity=id=>catalogData.entities.find(e=>e.id===id)||(typeof workStepRecord==='function'?workStepRecord(id):null);",
@@ -159,7 +160,7 @@ def build(original):
     inner=replace_once(inner,"(navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')","({scenarios:'Tasks',datasets:'Datasets',experiments:'Experiments',models:'Policies',comparison:'Comparison',profiles:'Profiles',components:'Components',tools:'Tools',runtimes:'Runtimes',dependencies:'Dependencies'}[v.page]||navs.find(n=>n[0]===v.page)?.[1]||'Dashboard')")
     inner = replace_once(inner, "panel(`현재 큐 · ${current.length}`,current.length?table(current,true):'<div class=\"pa-empty\">현재 등록된 Job이 없습니다.</div>')", "loomCurrentQueuePanel(current,table)")
     inner = replace_once(inner, "table(ended.slice(0,state.queueHistoryLimits?.all||10),false)",
-                         "loomTerminalWorkTable(ended.slice(0,state.queueHistoryLimits?.all||10),table)")
+                         "loomTerminalWorkTable(catalogData.capabilities?.compact_lists?ended:ended.slice(0,state.queueHistoryLimits?.all||10),table)")
     marker = "catalogRefreshViews();parent.postMessage({type:'pai-catalog-ready'},'*');"
     inner=replace_once(inner,"function catIsDiscarded(e){return !!e&&['run','experiment'].includes(e.kind)&&e.disposition?.state==='discarded';}",
         "function catIsDiscarded(e){return e?.disposition?.state==='discarded';}")

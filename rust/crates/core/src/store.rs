@@ -44,6 +44,107 @@ pub struct Application {
     pub(crate) file_proofs: std::collections::BTreeMap<PathBuf, crate::storage::VerifiedFile>,
     pub(crate) catalog_cache: std::sync::Arc<std::sync::Mutex<Option<(String, Value)>>>,
 }
+// Bump only the dashboard surfaces that depend on an authority change.
+fn install_dashboard_versions(db: &Connection, version: i64) -> Result<()> {
+    db.execute_batch(
+        "CREATE TABLE IF NOT EXISTS rust_dashboard_versions(
+        domain TEXT PRIMARY KEY, version INTEGER NOT NULL
+    ); INSERT OR IGNORE INTO rust_dashboard_versions VALUES
+        ('work',1),('history',1),('outputs',1),('software',1),('software_usage',1),('tasks',1);",
+    )?;
+    let terminal = "'complete','failed','interrupted','cancelled','result_failed'";
+    let domains = [
+        ("jobs", "'work'", false),
+        ("job_workflows", "'work'", false),
+        ("attempts", "'work'", false),
+        ("stage_runs", "'work'", false),
+        ("rust_attempt_starts", "'work','software_usage'", false),
+        ("recovery", "'work','history'", false),
+        ("dispatch_control", "'work'", false),
+        ("node_control", "'work'", false),
+        ("workflow_nodes", "'work','history'", false),
+        ("execution_units", "'work','history'", false),
+        ("unit_pauses", "'work'", false),
+        ("job_annotations", "'work','history'", false),
+        ("reviewed_work", "'work','history'", false),
+        ("entity_revisions", "'outputs'", false),
+        ("entity_locations", "'outputs'", false),
+        ("asset_revisions", "'outputs'", false),
+        ("asset_locations", "'outputs'", false),
+        ("historical_bindings", "'outputs'", false),
+        ("output_edit_claims", "'outputs','work'", false),
+        ("rust_annotations", "'outputs'", false),
+        ("reviewed_outputs", "'outputs'", false),
+        ("components", "'software'", false),
+        ("tools", "'software'", false),
+        ("execution_profiles", "'software'", false),
+        ("software_metadata", "'software'", false),
+        ("runtime_curation", "'software'", false),
+        ("registry_lifecycle_events", "'software','outputs'", false),
+        ("rust_runtime_observation", "'software'", true),
+        ("scenarios", "'tasks'", false),
+        ("scenario_revisions", "'tasks'", false),
+        ("scenario_links", "'tasks'", false),
+        (
+            "research_overlays",
+            "'work','history','outputs','software'",
+            false,
+        ),
+        (
+            "item_owners",
+            "'work','history','outputs','software','tasks'",
+            false,
+        ),
+        (
+            "user_profiles",
+            "'work','history','outputs','software','tasks'",
+            false,
+        ),
+        ("history_records", "'history','outputs'", false),
+    ];
+    for (table, keys, observation) in domains {
+        if version < 7 && matches!(table, "asset_revisions" | "asset_locations") {
+            continue;
+        }
+        for (event, name, record) in [
+            ("INSERT", "insert", "NEW"),
+            ("UPDATE", "update", "NEW"),
+            ("DELETE", "delete", "OLD"),
+        ] {
+            let condition = match (table, event) {
+                ("user_profiles", "UPDATE") => {
+                    "WHEN NEW.display_name IS NOT OLD.display_name OR NEW.login IS NOT OLD.login"
+                }
+                (_, "UPDATE") if observation => "WHEN NEW.value IS NOT OLD.value",
+                _ => "",
+            };
+            let history_condition = match (table,event) {
+                ("jobs" | "job_workflows", "UPDATE") => format!("(NEW.state IN ({terminal}) OR OLD.state IN ({terminal}))"),
+                ("jobs" | "job_workflows", _) => format!("{record}.state IN ({terminal})"),
+                ("attempts" | "stage_runs", _) => format!("EXISTS(SELECT 1 FROM jobs j WHERE j.id={record}.job AND j.state IN ({terminal}))"),
+                _ => "0".into(),
+            };
+            let usage_condition = match (table, event) {
+                ("jobs", "UPDATE") => "NEW.spec IS NOT OLD.spec OR (NEW.state='complete') IS NOT (OLD.state='complete')",
+                ("jobs" | "workflow_nodes", _) => "1",
+                ("stage_runs" | "attempts", "UPDATE") => "NEW.started IS NOT OLD.started",
+                ("stage_runs" | "attempts", "INSERT") => "NEW.started IS NOT NULL",
+                ("stage_runs" | "attempts", "DELETE") => "OLD.started IS NOT NULL",
+                _ => "0",
+            };
+            db.execute_batch(&format!(
+                "CREATE TRIGGER IF NOT EXISTS dashboard_{table}_{name}
+                AFTER {event} ON {table} {condition} BEGIN
+                UPDATE rust_dashboard_versions SET version=version+1
+                 WHERE domain IN ({keys}) OR (domain='history' AND {history_condition})
+                    OR (domain='software_usage' AND ({usage_condition}));
+                END;"
+            ))?;
+        }
+    }
+    Ok(())
+}
+
 fn compatibility_views(db: &Connection, version: i64) -> Result<()> {
     if !db.query_row(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='unit_pauses')",
@@ -216,6 +317,20 @@ impl Application {
         if target >= 6 {
             crate::items::initialize(&tx)?;
         }
+        install_dashboard_versions(&tx, target)?;
+        tx.execute_batch("CREATE TABLE IF NOT EXISTS rust_browse_summaries(
+            revision BLOB PRIMARY KEY, source_id TEXT,
+            source_sha256 TEXT NOT NULL, summary TEXT NOT NULL, extractor INTEGER NOT NULL
+        ); CREATE INDEX IF NOT EXISTS rust_browse_summary_source ON rust_browse_summaries(source_id);")?;
+        for table in ["entity_locations", "asset_locations"] {
+            if table == "asset_locations" && target < 7 {
+                continue;
+            }
+            for (event, record) in [("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")] {
+                tx.execute_batch(&format!("CREATE TRIGGER IF NOT EXISTS browse_{table}_{event}
+                     AFTER {event} ON {table} BEGIN DELETE FROM rust_browse_summaries WHERE source_id={record}.id; END;"))?;
+            }
+        }
         tx.pragma_update(None, "user_version", target)?;
         tx.commit()?;
         compatibility_views(&db, target)?;
@@ -338,7 +453,9 @@ impl Application {
             ("jobs", "read_log") => self.read_log(&args),
             ("jobs", "search_logs") => self.search_logs(actor, &args),
             ("results", "item_relations") => self.item_graph(actor, &args),
-            ("system", "dashboard_queue") => self.dashboard_occupancy(actor),
+            ("system", "dashboard_queue") => {
+                self.dashboard_occupancy_with_detail(actor, args["compact"] == true)
+            }
             ("system", "dashboard_summary") => self.dashboard_summary(),
             ("system", "dashboard_activity") => {
                 self.dashboard_activity(args["view"].as_str().unwrap_or("research"))
