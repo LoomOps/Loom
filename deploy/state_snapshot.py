@@ -206,6 +206,7 @@ def verify(root,base):
                 if rel=='runtime/ops.sqlite3':
                     if table=='catalog_dirty':continue
                     mutable={'rust_runtime_observation':{'value','observed'},'rust_projection_version':{'version'},
+                             'rust_dashboard_versions':{'version'},
                              'user_profiles':{'updated'} if {'id','provider','login','display_name','updated'}<=set(columns) else set(),
                              'catalog_items':{'current_revision'},'catalog_meta':{'access_epoch'} if 'access_epoch' in columns else set(),'catalog_aliases':{'revision'},'catalog_sources':{'body'},
                              'catalog_backfill':{'position','complete'},'catalog_tasks':{'state','progress','receipt','error','updated'}}.get(table,set())

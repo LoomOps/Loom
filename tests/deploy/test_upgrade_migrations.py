@@ -395,6 +395,19 @@ class SQLiteEvidenceTests(unittest.TestCase):
 
 
 class ItemManifestPreservationTests(unittest.TestCase):
+    def test_dashboard_projection_counters_can_refresh_without_losing_domains(self):
+        with tempfile.TemporaryDirectory() as temp:
+            platform=Path(temp);root=platform/'ops';(root/'runtime').mkdir(parents=True)
+            (root/'compose.env').write_text('');db=root/'runtime/ops.sqlite3'
+            with sqlite3.connect(db) as c:
+                c.executescript("CREATE TABLE rust_dashboard_versions(domain TEXT PRIMARY KEY,version INTEGER NOT NULL);"
+                                "INSERT INTO rust_dashboard_versions VALUES('software',1),('outputs',1);")
+            archive=platform/'backup';archive.mkdir();saved=state_snapshot.capture(root,archive,platform)
+            with sqlite3.connect(db) as c:c.execute("UPDATE rust_dashboard_versions SET version=9 WHERE domain='software'")
+            self.assertTrue(state_snapshot.verify(root,saved)['preserved'])
+            with sqlite3.connect(db) as c:c.execute("DELETE FROM rust_dashboard_versions WHERE domain='software'")
+            with self.assertRaisesRegex(ValueError,'rust_dashboard_versions'):state_snapshot.verify(root,saved)
+
     def test_native_projection_progress_keeps_original_identities_and_revisions(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp)/'ops';(root/'runtime').mkdir(parents=True);(root/'compose.env').write_text('');db=root/'runtime/ops.sqlite3'
